@@ -1,0 +1,17 @@
+# IDEs and editors
+*.iml
+.idea/
+.run/
+
+# System Files
+.DS_Store
+Thumbs.db
+
+# Build Artifacts
+build/*/coverage.out
+build/channel/knative-kafka-channel
+build/controller/kafkak-channel-controller
+build/dispatcher/knative-kafka-dispatcher
+
+# Telepresence Logs
+telepresence.log
