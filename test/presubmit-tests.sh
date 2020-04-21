@@ -23,9 +23,8 @@
 
 source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/presubmit-tests.sh
 
-function build_tests() {
+function unit_tests() {
   make ci-pr
-  # TODO add in other standard knative build stuff
 }
 
 main $@
