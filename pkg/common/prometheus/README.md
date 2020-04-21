@@ -2,7 +2,7 @@
 
 This code will provides the ability to start/stop a native Golang HTTP Server backed by the default 
 [Prometheus](https://github.com/prometheus/client_golang) handler.  The desired HTTP Port & Path are
-specified upon server creation.  This should allow the various Knative-Kafka "components" to quickly add
+specified upon server creation.  This should allow the various Eventing-Kafka "components" to quickly add
 this capability in a consistent manner without code duplication. 
 
 This code only serves to expose the default Prometheus metrics on a specified port/path.  The creation

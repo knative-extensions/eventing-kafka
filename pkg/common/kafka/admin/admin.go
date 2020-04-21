@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
-	"github.com/kyma-incubator/knative-kafka/pkg/common/kafka/constants"
+	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 )
 
 // Confluent Client Doesn't Code To Interfaces Or Provide Mocks So We're Wrapping Our Usage Of The AdminClient For Testing

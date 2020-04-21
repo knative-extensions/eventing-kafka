@@ -1,6 +1,6 @@
 FROM golang:1.13.5-buster as builder
 
-# Gather the librdkafka and knative-kafka-dispatcher dependencies for building
+# Gather the librdkafka and eventing-kafka-dispatcher dependencies for building
 RUN wget -qO - https://packages.confluent.io/deb/5.3/archive.key | apt-key add - \
     && echo "deb https://packages.confluent.io/deb/5.3 stable main" >> /etc/apt/sources.list \
     && echo "deb http://security.debian.org/debian-security jessie/updates main" >> /etc/apt/sources.list \
@@ -8,14 +8,14 @@ RUN wget -qO - https://packages.confluent.io/deb/5.3/archive.key | apt-key add -
     && apt-get -y install librdkafka-dev
 
 # Copy Over The Project
-WORKDIR /go/src/github.com/kyma-incubator/knative-kafka
+WORKDIR /go/src/knative.dev/eventing-kafka
 COPY . .
 
 # Get The RUN_TESTS Argument
 ARG RUN_TESTS=false
 
 # Perform The Build Via The Makefile (Optionally Run Tests)
-RUN /bin/bash -c "cd /go/src/github.com/kyma-incubator/knative-kafka && \
+RUN /bin/bash -c "cd /go/src/knative.dev/eventing-kafka && \
 source ./build/channel/local-env.sh && \
 export GOPATH=/go && \
 if [[ \"${RUN_TESTS}\" == \"true\" ]]; then \
@@ -24,9 +24,9 @@ else \
   make build-native-channel; \
 fi"
 
-# Determine Dependencies of knative-kafka-channel that will be needed for the final image and package them into one dir
+# Determine Dependencies of eventing-kafka-channel that will be needed for the final image and package them into one dir
 WORKDIR /channel-deps
-RUN ldd /go/src/github.com/kyma-incubator/knative-kafka/build/channel/knative-kafka-channel \
+RUN ldd /go/src/knative.dev/eventing-kafka/build/channel/eventing-kafka-channel \
     | tr -s '[:blank:]' '\n' \
     | grep '^/' \
     | xargs -I % sh -c 'mkdir -p $(dirname ./%); cp % ./%;'
@@ -47,10 +47,10 @@ FROM gcr.io/distroless/base
 # Manage malloc and os thread count that can execute go code.
 ENV MALLOC_ARENA_MAX=1 GOMAXPROCS=1
 
-# Copy over the knative-kafka binary
-COPY --from=builder /go/src/github.com/kyma-incubator/knative-kafka/build/channel/knative-kafka-channel /
+# Copy over the eventing-kafka binary
+COPY --from=builder /go/src/knative.dev/eventing-kafka/build/channel/eventing-kafka-channel /
 
 # Copy over the dependencies
 COPY --from=builder /channel-deps/ /
 
-CMD [ "/knative-kafka-channel" ]
+CMD [ "/eventing-kafka-channel" ]

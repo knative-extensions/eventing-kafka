@@ -2,10 +2,10 @@ package kafkasecret
 
 import (
 	"context"
-	"github.com/kyma-incubator/knative-kafka/pkg/controller/constants"
-	"github.com/kyma-incubator/knative-kafka/pkg/controller/env"
-	"github.com/kyma-incubator/knative-kafka/pkg/controller/kafkasecretinformer"
-	"github.com/kyma-incubator/knative-kafka/pkg/controller/kafkasecretinjection"
+	"knative.dev/eventing-kafka/pkg/controller/constants"
+	"knative.dev/eventing-kafka/pkg/controller/env"
+	"knative.dev/eventing-kafka/pkg/controller/kafkasecretinformer"
+	"knative.dev/eventing-kafka/pkg/controller/kafkasecretinjection"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

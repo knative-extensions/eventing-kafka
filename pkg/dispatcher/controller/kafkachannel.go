@@ -3,7 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
-	"github.com/kyma-incubator/knative-kafka/pkg/dispatcher/dispatcher"
+	"knative.dev/eventing-kafka/pkg/dispatcher/dispatcher"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"

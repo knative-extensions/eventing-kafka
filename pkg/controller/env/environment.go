@@ -11,7 +11,7 @@ import (
 
 // Package Constants
 const (
-	// Knative-Kafka Configuration
+	// Eventing-Kafka Configuration
 	ServiceAccountEnvVarKey = "SERVICE_ACCOUNT"
 	MetricsPortEnvVarKey    = "METRICS_PORT"
 	HealthPortEnvVarKey     = "HEALTH_PORT"
@@ -78,7 +78,7 @@ const (
 // Environment Structure
 type Environment struct {
 
-	// Knative-Kafka Configuration
+	// Eventing-kafka Configuration
 	ServiceAccount string // Required
 	MetricsPort    int    // Required
 

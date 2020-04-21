@@ -1506,6 +1506,14 @@
   revision = "0c36abbff9e5ad06cbea50d55c0989485c236180"
 
 [[projects]]
+  branch = "master"
+  digest = "1:83fc27d81416d2deee35fc93f9eadf2f73ef11ca4078811e7016f6f3706372c6"
+  name = "knative.dev/test-infra"
+  packages = ["scripts"]
+  pruneopts = "UT"
+  revision = "0517cadc49fe63a3b094df9079a5dd6f55fee8cf"
+
+[[projects]]
   digest = "1:f578d00d9b0110d22ad74912bf1e33d3a0524e079edb9a534498e09d82cab217"
   name = "pack.ag/amqp"
   packages = [
@@ -1531,7 +1539,6 @@
     "github.com/Azure/azure-event-hubs-go",
     "github.com/cloudevents/sdk-go/v1",
     "github.com/cloudevents/sdk-go/v1/cloudevents",
-    "github.com/cloudevents/sdk-go/v1/cloudevents/client",
     "github.com/cloudevents/sdk-go/v1/cloudevents/transport/http",
     "github.com/cloudevents/sdk-go/v1/cloudevents/types",
     "github.com/confluentinc/confluent-kafka-go/kafka",
@@ -1543,8 +1550,6 @@
     "github.com/slok/goresilience/retry",
     "github.com/stretchr/testify/assert",
     "github.com/stretchr/testify/mock",
-    "go.opencensus.io/plugin/ochttp/propagation/b3",
-    "go.opencensus.io/trace",
     "go.uber.org/zap",
     "k8s.io/api/apps/v1",
     "k8s.io/api/core/v1",
@@ -1620,6 +1625,7 @@
     "knative.dev/pkg/system",
     "knative.dev/pkg/system/testing",
     "knative.dev/pkg/tracing",
+    "knative.dev/test-infra/scripts",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1

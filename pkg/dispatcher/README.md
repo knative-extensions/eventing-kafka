@@ -1,4 +1,4 @@
-# Knative-Kafka Dispatcher
+# Eventing-kafka Dispatcher
 
 The "Dispatcher" implementation is a set of Kafka ConsumerGroups which are 
 responsible for reading Kafka Messages from a Kafka Topic and converting 

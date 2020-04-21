@@ -3,7 +3,7 @@ package channel
 import (
 	"context"
 	"errors"
-	"github.com/kyma-incubator/knative-kafka/pkg/channel/health"
+	"knative.dev/eventing-kafka/pkg/channel/health"
 	"go.uber.org/zap"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	k8sclientcmd "k8s.io/client-go/tools/clientcmd"

@@ -1,4 +1,4 @@
-# Knative-Kafka Channel
+# Eventing-Kafka Channel
 
 The "Channel" implementation is a Kafka Producer which is responsible for 
 receiving CloudEvents, converting them to Kafka Messages, and writing them 

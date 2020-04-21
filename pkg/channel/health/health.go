@@ -1,7 +1,7 @@
 package health
 
 import (
-	"github.com/kyma-incubator/knative-kafka/pkg/common/health"
+	"knative.dev/eventing-kafka/pkg/common/health"
 	"sync"
 )
 

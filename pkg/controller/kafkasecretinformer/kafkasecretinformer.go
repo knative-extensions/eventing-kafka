@@ -3,7 +3,7 @@ package kafkasecretinformer
 import (
 	"context"
 	"fmt"
-	commonconstants "github.com/kyma-incubator/knative-kafka/pkg/common/kafka/constants"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	informerscorev1 "k8s.io/client-go/informers/core/v1"
@@ -23,7 +23,7 @@ import (
 //        context/factory which is scoped as cluster-wide.  This means the Listers require RBAC permissions to
 //        access their resources in any namespace.  This is desirable for watching Services, Deployments, etc.,
 //        but is not desirable for watching Secrets for obvious reasons.  We're only interested in "Kafka"
-//        Secrets in the "System" namespace where knative-kafka is installed (i.e. knative-eventing).
+//        Secrets in the "System" namespace where eventing-kafka is installed (i.e. knative-eventing).
 //        Therefore we've created the following custom "KafkaSecretInformer" which is based on a separate
 //        factory which is namespaced and tweaked to restrict focus to only "Kafka" Secrets.
 //
@@ -39,7 +39,7 @@ type Key struct{}
 // Custom InformerInjector For KafkaSecretInformer
 func withInformer(ctx context.Context) (context.Context, controller.Informer) {
 
-	// Determine The "System" Namespace Where Knative-Kafka Is Running
+	// Determine The "System" Namespace Where Eventing-Kafka Is Running
 	namespace := system.Namespace()
 
 	// Define The SharedInformerOptions To Restrict To Specified Namespace & With KafkaSecret Label
@@ -67,7 +67,7 @@ func withInformer(ctx context.Context) (context.Context, controller.Informer) {
 func Get(ctx context.Context) informerscorev1.SecretInformer {
 	untyped := ctx.Value(Key{})
 	if untyped == nil {
-		logging.FromContext(ctx).Panic("Unable to fetch kyma-incubator/knative-kafka/pkg/controller/kafkasecret/KafkaSecretInformer from context.")
+		logging.FromContext(ctx).Panic("Unable to fetch eventing-kafka/pkg/controller/kafkasecret/KafkaSecretInformer from context.")
 	}
 	return untyped.(informerscorev1.SecretInformer)
 }

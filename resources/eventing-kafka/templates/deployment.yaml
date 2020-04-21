@@ -1,26 +1,26 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: knative-kafka-channel-controller
+  name: eventing-kafka-channel-controller
   namespace: {{ .Values.global.namespace.eventing }}
   labels:
-    app: knative-kafka-channel-controller
+    app: eventing-kafka-channel-controller
     helm.sh/chart: {{ .Chart.Name }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app: knative-kafka-channel-controller
-      name: knative-kafka-channel-controller
+      app: eventing-kafka-channel-controller
+      name: eventing-kafka-channel-controller
   template:
     metadata:
       labels:
-        app: knative-kafka-channel-controller
-        name: knative-kafka-channel-controller
+        app: eventing-kafka-channel-controller
+        name: eventing-kafka-channel-controller
     spec:
-      serviceAccountName: knative-kafka-channel-controller
+      serviceAccountName: eventing-kafka-channel-controller
       containers:
-      - name: knative-kafka
+      - name: eventing-kafka
         image: {{ printf "%s/%s:%s" .Values.image.repository .Values.image.project .Values.image.tag }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         ports:

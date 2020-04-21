@@ -2,8 +2,8 @@ package kafkasecret
 
 import (
 	"fmt"
-	"github.com/kyma-incubator/knative-kafka/pkg/controller/constants"
-	"github.com/kyma-incubator/knative-kafka/pkg/controller/util"
+	"knative.dev/eventing-kafka/pkg/controller/constants"
+	"knative.dev/eventing-kafka/pkg/controller/util"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"

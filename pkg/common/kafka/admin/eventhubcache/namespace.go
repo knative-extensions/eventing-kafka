@@ -1,7 +1,7 @@
 package eventhubcache
 
 import (
-	"github.com/kyma-incubator/knative-kafka/pkg/common/kafka/constants"
+	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 )

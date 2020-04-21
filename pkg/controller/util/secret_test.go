@@ -1,7 +1,7 @@
 package util
 
 import (
-	"github.com/kyma-incubator/knative-kafka/pkg/controller/constants"
+	"knative.dev/eventing-kafka/pkg/controller/constants"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

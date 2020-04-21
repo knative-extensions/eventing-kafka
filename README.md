@@ -1,7 +1,7 @@
 # Contributed Kafka Channel implementation
 
 This is a Kafka Channel implementation, contributed by
-[SAP's Kyma project](https://github.com/kyma-incubator/knative-kafka).
+[SAP's Kyma project](https://knative.dev/eventing-kafka).
 
 See https://github.com/knative/eventing-contrib/issues/1070 for discussion of
 the donation process.
@@ -40,7 +40,7 @@ customize certain aspects of the Kafka Topics / Producers / Consumers.
 
 ## Background / Status
 
-The Knative-Kafka project originated as an internal SAP implementation and was 
+The Knative-kafka project originated as an internal SAP implementation and was 
 based on very early knative-eventing implementations.  At the time this meant 
 kube-builder and the controller-runtime library were used for the foundation of
 the controller.  This also predated any of the more recent duck-typing and 
@@ -89,7 +89,7 @@ segregation / scaling.
 
 ### Project Structure
 
-**Knative-Kafka** is comprised of three distinct runtime K8S deployments 
+**Eventing-kafka** is comprised of three distinct runtime K8S deployments 
 as follows...
 
 - [channel](./pkg/channel/README.md) - The event receiver of the Channel 
@@ -116,7 +116,7 @@ Subscription to the `KafkaChannel`.
 ...and the controller can be deployed via the Helm Chart found in the
 resources/ directory...  
 
-- [resources](./resources/README.md) - Knative-Kafka Helm Chart used to install 
+- [resources](./resources/README.md) - Eventing-kafka Helm Chart used to install 
 the `KafkaChannel` CRD and controller.  The use of **ko** has been explored but 
 is currently not feasible due to limitations with its ability to handle our 
 build / packaging of the external librdkafka C library.
@@ -125,14 +125,14 @@ build / packaging of the external librdkafka C library.
 ### Control Plane
 
 The control plane for the Kafka Channels is managed by the 
-[knative-kafka-controller](./pkg/controller/README.md) which is installed
+[eventing-kafka-controller](./pkg/controller/README.md) which is installed
 in the knative-eventing namespace. `KafkaChannel` Custom Resource instances can 
-be created in any user namespace. The knative-kafka-controller will guarantee 
+be created in any user namespace. The eventing-kafka-controller will guarantee 
 that the Data Plane is configured to support the flow of events as defined by 
 [Subscriptions](https://knative.dev/docs/reference/eventing/#messaging.knative.dev/v1alpha1.Subscription) 
 to a KafkaChannel.  The underlying Kafka infrastructure to be used is defined in 
 a specially labeled [K8S Secret](./resources/README.md#Credentials) in the 
-knative-eventing namespace.  Knative-Kafka supports several different Kafka 
+knative-eventing namespace.  Eventing-kafka supports several different Kafka 
 (and Kafka-like) [infrastructures](./resources/README.md#Kafka%20Providers).
 
 
@@ -179,7 +179,7 @@ brew install pkg-config
 brew install librdkafka
 ```
 ...alternatively, if the current/latest version of the librdkafka C library is 
-not compatible with knative-kafka, then you can manually install an older 
+not compatible with eventing-kafka, then you can manually install an older 
 version via the following.... 
 ```
 curl -LO https://github.com/edenhill/librdkafka/archive/v1.0.1.tar.gz \

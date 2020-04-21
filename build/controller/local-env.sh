@@ -5,7 +5,7 @@
 
 # Set Local Testing Environment Variables
 export SYSTEM_NAMESPACE="knative-eventing"
-export SERVICE_ACCOUNT="knative-kafka-channel-controller"
+export SERVICE_ACCOUNT="eventing-kafka-channel-controller"
 export METRICS_PORT="8081"
 export METRICS_DOMAIN="knative.dev/eventing"
 export KAFKA_PROVIDER="azure"
@@ -16,9 +16,9 @@ export KAFKA_OFFSET_COMMIT_ASYNC="false"
 export KAFKA_SECRET=kafka-credentials
 export KAFKA_USERNAME="\$ConnectionString"
 export KAFKA_PASSWORD="TODO"
-export CHANNEL_IMAGE="eu.gcr.io/kyma-project/incubator/knative-kafka-channel:latest"
+export CHANNEL_IMAGE="eu.gcr.io/kyma-project/incubator/eventing-kafka-channel:latest"
 export CHANNEL_REPLICAS="1"
-export DISPATCHER_IMAGE="eu.gcr.io/kyma-project/incubator/knative-kafka-dispatcher:latest"
+export DISPATCHER_IMAGE="eu.gcr.io/kyma-project/incubator/eventing-kafka-dispatcher:latest"
 export DEFAULT_NUM_PARTITIONS="4"
 export DEFAULT_REPLICATION_FACTOR="1"
 export DEFAULT_RETENTION_MILLIS="604800000"

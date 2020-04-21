@@ -4,12 +4,12 @@ import (
 	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
-	"github.com/kyma-incubator/knative-kafka/pkg/controller/kafkachannel"
-	"github.com/kyma-incubator/knative-kafka/pkg/controller/kafkasecret"
+	"knative.dev/eventing-kafka/pkg/controller/kafkachannel"
+	"knative.dev/eventing-kafka/pkg/controller/kafkasecret"
 	"knative.dev/pkg/injection/sharedmain"
 )
 
-// Knative-Kafka Controller Main
+// Eventing-Kafka Controller Main
 func main() {
 
 	// Shutdown / Cleanup Hook For Controllers

@@ -2,7 +2,7 @@ package k8s
 
 import (
 	"context"
-	"github.com/kyma-incubator/knative-kafka/pkg/common/kafka/constants"
+	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"

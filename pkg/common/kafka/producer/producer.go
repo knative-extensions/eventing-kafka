@@ -3,8 +3,8 @@ package producer
 import (
 	"errors"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
-	"github.com/kyma-incubator/knative-kafka/pkg/common/kafka/constants"
-	"github.com/kyma-incubator/knative-kafka/pkg/common/kafka/util"
+	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
+	"knative.dev/eventing-kafka/pkg/common/kafka/util"
 )
 
 // Confluent Client Doesn't Code To Interfaces Or Provide Mocks So We're Wrapping Our Usage Of The Producer For Testing

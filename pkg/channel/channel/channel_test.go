@@ -2,8 +2,8 @@ package channel
 
 import (
 	"context"
-	channelhealth "github.com/kyma-incubator/knative-kafka/pkg/channel/health"
-	"github.com/kyma-incubator/knative-kafka/pkg/channel/test"
+	channelhealth "knative.dev/eventing-kafka/pkg/channel/health"
+	"knative.dev/eventing-kafka/pkg/channel/test"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	kafkaclientset "knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned"

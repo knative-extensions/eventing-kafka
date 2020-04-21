@@ -23,7 +23,7 @@ const (
 	HttpServicePortNumber = 80
 	// IMPORTANT: HttpContainerPortNumber must be 8080 due to dependency issues in the channel. This variable
 	// is necessary in order to reconcile the channel resources (service, deployment, etc) correctly.
-	// Refer to: https://github.com/kyma-incubator/knative-kafka/blob/master/cmd/channel/main.go
+	// Refer to: https://knative.dev/eventing-kafka/blob/master/cmd/channel/main.go
 	HttpContainerPortNumber = 8080
 
 	// Kafka Secret Data Keys
@@ -38,7 +38,7 @@ const (
 	ReconciliationFailedError = "reconciliation failed"
 
 	// KnativeKafka Finalizers Prefix
-	KnativeKafkaFinalizerPrefix = "knative-kafka/"
+	KnativeKafkaFinalizerPrefix = "eventing-kafka/"
 
 	// Labels
 	AppLabel                    = "app"
@@ -51,9 +51,9 @@ const (
 
 	// Prometheus ServiceMonitor Selector Labels / Values
 	K8sAppChannelSelectorLabel    = "k8s-app"
-	K8sAppChannelSelectorValue    = "knative-kafka-channels"
+	K8sAppChannelSelectorValue    = "eventing-kafka-channels"
 	K8sAppDispatcherSelectorLabel = "k8s-app"
-	K8sAppDispatcherSelectorValue = "knative-kafka-dispatchers"
+	K8sAppDispatcherSelectorValue = "eventing-kafka-dispatchers"
 
 	// Kafka Topic Configuration
 	KafkaTopicConfigRetentionMs = "retention.ms"

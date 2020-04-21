@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	eventhub "github.com/Azure/azure-event-hubs-go"
-	"github.com/kyma-incubator/knative-kafka/pkg/common/kafka/constants"
+	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"

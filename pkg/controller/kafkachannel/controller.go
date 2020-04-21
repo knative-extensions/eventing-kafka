@@ -2,10 +2,10 @@ package kafkachannel
 
 import (
 	"context"
-	kafkaadmin "github.com/kyma-incubator/knative-kafka/pkg/common/kafka/admin"
-	"github.com/kyma-incubator/knative-kafka/pkg/controller/constants"
-	"github.com/kyma-incubator/knative-kafka/pkg/controller/env"
-	"github.com/kyma-incubator/knative-kafka/pkg/controller/kafkasecretinformer"
+	kafkaadmin "knative.dev/eventing-kafka/pkg/common/kafka/admin"
+	"knative.dev/eventing-kafka/pkg/controller/constants"
+	"knative.dev/eventing-kafka/pkg/controller/env"
+	"knative.dev/eventing-kafka/pkg/controller/kafkasecretinformer"
 	"go.uber.org/zap"
 	"k8s.io/client-go/tools/cache"
 	kafkachannelv1alpha1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"

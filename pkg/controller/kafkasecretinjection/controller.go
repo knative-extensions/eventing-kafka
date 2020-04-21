@@ -2,8 +2,8 @@ package kafkasecretinjection
 
 import (
 	"context"
-	"github.com/kyma-incubator/knative-kafka/pkg/controller/kafkasecretinformer"
-	"github.com/kyma-incubator/knative-kafka/pkg/controller/util"
+	"knative.dev/eventing-kafka/pkg/controller/kafkasecretinformer"
+	"knative.dev/eventing-kafka/pkg/controller/util"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes/scheme"

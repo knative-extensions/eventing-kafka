@@ -1,6 +1,6 @@
 ################################################################################
 ##
-##                     Knative-Kafka Makefile
+##                     Eventing-Kafka Makefile
 ##
 ################################################################################
 
@@ -22,9 +22,9 @@ APP_PATH=eu.gcr.io/kyma-project/incubator
 APP_VERSION=latest
 
 # Application Docker Container Names
-CHANNEL_APP_NAME='knative-kafka-channel'
+CHANNEL_APP_NAME='eventing-kafka-channel'
 CONTROLLER_APP_NAME='kafka-channel-controller'
-DISPATCHER_APP_NAME='knative-kafka-dispatcher'
+DISPATCHER_APP_NAME='eventing-kafka-dispatcher'
 
 # Application Docker Container Tags
 CHANNEL_APP_TAG=$(CHANNEL_APP_NAME):$(APP_VERSION)

@@ -1,5 +1,5 @@
 #
-# Knative Kafka Channel Dependency Specification
+# Eventing Kafka Dependency Specification
 #
 
 required = [
@@ -9,7 +9,8 @@ required = [
   "k8s.io/code-generator/cmd/client-gen",
   "k8s.io/code-generator/cmd/lister-gen",
   "k8s.io/code-generator/cmd/informer-gen",
-  "knative.dev/pkg/codegen/cmd/injection-gen"
+  "knative.dev/pkg/codegen/cmd/injection-gen",
+  "knative.dev/test-infra/scripts"
 ]
 
 [prune]
@@ -46,7 +47,6 @@ required = [
   name = "github.com/cloudevents/sdk-go"
   version = "v2.0.0-RC1"
 
-# Knative-Kafka Dependency Only!
 [[constraint]]
   name = "github.com/confluentinc/confluent-kafka-go"
   version = "~v1.0.0"

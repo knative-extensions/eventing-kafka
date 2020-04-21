@@ -2,8 +2,8 @@ package util
 
 import (
 	"fmt"
-	"github.com/kyma-incubator/knative-kafka/pkg/controller/constants"
-	"github.com/kyma-incubator/knative-kafka/pkg/controller/env"
+	"knative.dev/eventing-kafka/pkg/controller/constants"
+	"knative.dev/eventing-kafka/pkg/controller/env"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"

@@ -3,8 +3,8 @@ package kafkachannel
 import (
 	"context"
 	"fmt"
-	"github.com/kyma-incubator/knative-kafka/pkg/controller/constants"
-	"github.com/kyma-incubator/knative-kafka/pkg/controller/util"
+	"knative.dev/eventing-kafka/pkg/controller/constants"
+	"knative.dev/eventing-kafka/pkg/controller/util"
 	"go.uber.org/zap"
 	kafkav1alpha1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
 )

@@ -3,7 +3,7 @@ package test
 import (
 	"errors"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
-	kafkaproducer "github.com/kyma-incubator/knative-kafka/pkg/common/kafka/producer"
+	kafkaproducer "knative.dev/eventing-kafka/pkg/common/kafka/producer"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"

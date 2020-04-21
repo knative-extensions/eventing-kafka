@@ -2,8 +2,8 @@ package kafkachannel
 
 import (
 	"context"
-	"github.com/kyma-incubator/knative-kafka/pkg/controller/event"
-	"github.com/kyma-incubator/knative-kafka/pkg/controller/test"
+	"knative.dev/eventing-kafka/pkg/controller/event"
+	"knative.dev/eventing-kafka/pkg/controller/test"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"

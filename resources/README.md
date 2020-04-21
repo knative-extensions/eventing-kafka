@@ -1,10 +1,10 @@
-# Knative-Kafka Helm Chart
+# Eventing-kafka Helm Chart
 
-This helm chart installs the knative-kafka knative eventing implementation.  When installing make sure to provide the appropriate values file for the 
+This helm chart installs the eventing-kafka knative eventing implementation.  When installing make sure to provide the appropriate values file for the 
 cluster you are deploying to.
 
-1. Remove the existing installation `helm delete --purge --tls knative-kafka`
-2. Install the helm chart `helm install --tls -n knative-kafka ./knative-kafka -f <your value overrides>.yaml`
+1. Remove the existing installation `helm delete --purge --tls eventing-kafka`
+2. Install the helm chart `helm install --tls -n eventing-kafka ./eventing-kafka -f <your value overrides>.yaml`
 
 ## Kafka Providers
 
@@ -24,7 +24,7 @@ The provider chosen effects how authentication as well as admin calls (topic cre
 ## Credentials
 
 ### Install & Label Kafka Credentials In Knative-Eventing Namespace 
-Knative-Kafka depends on secrets labeled with `knativekafka.kyma-project.io/kafka-secret="true"`, multiple
+Eventing-kafka depends on secrets labeled with `knativekafka.kyma-project.io/kafka-secret="true"`, multiple
 secrets are supported for the use of the `azure` integration, representing different EventHubs namespaces.  Some fields
 may not apply to your particular Kafka implementation and can be left blank.  If you specify values in your overrides
 YAML file during the helm chart installation, the initial broker secret will be created for you.

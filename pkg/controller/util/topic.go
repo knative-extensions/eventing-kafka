@@ -1,7 +1,7 @@
 package util
 
 import (
-	commonkafkautil "github.com/kyma-incubator/knative-kafka/pkg/common/kafka/util"
+	commonkafkautil "knative.dev/eventing-kafka/pkg/common/kafka/util"
 	kafkav1alpha1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
 )
 

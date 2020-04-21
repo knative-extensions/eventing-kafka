@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: knative-kafka-channel-controller
+  name: eventing-kafka-channel-controller
   namespace: {{ .Values.global.namespace.eventing }}
   labels:
     helm.sh/chart: {{ .Chart.Name }}
@@ -11,7 +11,7 @@ metadata:
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: knative-kafka-channel-controller
+  name: eventing-kafka-channel-controller
   labels:
     helm.sh/chart: {{ .Chart.Name }}
 rules:
@@ -84,17 +84,17 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: knative-kafka-channel-controller
+  name: eventing-kafka-channel-controller
   namespace: {{ .Values.global.namespace.eventing }}
   labels:
     helm.sh/chart: {{ .Chart.Name }}
 subjects:
 - kind: ServiceAccount
-  name: knative-kafka-channel-controller
+  name: eventing-kafka-channel-controller
   namespace: {{ .Values.global.namespace.eventing }}
 roleRef:
   kind: ClusterRole
-  name: knative-kafka-channel-controller
+  name: eventing-kafka-channel-controller
   apiGroup: rbac.authorization.k8s.io
 
 ---
@@ -102,7 +102,7 @@ roleRef:
 kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: knative-kafka-channel-controller
+  name: eventing-kafka-channel-controller
   namespace: {{ .Values.global.namespace.eventing }}
   labels:
     helm.sh/chart: {{ .Chart.Name }}
@@ -124,17 +124,17 @@ rules:
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: knative-kafka-channel-controller
+  name: eventing-kafka-channel-controller
   namespace: {{ .Values.global.namespace.eventing }}
   labels:
     helm.sh/chart: {{ .Chart.Name }}
 subjects:
 - kind: ServiceAccount
-  name: knative-kafka-channel-controller
+  name: eventing-kafka-channel-controller
   namespace: {{ .Values.global.namespace.eventing }}
 roleRef:
   kind: Role
-  name: knative-kafka-channel-controller
+  name: eventing-kafka-channel-controller
   apiGroup: rbac.authorization.k8s.io
 
 ---
@@ -164,7 +164,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: knative-kafka-addressable-resolver
+  name: eventing-kafka-addressable-resolver
   labels:
     eventing.knative.dev/release: devel
     duck.knative.dev/addressable: "true"

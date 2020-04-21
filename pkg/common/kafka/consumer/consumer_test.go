@@ -2,7 +2,7 @@ package consumer
 
 import (
 	"github.com/confluentinc/confluent-kafka-go/kafka"
-	"github.com/kyma-incubator/knative-kafka/pkg/common/kafka/constants"
+	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )

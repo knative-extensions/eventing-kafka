@@ -26,11 +26,11 @@ kafka:
 environment:
   # Valid values: local, confluent, azure
   kafkaProvider: local
-  # Knative-Kafka Channel "Producer" Docker Image Path
-  channelImage: eu.gcr.io/kyma-project/incubator/knative-kafka-channel:latest
+  # Eventing-kafka Channel "Producer" Docker Image Path
+  channelImage: eu.gcr.io/kyma-project/incubator/eventing-kafka-channel:latest
   channelReplicas: 1
-  # Knative-Kafka Dispatcher "Consumer" Docker Image Path
-  dispatcherImage: eu.gcr.io/kyma-project/incubator/knative-kafka-dispatcher:latest
+  # Eventing-kafka Dispatcher "Consumer" Docker Image Path
+  dispatcherImage: eu.gcr.io/kyma-project/incubator/eventing-kafka-dispatcher:latest
   dispatcherReplicas: 1
   defaultNumPartitions: 4
   defaultReplicationFactor: 1

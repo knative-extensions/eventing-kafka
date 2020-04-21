@@ -2,11 +2,11 @@ package controller
 
 import (
 	"github.com/confluentinc/confluent-kafka-go/kafka"
-	kafkaconsumer "github.com/kyma-incubator/knative-kafka/pkg/common/kafka/consumer"
-	"github.com/kyma-incubator/knative-kafka/pkg/dispatcher/client"
-	"github.com/kyma-incubator/knative-kafka/pkg/dispatcher/dispatcher"
-	dispatchertesting "github.com/kyma-incubator/knative-kafka/pkg/dispatcher/testing"
-	reconciletesting "github.com/kyma-incubator/knative-kafka/pkg/dispatcher/testing"
+	kafkaconsumer "knative.dev/eventing-kafka/pkg/common/kafka/consumer"
+	"knative.dev/eventing-kafka/pkg/dispatcher/client"
+	"knative.dev/eventing-kafka/pkg/dispatcher/dispatcher"
+	dispatchertesting "knative.dev/eventing-kafka/pkg/dispatcher/testing"
+	reconciletesting "knative.dev/eventing-kafka/pkg/dispatcher/testing"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"

@@ -2,12 +2,12 @@ package test
 
 import (
 	"fmt"
-	"github.com/kyma-incubator/knative-kafka/pkg/common/health"
-	kafkautil "github.com/kyma-incubator/knative-kafka/pkg/common/kafka/util"
-	"github.com/kyma-incubator/knative-kafka/pkg/controller/constants"
-	"github.com/kyma-incubator/knative-kafka/pkg/controller/env"
-	"github.com/kyma-incubator/knative-kafka/pkg/controller/event"
-	"github.com/kyma-incubator/knative-kafka/pkg/controller/util"
+	"knative.dev/eventing-kafka/pkg/common/health"
+	kafkautil "knative.dev/eventing-kafka/pkg/common/kafka/util"
+	"knative.dev/eventing-kafka/pkg/controller/constants"
+	"knative.dev/eventing-kafka/pkg/controller/env"
+	"knative.dev/eventing-kafka/pkg/controller/event"
+	"knative.dev/eventing-kafka/pkg/controller/util"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -172,7 +172,7 @@ func NewKafkaSecretFinalizerPatchActionImpl() clientgotesting.PatchActionImpl {
 		},
 		Name:      KafkaSecretName,
 		PatchType: "application/merge-patch+json",
-		Patch:     []byte(`{"metadata":{"finalizers":["knative-kafka/kafkasecrets.knativekafka.kyma-project.io"],"resourceVersion":""}}`),
+		Patch:     []byte(`{"metadata":{"finalizers":["eventing-kafka/kafkasecrets.knativekafka.kyma-project.io"],"resourceVersion":""}}`),
 		// Above finalizer name matches package private "defaultFinalizerName" constant in injection/reconciler/knativekafka/v1alpha1/kafkachannel ;)
 	}
 }
@@ -361,7 +361,7 @@ func NewKafkaChannelChannelService() *corev1.Service {
 			Name:      ChannelDeploymentName,
 			Namespace: constants.KnativeEventingNamespace,
 			Labels: map[string]string{
-				"k8s-app":              "knative-kafka-channels",
+				"k8s-app":              "eventing-kafka-channels",
 				"kafkachannel-channel": "true",
 			},
 			OwnerReferences: []metav1.OwnerReference{

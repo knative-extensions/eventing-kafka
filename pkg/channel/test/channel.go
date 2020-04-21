@@ -17,7 +17,7 @@ func CreateChannelReference(name string, namespace string) eventingChannel.Chann
 	}
 }
 
-// Utility Function For Creating A Test KafkaChannel (Knative-Kafka)
+// Utility Function For Creating A Test KafkaChannel (Eventing-Kafka)
 func CreateKafkaChannel(name string, namespace string, ready corev1.ConditionStatus) *kafkav1alpha1.KafkaChannel {
 	return &kafkav1alpha1.KafkaChannel{
 		TypeMeta: v1.TypeMeta{

@@ -3,8 +3,8 @@ package test
 import (
 	"context"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
-	kafkaadmin "github.com/kyma-incubator/knative-kafka/pkg/common/kafka/admin"
-	kafkaconsumer "github.com/kyma-incubator/knative-kafka/pkg/common/kafka/consumer"
+	kafkaadmin "knative.dev/eventing-kafka/pkg/common/kafka/admin"
+	kafkaconsumer "knative.dev/eventing-kafka/pkg/common/kafka/consumer"
 )
 
 //

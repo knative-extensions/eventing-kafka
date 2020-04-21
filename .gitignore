@@ -9,9 +9,9 @@ Thumbs.db
 
 # Build Artifacts
 build/*/coverage.out
-build/channel/knative-kafka-channel
-build/controller/kafkak-channel-controller
-build/dispatcher/knative-kafka-dispatcher
+build/channel/eventing-kafka-channel
+build/controller/kafka-channel-controller
+build/dispatcher/eventing-kafka-dispatcher
 
 # Telepresence Logs
 telepresence.log
