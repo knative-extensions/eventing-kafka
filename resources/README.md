@@ -4,7 +4,7 @@ This helm chart installs the eventing-kafka knative eventing implementation.  Wh
 cluster you are deploying to.
 
 1. Remove the existing installation `helm delete --purge --tls eventing-kafka`
-2. Install the helm chart `helm install --tls -n eventing-kafka ./eventing-kafka -f <your value overrides>.yaml`
+1. Install the helm chart `helm install --tls -n eventing-kafka ./eventing-kafka -f <your value overrides>.yaml`
 
 ## Kafka Providers
 
@@ -23,7 +23,8 @@ The provider chosen effects how authentication as well as admin calls (topic cre
 
 ## Credentials
 
-### Install & Label Kafka Credentials In Knative-Eventing Namespace 
+### Install & Label Kafka Credentials In Knative-Eventing Namespace
+
 Eventing-kafka depends on secrets labeled with `knativekafka.kyma-project.io/kafka-secret="true"`, multiple
 secrets are supported for the use of the `azure` integration, representing different EventHubs namespaces.  Some fields
 may not apply to your particular Kafka implementation and can be left blank.  If you specify values in your overrides
@@ -63,12 +64,12 @@ kafka:
 ```
 
 Alternatively, or if you need to specify the broker secret(s) after installation, they may also be created manually:
-   
+
 ```
 # Example A Creating A Kafka Secret In Knative-Eventing
 kubectl create secret -n knative-eventing generic kafka-credentials \
     --from-literal=brokers=<BROKER CONNECTION STRING> \
-    --from-literal=username=<USERNAME> \ 
+    --from-literal=username=<USERNAME> \
     --from-literal=password=<PASSWORD> \
     --from-literal=namespace=<AZURE EVENTHUBS NAMESPACE> \
 kubectl label secret -n knative-eventing kafka-credentials knativekafka.kyma-project.io/kafka-secret="true"
