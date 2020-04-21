@@ -27,6 +27,4 @@ function unit_tests() {
   make ci-pr
 }
 
-CHANGED_FILES=./README.md
-markdown_build_tests
 #main $@

@@ -1,12 +1,9 @@
 # Contributed Kafka Channel implementation
 
 This is a Kafka Channel implementation, contributed by
-[SAP's Kyma project](https://knative.dev/eventing-kafka).
+[SAP's Kyma project](https://github.com/kyma-project).
 
-See https://github.com/knative/eventing-contrib/issues/1070 for discussion of
-the donation process.
-
-# Knative Kafka
+> See <https://github.com/knative/eventing-contrib/issues/1070> for discussion of the donation process.
 
 This project is a Knative Eventing implementation of a Kafka backed channel
 which provides advanced functionality and production grade qualities as an alternative
@@ -89,33 +86,33 @@ segregation / scaling.
 as follows...
 
 - [channel](./pkg/channel/README.md) - The event receiver of the Channel
-to which inbound messages are sent.  An http server which accepts messages that
-conform to the CloudEvent specification, and then writes those messages to the
-corresponding Kafka Topic. This is the "Producer" from the Kafka perspective.
-A separate Channel Deployment is created for each Kafka Secret detected in the
-knative-eventing namespace.
+  to which inbound messages are sent.  An http server which accepts messages that
+  conform to the CloudEvent specification, and then writes those messages to the
+  corresponding Kafka Topic. This is the "Producer" from the Kafka perspective.
+  A separate Channel Deployment is created for each Kafka Secret detected in the
+  knative-eventing namespace.
 
 - [controller](./pkg/controller/README.md) - This component implements
-the `KafkaChannel` Controller. It is using the current knative-eventing
-"Shared Main" approach based directly on K8S informers / listers.  The
-controller is using the `KafkaChannel` CRD, api, and client from the current
-Knative eventing-contrib/kafka implementation in order to align as closely as
-possible with the existing implementation.
+  the `KafkaChannel` Controller. It is using the current knative-eventing
+  "Shared Main" approach based directly on K8S informers / listers.  The
+  controller is using the `KafkaChannel` CRD, api, and client from the current
+  Knative eventing-contrib/kafka implementation in order to align as closely as
+  possible with the existing implementation.
 
 - [dispatcher](./pkg/dispatcher/README.md) - This component runs the
-Kafka ConsumerGroups responsible for processing messages from the corresponding
-Kafka Topic.  This is the "Consumer" from the Kafka perspective.  A separate
-dispatcher Deployment will be created for each unique `KafkaChannel` (Kafka
-Topic), and will contain a distinct Kafka Consumer Group for each
-Subscription to the `KafkaChannel`.
+  Kafka ConsumerGroups responsible for processing messages from the corresponding
+  Kafka Topic.  This is the "Consumer" from the Kafka perspective.  A separate
+  dispatcher Deployment will be created for each unique `KafkaChannel` (Kafka
+  Topic), and will contain a distinct Kafka Consumer Group for each
+  Subscription to the `KafkaChannel`.
 
 ...and the controller can be deployed via the Helm Chart found in the
 resources/ directory...
 
 - [resources](./resources/README.md) - Eventing-kafka Helm Chart used to install
-the `KafkaChannel` CRD and controller.  The use of **ko** has been explored but
-is currently not feasible due to limitations with its ability to handle our
-build / packaging of the external librdkafka C library.
+  the `KafkaChannel` CRD and controller.  The use of **ko** has been explored but
+  is currently not feasible due to limitations with its ability to handle our
+  build / packaging of the external librdkafka C library.
 
 ### Control Plane
 
@@ -148,7 +145,7 @@ number of partitions in the Kafka topic.
 An event sent to a `KafkaChannel` is guaranteed to be persisted and processed
 if a 202 response is received by the sender.
 
-The CloudEvent is partitioned based on the [CloudEvent partitioning extension](https://github.com/cloudevents/spec/blob/master/extensions/partitioning.mdhttps://github.com/cloudevents/spec/blob/master/extensions/partitioning.md)
+The CloudEvent is partitioned based on the [CloudEvent partitioning extension](https://github.com/cloudevents/spec/blob/master/extensions/partitioning.md)
 field called `partitionkey`.  If the `partitionkey` is not present, then the
 `subject` field will be used.  Finally if neither is available, it will fall-back
 to random partitioning.
@@ -165,13 +162,16 @@ For installation and configuration instructions please see the Helm Chart
 ## Support Tooling
 
 The project uses the Confluent Go Client which relies on the following...
+
 ```
 brew install pkg-config
 brew install librdkafka
 ```
+
 ...alternatively, if the current/latest version of the librdkafka C library is
 not compatible with eventing-kafka, then you can manually install an older
 version via the following....
+
 ```
 curl -LO https://github.com/edenhill/librdkafka/archive/v1.0.1.tar.gz \
   && tar -xvf v1.0.1.tar.gz \
