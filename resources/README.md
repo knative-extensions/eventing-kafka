@@ -1,6 +1,6 @@
 # Eventing-kafka Helm Chart
 
-This helm chart installs the eventing-kafka knative eventing implementation.  When installing make sure to provide the appropriate values file for the 
+This helm chart installs the eventing-kafka knative eventing implementation.  When installing make sure to provide the appropriate values file for the
 cluster you are deploying to.
 
 1. Remove the existing installation `helm delete --purge --tls eventing-kafka`
@@ -16,7 +16,7 @@ in the values file:
 The current allowed values are:
 
 * `local`: Standard Kafka installation with no special authorization required
-* `confluent`: Confluent Cloud 
+* `confluent`: Confluent Cloud
 * `azure`: Azure Event Hubs
 
 The provider chosen effects how authentication as well as admin calls (topic creation, deletion etc) work.
