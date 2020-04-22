@@ -1,4 +1,5 @@
 # Kafka Connections
+
 This readme describes the implementation of this "kafka" common package.  Primarily the implementation is focused on
 providing utilities for creating the basic connections (i.e. AdminClient, Producer, Consumer) used in a Kafka based
 solution.  The solution provides support for various Kafka implementations / deployments both with and without
@@ -6,28 +7,29 @@ authentication.  Further, the implementation provides support for administering 
 standard Confluent / librdkafka client so that the users of this logic do not have to concern themselves with the
 underlying implementation.
 
+## AdminClient & K8S Secrets
 
-### AdminClient & K8S Secrets
 The AdminClient expects there to be a K8S Secret (or one Secret per EventHub Namespace when using Azure) in the
 K8S namespace specified by the `$RUNTIME_NAMESPACE` environment variable.  The Secret MUST be labelled with the
 `knativekafka.kyma-project.io/kafka-secret` label and contain the following fields...
+
 ```
 data:
-    brokers: Kafka Brokers 
+    brokers: Kafka Brokers
     namespace: Only required for Azure namespaces - the name of the Azure Namespace
     password: SASL Password or Azure Connection String of Azure Namespace
     username: SASL Username or '$ConnectionString' for Azure Namespace
-``` 
+```
 
+## Producer / Consumer
 
-### Producer / Consumer
 The producer and consumer are simpler and expect to be provided the specific Broker string and SASL Username and
 Password.  It is expected that the utilities exposed by the custom AdminClient in this implementation can be used
 to get the name of the Kafka Secret for a specific Topic / EventHub which can then be used to acquire the needed
-information. 
+information.
 
+## EventHubs (Azure)
 
-### EventHubs (Azure)
 While Azure EventHubs support the standard Kafka interfaces for Producer / Consumer based event transmission, it
 does not yet provide a similar management later.  Instead users are required to either use their
 [REST API](https://docs.microsoft.com/en-us/rest/api/eventhub/eventhubs) or the
