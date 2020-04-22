@@ -29,12 +29,10 @@ function pre_build_tests() {
     && echo "deb http://security.debian.org/debian-security jessie/updates main" >> /etc/apt/sources.list \
     && apt-get update \
     && apt-get -y install librdkafka-dev
-
-
 }
 
 function unit_tests() {
   make ci-pr
 }
 
-#main $@
+main $@
