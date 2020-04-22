@@ -5,3 +5,5 @@ This is a Kafka Channel implementation, contributed by
 
 See https://github.com/knative/eventing-contrib/issues/1070 for discussion of
 the donation process.
+
+This repo falls under the [Knative Code of Conduct](https://github.com/knative/community/blob/master/CODE-OF-CONDUCT.md)
