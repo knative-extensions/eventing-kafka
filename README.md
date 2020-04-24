@@ -5,6 +5,8 @@ This is a Kafka Channel implementation, contributed by
 
 > See <https://github.com/knative/eventing-contrib/issues/1070> for discussion of the donation process.
 
+This repo falls under the [Knative Code of Conduct](https://github.com/knative/community/blob/master/CODE-OF-CONDUCT.md)
+
 This project is a Knative Eventing implementation of a Kafka backed channel
 which provides advanced functionality and production grade qualities as an alternative
 to what the [eventing-contrib/kafka](https://github.com/knative/eventing-contrib/tree/master/kafka)
