@@ -158,7 +158,7 @@ func WithKafkaSecretDeleted(secret *corev1.Secret) {
 
 // Set The Kafka Secret's Finalizer
 func WithKafkaSecretFinalizer(secret *corev1.Secret) {
-	secret.ObjectMeta.Finalizers = []string{constants.EventingkafkaFinalizerPrefix + "kafkasecrets.eventing-kafka.knative.dev"}
+	secret.ObjectMeta.Finalizers = []string{constants.EventingKafkaFinalizerPrefix + "kafkasecrets.eventing-kafka.knative.dev"}
 }
 
 // Utility Function For Creating A PatchActionImpl For The Finalizer Patch Command

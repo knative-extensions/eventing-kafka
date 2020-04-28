@@ -24,5 +24,5 @@ import (
 // source code to decipher what a "qualified" name format would be.
 //
 func KubernetesResourceFinalizerName(finalizerSuffix string) string {
-	return constants.EventingkafkaFinalizerPrefix + finalizerSuffix
+	return constants.EventingKafkaFinalizerPrefix + finalizerSuffix
 }

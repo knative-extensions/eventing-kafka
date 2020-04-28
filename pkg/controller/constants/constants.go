@@ -38,7 +38,7 @@ const (
 	ReconciliationFailedError = "reconciliation failed"
 
 	// Eventingkafka Finalizers Prefix
-	EventingkafkaFinalizerPrefix = "eventing-kafka/"
+	EventingKafkaFinalizerPrefix = "eventing-kafka/"
 
 	// Labels
 	AppLabel                    = "app"
