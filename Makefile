@@ -17,7 +17,7 @@ BUILD_TESTS:=true
 
 # Application Docker Path
 # Must be specified manually for image build and push
-APP_PATH=
+APP_PATH=gcr.io/knative-nightly/eventing-kafka
 
 # Application Docker Container Version
 APP_VERSION=latest
