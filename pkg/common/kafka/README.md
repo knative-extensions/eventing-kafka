@@ -32,7 +32,7 @@ information.
 
 While Azure EventHubs support the standard Kafka interfaces for Producer / Consumer based event transmission, it
 does not yet provide a similar management later.  Instead users are required to either use their
-[REST API](https://docs.microsoft.com/en-us/rest/api/eventhub/eventhubs) or the
+[REST API](https://docs.microsoft.com/en-us/rest/api/eventhub/) or the
 [go-client](https://github.com/Azure/azure-event-hubs-go/tree/master).  The go-client is easier to use but only
 provides limited EventHub related functionality (e.g - No "namespace" management, etc...)  This implementation is
 currently based on the go-client and expects Azure Namespaces to be manually allocated and pre-existing.  The
