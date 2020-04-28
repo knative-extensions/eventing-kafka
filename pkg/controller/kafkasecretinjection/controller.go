@@ -2,13 +2,13 @@ package kafkasecretinjection
 
 import (
 	"context"
-	"knative.dev/eventing-kafka/pkg/controller/kafkasecretinformer"
-	"knative.dev/eventing-kafka/pkg/controller/util"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes/scheme"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/record"
+	"knative.dev/eventing-kafka/pkg/controller/kafkasecretinformer"
+	"knative.dev/eventing-kafka/pkg/controller/util"
 	"knative.dev/pkg/client/injection/kube/client"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/controller"
@@ -24,7 +24,7 @@ const (
 
 var (
 	// Need Prefix For Valid Finalizer On Native K8S Resources (Secrets)
-	defaultFinalizerName = util.KubernetesResourceFinalizerName("kafkasecrets.knativekafka.kyma-project.io")
+	defaultFinalizerName = util.KubernetesResourceFinalizerName("kafkasecrets.eventing-kafka.knative.dev")
 )
 
 // NewImpl returns a controller.Impl that handles queuing and feeding work from

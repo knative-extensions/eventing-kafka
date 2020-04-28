@@ -10,7 +10,7 @@ const (
 	MillisPerDay = 24 * 60 * 60 * 1000 // 86400000
 
 	// Kafka Secret Label
-	KafkaSecretLabel = "knativekafka.kyma-project.io/kafka-secret"
+	KafkaSecretLabel = "eventing-kafka.knative.dev/kafka-secret"
 
 	// Kafka Secret Keys
 	KafkaSecretKeyBrokers   = "brokers"

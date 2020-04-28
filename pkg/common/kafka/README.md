@@ -11,7 +11,7 @@ underlying implementation.
 
 The AdminClient expects there to be a K8S Secret (or one Secret per EventHub Namespace when using Azure) in the
 K8S namespace specified by the `$RUNTIME_NAMESPACE` environment variable.  The Secret MUST be labelled with the
-`knativekafka.kyma-project.io/kafka-secret` label and contain the following fields...
+`eventing-kafka.knative.dev/kafka-secret` label and contain the following fields...
 
 ```
 data:

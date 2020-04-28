@@ -17,5 +17,5 @@ func main() {
 	defer kafkasecret.Shutdown()
 
 	// Create The SharedMain Instance With The Various Controllers
-	sharedmain.Main("knativekafkachannel_controller", kafkachannel.NewController, kafkasecret.NewController)
+	sharedmain.Main("eventingkafkachannel_controller", kafkachannel.NewController, kafkasecret.NewController)
 }

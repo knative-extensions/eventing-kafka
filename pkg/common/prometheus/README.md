@@ -23,14 +23,3 @@ use [telepresence](https://www.telepresence.io/) and curl...
 telepresence
 curl http://<service>.<namespace>.svc.cluster.local:8081/metrics
 ```
-
-## Prometheus Console
-
-In order to expose the Prometheus console in the Kyma cluster simply expose the port...
-
-```
-kubectl port-forward svc/monitoring-prometheus -n kyma-system 9090:9090
-```
-
-...and then point you browser at [http://localhost:9090/graph](http://localhost:9090/graph) or
-[http://localhost:9090/targets](http://localhost:9090/targets)

@@ -6,7 +6,7 @@ to the appropriate Kafka Topic.
 
 A unique Channel Deployment / Service is created for every Kafka Secret (in
 the knative-eventing namespace and labelled with
-`knativekafka.kyma-project.io/kafka-secret: "true"`).  The single Deployment
+`eventing-kafka.knative.dev/kafka-secret: "true"`).  The single Deployment
 is horizontally scalable as necessary (via controller environment variables.) This
 allows for an efficient use of cluster resources while still supporting high
 volume and multi-tenant use cases.

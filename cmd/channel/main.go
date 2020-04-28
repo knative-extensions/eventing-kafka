@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"github.com/cloudevents/sdk-go/v1/cloudevents"
+	"go.uber.org/zap"
 	"knative.dev/eventing-kafka/pkg/channel/channel"
 	"knative.dev/eventing-kafka/pkg/channel/constants"
 	"knative.dev/eventing-kafka/pkg/channel/env"
@@ -12,7 +13,6 @@ import (
 	commonk8s "knative.dev/eventing-kafka/pkg/common/k8s"
 	kafkautil "knative.dev/eventing-kafka/pkg/common/kafka/util"
 	"knative.dev/eventing-kafka/pkg/common/prometheus"
-	"go.uber.org/zap"
 	eventingChannel "knative.dev/eventing/pkg/channel"
 	"knative.dev/eventing/pkg/kncloudevents"
 	"knative.dev/pkg/logging"
@@ -114,7 +114,7 @@ func handleEvent(_ context.Context, channelReference eventingChannel.ChannelRefe
 	logger.Debug("~~~~~~~~~~~~~~~~~~~~  Processing Request  ~~~~~~~~~~~~~~~~~~~~")
 	logger.Debug("Received Cloud Event", zap.Any("CloudEvent", cloudEvent), zap.Any("ChannelReference", channelReference))
 
-	// Trim The "-kafkachannel" Suffix From The Service Name (Added Only To Workaround Kyma Naming Conflict)
+	// Trim The "-kafkachannel" Suffix From The Service Name
 	channelReference.Name = kafkautil.TrimKafkaChannelServiceNameSuffix(channelReference.Name)
 
 	// Validate The KafkaChannel Prior To Producing Kafka Message

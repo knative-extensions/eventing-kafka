@@ -8,7 +8,7 @@ The controller is based against the KafkaChannel CRD type, from the Knative
 eventing-contrib/kafka implementation, and reconciles all such instances in the
 K8S Cluster.  It actually consists of two reconcilers, one for watching
 "Kafka" Secrets (those in knative-eventing labelled
-`knativekafka.kyma-project.io/kafka-secret: "true"`) which provisions the Kafka
+`eventing-kafka.knative.dev/kafka-secret: "true"`) which provisions the Kafka
 Topic and creates the Channel / Producer Deployment & Service, and another which
 is watching `KafkaChannel` resources and creates the Dispatcher / Consumer
 Deployment & Service.

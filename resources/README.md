@@ -25,7 +25,7 @@ The provider chosen effects how authentication as well as admin calls (topic cre
 
 ### Install & Label Kafka Credentials In Knative-Eventing Namespace
 
-Eventing-kafka depends on secrets labeled with `knativekafka.kyma-project.io/kafka-secret="true"`, multiple
+Eventing-kafka depends on secrets labeled with `eventing-kafka.knative.dev/kafka-secret="true"`, multiple
 secrets are supported for the use of the `azure` integration, representing different EventHubs namespaces.  Some fields
 may not apply to your particular Kafka implementation and can be left blank.  If you specify values in your overrides
 YAML file during the helm chart installation, the initial broker secret will be created for you.
@@ -72,5 +72,5 @@ kubectl create secret -n knative-eventing generic kafka-credentials \
     --from-literal=username=<USERNAME> \
     --from-literal=password=<PASSWORD> \
     --from-literal=namespace=<AZURE EVENTHUBS NAMESPACE> \
-kubectl label secret -n knative-eventing kafka-credentials knativekafka.kyma-project.io/kafka-secret="true"
+kubectl label secret -n knative-eventing kafka-credentials eventing-kafka.knative.dev/kafka-secret="true"
 ```

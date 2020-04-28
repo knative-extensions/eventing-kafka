@@ -16,7 +16,8 @@ DISPATCHER_BUILD_DIR=$(BUILD_DIR)/dispatcher
 BUILD_TESTS:=true
 
 # Application Docker Path
-APP_PATH=eu.gcr.io/kyma-project/incubator
+# Must be specified manually for image build and push
+APP_PATH=
 
 # Application Docker Container Version
 APP_VERSION=latest
