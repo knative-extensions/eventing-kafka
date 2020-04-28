@@ -10,7 +10,7 @@ global:
 
 # Image Information
 image:
-  repository: eu.gcr.io/kyma-project/incubator
+  repository: gcr.io/knative-nightly/eventing-kafka
   project: kafka-channel-controller
   tag: latest
   pullPolicy: Always
@@ -27,10 +27,10 @@ environment:
   # Valid values: local, confluent, azure
   kafkaProvider: local
   # Eventing-kafka Channel "Producer" Docker Image Path
-  channelImage: eu.gcr.io/kyma-project/incubator/eventing-kafka-channel:latest
+  channelImage: gcr.io/knative-nightly/eventing-kafka/eventing-kafka-channel:latest
   channelReplicas: 1
   # Eventing-kafka Dispatcher "Consumer" Docker Image Path
-  dispatcherImage: eu.gcr.io/kyma-project/incubator/eventing-kafka-dispatcher:latest
+  dispatcherImage: gcr.io/knative-nightly/eventing-kafka/eventing-kafka-dispatcher:latest
   dispatcherReplicas: 1
   defaultNumPartitions: 4
   defaultReplicationFactor: 1
