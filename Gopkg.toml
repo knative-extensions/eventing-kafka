@@ -19,6 +19,11 @@ required = [
   non-go = true
 
 [[prune.project]]
+  name = "github.com/confluentinc/confluent-kafka-go"
+  unused-packages = false
+  non-go = false
+
+[[prune.project]]
   name = "k8s.io/code-generator"
   unused-packages = false
   non-go = false
@@ -49,7 +54,7 @@ required = [
 
 [[constraint]]
   name = "github.com/confluentinc/confluent-kafka-go"
-  version = "~v1.0.0"
+  version = "~v1.4.0"
 
 # Using Old Azure Because We're Not On Go Modules : (
 [[constraint]]
