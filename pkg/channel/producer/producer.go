@@ -4,78 +4,75 @@ import (
 	"errors"
 	"github.com/cloudevents/sdk-go/v1/cloudevents"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"go.uber.org/zap"
 	"knative.dev/eventing-kafka/pkg/channel/health"
 	"knative.dev/eventing-kafka/pkg/channel/message"
 	"knative.dev/eventing-kafka/pkg/channel/util"
 	kafkaproducer "knative.dev/eventing-kafka/pkg/common/kafka/producer"
 	"knative.dev/eventing-kafka/pkg/common/prometheus"
-	"go.uber.org/zap"
 	eventingChannel "knative.dev/eventing/pkg/channel"
 )
 
-// Package Variables
-var (
+// Producer Struct
+type Producer struct {
 	logger         *zap.Logger
 	kafkaProducer  kafkaproducer.ProducerInterface
 	stopChannel    chan struct{}
 	stoppedChannel chan struct{}
 	metrics        *prometheus.MetricsServer
-)
+}
+
+// Initialize The Producer
+func NewProducer(logger *zap.Logger, brokers string, username string, password string, metricsServer *prometheus.MetricsServer, healthServer *health.Server) (*Producer, error) {
+
+	// Create The Producer Using The Specified Kafka Authentication
+	kafkaProducer, err := createProducerFunctionWrapper(brokers, username, password)
+	if err != nil {
+		logger.Error("Failed To Create Kafka Producer - Exiting", zap.Error(err))
+		return nil, err
+	} else {
+		logger.Info("Successfully Created Kafka Producer")
+	}
+
+	// Create A New Producer
+	producer := &Producer{
+		logger:         logger,
+		kafkaProducer:  kafkaProducer,
+		stopChannel:    make(chan struct{}),
+		stoppedChannel: make(chan struct{}),
+		metrics:        metricsServer,
+	}
+
+	// Mark The Kafka Producer As Ready
+	healthServer.SetProducerReady(false)
+
+	// Fork A Go Routine To Process Kafka Events Asynchronously
+	logger.Info("Starting Kafka Producer Event Processing")
+	go producer.processProducerEvents(healthServer)
+	healthServer.SetProducerReady(true)
+
+	// Return The New Producer
+	logger.Info("Successfully Started Kafka Producer")
+	return producer, nil
+}
 
 // Wrapper Around Common Kafka Producer Creation To Facilitate Unit Testing
 var createProducerFunctionWrapper = func(brokers string, username string, password string) (kafkaproducer.ProducerInterface, error) {
 	return kafkaproducer.CreateProducer(brokers, username, password)
 }
 
-// Initialize The Producer
-func InitializeProducer(lgr *zap.Logger, brokers string, username string, password string, metricsServer *prometheus.MetricsServer, healthServer *health.Server) error {
-
-	// Set Package Level Logger Reference
-	logger = lgr
-
-	// Mark The Kafka Producer As Ready
-	healthServer.SetProducerReady(false)
-
-	// Create The Producer Using The Specified Kafka Authentication
-	producer, err := createProducerFunctionWrapper(brokers, username, password)
-	if err != nil {
-		logger.Error("Failed To Create Kafka Producer - Exiting", zap.Error(err))
-		return err
-	}
-
-	// Assign The Producer Singleton Instance
-	logger.Info("Successfully Created Kafka Producer")
-	kafkaProducer = producer
-
-	// Reset The Stop Channels
-	stopChannel = make(chan struct{})
-	stoppedChannel = make(chan struct{})
-
-	// Used For Reporting Kafka Metrics
-	metrics = metricsServer
-
-	// Fork A Go Routine To Process Kafka Events Asynchronously
-	logger.Info("Starting Kafka Producer Event Processing")
-	go processProducerEvents(healthServer)
-
-	// Return Success
-	logger.Info("Successfully Initialized Kafka Producer")
-	healthServer.SetProducerReady(true)
-	return nil
-}
-
 // Produce A KafkaMessage From The Specified CloudEvent To The Specified Topic And Wait For The Delivery Report
-func ProduceKafkaMessage(event cloudevents.Event, channelReference eventingChannel.ChannelReference) error {
+func (p *Producer) ProduceKafkaMessage(event cloudevents.Event, channelReference eventingChannel.ChannelReference) error {
 
 	// Validate The Kafka Producer (Must Be Pre-Initialized)
-	if kafkaProducer == nil {
-		logger.Error("Kafka Producer Not Initialized - Unable To Produce Message")
+	if p.kafkaProducer == nil {
+		p.logger.Error("Kafka Producer Not Initialized - Unable To Produce Message")
 		return errors.New("uninitialized kafka producer - unable to produce message")
 	}
 
 	// Get The Topic Name From The ChannelReference
 	topicName := util.TopicName(channelReference)
-	logger := logger.With(zap.String("Topic", topicName))
+	logger := p.logger.With(zap.String("Topic", topicName))
 
 	// Create A Kafka Message From The CloudEvent For The Appropriate Topic
 	kafkaMessage, err := message.CreateKafkaMessage(logger, event, topicName)
@@ -89,7 +86,7 @@ func ProduceKafkaMessage(event cloudevents.Event, channelReference eventingChann
 
 	// Produce The Kafka Message To The Kafka Topic
 	logger.Debug("Producing Kafka Message", zap.Any("Headers", kafkaMessage.Headers), zap.Any("Message", kafkaMessage.Value))
-	err = kafkaProducer.Produce(kafkaMessage, deliveryReportChannel)
+	err = p.kafkaProducer.Produce(kafkaMessage, deliveryReportChannel)
 	if err != nil {
 		logger.Error("Failed To Produce Kafka Message", zap.Error(err))
 		return err
@@ -122,39 +119,39 @@ func ProduceKafkaMessage(event cloudevents.Event, channelReference eventingChann
 }
 
 // Close The Producer (Stop Processing)
-func Close() {
+func (p *Producer) Close() {
 
 	// Stop Processing Success/Error Messages From Producer
-	logger.Info("Stopping Kafka Producer Success/Error Processing")
-	close(stopChannel)
-	<-stoppedChannel // Block On Stop Completion
+	p.logger.Info("Stopping Kafka Producer Success/Error Processing")
+	close(p.stopChannel)
+	<-p.stoppedChannel // Block On Stop Completion
 
 	// Close The Kafka Producer
-	logger.Info("Closing Kafka Producer")
-	kafkaProducer.Close()
+	p.logger.Info("Closing Kafka Producer")
+	p.kafkaProducer.Close()
 }
 
 // Infinite Loop For Processing Kafka Producer Events
-func processProducerEvents(healthServer *health.Server) {
+func (p *Producer) processProducerEvents(healthServer *health.Server) {
 	for {
 		select {
-		case msg := <-kafkaProducer.Events():
+		case msg := <-p.kafkaProducer.Events():
 			switch ev := msg.(type) {
 			case *kafka.Message:
-				logger.Warn("Kafka Message Arrived On The Wrong Channel", zap.Any("Message", msg))
+				p.logger.Warn("Kafka Message Arrived On The Wrong Channel", zap.Any("Message", msg))
 			case kafka.Error:
-				logger.Warn("Kafka Error", zap.Error(ev))
+				p.logger.Warn("Kafka Error", zap.Error(ev))
 			case *kafka.Stats:
 				// Update Kafka Prometheus Metrics
-				metrics.Observe(ev.String())
+				p.metrics.Observe(ev.String())
 			default:
-				logger.Info("Ignored Event", zap.String("Event", ev.String()))
+				p.logger.Info("Ignored Event", zap.String("Event", ev.String()))
 			}
 
-		case <-stopChannel:
-			logger.Info("Terminating Producer Event Processing")
+		case <-p.stopChannel:
+			p.logger.Info("Terminating Producer Event Processing")
 			healthServer.SetProducerReady(false)
-			close(stoppedChannel) // Inform On Stop Completion & Return
+			close(p.stoppedChannel) // Inform On Stop Completion & Return
 			return
 		}
 	}

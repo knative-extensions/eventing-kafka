@@ -3,13 +3,13 @@ package channel
 import (
 	"context"
 	"errors"
-	"knative.dev/eventing-kafka/pkg/channel/health"
 	"go.uber.org/zap"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	k8sclientcmd "k8s.io/client-go/tools/clientcmd"
 	kafkaclientset "knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned"
 	kafkainformers "knative.dev/eventing-contrib/kafka/channel/pkg/client/informers/externalversions"
 	kafkalisters "knative.dev/eventing-contrib/kafka/channel/pkg/client/listers/messaging/v1alpha1"
+	"knative.dev/eventing-kafka/pkg/channel/health"
 	eventingChannel "knative.dev/eventing/pkg/channel"
 	knativecontroller "knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -74,7 +74,7 @@ func InitializeKafkaChannelLister(ctx context.Context, masterUrl string, kubecon
 func ValidateKafkaChannel(channelReference eventingChannel.ChannelReference) error {
 
 	// Validate The Specified Channel Reference
-	if len(channelReference.Name) <= 0 || len(channelReference.Namespace) <= 0 {
+	if channelReference.Name == "" || channelReference.Namespace == "" {
 		logger.Warn("Invalid KafkaChannel - Invalid ChannelReference")
 		return errors.New("invalid ChannelReference specified")
 	}

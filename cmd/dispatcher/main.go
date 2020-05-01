@@ -3,18 +3,18 @@ package main
 import (
 	"context"
 	"flag"
-	commonk8s "knative.dev/eventing-kafka/pkg/common/k8s"
-	"knative.dev/eventing-kafka/pkg/common/prometheus"
-	"knative.dev/eventing-kafka/pkg/dispatcher/client"
-	"knative.dev/eventing-kafka/pkg/dispatcher/controller"
-	dispatch "knative.dev/eventing-kafka/pkg/dispatcher/dispatcher"
-	dispatcherhealth "knative.dev/eventing-kafka/pkg/dispatcher/health"
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned"
 	"knative.dev/eventing-contrib/kafka/channel/pkg/client/informers/externalversions"
+	commonk8s "knative.dev/eventing-kafka/pkg/common/k8s"
+	"knative.dev/eventing-kafka/pkg/common/prometheus"
+	"knative.dev/eventing-kafka/pkg/dispatcher/client"
+	"knative.dev/eventing-kafka/pkg/dispatcher/controller"
+	dispatch "knative.dev/eventing-kafka/pkg/dispatcher/dispatcher"
+	dispatcherhealth "knative.dev/eventing-kafka/pkg/dispatcher/health"
 	kncontroller "knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/signals"
@@ -132,8 +132,7 @@ func main() {
 
 	config, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
 	if err != nil {
-		logger.Error("Error building kubeconfig", zap.Error(err))
-		return
+		logger.Fatal("Error building kubeconfig", zap.Error(err))
 	}
 
 	stopCh := signals.SetupSignalHandler()

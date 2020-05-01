@@ -175,8 +175,9 @@ func getEventToServer(t *testing.T, uri *url.URL, expectedStatus int) {
 
 // Sends A Request To An HTTP Response Recorder Directly Expecting A Specific Response Code
 func getEventToHandler(t *testing.T, handlerFunc http.HandlerFunc, path string, expectedStatus int) {
+
 	// Create A Test HTTP GET Request For requested path
-	request := createNewRequest(t, "GET", path, nil)
+	request := createNewRequest(t, http.MethodGet, path, nil)
 
 	// Create An HTTP ResponseRecorder & Handler For Request
 	responseRecorder := httptest.NewRecorder()

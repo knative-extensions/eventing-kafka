@@ -5,10 +5,10 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v1"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/google/go-cmp/cmp"
-	kafkaconsumer "knative.dev/eventing-kafka/pkg/common/kafka/consumer"
-	"knative.dev/eventing-kafka/pkg/dispatcher/client"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
+	kafkaconsumer "knative.dev/eventing-kafka/pkg/common/kafka/consumer"
+	"knative.dev/eventing-kafka/pkg/dispatcher/client"
 	logtesting "knative.dev/pkg/logging/testing"
 	"net/http"
 	"net/http/httptest"
@@ -202,7 +202,7 @@ func verifyConfigMapValue(t *testing.T, configMap *kafka.ConfigMap, key string, 
 func getHttpServer(t *testing.T, callCount *int) *httptest.Server {
 	httpServer := httptest.NewServer(http.HandlerFunc(func(responseWriter http.ResponseWriter, request *http.Request) {
 		switch request.Method {
-		case "POST":
+		case http.MethodPost:
 
 			// Update The Number Of Calls (Async Safe)
 			*callCount++

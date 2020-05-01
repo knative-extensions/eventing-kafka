@@ -17,20 +17,20 @@ type Status interface {
 type Server struct {
 	server   *http.Server // The Golang HTTP Server Instance
 	status   Status
-	httpPort string       // The HTTP Port The Dispatcher Server Listens On
+	httpPort string // The HTTP Port The Dispatcher Server Listens On
 
 	// Synchronization Mutexes
-	liveMutex      sync.Mutex	// Synchronizes access to the liveness flag
+	liveMutex sync.Mutex // Synchronizes access to the liveness flag
 
 	// Internal Flags
-	alive          bool         // A flag that controls the response to liveness requests
+	alive bool // A flag that controls the response to liveness requests
 }
 
 // Creates A New Server With Specified Configuration
 func NewHealthServer(httpPort string, healthStatus Status) *Server {
 	health := &Server{
-		httpPort:   httpPort,
-		status:     healthStatus,
+		httpPort: httpPort,
+		status:   healthStatus,
 	}
 
 	// Initialize The HTTP Server
@@ -88,12 +88,14 @@ func (hs *Server) Stop(logger *zap.Logger) {
 
 // Access Function For "alive" Flag
 func (hs *Server) Alive() bool {
+	hs.liveMutex.Lock()
+	defer hs.liveMutex.Unlock()
 	return hs.alive
 }
 
 // HTTP Request Handler For Liveness Requests (/healthz)
 func (hs *Server) handleLiveness(responseWriter http.ResponseWriter, request *http.Request) {
-	if request.Method != "GET" {
+	if request.Method != http.MethodGet {
 		responseWriter.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
@@ -106,7 +108,7 @@ func (hs *Server) handleLiveness(responseWriter http.ResponseWriter, request *ht
 
 // HTTP Request Handler For Readiness Requests (/healthy)
 func (hs *Server) handleReadiness(responseWriter http.ResponseWriter, request *http.Request) {
-	if request.Method != "GET" {
+	if request.Method != http.MethodGet {
 		responseWriter.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
