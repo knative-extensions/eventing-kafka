@@ -1,0 +1,171 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: eventing-kafka-channel-controller
+  namespace: knative-eventing
+
+---
+
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: eventing-kafka-channel-controller
+rules:
+- apiGroups:
+  - "" # Core API Group
+  resources:
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - delete
+  - patch
+  - update
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - delete
+  - patch
+  - update
+- apiGroups:
+  - "" # Core API Group.
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+  - update
+- apiGroups:
+  - messaging.knative.dev
+  resources:
+  - channels
+  - channels/status
+  - subscriptions
+  - subscriptions/status
+  verbs:
+  - get
+  - list
+  - watch
+  - patch
+  - update
+- apiGroups:
+  - messaging.knative.dev
+  resources:
+  - kafkachannels
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+- apiGroups:
+  - messaging.knative.dev
+  resources:
+  - kafkachannels/status
+  verbs:
+  - get
+  - update
+  - patch
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: eventing-kafka-channel-controller
+  namespace: knative-eventing
+subjects:
+- kind: ServiceAccount
+  name: eventing-kafka-channel-controller
+  namespace: knative-eventing
+roleRef:
+  kind: ClusterRole
+  name: eventing-kafka-channel-controller
+  apiGroup: rbac.authorization.k8s.io
+
+---
+
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: eventing-kafka-channel-controller
+  namespace: knative-eventing
+rules:
+- apiGroups:
+  - "" # Core API Group
+  resources:
+  - configmaps
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+
+---
+
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: eventing-kafka-channel-controller
+  namespace: knative-eventing
+subjects:
+- kind: ServiceAccount
+  name: eventing-kafka-channel-controller
+  namespace: knative-eventing
+roleRef:
+  kind: Role
+  name: eventing-kafka-channel-controller
+  apiGroup: rbac.authorization.k8s.io
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    duck.knative.dev/channelable: "true"
+  name: kafka-channelable-manipulator
+rules:
+- apiGroups:
+  - messaging.knative.dev
+  resources:
+  - kafkachannels
+  - kafkachannels/status
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+  - update
+  - patch
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: eventing-kafka-addressable-resolver
+  labels:
+    eventing.knative.dev/release: devel
+    duck.knative.dev/addressable: "true"
+# Do not use this role directly. These rules will be added to the "addressable-resolver" role.
+rules:
+- apiGroups:
+  - messaging.knative.dev
+  resources:
+  - kafkachannels
+  - kafkachannels/status
+  verbs:
+  - get
+  - list
+  - watch
