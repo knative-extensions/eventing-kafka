@@ -1,0 +1,68 @@
+# Prometheus ServiceMonitor For Eventing-Kafka-Controller
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: eventing-kafka-channel-controller
+  namespace: {{ .Values.global.namespace.eventing }}
+  labels:
+    helm.sh/chart: {{ .Chart.Name }}
+    app: eventing-kafka-channel-controller
+    prometheus: monitoring
+spec:
+  selector:
+    matchLabels:
+      k8s-app: eventing-kafka-channel-controller
+  targetLabels:
+  - k8s-app
+  endpoints:
+  - port: metrics
+    interval: 10s
+  namespaceSelector:
+    matchNames:
+    - {{ .Values.global.namespace.eventing }}
+---
+# Prometheus ServiceMonitor For ALL Eventing-Kafka Channel Pods (Kafka Producers)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: eventing-kafka-channels
+  namespace: {{ .Values.global.namespace.eventing }}
+  labels:
+    helm.sh/chart: {{ .Chart.Name }}
+    app: eventing-kafka-channel-controller
+    prometheus: monitoring
+spec:
+  selector:
+    matchLabels:
+      k8s-app: eventing-kafka-channels
+  targetLabels:
+  - k8s-app
+  endpoints:
+  - port: metrics
+    interval: 10s
+  namespaceSelector:
+    matchNames:
+    - {{ .Values.global.namespace.eventing }}
+---
+# Prometheus ServiceMonitor For ALL Eventing-Kafka Dispatcher Pods (Kafka Consumers)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: eventing-kafka-dispatchers
+  namespace: {{ .Values.global.namespace.eventing }}
+  labels:
+    helm.sh/chart: {{ .Chart.Name }}
+    app: eventing-kafka-channel-controller
+    prometheus: monitoring
+spec:
+  selector:
+    matchLabels:
+      k8s-app: eventing-kafka-dispatchers
+  targetLabels:
+  - k8s-app
+  endpoints:
+  - port: metrics
+    interval: 10s
+  namespaceSelector:
+    matchNames:
+    - {{ .Values.global.namespace.eventing }}
