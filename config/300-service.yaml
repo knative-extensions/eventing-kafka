@@ -5,6 +5,7 @@ metadata:
   namespace: knative-eventing
   labels:
     k8s-app: eventing-kafka-channel-controller
+    kafka.eventing.knative.dev/release: devel
 spec:
   selector:
     app: eventing-kafka-channel-controller

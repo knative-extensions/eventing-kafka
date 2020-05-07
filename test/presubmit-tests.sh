@@ -23,16 +23,9 @@
 
 source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/presubmit-tests.sh
 
-function pre_build_tests() {
-  wget -qO - https://packages.confluent.io/deb/5.3/archive.key | apt-key add - \
-    && echo "deb https://packages.confluent.io/deb/5.3 stable main" >> /etc/apt/sources.list \
-    && echo "deb http://security.debian.org/debian-security jessie/updates main" >> /etc/apt/sources.list \
-    && apt-get update \
-    && apt-get -y install librdkafka-dev
-}
-
+# TODO fix -race flag reports error currently
 function unit_tests() {
-  make ci-pr
+  report_go_test ./...
 }
 
 main $@

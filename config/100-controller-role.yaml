@@ -1,0 +1,19 @@
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: eventing-kafka-channel-controller
+  namespace: knative-eventing
+  labels:
+    kafka.eventing.knative.dev/release: devel
+rules:
+  - apiGroups:
+      - "" # Core API Group
+    resources:
+      - configmaps
+      - secrets
+    verbs:
+      - get
+      - list
+      - watch
+      - update
+      - patch

@@ -5,6 +5,7 @@ metadata:
   namespace: knative-eventing
   labels:
     app: eventing-kafka-channel-controller
+    kafka.eventing.knative.dev/release: devel
 spec:
   replicas: 1
   selector:
@@ -21,7 +22,8 @@ spec:
       containers:
       - name: eventing-kafka
         image: ko://knative.dev/eventing-kafka/cmd/controller
-        imagePullPolicy: Always
+        # must be never for ko.local
+        imagePullPolicy: Never
         ports:
         - containerPort: 8081
           name: metrics
