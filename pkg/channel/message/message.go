@@ -1,8 +1,9 @@
 package message
 
 import (
-	"github.com/cloudevents/sdk-go/v1/cloudevents"
-	"github.com/cloudevents/sdk-go/v1/cloudevents/types"
+	cloudevents "github.com/cloudevents/sdk-go/v2"
+	"github.com/cloudevents/sdk-go/v2/event"
+	"github.com/cloudevents/sdk-go/v2/types"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"knative.dev/eventing-kafka/pkg/channel/constants"
 	"go.uber.org/zap"
@@ -11,14 +12,7 @@ import (
 )
 
 // Create A Kafka Message From The Specified CloudEvent / Topic
-func CreateKafkaMessage(logger *zap.Logger, event cloudevents.Event, kafkaTopic string) (*kafka.Message, error) {
-
-	// Get The Event's Data Bytes
-	eventBytes, err := event.DataBytes()
-	if err != nil {
-		logger.Error("Failed To Get CloudEvent's DataBytes", zap.Error(err))
-		return nil, err
-	}
+func CreateKafkaMessage(logger *zap.Logger, event *event.Event, kafkaTopic string) (*kafka.Message, error) {
 
 	// Get Kafka Message Headers From The Specified CloudEvent Context
 	kafkaHeaders := getKafkaHeaders(logger, event.Context)
@@ -33,7 +27,7 @@ func CreateKafkaMessage(logger *zap.Logger, event cloudevents.Event, kafkaTopic 
 			Partition: kafka.PartitionAny, // Required For Producer Level Partitioner! (see KafkaProducerConfigPropertyPartitioner)
 		},
 		Key:     partitionKey,
-		Value:   eventBytes,
+		Value:   event.Data(),
 		Headers: kafkaHeaders,
 	}
 
@@ -82,7 +76,7 @@ func getKafkaHeaders(logger *zap.Logger, context cloudevents.EventContext) []kaf
 }
 
 // Precedence For Partitioning Is The CloudEvent PartitionKey Extension Followed By The CloudEvent Subject
-func getPartitionKey(event cloudevents.Event) []byte {
+func getPartitionKey(event *event.Event) []byte {
 
 	// Use The CloudEvent Extensions PartitionKey If It Exists
 	pkExtension, err := types.ToString(event.Extensions()[constants.ExtensionKeyPartitionKey])

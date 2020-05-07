@@ -1537,10 +1537,10 @@
   analyzer-version = 1
   input-imports = [
     "github.com/Azure/azure-event-hubs-go",
-    "github.com/cloudevents/sdk-go/v1",
-    "github.com/cloudevents/sdk-go/v1/cloudevents",
-    "github.com/cloudevents/sdk-go/v1/cloudevents/transport/http",
-    "github.com/cloudevents/sdk-go/v1/cloudevents/types",
+    "github.com/cloudevents/sdk-go/v2",
+    "github.com/cloudevents/sdk-go/v2/binding",
+    "github.com/cloudevents/sdk-go/v2/event",
+    "github.com/cloudevents/sdk-go/v2/types",
     "github.com/confluentinc/confluent-kafka-go/kafka",
     "github.com/google/go-cmp/cmp",
     "github.com/pkg/errors",
@@ -1600,7 +1600,6 @@
     "knative.dev/eventing/pkg/channel",
     "knative.dev/eventing/pkg/client/clientset/versioned/fake",
     "knative.dev/eventing/pkg/client/injection/client/fake",
-    "knative.dev/eventing/pkg/kncloudevents",
     "knative.dev/eventing/pkg/logging",
     "knative.dev/eventing/pkg/reconciler/names",
     "knative.dev/eventing/pkg/utils",
@@ -1624,7 +1623,6 @@
     "knative.dev/pkg/signals",
     "knative.dev/pkg/system",
     "knative.dev/pkg/system/testing",
-    "knative.dev/pkg/tracing",
     "knative.dev/test-infra/scripts",
   ]
   solver-name = "gps-cdcl"

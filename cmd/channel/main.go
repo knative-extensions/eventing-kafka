@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"flag"
-	"github.com/cloudevents/sdk-go/v1/cloudevents"
+	"github.com/cloudevents/sdk-go/v2/binding"
 	"go.uber.org/zap"
 	"knative.dev/eventing-kafka/pkg/channel/channel"
 	"knative.dev/eventing-kafka/pkg/channel/constants"
@@ -13,9 +13,9 @@ import (
 	commonk8s "knative.dev/eventing-kafka/pkg/common/k8s"
 	kafkautil "knative.dev/eventing-kafka/pkg/common/kafka/util"
 	"knative.dev/eventing-kafka/pkg/common/prometheus"
-	eventingChannel "knative.dev/eventing/pkg/channel"
-	"knative.dev/eventing/pkg/kncloudevents"
+	eventingchannel "knative.dev/eventing/pkg/channel"
 	"knative.dev/pkg/logging"
+	nethttp "net/http"
 )
 
 // Variables
@@ -67,31 +67,19 @@ func main() {
 	}
 	defer kafkaProducer.Close()
 
-	// The EventReceiver is responsible for processing the context (headers and binary/json content) of each request,
-	// and then passing the context, channel details, and the constructed CloudEvent event to our handleEvent() function.
-	eventReceiver, err := eventingChannel.NewEventReceiver(handleEvent, logger)
+	// Create A New Knative Eventing MessageReceiver (Parses The Channel From The Host Header)
+	messageReceiver, err := eventingchannel.NewMessageReceiver(handleMessage, logger, eventingchannel.ResolveMessageChannelFromHostHeader(eventingchannel.ParseChannel))
 	if err != nil {
-		logger.Fatal("Failed To Create Knative EventReceiver", zap.Error(err))
-	}
-
-	// The Knative CloudEvent Client handles the mux http server setup (middlewares and transport options) and invokes
-	// the eventReceiver. Although the NewEventReceiver method above will also invoke kncloudevents.NewDefaultClient
-	// internally, that client goes unused when using the ServeHTTP on the eventReceiver.
-	//
-	// IMPORTANT: Because the kncloudevents package does not allow injecting modified configuration,
-	//            we can't override the default port being used (8080).
-	knCloudEventClient, err := kncloudevents.NewDefaultClient()
-	if err != nil {
-		logger.Fatal("Failed To Create Knative CloudEvent Client", zap.Error(err))
+		logger.Fatal("Failed To Create MessageReceiver", zap.Error(err))
 	}
 
 	// Set The Liveness Flag - Readiness Is Set By Individual Components
 	healthServer.SetAlive(true)
 
-	// Start Receiving Events (Blocking Call :)
-	err = knCloudEventClient.StartReceiver(ctx, eventReceiver.ServeHTTP)
+	// Start The Message Receiver (Blocking)
+	err = messageReceiver.Start(ctx)
 	if err != nil {
-		logger.Error("Failed To Start Event Receiver", zap.Error(err))
+		logger.Error("Failed To Start MessageReceiver", zap.Error(err))
 	}
 
 	// Reset The Liveness and Readiness Flags In Preparation For Shutdown
@@ -104,19 +92,33 @@ func main() {
 	healthServer.Stop(logger)
 }
 
-// Handler For Receiving Cloud Events And Sending The Event To Kafka
-func handleEvent(_ context.Context, channelReference eventingChannel.ChannelReference, cloudEvent cloudevents.Event) error {
+// CloudEvent Message Handler - Converts To KafkaMessage And Produces To Channel's Kafka Topic
+func handleMessage(ctx context.Context, channelReference eventingchannel.ChannelReference, message binding.Message, transformers []binding.Transformer, _ nethttp.Header) error {
 
 	// Note - The context provided here is a different context from the one created in main() and does not have our logger instance.
-
 	logger.Debug("~~~~~~~~~~~~~~~~~~~~  Processing Request  ~~~~~~~~~~~~~~~~~~~~")
-	logger.Debug("Received Cloud Event", zap.Any("CloudEvent", cloudEvent), zap.Any("ChannelReference", channelReference))
+	logger.Debug("Received Message", zap.Any("Message", message), zap.Any("ChannelReference", channelReference))
+
+	//
+	// Convert The CloudEvents Binding Message To A CloudEvent
+	//
+	// TODO - It is potentially inefficient to take the CloudEvent binding/Message and convert it into a CloudEvent,
+	//        just so that it can then be further transformed into a Confluent KafkaMessage.  The current implementation
+	//        is based on CloudEvent Events, however, and until a "protocol" implementation for Confluent Kafka exists
+	//        this is the simplest path forward.  Once such a protocol implementation exists, it would be more efficient
+	//        to convert directly from the binding/Message to the protocol/Message.
+	//
+	cloudEvent, err := binding.ToEvent(ctx, message, transformers...)
+	if err != nil {
+		logger.Error("Failed To Convert Message To CloudEvent", zap.Error(err))
+		return err
+	}
 
 	// Trim The "-kafkachannel" Suffix From The Service Name
 	channelReference.Name = kafkautil.TrimKafkaChannelServiceNameSuffix(channelReference.Name)
 
 	// Validate The KafkaChannel Prior To Producing Kafka Message
-	err := channel.ValidateKafkaChannel(channelReference)
+	err = channel.ValidateKafkaChannel(channelReference)
 	if err != nil {
 		logger.Warn("Unable To Validate ChannelReference", zap.Any("ChannelReference", channelReference), zap.Error(err))
 		return err
