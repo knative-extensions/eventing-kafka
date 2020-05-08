@@ -8,7 +8,7 @@ require (
 	github.com/Azure/go-autorest/autorest/azure/auth v0.4.2 // indirect
 	github.com/Azure/go-autorest/autorest/to v0.3.0 // indirect
 	github.com/Azure/go-autorest/autorest/validation v0.2.0 // indirect
-	github.com/cloudevents/sdk-go v1.2.0
+	github.com/cloudevents/sdk-go/v2 v2.0.0-RC2
 	github.com/confluentinc/confluent-kafka-go v1.0.0
 	github.com/google/go-cmp v0.4.0
 	github.com/grpc-ecosystem/grpc-gateway v1.13.0 // indirect
@@ -27,6 +27,7 @@ require (
 	knative.dev/eventing v0.14.1-0.20200429150142-6fd15c83fba5
 	knative.dev/eventing-contrib v0.14.0
 	knative.dev/pkg v0.0.0-20200428194351-90fc61bae7f7
+	knative.dev/test-infra v0.0.0-20200428221142-e594f444fabd
 	pack.ag/amqp v0.12.4 // indirect
 )
 
