@@ -1,7 +1,7 @@
 package producer
 
 import (
-	"github.com/cloudevents/sdk-go/v1/cloudevents"
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/stretchr/testify/assert"
 	"knative.dev/eventing-kafka/pkg/channel/constants"
@@ -47,7 +47,7 @@ func TestNewProducer(t *testing.T) {
 func TestProduceKafkaMessage(t *testing.T) {
 
 	// Test Data
-	event := test.CreateCloudEvent(cloudevents.CloudEventsVersionV1)
+	cloudEvent := test.CreateCloudEvent(cloudevents.VersionV1)
 	channelReference := test.CreateChannelReference(test.ChannelName, test.ChannelNamespace)
 	mockProducer := test.NewMockProducer(test.TopicName)
 
@@ -55,7 +55,7 @@ func TestProduceKafkaMessage(t *testing.T) {
 	producer := createTestProducer(t, mockProducer)
 
 	// Perform The Test & Verify Results
-	err := producer.ProduceKafkaMessage(event, channelReference)
+	err := producer.ProduceKafkaMessage(cloudEvent, channelReference)
 	assert.Nil(t, err)
 
 	// Block On The MockProducer's Channel & Verify Event Was Produced
@@ -67,7 +67,7 @@ func TestProduceKafkaMessage(t *testing.T) {
 	assert.Equal(t, kafka.PartitionAny, kafkaMessage.TopicPartition.Partition)
 	assert.Equal(t, kafka.Offset(0), kafkaMessage.TopicPartition.Offset)
 	assert.Nil(t, kafkaMessage.TopicPartition.Error)
-	test.ValidateKafkaMessageHeader(t, kafkaMessage.Headers, constants.CeKafkaHeaderKeySpecVersion, cloudevents.CloudEventsVersionV1)
+	test.ValidateKafkaMessageHeader(t, kafkaMessage.Headers, constants.CeKafkaHeaderKeySpecVersion, cloudevents.VersionV1)
 	test.ValidateKafkaMessageHeader(t, kafkaMessage.Headers, constants.CeKafkaHeaderKeyType, test.EventType)
 	test.ValidateKafkaMessageHeader(t, kafkaMessage.Headers, constants.CeKafkaHeaderKeyId, test.EventId)
 	test.ValidateKafkaMessageHeader(t, kafkaMessage.Headers, constants.CeKafkaHeaderKeySource, test.EventSource)

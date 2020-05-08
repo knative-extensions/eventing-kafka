@@ -27,10 +27,6 @@ else \
   make build-native-controller; \
 fi"
 
-# Get The Microsoft Cert For SSL
-WORKDIR /tmp-certs
-RUN curl -sSL -f -k http://www.microsoft.com/pki/mscorp/Microsoft%20IT%20TLS%20CA%202.crt -o /tmp-certs/microsoft.crt
-
 # Determine Dependencies of eventing-kafka-controller that will be needed for the final image and package them into one dir
 WORKDIR /controller-deps
 RUN ldd /go/src/knative.dev/eventing-kafka/build/controller/kafka-channel-controller \
@@ -59,8 +55,6 @@ COPY --from=builder /go/src/knative.dev/eventing-kafka/build/controller/kafka-ch
 
 # Copy over the dependencies
 COPY --from=builder /controller-deps/ /
-COPY --from=builder /tmp-certs/microsoft.crt /etc/ssl/certs/microsoft.crt
 
 # Provides The SSL Cert For The Base Image To Properly Add It To The Cert Store
-ENV SSL_CERT_FILE /etc/ssl/certs/microsoft.crt
 CMD [ "/kafka-channel-controller" ]

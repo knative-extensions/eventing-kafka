@@ -2,13 +2,14 @@ package dispatcher
 
 import (
 	"encoding/json"
-	cloudevents "github.com/cloudevents/sdk-go/v1"
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	kafkaconsumer "knative.dev/eventing-kafka/pkg/common/kafka/consumer"
-	"knative.dev/eventing-kafka/pkg/dispatcher/client"
+	eventingduck "knative.dev/eventing/pkg/apis/duck/v1alpha1"
+	"knative.dev/pkg/apis"
 	logtesting "knative.dev/pkg/logging/testing"
 	"net/http"
 	"net/http/httptest"
@@ -36,6 +37,9 @@ const (
 	testUsername                = "TestUsername"
 	testPassword                = "TestPassword"
 	testChannelKey              = "TestChannel"
+	testExponentialBackoff      = false
+	testInitialRetryInterval    = 500
+	testMaxRetryTime            = 5000
 )
 
 // Test Data (Non-Constants)
@@ -54,18 +58,18 @@ func TestDispatcher(t *testing.T) {
 
 	// Initialize The Test HTTP Server Instance & URL
 	callCount1 := 0
-	var httpServer = getHttpServer(t, &callCount1)
-	testSubscriberUri1 := httpServer.URL
-	defer httpServer.Close()
+	var httpServer1 = getHttpServer(t, &callCount1)
+	testSubscriberUrl1, _ := apis.ParseURL(httpServer1.URL)
+	defer httpServer1.Close()
 
 	callCount2 := 0
 	var httpServer2 = getHttpServer(t, &callCount2)
-	testSubscriberUri2 := httpServer2.URL
+	testSubscriberUrl2, _ := apis.ParseURL(httpServer2.URL)
 	defer httpServer2.Close()
 
 	callCount3 := 0
 	var httpServer3 = getHttpServer(t, &callCount3)
-	testSubscriberUri3 := httpServer3.URL
+	testSubscriberUrl3, _ := apis.ParseURL(httpServer3.URL)
 	defer httpServer3.Close()
 
 	// Replace The NewClient Wrapper To Provide Mock Consumer & Defer Reset
@@ -77,8 +81,6 @@ func TestDispatcher(t *testing.T) {
 		return NewMockConsumer(), nil
 	}
 	defer func() { kafkaconsumer.NewConsumerWrapper = newConsumerWrapperPlaceholder }()
-
-	cloudEventClient := client.NewRetriableCloudEventClient(logtesting.TestLogger(t).Desugar(), false, 500, 5000)
 
 	// Create A New Dispatcher
 	dispatcherConfig := DispatcherConfig{
@@ -92,8 +94,10 @@ func TestDispatcher(t *testing.T) {
 		OffsetCommitDurationMinimum: testOffsetCommitDurationMin,
 		Username:                    testUsername,
 		Password:                    testPassword,
-		Client:                      cloudEventClient,
 		ChannelKey:                  testChannelKey,
+		ExponentialBackoff:          testExponentialBackoff,
+		InitialRetryInterval:        testInitialRetryInterval,
+		MaxRetryTime:                testMaxRetryTime,
 	}
 	testDispatcher := NewDispatcher(dispatcherConfig)
 
@@ -112,8 +116,8 @@ func TestDispatcher(t *testing.T) {
 	// Start 1 Consumer
 	subscriptionResults := testDispatcher.UpdateSubscriptions([]Subscription{
 		{
-			URI:     testSubscriberUri1,
-			GroupId: testGroupId1,
+			SubscriberSpec: eventingduck.SubscriberSpec{SubscriberURI: testSubscriberUrl1},
+			GroupId:        testGroupId1,
 		},
 	})
 
@@ -130,16 +134,16 @@ func TestDispatcher(t *testing.T) {
 	// Start 3 Consumers
 	subscriptionResults = testDispatcher.UpdateSubscriptions([]Subscription{
 		{
-			URI:     testSubscriberUri1,
-			GroupId: testGroupId1,
+			SubscriberSpec: eventingduck.SubscriberSpec{SubscriberURI: testSubscriberUrl1},
+			GroupId:        testGroupId1,
 		},
 		{
-			URI:     testSubscriberUri2,
-			GroupId: testGroupId2,
+			SubscriberSpec: eventingduck.SubscriberSpec{SubscriberURI: testSubscriberUrl2},
+			GroupId:        testGroupId2,
 		},
 		{
-			URI:     testSubscriberUri3,
-			GroupId: testGroupId3,
+			SubscriberSpec: eventingduck.SubscriberSpec{SubscriberURI: testSubscriberUrl3},
+			GroupId:        testGroupId3,
 		},
 	})
 
@@ -161,8 +165,8 @@ func TestDispatcher(t *testing.T) {
 	// Remove 2 Consumers
 	subscriptionResults = testDispatcher.UpdateSubscriptions([]Subscription{
 		{
-			URI:     testSubscriberUri1,
-			GroupId: testGroupId1,
+			SubscriberSpec: eventingduck.SubscriberSpec{SubscriberURI: testSubscriberUrl1},
+			GroupId:        testGroupId1,
 		},
 	})
 	verifyConsumersCount(t, testDispatcher.consumers, 1)
@@ -219,7 +223,7 @@ func getHttpServer(t *testing.T, callCount *int) *httptest.Server {
 				t.Errorf("expected to be able to read HTTP request Body without error: %+v", err)
 			} else {
 				bodyMap := make(map[string]string)
-				json.Unmarshal(bodyBytes, &bodyMap)
+				_ = json.Unmarshal(bodyBytes, &bodyMap) // Ignore Unexpected Errors - Should Not Happen Due To Controlled Test Data
 				if !reflect.DeepEqual(bodyMap, testValue) {
 					t.Errorf("expected HTTP request Body: %+v got: %+v", testValue, bodyMap)
 				}
@@ -332,12 +336,11 @@ func sendMessagesToConsumers(t *testing.T, consumers map[Subscription]*ConsumerO
 func createKafkaMessage(offset kafka.Offset, cloudEventVersion string) *kafka.Message {
 
 	testCloudEvent := createCloudEvent(cloudEventVersion)
-	eventBytes, _ := testCloudEvent.DataBytes()
 
 	return &kafka.Message{
 		Key:       []byte(testKey),
 		Headers:   createMessageHeaders(testCloudEvent.Context),
-		Value:     eventBytes,
+		Value:     testCloudEvent.Data(),
 		Timestamp: time.Now(),
 		TopicPartition: kafka.TopicPartition{
 			Topic:     &topic,
@@ -352,10 +355,9 @@ func createCloudEvent(cloudEventVersion string) cloudevents.Event {
 	testCloudEvent.SetID("ABC-123")
 	testCloudEvent.SetType("com.cloudevents.readme.sent")
 	testCloudEvent.SetSource("http://localhost:8080/")
-	testCloudEvent.SetDataContentType("application/json")
 
 	data, _ := json.Marshal(testValue)
-	testCloudEvent.SetData(data)
+	_ = testCloudEvent.SetData("application/json", data) // Ignore Unexpected Errors - Should Not Happen Due To Controlled Test Data
 
 	return testCloudEvent
 }
@@ -526,6 +528,28 @@ func (mc *MockConsumer) StoreOffsets(offsets []kafka.TopicPartition) (storedOffs
 
 func Test_convertToCloudEvent(t *testing.T) {
 
+	// Create A Test Logger
+	logger := logtesting.TestLogger(t).Desugar()
+
+	// Create A New Dispatcher
+	dispatcherConfig := DispatcherConfig{
+		Logger:                      logger,
+		Brokers:                     testBrokers,
+		Topic:                       testTopic,
+		Offset:                      testOffset,
+		PollTimeoutMillis:           testPollTimeoutMillis,
+		OffsetCommitCount:           testOffsetCommitCount,
+		OffsetCommitDuration:        testOffsetCommitDuration,
+		OffsetCommitDurationMinimum: testOffsetCommitDurationMin,
+		Username:                    testUsername,
+		Password:                    testPassword,
+		ChannelKey:                  testChannelKey,
+		ExponentialBackoff:          testExponentialBackoff,
+		InitialRetryInterval:        testInitialRetryInterval,
+		MaxRetryTime:                testMaxRetryTime,
+	}
+	testDispatcher := NewDispatcher(dispatcherConfig)
+
 	// Valid v0.3 Message
 	validMessageV03 := createKafkaMessage(1, cloudevents.VersionV03)
 	expectedCloudEventV03 := createCloudEvent(cloudevents.VersionV03)
@@ -584,7 +608,7 @@ func Test_convertToCloudEvent(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := convertToCloudEvent(tt.args.message)
+			got, err := testDispatcher.convertToCloudEvent(tt.args.message)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("convertToCloudEvent() error = %v, wantErr %v", err, tt.wantErr)
 				return

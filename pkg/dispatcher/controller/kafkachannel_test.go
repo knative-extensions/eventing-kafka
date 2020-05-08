@@ -2,11 +2,6 @@ package controller
 
 import (
 	"github.com/confluentinc/confluent-kafka-go/kafka"
-	kafkaconsumer "knative.dev/eventing-kafka/pkg/common/kafka/consumer"
-	"knative.dev/eventing-kafka/pkg/dispatcher/client"
-	"knative.dev/eventing-kafka/pkg/dispatcher/dispatcher"
-	dispatchertesting "knative.dev/eventing-kafka/pkg/dispatcher/testing"
-	reconciletesting "knative.dev/eventing-kafka/pkg/dispatcher/testing"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -14,6 +9,10 @@ import (
 	"k8s.io/client-go/tools/record"
 	"knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
 	"knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned"
+	kafkaconsumer "knative.dev/eventing-kafka/pkg/common/kafka/consumer"
+	"knative.dev/eventing-kafka/pkg/dispatcher/dispatcher"
+	dispatchertesting "knative.dev/eventing-kafka/pkg/dispatcher/testing"
+	reconciletesting "knative.dev/eventing-kafka/pkg/dispatcher/testing"
 	"knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
 	. "knative.dev/pkg/reconciler/testing"
@@ -36,6 +35,9 @@ const (
 	testOffsetCommitDurationMin = 50 * time.Millisecond // Small Durations For Testing!
 	testUsername                = "TestUsername"
 	testPassword                = "TestPassword"
+	testExponentialBackoff      = false
+	testInitialRetryInterval    = 500
+	testMaxRetryTime            = 5000
 )
 
 func init() {
@@ -154,8 +156,6 @@ func NewTestDispatcher(t *testing.T, channelKey string) *dispatcher.Dispatcher {
 	}
 	defer func() { kafkaconsumer.NewConsumerWrapper = newConsumerWrapperPlaceholder }()
 
-	cloudEventClient := client.NewRetriableCloudEventClient(logger, false, 500, 5000)
-
 	// Create A New Dispatcher
 	dispatcherConfig := dispatcher.DispatcherConfig{
 		Logger:                      logger,
@@ -168,8 +168,10 @@ func NewTestDispatcher(t *testing.T, channelKey string) *dispatcher.Dispatcher {
 		OffsetCommitDurationMinimum: testOffsetCommitDurationMin,
 		Username:                    testUsername,
 		Password:                    testPassword,
-		Client:                      cloudEventClient,
 		ChannelKey:                  channelKey,
+		ExponentialBackoff:          testExponentialBackoff,
+		InitialRetryInterval:        testInitialRetryInterval,
+		MaxRetryTime:                testMaxRetryTime,
 	}
 	testDispatcher := dispatcher.NewDispatcher(dispatcherConfig)
 	return testDispatcher

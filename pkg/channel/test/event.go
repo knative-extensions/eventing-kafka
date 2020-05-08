@@ -2,7 +2,7 @@ package test
 
 import (
 	"encoding/json"
-	cloudevents "github.com/cloudevents/sdk-go/v1"
+	"github.com/cloudevents/sdk-go/v2/event"
 	"knative.dev/eventing-kafka/pkg/channel/constants"
 )
 
@@ -10,15 +10,15 @@ import (
 var EventDataJson, _ = json.Marshal(map[string]string{EventDataKey: EventDataValue})
 
 // Utility Function For Creating A Test CloudEvent
-func CreateCloudEvent(cloudEventVersion string) cloudevents.Event {
-	event := cloudevents.NewEvent(cloudEventVersion)
-	event.SetID(EventId)
-	event.SetType(EventType)
-	event.SetSource(EventSource)
-	event.SetDataContentType(EventDataContentType)
-	event.SetSubject(EventSubject)
-	event.SetDataSchema(EventDataSchema)
-	event.SetExtension(constants.ExtensionKeyPartitionKey, PartitionKey)
-	event.SetData(EventDataJson)
-	return event
+func CreateCloudEvent(cloudEventVersion string) *event.Event {
+	cloudEvent := event.New(cloudEventVersion)
+	cloudEvent.SetID(EventId)
+	cloudEvent.SetType(EventType)
+	cloudEvent.SetSource(EventSource)
+	cloudEvent.SetDataContentType(EventDataContentType)
+	cloudEvent.SetSubject(EventSubject)
+	cloudEvent.SetDataSchema(EventDataSchema)
+	cloudEvent.SetExtension(constants.ExtensionKeyPartitionKey, PartitionKey)
+	_ = cloudEvent.SetData(EventDataContentType, EventDataJson)
+	return &cloudEvent
 }

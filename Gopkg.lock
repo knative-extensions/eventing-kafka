@@ -1507,11 +1507,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:83fc27d81416d2deee35fc93f9eadf2f73ef11ca4078811e7016f6f3706372c6"
+  digest = "1:868cd0bc044a60848de5af8163aaa52fb670ca20266469c066320dc357381871"
   name = "knative.dev/test-infra"
   packages = ["scripts"]
   pruneopts = "UT"
-  revision = "0517cadc49fe63a3b094df9079a5dd6f55fee8cf"
+  revision = "36159300bc2662e005fe8f86aff6c003c9ecf225"
 
 [[projects]]
   digest = "1:f578d00d9b0110d22ad74912bf1e33d3a0524e079edb9a534498e09d82cab217"
@@ -1537,10 +1537,10 @@
   analyzer-version = 1
   input-imports = [
     "github.com/Azure/azure-event-hubs-go",
-    "github.com/cloudevents/sdk-go/v1",
-    "github.com/cloudevents/sdk-go/v1/cloudevents",
-    "github.com/cloudevents/sdk-go/v1/cloudevents/transport/http",
-    "github.com/cloudevents/sdk-go/v1/cloudevents/types",
+    "github.com/cloudevents/sdk-go/v2",
+    "github.com/cloudevents/sdk-go/v2/binding",
+    "github.com/cloudevents/sdk-go/v2/event",
+    "github.com/cloudevents/sdk-go/v2/types",
     "github.com/confluentinc/confluent-kafka-go/kafka",
     "github.com/google/go-cmp/cmp",
     "github.com/pkg/errors",
@@ -1600,7 +1600,6 @@
     "knative.dev/eventing/pkg/channel",
     "knative.dev/eventing/pkg/client/clientset/versioned/fake",
     "knative.dev/eventing/pkg/client/injection/client/fake",
-    "knative.dev/eventing/pkg/kncloudevents",
     "knative.dev/eventing/pkg/logging",
     "knative.dev/eventing/pkg/reconciler/names",
     "knative.dev/eventing/pkg/utils",
@@ -1624,7 +1623,6 @@
     "knative.dev/pkg/signals",
     "knative.dev/pkg/system",
     "knative.dev/pkg/system/testing",
-    "knative.dev/pkg/tracing",
     "knative.dev/test-infra/scripts",
   ]
   solver-name = "gps-cdcl"
