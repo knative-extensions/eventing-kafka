@@ -378,8 +378,10 @@ type MetricDescriptor_MetricDescriptorMetadata struct {
 func (m *MetricDescriptor_MetricDescriptorMetadata) Reset() {
 	*m = MetricDescriptor_MetricDescriptorMetadata{}
 }
-func (m *MetricDescriptor_MetricDescriptorMetadata) String() string { return proto.CompactTextString(m) }
-func (*MetricDescriptor_MetricDescriptorMetadata) ProtoMessage()    {}
+func (m *MetricDescriptor_MetricDescriptorMetadata) String() string {
+	return proto.CompactTextString(m)
+}
+func (*MetricDescriptor_MetricDescriptorMetadata) ProtoMessage() {}
 func (*MetricDescriptor_MetricDescriptorMetadata) Descriptor() ([]byte, []int) {
 	return fileDescriptor_927eaac1a24f8abb, []int{0, 0}
 }
@@ -486,7 +488,9 @@ func init() {
 	proto.RegisterMapType((map[string]string)(nil), "google.api.Metric.LabelsEntry")
 }
 
-func init() { proto.RegisterFile("google/api/metric.proto", fileDescriptor_927eaac1a24f8abb) }
+func init() {
+	proto.RegisterFile("google/api/metric.proto", fileDescriptor_927eaac1a24f8abb)
+}
 
 var fileDescriptor_927eaac1a24f8abb = []byte{
 	// 661 bytes of a gzipped FileDescriptorProto
