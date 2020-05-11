@@ -1,1 +1,1 @@
-# defaultBaseImage: golang:1.13.5-buster
+defaultBaseImage: golang:1.14.2-buster
