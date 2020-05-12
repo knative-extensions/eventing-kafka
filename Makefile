@@ -59,12 +59,12 @@ clean-all: clean-channel clean-common clean-controller clean-dispatcher
 
 
 #
-# Dep / Fmt / Vet / Lint
+# Mod / Fmt / Vet / Lint
 #
 
-dep:
+mod:
 	@echo 'Ensuring Dependencies'
-	cd $(BUILD_ROOT); dep ensure -v
+	cd $(BUILD_ROOT); go mod tidy; go mod vendor
 
 format:
 	@echo 'Formatting Go Source'
@@ -80,7 +80,7 @@ lint:
 	golint ./cmd/...
 	golint ./pkg/...
 
-.PHONY: dep format vet lint
+.PHONY: mod format vet lint
 
 
 #

@@ -142,6 +142,18 @@ func (g *reconcilerControllerGenerator) GenerateType(c *generator.Context, t *ty
 			Package: "context",
 			Name:    "Context",
 		}),
+		"fmtSprintf": c.Universe.Function(types.Name{
+			Package: "fmt",
+			Name:    "Sprintf",
+		}),
+		"stringsReplaceAll": c.Universe.Function(types.Name{
+			Package: "strings",
+			Name:    "ReplaceAll",
+		}),
+		"reflectTypeOf": c.Universe.Function(types.Name{
+			Package: "reflect",
+			Name:    "TypeOf",
+		}),
 	}
 
 	sw.Do(reconcilerControllerNewImpl, m)
@@ -153,7 +165,6 @@ var reconcilerControllerNewImpl = `
 const (
 	defaultControllerAgentName = "{{.type|lowercaseSingular}}-controller"
 	defaultFinalizerName       = "{{.type|allLowercasePlural}}.{{.group}}"
-	defaultQueueName           = "{{.type|allLowercasePlural}}"
 	{{if .hasClass}}
 	// ClassAnnotationKey points to the annotation for the class of this resource.
 	ClassAnnotationKey = "{{ .class }}"
@@ -198,15 +209,23 @@ func NewImpl(ctx {{.contextContext|raw}}, r Interface{{if .hasClass}}, classValu
 		Lister:  {{.type|lowercaseSingular}}Informer.Lister(),
 		Recorder: recorder,
 		reconciler:    r,
+		finalizerName: defaultFinalizerName,
 		{{if .hasClass}}classValue: classValue,{{end}}
 	}
-	impl := {{.controllerNewImpl|raw}}(rec, logger, defaultQueueName)
+
+	t := {{.reflectTypeOf|raw}}(r).Elem()
+	queueName := {{.fmtSprintf|raw}}("%s.%s", {{.stringsReplaceAll|raw}}(t.PkgPath(), "/", "-"), t.Name())
+
+	impl := {{.controllerNewImpl|raw}}(rec, logger, queueName)
 
 	// Pass impl to the options. Save any optional results.
 	for _, fn := range optionsFns {
 		opts := fn(impl)
 		if opts.ConfigStore != nil {
 			rec.configStore = opts.ConfigStore
+		}
+		if opts.FinalizerName != "" {
+			rec.finalizerName = opts.FinalizerName
 		}
 	}
 
