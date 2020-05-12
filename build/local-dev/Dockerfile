@@ -10,7 +10,6 @@ RUN rm -f "$(which kubectl)" && \
 VOLUME ["/go/src/knative.dev/eventing-kafka"]
 WORKDIR /go/src/knative.dev/eventing-kafka
 
-ENV KO_DOCKER_REPO ko.local
-ENV CGO_ENABLED 1
+ENV KO_DOCKER_REPO=ko.local CGO_ENABLED=1
 
 ENTRYPOINT ko apply -f ./config
