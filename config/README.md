@@ -5,7 +5,7 @@ cluster available. The values of the [Kafka Secret](300-kafka-secret.yaml) shoul
 use ko references, and must be installed using ko. Due to complexities of cross compilation, this ko build must be executed
 from inside of a docker container. There is a [convenience script](../hack/local-dev.sh) added to the hack folder. This
 script will build a docker image to run ko in if it is not already present, and then run a `ko apply` command on the
-config directory. This script should be executed from the root of the project. 
+config directory. This script should be executed from the root of the project.
 
 ## Kafka Providers
 
