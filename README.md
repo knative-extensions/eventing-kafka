@@ -108,13 +108,9 @@ as follows...
   Topic), and will contain a distinct Kafka Consumer Group for each
   Subscription to the `KafkaChannel`.
 
-...and the controller can be deployed via the Helm Chart found in the
-resources/ directory...
-
-- [resources](./resources/README.md) - Eventing-kafka Helm Chart used to install
-  the `KafkaChannel` CRD and controller.  The use of **ko** has been explored but
-  is currently not feasible due to limitations with its ability to handle our
-  build / packaging of the external librdkafka C library.
+- [config](config/README.md) - Eventing-kafka yaml files for installation. **ko** is
+  used, but requires a helper script to run it inside of a container to overcome cross compilation
+  issues with the librdkafka c libraries.
 
 ### Control Plane
 
@@ -125,9 +121,9 @@ be created in any user namespace. The eventing-kafka-controller will guarantee
 that the Data Plane is configured to support the flow of events as defined by
 [Subscriptions](https://knative.dev/docs/reference/eventing/#messaging.knative.dev/v1alpha1.Subscription)
 to a KafkaChannel.  The underlying Kafka infrastructure to be used is defined in
-a specially labeled [K8S Secret](./resources/README.md#Credentials) in the
+a specially labeled [K8S Secret](config/README.md#Credentials) in the
 knative-eventing namespace.  Eventing-kafka supports several different Kafka
-(and Kafka-like) [infrastructures](./resources/README.md#Kafka%20Providers).
+(and Kafka-like) [infrastructures](config/README.md#Kafka%20Providers).
 
 ### Data Plane
 
@@ -158,27 +154,5 @@ and processing continues with the next event.
 
 ## Installation
 
-For installation and configuration instructions please see the Helm Chart
-[README](./resources/README.md).
-
-## Support Tooling
-
-The project uses the Confluent Go Client which relies on the following...
-
-```
-brew install pkg-config
-brew install librdkafka
-```
-
-...alternatively, if the current/latest version of the librdkafka C library is
-not compatible with eventing-kafka, then you can manually install an older
-version via the following....
-
-```
-curl -LO https://github.com/edenhill/librdkafka/archive/v1.0.1.tar.gz \
-  && tar -xvf v1.0.1.tar.gz \
-  && cd librdkafka-1.0.1 \
-  && ./configure \
-  && make \
-  && sudo make install
-```
+For installation and configuration instructions please see the config files
+[README](config/README.md).

@@ -134,7 +134,7 @@ func (r *Reconciler) newChannelService(secret *corev1.Secret) *corev1.Service {
 			Namespace: constants.KnativeEventingNamespace,
 			Labels: map[string]string{
 				constants.KafkaChannelChannelLabel:   "true",                               // Allows for identification of KafkaChannels
-				constants.K8sAppChannelSelectorLabel: constants.K8sAppChannelSelectorValue, // Prometheus ServiceMonitor (See Helm Chart)
+				constants.K8sAppChannelSelectorLabel: constants.K8sAppChannelSelectorValue, // Prometheus ServiceMonitor
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				util.NewSecretOwnerReference(secret),

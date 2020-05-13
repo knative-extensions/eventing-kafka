@@ -121,7 +121,7 @@ func (r *Reconciler) newDispatcherService(channel *kafkav1alpha1.KafkaChannel) *
 				constants.KafkaChannelDispatcherLabel:   "true",                                  // Identifies the Service as being a KafkaChannel "Dispatcher"
 				constants.KafkaChannelNameLabel:         channel.Name,                            // Identifies the Service's Owning KafkaChannel's Name
 				constants.KafkaChannelNamespaceLabel:    channel.Namespace,                       // Identifies the Service's Owning KafkaChannel's Namespace
-				constants.K8sAppDispatcherSelectorLabel: constants.K8sAppDispatcherSelectorValue, // Prometheus ServiceMonitor (See Helm Chart)
+				constants.K8sAppDispatcherSelectorLabel: constants.K8sAppDispatcherSelectorValue, // Prometheus ServiceMonitor
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				util.NewChannelOwnerReference(channel),
