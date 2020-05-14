@@ -278,7 +278,7 @@ func (r *Reconciler) newDispatcherDeployment(channel *kafkav1alpha1.KafkaChannel
 							},
 							Image:           r.environment.DispatcherImage,
 							Env:             envVars,
-							ImagePullPolicy: corev1.PullAlways,
+							ImagePullPolicy: corev1.PullIfNotPresent,
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
 									corev1.ResourceMemory: r.environment.DispatcherMemoryLimit,

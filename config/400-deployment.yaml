@@ -23,7 +23,7 @@ spec:
       - name: eventing-kafka
         image: ko://knative.dev/eventing-kafka/cmd/controller
         # must be never for ko.local
-        imagePullPolicy: Never
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8081
           name: metrics

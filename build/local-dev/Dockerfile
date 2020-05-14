@@ -12,4 +12,4 @@ WORKDIR /go/src/knative.dev/eventing-kafka
 
 ENV KO_DOCKER_REPO=ko.local CGO_ENABLED=1
 
-ENTRYPOINT ko apply -f ./config
+ENTRYPOINT /bin/bash
