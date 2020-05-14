@@ -23,9 +23,4 @@
 
 source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/presubmit-tests.sh
 
-# TODO fix -race flag reports error currently
-function unit_tests() {
-  report_go_test ./...
-}
-
 main $@
