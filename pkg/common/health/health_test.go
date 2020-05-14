@@ -39,7 +39,7 @@ func (ts *testStatus) Ready() bool {
 // Mock Status For Starting Health Server
 var mockStatus testStatus
 var mux sync.Mutex
-var nextPort = 8089
+var nextPort = 8090
 
 func getTestHealthServer() (*Server, string) {
 	mux.Lock()
