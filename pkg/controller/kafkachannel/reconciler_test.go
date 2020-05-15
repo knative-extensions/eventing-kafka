@@ -2,8 +2,6 @@ package kafkachannel
 
 import (
 	"context"
-	"knative.dev/eventing-kafka/pkg/controller/event"
-	"knative.dev/eventing-kafka/pkg/controller/test"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -11,6 +9,8 @@ import (
 	kafkav1alpha1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
 	fakekafkaclient "knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/client/fake"
 	kafkachannelreconciler "knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/reconciler/messaging/v1alpha1/kafkachannel"
+	"knative.dev/eventing-kafka/pkg/controller/event"
+	"knative.dev/eventing-kafka/pkg/controller/test"
 	"knative.dev/eventing/pkg/logging"
 	duckv1alpha1 "knative.dev/pkg/apis/duck/v1alpha1"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"

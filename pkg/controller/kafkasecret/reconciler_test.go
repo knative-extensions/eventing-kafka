@@ -2,15 +2,15 @@ package kafkasecret
 
 import (
 	"context"
-	"knative.dev/eventing-kafka/pkg/controller/event"
-	"knative.dev/eventing-kafka/pkg/controller/kafkasecretinjection"
-	"knative.dev/eventing-kafka/pkg/controller/test"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	clientgotesting "k8s.io/client-go/testing"
 	kafkav1alpha1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
 	fakekafkaclient "knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/client/fake"
+	"knative.dev/eventing-kafka/pkg/controller/event"
+	"knative.dev/eventing-kafka/pkg/controller/kafkasecretinjection"
+	"knative.dev/eventing-kafka/pkg/controller/test"
 	"knative.dev/eventing/pkg/logging"
 	duckv1alpha1 "knative.dev/pkg/apis/duck/v1alpha1"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"

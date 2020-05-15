@@ -3,12 +3,12 @@ package admin
 import (
 	"context"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
-	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"

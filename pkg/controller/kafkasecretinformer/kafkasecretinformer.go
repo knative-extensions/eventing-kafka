@@ -3,12 +3,12 @@ package kafkasecretinformer
 import (
 	"context"
 	"fmt"
-	commonconstants "knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	informerscorev1 "k8s.io/client-go/informers/core/v1"
 	listerscorev1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	"knative.dev/eventing/pkg/logging"
 	"knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/controller"

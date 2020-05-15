@@ -1,10 +1,10 @@
 package util
 
 import (
-	"knative.dev/eventing-kafka/pkg/controller/constants"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"knative.dev/eventing-kafka/pkg/controller/constants"
 	messagingv1alpha1 "knative.dev/eventing/pkg/apis/messaging/v1alpha1"
 )
 
