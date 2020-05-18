@@ -3,7 +3,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"knative.dev/eventing-kafka/pkg/dispatcher/dispatcher"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -17,7 +16,9 @@ import (
 	"knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned/scheme"
 	"knative.dev/eventing-contrib/kafka/channel/pkg/client/informers/externalversions/messaging/v1alpha1"
 	listers "knative.dev/eventing-contrib/kafka/channel/pkg/client/listers/messaging/v1alpha1"
-	eventingduck "knative.dev/eventing/pkg/apis/duck/v1alpha1"
+	"knative.dev/eventing-kafka/pkg/dispatcher/dispatcher"
+	eventingduckv1alpha1 "knative.dev/eventing/pkg/apis/duck/v1alpha1"
+	eventingduckv1beta1 "knative.dev/eventing/pkg/apis/duck/v1beta1"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"reflect"
@@ -167,11 +168,11 @@ func (r Reconciler) reconcile(channel *kafkav1alpha1.KafkaChannel) error {
 }
 
 // Create The SubscribableStatus Block Based On The Updated Subscriptions
-func (r *Reconciler) createSubscribableStatus(subscribable *eventingduck.Subscribable, failedSubscriptions map[dispatcher.Subscription]error) *eventingduck.SubscribableStatus {
+func (r *Reconciler) createSubscribableStatus(subscribable *eventingduckv1alpha1.Subscribable, failedSubscriptions map[dispatcher.Subscription]error) *eventingduckv1alpha1.SubscribableStatus {
 
-	subscriberStatus := make([]eventingduck.SubscriberStatus, 0)
+	subscriberStatus := make([]eventingduckv1beta1.SubscriberStatus, 0)
 	for _, sub := range subscribable.Subscribers {
-		status := eventingduck.SubscriberStatus{
+		status := eventingduckv1beta1.SubscriberStatus{
 			UID:                sub.UID,
 			ObservedGeneration: sub.Generation,
 			Ready:              corev1.ConditionTrue,
@@ -184,7 +185,8 @@ func (r *Reconciler) createSubscribableStatus(subscribable *eventingduck.Subscri
 		}
 		subscriberStatus = append(subscriberStatus, status)
 	}
-	return &eventingduck.SubscribableStatus{
+
+	return &eventingduckv1alpha1.SubscribableStatus{
 		Subscribers: subscriberStatus,
 	}
 }

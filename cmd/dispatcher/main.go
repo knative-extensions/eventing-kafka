@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
@@ -45,7 +44,7 @@ func main() {
 	flag.Parse()
 
 	// Initialize A Knative Injection Lite Context (K8S Client & Logger)
-	ctx := commonk8s.LoggingContext(context.Background(), Component, *masterURL, *kubeconfig)
+	ctx := commonk8s.LoggingContext(signals.NewContext(), Component, *masterURL, *kubeconfig)
 
 	// Get The Logger From The Context & Defer Flushing Any Buffered Log Entries On Exit
 	logger = logging.FromContext(ctx).Desugar()
@@ -133,8 +132,6 @@ func main() {
 		logger.Fatal("Error building kubeconfig", zap.Error(err))
 	}
 
-	stopCh := signals.SetupSignalHandler()
-
 	const numControllers = 1
 	config.QPS = numControllers * rest.DefaultQPS
 	config.Burst = numControllers * rest.DefaultBurst
@@ -145,7 +142,7 @@ func main() {
 	// Create KafkaChannel Informer
 	kafkaChannelInformer := kafkaInformerFactory.Messaging().V1alpha1().KafkaChannels()
 
-	// Construct Array Of Controllers, In Our Case Just the One
+	// Construct Array Of Controllers, In Our Case Just The One
 	controllers := [...]*kncontroller.Impl{
 		controller.NewController(
 			logger,
@@ -153,13 +150,13 @@ func main() {
 			kafkaChannelInformer,
 			kubeClient,
 			kafkaClientSet,
-			stopCh,
+			ctx.Done(),
 		),
 	}
 
 	// Start The Informers
 	logger.Info("Starting informers.")
-	if err := kncontroller.StartInformers(stopCh, kafkaChannelInformer.Informer()); err != nil {
+	if err := kncontroller.StartInformers(ctx.Done(), kafkaChannelInformer.Informer()); err != nil {
 		logger.Error("Failed to start informers", zap.Error(err))
 		return
 	}
@@ -169,12 +166,9 @@ func main() {
 	healthServer.SetAlive(true)
 	healthServer.SetDispatcherReady(true)
 
-	// Start The Controllers
+	// Start The Controllers (Blocking WaitGroup.Wait Call)
 	logger.Info("Starting controllers.")
-	kncontroller.StartAll(stopCh, controllers[:]...)
-
-	// Block On Signal Handler Stop Channel
-	<-stopCh
+	kncontroller.StartAll(ctx, controllers[:]...)
 
 	// Reset The Liveness and Readiness Flags In Preparation For Shutdown
 	healthServer.Shutdown()

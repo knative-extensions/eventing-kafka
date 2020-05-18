@@ -1,9 +1,9 @@
 package message
 
 import (
+	"github.com/stretchr/testify/assert"
 	"knative.dev/eventing-kafka/pkg/channel/constants"
 	"knative.dev/eventing-kafka/pkg/channel/test"
-	"github.com/stretchr/testify/assert"
 	logtesting "knative.dev/pkg/logging/testing"
 	"testing"
 )

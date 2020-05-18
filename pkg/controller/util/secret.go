@@ -1,11 +1,11 @@
 package util
 
 import (
-	"knative.dev/eventing-kafka/pkg/controller/constants"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"knative.dev/eventing-kafka/pkg/controller/constants"
 )
 
 // Get A Logger With Secret Info

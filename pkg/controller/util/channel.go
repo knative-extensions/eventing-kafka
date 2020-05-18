@@ -2,12 +2,12 @@ package util
 
 import (
 	"fmt"
-	"knative.dev/eventing-kafka/pkg/controller/constants"
-	"knative.dev/eventing-kafka/pkg/controller/env"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kafkav1alpha1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
+	"knative.dev/eventing-kafka/pkg/controller/constants"
+	"knative.dev/eventing-kafka/pkg/controller/env"
 	"knative.dev/eventing/pkg/utils"
 )
 

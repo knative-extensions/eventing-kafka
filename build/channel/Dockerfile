@@ -1,4 +1,4 @@
-FROM golang:1.13.5-buster as builder
+FROM golang:1.14.2-buster as builder
 
 # Gather the librdkafka and eventing-kafka-dispatcher dependencies for building
 RUN wget -qO - https://packages.confluent.io/deb/5.3/archive.key | apt-key add - \

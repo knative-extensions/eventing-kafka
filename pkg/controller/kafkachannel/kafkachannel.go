@@ -3,10 +3,10 @@ package kafkachannel
 import (
 	"context"
 	"fmt"
-	"knative.dev/eventing-kafka/pkg/controller/constants"
-	"knative.dev/eventing-kafka/pkg/controller/util"
 	"go.uber.org/zap"
 	kafkav1alpha1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
+	"knative.dev/eventing-kafka/pkg/controller/constants"
+	"knative.dev/eventing-kafka/pkg/controller/util"
 )
 
 // Reconcile The KafkaChannel Itself (Add Labels, etc.)

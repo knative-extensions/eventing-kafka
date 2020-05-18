@@ -3,8 +3,8 @@ package admin
 import (
 	"context"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
-	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	"github.com/stretchr/testify/assert"
+	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	"testing"
 )
 
