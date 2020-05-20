@@ -88,7 +88,7 @@ func TestReconcile(t *testing.T) {
 				test.NewKafkaChannelLabelUpdate(
 					test.NewKafkaChannel(
 						test.WithFinalizer,
-						test.WithLabels,
+						test.WithMetaData,
 						test.WithAddress,
 						test.WithInitializedConditions,
 						test.WithKafkaChannelServiceReady,
@@ -134,7 +134,7 @@ func TestReconcile(t *testing.T) {
 			Objects: []runtime.Object{
 				test.NewKafkaChannel(
 					test.WithFinalizer,
-					test.WithLabels,
+					test.WithMetaData,
 					test.WithAddress,
 					test.WithInitializedConditions,
 					test.WithKafkaChannelServiceReady,
@@ -195,7 +195,7 @@ func TestReconcile(t *testing.T) {
 			Objects: []runtime.Object{
 				test.NewKafkaChannel(
 					test.WithFinalizer,
-					test.WithLabels,
+					test.WithMetaData,
 					test.WithAddress,
 					test.WithInitializedConditions,
 					test.WithKafkaChannelServiceReady,
@@ -219,7 +219,7 @@ func TestReconcile(t *testing.T) {
 			Objects: []runtime.Object{
 				test.NewKafkaChannel(
 					test.WithFinalizer,
-					test.WithLabels,
+					test.WithMetaData,
 					test.WithAddress,
 					test.WithInitializedConditions,
 					test.WithKafkaChannelServiceReady,
@@ -256,7 +256,7 @@ func TestReconcile(t *testing.T) {
 			Objects: []runtime.Object{
 				test.NewKafkaChannel(
 					test.WithFinalizer,
-					test.WithLabels,
+					test.WithMetaData,
 					test.WithAddress,
 					test.WithInitializedConditions,
 					test.WithKafkaChannelServiceReady,
@@ -280,7 +280,7 @@ func TestReconcile(t *testing.T) {
 			Objects: []runtime.Object{
 				test.NewKafkaChannel(
 					test.WithFinalizer,
-					test.WithLabels,
+					test.WithMetaData,
 					test.WithAddress,
 					test.WithInitializedConditions,
 					test.WithKafkaChannelServiceReady,
@@ -301,7 +301,7 @@ func TestReconcile(t *testing.T) {
 				{
 					Object: test.NewKafkaChannel(
 						test.WithFinalizer,
-						test.WithLabels,
+						test.WithMetaData,
 						test.WithAddress,
 						test.WithInitializedConditions,
 						test.WithKafkaChannelServiceReady,

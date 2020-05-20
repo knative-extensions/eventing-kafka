@@ -5,8 +5,6 @@ go 1.14
 require (
 	github.com/Azure/azure-event-hubs-go v1.3.1
 	github.com/Azure/go-autorest/autorest/azure/auth v0.4.2 // indirect
-	github.com/Azure/go-autorest/autorest/to v0.3.0 // indirect
-	github.com/Azure/go-autorest/autorest/validation v0.2.0 // indirect
 	github.com/cloudevents/sdk-go/v2 v2.0.0-RC4
 	github.com/confluentinc/confluent-kafka-go v1.0.0
 	github.com/google/go-cmp v0.4.0

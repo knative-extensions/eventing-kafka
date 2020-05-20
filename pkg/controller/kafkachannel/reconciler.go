@@ -113,7 +113,7 @@ func (r *Reconciler) reconcile(ctx context.Context, channel *kafkav1alpha1.Kafka
 		return fmt.Errorf(constants.ReconciliationFailedError)
 	}
 
-	// Add Labels To KafkaChannel
+	// Reconcile The KafkaChannel Itself (MetaData, etc...)
 	err = r.reconcileKafkaChannel(ctx, channel)
 	if err != nil {
 		return fmt.Errorf(constants.ReconciliationFailedError)

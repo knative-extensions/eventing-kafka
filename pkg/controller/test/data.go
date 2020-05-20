@@ -16,6 +16,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/controller/env"
 	"knative.dev/eventing-kafka/pkg/controller/event"
 	"knative.dev/eventing-kafka/pkg/controller/util"
+	"knative.dev/eventing/pkg/apis/messaging"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/logging"
 	reconcilertesting "knative.dev/pkg/reconciler/testing"
@@ -247,6 +248,19 @@ func WithDeletionTimestamp(kafkachannel *kafkav1alpha1.KafkaChannel) {
 // Set The KafkaChannel's Finalizer
 func WithFinalizer(kafkachannel *kafkav1alpha1.KafkaChannel) {
 	kafkachannel.ObjectMeta.Finalizers = []string{"kafkachannels.messaging.knative.dev"}
+}
+
+// Set The KafkaChannel's MetaData
+func WithMetaData(kafkachannel *kafkav1alpha1.KafkaChannel) {
+	WithAnnotations(kafkachannel)
+	WithLabels(kafkachannel)
+}
+
+// Set The KafkaChannel's Annotations
+func WithAnnotations(kafkachannel *kafkav1alpha1.KafkaChannel) {
+	kafkachannel.ObjectMeta.Annotations = map[string]string{
+		messaging.SubscribableDuckVersionAnnotation: constants.SubscribableDuckVersionAnnotationV1Alpha1,
+	}
 }
 
 // Set The KafkaChannel's Labels

@@ -64,7 +64,7 @@ clean-all: clean-channel clean-common clean-controller clean-dispatcher
 
 mod:
 	@echo 'Ensuring Dependencies'
-	cd $(BUILD_ROOT); go mod tidy; go mod vendor
+	cd $(BUILD_ROOT);  go mod vendor && go mod tidy
 
 format:
 	@echo 'Formatting Go Source'
