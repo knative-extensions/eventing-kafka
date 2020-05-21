@@ -33,7 +33,7 @@ import "C"
 //  bool, int, string, any type with the standard String() interface
 type ConfigValue interface{}
 
-// ConfigMap is a map contaning standard librdkafka configuration properties as documented in:
+// ConfigMap is a map containing standard librdkafka configuration properties as documented in:
 // https://github.com/edenhill/librdkafka/tree/master/CONFIGURATION.md
 //
 // The special property "default.topic.config" (optional) is a ConfigMap
@@ -111,13 +111,13 @@ func anyconfSet(anyconf rdkAnyconf, key string, val ConfigValue) (err error) {
 		return newErrorFromString(ErrInvalidArg, fmt.Sprintf("%s for key %s (expected string,bool,int,ConfigMap)", errstr, key))
 	}
 	cKey := C.CString(key)
+	defer C.free(unsafe.Pointer(cKey))
 	cVal := C.CString(value)
+	defer C.free(unsafe.Pointer(cVal))
 	cErrstr := (*C.char)(C.malloc(C.size_t(128)))
 	defer C.free(unsafe.Pointer(cErrstr))
 
 	if anyconf.set(cKey, cVal, cErrstr, 128) != C.RD_KAFKA_CONF_OK {
-		C.free(unsafe.Pointer(cKey))
-		C.free(unsafe.Pointer(cVal))
 		return newErrorFromCString(C.RD_KAFKA_RESP_ERR__INVALID_ARG, cErrstr)
 	}
 
@@ -187,6 +187,11 @@ func configConvertAnyconf(m ConfigMap, anyconf rdkAnyconf) (err error) {
 func (m ConfigMap) convert() (cConf *C.rd_kafka_conf_t, err error) {
 	cConf = C.rd_kafka_conf_new()
 
+	// Set the client.software.name and .version (use librdkafka version).
+	_, librdkafkaVersion := LibraryVersion()
+	anyconfSet((*rdkConf)(cConf), "client.software.name", "confluent-kafka-go")
+	anyconfSet((*rdkConf)(cConf), "client.software.version", librdkafkaVersion)
+
 	err = configConvertAnyconf(m, (*rdkConf)(cConf))
 	if err != nil {
 		C.rd_kafka_conf_destroy(cConf)
@@ -230,6 +235,32 @@ func (m ConfigMap) extract(key string, defval ConfigValue) (ConfigValue, error) 
 	delete(m, key)
 
 	return v, nil
+}
+
+// extractLogConfig extracts generic go.logs.* configuration properties.
+func (m ConfigMap) extractLogConfig() (logsChanEnable bool, logsChan chan LogEvent, err error) {
+	v, err := m.extract("go.logs.channel.enable", false)
+	if err != nil {
+		return
+	}
+
+	logsChanEnable = v.(bool)
+
+	v, err = m.extract("go.logs.channel", nil)
+	if err != nil {
+		return
+	}
+
+	if v != nil {
+		logsChan = v.(chan LogEvent)
+	}
+
+	if logsChanEnable {
+		// Tell librdkafka to forward logs to the log queue
+		m.Set("log.queue=true")
+	}
+
+	return
 }
 
 func (m ConfigMap) clone() ConfigMap {

@@ -1,7 +1,0 @@
-name: eventing-kafka
-version: 0.0.1
-description: A Helm chart for eventing-kafka
-keywords:
-- knative
-- eventing
-- kafka

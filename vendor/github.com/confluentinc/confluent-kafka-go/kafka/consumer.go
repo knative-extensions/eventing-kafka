@@ -263,9 +263,14 @@ func (c *Consumer) Events() chan Event {
 	return c.events
 }
 
+// Logs returns the log channel if enabled, or nil otherwise.
+func (c *Consumer) Logs() chan LogEvent {
+	return c.handle.logs
+}
+
 // ReadMessage polls the consumer for a message.
 //
-// This is a conveniance API that wraps Poll() and only returns
+// This is a convenience API that wraps Poll() and only returns
 // messages or errors. All other event types are discarded.
 //
 // The call will block for at most `timeout` waiting for
@@ -325,10 +330,10 @@ func (c *Consumer) ReadMessage(timeout time.Duration) (*Message, error) {
 // The object is no longer usable after this call.
 func (c *Consumer) Close() (err error) {
 
+	// Wait for consumerReader() or pollLogEvents to terminate (by closing readerTermChan)
+	close(c.readerTermChan)
+	c.handle.waitGroup.Wait()
 	if c.eventsChanEnable {
-		// Wait for consumerReader() to terminate (by closing readerTermChan)
-		close(c.readerTermChan)
-		c.handle.waitTerminated(1)
 		close(c.events)
 	}
 
@@ -349,6 +354,8 @@ func (c *Consumer) Close() (err error) {
 
 // NewConsumer creates a new high-level Consumer instance.
 //
+// conf is a *ConfigMap with standard librdkafka configuration properties.
+//
 // Supported special configuration properties:
 //   go.application.rebalance.enable (bool, false) - Forward rebalancing responsibility to application via the Events() channel.
 //                                        If set to true the app must handle the AssignedPartitions and
@@ -356,6 +363,8 @@ func (c *Consumer) Close() (err error) {
 //                                        respectively.
 //   go.events.channel.enable (bool, false) - Enable the Events() channel. Messages and events will be pushed on the Events() channel and the Poll() interface will be disabled. (Experimental)
 //   go.events.channel.size (int, 1000) - Events() channel size
+//   go.logs.channel.enable (bool, false) - Forward log to Logs() channel.
+//   go.logs.channel (chan kafka.LogEvent, nil) - Forward logs to application-provided channel instead of Logs(). Requires go.logs.channel.enable=true.
 //
 // WARNING: Due to the buffering nature of channels (and queues in general) the
 // use of the events channel risks receiving outdated events and
@@ -402,6 +411,11 @@ func NewConsumer(conf *ConfigMap) (*Consumer, error) {
 	}
 	eventsChanSize := v.(int)
 
+	logsChanEnable, logsChan, err := confCopy.extractLogConfig()
+	if err != nil {
+		return nil, err
+	}
+
 	cConf, err := confCopy.convert()
 	if err != nil {
 		return nil, err
@@ -409,7 +423,7 @@ func NewConsumer(conf *ConfigMap) (*Consumer, error) {
 	cErrstr := (*C.char)(C.malloc(C.size_t(256)))
 	defer C.free(unsafe.Pointer(cErrstr))
 
-	C.rd_kafka_conf_set_events(cConf, C.RD_KAFKA_EVENT_REBALANCE|C.RD_KAFKA_EVENT_OFFSET_COMMIT|C.RD_KAFKA_EVENT_STATS|C.RD_KAFKA_EVENT_ERROR)
+	C.rd_kafka_conf_set_events(cConf, C.RD_KAFKA_EVENT_REBALANCE|C.RD_KAFKA_EVENT_OFFSET_COMMIT|C.RD_KAFKA_EVENT_STATS|C.RD_KAFKA_EVENT_ERROR|C.RD_KAFKA_EVENT_OAUTHBEARER_TOKEN_REFRESH)
 
 	c.handle.rk = C.rd_kafka_new(C.RD_KAFKA_CONSUMER, cConf, cErrstr, 256)
 	if c.handle.rk == nil {
@@ -420,18 +434,25 @@ func NewConsumer(conf *ConfigMap) (*Consumer, error) {
 
 	c.handle.c = c
 	c.handle.setup()
+	c.readerTermChan = make(chan bool)
 	c.handle.rkq = C.rd_kafka_queue_get_consumer(c.handle.rk)
 	if c.handle.rkq == nil {
 		// no cgrp (no group.id configured), revert to main queue.
 		c.handle.rkq = C.rd_kafka_queue_get_main(c.handle.rk)
 	}
 
+	if logsChanEnable {
+		c.handle.setupLogQueue(logsChan, c.readerTermChan)
+	}
+
 	if c.eventsChanEnable {
 		c.events = make(chan Event, eventsChanSize)
-		c.readerTermChan = make(chan bool)
-
 		/* Start rdkafka consumer queue reader -> events writer goroutine */
-		go consumerReader(c, c.readerTermChan)
+		c.handle.waitGroup.Add(1)
+		go func() {
+			consumerReader(c, c.readerTermChan)
+			c.handle.waitGroup.Done()
+		}()
 	}
 
 	return c, nil
@@ -453,24 +474,18 @@ func (c *Consumer) rebalance(ev Event) bool {
 // and posts them on the consumer channel.
 // Runs until termChan closes
 func consumerReader(c *Consumer, termChan chan bool) {
-
-out:
-	for true {
+	for {
 		select {
 		case _ = <-termChan:
-			break out
+			return
 		default:
 			_, term := c.handle.eventPoll(c.events, 100, 1000, termChan)
 			if term {
-				break out
+				return
 			}
 
 		}
 	}
-
-	c.handle.terminatedChan <- "consumerReader"
-	return
-
 }
 
 // GetMetadata queries broker for cluster and topic metadata.
@@ -482,17 +497,25 @@ func (c *Consumer) GetMetadata(topic *string, allTopics bool, timeoutMs int) (*M
 	return getMetadata(c, topic, allTopics, timeoutMs)
 }
 
-// QueryWatermarkOffsets returns the broker's low and high offsets for the given topic
-// and partition.
+// QueryWatermarkOffsets queries the broker for the low and high offsets for the given topic and partition.
 func (c *Consumer) QueryWatermarkOffsets(topic string, partition int32, timeoutMs int) (low, high int64, err error) {
 	return queryWatermarkOffsets(c, topic, partition, timeoutMs)
+}
+
+// GetWatermarkOffsets returns the cached low and high offsets for the given topic
+// and partition.  The high offset is populated on every fetch response or via calling QueryWatermarkOffsets.
+// The low offset is populated every statistics.interval.ms if that value is set.
+// OffsetInvalid will be returned if there is no cached offset for either value.
+func (c *Consumer) GetWatermarkOffsets(topic string, partition int32) (low, high int64, err error) {
+	return getWatermarkOffsets(c, topic, partition)
 }
 
 // OffsetsForTimes looks up offsets by timestamp for the given partitions.
 //
 // The returned offset for each partition is the earliest offset whose
 // timestamp is greater than or equal to the given timestamp in the
-// corresponding partition.
+// corresponding partition. If the provided timestamp exceeds that of the
+// last message in the partition, a value of -1 will be returned.
 //
 // The timestamps to query are represented as `.Offset` in the `times`
 // argument and the looked up offsets are represented as `.Offset` in the returned
@@ -554,6 +577,23 @@ func (c *Consumer) Committed(partitions []TopicPartition, timeoutMs int) (offset
 	return newTopicPartitionsFromCparts(cparts), nil
 }
 
+// Position returns the current consume position for the given partitions.
+// Typical use is to call Assignment() to get the partition list
+// and then pass it to Position() to get the current consume position for
+// each of the assigned partitions.
+// The conusme position is the next message to read from the partition.
+// i.e., the offset of the last message seen by the application + 1.
+func (c *Consumer) Position(partitions []TopicPartition) (offsets []TopicPartition, err error) {
+	cparts := newCPartsFromTopicPartitions(partitions)
+	defer C.rd_kafka_topic_partition_list_destroy(cparts)
+	cerr := C.rd_kafka_position(c.handle.rk, cparts)
+	if cerr != C.RD_KAFKA_RESP_ERR_NO_ERROR {
+		return nil, newError(cerr)
+	}
+
+	return newTopicPartitionsFromCparts(cparts), nil
+}
+
 // Pause consumption for the provided list of partitions
 //
 // Note that messages already enqueued on the consumer's Event channel
@@ -578,4 +618,106 @@ func (c *Consumer) Resume(partitions []TopicPartition) (err error) {
 		return newError(cerr)
 	}
 	return nil
+}
+
+// SetOAuthBearerToken sets the the data to be transmitted
+// to a broker during SASL/OAUTHBEARER authentication. It will return nil
+// on success, otherwise an error if:
+// 1) the token data is invalid (meaning an expiration time in the past
+// or either a token value or an extension key or value that does not meet
+// the regular expression requirements as per
+// https://tools.ietf.org/html/rfc7628#section-3.1);
+// 2) SASL/OAUTHBEARER is not supported by the underlying librdkafka build;
+// 3) SASL/OAUTHBEARER is supported but is not configured as the client's
+// authentication mechanism.
+func (c *Consumer) SetOAuthBearerToken(oauthBearerToken OAuthBearerToken) error {
+	return c.handle.setOAuthBearerToken(oauthBearerToken)
+}
+
+// SetOAuthBearerTokenFailure sets the error message describing why token
+// retrieval/setting failed; it also schedules a new token refresh event for 10
+// seconds later so the attempt may be retried. It will return nil on
+// success, otherwise an error if:
+// 1) SASL/OAUTHBEARER is not supported by the underlying librdkafka build;
+// 2) SASL/OAUTHBEARER is supported but is not configured as the client's
+// authentication mechanism.
+func (c *Consumer) SetOAuthBearerTokenFailure(errstr string) error {
+	return c.handle.setOAuthBearerTokenFailure(errstr)
+}
+
+// ConsumerGroupMetadata reflects the current consumer group member metadata.
+type ConsumerGroupMetadata struct {
+	serialized []byte
+}
+
+// serializeConsumerGroupMetadata converts a C metadata object to its
+// binary representation so we don't have to hold on to the C object,
+// which would require an explicit .Close().
+func serializeConsumerGroupMetadata(cgmd *C.rd_kafka_consumer_group_metadata_t) ([]byte, error) {
+	var cBuffer *C.void
+	var cSize C.size_t
+	cError := C.rd_kafka_consumer_group_metadata_write(cgmd,
+		(*unsafe.Pointer)(unsafe.Pointer(&cBuffer)), &cSize)
+	if cError != nil {
+		return nil, newErrorFromCErrorDestroy(cError)
+	}
+	defer C.rd_kafka_mem_free(nil, unsafe.Pointer(cBuffer))
+
+	return C.GoBytes(unsafe.Pointer(cBuffer), C.int(cSize)), nil
+}
+
+// deserializeConsumerGroupMetadata converts a serialized metadata object
+// back to a C object.
+func deserializeConsumerGroupMetadata(serialized []byte) (*C.rd_kafka_consumer_group_metadata_t, error) {
+	var cgmd *C.rd_kafka_consumer_group_metadata_t
+
+	cSerialized := C.CBytes(serialized)
+	defer C.free(cSerialized)
+
+	cError := C.rd_kafka_consumer_group_metadata_read(
+		&cgmd, cSerialized, C.size_t(len(serialized)))
+	if cError != nil {
+		return nil, newErrorFromCErrorDestroy(cError)
+	}
+
+	return cgmd, nil
+}
+
+// GetConsumerGroupMetadata returns the consumer's current group metadata.
+// This object should be passed to the transactional producer's
+// SendOffsetsToTransaction() API.
+func (c *Consumer) GetConsumerGroupMetadata() (*ConsumerGroupMetadata, error) {
+	cgmd := C.rd_kafka_consumer_group_metadata(c.handle.rk)
+	if cgmd == nil {
+		return nil, NewError(ErrState, "Consumer group metadata not available", false)
+	}
+	defer C.rd_kafka_consumer_group_metadata_destroy(cgmd)
+
+	serialized, err := serializeConsumerGroupMetadata(cgmd)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ConsumerGroupMetadata{serialized}, nil
+}
+
+// NewTestConsumerGroupMetadata creates a new consumer group metadata instance
+// mainly for testing use.
+// Use GetConsumerGroupMetadata() to retrieve the real metadata.
+func NewTestConsumerGroupMetadata(groupID string) (*ConsumerGroupMetadata, error) {
+	cGroupID := C.CString(groupID)
+	defer C.free(unsafe.Pointer(cGroupID))
+
+	cgmd := C.rd_kafka_consumer_group_metadata_new(cGroupID)
+	if cgmd == nil {
+		return nil, NewError(ErrInvalidArg, "Failed to create metadata object", false)
+	}
+
+	defer C.rd_kafka_consumer_group_metadata_destroy(cgmd)
+	serialized, err := serializeConsumerGroupMetadata(cgmd)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ConsumerGroupMetadata{serialized}, nil
 }
