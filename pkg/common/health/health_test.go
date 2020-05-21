@@ -8,13 +8,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
+	"sync"
 	"testing"
 	"time"
 )
 
 // Test Constants
 const (
-	testHttpPort  = "8089"
 	testHttpHost  = "localhost"
 	livenessPath  = "/healthz"
 	readinessPath = "/healthy"
@@ -37,23 +38,29 @@ func (ts *testStatus) Ready() bool {
 
 // Mock Status For Starting Health Server
 var mockStatus testStatus
+var mux sync.Mutex
+var nextPort = 8090
 
-func getTestHealthServer() *Server {
-	health := NewHealthServer(testHttpPort, &mockStatus)
+func getTestHealthServer() (*Server, string) {
+	mux.Lock()
+	defer mux.Unlock()
+	port := strconv.Itoa(nextPort)
+	health := NewHealthServer(strconv.Itoa(nextPort), &mockStatus)
+	nextPort ++
 	mockStatus.server = health
-	return health
+	return health, port
 }
 
 // Test The NewHealthServer() Functionality
 func TestNewHealthServer(t *testing.T) {
 
 	// Create A Health Server
-	health := getTestHealthServer()
+	health, port := getTestHealthServer()
 
 	// Validate The EventProxy
 	assert.NotNil(t, health)
 	assert.NotNil(t, health.server)
-	assert.Equal(t, ":"+testHttpPort, health.server.Addr)
+	assert.Equal(t, ":"+port, health.server.Addr)
 	assert.Equal(t, false, health.alive)
 }
 
@@ -61,7 +68,7 @@ func TestNewHealthServer(t *testing.T) {
 func TestFlagWrites(t *testing.T) {
 
 	// Create A New Health Server
-	health := getTestHealthServer()
+	health, _ := getTestHealthServer()
 
 	// Test Liveness Flag
 	health.SetAlive(false)
@@ -77,7 +84,7 @@ func TestFlagWrites(t *testing.T) {
 func TestUnsupportedEventsRequests(t *testing.T) {
 
 	// Create A New Health Server
-	health := getTestHealthServer()
+	health, _ := getTestHealthServer()
 
 	// Test All Unsupported Events Requests
 	performUnsupportedMethodRequestTest(t, http.MethodConnect, livenessPath, health.handleLiveness)
@@ -101,7 +108,7 @@ func TestUnsupportedEventsRequests(t *testing.T) {
 func TestHealthHandler(t *testing.T) {
 
 	// Create A New Health Server
-	health := getTestHealthServer()
+	health, _ := getTestHealthServer()
 
 	// Verify that initially the statuses are not live / ready
 	getEventToHandler(t, health.handleLiveness, livenessPath, http.StatusInternalServerError)
@@ -121,12 +128,12 @@ func TestHealthServer(t *testing.T) {
 
 	logger := logtesting.TestLogger(t).Desugar()
 
-	health := getTestHealthServer()
+	health, port := getTestHealthServer()
 	health.Start(logger)
 
-	livenessUri, err := url.Parse(fmt.Sprintf("http://%s:%s%s", testHttpHost, testHttpPort, livenessPath))
+	livenessUri, err := url.Parse(fmt.Sprintf("http://%s:%s%s", testHttpHost, port, livenessPath))
 	assert.Nil(t, err)
-	readinessUri, err := url.Parse(fmt.Sprintf("http://%s:%s%s", testHttpHost, testHttpPort, readinessPath))
+	readinessUri, err := url.Parse(fmt.Sprintf("http://%s:%s%s", testHttpHost, port, readinessPath))
 	assert.Nil(t, err)
 	waitServerReady(readinessUri.String(), 3*time.Second)
 

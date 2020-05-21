@@ -19,6 +19,7 @@ package kafka
 import (
 	"fmt"
 	"sync"
+	"time"
 	"unsafe"
 )
 
@@ -28,9 +29,52 @@ import (
 */
 import "C"
 
+// OAuthBearerToken represents the data to be transmitted
+// to a broker during SASL/OAUTHBEARER authentication.
+type OAuthBearerToken struct {
+	// Token value, often (but not necessarily) a JWS compact serialization
+	// as per https://tools.ietf.org/html/rfc7515#section-3.1; it must meet
+	// the regular expression for a SASL/OAUTHBEARER value defined at
+	// https://tools.ietf.org/html/rfc7628#section-3.1
+	TokenValue string
+	// Metadata about the token indicating when it expires (local time);
+	// it must represent a time in the future
+	Expiration time.Time
+	// Metadata about the token indicating the Kafka principal name
+	// to which it applies (for example, "admin")
+	Principal string
+	// SASL extensions, if any, to be communicated to the broker during
+	// authentication (all keys and values of which must meet the regular
+	// expressions defined at https://tools.ietf.org/html/rfc7628#section-3.1,
+	// and it must not contain the reserved "auth" key)
+	Extensions map[string]string
+}
+
 // Handle represents a generic client handle containing common parts for
 // both Producer and Consumer.
 type Handle interface {
+	// SetOAuthBearerToken sets the the data to be transmitted
+	// to a broker during SASL/OAUTHBEARER authentication. It will return nil
+	// on success, otherwise an error if:
+	// 1) the token data is invalid (meaning an expiration time in the past
+	// or either a token value or an extension key or value that does not meet
+	// the regular expression requirements as per
+	// https://tools.ietf.org/html/rfc7628#section-3.1);
+	// 2) SASL/OAUTHBEARER is not supported by the underlying librdkafka build;
+	// 3) SASL/OAUTHBEARER is supported but is not configured as the client's
+	// authentication mechanism.
+	SetOAuthBearerToken(oauthBearerToken OAuthBearerToken) error
+
+	// SetOAuthBearerTokenFailure sets the error message describing why token
+	// retrieval/setting failed; it also schedules a new token refresh event for 10
+	// seconds later so the attempt may be retried. It will return nil on
+	// success, otherwise an error if:
+	// 1) SASL/OAUTHBEARER is not supported by the underlying librdkafka build;
+	// 2) SASL/OAUTHBEARER is supported but is not configured as the client's
+	// authentication mechanism.
+	SetOAuthBearerTokenFailure(errstr string) error
+
+	// gethandle() returns the internal handle struct pointer
 	gethandle() *handle
 }
 
@@ -39,8 +83,10 @@ type handle struct {
 	rk  *C.rd_kafka_t
 	rkq *C.rd_kafka_queue_t
 
-	// Termination of background go-routines
-	terminatedChan chan string // string is go-routine name
+	// Forward logs from librdkafka log queue to logs channel.
+	logs          chan LogEvent
+	logq          *C.rd_kafka_queue_t
+	closeLogsChan bool
 
 	// Topic <-> rkt caches
 	rktCacheLock sync.Mutex
@@ -48,6 +94,9 @@ type handle struct {
 	rktCache map[string]*C.rd_kafka_topic_t
 	// rkt -> topic name cache
 	rktNameCache map[*C.rd_kafka_topic_t]string
+
+	// Cached instance name to avoid CGo call in String()
+	name string
 
 	//
 	// cgo map
@@ -71,20 +120,30 @@ type handle struct {
 
 	// Forward rebalancing ack responsibility to application (current setting)
 	currAppRebalanceEnable bool
+
+	// WaitGroup to wait for spawned go-routines to finish.
+	waitGroup sync.WaitGroup
 }
 
 func (h *handle) String() string {
-	return C.GoString(C.rd_kafka_name(h.rk))
+	return h.name
 }
 
 func (h *handle) setup() {
 	h.rktCache = make(map[string]*C.rd_kafka_topic_t)
 	h.rktNameCache = make(map[*C.rd_kafka_topic_t]string)
 	h.cgomap = make(map[int]cgoif)
-	h.terminatedChan = make(chan string, 10)
+	h.name = C.GoString(C.rd_kafka_name(h.rk))
 }
 
 func (h *handle) cleanup() {
+	if h.logs != nil {
+		C.rd_kafka_queue_destroy(h.logq)
+		if h.closeLogsChan {
+			close(h.logs)
+		}
+	}
+
 	for _, crkt := range h.rktCache {
 		C.rd_kafka_topic_destroy(crkt)
 	}
@@ -94,14 +153,25 @@ func (h *handle) cleanup() {
 	}
 }
 
-// waitTerminated waits termination of background go-routines.
-// termCnt is the number of goroutines expected to signal termination completion
-// on h.terminatedChan
-func (h *handle) waitTerminated(termCnt int) {
-	// Wait for termCnt termination-done events from goroutines
-	for ; termCnt > 0; termCnt-- {
-		_ = <-h.terminatedChan
+func (h *handle) setupLogQueue(logsChan chan LogEvent, termChan chan bool) {
+	if logsChan == nil {
+		logsChan = make(chan LogEvent, 10000)
+		h.closeLogsChan = true
 	}
+
+	h.logs = logsChan
+
+	// Let librdkafka forward logs to our log queue instead of the main queue
+	h.logq = C.rd_kafka_queue_new(h.rk)
+	C.rd_kafka_set_log_queue(h.rk, h.logq)
+
+	// Start a polling goroutine to consume the log queue
+	h.waitGroup.Add(1)
+	go func() {
+		h.pollLogEvents(h.logs, 100, termChan)
+		h.waitGroup.Done()
+	}()
+
 }
 
 // getRkt0 finds or creates and returns a C topic_t object from the local cache.
@@ -204,4 +274,52 @@ func (h *handle) cgoGet(cgoid int) (cg cgoif, found bool) {
 	}
 
 	return cg, found
+}
+
+// setOauthBearerToken - see rd_kafka_oauthbearer_set_token()
+func (h *handle) setOAuthBearerToken(oauthBearerToken OAuthBearerToken) error {
+	cTokenValue := C.CString(oauthBearerToken.TokenValue)
+	defer C.free(unsafe.Pointer(cTokenValue))
+
+	cPrincipal := C.CString(oauthBearerToken.Principal)
+	defer C.free(unsafe.Pointer(cPrincipal))
+
+	cErrstrSize := C.size_t(512)
+	cErrstr := (*C.char)(C.malloc(cErrstrSize))
+	defer C.free(unsafe.Pointer(cErrstr))
+
+	cExtensions := make([]*C.char, 2*len(oauthBearerToken.Extensions))
+	extensionSize := 0
+	for key, value := range oauthBearerToken.Extensions {
+		cExtensions[extensionSize] = C.CString(key)
+		defer C.free(unsafe.Pointer(cExtensions[extensionSize]))
+		extensionSize++
+		cExtensions[extensionSize] = C.CString(value)
+		defer C.free(unsafe.Pointer(cExtensions[extensionSize]))
+		extensionSize++
+	}
+
+	var cExtensionsToUse **C.char
+	if extensionSize > 0 {
+		cExtensionsToUse = (**C.char)(unsafe.Pointer(&cExtensions[0]))
+	}
+
+	cErr := C.rd_kafka_oauthbearer_set_token(h.rk, cTokenValue,
+		C.int64_t(oauthBearerToken.Expiration.UnixNano()/(1000*1000)), cPrincipal,
+		cExtensionsToUse, C.size_t(extensionSize), cErrstr, cErrstrSize)
+	if cErr == C.RD_KAFKA_RESP_ERR_NO_ERROR {
+		return nil
+	}
+	return newErrorFromCString(cErr, cErrstr)
+}
+
+// setOauthBearerTokenFailure - see rd_kafka_oauthbearer_set_token_failure()
+func (h *handle) setOAuthBearerTokenFailure(errstr string) error {
+	cerrstr := C.CString(errstr)
+	defer C.free(unsafe.Pointer(cerrstr))
+	cErr := C.rd_kafka_oauthbearer_set_token_failure(h.rk, cerrstr)
+	if cErr == C.RD_KAFKA_RESP_ERR_NO_ERROR {
+		return nil
+	}
+	return newError(cErr)
 }

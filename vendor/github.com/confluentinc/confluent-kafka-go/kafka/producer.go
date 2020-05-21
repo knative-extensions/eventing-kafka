@@ -17,6 +17,7 @@
 package kafka
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"time"
@@ -310,6 +311,11 @@ func (p *Producer) Events() chan Event {
 	return p.events
 }
 
+// Logs returns the Log channel (if enabled), else nil
+func (p *Producer) Logs() chan LogEvent {
+	return p.handle.logs
+}
+
 // ProduceChannel returns the produce *Message channel (write)
 func (p *Producer) ProduceChannel() chan *Message {
 	return p.produceChannel
@@ -351,7 +357,7 @@ func (p *Producer) Close() {
 	// and channel_producer() (signaled by closing ProduceChannel)
 	close(p.pollerTermChan)
 	close(p.produceChannel)
-	p.handle.waitTerminated(2)
+	p.handle.waitGroup.Wait()
 
 	close(p.events)
 
@@ -360,13 +366,56 @@ func (p *Producer) Close() {
 	C.rd_kafka_destroy(p.handle.rk)
 }
 
+const (
+	// PurgeInFlight purges messages in-flight to or from the broker.
+	// Purging these messages will void any future acknowledgements from the
+	// broker, making it impossible for the application to know if these
+	// messages were successfully delivered or not.
+	// Retrying these messages may lead to duplicates.
+	PurgeInFlight = int(C.RD_KAFKA_PURGE_F_INFLIGHT)
+
+	// PurgeQueue Purge messages in internal queues.
+	PurgeQueue = int(C.RD_KAFKA_PURGE_F_QUEUE)
+
+	// PurgeNonBlocking Don't wait for background thread queue purging to finish.
+	PurgeNonBlocking = int(C.RD_KAFKA_PURGE_F_NON_BLOCKING)
+)
+
+// Purge messages currently handled by this producer instance.
+//
+// flags is a combination of PurgeQueue, PurgeInFlight and PurgeNonBlocking.
+//
+// The application will need to call Poll(), Flush() or read the Events() channel
+// after this call to serve delivery reports for the purged messages.
+//
+// Messages purged from internal queues fail with the delivery report
+// error code set to ErrPurgeQueue, while purged messages that
+// are in-flight to or from the broker will fail with the error code set to
+// ErrPurgeInflight.
+//
+// Warning: Purging messages that are in-flight to or from the broker
+// will ignore any sub-sequent acknowledgement for these messages
+// received from the broker, effectively making it impossible
+// for the application to know if the messages were successfully
+// produced or not. This may result in duplicate messages if the
+// application retries these messages at a later time.
+//
+// Note: This call may block for a short time while background thread
+// queues are purged.
+//
+// Returns nil on success, ErrInvalidArg if the purge flags are invalid or unknown.
+func (p *Producer) Purge(flags int) error {
+	cErr := C.rd_kafka_purge(p.handle.rk, C.int(flags))
+	if cErr != C.RD_KAFKA_RESP_ERR_NO_ERROR {
+		return newError(cErr)
+	}
+
+	return nil
+}
+
 // NewProducer creates a new high-level Producer instance.
 //
-// conf is a *ConfigMap with standard librdkafka configuration properties, see here:
-//
-//
-//
-//
+// conf is a *ConfigMap with standard librdkafka configuration properties.
 //
 // Supported special configuration properties:
 //   go.batch.producer (bool, false) - EXPERIMENTAL: Enable batch producer (for increased performance).
@@ -374,8 +423,10 @@ func (p *Producer) Close() {
 //                                     Note: timestamps and headers are not supported with this interface.
 //   go.delivery.reports (bool, true) - Forward per-message delivery reports to the
 //                                      Events() channel.
-//   go.events.channel.size (int, 1000000) - Events() channel size
+//   go.events.channel.size (int, 1000000) - Events().
 //   go.produce.channel.size (int, 1000000) - ProduceChannel() buffer size (in number of messages)
+//   go.logs.channel.enable (bool, false) - Forward log to Logs() channel.
+//   go.logs.channel (chan kafka.LogEvent, nil) - Forward logs to application-provided channel instead of Logs(). Requires go.logs.channel.enable=true.
 //
 func NewProducer(conf *ConfigMap) (*Producer, error) {
 
@@ -422,6 +473,11 @@ func NewProducer(conf *ConfigMap) (*Producer, error) {
 	}
 	produceChannelSize := v.(int)
 
+	logsChanEnable, logsChan, err := confCopy.extractLogConfig()
+	if err != nil {
+		return nil, err
+	}
+
 	if int(C.rd_kafka_version()) < 0x01000000 {
 		// produce.offset.report is no longer used in librdkafka >= v1.0.0
 		v, _ = confCopy.extract("{topic}.produce.offset.report", nil)
@@ -440,7 +496,7 @@ func NewProducer(conf *ConfigMap) (*Producer, error) {
 	cErrstr := (*C.char)(C.malloc(C.size_t(256)))
 	defer C.free(unsafe.Pointer(cErrstr))
 
-	C.rd_kafka_conf_set_events(cConf, C.RD_KAFKA_EVENT_DR|C.RD_KAFKA_EVENT_STATS|C.RD_KAFKA_EVENT_ERROR)
+	C.rd_kafka_conf_set_events(cConf, C.RD_KAFKA_EVENT_DR|C.RD_KAFKA_EVENT_STATS|C.RD_KAFKA_EVENT_ERROR|C.RD_KAFKA_EVENT_OAUTHBEARER_TOKEN_REFRESH)
 
 	// Create librdkafka producer instance
 	p.handle.rk = C.rd_kafka_new(C.RD_KAFKA_PRODUCER, cConf, cErrstr, 256)
@@ -455,21 +511,35 @@ func NewProducer(conf *ConfigMap) (*Producer, error) {
 	p.produceChannel = make(chan *Message, produceChannelSize)
 	p.pollerTermChan = make(chan bool)
 
-	go poller(p, p.pollerTermChan)
+	if logsChanEnable {
+		p.handle.setupLogQueue(logsChan, p.pollerTermChan)
+	}
+
+	p.handle.waitGroup.Add(1)
+	go func() {
+		poller(p, p.pollerTermChan)
+		p.handle.waitGroup.Done()
+	}()
 
 	// non-batch or batch producer, only one must be used
+	var producer func(*Producer)
 	if batchProducer {
-		go channelBatchProducer(p)
+		producer = channelBatchProducer
 	} else {
-		go channelProducer(p)
+		producer = channelProducer
 	}
+
+	p.handle.waitGroup.Add(1)
+	go func() {
+		producer(p)
+		p.handle.waitGroup.Done()
+	}()
 
 	return p, nil
 }
 
 // channel_producer serves the ProduceChannel channel
 func channelProducer(p *Producer) {
-
 	for m := range p.produceChannel {
 		err := p.produce(m, C.RD_KAFKA_MSG_F_BLOCK, nil)
 		if err != nil {
@@ -477,8 +547,6 @@ func channelProducer(p *Producer) {
 			p.events <- m
 		}
 	}
-
-	p.handle.terminatedChan <- "channelProducer"
 }
 
 // channelBatchProducer serves the ProduceChannel channel and attempts to
@@ -533,28 +601,23 @@ func channelBatchProducer(p *Producer) {
 		buffered = make(map[string][]*Message)
 		bufferedCnt = 0
 	}
-	p.handle.terminatedChan <- "channelBatchProducer"
 }
 
 // poller polls the rd_kafka_t handle for events until signalled for termination
 func poller(p *Producer, termChan chan bool) {
-out:
-	for true {
+	for {
 		select {
 		case _ = <-termChan:
-			break out
+			return
 
 		default:
 			_, term := p.handle.eventPoll(p.events, 100, 1000, termChan)
 			if term {
-				break out
+				return
 			}
 			break
 		}
 	}
-
-	p.handle.terminatedChan <- "poller"
-
 }
 
 // GetMetadata queries broker for cluster and topic metadata.
@@ -576,7 +639,8 @@ func (p *Producer) QueryWatermarkOffsets(topic string, partition int32, timeoutM
 //
 // The returned offset for each partition is the earliest offset whose
 // timestamp is greater than or equal to the given timestamp in the
-// corresponding partition.
+// corresponding partition. If the provided timestamp exceeds that of the
+// last message in the partition, a value of -1 will be returned.
 //
 // The timestamps to query are represented as `.Offset` in the `times`
 // argument and the looked up offsets are represented as `.Offset` in the returned
@@ -599,4 +663,243 @@ func (p *Producer) GetFatalError() error {
 // This is to be used strictly for testing purposes.
 func (p *Producer) TestFatalError(code ErrorCode, str string) ErrorCode {
 	return testFatalError(p, code, str)
+}
+
+// SetOAuthBearerToken sets the the data to be transmitted
+// to a broker during SASL/OAUTHBEARER authentication. It will return nil
+// on success, otherwise an error if:
+// 1) the token data is invalid (meaning an expiration time in the past
+// or either a token value or an extension key or value that does not meet
+// the regular expression requirements as per
+// https://tools.ietf.org/html/rfc7628#section-3.1);
+// 2) SASL/OAUTHBEARER is not supported by the underlying librdkafka build;
+// 3) SASL/OAUTHBEARER is supported but is not configured as the client's
+// authentication mechanism.
+func (p *Producer) SetOAuthBearerToken(oauthBearerToken OAuthBearerToken) error {
+	return p.handle.setOAuthBearerToken(oauthBearerToken)
+}
+
+// SetOAuthBearerTokenFailure sets the error message describing why token
+// retrieval/setting failed; it also schedules a new token refresh event for 10
+// seconds later so the attempt may be retried. It will return nil on
+// success, otherwise an error if:
+// 1) SASL/OAUTHBEARER is not supported by the underlying librdkafka build;
+// 2) SASL/OAUTHBEARER is supported but is not configured as the client's
+// authentication mechanism.
+func (p *Producer) SetOAuthBearerTokenFailure(errstr string) error {
+	return p.handle.setOAuthBearerTokenFailure(errstr)
+}
+
+// Transactional API
+
+// InitTransactions Initializes transactions for the producer instance.
+//
+// This function ensures any transactions initiated by previous instances
+// of the producer with the same `transactional.id` are completed.
+// If the previous instance failed with a transaction in progress the
+// previous transaction will be aborted.
+// This function needs to be called before any other transactional or
+// produce functions are called when the `transactional.id` is configured.
+//
+// If the last transaction had begun completion (following transaction commit)
+// but not yet finished, this function will await the previous transaction's
+// completion.
+//
+// When any previous transactions have been fenced this function
+// will acquire the internal producer id and epoch, used in all future
+// transactional messages issued by this producer instance.
+//
+// Upon successful return from this function the application has to perform at
+// least one of the following operations within `transaction.timeout.ms` to
+// avoid timing out the transaction on the broker:
+//  * `Produce()` (et.al)
+//  * `SendOffsetsToTransaction()`
+//  * `CommitTransaction()`
+//  * `AbortTransaction()`
+//
+// Parameters:
+//  * `ctx` - The maximum time to block, or nil for indefinite.
+//            On timeout the operation may continue in the background,
+//            depending on state, and it is okay to call `InitTransactions()`
+//            again.
+//
+// Returns nil on success or an error on failure.
+// Check whether the returned error object permits retrying
+// by calling `err.(kafka.Error).IsRetriable()`, or whether a fatal
+// error has been raised by calling `err.(kafka.Error).IsFatal()`.
+func (p *Producer) InitTransactions(ctx context.Context) error {
+	cError := C.rd_kafka_init_transactions(p.handle.rk,
+		cTimeoutFromContext(ctx))
+	if cError != nil {
+		return newErrorFromCErrorDestroy(cError)
+	}
+
+	return nil
+}
+
+// BeginTransaction starts a new transaction.
+//
+// `InitTransactions()` must have been called successfully (once)
+// before this function is called.
+//
+// Any messages produced, offsets sent (`SendOffsetsToTransaction()`),
+// etc, after the successful return of this function will be part of
+// the transaction and committed or aborted atomatically.
+//
+// Finish the transaction by calling `CommitTransaction()` or
+// abort the transaction by calling `AbortTransaction()`.
+//
+// Returns nil on success or an error object on failure.
+// Check whether a fatal error has been raised by
+// calling `err.(kafka.Error).IsFatal()`.
+//
+// Note: With the transactional producer, `Produce()`, et.al, are only
+// allowed during an on-going transaction, as started with this function.
+// Any produce call outside an on-going transaction, or for a failed
+// transaction, will fail.
+func (p *Producer) BeginTransaction() error {
+	cError := C.rd_kafka_begin_transaction(p.handle.rk)
+	if cError != nil {
+		return newErrorFromCErrorDestroy(cError)
+	}
+
+	return nil
+}
+
+// SendOffsetsToTransaction sends a list of topic partition offsets to the
+// consumer group coordinator for `consumerMetadata`, and marks the offsets
+// as part part of the current transaction.
+// These offsets will be considered committed only if the transaction is
+// committed successfully.
+//
+// The offsets should be the next message your application will consume,
+// i.e., the last processed message's offset + 1 for each partition.
+// Either track the offsets manually during processing or use
+// `consumer.Position()` (on the consumer) to get the current offsets for
+// the partitions assigned to the consumer.
+//
+// Use this method at the end of a consume-transform-produce loop prior
+// to committing the transaction with `CommitTransaction()`.
+//
+// Parameters:
+//  * `ctx` - The maximum amount of time to block, or nil for indefinite.
+//  * `offsets` - List of offsets to commit to the consumer group upon
+//                successful commit of the transaction. Offsets should be
+//                the next message to consume, e.g., last processed message + 1.
+//  * `consumerMetadata` - The current consumer group metadata as returned by
+//                `consumer.GetConsumerGroupMetadata()` on the consumer
+//                instance the provided offsets were consumed from.
+//
+// Note: The consumer must disable auto commits (set `enable.auto.commit` to false on the consumer).
+//
+// Note: Logical and invalid offsets (e.g., OffsetInvalid) in
+// `offsets` will be ignored. If there are no valid offsets in
+// `offsets` the function will return nil and no action will be taken.
+//
+// Returns nil on success or an error object on failure.
+// Check whether the returned error object permits retrying
+// by calling `err.(kafka.Error).IsRetriable()`, or whether an abortable
+// or fatal error has been raised by calling
+// `err.(kafka.Error).TxnRequiresAbort()` or `err.(kafka.Error).IsFatal()`
+// respectively.
+func (p *Producer) SendOffsetsToTransaction(ctx context.Context, offsets []TopicPartition, consumerMetadata *ConsumerGroupMetadata) error {
+	var cOffsets *C.rd_kafka_topic_partition_list_t
+	if offsets != nil {
+		cOffsets = newCPartsFromTopicPartitions(offsets)
+		defer C.rd_kafka_topic_partition_list_destroy(cOffsets)
+	}
+
+	cgmd, err := deserializeConsumerGroupMetadata(consumerMetadata.serialized)
+	if err != nil {
+		return err
+	}
+	defer C.rd_kafka_consumer_group_metadata_destroy(cgmd)
+
+	cError := C.rd_kafka_send_offsets_to_transaction(
+		p.handle.rk,
+		cOffsets,
+		cgmd,
+		cTimeoutFromContext(ctx))
+	if cError != nil {
+		return newErrorFromCErrorDestroy(cError)
+	}
+
+	return nil
+}
+
+// CommitTransaction commits the current transaction.
+//
+// Any outstanding messages will be flushed (delivered) before actually
+// committing the transaction.
+//
+// If any of the outstanding messages fail permanently the current
+// transaction will enter the abortable error state and this
+// function will return an abortable error, in this case the application
+// must call `AbortTransaction()` before attempting a new
+// transaction with `BeginTransaction()`.
+//
+// Parameters:
+//  * `ctx` - The maximum amount of time to block, or nil for indefinite.
+//
+// Note: This function will block until all outstanding messages are
+// delivered and the transaction commit request has been successfully
+// handled by the transaction coordinator, or until the `ctx` expires,
+// which ever comes first. On timeout the application may
+// call the function again.
+//
+// Note: Will automatically call `Flush()` to ensure all queued
+// messages are delivered before attempting to commit the transaction.
+// The application MUST serve the `producer.Events()` channel for delivery
+// reports in a separate go-routine during this time.
+//
+// Returns nil on success or an error object on failure.
+// Check whether the returned error object permits retrying
+// by calling `err.(kafka.Error).IsRetriable()`, or whether an abortable
+// or fatal error has been raised by calling
+// `err.(kafka.Error).TxnRequiresAbort()` or `err.(kafka.Error).IsFatal()`
+// respectively.
+func (p *Producer) CommitTransaction(ctx context.Context) error {
+	cError := C.rd_kafka_commit_transaction(p.handle.rk,
+		cTimeoutFromContext(ctx))
+	if cError != nil {
+		return newErrorFromCErrorDestroy(cError)
+	}
+
+	return nil
+}
+
+// AbortTransaction aborts the ongoing transaction.
+//
+// This function should also be used to recover from non-fatal abortable
+// transaction errors.
+//
+// Any outstanding messages will be purged and fail with
+// `ErrPurgeInflight` or `ErrPurgeQueue`.
+//
+// Parameters:
+//  * `ctx` - The maximum amount of time to block, or nil for indefinite.
+//
+// Note: This function will block until all outstanding messages are purged
+// and the transaction abort request has been successfully
+// handled by the transaction coordinator, or until the `ctx` expires,
+// which ever comes first. On timeout the application may
+// call the function again.
+//
+// Note: Will automatically call `Purge()` and `Flush()` to ensure all queued
+// and in-flight messages are purged before attempting to abort the transaction.
+// The application MUST serve the `producer.Events()` channel for delivery
+// reports in a separate go-routine during this time.
+//
+// Returns nil on success or an error object on failure.
+// Check whether the returned error object permits retrying
+// by calling `err.(kafka.Error).IsRetriable()`, or whether a fatal error
+// has been raised by calling `err.(kafka.Error).IsFatal()`.
+func (p *Producer) AbortTransaction(ctx context.Context) error {
+	cError := C.rd_kafka_abort_transaction(p.handle.rk,
+		cTimeoutFromContext(ctx))
+	if cError != nil {
+		return newErrorFromCErrorDestroy(cError)
+	}
+
+	return nil
 }

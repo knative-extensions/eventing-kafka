@@ -510,7 +510,7 @@ func NewKafkaChannelChannelDeployment() *appsv1.Deployment {
 									},
 								},
 							},
-							ImagePullPolicy: corev1.PullAlways,
+							ImagePullPolicy: corev1.PullIfNotPresent,
 							Resources: corev1.ResourceRequirements{
 								Requests: corev1.ResourceList{
 									corev1.ResourceCPU:    resource.MustParse(ChannelCpuRequest),
@@ -711,7 +711,7 @@ func NewKafkaChannelDispatcherDeployment() *appsv1.Deployment {
 									},
 								},
 							},
-							ImagePullPolicy: corev1.PullAlways,
+							ImagePullPolicy: corev1.PullIfNotPresent,
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
 									corev1.ResourceMemory: resource.MustParse(DispatcherMemoryLimit),

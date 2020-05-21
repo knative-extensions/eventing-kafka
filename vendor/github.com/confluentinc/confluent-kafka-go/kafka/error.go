@@ -33,22 +33,24 @@ import (
 
 // Error provides a Kafka-specific error container
 type Error struct {
-	code  ErrorCode
-	str   string
-	fatal bool
+	code             ErrorCode
+	str              string
+	fatal            bool
+	retriable        bool
+	txnRequiresAbort bool
 }
 
 func newError(code C.rd_kafka_resp_err_t) (err Error) {
-	return Error{ErrorCode(code), "", false}
+	return Error{code: ErrorCode(code)}
 }
 
 // NewError creates a new Error.
 func NewError(code ErrorCode, str string, fatal bool) (err Error) {
-	return Error{code, str, fatal}
+	return Error{code: code, str: str, fatal: fatal}
 }
 
 func newErrorFromString(code ErrorCode, str string) (err Error) {
-	return Error{code, str, false}
+	return Error{code: code, str: str}
 }
 
 func newErrorFromCString(code C.rd_kafka_resp_err_t, cstr *C.char) (err Error) {
@@ -58,11 +60,24 @@ func newErrorFromCString(code C.rd_kafka_resp_err_t, cstr *C.char) (err Error) {
 	} else {
 		str = ""
 	}
-	return Error{ErrorCode(code), str, false}
+	return Error{code: ErrorCode(code), str: str}
 }
 
 func newCErrorFromString(code C.rd_kafka_resp_err_t, str string) (err Error) {
 	return newErrorFromString(ErrorCode(code), str)
+}
+
+// newErrorFromCError creates a new Error instance and destroys
+// the passed cError.
+func newErrorFromCErrorDestroy(cError *C.rd_kafka_error_t) Error {
+	defer C.rd_kafka_error_destroy(cError)
+	return Error{
+		code:             ErrorCode(C.rd_kafka_error_code(cError)),
+		str:              C.GoString(C.rd_kafka_error_string(cError)),
+		fatal:            cint2bool(C.rd_kafka_error_is_fatal(cError)),
+		retriable:        cint2bool(C.rd_kafka_error_is_retriable(cError)),
+		txnRequiresAbort: cint2bool(C.rd_kafka_error_txn_requires_abort(cError)),
+	}
 }
 
 // Error returns a human readable representation of an Error
@@ -98,6 +113,22 @@ func (e Error) Code() ErrorCode {
 // idempotent producer errors.
 func (e Error) IsFatal() bool {
 	return e.fatal
+}
+
+// IsRetriable returns true if the operation that caused this error
+// may be retried.
+// This flag is currently only set by the Transactional producer API.
+func (e Error) IsRetriable() bool {
+	return e.retriable
+}
+
+// TxnRequiresAbort returns true if the error is an abortable transaction error
+// that requires the application to abort the current transaction with
+// AbortTransaction() and start a new transaction with BeginTransaction()
+// if it wishes to proceed with transactional operations.
+// This flag is only set by the Transactional producer API.
+func (e Error) TxnRequiresAbort() bool {
+	return e.txnRequiresAbort
 }
 
 // getFatalError returns an Error object if the client instance has raised a fatal error, else nil.

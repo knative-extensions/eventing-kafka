@@ -19,6 +19,7 @@ limitations under the License.
 package tools
 
 import (
+	_ "github.com/confluentinc/confluent-kafka-go/kafka/librdkafka"
 	_ "knative.dev/pkg/hack"
 	_ "knative.dev/test-infra/scripts"
 )

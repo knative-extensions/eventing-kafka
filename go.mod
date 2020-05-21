@@ -6,7 +6,7 @@ require (
 	github.com/Azure/azure-event-hubs-go v1.3.1
 	github.com/Azure/go-autorest/autorest/azure/auth v0.4.2 // indirect
 	github.com/cloudevents/sdk-go/v2 v2.0.0-RC4
-	github.com/confluentinc/confluent-kafka-go v1.0.0
+	github.com/confluentinc/confluent-kafka-go v1.4.2
 	github.com/google/go-cmp v0.4.0
 	github.com/grpc-ecosystem/grpc-gateway v1.13.0 // indirect
 	github.com/pkg/errors v0.9.1
