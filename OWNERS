@@ -5,6 +5,7 @@ approvers:
 - grantr
 - matzew
 - lberk
+- slinkydeveloper
 - davyodom
 - travis-minke-sap
 - phamilton
@@ -15,6 +16,7 @@ reviewers:
 - grantr
 - matzew
 - lberk
+- slinkydeveloper
 - davyodom
 - travis-minke-sap
 - phamilton
