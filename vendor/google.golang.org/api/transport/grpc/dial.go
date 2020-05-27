@@ -43,11 +43,10 @@ func Dial(ctx context.Context, opts ...option.ClientOption) (*grpc.ClientConn, e
 	if o.GRPCConnPool != nil {
 		return o.GRPCConnPool.Conn(), nil
 	}
-	if o.GRPCConnPoolSize != 0 {
-		// NOTE(cbro): RoundRobin and WithBalancer are deprecated and we need to remove usages of it.
-		balancer := grpc.RoundRobin(internal.NewPoolResolver(o.GRPCConnPoolSize, o))
-		o.GRPCDialOpts = append(o.GRPCDialOpts, grpc.WithBalancer(balancer))
-	}
+	// NOTE(cbro): We removed support for option.WithGRPCConnPool (GRPCConnPoolSize)
+	// on 2020-02-12 because RoundRobin and WithBalancer are deprecated and we need to remove usages of it.
+	//
+	// Connection pooling is only done via DialPool.
 	return dial(ctx, false, o)
 }
 
@@ -78,6 +77,11 @@ func DialPool(ctx context.Context, opts ...option.ClientOption) (ConnPool, error
 		return o.GRPCConnPool, nil
 	}
 	poolSize := o.GRPCConnPoolSize
+	if o.GRPCConn != nil {
+		// WithGRPCConn is technically incompatible with WithGRPCConnectionPool.
+		// Always assume pool size is 1 when a grpc.ClientConn is explicitly used.
+		poolSize = 1
+	}
 	o.GRPCConnPoolSize = 0 // we don't *need* to set this to zero, but it's safe to.
 
 	if poolSize == 0 || poolSize == 1 {

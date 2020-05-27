@@ -6,7 +6,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
-	eventingduck "knative.dev/eventing/pkg/apis/duck/v1alpha1"
+	eventingduckv1alpha1 "knative.dev/eventing/pkg/apis/duck/v1alpha1"
+	eventingduckv1beta1 "knative.dev/eventing/pkg/apis/duck/v1beta1"
 	"knative.dev/pkg/apis"
 )
 
@@ -60,10 +61,10 @@ func WithKafkaChannelAddress(a string) KafkaChannelOption {
 func WithSubscriber(uid types.UID, uri string) KafkaChannelOption {
 	return func(nc *v1alpha1.KafkaChannel) {
 		if nc.Spec.Subscribable == nil {
-			nc.Spec.Subscribable = &eventingduck.Subscribable{}
+			nc.Spec.Subscribable = &eventingduckv1alpha1.Subscribable{}
 		}
 
-		nc.Spec.Subscribable.Subscribers = append(nc.Spec.Subscribable.Subscribers, eventingduck.SubscriberSpec{
+		nc.Spec.Subscribable.Subscribers = append(nc.Spec.Subscribable.Subscribers, eventingduckv1alpha1.SubscriberSpec{
 			UID: uid,
 			SubscriberURI: &apis.URL{
 				Scheme: "http",
@@ -76,10 +77,10 @@ func WithSubscriber(uid types.UID, uri string) KafkaChannelOption {
 func WithSubscriberReady(uid types.UID) KafkaChannelOption {
 	return func(nc *v1alpha1.KafkaChannel) {
 		if nc.Status.SubscribableStatus == nil {
-			nc.Status.SubscribableStatus = &eventingduck.SubscribableStatus{}
+			nc.Status.SubscribableStatus = &eventingduckv1alpha1.SubscribableStatus{}
 		}
 
-		nc.Status.SubscribableStatus.Subscribers = append(nc.Status.SubscribableStatus.Subscribers, eventingduck.SubscriberStatus{
+		nc.Status.SubscribableStatus.Subscribers = append(nc.Status.SubscribableStatus.Subscribers, eventingduckv1beta1.SubscriberStatus{
 			Ready: corev1.ConditionTrue,
 			UID:   uid,
 		})

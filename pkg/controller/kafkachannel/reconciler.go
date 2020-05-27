@@ -3,11 +3,6 @@ package kafkachannel
 import (
 	"context"
 	"fmt"
-	kafkaadmin "knative.dev/eventing-kafka/pkg/common/kafka/admin"
-	"knative.dev/eventing-kafka/pkg/controller/constants"
-	"knative.dev/eventing-kafka/pkg/controller/env"
-	"knative.dev/eventing-kafka/pkg/controller/event"
-	"knative.dev/eventing-kafka/pkg/controller/util"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -18,6 +13,11 @@ import (
 	kafkaclientset "knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned"
 	"knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/reconciler/messaging/v1alpha1/kafkachannel"
 	kafkalisters "knative.dev/eventing-contrib/kafka/channel/pkg/client/listers/messaging/v1alpha1"
+	kafkaadmin "knative.dev/eventing-kafka/pkg/common/kafka/admin"
+	"knative.dev/eventing-kafka/pkg/controller/constants"
+	"knative.dev/eventing-kafka/pkg/controller/env"
+	"knative.dev/eventing-kafka/pkg/controller/event"
+	"knative.dev/eventing-kafka/pkg/controller/util"
 	"knative.dev/pkg/reconciler"
 )
 
@@ -113,7 +113,7 @@ func (r *Reconciler) reconcile(ctx context.Context, channel *kafkav1alpha1.Kafka
 		return fmt.Errorf(constants.ReconciliationFailedError)
 	}
 
-	// Add Labels To KafkaChannel
+	// Reconcile The KafkaChannel Itself (MetaData, etc...)
 	err = r.reconcileKafkaChannel(ctx, channel)
 	if err != nil {
 		return fmt.Errorf(constants.ReconciliationFailedError)

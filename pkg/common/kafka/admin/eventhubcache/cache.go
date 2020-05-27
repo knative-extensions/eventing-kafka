@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"knative.dev/eventing-kafka/pkg/common/kafka/admin/util"
-	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
+	"knative.dev/eventing-kafka/pkg/common/kafka/admin/util"
+	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
 )

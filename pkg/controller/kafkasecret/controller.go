@@ -2,10 +2,6 @@ package kafkasecret
 
 import (
 	"context"
-	"knative.dev/eventing-kafka/pkg/controller/constants"
-	"knative.dev/eventing-kafka/pkg/controller/env"
-	"knative.dev/eventing-kafka/pkg/controller/kafkasecretinformer"
-	"knative.dev/eventing-kafka/pkg/controller/kafkasecretinjection"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,6 +9,10 @@ import (
 	"k8s.io/client-go/tools/cache"
 	injectionclient "knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/client"
 	"knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/informers/messaging/v1alpha1/kafkachannel"
+	"knative.dev/eventing-kafka/pkg/controller/constants"
+	"knative.dev/eventing-kafka/pkg/controller/env"
+	"knative.dev/eventing-kafka/pkg/controller/kafkasecretinformer"
+	"knative.dev/eventing-kafka/pkg/controller/kafkasecretinjection"
 	"knative.dev/eventing/pkg/logging"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"

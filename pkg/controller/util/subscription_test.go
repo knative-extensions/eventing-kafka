@@ -1,9 +1,9 @@
 package util
 
 import (
-	"knative.dev/eventing-kafka/pkg/controller/constants"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/eventing-kafka/pkg/controller/constants"
 	messagingv1alpha1 "knative.dev/eventing/pkg/apis/messaging/v1alpha1"
 	logtesting "knative.dev/pkg/logging/testing"
 	"testing"

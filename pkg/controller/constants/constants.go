@@ -4,6 +4,9 @@ const (
 	// Knative Eventing Namespace
 	KnativeEventingNamespace = "knative-eventing"
 
+	// Knative Duck Versions
+	SubscribableDuckVersionAnnotationV1Alpha1 = "v1alpha1"
+
 	// Knative Controller Naming
 	KafkaChannelControllerAgentName = "kafka-channel-controller"
 	KafkaSecretControllerAgentName  = "kafka-secret-controller"

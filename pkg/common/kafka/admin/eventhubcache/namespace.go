@@ -1,9 +1,9 @@
 package eventhubcache
 
 import (
-	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 )
 
 // Azure EventHubs Namespace Struct

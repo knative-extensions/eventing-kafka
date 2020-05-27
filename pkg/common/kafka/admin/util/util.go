@@ -1,10 +1,10 @@
 package util
 
 import (
-	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 )
 
 // Utility Function For Getting All (Limit 100) The Kafka Secrets In A K8S Namespace

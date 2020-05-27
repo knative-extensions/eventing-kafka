@@ -659,7 +659,7 @@ func (m *TimeInterval) GetStartTime() *timestamp.Timestamp {
 // representative data can be more easily graphed and comprehended, and the
 // individual time series data is still available for later drilldown. For more
 // details, see [Aggregating Time
-// Series](/monitoring/api/v3/metrics#aggregating_time_series).
+// Series](https://cloud.google.com/monitoring/api/v3/metrics#aggregating_time_series).
 type Aggregation struct {
 	// The `alignment_period` specifies a time interval, in seconds, that is used
 	// to divide the data in all the
@@ -787,7 +787,9 @@ func init() {
 	proto.RegisterType((*Aggregation)(nil), "google.monitoring.v3.Aggregation")
 }
 
-func init() { proto.RegisterFile("google/monitoring/v3/common.proto", fileDescriptor_013c57c1dcbb8d65) }
+func init() {
+	proto.RegisterFile("google/monitoring/v3/common.proto", fileDescriptor_013c57c1dcbb8d65)
+}
 
 var fileDescriptor_013c57c1dcbb8d65 = []byte{
 	// 946 bytes of a gzipped FileDescriptorProto

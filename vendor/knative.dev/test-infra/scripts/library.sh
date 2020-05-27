@@ -26,7 +26,7 @@ readonly SERVING_GKE_VERSION=gke-latest
 readonly SERVING_GKE_IMAGE=cos
 
 # Conveniently set GOPATH if unset
-if [[ -z "${GOPATH:-}" ]]; then
+if [[ ! -v GOPATH ]]; then
   export GOPATH="$(go env GOPATH)"
   if [[ -z "${GOPATH}" ]]; then
     echo "WARNING: GOPATH not set and go binary unable to provide it"
@@ -34,9 +34,9 @@ if [[ -z "${GOPATH:-}" ]]; then
 fi
 
 # Useful environment variables
-[[ -n "${PROW_JOB_ID:-}" ]] && IS_PROW=1 || IS_PROW=0
+[[ -v PROW_JOB_ID ]] && IS_PROW=1 || IS_PROW=0
 readonly IS_PROW
-[[ -z "${REPO_ROOT_DIR:-}" ]] && REPO_ROOT_DIR="$(git rev-parse --show-toplevel)"
+[[ ! -v REPO_ROOT_DIR ]] && REPO_ROOT_DIR="$(git rev-parse --show-toplevel)"
 readonly REPO_ROOT_DIR
 readonly REPO_NAME="$(basename ${REPO_ROOT_DIR})"
 
@@ -544,7 +544,8 @@ function update_licenses() {
   local dst=$1
   local dir=$2
   shift
-  run_go_tool github.com/google/go-licenses go-licenses save "${dir}" --save_path="${dst}" --force || return 1
+  run_go_tool github.com/google/go-licenses go-licenses save "${dir}" --save_path="${dst}" --force || \
+    { echo "--- FAIL: go-licenses failed to update licenses"; return 1; }
   # Hack to make sure directories retain write permissions after save. This
   # can happen if the directory being copied is a Go module.
   # See https://github.com/google/go-licenses/issues/11
@@ -554,7 +555,8 @@ function update_licenses() {
 # Run go-licenses to check for forbidden licenses.
 function check_licenses() {
   # Check that we don't have any forbidden licenses.
-  run_go_tool github.com/google/go-licenses go-licenses check "${REPO_ROOT_DIR}/..." || return 1
+  run_go_tool github.com/google/go-licenses go-licenses check "${REPO_ROOT_DIR}/..." || \
+    { echo "--- FAIL: go-licenses failed the license check"; return 1; }
 }
 
 # Run the given linter on the given files, checking it exists first.
@@ -653,6 +655,21 @@ function get_canonical_path() {
   echo "$(cd ${path%/*} && echo $PWD/${path##*/})"
 }
 
+# List changed files in the current PR.
+# This is implemented as a function so it can be mocked in unit tests.
+# It will fail if a file name ever contained a newline character (which is bad practice anyway)
+function list_changed_files() {
+  if [[ -v PULL_BASE_SHA ]] && [[ -v PULL_PULL_SHA ]]; then
+    # Avoid warning when there are more than 1085 files renamed:
+    # https://stackoverflow.com/questions/7830728/warning-on-diff-renamelimit-variable-when-doing-git-push
+    git config diff.renames 0
+    git --no-pager diff --name-only ${PULL_BASE_SHA}..${PULL_PULL_SHA}
+  else
+    # Do our best if not running in Prow
+    git diff --name-only HEAD^
+  fi
+}
+
 # Returns the current branch.
 function current_branch() {
   local branch_name=""
@@ -693,6 +710,29 @@ function get_latest_knative_yaml_source() {
     # Otherwise, fall back to nightly.
   fi
   echo "https://storage.googleapis.com/knative-nightly/${repo_name}/latest/${yaml_name}.yaml"
+}
+
+function shellcheck_new_files() {
+  declare -a array_of_files
+  local failed=0
+  readarray -t -d '\n' array_of_files < <(list_changed_files)
+  for filename in "${array_of_files[@]}"; do
+    if echo "${filename}" | grep -q "^vendor/"; then
+      continue
+    fi
+    if file "${filename}" | grep -q "shell script"; then
+      # SC1090 is "Can't follow non-constant source"; we will scan files individually
+      if shellcheck -e SC1090 "${filename}"; then
+        echo "--- PASS: shellcheck on ${filename}"
+      else
+        echo "--- FAIL: shellcheck on ${filename}"
+        failed=1
+      fi
+    fi
+  done
+  if [[ ${failed} -eq 1 ]]; then
+    fail_script "shellcheck failures"
+  fi
 }
 
 # Initializations that depend on previous functions.

@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	testHttpPort  = "8089"
+	testHttpPort  = "8090"
 	testHttpHost  = "localhost"
 	readinessPath = "/healthy"
 )

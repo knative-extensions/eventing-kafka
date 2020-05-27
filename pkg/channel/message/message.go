@@ -5,8 +5,8 @@ import (
 	"github.com/cloudevents/sdk-go/v2/event"
 	"github.com/cloudevents/sdk-go/v2/types"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
-	"knative.dev/eventing-kafka/pkg/channel/constants"
 	"go.uber.org/zap"
+	"knative.dev/eventing-kafka/pkg/channel/constants"
 	"strconv"
 	"time"
 )

@@ -5,11 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
 	util2 "knative.dev/eventing-kafka/pkg/common/kafka/admin/util"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	"knative.dev/eventing-kafka/pkg/common/kafka/util"
-	"go.uber.org/zap"
-	corev1 "k8s.io/api/core/v1"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
 )

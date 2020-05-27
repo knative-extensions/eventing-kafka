@@ -2,12 +2,12 @@ package channel
 
 import (
 	"context"
-	channelhealth "knative.dev/eventing-kafka/pkg/channel/health"
-	"knative.dev/eventing-kafka/pkg/channel/test"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	kafkaclientset "knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned"
 	fakeclientset "knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned/fake"
+	channelhealth "knative.dev/eventing-kafka/pkg/channel/health"
+	"knative.dev/eventing-kafka/pkg/channel/test"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
 	"testing"
