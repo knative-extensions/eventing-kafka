@@ -56,7 +56,7 @@ func NewKafkaAdminClient(ctx context.Context, namespace string) (AdminClientInte
 		return nil, err
 	}
 
-	// Handle Various Numbers Of Kafka Secrets - Currently Only Support One!
+	//  Currently Only Support One Kafka Secret - Invalid AdminClient For All Other Cases!
 	if len(kafkaSecrets.Items) != 1 {
 		logger.Warn(fmt.Sprintf("Expected 1 Kafka Secret But Found %d - Kafka AdminClient Will Not Be Functional!", len(kafkaSecrets.Items)))
 		return &KafkaAdminClient{logger: logger, namespace: namespace}, nil
