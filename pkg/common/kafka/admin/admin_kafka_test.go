@@ -55,8 +55,8 @@ func TestNewKafkaAdminClientNoSecrets(t *testing.T) {
 	adminClient, err := NewKafkaAdminClient(ctx, namespace)
 
 	// Verify The Results
-	assert.NotNil(t, err)
-	assert.Nil(t, adminClient)
+	assert.Nil(t, err)
+	assert.NotNil(t, adminClient)
 }
 
 // Test The Kafka AdminClient CreateTopics() Functionality
@@ -103,6 +103,36 @@ func TestKafkaAdminClientCreateTopics(t *testing.T) {
 	mockConfluentAdminClient.AssertExpectations(t)
 }
 
+// Test The Kafka AdminClient CreateTopics() Without AdminClient Functionality
+func TestKafkaAdminClientCreateTopicsInvalidAdminClient(t *testing.T) {
+
+	// Test Data
+	ctx := context.TODO()
+	topicName := "TestTopicName"
+	topicNumPartitions := 4
+	topicRetentionMillis := int64(3 * constants.MillisPerDay)
+
+	// Create The Kafka TopicSpecification For The Topic/EventHub To Be Created
+	topicSpecifications := []kafka.TopicSpecification{{
+		Topic:         topicName,
+		NumPartitions: topicNumPartitions,
+		Config:        map[string]string{constants.TopicSpecificationConfigRetentionMs: strconv.FormatInt(topicRetentionMillis, 10)},
+	}}
+
+	// Test Logger
+	logger := logtesting.TestLogger(t).Desugar()
+
+	// Create A New Kafka AdminClient To Test
+	adminClient := &KafkaAdminClient{logger: logger}
+
+	// Perform The Test
+	kafkaTopicResults, err := adminClient.CreateTopics(ctx, topicSpecifications)
+
+	// Verify The Results
+	assert.NotNil(t, err)
+	assert.Nil(t, kafkaTopicResults)
+}
+
 // Test The Kafka AdminClient DeleteTopics() Functionality
 func TestKafkaAdminClientDeleteTopics(t *testing.T) {
 
@@ -138,6 +168,27 @@ func TestKafkaAdminClientDeleteTopics(t *testing.T) {
 	mockConfluentAdminClient.AssertExpectations(t)
 }
 
+// Test The Kafka AdminClient DeleteTopics() Without AdminClient Functionality
+func TestKafkaAdminClientDeleteTopicsInvalidAdminClient(t *testing.T) {
+
+	// Test Data
+	ctx := context.TODO()
+	topicName := "TestTopicName"
+
+	// Test Logger
+	logger := logtesting.TestLogger(t).Desugar()
+
+	// Create A New Kafka AdminClient To Test
+	adminClient := &KafkaAdminClient{logger: logger}
+
+	// Perform The Test
+	kafkaTopicResults, err := adminClient.DeleteTopics(ctx, []string{topicName})
+
+	// Verify The Results
+	assert.NotNil(t, err)
+	assert.Nil(t, kafkaTopicResults)
+}
+
 // Test The Kafka AdminClient Close() Functionality
 func TestKafkaAdminClientClose(t *testing.T) {
 
@@ -159,6 +210,21 @@ func TestKafkaAdminClientClose(t *testing.T) {
 
 	// Verify The Results
 	mockConfluentAdminClient.AssertExpectations(t)
+}
+
+// Test The Kafka AdminClient Close() Without AdminClient Functionality
+func TestKafkaAdminClientCloseInvalidAdminClient(t *testing.T) {
+
+	// Test Logger
+	logger := logtesting.TestLogger(t).Desugar()
+
+	// Create A New Kafka AdminClient To Test
+	adminClient := &KafkaAdminClient{logger: logger}
+
+	// Perform The Test
+	adminClient.Close()
+
+	// Nothing To Verify
 }
 
 // Test The Kafka AdminClient GetKafkaSecretName() Functionality

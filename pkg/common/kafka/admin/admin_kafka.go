@@ -56,11 +56,12 @@ func NewKafkaAdminClient(ctx context.Context, namespace string) (AdminClientInte
 		return nil, err
 	}
 
-	// Should Only Be One Kafka Secret In The Namespace
+	// Handle Various Numbers Of Kafka Secrets - Currently Only Support One!
 	if len(kafkaSecrets.Items) != 1 {
-		logger.Error(fmt.Sprintf("Expected 1 Kafka Secret But Found %d", len(kafkaSecrets.Items)))
-		err = errors.New(fmt.Sprintf("expected 1 Kafka Secret but found %d", len(kafkaSecrets.Items)))
-		return nil, err
+		logger.Warn(fmt.Sprintf("Expected 1 Kafka Secret But Found %d - Kafka AdminClient Will Not Be Functional!", len(kafkaSecrets.Items)))
+		return &KafkaAdminClient{logger: logger, namespace: namespace}, nil
+	} else {
+		logger.Info("Found 1 Kafka Secret", zap.String("Secret", kafkaSecrets.Items[0].Name))
 	}
 
 	// Extract The Relevant Data From The Kafka Secret
@@ -101,17 +102,31 @@ func NewKafkaAdminClient(ctx context.Context, namespace string) (AdminClientInte
 
 // CreateTopics - Confluent Pass-Through Function
 func (c KafkaAdminClient) CreateTopics(ctx context.Context, topicSpecifications []kafka.TopicSpecification, options ...kafka.CreateTopicsAdminOption) ([]kafka.TopicResult, error) {
-	return c.adminClient.CreateTopics(ctx, topicSpecifications, options...)
+	if c.adminClient == nil {
+		c.logger.Error("Unable To Create Topics Due To Invalid AdminClient - Check Kafka Authorization Secret")
+		return nil, fmt.Errorf("unable to create topics due to invalid AdminClient - check Kafka authorization secrets")
+	} else {
+		return c.adminClient.CreateTopics(ctx, topicSpecifications, options...)
+	}
 }
 
 // DeleteTopics - Confluent Pass-Through Function
 func (c KafkaAdminClient) DeleteTopics(ctx context.Context, topics []string, options ...kafka.DeleteTopicsAdminOption) ([]kafka.TopicResult, error) {
-	return c.adminClient.DeleteTopics(ctx, topics, options...)
+	if c.adminClient == nil {
+		c.logger.Error("Unable To Delete Topics Due To Invalid AdminClient - Check Kafka Authorization Secret")
+		return nil, fmt.Errorf("unable to delete topics due to invalid AdminClient - check Kafka authorization secrets")
+	} else {
+		return c.adminClient.DeleteTopics(ctx, topics, options...)
+	}
 }
 
 // Close - Confluent Pass-Through Function
 func (c KafkaAdminClient) Close() {
-	c.adminClient.Close()
+	if c.adminClient == nil {
+		c.logger.Error("Unable To Close Invalid AdminClient - Check Kafka Authorization Secret")
+	} else {
+		c.adminClient.Close()
+	}
 }
 
 // Get The K8S Secret With Kafka Credentials For The Specified Topic
