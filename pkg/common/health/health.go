@@ -58,8 +58,8 @@ func (hs *Server) Shutdown() {
 func (hs *Server) initializeServer(httpPort string) {
 
 	serveMux := http.NewServeMux()
-	serveMux.HandleFunc(LivenessPath, hs.handleLiveness)
-	serveMux.HandleFunc(ReadinessPath, hs.handleReadiness)
+	serveMux.HandleFunc(LivenessPath, hs.HandleLiveness)
+	serveMux.HandleFunc(ReadinessPath, hs.HandleReadiness)
 
 	// Create The Server For Configured HTTP Port
 	server := &http.Server{Addr: ":" + httpPort, Handler: serveMux}
@@ -103,7 +103,7 @@ func (hs *Server) Alive() bool {
 }
 
 // HTTP Request Handler For Liveness Requests (/healthz)
-func (hs *Server) handleLiveness(responseWriter http.ResponseWriter, request *http.Request) {
+func (hs *Server) HandleLiveness(responseWriter http.ResponseWriter, request *http.Request) {
 	if request.Method != http.MethodGet {
 		responseWriter.WriteHeader(http.StatusMethodNotAllowed)
 		return
@@ -116,7 +116,7 @@ func (hs *Server) handleLiveness(responseWriter http.ResponseWriter, request *ht
 }
 
 // HTTP Request Handler For Readiness Requests (/healthy)
-func (hs *Server) handleReadiness(responseWriter http.ResponseWriter, request *http.Request) {
+func (hs *Server) HandleReadiness(responseWriter http.ResponseWriter, request *http.Request) {
 	if request.Method != http.MethodGet {
 		responseWriter.WriteHeader(http.StatusMethodNotAllowed)
 		return
