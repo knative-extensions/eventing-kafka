@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	testHttpPort  = "8090"
+	testHttpPort  = "0"
 	testHttpHost  = "localhost"
 	readinessPath = "/healthy"
 )
@@ -49,7 +49,7 @@ func TestDispatcherHealthServer(t *testing.T) {
 	chs := NewDispatcherHealthServer(testHttpPort)
 	chs.Start(logger)
 
-	readinessUri, err := url.Parse(fmt.Sprintf("http://%s:%s%s", testHttpHost, testHttpPort, readinessPath))
+	readinessUri, err := url.Parse(fmt.Sprintf("http://%s:%s%s", testHttpHost, chs.HttpPort, readinessPath))
 	assert.Nil(t, err)
 	waitServerReady(readinessUri.String(), 3*time.Second)
 
