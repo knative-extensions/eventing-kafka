@@ -75,7 +75,11 @@ func (hs *Server) Start(logger *zap.Logger) {
 		logger.Error("Server HTTP Listen Returned Error", zap.Error(err))
 	}
 
+	// Set the HttpPort field to whatever port was actually used by the system
+	// before launching the Server goroutine, so that the caller can access it.
+	// (If "0" is passed in then the Listen call will assign one arbitrarily)
 	hs.HttpPort = strconv.Itoa(listener.Addr().(*net.TCPAddr).Port)
+
 	go func() {
 		logger.Info("Starting Server HTTP Server on port " + hs.HttpPort)
 
