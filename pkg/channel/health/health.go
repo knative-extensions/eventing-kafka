@@ -22,8 +22,7 @@ type Server struct {
 // Creates A New Server With Specified Configuration
 func NewChannelHealthServer(httpPort string) *Server {
 	channelHealth := &Server{}
-	health := health.NewHealthServer(httpPort, channelHealth)
-	channelHealth.Server = *health
+	channelHealth.Server = *health.NewHealthServer(httpPort, channelHealth)
 
 	// Return The Server
 	return channelHealth

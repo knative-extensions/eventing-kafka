@@ -8,8 +8,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strconv"
-	"sync"
 	"testing"
 	"time"
 )
@@ -38,29 +36,23 @@ func (ts *testStatus) Ready() bool {
 
 // Mock Status For Starting Health Server
 var mockStatus testStatus
-var mux sync.Mutex
-var nextPort = 8090
 
-func getTestHealthServer() (*Server, string) {
-	mux.Lock()
-	defer mux.Unlock()
-	port := strconv.Itoa(nextPort)
-	health := NewHealthServer(strconv.Itoa(nextPort), &mockStatus)
-	nextPort ++
+func getTestHealthServer() *Server {
+	health := NewHealthServer("0", &mockStatus)
 	mockStatus.server = health
-	return health, port
+	return health
 }
 
 // Test The NewHealthServer() Functionality
 func TestNewHealthServer(t *testing.T) {
 
 	// Create A Health Server
-	health, port := getTestHealthServer()
+	health := getTestHealthServer()
 
 	// Validate The EventProxy
 	assert.NotNil(t, health)
 	assert.NotNil(t, health.server)
-	assert.Equal(t, ":"+port, health.server.Addr)
+	assert.Equal(t, ":"+health.HttpPort, health.server.Addr)
 	assert.Equal(t, false, health.alive)
 }
 
@@ -68,7 +60,7 @@ func TestNewHealthServer(t *testing.T) {
 func TestFlagWrites(t *testing.T) {
 
 	// Create A New Health Server
-	health, _ := getTestHealthServer()
+	health := getTestHealthServer()
 
 	// Test Liveness Flag
 	health.SetAlive(false)
@@ -84,43 +76,43 @@ func TestFlagWrites(t *testing.T) {
 func TestUnsupportedEventsRequests(t *testing.T) {
 
 	// Create A New Health Server
-	health, _ := getTestHealthServer()
+	health := getTestHealthServer()
 
 	// Test All Unsupported Events Requests
-	performUnsupportedMethodRequestTest(t, http.MethodConnect, livenessPath, health.handleLiveness)
-	performUnsupportedMethodRequestTest(t, http.MethodDelete, livenessPath, health.handleLiveness)
-	performUnsupportedMethodRequestTest(t, http.MethodPost, livenessPath, health.handleLiveness)
-	performUnsupportedMethodRequestTest(t, http.MethodOptions, livenessPath, health.handleLiveness)
-	performUnsupportedMethodRequestTest(t, http.MethodPatch, livenessPath, health.handleLiveness)
-	performUnsupportedMethodRequestTest(t, http.MethodPut, livenessPath, health.handleLiveness)
-	performUnsupportedMethodRequestTest(t, http.MethodTrace, livenessPath, health.handleLiveness)
+	performUnsupportedMethodRequestTest(t, http.MethodConnect, livenessPath, health.HandleLiveness)
+	performUnsupportedMethodRequestTest(t, http.MethodDelete, livenessPath, health.HandleLiveness)
+	performUnsupportedMethodRequestTest(t, http.MethodPost, livenessPath, health.HandleLiveness)
+	performUnsupportedMethodRequestTest(t, http.MethodOptions, livenessPath, health.HandleLiveness)
+	performUnsupportedMethodRequestTest(t, http.MethodPatch, livenessPath, health.HandleLiveness)
+	performUnsupportedMethodRequestTest(t, http.MethodPut, livenessPath, health.HandleLiveness)
+	performUnsupportedMethodRequestTest(t, http.MethodTrace, livenessPath, health.HandleLiveness)
 
-	performUnsupportedMethodRequestTest(t, http.MethodConnect, readinessPath, health.handleReadiness)
-	performUnsupportedMethodRequestTest(t, http.MethodDelete, readinessPath, health.handleReadiness)
-	performUnsupportedMethodRequestTest(t, http.MethodPost, readinessPath, health.handleReadiness)
-	performUnsupportedMethodRequestTest(t, http.MethodOptions, readinessPath, health.handleReadiness)
-	performUnsupportedMethodRequestTest(t, http.MethodPatch, readinessPath, health.handleReadiness)
-	performUnsupportedMethodRequestTest(t, http.MethodPut, readinessPath, health.handleReadiness)
-	performUnsupportedMethodRequestTest(t, http.MethodTrace, readinessPath, health.handleReadiness)
+	performUnsupportedMethodRequestTest(t, http.MethodConnect, readinessPath, health.HandleReadiness)
+	performUnsupportedMethodRequestTest(t, http.MethodDelete, readinessPath, health.HandleReadiness)
+	performUnsupportedMethodRequestTest(t, http.MethodPost, readinessPath, health.HandleReadiness)
+	performUnsupportedMethodRequestTest(t, http.MethodOptions, readinessPath, health.HandleReadiness)
+	performUnsupportedMethodRequestTest(t, http.MethodPatch, readinessPath, health.HandleReadiness)
+	performUnsupportedMethodRequestTest(t, http.MethodPut, readinessPath, health.HandleReadiness)
+	performUnsupportedMethodRequestTest(t, http.MethodTrace, readinessPath, health.HandleReadiness)
 }
 
 // Test The Health Server Via The HTTP Handlers
 func TestHealthHandler(t *testing.T) {
 
 	// Create A New Health Server
-	health, _ := getTestHealthServer()
+	health := getTestHealthServer()
 
 	// Verify that initially the statuses are not live / ready
-	getEventToHandler(t, health.handleLiveness, livenessPath, http.StatusInternalServerError)
-	getEventToHandler(t, health.handleReadiness, readinessPath, http.StatusOK)
+	getEventToHandler(t, health.HandleLiveness, livenessPath, http.StatusInternalServerError)
+	getEventToHandler(t, health.HandleReadiness, readinessPath, http.StatusOK)
 
 	// Verify that the liveness status follows the health.Alive flag
 	health.SetAlive(true)
-	getEventToHandler(t, health.handleLiveness, livenessPath, http.StatusOK)
+	getEventToHandler(t, health.HandleLiveness, livenessPath, http.StatusOK)
 
 	// Verify that the shutdown process sets liveness to false
 	health.Shutdown()
-	getEventToHandler(t, health.handleLiveness, livenessPath, http.StatusInternalServerError)
+	getEventToHandler(t, health.HandleLiveness, livenessPath, http.StatusInternalServerError)
 }
 
 // Test The Health Server Via Live HTTP Calls
@@ -128,12 +120,12 @@ func TestHealthServer(t *testing.T) {
 
 	logger := logtesting.TestLogger(t).Desugar()
 
-	health, port := getTestHealthServer()
+	health := getTestHealthServer()
 	health.Start(logger)
 
-	livenessUri, err := url.Parse(fmt.Sprintf("http://%s:%s%s", testHttpHost, port, livenessPath))
+	livenessUri, err := url.Parse(fmt.Sprintf("http://%s:%s%s", testHttpHost, health.HttpPort, livenessPath))
 	assert.Nil(t, err)
-	readinessUri, err := url.Parse(fmt.Sprintf("http://%s:%s%s", testHttpHost, port, readinessPath))
+	readinessUri, err := url.Parse(fmt.Sprintf("http://%s:%s%s", testHttpHost, health.HttpPort, readinessPath))
 	assert.Nil(t, err)
 	waitServerReady(readinessUri.String(), 3*time.Second)
 

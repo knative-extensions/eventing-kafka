@@ -1,18 +1,15 @@
 package health
 
 import (
-	"fmt"
 	"github.com/stretchr/testify/assert"
-	logtesting "knative.dev/pkg/logging/testing"
+	"io"
 	"net/http"
-	"net/url"
+	"net/http/httptest"
 	"testing"
-	"time"
 )
 
 const (
-	testHttpPort  = "8090"
-	testHttpHost  = "localhost"
+	testHttpPort  = "0"
 	readinessPath = "/healthy"
 )
 
@@ -47,75 +44,64 @@ func TestReadinessFlagWrites(t *testing.T) {
 
 }
 
-// Test The Channel Health Server Via Live HTTP Calls
-func TestChannelHealthServer(t *testing.T) {
 
-	logger := logtesting.TestLogger(t).Desugar()
+// Test The Channel Health Server Via The HTTP Handlers
+func TestChannelHealthHandler(t *testing.T) {
 
+	// Create A New Health Server
 	chs := NewChannelHealthServer(testHttpPort)
-	chs.Start(logger)
-
-	readinessUri, err := url.Parse(fmt.Sprintf("http://%s:%s%s", testHttpHost, testHttpPort, readinessPath))
-	assert.Nil(t, err)
-	waitServerReady(readinessUri.String(), 3*time.Second)
 
 	// Verify that initially the readiness status is false
-	getEventToServer(t, readinessUri, http.StatusInternalServerError)
+	getEventToHandler(t, chs.HandleReadiness, readinessPath, http.StatusInternalServerError)
 
 	// Verify that the readiness status requires setting all of the readiness flags
 	chs.SetChannelReady(true)
-	getEventToServer(t, readinessUri, http.StatusInternalServerError)
+	getEventToHandler(t, chs.HandleReadiness, readinessPath, http.StatusInternalServerError)
 	chs.SetProducerReady(true)
-	getEventToServer(t, readinessUri, http.StatusOK)
+	getEventToHandler(t, chs.HandleReadiness, readinessPath, http.StatusOK)
 	chs.SetChannelReady(false)
-	getEventToServer(t, readinessUri, http.StatusInternalServerError)
+	getEventToHandler(t, chs.HandleReadiness, readinessPath, http.StatusInternalServerError)
 
 	// Verify that the shutdown process sets the readiness status to false
 	chs.SetProducerReady(true)
 	chs.SetChannelReady(true)
-	getEventToServer(t, readinessUri, http.StatusOK)
+	getEventToHandler(t, chs.HandleReadiness, readinessPath, http.StatusOK)
 
 	chs.Shutdown()
-	getEventToServer(t, readinessUri, http.StatusInternalServerError)
+	getEventToHandler(t, chs.HandleReadiness, readinessPath, http.StatusInternalServerError)
 
-	getEventToServer(t, readinessUri, http.StatusInternalServerError)
+	getEventToHandler(t, chs.HandleReadiness, readinessPath, http.StatusInternalServerError)
 	chs.SetChannelReady(true)
 	chs.SetProducerReady(true)
-	getEventToServer(t, readinessUri, http.StatusOK)
-
-	chs.Stop(logger)
-
-	// Pause to let async go process finish logging :(
-	// Appears to be race condition between test finishing and logging in Stop() above
-	time.Sleep(1 * time.Second)
+	getEventToHandler(t, chs.HandleReadiness, readinessPath, http.StatusOK)
 }
 
 //
 // Private Utility Functions
 //
 
-// Waits Until A GET Request Succeeds (Or Times Out)
-func waitServerReady(uri string, timeout time.Duration) {
-	// Create An HTTP Client And Send The Request Until Success Or Timeout
-	client := http.DefaultClient
-	for start := time.Now(); time.Since(start) < timeout; {
-		_, err := client.Get(uri) // Don't care what the response actually is, only if there was an error getting it
-		if err == nil {
-			return
-		}
-		time.Sleep(200 * time.Millisecond)
-	}
+// Create A Test HTTP Request For The Specified Method / Path
+func createNewRequest(t *testing.T, method string, path string, body io.Reader) *http.Request {
+	request, err := http.NewRequest(method, path, body)
+	assert.Nil(t, err)
+	return request
 }
 
-// Sends A Simple GET Event To A URL Expecting A Specific Response Code
-func getEventToServer(t *testing.T, uri *url.URL, expectedStatus int) {
+// Sends A Request To An HTTP Response Recorder Directly Expecting A Specific Response Code
+func getEventToHandler(t *testing.T, handlerFunc http.HandlerFunc, path string, expectedStatus int) {
 
-	// Create An HTTP Client And Send The Request
-	client := http.DefaultClient
-	resp, err := client.Get(uri.String())
+	// Create A Test HTTP GET Request For requested path
+	request := createNewRequest(t, http.MethodGet, path, nil)
 
-	// Verify The Client Response Is As Expected
-	assert.NotNil(t, resp)
-	assert.Nil(t, err)
-	assert.Equal(t, expectedStatus, resp.StatusCode)
+	// Create An HTTP ResponseRecorder & Handler For Request
+	responseRecorder := httptest.NewRecorder()
+	handler := handlerFunc
+
+	// Call The HTTP Request Handler Function For Path
+	handler.ServeHTTP(responseRecorder, request)
+
+	// Verify The StatusMethodNotAllowed Response Code Is Returned
+	statusCode := responseRecorder.Code
+	assert.Equal(t, expectedStatus, statusCode)
+
 }

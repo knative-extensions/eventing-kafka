@@ -3,7 +3,9 @@ package health
 import (
 	"context"
 	"go.uber.org/zap"
+	"net"
 	"net/http"
+	"strconv"
 	"sync"
 )
 
@@ -17,7 +19,7 @@ type Status interface {
 type Server struct {
 	server   *http.Server // The Golang HTTP Server Instance
 	status   Status
-	httpPort string // The HTTP Port The Dispatcher Server Listens On
+	HttpPort string // The HTTP Port The Dispatcher Server Listens On
 
 	// Synchronization Mutexes
 	liveMutex sync.Mutex // Synchronizes access to the liveness flag
@@ -29,7 +31,7 @@ type Server struct {
 // Creates A New Server With Specified Configuration
 func NewHealthServer(httpPort string, healthStatus Status) *Server {
 	health := &Server{
-		httpPort: httpPort,
+		HttpPort: httpPort,
 		status:   healthStatus,
 	}
 
@@ -56,8 +58,8 @@ func (hs *Server) Shutdown() {
 func (hs *Server) initializeServer(httpPort string) {
 
 	serveMux := http.NewServeMux()
-	serveMux.HandleFunc(LivenessPath, hs.handleLiveness)
-	serveMux.HandleFunc(ReadinessPath, hs.handleReadiness)
+	serveMux.HandleFunc(LivenessPath, hs.HandleLiveness)
+	serveMux.HandleFunc(ReadinessPath, hs.HandleReadiness)
 
 	// Create The Server For Configured HTTP Port
 	server := &http.Server{Addr: ":" + httpPort, Handler: serveMux}
@@ -68,11 +70,22 @@ func (hs *Server) initializeServer(httpPort string) {
 
 // Start The HTTP Server (Blocking Call)
 func (hs *Server) Start(logger *zap.Logger) {
-	logger.Info("Starting Server HTTP Server on port " + hs.httpPort)
+	listener, err := net.Listen("tcp", ":" + hs.HttpPort)
+	if err != nil {
+		logger.Error("Server HTTP Listen Returned Error", zap.Error(err))
+	}
+
+	// Set the HttpPort field to whatever port was actually used by the system
+	// before launching the Server goroutine, so that the caller can access it.
+	// (If "0" is passed in then the Listen call will assign one arbitrarily)
+	hs.HttpPort = strconv.Itoa(listener.Addr().(*net.TCPAddr).Port)
+
 	go func() {
-		err := hs.server.ListenAndServe()
+		logger.Info("Starting Server HTTP Server on port " + hs.HttpPort)
+
+		err = hs.server.Serve(listener)
 		if err != nil {
-			logger.Info("Server HTTP ListenAndServe Returned Error", zap.Error(err)) // Info log since it could just be normal shutdown
+			logger.Info("Server HTTP Serve Returned Error", zap.Error(err)) // Info log since it could just be normal shutdown
 		}
 	}()
 }
@@ -94,7 +107,7 @@ func (hs *Server) Alive() bool {
 }
 
 // HTTP Request Handler For Liveness Requests (/healthz)
-func (hs *Server) handleLiveness(responseWriter http.ResponseWriter, request *http.Request) {
+func (hs *Server) HandleLiveness(responseWriter http.ResponseWriter, request *http.Request) {
 	if request.Method != http.MethodGet {
 		responseWriter.WriteHeader(http.StatusMethodNotAllowed)
 		return
@@ -107,7 +120,7 @@ func (hs *Server) handleLiveness(responseWriter http.ResponseWriter, request *ht
 }
 
 // HTTP Request Handler For Readiness Requests (/healthy)
-func (hs *Server) handleReadiness(responseWriter http.ResponseWriter, request *http.Request) {
+func (hs *Server) HandleReadiness(responseWriter http.ResponseWriter, request *http.Request) {
 	if request.Method != http.MethodGet {
 		responseWriter.WriteHeader(http.StatusMethodNotAllowed)
 		return
