@@ -26,14 +26,16 @@ func (d *Dispatcher) Dispatch(event *cloudevents.Event, subscription Subscriptio
 		logger = d.Logger.With(zap.String("Event", event.String()))
 	}
 
+	timesOfRetries := d.calculateNumberOfRetries()
+
 	// Create A New Retry Runner With Configured Backoff Behavior
-	retryRunner := retry.New(
+	retryRunner := NewMiddleware(
 		retry.Config{
 			DisableBackoff: !d.ExponentialBackoff, // Note Negation: Env Var Is Whether To Enable & Retry Config Is Whether To Disable ; )
-			Times:          d.calculateNumberOfRetries(),
+			Times:          timesOfRetries,
 			WaitBase:       time.Millisecond * time.Duration(d.InitialRetryInterval),
 		},
-	)
+	)(nil)
 
 	//
 	// Convert The CloudEvent To A binding/Message
@@ -58,13 +60,21 @@ func (d *Dispatcher) Dispatch(event *cloudevents.Event, subscription Subscriptio
 	var deadLetterURL *url.URL
 	if subscription.Delivery != nil && subscription.Delivery.DeadLetterSink != nil && !subscription.Delivery.DeadLetterSink.URI.IsEmpty() {
 		// TODO - Currently ignoring dead-letter configuration due to wrapping retry implementation - would send one deadletter for every retry :(
-		// deadLetterURL = subscription.Delivery.DeadLetterSink.URI.URL()
-		logger.Warn("Subscription Delivery DeadLetterSink Not Currently Supported!")
+		deadLetterURL = subscription.Delivery.DeadLetterSink.URI.URL()
+		// logger.Warn("Subscription Delivery DeadLetterSink Not Currently Supported!")
 	}
 
 	// Attempt To Dispatch The CloudEvent Message Via Knative Message Dispatcher With Retry Wrapper
 	err := retryRunner.Run(context.Background(), func(ctx context.Context) error {
-		err := d.messageDispatcher.DispatchMessage(ctx, message, nil, destinationURL, replyURL, deadLetterURL)
+		retryTime := ctx.Value("retries").(Retries).times
+
+		var err error
+		if retryTime == timesOfRetries {
+			err = d.messageDispatcher.DispatchMessage(ctx, message, nil, destinationURL, replyURL, deadLetterURL)
+		} else {
+			err = d.messageDispatcher.DispatchMessage(ctx, message, nil, destinationURL, replyURL, nil)
+		}
+
 		return d.logResponse(err)
 	})
 
