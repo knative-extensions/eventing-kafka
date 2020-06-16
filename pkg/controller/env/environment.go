@@ -29,6 +29,7 @@ const (
 
 	// Dispatcher Configuration
 	ChannelKeyEnvVarKey           = "CHANNEL_KEY"
+	ServiceNameEnvVarKey          = "SERVICE_NAME"
 	ExponentialBackoffEnvVarKey   = "EXPONENTIAL_BACKOFF"
 	InitialRetryIntervalEnvVarKey = "INITIAL_RETRY_INTERVAL"
 	MaxRetryTimeEnvVarKey         = "MAX_RETRY_TIME"

@@ -3,18 +3,8 @@ package env
 import (
 	"errors"
 	"go.uber.org/zap"
+	"knative.dev/eventing-kafka/pkg/controller/env"
 	"os"
-)
-
-// Environment Constants
-const (
-
-	// Environment Variable Keys
-	MetricsPortEnvVarKey   = "METRICS_PORT"
-	HealthPortEnvVarKey    = "HEALTH_PORT"
-	KafkaBrokersEnvVarKey  = "KAFKA_BROKERS"
-	KafkaUsernameEnvVarKey = "KAFKA_USERNAME"
-	KafkaPasswordEnvVarKey = "KAFKA_PASSWORD"
 )
 
 // The Environment Struct
@@ -24,6 +14,7 @@ type Environment struct {
 	KafkaBrokers  string
 	KafkaUsername string
 	KafkaPassword string
+	ServiceName   string
 }
 
 // Load & Return The Environment Variables
@@ -31,11 +22,12 @@ func GetEnvironment(logger *zap.Logger) (Environment, error) {
 
 	// Create The Environment With Current Values
 	environment := Environment{
-		MetricsPort:   os.Getenv(MetricsPortEnvVarKey),
-		HealthPort:    os.Getenv(HealthPortEnvVarKey),
-		KafkaBrokers:  os.Getenv(KafkaBrokersEnvVarKey),
-		KafkaUsername: os.Getenv(KafkaUsernameEnvVarKey),
-		KafkaPassword: os.Getenv(KafkaPasswordEnvVarKey),
+		MetricsPort:   os.Getenv(env.MetricsPortEnvVarKey),
+		HealthPort:    os.Getenv(env.HealthPortEnvVarKey),
+		KafkaBrokers:  os.Getenv(env.KafkaBrokerEnvVarKey),
+		KafkaUsername: os.Getenv(env.KafkaUsernameEnvVarKey),
+		KafkaPassword: os.Getenv(env.KafkaPasswordEnvVarKey),
+		ServiceName:   os.Getenv(env.ServiceNameEnvVarKey),
 	}
 
 	// Safely Log The ControllerConfig Loaded From Environment Variables
@@ -56,9 +48,10 @@ func GetEnvironment(logger *zap.Logger) (Environment, error) {
 // Validate The Specified Environment Variables
 func validateEnvironment(logger *zap.Logger, environment Environment) error {
 
-	valid := validateRequiredEnvironmentVariable(logger, MetricsPortEnvVarKey, environment.MetricsPort) &&
-		validateRequiredEnvironmentVariable(logger, HealthPortEnvVarKey, environment.HealthPort) &&
-		validateRequiredEnvironmentVariable(logger, KafkaBrokersEnvVarKey, environment.KafkaBrokers)
+	valid := validateRequiredEnvironmentVariable(logger, env.MetricsPortEnvVarKey, environment.MetricsPort) &&
+		validateRequiredEnvironmentVariable(logger, env.HealthPortEnvVarKey, environment.HealthPort) &&
+		validateRequiredEnvironmentVariable(logger, env.KafkaBrokerEnvVarKey, environment.KafkaBrokers) &&
+		validateRequiredEnvironmentVariable(logger, env.ServiceNameEnvVarKey, environment.ServiceName)
 
 	if valid {
 		return nil

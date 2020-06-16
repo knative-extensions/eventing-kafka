@@ -3,6 +3,7 @@ package env
 import (
 	"errors"
 	"github.com/stretchr/testify/assert"
+	"knative.dev/eventing-kafka/pkg/controller/env"
 	logtesting "knative.dev/pkg/logging/testing"
 	"os"
 	"testing"
@@ -12,6 +13,7 @@ import (
 const (
 	metricsPort   = "TestMetricsPort"
 	healthPort    = "TestHealthPort"
+	serviceName   = "TestServiceName"
 	kafkaBrokers  = "TestKafkaBrokers"
 	kafkaUsername = "TestKafkaUsername"
 	kafkaPassword = "TestKafkaPassword"
@@ -22,6 +24,7 @@ type TestCase struct {
 	name          string
 	metricsPort   string
 	healthPort    string
+	serviceName   string
 	kafkaBrokers  string
 	kafkaUsername string
 	kafkaPassword string
@@ -59,11 +62,12 @@ func TestGetEnvironment(t *testing.T) {
 
 		// (Re)Setup The Environment Variables From TestCase
 		os.Clearenv()
-		assert.Nil(t, os.Setenv(MetricsPortEnvVarKey, testCase.metricsPort))
-		assert.Nil(t, os.Setenv(HealthPortEnvVarKey, testCase.healthPort))
-		assert.Nil(t, os.Setenv(KafkaBrokersEnvVarKey, testCase.kafkaBrokers))
-		assert.Nil(t, os.Setenv(KafkaUsernameEnvVarKey, testCase.kafkaUsername))
-		assert.Nil(t, os.Setenv(KafkaPasswordEnvVarKey, testCase.kafkaPassword))
+		assert.Nil(t, os.Setenv(env.MetricsPortEnvVarKey, testCase.metricsPort))
+		assert.Nil(t, os.Setenv(env.HealthPortEnvVarKey, testCase.healthPort))
+		assert.Nil(t, os.Setenv(env.ServiceNameEnvVarKey, testCase.serviceName))
+		assert.Nil(t, os.Setenv(env.KafkaBrokerEnvVarKey, testCase.kafkaBrokers))
+		assert.Nil(t, os.Setenv(env.KafkaUsernameEnvVarKey, testCase.kafkaUsername))
+		assert.Nil(t, os.Setenv(env.KafkaPasswordEnvVarKey, testCase.kafkaPassword))
 
 		// Perform The Test
 		environment, err := GetEnvironment(logger)
@@ -88,6 +92,7 @@ func getValidTestCase(name string) TestCase {
 		name:          name,
 		metricsPort:   metricsPort,
 		healthPort:    healthPort,
+		serviceName:   serviceName,
 		kafkaBrokers:  kafkaBrokers,
 		kafkaUsername: kafkaUsername,
 		kafkaPassword: kafkaPassword,

@@ -329,6 +329,10 @@ func (r *Reconciler) dispatcherDeploymentEnvVars(channel *kafkav1alpha1.KafkaCha
 			Value: util.ChannelKey(channel),
 		},
 		{
+			Name:  env.ServiceNameEnvVarKey,
+			Value: util.DispatcherDnsSafeName(channel),
+		},
+		{
 			Name:  env.KafkaTopicEnvVarKey,
 			Value: topicName,
 		},

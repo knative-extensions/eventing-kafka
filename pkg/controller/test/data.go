@@ -55,6 +55,7 @@ const (
 	KafkaSecretName       = "kafkasecret-name"
 	KafkaSecretKey        = KafkaSecretNamespace + "/" + KafkaSecretName
 	ChannelDeploymentName = KafkaSecretName + "-channel"
+	ChannelServiceName    = ChannelDeploymentName
 	TopicName             = KafkaChannelNamespace + "." + KafkaChannelName
 
 	KafkaSecretDataValueBrokers  = "TestKafkaSecretDataBrokers"
@@ -475,6 +476,10 @@ func NewKafkaChannelChannelDeployment() *appsv1.Deployment {
 									Value: logging.ConfigMapName(),
 								},
 								{
+									Name:  env.ServiceNameEnvVarKey,
+									Value: ChannelServiceName,
+								},
+								{
 									Name:  env.MetricsPortEnvVarKey,
 									Value: strconv.Itoa(MetricsPort),
 								},
@@ -658,6 +663,10 @@ func NewKafkaChannelDispatcherDeployment() *appsv1.Deployment {
 								{
 									Name:  env.ChannelKeyEnvVarKey,
 									Value: fmt.Sprintf("%s/%s", KafkaChannelNamespace, KafkaChannelName),
+								},
+								{
+									Name:  env.ServiceNameEnvVarKey,
+									Value: dispatcherName,
 								},
 								{
 									Name:  env.KafkaTopicEnvVarKey,

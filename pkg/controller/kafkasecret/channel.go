@@ -334,6 +334,10 @@ func (r *Reconciler) channelDeploymentEnvVars(secret *corev1.Secret) ([]corev1.E
 			Value: logging.ConfigMapName(),
 		},
 		{
+			Name:  env.ServiceNameEnvVarKey,
+			Value: util.ChannelDnsSafeName(secret.Name),
+		},
+		{
 			Name:  env.MetricsPortEnvVarKey,
 			Value: strconv.Itoa(r.environment.MetricsPort),
 		},
