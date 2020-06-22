@@ -9,9 +9,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	commonenv "knative.dev/eventing-kafka/pkg/common/env"
 	"knative.dev/eventing-kafka/pkg/common/health"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
-	"knative.dev/eventing-kafka/pkg/controller/env"
 	"knative.dev/eventing-kafka/pkg/controller/event"
 	"knative.dev/eventing-kafka/pkg/controller/util"
 	"knative.dev/pkg/controller"
@@ -334,22 +334,22 @@ func (r *Reconciler) channelDeploymentEnvVars(secret *corev1.Secret) ([]corev1.E
 			Value: logging.ConfigMapName(),
 		},
 		{
-			Name:  env.ServiceNameEnvVarKey,
+			Name:  commonenv.ServiceNameEnvVarKey,
 			Value: util.ChannelDnsSafeName(secret.Name),
 		},
 		{
-			Name:  env.MetricsPortEnvVarKey,
+			Name:  commonenv.MetricsPortEnvVarKey,
 			Value: strconv.Itoa(r.environment.MetricsPort),
 		},
 		{
-			Name:  env.HealthPortEnvVarKey,
+			Name:  commonenv.HealthPortEnvVarKey,
 			Value: strconv.Itoa(constants.HealthPort),
 		},
 	}
 
 	// Append The Kafka Brokers As Env Var
 	envVars = append(envVars, corev1.EnvVar{
-		Name: env.KafkaBrokerEnvVarKey,
+		Name: commonenv.KafkaBrokerEnvVarKey,
 		ValueFrom: &corev1.EnvVarSource{
 			SecretKeyRef: &corev1.SecretKeySelector{
 				LocalObjectReference: corev1.LocalObjectReference{Name: secret.Name},
@@ -360,7 +360,7 @@ func (r *Reconciler) channelDeploymentEnvVars(secret *corev1.Secret) ([]corev1.E
 
 	// Append The Kafka Username As Env Var
 	envVars = append(envVars, corev1.EnvVar{
-		Name: env.KafkaUsernameEnvVarKey,
+		Name: commonenv.KafkaUsernameEnvVarKey,
 		ValueFrom: &corev1.EnvVarSource{
 			SecretKeyRef: &corev1.SecretKeySelector{
 				LocalObjectReference: corev1.LocalObjectReference{Name: secret.Name},
@@ -371,7 +371,7 @@ func (r *Reconciler) channelDeploymentEnvVars(secret *corev1.Secret) ([]corev1.E
 
 	// Append The Kafka Password As Env Var
 	envVars = append(envVars, corev1.EnvVar{
-		Name: env.KafkaPasswordEnvVarKey,
+		Name: commonenv.KafkaPasswordEnvVarKey,
 		ValueFrom: &corev1.EnvVarSource{
 			SecretKeyRef: &corev1.SecretKeySelector{
 				LocalObjectReference: corev1.LocalObjectReference{Name: secret.Name},

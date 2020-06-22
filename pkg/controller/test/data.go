@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgotesting "k8s.io/client-go/testing"
 	kafkav1alpha1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
+	commonenv "knative.dev/eventing-kafka/pkg/common/env"
 	"knative.dev/eventing-kafka/pkg/common/health"
 	kafkautil "knative.dev/eventing-kafka/pkg/common/kafka/util"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
@@ -476,19 +477,19 @@ func NewKafkaChannelChannelDeployment() *appsv1.Deployment {
 									Value: logging.ConfigMapName(),
 								},
 								{
-									Name:  env.ServiceNameEnvVarKey,
+									Name:  commonenv.ServiceNameEnvVarKey,
 									Value: ChannelServiceName,
 								},
 								{
-									Name:  env.MetricsPortEnvVarKey,
+									Name:  commonenv.MetricsPortEnvVarKey,
 									Value: strconv.Itoa(MetricsPort),
 								},
 								{
-									Name:  env.HealthPortEnvVarKey,
+									Name:  commonenv.HealthPortEnvVarKey,
 									Value: strconv.Itoa(HealthPort),
 								},
 								{
-									Name: env.KafkaBrokerEnvVarKey,
+									Name: commonenv.KafkaBrokerEnvVarKey,
 									ValueFrom: &corev1.EnvVarSource{
 										SecretKeyRef: &corev1.SecretKeySelector{
 											LocalObjectReference: corev1.LocalObjectReference{Name: KafkaSecretName},
@@ -497,7 +498,7 @@ func NewKafkaChannelChannelDeployment() *appsv1.Deployment {
 									},
 								},
 								{
-									Name: env.KafkaUsernameEnvVarKey,
+									Name: commonenv.KafkaUsernameEnvVarKey,
 									ValueFrom: &corev1.EnvVarSource{
 										SecretKeyRef: &corev1.SecretKeySelector{
 											LocalObjectReference: corev1.LocalObjectReference{Name: KafkaSecretName},
@@ -506,7 +507,7 @@ func NewKafkaChannelChannelDeployment() *appsv1.Deployment {
 									},
 								},
 								{
-									Name: env.KafkaPasswordEnvVarKey,
+									Name: commonenv.KafkaPasswordEnvVarKey,
 									ValueFrom: &corev1.EnvVarSource{
 										SecretKeyRef: &corev1.SecretKeySelector{
 											LocalObjectReference: corev1.LocalObjectReference{Name: KafkaSecretName},
@@ -653,47 +654,47 @@ func NewKafkaChannelDispatcherDeployment() *appsv1.Deployment {
 									Value: logging.ConfigMapName(),
 								},
 								{
-									Name:  env.MetricsPortEnvVarKey,
+									Name:  commonenv.MetricsPortEnvVarKey,
 									Value: strconv.Itoa(MetricsPort),
 								},
 								{
-									Name:  env.HealthPortEnvVarKey,
+									Name:  commonenv.HealthPortEnvVarKey,
 									Value: strconv.Itoa(HealthPort),
 								},
 								{
-									Name:  env.ChannelKeyEnvVarKey,
+									Name:  commonenv.ChannelKeyEnvVarKey,
 									Value: fmt.Sprintf("%s/%s", KafkaChannelNamespace, KafkaChannelName),
 								},
 								{
-									Name:  env.ServiceNameEnvVarKey,
+									Name:  commonenv.ServiceNameEnvVarKey,
 									Value: dispatcherName,
 								},
 								{
-									Name:  env.KafkaTopicEnvVarKey,
+									Name:  commonenv.KafkaTopicEnvVarKey,
 									Value: topicName,
 								},
 								{
-									Name:  env.KafkaOffsetCommitMessageCountEnvVarKey,
+									Name:  commonenv.KafkaOffsetCommitMessageCountEnvVarKey,
 									Value: strconv.Itoa(KafkaOffsetCommitMessageCount),
 								},
 								{
-									Name:  env.KafkaOffsetCommitDurationMillisEnvVarKey,
+									Name:  commonenv.KafkaOffsetCommitDurationMillisEnvVarKey,
 									Value: strconv.Itoa(KafkaOffsetCommitDurationMillis),
 								},
 								{
-									Name:  env.ExponentialBackoffEnvVarKey,
+									Name:  commonenv.ExponentialBackoffEnvVarKey,
 									Value: strconv.FormatBool(DefaultExponentialBackoff),
 								},
 								{
-									Name:  env.InitialRetryIntervalEnvVarKey,
+									Name:  commonenv.InitialRetryIntervalEnvVarKey,
 									Value: strconv.Itoa(DefaultEventRetryInitialIntervalMillis),
 								},
 								{
-									Name:  env.MaxRetryTimeEnvVarKey,
+									Name:  commonenv.MaxRetryTimeEnvVarKey,
 									Value: strconv.Itoa(DefaultEventRetryTimeMillisMax),
 								},
 								{
-									Name: env.KafkaBrokerEnvVarKey,
+									Name: commonenv.KafkaBrokerEnvVarKey,
 									ValueFrom: &corev1.EnvVarSource{
 										SecretKeyRef: &corev1.SecretKeySelector{
 											LocalObjectReference: corev1.LocalObjectReference{Name: KafkaSecretName},
@@ -702,7 +703,7 @@ func NewKafkaChannelDispatcherDeployment() *appsv1.Deployment {
 									},
 								},
 								{
-									Name: env.KafkaUsernameEnvVarKey,
+									Name: commonenv.KafkaUsernameEnvVarKey,
 									ValueFrom: &corev1.EnvVarSource{
 										SecretKeyRef: &corev1.SecretKeySelector{
 											LocalObjectReference: corev1.LocalObjectReference{Name: KafkaSecretName},
@@ -711,7 +712,7 @@ func NewKafkaChannelDispatcherDeployment() *appsv1.Deployment {
 									},
 								},
 								{
-									Name: env.KafkaPasswordEnvVarKey,
+									Name: commonenv.KafkaPasswordEnvVarKey,
 									ValueFrom: &corev1.EnvVarSource{
 										SecretKeyRef: &corev1.SecretKeySelector{
 											LocalObjectReference: corev1.LocalObjectReference{Name: KafkaSecretName},

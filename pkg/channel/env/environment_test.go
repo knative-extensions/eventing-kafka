@@ -3,7 +3,7 @@ package env
 import (
 	"errors"
 	"github.com/stretchr/testify/assert"
-	"knative.dev/eventing-kafka/pkg/controller/env"
+	"knative.dev/eventing-kafka/pkg/common/env"
 	logtesting "knative.dev/pkg/logging/testing"
 	"os"
 	"testing"
