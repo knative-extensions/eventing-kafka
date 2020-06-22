@@ -7,13 +7,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	k8sclientcmd "k8s.io/client-go/tools/clientcmd"
-	"knative.dev/eventing/pkg/tracing"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
-	tracingconfig "knative.dev/pkg/tracing/config"
 	"log"
 )
 
@@ -67,32 +65,6 @@ func LoggingContext(ctx context.Context, component string, masterUrl string, kub
 	}
 
 	// Start The Logging ConfigMap Watcher
-	if err := cmw.Start(ctx.Done()); err != nil {
-		logger.Fatalw("Failed To Start ConfigMap Watcher", zap.Error(err))
-	}
-
-	// Return The Initialized Context
-	return ctx
-}
-
-//
-// Initialize The Specified Context With A Tracer (ConfigMap Watcher)
-// Assumes ctx Has K8S Client Injected Via LoggingContext
-//
-func InitializeTracing(logger *zap.SugaredLogger, ctx context.Context, service string) context.Context {
-	k8sClient, ok := ctx.Value(injectionclient.Key{}).(kubernetes.Interface)
-	if !ok {
-		logger.Fatalw("Error getting kubernetes client from context (invalid interface)")
-	}
-
-	// Create A Watcher On The Tracing ConfigMap & Dynamically Update Tracing Configuration
-	cmw := configmap.NewInformedWatcher(k8sClient, system.Namespace())
-
-	if err := tracing.SetupDynamicPublishing(logger, cmw, service, tracingconfig.ConfigName); err != nil {
-		logger.Fatalw("Error setting up dynamic trace publishing", zap.Error(err))
-	}
-
-	// Start The Tracing ConfigMap Watcher
 	if err := cmw.Start(ctx.Done()); err != nil {
 		logger.Fatalw("Failed To Start ConfigMap Watcher", zap.Error(err))
 	}
