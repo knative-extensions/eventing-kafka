@@ -15,7 +15,7 @@ import (
 	"testing"
 )
 
-// Test The LoggingContext() Functionality
+// Test The InitializeTracing() Functionality
 func TestInitializeTracing(t *testing.T) {
 
 	// Test Data
