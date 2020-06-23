@@ -4,6 +4,10 @@ import cloudevents "github.com/cloudevents/sdk-go/v2"
 
 // Test Data
 const (
+	KafkaBrokers  = "TestBrokers"
+	KafkaUsername = "TestUsername"
+	KafkaPassword = "TestPassword"
+
 	ChannelName      = "TestChannelName"
 	ChannelNamespace = "TestChannelNamespace"
 

@@ -1,60 +1,69 @@
 package producer
 
 import (
-	"errors"
-	"github.com/confluentinc/confluent-kafka-go/kafka"
-	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
-	"knative.dev/eventing-kafka/pkg/common/kafka/util"
+	"crypto/tls"
+	"github.com/Shopify/sarama"
+	"github.com/rcrowley/go-metrics"
 )
 
-// Confluent Client Doesn't Code To Interfaces Or Provide Mocks So We're Wrapping Our Usage Of The Producer For Testing
-type ProducerInterface interface {
-	String() string
-	Produce(msg *kafka.Message, deliveryChan chan kafka.Event) error
-	Events() chan kafka.Event
-	ProduceChannel() chan *kafka.Message
-	Len() int
-	Flush(timeoutMs int) int
-	Close()
+// Create A Sarama Kafka SyncProducer (Optional Authentication)
+func CreateSyncProducer(brokers []string, username string, password string) (sarama.SyncProducer, error) {
+
+	// TODO - From Paul - Not Sure We Want This In Open Source?  Or Maybe in ConfigMap also?
+	// Limit Max Request size To 1M Down From Default Of 100M
+	//sarama.MaxRequestSize = 1024 * 1024
+
+	// Create The Sarama SyncProducer Config
+	config := getConfig(username, password)
+
+	// Create A New Sarama SyncProducer & Return Results
+	return newSyncProducerWrapper(brokers, config)
 }
 
-// Create A Kafka Producer (Optional Authentication)
-func CreateProducer(brokers string, username string, password string) (ProducerInterface, error) {
+// Function Reference Variable To Facilitate Mocking In Unit Tests
+var newSyncProducerWrapper = func(brokers []string, config *sarama.Config) (sarama.SyncProducer, error) {
+	return sarama.NewSyncProducer(brokers, config)
+}
 
-	// Validate Parameters
-	if len(brokers) <= 0 {
-		return nil, errors.New("required parameters not provided")
-	}
+// TODO - The entire sarama.Config should be externalized to a K8S ConfigMap for complete customization.
+// Get The Default Sarama SyncProducer Config
+func getConfig(username string, password string) *sarama.Config {
 
-	// Create The Kafka Producer Configuration
-	configMap := getBaseProducerConfigMap(brokers)
+	// Create The Basic Sarama Config
+	config := sarama.NewConfig()
 
-	// Append SASL Authentication If Specified
+	// TODO - Strimzi is up on kafka v2.4.1 and 2.5.0
+	//      - kafka eventhubs are compatible with version 1.0 and later?
+	//      - will need to be exposed for end users though in ConfigMap ; )
+	config.Version = sarama.V2_3_0_0
+
+	// TODO - From Paul's performance testing - do we want to use this? - thinking we do in one form or another...
+	config.MetricRegistry = metrics.DefaultRegistry
+
+	// We Want Message Produced Success Messages For Use With SyncProducer
+	config.Producer.Return.Successes = true
+
+	// TODO - this will replace AddSaslAuthentication() in util once dispatcher/consumer is converted over
+	// Update Config With With PLAIN SASL Auth If Specified
 	if len(username) > 0 && len(password) > 0 {
-		util.AddSaslAuthentication(configMap, constants.ConfigPropertySaslMechanismsPlain, username, password)
+
+		// TODO - Default is v0 (required for azure eventhubs ?!)  TRY IT OUT WITH V1 and EVENTHUBS !!!
+		//      - Docs say use v1 for kafka v1 or later but should work?
+		//      - But we need to expose the whole config as a ConfigMap eventually anyway...
+		//config.Net.SASL.Version = sarama.SASLHandshakeV1
+
+		config.Net.SASL.Enable = true
+		config.Net.SASL.Mechanism = sarama.SASLTypePlaintext
+		config.Net.SASL.User = username
+		config.Net.SASL.Password = password
+
+		config.Net.TLS.Enable = true
+		config.Net.TLS.Config = &tls.Config{
+			InsecureSkipVerify: true,
+			ClientAuth:         tls.NoClientCert,
+		}
 	}
 
-	// Enable Kafka Producer Debug Logging (Debug Only - Do Not Commit Enabled!)
-	// util.AddDebugFlags(configMap, "broker,topic,msg,protocol,security")
-
-	// Create The Kafka Producer Via Wrapper & Return Results
-	return NewProducerWrapper(configMap)
-}
-
-// Kafka Function Reference Variable To Facilitate Mocking In Unit Tests
-var NewProducerWrapper = func(configMap *kafka.ConfigMap) (ProducerInterface, error) {
-	return kafka.NewProducer(configMap)
-}
-
-// Utility Function For Returning The Base/Common Kafka ConfigMap (Values Shared By All Connections)
-func getBaseProducerConfigMap(brokers string) *kafka.ConfigMap {
-	return &kafka.ConfigMap{
-		constants.ConfigPropertyBootstrapServers:      brokers,
-		constants.ConfigPropertyPartitioner:           constants.ConfigPropertyPartitionerValue,
-		constants.ConfigPropertyIdempotence:           constants.ConfigPropertyIdempotenceValue,
-		constants.ConfigPropertyStatisticsInterval:    constants.ConfigPropertyStatisticsIntervalValue,
-		constants.ConfigPropertySocketKeepAliveEnable: constants.ConfigPropertySocketKeepAliveEnableValue,
-		constants.ConfigPropertyMetadataMaxAgeMs:      constants.ConfigPropertyMetadataMaxAgeMsValue,
-		constants.ConfigPropertyRequestTimeoutMs:      constants.ConfigPropertyRequestTimeoutMsValue,
-	}
+	// Return The Sarama Config
+	return config
 }

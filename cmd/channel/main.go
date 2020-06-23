@@ -16,6 +16,7 @@ import (
 	eventingchannel "knative.dev/eventing/pkg/channel"
 	"knative.dev/pkg/logging"
 	nethttp "net/http"
+	"strings"
 )
 
 // Variables
@@ -61,7 +62,7 @@ func main() {
 	defer channel.Close()
 
 	// Initialize The Kafka Producer In Order To Start Processing Status Events
-	kafkaProducer, err = producer.NewProducer(logger, environment.KafkaBrokers, environment.KafkaUsername, environment.KafkaPassword, metricsServer, healthServer)
+	kafkaProducer, err = producer.NewProducer(logger, strings.Split(environment.KafkaBrokers, ","), environment.KafkaUsername, environment.KafkaPassword, metricsServer, healthServer)
 	if err != nil {
 		logger.Fatal("Failed To Initialize Kafka Producer", zap.Error(err))
 	}
@@ -99,33 +100,18 @@ func handleMessage(ctx context.Context, channelReference eventingchannel.Channel
 	logger.Debug("~~~~~~~~~~~~~~~~~~~~  Processing Request  ~~~~~~~~~~~~~~~~~~~~")
 	logger.Debug("Received Message", zap.Any("Message", message), zap.Any("ChannelReference", channelReference))
 
-	//
-	// Convert The CloudEvents Binding Message To A CloudEvent
-	//
-	// TODO - It is potentially inefficient to take the CloudEvent binding/Message and convert it into a CloudEvent,
-	//        just so that it can then be further transformed into a Confluent KafkaMessage.  The current implementation
-	//        is based on CloudEvent Events, however, and until a "protocol" implementation for Confluent Kafka exists
-	//        this is the simplest path forward.  Once such a protocol implementation exists, it would be more efficient
-	//        to convert directly from the binding/Message to the protocol/Message.
-	//
-	cloudEvent, err := binding.ToEvent(ctx, message, transformers...)
-	if err != nil {
-		logger.Error("Failed To Convert Message To CloudEvent", zap.Error(err))
-		return err
-	}
-
 	// Trim The "-kafkachannel" Suffix From The Service Name
 	channelReference.Name = kafkautil.TrimKafkaChannelServiceNameSuffix(channelReference.Name)
 
 	// Validate The KafkaChannel Prior To Producing Kafka Message
-	err = channel.ValidateKafkaChannel(channelReference)
+	err := channel.ValidateKafkaChannel(channelReference)
 	if err != nil {
 		logger.Warn("Unable To Validate ChannelReference", zap.Any("ChannelReference", channelReference), zap.Error(err))
 		return err
 	}
 
-	// Send The Event To The Appropriate Channel/Topic
-	err = kafkaProducer.ProduceKafkaMessage(cloudEvent, channelReference)
+	// Produce The CloudEvent Binding Message (Send To The Appropriate Kafka Topic)
+	err = kafkaProducer.ProduceKafkaMessage(ctx, channelReference, message, transformers...)
 	if err != nil {
 		logger.Error("Failed To Produce Kafka Message", zap.Error(err))
 		return err

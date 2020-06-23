@@ -34,9 +34,10 @@ const (
 	ConfigPropertySecurityProtocol      = "security.protocol"
 	ConfigPropertySecurityProtocolValue = "SASL_SSL"
 	ConfigPropertySaslMechanisms        = "sasl.mechanisms"
-	ConfigPropertySaslMechanismsPlain   = "PLAIN"
-	ConfigPropertySaslUsername          = "sasl.username"
-	ConfigPropertySaslPassword          = "sasl.password"
+	// TODO - can probably remove these below (and above too ; )
+	ConfigPropertySaslMechanismsPlain = "PLAIN"
+	ConfigPropertySaslUsername        = "sasl.username"
+	ConfigPropertySaslPassword        = "sasl.password"
 
 	// Kafka Producer Configuration Properties
 	ConfigPropertyPartitioner      = "partitioner"
