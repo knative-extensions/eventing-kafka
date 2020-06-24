@@ -10,9 +10,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	kafkav1alpha1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
+	commonenv "knative.dev/eventing-kafka/pkg/common/env"
 	"knative.dev/eventing-kafka/pkg/common/health"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
-	"knative.dev/eventing-kafka/pkg/controller/env"
 	"knative.dev/eventing-kafka/pkg/controller/event"
 	"knative.dev/eventing-kafka/pkg/controller/util"
 	"knative.dev/pkg/controller"
@@ -317,39 +317,43 @@ func (r *Reconciler) dispatcherDeploymentEnvVars(channel *kafkav1alpha1.KafkaCha
 			Value: logging.ConfigMapName(),
 		},
 		{
-			Name:  env.MetricsPortEnvVarKey,
+			Name:  commonenv.MetricsPortEnvVarKey,
 			Value: strconv.Itoa(r.environment.MetricsPort),
 		},
 		{
-			Name:  env.HealthPortEnvVarKey,
+			Name:  commonenv.HealthPortEnvVarKey,
 			Value: strconv.Itoa(constants.HealthPort),
 		},
 		{
-			Name:  env.ChannelKeyEnvVarKey,
+			Name:  commonenv.ChannelKeyEnvVarKey,
 			Value: util.ChannelKey(channel),
 		},
 		{
-			Name:  env.KafkaTopicEnvVarKey,
+			Name:  commonenv.ServiceNameEnvVarKey,
+			Value: util.DispatcherDnsSafeName(channel),
+		},
+		{
+			Name:  commonenv.KafkaTopicEnvVarKey,
 			Value: topicName,
 		},
 		{
-			Name:  env.KafkaOffsetCommitMessageCountEnvVarKey,
+			Name:  commonenv.KafkaOffsetCommitMessageCountEnvVarKey,
 			Value: strconv.FormatInt(r.environment.KafkaOffsetCommitMessageCount, 10),
 		},
 		{
-			Name:  env.KafkaOffsetCommitDurationMillisEnvVarKey,
+			Name:  commonenv.KafkaOffsetCommitDurationMillisEnvVarKey,
 			Value: strconv.FormatInt(r.environment.KafkaOffsetCommitDurationMillis, 10),
 		},
 		{
-			Name:  env.ExponentialBackoffEnvVarKey,
+			Name:  commonenv.ExponentialBackoffEnvVarKey,
 			Value: strconv.FormatBool(r.environment.DispatcherRetryExponentialBackoff),
 		},
 		{
-			Name:  env.InitialRetryIntervalEnvVarKey,
+			Name:  commonenv.InitialRetryIntervalEnvVarKey,
 			Value: strconv.FormatInt(r.environment.DispatcherRetryInitialIntervalMillis, 10),
 		},
 		{
-			Name:  env.MaxRetryTimeEnvVarKey,
+			Name:  commonenv.MaxRetryTimeEnvVarKey,
 			Value: strconv.FormatInt(r.environment.DispatcherRetryTimeMillisMax, 10),
 		},
 	}
@@ -367,7 +371,7 @@ func (r *Reconciler) dispatcherDeploymentEnvVars(channel *kafkav1alpha1.KafkaCha
 
 		// Append The Kafka Brokers As Env Var
 		envVars = append(envVars, corev1.EnvVar{
-			Name: env.KafkaBrokerEnvVarKey,
+			Name: commonenv.KafkaBrokerEnvVarKey,
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{Name: kafkaSecret},
@@ -378,7 +382,7 @@ func (r *Reconciler) dispatcherDeploymentEnvVars(channel *kafkav1alpha1.KafkaCha
 
 		// Append The Kafka Username As Env Var
 		envVars = append(envVars, corev1.EnvVar{
-			Name: env.KafkaUsernameEnvVarKey,
+			Name: commonenv.KafkaUsernameEnvVarKey,
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{Name: kafkaSecret},
@@ -389,7 +393,7 @@ func (r *Reconciler) dispatcherDeploymentEnvVars(channel *kafkav1alpha1.KafkaCha
 
 		// Append The Kafka Password As Env Var
 		envVars = append(envVars, corev1.EnvVar{
-			Name: env.KafkaPasswordEnvVarKey,
+			Name: commonenv.KafkaPasswordEnvVarKey,
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{Name: kafkaSecret},
