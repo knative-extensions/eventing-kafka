@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
+	commonenv "knative.dev/eventing-kafka/pkg/common/env"
 	"log"
 	"os"
 	"strconv"
@@ -85,27 +86,27 @@ func TestGetEnvironment(t *testing.T) {
 
 	testCase = getValidTestCase("Missing Required Config - ServiceAccount")
 	testCase.serviceAccount = ""
-	testCase.expectedError = getMissingRequiredEnvironmentVariableError(ServiceAccountEnvVarKey)
+	testCase.expectedError = getMissingRequiredEnvironmentVariableError(commonenv.ServiceAccountEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Required Config - MetricsPort")
 	testCase.metricsPort = ""
-	testCase.expectedError = getMissingRequiredEnvironmentVariableError(MetricsPortEnvVarKey)
+	testCase.expectedError = getMissingRequiredEnvironmentVariableError(commonenv.MetricsPortEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Invalid Config - MetricsPort")
 	testCase.metricsPort = "NAN"
-	testCase.expectedError = getInvalidIntegerEnvironmentVariableError(testCase.metricsPort, MetricsPortEnvVarKey)
+	testCase.expectedError = getInvalidIntegerEnvironmentVariableError(testCase.metricsPort, commonenv.MetricsPortEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Required Config - KafkaProvider")
 	testCase.kafkaProvider = ""
-	testCase.expectedError = getMissingRequiredEnvironmentVariableError(KafkaProviderEnvVarKey)
+	testCase.expectedError = getMissingRequiredEnvironmentVariableError(commonenv.KafkaProviderEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Invalid Config - KafkaProvider")
 	testCase.kafkaProvider = "foo"
-	testCase.expectedError = fmt.Errorf("invalid (unknown) value 'foo' for environment variable '%s'", KafkaProviderEnvVarKey)
+	testCase.expectedError = fmt.Errorf("invalid (unknown) value 'foo' for environment variable '%s'", commonenv.KafkaProviderEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Optional Config - KafkaOffsetCommitMessageCount")
@@ -287,14 +288,14 @@ func TestGetEnvironment(t *testing.T) {
 
 		// (Re)Setup The Environment Variables From TestCase
 		os.Clearenv()
-		assert.Nil(t, os.Setenv(ServiceAccountEnvVarKey, testCase.serviceAccount))
+		assert.Nil(t, os.Setenv(commonenv.ServiceAccountEnvVarKey, testCase.serviceAccount))
 		if len(testCase.metricsPort) > 0 {
-			assert.Nil(t, os.Setenv(MetricsPortEnvVarKey, testCase.metricsPort))
+			assert.Nil(t, os.Setenv(commonenv.MetricsPortEnvVarKey, testCase.metricsPort))
 		}
 
-		assert.Nil(t, os.Setenv(KafkaProviderEnvVarKey, testCase.kafkaProvider))
-		assert.Nil(t, os.Setenv(KafkaOffsetCommitMessageCountEnvVarKey, testCase.kafkaOffsetCommitMessageCount))
-		assert.Nil(t, os.Setenv(KafkaOffsetCommitDurationMillisEnvVarKey, testCase.kafkaOffsetCommitDurationMillis))
+		assert.Nil(t, os.Setenv(commonenv.KafkaProviderEnvVarKey, testCase.kafkaProvider))
+		assert.Nil(t, os.Setenv(commonenv.KafkaOffsetCommitMessageCountEnvVarKey, testCase.kafkaOffsetCommitMessageCount))
+		assert.Nil(t, os.Setenv(commonenv.KafkaOffsetCommitDurationMillisEnvVarKey, testCase.kafkaOffsetCommitDurationMillis))
 		if len(testCase.defaultNumPartitions) > 0 {
 			assert.Nil(t, os.Setenv(DefaultNumPartitionsEnvVarKey, testCase.defaultNumPartitions))
 		}

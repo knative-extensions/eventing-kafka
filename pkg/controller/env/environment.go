@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"knative.dev/eventing-kafka/pkg/common/env"
 	"os"
 	"strconv"
 	"strings"
@@ -11,28 +12,6 @@ import (
 
 // Package Constants
 const (
-	// Eventing-Kafka Configuration
-	ServiceAccountEnvVarKey = "SERVICE_ACCOUNT"
-	MetricsPortEnvVarKey    = "METRICS_PORT"
-	HealthPortEnvVarKey     = "HEALTH_PORT"
-
-	// Kafka Authorization
-	KafkaBrokerEnvVarKey   = "KAFKA_BROKERS"
-	KafkaUsernameEnvVarKey = "KAFKA_USERNAME"
-	KafkaPasswordEnvVarKey = "KAFKA_PASSWORD"
-
-	// Kafka Configuration
-	KafkaProviderEnvVarKey                   = "KAFKA_PROVIDER"
-	KafkaOffsetCommitMessageCountEnvVarKey   = "KAFKA_OFFSET_COMMIT_MESSAGE_COUNT"
-	KafkaOffsetCommitDurationMillisEnvVarKey = "KAFKA_OFFSET_COMMIT_DURATION_MILLIS"
-	KafkaTopicEnvVarKey                      = "KAFKA_TOPIC"
-
-	// Dispatcher Configuration
-	ChannelKeyEnvVarKey           = "CHANNEL_KEY"
-	ExponentialBackoffEnvVarKey   = "EXPONENTIAL_BACKOFF"
-	InitialRetryIntervalEnvVarKey = "INITIAL_RETRY_INTERVAL"
-	MaxRetryTimeEnvVarKey         = "MAX_RETRY_TIME"
-
 	// Default Values To Use If Not Available In Env Variables
 	DefaultKafkaOffsetCommitMessageCount   = "100"
 	DefaultKafkaOffsetCommitDurationMillis = "5000"
@@ -124,25 +103,25 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 	environment := &Environment{}
 
 	// Get The Required K8S ServiceAccount Config Value
-	environment.ServiceAccount, err = getRequiredConfigValue(logger, ServiceAccountEnvVarKey)
+	environment.ServiceAccount, err = getRequiredConfigValue(logger, env.ServiceAccountEnvVarKey)
 	if err != nil {
 		return nil, err
 	}
 
 	// Get The Required Metrics Port Config Value & Convert To Int
-	metricsPortString, err := getRequiredConfigValue(logger, MetricsPortEnvVarKey)
+	metricsPortString, err := getRequiredConfigValue(logger, env.MetricsPortEnvVarKey)
 	if err != nil {
 		return nil, err
 	} else {
 		environment.MetricsPort, err = strconv.Atoi(metricsPortString)
 		if err != nil {
 			logger.Error("Invalid MetricsPort (Non Integer)", zap.String("Value", metricsPortString), zap.Error(err))
-			return nil, fmt.Errorf("invalid (non-integer) value '%s' for environment variable '%s'", metricsPortString, MetricsPortEnvVarKey)
+			return nil, fmt.Errorf("invalid (non-integer) value '%s' for environment variable '%s'", metricsPortString, env.MetricsPortEnvVarKey)
 		}
 	}
 
 	// Get The Required Kafka Provider Config Value
-	kafkaProviderString, err := getRequiredConfigValue(logger, KafkaProviderEnvVarKey)
+	kafkaProviderString, err := getRequiredConfigValue(logger, env.KafkaProviderEnvVarKey)
 	if err != nil {
 		return nil, err
 	} else {
@@ -155,12 +134,12 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 			environment.KafkaProvider = KafkaProviderValueAzure
 		default:
 			logger.Error("Invalid / Unknown KafkaProvider", zap.String("Value", kafkaProviderString), zap.Error(err))
-			return nil, fmt.Errorf("invalid (unknown) value '%s' for environment variable '%s'", kafkaProviderString, KafkaProviderEnvVarKey)
+			return nil, fmt.Errorf("invalid (unknown) value '%s' for environment variable '%s'", kafkaProviderString, env.KafkaProviderEnvVarKey)
 		}
 	}
 
 	// Get The Optional KafkaOffsetCommitMessageCount Config Value
-	kafkaOffsetCommitMessageCountString := getOptionalConfigValue(logger, KafkaOffsetCommitMessageCountEnvVarKey, DefaultKafkaOffsetCommitMessageCount)
+	kafkaOffsetCommitMessageCountString := getOptionalConfigValue(logger, env.KafkaOffsetCommitMessageCountEnvVarKey, DefaultKafkaOffsetCommitMessageCount)
 	environment.KafkaOffsetCommitMessageCount, err = strconv.ParseInt(kafkaOffsetCommitMessageCountString, 10, 64)
 	if err != nil {
 		logger.Error("Invalid KafkaOffsetCommitMessageCount (Non Integer)", zap.String("Value", kafkaOffsetCommitMessageCountString), zap.Error(err))
@@ -168,7 +147,7 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 	}
 
 	// Get The Optional KafkaOffsetCommitDurationMillis Config Value
-	kafkaOffsetCommitDurationMillisString := getOptionalConfigValue(logger, KafkaOffsetCommitDurationMillisEnvVarKey, DefaultKafkaOffsetCommitDurationMillis)
+	kafkaOffsetCommitDurationMillisString := getOptionalConfigValue(logger, env.KafkaOffsetCommitDurationMillisEnvVarKey, DefaultKafkaOffsetCommitDurationMillis)
 	environment.KafkaOffsetCommitDurationMillis, err = strconv.ParseInt(kafkaOffsetCommitDurationMillisString, 10, 64)
 	if err != nil {
 		logger.Error("Invalid KafkaOffsetCommitDurationMillis (Non Integer)", zap.String("Value", kafkaOffsetCommitDurationMillisString), zap.Error(err))
