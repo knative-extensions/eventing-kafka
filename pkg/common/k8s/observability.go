@@ -14,8 +14,6 @@ import (
 // Much Of This Function Is Taken From sharedmain.Main()
 //
 func InitializeObservability(logger *zap.SugaredLogger, ctx context.Context, metricsDomain string) {
-	logger.Info("EDV:  InitializeObservability, metricsDomain: " + metricsDomain)
-
 	profilingHandler := profiling.NewHandler(logger, false)
 	profilingServer := profiling.NewServer(profilingHandler)
 	eg, egCtx := errgroup.WithContext(ctx)
@@ -42,6 +40,4 @@ func InitializeObservability(logger *zap.SugaredLogger, ctx context.Context, met
 	if err := cmw.Start(ctx.Done()); err != nil {
 		logger.Fatalw("Failed to start observability configuration manager", zap.Error(err))
 	}
-
-	logger.Info("EDV:  ~InitializeObservability")
 }
