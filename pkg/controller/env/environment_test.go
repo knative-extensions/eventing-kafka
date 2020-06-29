@@ -15,6 +15,7 @@ import (
 const (
 	serviceAccount = "TestServiceAccount"
 	metricsPort    = "9999"
+	metricsDomain  = "example.com/kafka-eventing"
 	kafkaProvider  = "confluent"
 
 	kafkaOffsetCommitMessageCount   = "500"
@@ -48,6 +49,7 @@ type TestCase struct {
 	name                                 string
 	serviceAccount                       string
 	metricsPort                          string
+	metricsDomain                        string
 	kafkaProvider                        string
 	kafkaOffsetCommitMessageCount        string
 	kafkaOffsetCommitDurationMillis      string
@@ -87,6 +89,11 @@ func TestGetEnvironment(t *testing.T) {
 	testCase = getValidTestCase("Missing Required Config - ServiceAccount")
 	testCase.serviceAccount = ""
 	testCase.expectedError = getMissingRequiredEnvironmentVariableError(commonenv.ServiceAccountEnvVarKey)
+	testCases = append(testCases, testCase)
+
+	testCase = getValidTestCase("Missing Required Config - MetricsDomain")
+	testCase.metricsDomain = ""
+	testCase.expectedError = getMissingRequiredEnvironmentVariableError(commonenv.MetricsDomainEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Required Config - MetricsPort")
@@ -289,6 +296,7 @@ func TestGetEnvironment(t *testing.T) {
 		// (Re)Setup The Environment Variables From TestCase
 		os.Clearenv()
 		assert.Nil(t, os.Setenv(commonenv.ServiceAccountEnvVarKey, testCase.serviceAccount))
+		assert.Nil(t, os.Setenv(commonenv.MetricsDomainEnvVarKey, testCase.metricsDomain))
 		if len(testCase.metricsPort) > 0 {
 			assert.Nil(t, os.Setenv(commonenv.MetricsPortEnvVarKey, testCase.metricsPort))
 		}
@@ -393,6 +401,7 @@ func getValidTestCase(name string) TestCase {
 		name:                                 name,
 		serviceAccount:                       serviceAccount,
 		metricsPort:                          metricsPort,
+		metricsDomain:                        metricsDomain,
 		kafkaProvider:                        kafkaProvider,
 		kafkaOffsetCommitMessageCount:        kafkaOffsetCommitMessageCount,
 		kafkaOffsetCommitDurationMillis:      kafkaOffsetCommitDurationMillis,

@@ -10,6 +10,7 @@ import (
 // The Environment Struct
 type Environment struct {
 	MetricsPort   string
+	MetricsDomain string
 	HealthPort    string
 	KafkaBrokers  string
 	KafkaUsername string
@@ -23,6 +24,7 @@ func GetEnvironment(logger *zap.Logger) (Environment, error) {
 	// Create The Environment With Current Values
 	environment := Environment{
 		MetricsPort:   os.Getenv(commonenv.MetricsPortEnvVarKey),
+		MetricsDomain: os.Getenv(commonenv.MetricsDomainEnvVarKey),
 		HealthPort:    os.Getenv(commonenv.HealthPortEnvVarKey),
 		KafkaBrokers:  os.Getenv(commonenv.KafkaBrokerEnvVarKey),
 		KafkaUsername: os.Getenv(commonenv.KafkaUsernameEnvVarKey),
@@ -49,6 +51,7 @@ func GetEnvironment(logger *zap.Logger) (Environment, error) {
 func validateEnvironment(logger *zap.Logger, environment Environment) error {
 
 	valid := validateRequiredEnvironmentVariable(logger, commonenv.MetricsPortEnvVarKey, environment.MetricsPort) &&
+		validateRequiredEnvironmentVariable(logger, commonenv.MetricsDomainEnvVarKey, environment.HealthPort) &&
 		validateRequiredEnvironmentVariable(logger, commonenv.HealthPortEnvVarKey, environment.HealthPort) &&
 		validateRequiredEnvironmentVariable(logger, commonenv.KafkaBrokerEnvVarKey, environment.KafkaBrokers) &&
 		validateRequiredEnvironmentVariable(logger, commonenv.ServiceNameEnvVarKey, environment.ServiceName)

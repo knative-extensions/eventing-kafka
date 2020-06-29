@@ -53,6 +53,7 @@ func main() {
 
 	// Load Environment Variables
 	metricsPort := os.Getenv(commonenv.MetricsPortEnvVarKey)
+	metricsDomain := os.Getenv(commonenv.MetricsDomainEnvVarKey)
 	healthPort := os.Getenv(commonenv.HealthPortEnvVarKey)
 	rawExpBackoff, expBackoffPresent := os.LookupEnv(commonenv.ExponentialBackoffEnvVarKey)
 	exponentialBackoff, _ := strconv.ParseBool(rawExpBackoff)
@@ -103,8 +104,11 @@ func main() {
 		logger.Fatal("Invalid / Missing Environment Variables - Terminating")
 	}
 
-	// Initialize Tracing (Watching config-tracing ConfigMap, Assumes Context Came From LoggingContext With Embedded K8S Client Key)
+	// Initialize Tracing (Watches config-tracing ConfigMap, Assumes Context Came From LoggingContext With Embedded K8S Client Key)
 	commonk8s.InitializeTracing(logger.Sugar(), ctx, serviceName)
+
+	// Initialize Observability (Watches config-observability ConfigMap And Starts Profiling Server)
+	commonk8s.InitializeObservability(logger.Sugar(), ctx, metricsDomain)
 
 	// Start The Liveness And Readiness Servers
 	healthServer := dispatcherhealth.NewDispatcherHealthServer(healthPort)

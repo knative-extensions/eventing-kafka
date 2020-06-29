@@ -60,6 +60,7 @@ type Environment struct {
 	// Eventing-kafka Configuration
 	ServiceAccount string // Required
 	MetricsPort    int    // Required
+	MetricsDomain  string // Required
 
 	// Kafka Configuration / Authorization
 	KafkaProvider                   string // Required
@@ -104,6 +105,12 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 
 	// Get The Required K8S ServiceAccount Config Value
 	environment.ServiceAccount, err = getRequiredConfigValue(logger, env.ServiceAccountEnvVarKey)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get The Required Metrics Domain Config Value
+	environment.MetricsDomain, err = getRequiredConfigValue(logger, env.MetricsDomainEnvVarKey)
 	if err != nil {
 		return nil, err
 	}

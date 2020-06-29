@@ -45,8 +45,11 @@ func main() {
 		logger.Fatal("Invalid / Missing Environment Variables - Terminating", zap.Error(err))
 	}
 
-	// Initialize Tracing (Watching config-tracing ConfigMap, Assumes Context Came From LoggingContext With Embedded K8S Client Key)
+	// Initialize Tracing (Watches config-tracing ConfigMap, Assumes Context Came From LoggingContext With Embedded K8S Client Key)
 	commonk8s.InitializeTracing(logger.Sugar(), ctx, environment.ServiceName)
+
+	// Initialize Observability (Watches config-observability ConfigMap And Starts Profiling Server)
+	commonk8s.InitializeObservability(logger.Sugar(), ctx, environment.MetricsDomain)
 
 	// Start The Liveness And Readiness Servers
 	healthServer := channelhealth.NewChannelHealthServer(environment.HealthPort)

@@ -342,6 +342,10 @@ func (r *Reconciler) channelDeploymentEnvVars(secret *corev1.Secret) ([]corev1.E
 			Value: strconv.Itoa(r.environment.MetricsPort),
 		},
 		{
+			Name:  commonenv.MetricsDomainEnvVarKey,
+			Value: r.environment.MetricsDomain,
+		},
+		{
 			Name:  commonenv.HealthPortEnvVarKey,
 			Value: strconv.Itoa(constants.HealthPort),
 		},
