@@ -51,7 +51,7 @@ func GetEnvironment(logger *zap.Logger) (Environment, error) {
 func validateEnvironment(logger *zap.Logger, environment Environment) error {
 
 	valid := validateRequiredEnvironmentVariable(logger, commonenv.MetricsPortEnvVarKey, environment.MetricsPort) &&
-		validateRequiredEnvironmentVariable(logger, commonenv.MetricsDomainEnvVarKey, environment.HealthPort) &&
+		validateRequiredEnvironmentVariable(logger, commonenv.MetricsDomainEnvVarKey, environment.MetricsDomain) &&
 		validateRequiredEnvironmentVariable(logger, commonenv.HealthPortEnvVarKey, environment.HealthPort) &&
 		validateRequiredEnvironmentVariable(logger, commonenv.KafkaBrokerEnvVarKey, environment.KafkaBrokers) &&
 		validateRequiredEnvironmentVariable(logger, commonenv.ServiceNameEnvVarKey, environment.ServiceName)
