@@ -56,6 +56,6 @@ func TestInitializeObservability(t *testing.T) {
 	InitializeObservability(logger, ctx, test.MetricsDomain)
 
 	// If the InitializeObservability Succeeds, it will not fatally exit
-	// (Not the best test of failure conditions but it does run through the SetupDynamicPublishing() call at least
+	// (Not the best test of failure conditions but it does run through the WatchObservabilityConfigOrDie() call at least
 	//  and verify that the happy-path doesn't error out)
 }
