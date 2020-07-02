@@ -36,31 +36,41 @@ const (
 
 // Reconciler reconciles KafkaChannels.
 type Reconciler struct {
-	dispatcher           *dispatcher.Dispatcher
-	Logger               *zap.Logger
+	logger               *zap.Logger
+	channelKey           string
+	dispatcher           dispatcher.Dispatcher
 	kafkachannelInformer cache.SharedIndexInformer
 	kafkachannelLister   listers.KafkaChannelLister
 	impl                 *controller.Impl
-	Recorder             record.EventRecorder
-	KafkaClientSet       versioned.Interface
+	recorder             record.EventRecorder
+	kafkaClientSet       versioned.Interface
 }
 
 var _ controller.Reconciler = Reconciler{}
 
 // NewController initializes the controller and is called by the generated code.
 // Registers event handlers to enqueue events.
-func NewController(logger *zap.Logger, dispatcher *dispatcher.Dispatcher, kafkachannelInformer v1alpha1.KafkaChannelInformer, kubeClient kubernetes.Interface, kafkaClientSet versioned.Interface, stopChannel <-chan struct{}) *controller.Impl {
+func NewController(
+	logger *zap.Logger,
+	channelKey string,
+	dispatcher dispatcher.Dispatcher,
+	kafkachannelInformer v1alpha1.KafkaChannelInformer,
+	kubeClient kubernetes.Interface,
+	kafkaClientSet versioned.Interface,
+	stopChannel <-chan struct{},
+) *controller.Impl {
 
 	r := &Reconciler{
-		Logger:               logger,
+		logger:               logger,
+		channelKey:           channelKey,
 		dispatcher:           dispatcher,
 		kafkachannelInformer: kafkachannelInformer.Informer(),
 		kafkachannelLister:   kafkachannelInformer.Lister(),
-		KafkaClientSet:       kafkaClientSet,
+		kafkaClientSet:       kafkaClientSet,
 	}
-	r.impl = controller.NewImpl(r, r.Logger.Sugar(), ReconcilerName)
+	r.impl = controller.NewImpl(r, r.logger.Sugar(), ReconcilerName)
 
-	r.Logger.Info("Setting Up Event Handlers")
+	r.logger.Info("Setting Up Event Handlers")
 
 	// Watch for kafka channels.
 	kafkachannelInformer.Informer().AddEventHandler(controller.HandleAll(r.impl.Enqueue))
@@ -71,7 +81,7 @@ func NewController(logger *zap.Logger, dispatcher *dispatcher.Dispatcher, kafkac
 		eventBroadcaster.StartRecordingToSink(
 			&typedcorev1.EventSinkImpl{Interface: kubeClient.CoreV1().Events("")}),
 	}
-	r.Recorder = eventBroadcaster.NewRecorder(
+	r.recorder = eventBroadcaster.NewRecorder(
 		scheme.Scheme, corev1.EventSource{Component: ReconcilerName})
 	go func() {
 		<-stopChannel
@@ -85,7 +95,7 @@ func NewController(logger *zap.Logger, dispatcher *dispatcher.Dispatcher, kafkac
 
 func (r Reconciler) Reconcile(ctx context.Context, key string) error {
 
-	r.Logger.Info("Reconcile", zap.String("key", key))
+	r.logger.Info("Reconcile", zap.String("key", key))
 
 	// Convert the namespace/name string into a distinct namespace and name.
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
@@ -98,15 +108,15 @@ func (r Reconciler) Reconcile(ctx context.Context, key string) error {
 	original, err := r.kafkachannelLister.KafkaChannels(namespace).Get(name)
 	if err != nil {
 		if apierrs.IsNotFound(err) {
-			r.Logger.Warn("KafkaChannel No Longer Exists", zap.String("namespace", namespace), zap.String("name", name))
+			r.logger.Warn("KafkaChannel No Longer Exists", zap.String("namespace", namespace), zap.String("name", name))
 			return nil
 		}
-		r.Logger.Error("Error Retrieving KafkaChannel", zap.Error(err), zap.String("namespace", namespace), zap.String("name", name))
+		r.logger.Error("Error Retrieving KafkaChannel", zap.Error(err), zap.String("namespace", namespace), zap.String("name", name))
 		return err
 	}
 
 	// Only Reconcile KafkaChannel Associated With This Dispatcher
-	if r.dispatcher.ChannelKey != key {
+	if r.channelKey != key {
 		return nil
 	}
 
@@ -119,20 +129,20 @@ func (r Reconciler) Reconcile(ctx context.Context, key string) error {
 
 	reconcileError := r.reconcile(channel)
 	if reconcileError != nil {
-		r.Logger.Error("Error Reconciling KafkaChannel", zap.Error(reconcileError))
-		r.Recorder.Eventf(channel, corev1.EventTypeWarning, channelReconcileFailed, "KafkaChannel Reconciliation Failed: %v", reconcileError)
+		r.logger.Error("Error Reconciling KafkaChannel", zap.Error(reconcileError))
+		r.recorder.Eventf(channel, corev1.EventTypeWarning, channelReconcileFailed, "KafkaChannel Reconciliation Failed: %v", reconcileError)
 	} else {
-		r.Logger.Debug("KafkaChannel Reconciled Successfully")
-		r.Recorder.Event(channel, corev1.EventTypeNormal, channelReconciled, "KafkaChannel Reconciled")
+		r.logger.Debug("KafkaChannel Reconciled Successfully")
+		r.recorder.Event(channel, corev1.EventTypeNormal, channelReconciled, "KafkaChannel Reconciled")
 	}
 
 	_, updateStatusErr := r.updateStatus(channel)
 	if updateStatusErr != nil {
-		r.Logger.Error("Failed To Update KafkaChannel Status", zap.Error(updateStatusErr))
-		r.Recorder.Eventf(channel, corev1.EventTypeWarning, channelUpdateStatusFailed, "Failed to update KafkaChannel's status: %v", updateStatusErr)
+		r.logger.Error("Failed To Update KafkaChannel Status", zap.Error(updateStatusErr))
+		r.recorder.Eventf(channel, corev1.EventTypeWarning, channelUpdateStatusFailed, "Failed to update KafkaChannel's status: %v", updateStatusErr)
 		return updateStatusErr
 	} else {
-		r.Logger.Info("Successfully Verified / Updated KafkaChannel Status")
+		r.logger.Info("Successfully Verified / Updated KafkaChannel Status")
 	}
 
 	// Return Success
@@ -142,48 +152,50 @@ func (r Reconciler) Reconcile(ctx context.Context, key string) error {
 // Reconcile The Specified KafkaChannel
 func (r Reconciler) reconcile(channel *kafkav1alpha1.KafkaChannel) error {
 
-	if channel.Spec.Subscribable == nil || channel.Spec.Subscribable.Subscribers == nil {
-		r.Logger.Info("KafkaChannel Has No Subscribers - Nothing To Reconcile")
-		return nil
+	// The KafkaChannel's Subscribers
+	var subscribers []eventingduckv1alpha1.SubscriberSpec
+
+	// Clone The Subscribers If They Exist - Otherwise Create Empty Array
+	if channel.Spec.Subscribable != nil && channel.Spec.Subscribable.Subscribers != nil {
+		subscribers = channel.Spec.Subscribable.Subscribers
+	} else {
+		subscribers = make([]eventingduckv1alpha1.SubscriberSpec, 0)
 	}
 
-	subscriptions := make([]dispatcher.Subscription, 0)
-	for _, subscriber := range channel.Spec.Subscribable.Subscribers {
-		groupId := fmt.Sprintf("kafka.%s", subscriber.UID)
-		subscription := dispatcher.Subscription{SubscriberSpec: subscriber, GroupId: groupId}
-		subscriptions = append(subscriptions, subscription)
-		r.Logger.Debug("Adding New Subscriber / Consumer Group", zap.Any("Subscription", subscription))
-	}
+	// Update The ConsumerGroups To Align With Current KafkaChannel Subscribers
+	failedSubscriptions := r.dispatcher.UpdateSubscriptions(subscribers)
 
-	failedSubscriptions := r.dispatcher.UpdateSubscriptions(subscriptions)
-
+	// Update The KafkaChannel Subscribable Status Based On ConsumerGroup Creation Status
 	channel.Status.SubscribableStatus = r.createSubscribableStatus(channel.Spec.Subscribable, failedSubscriptions)
 
+	// Log Failed Subscriptions & Return Error
 	if len(failedSubscriptions) > 0 {
-		r.Logger.Error("Failed To Subscribe Kafka Subscriptions", zap.Int("Count", len(failedSubscriptions)))
-		return fmt.Errorf("some kafka subscriptions failed to subscribe")
+		r.logger.Error("Failed To Subscribe Kafka Subscriptions", zap.Int("Count", len(failedSubscriptions)))
+		return fmt.Errorf("some kafka subscribers failed to subscribe")
 	}
 
+	// Return Success
 	return nil
 }
 
 // Create The SubscribableStatus Block Based On The Updated Subscriptions
-func (r *Reconciler) createSubscribableStatus(subscribable *eventingduckv1alpha1.Subscribable, failedSubscriptions map[dispatcher.Subscription]error) *eventingduckv1alpha1.SubscribableStatus {
+func (r *Reconciler) createSubscribableStatus(subscribable *eventingduckv1alpha1.Subscribable, failedSubscriptions map[eventingduckv1alpha1.SubscriberSpec]error) *eventingduckv1alpha1.SubscribableStatus {
 
 	subscriberStatus := make([]eventingduckv1beta1.SubscriberStatus, 0)
-	for _, sub := range subscribable.Subscribers {
-		status := eventingduckv1beta1.SubscriberStatus{
-			UID:                sub.UID,
-			ObservedGeneration: sub.Generation,
-			Ready:              corev1.ConditionTrue,
+
+	if subscribable != nil && subscribable.Subscribers != nil {
+		for _, subscriber := range subscribable.Subscribers {
+			status := eventingduckv1beta1.SubscriberStatus{
+				UID:                subscriber.UID,
+				ObservedGeneration: subscriber.Generation,
+				Ready:              corev1.ConditionTrue,
+			}
+			if err, ok := failedSubscriptions[subscriber]; ok {
+				status.Ready = corev1.ConditionFalse
+				status.Message = err.Error()
+			}
+			subscriberStatus = append(subscriberStatus, status)
 		}
-		groupId := fmt.Sprintf("kafka.%s", sub.UID)
-		subscription := dispatcher.Subscription{SubscriberSpec: sub, GroupId: groupId}
-		if err, ok := failedSubscriptions[subscription]; ok {
-			status.Ready = corev1.ConditionFalse
-			status.Message = err.Error()
-		}
-		subscriberStatus = append(subscriberStatus, status)
 	}
 
 	return &eventingduckv1alpha1.SubscribableStatus{
@@ -198,13 +210,13 @@ func (r *Reconciler) updateStatus(desired *kafkav1alpha1.KafkaChannel) (*kafkav1
 	}
 
 	if reflect.DeepEqual(kc.Status, desired.Status) {
-		r.Logger.Debug("KafkaChannel Status Already Current - Skipping Update")
+		r.logger.Debug("KafkaChannel Status Already Current - Skipping Update")
 		return kc, nil
 	}
 
 	// Don't modify the informers copy.
 	existing := kc.DeepCopy()
 	existing.Status = desired.Status
-	updated, err := r.KafkaClientSet.MessagingV1alpha1().KafkaChannels(desired.Namespace).UpdateStatus(existing)
+	updated, err := r.kafkaClientSet.MessagingV1alpha1().KafkaChannels(desired.Namespace).UpdateStatus(existing)
 	return updated, err
 }

@@ -1,13 +1,37 @@
 package util
 
 import (
+	"crypto/tls"
 	"fmt"
+	"github.com/Shopify/sarama"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/stretchr/testify/assert"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	"testing"
 )
 
+// Test The AddAddSaslAuthentication() Functionality
+func TestAddSaslAuthentication(t *testing.T) {
+
+	// Test Data
+	username := "TestUsername"
+	password := "TestPassword"
+	config := sarama.NewConfig()
+
+	// Perform The Test
+	AddSaslAuthenticationNEW(config, username, password)
+
+	// Verify The Results
+	assert.Equal(t, username, config.Net.SASL.User)
+	assert.Equal(t, password, config.Net.SASL.Password)
+	assert.True(t, config.Net.SASL.Enable)
+	assert.Equal(t, sarama.SASLMechanism(sarama.SASLTypePlaintext), config.Net.SASL.Mechanism)
+	assert.True(t, config.Net.TLS.Enable)
+	assert.True(t, config.Net.TLS.Config.InsecureSkipVerify)
+	assert.Equal(t, tls.NoClientCert, config.Net.TLS.Config.ClientAuth)
+}
+
+// TODO - Remove These Tests Once Admin Client Is Converted!
 // Test The AddAuthenticationCredentials() Functionality
 func TestAddAuthenticationCredentials(t *testing.T) {
 

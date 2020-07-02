@@ -1,7 +1,9 @@
 package util
 
 import (
+	"crypto/tls"
 	"fmt"
+	"github.com/Shopify/sarama"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	"strings"
@@ -15,6 +17,30 @@ func AddSaslAuthentication(configMap *kafka.ConfigMap, mechanism string, usernam
 	_ = configMap.SetKey(constants.ConfigPropertySaslMechanisms, mechanism)
 	_ = configMap.SetKey(constants.ConfigPropertySaslUsername, username)
 	_ = configMap.SetKey(constants.ConfigPropertySaslPassword, password)
+}
+
+// TODO - remove above and rename below once adminclient has been converted to sarama ; )
+func AddSaslAuthenticationNEW(config *sarama.Config, username string, password string) {
+
+	// Update Config With With PLAIN SASL Auth If Specified
+	if config != nil && len(username) > 0 && len(password) > 0 {
+
+		// TODO - Default is v0 (required for azure eventhubs ?!)  TRY IT OUT WITH V1 and EVENTHUBS !!!
+		//      - Docs say use v1 for kafka v1 or later but should work?
+		//      - But we need to expose the whole config as a ConfigMap eventually anyway...
+		//config.Net.SASL.Version = sarama.SASLHandshakeV1
+
+		config.Net.SASL.Enable = true
+		config.Net.SASL.Mechanism = sarama.SASLTypePlaintext
+		config.Net.SASL.User = username
+		config.Net.SASL.Password = password
+
+		config.Net.TLS.Enable = true
+		config.Net.TLS.Config = &tls.Config{
+			InsecureSkipVerify: true,
+			ClientAuth:         tls.NoClientCert,
+		}
+	}
 }
 
 //

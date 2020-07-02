@@ -19,13 +19,13 @@ import (
 	"knative.dev/pkg/signals"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
 // Constants
 const (
 	Component                                      = "KafkaDispatcher"
-	DefaultKafkaConsumerOffset                     = "latest"
 	DefaultKafkaConsumerPollTimeoutMillis          = 500 // Timeout Millis When Polling For Events
 	MinimumKafkaConsumerOffsetCommitDurationMillis = 250 // Azure EventHubs Restrict To 250ms Between Offset Commits
 )
@@ -33,7 +33,7 @@ const (
 // Variables
 var (
 	logger     *zap.Logger
-	dispatcher *dispatch.Dispatcher
+	dispatcher dispatch.Dispatcher
 	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 )
@@ -117,9 +117,8 @@ func main() {
 	// Create The Dispatcher With Specified Configuration
 	dispatcherConfig := dispatch.DispatcherConfig{
 		Logger:                      logger,
-		Brokers:                     kafkaBrokers,
+		Brokers:                     strings.Split(kafkaBrokers, ","),
 		Topic:                       kafkaTopic,
-		Offset:                      DefaultKafkaConsumerOffset,
 		PollTimeoutMillis:           DefaultKafkaConsumerPollTimeoutMillis,
 		OffsetCommitCount:           kafkaOffsetCommitMessageCount,
 		OffsetCommitDuration:        time.Duration(kafkaOffsetCommitDurationMillis) * time.Millisecond,
@@ -153,6 +152,7 @@ func main() {
 	controllers := [...]*kncontroller.Impl{
 		controller.NewController(
 			logger,
+			channelKey,
 			dispatcher,
 			kafkaChannelInformer,
 			kubeClient,
@@ -180,8 +180,8 @@ func main() {
 	// Reset The Liveness and Readiness Flags In Preparation For Shutdown
 	healthServer.Shutdown()
 
-	// Close Consumer Connections
-	dispatcher.StopConsumers()
+	// Shutdown The Dispatcher (Close ConsumerGroups)
+	dispatcher.Shutdown()
 
 	// Shutdown The Prometheus Metrics Server
 	metricsServer.Stop()
