@@ -21,13 +21,18 @@ var _ channel.MessageDispatcher = &MockMessageDispatcher{}
 // Define The Mock MessageDispatcher
 type MockMessageDispatcher struct {
 	t                  *testing.T
+	errorResponses     map[url.URL]error
 	DispatchedMessages map[url.URL][]cloudevents.Message
 }
 
 // Mock MessageDispatcher Constructor
-func NewMockMessageDispatcher(t *testing.T) MockMessageDispatcher {
+func NewMockMessageDispatcher(t *testing.T, errorResponses map[url.URL]error) MockMessageDispatcher {
+	if errorResponses == nil {
+		errorResponses = make(map[url.URL]error)
+	}
 	return MockMessageDispatcher{
 		t:                  t,
+		errorResponses:     errorResponses,
 		DispatchedMessages: make(map[url.URL][]cloudevents.Message, 0),
 	}
 }
@@ -36,12 +41,23 @@ func (m MockMessageDispatcher) DispatchMessage(ctx context.Context, message clou
 	assert.NotNil(m.t, ctx)
 	assert.NotNil(m.t, message)
 	assert.NotNil(m.t, destination)
-	destMessages := m.DispatchedMessages[*destination]
-	if destMessages == nil {
-		destMessages = make([]cloudevents.Message, 0)
+
+	if deadLetter != nil {
+		m.trackMessage(deadLetter, message)
+		return m.errorResponses[*deadLetter]
+	} else {
+		m.trackMessage(destination, message)
+		return m.errorResponses[*destination]
 	}
-	m.DispatchedMessages[*destination] = append(destMessages, message)
-	return nil
+}
+
+// Utility Function For Tracking Messages Against Their URLs
+func (m MockMessageDispatcher) trackMessage(url *url.URL, message cloudevents.Message) {
+	messages := m.DispatchedMessages[*url]
+	if messages == nil {
+		messages = make([]cloudevents.Message, 0)
+	}
+	m.DispatchedMessages[*url] = append(messages, message)
 }
 
 //

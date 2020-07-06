@@ -2,6 +2,7 @@ package dispatcher
 
 import (
 	"context"
+	"errors"
 	"github.com/Shopify/sarama"
 	kafkasaramaprotocol "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"github.com/cloudevents/sdk-go/v2/binding"
@@ -13,6 +14,7 @@ import (
 	"knative.dev/eventing/pkg/channel"
 	"knative.dev/pkg/apis"
 	logtesting "knative.dev/pkg/logging/testing"
+	"net/url"
 	"testing"
 	"time"
 )
@@ -24,6 +26,7 @@ const (
 	testInitialRetryInterval = int64(111)
 	testMaxRetryTime         = int64(22)
 	testSubscriberURIString  = "https://www.foo.bar/test/path"
+	testDeadLetterURIString  = "https://www.made.up/url"
 	testTopic                = "TestTopic"
 	testPartition            = 0
 	testOffset               = 1
@@ -40,6 +43,7 @@ const (
 var (
 	testSubscriberURI, _ = apis.ParseURL(testSubscriberURIString)
 	testSubscriberURL    = testSubscriberURI.URL()
+	testDeadLetterURI, _ = apis.ParseURL(testDeadLetterURIString)
 	testMsgTime          = time.Now().UTC().Format(time.RFC3339)
 )
 
@@ -50,28 +54,45 @@ func TestNewHandler(t *testing.T) {
 
 // Test The Handler's Setup() Functionality
 func TestHandlerSetup(t *testing.T) {
-	handler := createTestHandler(t)
+	handler := createTestHandler(t, testSubscriberURI, nil)
 	assert.Nil(t, handler.Setup(nil))
 }
 
 // Test The Handler's Cleanup() Functionality
 func TestHandlerCleanup(t *testing.T) {
-	handler := createTestHandler(t)
+	handler := createTestHandler(t, testSubscriberURI, nil)
 	assert.Nil(t, handler.Cleanup(nil))
 }
 
-// TODO - Code Coverage Is At 44% - Need Retry, DeadLetterQueue, and Parsing Error Codes!!!
-
 // Test The Handler's ConsumeClaim() Functionality
 func TestHandlerConsumeClaim(t *testing.T) {
+	performHandlerConsumeClaimTest(t, nil, nil, false)                                                         // Vanilla Success
+	performHandlerConsumeClaimTest(t, nil, errors.New("test error 300"), false)                                // 300 StatusCode No Retry
+	performHandlerConsumeClaimTest(t, nil, errors.New("test error 400"), true)                                 // 400 StatusCode Retry
+	performHandlerConsumeClaimTest(t, nil, errors.New("test error 404"), true)                                 // 404 StatusCode Retry
+	performHandlerConsumeClaimTest(t, nil, errors.New("test error 429"), true)                                 // 429 StatusCode Retry
+	performHandlerConsumeClaimTest(t, nil, errors.New("test error 500"), true)                                 // 500 StatusCode Retry
+	performHandlerConsumeClaimTest(t, nil, errors.New("test error without status code"), true)                 // No StatusCode Retry
+	performHandlerConsumeClaimTest(t, nil, errors.New("test error 300 with multiple status codes 200"), false) // Multiple StatusCode Retry
+	performHandlerConsumeClaimTest(t, testDeadLetterURI, errors.New("test error 400"), true)                   // DeadLetterQueue Success After Retry
+}
+
+// Test One Permutation Of The Handler's ConsumeClaim() Functionality
+func performHandlerConsumeClaimTest(t *testing.T, deadLetterURL *apis.URL, err error, retryExpected bool) {
 
 	// Create The ConsumerMessage To Test
 	consumerMessage := createConsumerMessage(t)
 
+	// Setup Any Error Responses
+	errorResponses := make(map[url.URL]error)
+	if err != nil {
+		errorResponses[*testSubscriberURL] = err
+	}
+
 	// Create Mocks For Testing
 	mockConsumerGroupSession := dispatchertesting.NewMockConsumerGroupSession(t)
 	mockConsumerGroupClaim := dispatchertesting.NewMockConsumerGroupClaim(t)
-	mockMessageDispatcher := dispatchertesting.NewMockMessageDispatcher(t)
+	mockMessageDispatcher := dispatchertesting.NewMockMessageDispatcher(t, errorResponses)
 
 	// Mock The newMessageDispatcherWrapper Function (And Restore Post-Test)
 	newMessageDispatcherWrapperPlaceholder := newMessageDispatcherWrapper
@@ -81,7 +102,7 @@ func TestHandlerConsumeClaim(t *testing.T) {
 	defer func() { newMessageDispatcherWrapper = newMessageDispatcherWrapperPlaceholder }()
 
 	// Create The Handler To Test
-	handler := createTestHandler(t)
+	handler := createTestHandler(t, testSubscriberURI, deadLetterURL)
 
 	// Background Start Consuming Claims
 	go func() {
@@ -100,12 +121,34 @@ func TestHandlerConsumeClaim(t *testing.T) {
 
 	// Verify The Results (CloudEvent Was Dispatched & ConsumerMessage Was Marked)
 	assert.Equal(t, consumerMessage, markedMessage)
-	assert.Len(t, mockMessageDispatcher.DispatchedMessages, 1)
+	if deadLetterURL != nil {
+		assert.Len(t, mockMessageDispatcher.DispatchedMessages, 2)
+	} else {
+		assert.Len(t, mockMessageDispatcher.DispatchedMessages, 1)
+	}
+
+	// Verify Normal Message Processing (Including Retry)
 	dispatchedMessages := mockMessageDispatcher.DispatchedMessages[*testSubscriberURL]
-	assert.NotNil(t, dispatchedMessages)
-	assert.Len(t, dispatchedMessages, 1)
-	dispatchedMessage := dispatchedMessages[0]
-	dispatchedEvent, err := binding.ToEvent(context.TODO(), dispatchedMessage)
+	if retryExpected {
+		assert.Len(t, dispatchedMessages, 4)
+	} else {
+		assert.Len(t, dispatchedMessages, 1)
+	}
+	for _, dispatchedMessage := range dispatchedMessages {
+		verifyDispatchedMessage(t, dispatchedMessage)
+	}
+
+	// Verify Any DeadLetter Processing
+	if deadLetterURL != nil {
+		deadLetterMessages := mockMessageDispatcher.DispatchedMessages[*deadLetterURL.URL()]
+		assert.Len(t, deadLetterMessages, 1)
+		verifyDispatchedMessage(t, deadLetterMessages[0])
+	}
+}
+
+// Verify The Dispatched Message Contains Test Message Contents (Was Not Corrupted)
+func verifyDispatchedMessage(t *testing.T, message binding.MessageReader) {
+	dispatchedEvent, err := binding.ToEvent(context.TODO(), message)
 	assert.NotNil(t, dispatchedEvent)
 	assert.Nil(t, err)
 	assert.Equal(t, testMsgId, dispatchedEvent.Context.GetID())
@@ -123,16 +166,16 @@ func TestHandlerConsumeClaim(t *testing.T) {
 }
 
 // Utility Function For Creating New Handler
-func createTestHandler(t *testing.T) *Handler {
+func createTestHandler(t *testing.T, subscriberURL *apis.URL, deadLetterURL *apis.URL) *Handler {
 
 	// Test Data
 	logger := logtesting.TestLogger(t).Desugar()
 	testSubscriber := &eventingduck.SubscriberSpec{
 		UID:               testSubscriberUID,
 		Generation:        0,
-		SubscriberURI:     testSubscriberURI,
+		SubscriberURI:     subscriberURL,
 		ReplyURI:          nil,
-		DeadLetterSinkURI: nil,
+		DeadLetterSinkURI: deadLetterURL,
 		Delivery:          nil,
 	}
 

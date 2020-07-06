@@ -74,7 +74,9 @@ func (h *Handler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama
 		replyURL = h.Subscriber.ReplyURI.URL()
 	}
 	var deadLetterURL *url.URL
-	if h.Subscriber.Delivery != nil && h.Subscriber.Delivery.DeadLetterSink != nil && !h.Subscriber.Delivery.DeadLetterSink.URI.IsEmpty() {
+	if h.Subscriber.DeadLetterSinkURI != nil {
+		deadLetterURL = h.Subscriber.DeadLetterSinkURI.URL()
+	} else if h.Subscriber.Delivery != nil && h.Subscriber.Delivery.DeadLetterSink != nil && !h.Subscriber.Delivery.DeadLetterSink.URI.IsEmpty() {
 		deadLetterURL = h.Subscriber.Delivery.DeadLetterSink.URI.URL()
 	}
 
@@ -179,6 +181,7 @@ func (h *Handler) sendMessage(ctx context.Context, message *kafkasaramaprotocol.
 			return errors.New("server returned a bad response code")
 		} else if statusCode >= 300 {
 			logger.Warn("Failed To Send Message To Subscriber Service, Not Retrying")
+			// TODO - would we want to send to DLQ here???  301=moved, 302=found, 307=redirect, etc...
 		} else if statusCode == -1 {
 			logger.Warn("No StatusCode Detected In Error, Retrying")
 			return errors.New("no response code detected in error, retrying")

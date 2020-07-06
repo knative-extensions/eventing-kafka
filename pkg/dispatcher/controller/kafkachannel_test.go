@@ -35,25 +35,13 @@ func init() {
 	_ = v1alpha1.AddToScheme(scheme.Scheme)
 }
 
-/* TODO
-func NewController(
-	logger *zap.Logger,
-	channelKey string,
-	dispatcher dispatcher.Dispatcher,
-	kafkachannelInformer v1alpha1.KafkaChannelInformer,
-	kubeClient kubernetes.Interface,
-	kafkaClientSet versioned.Interface,
-	stopChannel <-chan struct{},
-) *controller.Impl {
-*/
-
 // Test The NewController() Functionality
 func TestNewController(t *testing.T) {
 
 	// Test Data
 	logger := logtesting.TestLogger(t).Desugar()
 	channelKey := "TestChannelKey"
-	dispatcher := NewMockDispatcher(t)
+	mockDispatcher := NewMockDispatcher(t)
 	fakeKafkaChannelClientSet := fakeclientset.NewSimpleClientset()
 	fakeK8sClientSet := fake.NewSimpleClientset()
 	kafkaInformerFactory := externalversions.NewSharedInformerFactory(fakeKafkaChannelClientSet, kncontroller.DefaultResyncPeriod)
@@ -61,7 +49,7 @@ func TestNewController(t *testing.T) {
 	stopChan := make(chan struct{})
 
 	// Perform The Test
-	c := NewController(logger, channelKey, dispatcher, kafkaChannelInformer, fakeK8sClientSet, fakeKafkaChannelClientSet, stopChan)
+	c := NewController(logger, channelKey, mockDispatcher, kafkaChannelInformer, fakeK8sClientSet, fakeKafkaChannelClientSet, stopChan)
 
 	// Verify Results
 	assert.NotNil(t, c)
