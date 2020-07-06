@@ -205,11 +205,11 @@ func (d *DispatcherImpl) closeConsumerGroup(subscriber *SubscriberWrapper) {
 	// Get The ConsumerGroup Associated with The Specified Subscriber
 	consumerGroup := subscriber.ConsumerGroup
 
+	// Create Logger With GroupId & Subscriber URI
+	logger := d.Logger.With(zap.String("GroupId", subscriber.GroupId), zap.String("URI", subscriber.SubscriberURI.String()))
+
 	// If The ConsumerGroup Is Valid
 	if consumerGroup != nil {
-
-		// Create Logger With GroupId & Subscriber URI
-		logger := d.Logger.With(zap.String("GroupId", subscriber.GroupId), zap.String("URI", subscriber.SubscriberURI.String()))
 
 		// Mark The Subscriber's ConsumerGroup As Stopped
 		close(subscriber.StopChan)
@@ -225,5 +225,8 @@ func (d *DispatcherImpl) closeConsumerGroup(subscriber *SubscriberWrapper) {
 			logger.Info("Successfully Closed ConsumerGroup")
 			delete(d.subscribers, subscriber.UID)
 		}
+	} else {
+		logger.Warn("Successfully Closed Subscriber With Nil ConsumerGroup")
+		delete(d.subscribers, subscriber.UID)
 	}
 }

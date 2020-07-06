@@ -1,18 +1,23 @@
 package controller
 
 import (
+	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
 	clientgotesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/record"
 	"knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
 	"knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned"
+	fakeclientset "knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned/fake"
+	"knative.dev/eventing-contrib/kafka/channel/pkg/client/informers/externalversions"
 	"knative.dev/eventing-kafka/pkg/dispatcher/dispatcher"
 	dispatchertesting "knative.dev/eventing-kafka/pkg/dispatcher/testing"
 	reconciletesting "knative.dev/eventing-kafka/pkg/dispatcher/testing"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1alpha1"
 	"knative.dev/pkg/controller"
+	kncontroller "knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
 	. "knative.dev/pkg/reconciler/testing"
 	reconcilertesting "knative.dev/pkg/reconciler/testing"
@@ -30,19 +35,53 @@ func init() {
 	_ = v1alpha1.AddToScheme(scheme.Scheme)
 }
 
+/* TODO
+func NewController(
+	logger *zap.Logger,
+	channelKey string,
+	dispatcher dispatcher.Dispatcher,
+	kafkachannelInformer v1alpha1.KafkaChannelInformer,
+	kubeClient kubernetes.Interface,
+	kafkaClientSet versioned.Interface,
+	stopChannel <-chan struct{},
+) *controller.Impl {
+*/
+
+// Test The NewController() Functionality
+func TestNewController(t *testing.T) {
+
+	// Test Data
+	logger := logtesting.TestLogger(t).Desugar()
+	channelKey := "TestChannelKey"
+	dispatcher := NewMockDispatcher(t)
+	fakeKafkaChannelClientSet := fakeclientset.NewSimpleClientset()
+	fakeK8sClientSet := fake.NewSimpleClientset()
+	kafkaInformerFactory := externalversions.NewSharedInformerFactory(fakeKafkaChannelClientSet, kncontroller.DefaultResyncPeriod)
+	kafkaChannelInformer := kafkaInformerFactory.Messaging().V1alpha1().KafkaChannels()
+	stopChan := make(chan struct{})
+
+	// Perform The Test
+	c := NewController(logger, channelKey, dispatcher, kafkaChannelInformer, fakeK8sClientSet, fakeKafkaChannelClientSet, stopChan)
+
+	// Verify Results
+	assert.NotNil(t, c)
+
+	// Close The
+	close(stopChan)
+}
+
+// Test KafkaChannel Controller Reconciliation
 func TestAllCases(t *testing.T) {
 	kcKey := testNS + "/" + kcName
 
 	table := reconcilertesting.TableTest{
 		{
-			Name: "bad workqueue key",
-			// Make sure Reconcile handles bad keys.
-			Key: "too/many/parts",
+			Name: "bad workqueue key", // Make sure Reconcile handles bad keys.
+			Key:  "too/many/parts",
 		},
 		{
-			Name: "key not found",
-			// Make sure Reconcile handles good keys that don't exist.
-			Key: "foo/not-found",
+			Name: "key not found", // Make sure Reconcile handles good keys that don't exist.
+			Key:  "foo/not-found",
 		},
 		{
 			Name: "not our channel, so should be ignored",

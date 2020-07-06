@@ -45,37 +45,6 @@ func (m MockMessageDispatcher) DispatchMessage(ctx context.Context, message clou
 }
 
 //
-// Mock ConsumerGroup Implementation
-//
-
-// Verify The Mock ConsumerGroup Implements The Interface
-var _ sarama.ConsumerGroup = &MockConsumerGroup{}
-
-// Define The Mock ConsumerGroup
-type MockConsumerGroup struct {
-	t        *testing.T
-	StopChan chan struct{}
-}
-
-// Mock ConsumerGroup Constructor
-func NewMockConsumerGroup(t *testing.T) MockConsumerGroup {
-	return MockConsumerGroup{t: t, StopChan: make(chan struct{})}
-}
-
-func (m MockConsumerGroup) Consume(ctx context.Context, topics []string, handler sarama.ConsumerGroupHandler) error {
-	<-m.StopChan // Block On StopChan To Simulate Real Execution
-	return nil
-}
-
-func (m MockConsumerGroup) Errors() <-chan error {
-	panic("implement me")
-}
-
-func (m MockConsumerGroup) Close() error {
-	panic("implement me")
-}
-
-//
 // Mock ConsumerGroupSession Implementation
 //
 

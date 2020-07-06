@@ -60,7 +60,7 @@ func NewController(
 	stopChannel <-chan struct{},
 ) *controller.Impl {
 
-	r := &Reconciler{
+	reconciler := &Reconciler{
 		logger:               logger,
 		channelKey:           channelKey,
 		dispatcher:           dispatcher,
@@ -68,12 +68,12 @@ func NewController(
 		kafkachannelLister:   kafkachannelInformer.Lister(),
 		kafkaClientSet:       kafkaClientSet,
 	}
-	r.impl = controller.NewImpl(r, r.logger.Sugar(), ReconcilerName)
+	reconciler.impl = controller.NewImpl(reconciler, reconciler.logger.Sugar(), ReconcilerName)
 
-	r.logger.Info("Setting Up Event Handlers")
+	reconciler.logger.Info("Setting Up Event Handlers")
 
 	// Watch for kafka channels.
-	kafkachannelInformer.Informer().AddEventHandler(controller.HandleAll(r.impl.Enqueue))
+	kafkachannelInformer.Informer().AddEventHandler(controller.HandleAll(reconciler.impl.Enqueue))
 	logger.Debug("Creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
 	watches := []watch.Interface{
@@ -81,7 +81,7 @@ func NewController(
 		eventBroadcaster.StartRecordingToSink(
 			&typedcorev1.EventSinkImpl{Interface: kubeClient.CoreV1().Events("")}),
 	}
-	r.recorder = eventBroadcaster.NewRecorder(
+	reconciler.recorder = eventBroadcaster.NewRecorder(
 		scheme.Scheme, corev1.EventSource{Component: ReconcilerName})
 	go func() {
 		<-stopChannel
@@ -90,7 +90,7 @@ func NewController(
 		}
 	}()
 
-	return r.impl
+	return reconciler.impl
 }
 
 func (r Reconciler) Reconcile(ctx context.Context, key string) error {
