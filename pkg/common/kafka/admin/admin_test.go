@@ -66,7 +66,7 @@ func TestCreateAdminClientEventHub(t *testing.T) {
 }
 
 //
-// Mock Confluent AdminClient
+// Mock AdminClient
 //
 
 var _ AdminClientInterface = &MockAdminClient{}

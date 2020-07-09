@@ -89,7 +89,7 @@ func (m *MetricsServer) initializeServer() {
 	m.server = server
 }
 
-// Observe librdkafka Metrics
+// Observe Kafka Metrics
 func (m *MetricsServer) Observe(stats string) {
 
 	m.logger.Debug("New Producer Metrics Observed")

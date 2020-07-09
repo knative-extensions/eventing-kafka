@@ -11,7 +11,7 @@ import (
 )
 
 //
-// Mock Confluent Producer
+// Mock Kafka Producer
 //
 
 var _ sarama.SyncProducer = &MockSyncProducer{}

@@ -8,8 +8,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 )
 
-// Confluent Client Doesn't Code To Interfaces Or Provide Mocks So We're Wrapping Our Usage Of The AdminClient For Testing
-// Also Introduced Additional Functionality To Get The Kafka Secret For A Topic
+// Sarama ClusterAdmin Wrapping Interface To Facilitate Other Implementations (e.g. Azure EventHubs)
 type AdminClientInterface interface {
 	CreateTopic(context.Context, string, *sarama.TopicDetail) *sarama.TopicError
 	DeleteTopic(context.Context, string) *sarama.TopicError

@@ -7,7 +7,7 @@ import (
 )
 
 //
-// Mock Confluent AdminClient
+// Mock Kafka AdminClient
 //
 
 // Verify The Mock AdminClient Implements The KafkaAdminClient Interface
