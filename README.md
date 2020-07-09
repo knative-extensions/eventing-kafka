@@ -26,14 +26,12 @@ choke point that could easily allow one Topic's traffic to impact the
 throughput of another Topic.  It is also not horizontally scalable as it only
 supports a single instance of the dispatcher/consumer.  Further, no ordering
 guarantees on the consumption side are provided which is required in certain
-use cases.  The reference implementation was also based on the
-[Sarama Go Client](https://github.com/Shopify/sarama) which historically had limitations
-compared to the [Confluent Go Client](https://github.com/confluentinc/confluent-kafka-go),
-and the [librdkafka C library](https://github.com/edenhill/librdkafka) on which
-it is based.  We also had the need to support a variety of Kafka providers,
-including Azure EventHubs in Kafka compatibility mode.  Finally, the ability
-to expose Kafka configuration was very limited, and we needed the ability to
-customize certain aspects of the Kafka Topics / Producers / Consumers.
+use cases.  
+
+We also had the need to support a variety of Kafka providers, including Azure 
+EventHubs in Kafka compatibility mode.  Finally, the ability to expose Kafka 
+configuration was very limited, and we needed the ability to customize certain
+aspects of the Kafka Topics / Producers / Consumers.
 
 ## Background / Status
 
@@ -44,6 +42,12 @@ the controller.  This also predated any of the more recent duck-typing and
 higher level abstractions (brokers, triggers, etc) which have since been added
 to knative-eventing.
 
+The implementation initially utilized the [Confluent Go Client](https://github.com/confluentinc/confluent-kafka-go), 
+and the [librdkafka C library](https://github.com/edenhill/librdkafka) on which
+it is based.  Initially the [Sarama Go Client](https://github.com/Shopify/sarama) 
+had limitations which have since been resolved so we have refactored to that
+library instead.
+
 The internal SAP project for which this was intended also underwent several
 variations in it's requirements and approach, which sometimes meant the
 development of this project languished behind the fast moving and ever
@@ -52,14 +56,12 @@ CI/CD constraints imposed some of the structure of the current project.
 
 Recently, however, the commitment to this effort was renewed, and the
 implementation is now current with knative-eventing **/master**.  Work is
-in progress to align with implementation structure in eventing-contrib in
+in progress to align with the implementation structure in eventing-contrib in
 the hopes that this project can merge with the default "kafka" implementation.
-The project had been moved to the open source [kyma-incubator](https://github.com/kyma-incubator/)
-repository and the focus was on bringing it into alignment with the other
-eventing-contrib implementations.
-
-Now, with the contribution to Knative and the move to the knative-sandbox,
-we are one step closer to a combined solution.
+The project which previously existed in the open source [kyma-incubator](https://github.com/kyma-incubator/),
+but was moved into it's current home here in the [knative-sandbox](https://github.com/knative-sandbox)
+The focus is now on bringing the implementation into alignment with the other
+knative channel implementations.
 
 ## Architecture
 
@@ -108,9 +110,7 @@ as follows...
   Topic), and will contain a distinct Kafka Consumer Group for each
   Subscription to the `KafkaChannel`.
 
-- [config](config/README.md) - Eventing-kafka yaml files for installation. **ko** is
-  used, but requires a helper script to run it inside of a container to overcome cross compilation
-  issues with the librdkafka c libraries.
+- [config](config/README.md) - Eventing-kafka **ko** installable YAML files for installation.
 
 ### Control Plane
 
