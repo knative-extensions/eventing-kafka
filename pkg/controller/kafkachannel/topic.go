@@ -55,7 +55,7 @@ func (r *Reconciler) createTopic(ctx context.Context, topicName string, partitio
 	topicDetail := &sarama.TopicDetail{
 		NumPartitions:     partitions,
 		ReplicationFactor: replicationFactor,
-		ReplicaAssignment: nil,
+		ReplicaAssignment: nil, // Currently Not Assigning Partitions To Replicas
 		ConfigEntries: map[string]*string{
 			constants.KafkaTopicConfigRetentionMs: &retentionMillisString,
 		},
