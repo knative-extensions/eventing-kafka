@@ -2,7 +2,7 @@ package admin
 
 import (
 	"context"
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	"testing"
@@ -75,18 +75,18 @@ type MockAdminClient struct {
 	kafkaSecret string
 }
 
-func (c MockAdminClient) GetKafkaSecretName(topicName string) string {
+func (c MockAdminClient) GetKafkaSecretName(string) string {
 	return c.kafkaSecret
 }
 
-func (c MockAdminClient) CreateTopics(context.Context, []kafka.TopicSpecification, ...kafka.CreateTopicsAdminOption) ([]kafka.TopicResult, error) {
-	return nil, nil
+func (c MockAdminClient) CreateTopic(context.Context, string, *sarama.TopicDetail) *sarama.TopicError {
+	return nil
 }
 
-func (c MockAdminClient) DeleteTopics(context.Context, []string, ...kafka.DeleteTopicsAdminOption) ([]kafka.TopicResult, error) {
-	return nil, nil
+func (c MockAdminClient) DeleteTopic(context.Context, string) *sarama.TopicError {
+	return nil
 }
 
-func (c MockAdminClient) Close() {
-	return
+func (c MockAdminClient) Close() error {
+	return nil
 }

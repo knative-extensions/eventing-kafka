@@ -40,7 +40,7 @@ func getConfig(username string, password string) *sarama.Config {
 	//config.MetricRegistry = metrics.DefaultRegistry
 
 	// Add Optional SASL Configuration
-	util.AddSaslAuthenticationNEW(config, username, password)
+	util.AddSaslAuthentication(config, username, password)
 
 	// We Want "Message Produced" Success Messages For Use With SyncProducer
 	config.Producer.Return.Successes = true

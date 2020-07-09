@@ -1,6 +1,7 @@
 package util
 
 import (
+	"github.com/Shopify/sarama"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -13,4 +14,31 @@ func GetKafkaSecrets(k8sClient kubernetes.Interface, k8sNamespace string) (*core
 		LabelSelector: constants.KafkaSecretLabel + "=" + "true",
 		Limit:         constants.MaxEventHubNamespaces,
 	})
+}
+
+// Utility Function To Up-Convert Any Basic Errors Into TopicErrors
+func PromoteErrorToTopicError(err error) *sarama.TopicError {
+	if err == nil {
+		return nil
+	} else {
+		switch err.(type) {
+		case *sarama.TopicError:
+			return err.(*sarama.TopicError)
+		default:
+			return NewUnknownTopicError(err.Error())
+		}
+	}
+}
+
+// Utility Function For Creating A New ErrUnknownTopicError With Specified Message
+func NewUnknownTopicError(message string) *sarama.TopicError {
+	return NewTopicError(sarama.ErrUnknown, message)
+}
+
+// Utility Function For Creating A Sarama TopicError With Specified Kafka Error Code (ErrNoError == Success)
+func NewTopicError(kError sarama.KError, message string) *sarama.TopicError {
+	return &sarama.TopicError{
+		Err:    kError,
+		ErrMsg: &message,
+	}
 }

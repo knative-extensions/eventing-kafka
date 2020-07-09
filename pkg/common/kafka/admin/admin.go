@@ -4,16 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/Shopify/sarama"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 )
 
 // Confluent Client Doesn't Code To Interfaces Or Provide Mocks So We're Wrapping Our Usage Of The AdminClient For Testing
 // Also Introduced Additional Functionality To Get The Kafka Secret For A Topic
 type AdminClientInterface interface {
-	CreateTopics(context.Context, []kafka.TopicSpecification, ...kafka.CreateTopicsAdminOption) ([]kafka.TopicResult, error)
-	DeleteTopics(context.Context, []string, ...kafka.DeleteTopicsAdminOption) ([]kafka.TopicResult, error)
-	Close()
+	CreateTopic(context.Context, string, *sarama.TopicDetail) *sarama.TopicError
+	DeleteTopic(context.Context, string) *sarama.TopicError
+	Close() error
 	GetKafkaSecretName(topicName string) string
 }
 

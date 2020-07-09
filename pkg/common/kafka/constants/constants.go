@@ -57,8 +57,8 @@ const (
 	ConfigPropertyQueuedMaxMessagesKbytes      = "queued.max.messages.kbytes" // Controls the amount of pre-fetched messages the consumer will pull down per partition
 	ConfigPropertyQueuedMaxMessagesKbytesValue = "7000"
 
-	// KafkaTopic Config Keys
-	TopicSpecificationConfigRetentionMs = "retention.ms"
+	// Kafka Topic Config Keys
+	TopicDetailConfigRetentionMs = "retention.ms"
 
 	// EventHub Error Codes
 	EventHubErrorCodeUnknown       = -2

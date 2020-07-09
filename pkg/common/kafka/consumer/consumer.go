@@ -37,7 +37,7 @@ func getConfig(username string, password string) *sarama.Config {
 	config.Version = sarama.V2_3_0_0
 
 	// Add Optional SASL Configuration
-	util.AddSaslAuthenticationNEW(config, username, password)
+	util.AddSaslAuthentication(config, username, password)
 
 	// TODO - Configure The ConsumerGroup !!!
 	// config.Consumer.Group.Rebalance.Strategy ???

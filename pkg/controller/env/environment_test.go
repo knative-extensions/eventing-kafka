@@ -124,7 +124,7 @@ func TestGetEnvironment(t *testing.T) {
 
 	testCase = getValidTestCase("Invalid Config - DefaultNumPartitions")
 	testCase.defaultNumPartitions = "NAN"
-	testCase.expectedError = getInvalidIntegerEnvironmentVariableError(testCase.defaultNumPartitions, DefaultNumPartitionsEnvVarKey)
+	testCase.expectedError = getInvalidInt32EnvironmentVariableError(testCase.defaultNumPartitions, DefaultNumPartitionsEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Required Config - DefaultReplicationFactor")
@@ -134,7 +134,7 @@ func TestGetEnvironment(t *testing.T) {
 
 	testCase = getValidTestCase("Invalid Config - DefaultReplicationFactor")
 	testCase.defaultReplicationFactor = "NAN"
-	testCase.expectedError = getInvalidIntegerEnvironmentVariableError(testCase.defaultReplicationFactor, DefaultReplicationFactorEnvVarKey)
+	testCase.expectedError = getInvalidInt16EnvironmentVariableError(testCase.defaultReplicationFactor, DefaultReplicationFactorEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Optional Config - DefaultRetentionMillis")
@@ -350,8 +350,8 @@ func TestGetEnvironment(t *testing.T) {
 				assert.Equal(t, DefaultKafkaOffsetCommitDurationMillis, strconv.FormatInt(environment.KafkaOffsetCommitDurationMillis, 10))
 			}
 
-			assert.Equal(t, testCase.defaultNumPartitions, strconv.Itoa(environment.DefaultNumPartitions))
-			assert.Equal(t, testCase.defaultReplicationFactor, strconv.Itoa(environment.DefaultReplicationFactor))
+			assert.Equal(t, testCase.defaultNumPartitions, fmt.Sprint(environment.DefaultNumPartitions))
+			assert.Equal(t, testCase.defaultReplicationFactor, fmt.Sprint(environment.DefaultReplicationFactor))
 
 			if len(testCase.defaultRetentionMillis) > 0 {
 				assert.Equal(t, testCase.defaultRetentionMillis, strconv.FormatInt(environment.DefaultRetentionMillis, 10))
@@ -427,6 +427,16 @@ func getMissingRequiredEnvironmentVariableError(envVarKey string) error {
 // Get The Expected Error Message For An Invalid Integer Environment Variable
 func getInvalidIntegerEnvironmentVariableError(value string, envVarKey string) error {
 	return fmt.Errorf("invalid (non-integer) value '%s' for environment variable '%s'", value, envVarKey)
+}
+
+// Get The Expected Error Message For An Invalid Int32 Environment Variable
+func getInvalidInt32EnvironmentVariableError(value string, envVarKey string) error {
+	return fmt.Errorf("invalid (int32) value '%s' for environment variable '%s'", value, envVarKey)
+}
+
+// Get The Expected Error Message For An Invalid Int16 Environment Variable
+func getInvalidInt16EnvironmentVariableError(value string, envVarKey string) error {
+	return fmt.Errorf("invalid (int16) value '%s' for environment variable '%s'", value, envVarKey)
 }
 
 // Get The Expected Error Message For An Invalid Quantity Environment Variable

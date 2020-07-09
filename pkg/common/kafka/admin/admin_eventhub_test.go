@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	eventhub "github.com/Azure/azure-event-hubs-go"
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"knative.dev/eventing-kafka/pkg/common/kafka/admin/eventhubcache"
@@ -72,15 +72,16 @@ func TestNewEventHubAdminClientError(t *testing.T) {
 	mockCache.AssertExpectations(t)
 }
 
-// Test The EventHub AdminClient CreateTopics() Functionality - Success Path
-func TestEventHubAdminClientCreateTopicsSuccess(t *testing.T) {
+// Test The EventHub AdminClient CreateTopic() Functionality - Success Path
+func TestEventHubAdminClientCreateTopicSuccess(t *testing.T) {
 
 	// Test Data
 	ctx := context.TODO()
 	topicName := "TestTopicName"
-	topicNumPartitions := 4
+	topicNumPartitions := int32(4)
 	topicRetentionDays := int32(3)
 	topicRetentionMillis := int64(topicRetentionDays * constants.MillisPerDay)
+	topicRetentionMillisString := strconv.FormatInt(topicRetentionMillis, 10)
 
 	// Create A Mock HubManager
 	mockHubManager := &MockHubManager{}
@@ -95,12 +96,11 @@ func TestEventHubAdminClientCreateTopicsSuccess(t *testing.T) {
 	mockCache.On("GetLeastPopulatedNamespace").Return(namespace)
 	mockCache.On("AddEventHub", ctx, topicName, namespace).Return()
 
-	// Create The Kafka TopicSpecification For The Topic/EventHub To Be Created
-	topicSpecifications := []kafka.TopicSpecification{{
-		Topic:         topicName,
+	// Create The Sarama TopicDetail For The Topic/EventHub To Be Created
+	topicDetail := &sarama.TopicDetail{
 		NumPartitions: topicNumPartitions,
-		Config:        map[string]string{constants.TopicSpecificationConfigRetentionMs: strconv.FormatInt(topicRetentionMillis, 10)},
-	}}
+		ConfigEntries: map[string]*string{constants.TopicDetailConfigRetentionMs: &topicRetentionMillisString},
+	}
 
 	// Create A Test Logger
 	logger := logtesting.TestLogger(t).Desugar()
@@ -109,71 +109,67 @@ func TestEventHubAdminClientCreateTopicsSuccess(t *testing.T) {
 	adminClient := &EventHubAdminClient{logger: logger, cache: mockCache}
 
 	// Perform The Test
-	kafkaTopicResults, err := adminClient.CreateTopics(ctx, topicSpecifications)
+	resultTopicError := adminClient.CreateTopic(ctx, topicName, topicDetail)
 
 	// Verify The Results
-	assert.Nil(t, err)
-	assert.NotNil(t, kafkaTopicResults)
-	assert.Len(t, kafkaTopicResults, 1)
-	assert.Equal(t, topicName, kafkaTopicResults[0].Topic)
-	assert.Equal(t, kafka.ErrNoError, kafkaTopicResults[0].Error.Code())
+	assert.NotNil(t, resultTopicError)
+	assert.Equal(t, sarama.ErrNoError, resultTopicError.Err)
+	assert.Equal(t, "successfully created topic", *resultTopicError.ErrMsg)
 	mockHubManager.AssertExpectations(t)
 	mockCache.AssertExpectations(t)
 }
 
-// Test The EventHub AdminClient CreateTopics() Functionality - Invalid Config Path
-func TestEventHubAdminClientCreateTopicsInvalidConfig(t *testing.T) {
+// Test The EventHub AdminClient CreateTopic() Functionality - Invalid Config Entry
+func TestEventHubAdminClientCreateTopicInvalidConfig(t *testing.T) {
 
 	// Test Data
 	ctx := context.TODO()
 	topicName := "TestTopicName"
-	topicNumPartitions := 4
+	topicNumPartitions := int32(4)
+	topicRetentionMillisString := "Invalid RetentionMillis"
 
-	// Create The Kafka TopicSpecification For The Topic/EventHub To Be Created
-	topicSpecifications := []kafka.TopicSpecification{{
-		Topic:         topicName,
+	// Create The Sarama TopicDetail For The Topic/EventHub To Be Created
+	topicDetail := &sarama.TopicDetail{
 		NumPartitions: topicNumPartitions,
-		Config:        map[string]string{constants.TopicSpecificationConfigRetentionMs: "InvalidConfig"},
-	}}
+		ConfigEntries: map[string]*string{constants.TopicDetailConfigRetentionMs: &topicRetentionMillisString},
+	}
 
 	// Create A Test Logger
 	logger := logtesting.TestLogger(t).Desugar()
 
-	// Create A New EventHub AdminClient With Mock Cache To Test
+	// Create A New EventHub AdminClient Without Mock Cache To Test
 	adminClient := &EventHubAdminClient{logger: logger}
 
 	// Perform The Test
-	kafkaTopicResults, err := adminClient.CreateTopics(ctx, topicSpecifications)
+	resultTopicError := adminClient.CreateTopic(ctx, topicName, topicDetail)
 
 	// Verify The Results
-	assert.NotNil(t, err)
-	assert.NotNil(t, kafkaTopicResults)
-	assert.Len(t, kafkaTopicResults, 1)
-	assert.Equal(t, topicName, kafkaTopicResults[0].Topic)
-	assert.Equal(t, kafka.ErrInvalidConfig, kafkaTopicResults[0].Error.Code())
+	assert.NotNil(t, resultTopicError)
+	assert.Equal(t, sarama.ErrInvalidConfig, resultTopicError.Err)
+	assert.Equal(t, "failed to parse retention millis from TopicDetail", *resultTopicError.ErrMsg)
 }
 
-// Test The EventHub AdminClient CreateTopics() Functionality - No Namespace Path
-func TestEventHubAdminClientCreateTopicsNoNamespace(t *testing.T) {
+// Test The EventHub AdminClient CreateTopic() Functionality - No Namespace Path
+func TestEventHubAdminClientCreateTopicNoNamespace(t *testing.T) {
 
 	// Test Data
 	ctx := context.TODO()
 	topicName := "TestTopicName"
-	topicNumPartitions := 4
+	topicNumPartitions := int32(4)
 	topicRetentionDays := int32(3)
 	topicRetentionMillis := int64(topicRetentionDays * constants.MillisPerDay)
+	topicRetentionMillisString := strconv.FormatInt(topicRetentionMillis, 10)
 
 	// Create A Mock EventHub Cache
 	mockCache := &MockCache{}
 	mockCache.On("GetNamespace", topicName).Return(nil)
 	mockCache.On("GetLeastPopulatedNamespace").Return(nil)
 
-	// Create The Kafka TopicSpecification For The Topic/EventHub To Be Created
-	topicSpecifications := []kafka.TopicSpecification{{
-		Topic:         topicName,
+	// Create The Sarama TopicDetail For The Topic/EventHub To Be Created
+	topicDetail := &sarama.TopicDetail{
 		NumPartitions: topicNumPartitions,
-		Config:        map[string]string{constants.TopicSpecificationConfigRetentionMs: strconv.FormatInt(topicRetentionMillis, 10)},
-	}}
+		ConfigEntries: map[string]*string{constants.TopicDetailConfigRetentionMs: &topicRetentionMillisString},
+	}
 
 	// Create A Test Logger
 	logger := logtesting.TestLogger(t).Desugar()
@@ -182,26 +178,25 @@ func TestEventHubAdminClientCreateTopicsNoNamespace(t *testing.T) {
 	adminClient := &EventHubAdminClient{logger: logger, cache: mockCache}
 
 	// Perform The Test
-	kafkaTopicResults, err := adminClient.CreateTopics(ctx, topicSpecifications)
+	resultTopicError := adminClient.CreateTopic(ctx, topicName, topicDetail)
 
 	// Verify The Results
-	assert.NotNil(t, err)
-	assert.NotNil(t, kafkaTopicResults)
-	assert.Len(t, kafkaTopicResults, 1)
-	assert.Equal(t, topicName, kafkaTopicResults[0].Topic)
-	assert.Equal(t, kafka.ErrInvalidConfig, kafkaTopicResults[0].Error.Code())
+	assert.NotNil(t, resultTopicError)
+	assert.Equal(t, sarama.ErrInvalidConfig, resultTopicError.Err)
+	assert.Equal(t, "no azure eventhub namespaces in cache - unable to create EventHub 'TestTopicName'", *resultTopicError.ErrMsg)
 	mockCache.AssertExpectations(t)
 }
 
-// Test The EventHub AdminClient CreateTopics() Functionality - No HubManager Path
-func TestEventHubAdminClientCreateTopicsNoHubManager(t *testing.T) {
+// Test The EventHub AdminClient CreateTopic() Functionality - No HubManager Path
+func TestEventHubAdminClientCreateTopicNoHubManager(t *testing.T) {
 
 	// Test Data
 	ctx := context.TODO()
 	topicName := "TestTopicName"
-	topicNumPartitions := 4
+	topicNumPartitions := int32(4)
 	topicRetentionDays := int32(3)
 	topicRetentionMillis := int64(topicRetentionDays * constants.MillisPerDay)
+	topicRetentionMillisString := strconv.FormatInt(topicRetentionMillis, 10)
 
 	// Create A Namespace With The Mock HubManager
 	namespace := &eventhubcache.Namespace{}
@@ -211,12 +206,11 @@ func TestEventHubAdminClientCreateTopicsNoHubManager(t *testing.T) {
 	mockCache.On("GetNamespace", topicName).Return(nil)
 	mockCache.On("GetLeastPopulatedNamespace").Return(namespace)
 
-	// Create The Kafka TopicSpecification For The Topic/EventHub To Be Created
-	topicSpecifications := []kafka.TopicSpecification{{
-		Topic:         topicName,
+	// Create The Sarama TopicDetail For The Topic/EventHub To Be Created
+	topicDetail := &sarama.TopicDetail{
 		NumPartitions: topicNumPartitions,
-		Config:        map[string]string{constants.TopicSpecificationConfigRetentionMs: strconv.FormatInt(topicRetentionMillis, 10)},
-	}}
+		ConfigEntries: map[string]*string{constants.TopicDetailConfigRetentionMs: &topicRetentionMillisString},
+	}
 
 	// Create A Test Logger
 	logger := logtesting.TestLogger(t).Desugar()
@@ -225,26 +219,25 @@ func TestEventHubAdminClientCreateTopicsNoHubManager(t *testing.T) {
 	adminClient := &EventHubAdminClient{logger: logger, cache: mockCache}
 
 	// Perform The Test
-	kafkaTopicResults, err := adminClient.CreateTopics(ctx, topicSpecifications)
+	resultTopicError := adminClient.CreateTopic(ctx, topicName, topicDetail)
 
 	// Verify The Results
-	assert.NotNil(t, err)
-	assert.NotNil(t, kafkaTopicResults)
-	assert.Len(t, kafkaTopicResults, 1)
-	assert.Equal(t, topicName, kafkaTopicResults[0].Topic)
-	assert.Equal(t, kafka.ErrInvalidConfig, kafkaTopicResults[0].Error.Code())
+	assert.NotNil(t, resultTopicError)
+	assert.Equal(t, sarama.ErrInvalidConfig, resultTopicError.Err)
+	assert.Equal(t, "azure namespace has invalid HubManager - unable to create EventHub 'TestTopicName'", *resultTopicError.ErrMsg)
 	mockCache.AssertExpectations(t)
 }
 
-// Test The EventHub AdminClient CreateTopics() Functionality - Already Exists Path
-func TestEventHubAdminClientCreateTopicsAlreadyExists(t *testing.T) {
+// Test The EventHub AdminClient CreateTopic() Functionality - Already Exists Path
+func TestEventHubAdminClientCreateTopicAlreadyExists(t *testing.T) {
 
 	// Test Data
 	ctx := context.TODO()
 	topicName := "TestTopicName"
-	topicNumPartitions := 4
+	topicNumPartitions := int32(4)
 	topicRetentionDays := int32(3)
 	topicRetentionMillis := int64(topicRetentionDays * constants.MillisPerDay)
+	topicRetentionMillisString := strconv.FormatInt(topicRetentionMillis, 10)
 
 	// Create A Mock HubManager
 	mockHubManager := &MockHubManager{}
@@ -259,12 +252,11 @@ func TestEventHubAdminClientCreateTopicsAlreadyExists(t *testing.T) {
 	mockCache.On("GetNamespace", topicName).Return(nil)
 	mockCache.On("GetLeastPopulatedNamespace").Return(namespace)
 
-	// Create The Kafka TopicSpecification For The Topic/EventHub To Be Created
-	topicSpecifications := []kafka.TopicSpecification{{
-		Topic:         topicName,
+	// Create The Sarama TopicDetail For The Topic/EventHub To Be Created
+	topicDetail := &sarama.TopicDetail{
 		NumPartitions: topicNumPartitions,
-		Config:        map[string]string{constants.TopicSpecificationConfigRetentionMs: strconv.FormatInt(topicRetentionMillis, 10)},
-	}}
+		ConfigEntries: map[string]*string{constants.TopicDetailConfigRetentionMs: &topicRetentionMillisString},
+	}
 
 	// Create A Test Logger
 	logger := logtesting.TestLogger(t).Desugar()
@@ -273,27 +265,26 @@ func TestEventHubAdminClientCreateTopicsAlreadyExists(t *testing.T) {
 	adminClient := &EventHubAdminClient{logger: logger, cache: mockCache}
 
 	// Perform The Test
-	kafkaTopicResults, err := adminClient.CreateTopics(ctx, topicSpecifications)
+	resultTopicError := adminClient.CreateTopic(ctx, topicName, topicDetail)
 
 	// Verify The Results
-	assert.Nil(t, err)
-	assert.NotNil(t, kafkaTopicResults)
-	assert.Len(t, kafkaTopicResults, 1)
-	assert.Equal(t, topicName, kafkaTopicResults[0].Topic)
-	assert.Equal(t, kafka.ErrTopicAlreadyExists, kafkaTopicResults[0].Error.Code())
+	assert.NotNil(t, resultTopicError)
+	assert.Equal(t, sarama.ErrTopicAlreadyExists, resultTopicError.Err)
+	assert.Equal(t, "mapped from EventHubErrorCodeConflict", *resultTopicError.ErrMsg)
 	mockHubManager.AssertExpectations(t)
 	mockCache.AssertExpectations(t)
 }
 
-// Test The EventHub AdminClient CreateTopics() Functionality - Capacity Limit Path
-func TestEventHubAdminClientCreateTopicsCapacityLimit(t *testing.T) {
+// Test The EventHub AdminClient CreateTopic() Functionality - Capacity Limit Path
+func TestEventHubAdminClientCreateTopicCapacityLimit(t *testing.T) {
 
 	// Test Data
 	ctx := context.TODO()
 	topicName := "TestTopicName"
-	topicNumPartitions := 4
+	topicNumPartitions := int32(4)
 	topicRetentionDays := int32(3)
 	topicRetentionMillis := int64(topicRetentionDays * constants.MillisPerDay)
+	topicRetentionMillisString := strconv.FormatInt(topicRetentionMillis, 10)
 
 	// Create A Mock HubManager
 	mockHubManager := &MockHubManager{}
@@ -308,12 +299,11 @@ func TestEventHubAdminClientCreateTopicsCapacityLimit(t *testing.T) {
 	mockCache.On("GetNamespace", topicName).Return(nil)
 	mockCache.On("GetLeastPopulatedNamespace").Return(namespace)
 
-	// Create The Kafka TopicSpecification For The Topic/EventHub To Be Created
-	topicSpecifications := []kafka.TopicSpecification{{
-		Topic:         topicName,
+	// Create The Sarama TopicDetail For The Topic/EventHub To Be Created
+	topicDetail := &sarama.TopicDetail{
 		NumPartitions: topicNumPartitions,
-		Config:        map[string]string{constants.TopicSpecificationConfigRetentionMs: strconv.FormatInt(topicRetentionMillis, 10)},
-	}}
+		ConfigEntries: map[string]*string{constants.TopicDetailConfigRetentionMs: &topicRetentionMillisString},
+	}
 
 	// Create A Test Logger
 	logger := logtesting.TestLogger(t).Desugar()
@@ -322,27 +312,26 @@ func TestEventHubAdminClientCreateTopicsCapacityLimit(t *testing.T) {
 	adminClient := &EventHubAdminClient{logger: logger, cache: mockCache}
 
 	// Perform The Test
-	kafkaTopicResults, err := adminClient.CreateTopics(ctx, topicSpecifications)
+	resultTopicError := adminClient.CreateTopic(ctx, topicName, topicDetail)
 
 	// Verify The Results
-	assert.NotNil(t, err)
-	assert.NotNil(t, kafkaTopicResults)
-	assert.Len(t, kafkaTopicResults, 1)
-	assert.Equal(t, topicName, kafkaTopicResults[0].Topic)
-	assert.Equal(t, kafka.ErrTopicException, kafkaTopicResults[0].Error.Code())
+	assert.NotNil(t, resultTopicError)
+	assert.Equal(t, sarama.ErrInvalidTxnState, resultTopicError.Err)
+	assert.Equal(t, "mapped from EventHubErrorCodeCapacityLimit", *resultTopicError.ErrMsg)
 	mockHubManager.AssertExpectations(t)
 	mockCache.AssertExpectations(t)
 }
 
-// Test The EventHub AdminClient CreateTopics() Functionality - Error Path
-func TestEventHubAdminClientCreateTopicsError(t *testing.T) {
+// Test The EventHub AdminClient CreateTopic() Functionality - Error Path
+func TestEventHubAdminClientCreateTopicError(t *testing.T) {
 
 	// Test Data
 	ctx := context.TODO()
 	topicName := "TestTopicName"
-	topicNumPartitions := 4
+	topicNumPartitions := int32(4)
 	topicRetentionDays := int32(3)
 	topicRetentionMillis := int64(topicRetentionDays * constants.MillisPerDay)
+	topicRetentionMillisString := strconv.FormatInt(topicRetentionMillis, 10)
 
 	// Create A Mock HubManager
 	mockHubManager := &MockHubManager{}
@@ -357,12 +346,11 @@ func TestEventHubAdminClientCreateTopicsError(t *testing.T) {
 	mockCache.On("GetNamespace", topicName).Return(nil)
 	mockCache.On("GetLeastPopulatedNamespace").Return(namespace)
 
-	// Create The Kafka TopicSpecification For The Topic/EventHub To Be Created
-	topicSpecifications := []kafka.TopicSpecification{{
-		Topic:         topicName,
+	// Create The Sarama TopicDetail For The Topic/EventHub To Be Created
+	topicDetail := &sarama.TopicDetail{
 		NumPartitions: topicNumPartitions,
-		Config:        map[string]string{constants.TopicSpecificationConfigRetentionMs: strconv.FormatInt(topicRetentionMillis, 10)},
-	}}
+		ConfigEntries: map[string]*string{constants.TopicDetailConfigRetentionMs: &topicRetentionMillisString},
+	}
 
 	// Create A Test Logger
 	logger := logtesting.TestLogger(t).Desugar()
@@ -371,20 +359,18 @@ func TestEventHubAdminClientCreateTopicsError(t *testing.T) {
 	adminClient := &EventHubAdminClient{logger: logger, cache: mockCache}
 
 	// Perform The Test
-	kafkaTopicResults, err := adminClient.CreateTopics(ctx, topicSpecifications)
+	resultTopicError := adminClient.CreateTopic(ctx, topicName, topicDetail)
 
 	// Verify The Results
-	assert.NotNil(t, err)
-	assert.NotNil(t, kafkaTopicResults)
-	assert.Len(t, kafkaTopicResults, 1)
-	assert.Equal(t, topicName, kafkaTopicResults[0].Topic)
-	assert.Equal(t, kafka.ErrUnknown, kafkaTopicResults[0].Error.Code())
+	assert.NotNil(t, resultTopicError)
+	assert.Equal(t, sarama.ErrUnknown, resultTopicError.Err)
+	assert.Equal(t, "mapped from EventHubErrorCodeUnknown", *resultTopicError.ErrMsg)
 	mockHubManager.AssertExpectations(t)
 	mockCache.AssertExpectations(t)
 }
 
-// Test The EventHub AdminClient DeleteTopics() Functionality - Success Path
-func TestEventHubAdminClientDeleteTopicsSuccess(t *testing.T) {
+// Test The EventHub AdminClient DeleteTopic() Functionality - Success Path
+func TestEventHubAdminClientDeleteTopicSuccess(t *testing.T) {
 
 	// Test Data
 	ctx := context.TODO()
@@ -409,20 +395,18 @@ func TestEventHubAdminClientDeleteTopicsSuccess(t *testing.T) {
 	adminClient := &EventHubAdminClient{logger: logger, cache: mockCache}
 
 	// Perform The Test
-	kafkaTopicResults, err := adminClient.DeleteTopics(ctx, []string{topicName})
+	resultTopicError := adminClient.DeleteTopic(ctx, topicName)
 
 	// Verify The Results
-	assert.Nil(t, err)
-	assert.NotNil(t, kafkaTopicResults)
-	assert.Len(t, kafkaTopicResults, 1)
-	assert.Equal(t, topicName, kafkaTopicResults[0].Topic)
-	assert.Equal(t, kafka.ErrNoError, kafkaTopicResults[0].Error.Code())
+	assert.NotNil(t, resultTopicError)
+	assert.Equal(t, sarama.ErrNoError, resultTopicError.Err)
+	assert.Equal(t, "successfully deleted topic", *resultTopicError.ErrMsg)
 	mockHubManager.AssertExpectations(t)
 	mockCache.AssertExpectations(t)
 }
 
-// Test The EventHub AdminClient DeleteTopics() Functionality - No Namespace Path
-func TestEventHubAdminClientDeleteTopicsNoNamespace(t *testing.T) {
+// Test The EventHub AdminClient DeleteTopic() Functionality - No Namespace Path
+func TestEventHubAdminClientDeleteTopicNoNamespace(t *testing.T) {
 
 	// Test Data
 	ctx := context.TODO()
@@ -439,19 +423,17 @@ func TestEventHubAdminClientDeleteTopicsNoNamespace(t *testing.T) {
 	adminClient := &EventHubAdminClient{logger: logger, cache: mockCache}
 
 	// Perform The Test
-	kafkaTopicResults, err := adminClient.DeleteTopics(ctx, []string{topicName})
+	resultTopicError := adminClient.DeleteTopic(ctx, topicName)
 
 	// Verify The Results
-	assert.NotNil(t, err)
-	assert.NotNil(t, kafkaTopicResults)
-	assert.Len(t, kafkaTopicResults, 1)
-	assert.Equal(t, topicName, kafkaTopicResults[0].Topic)
-	assert.Equal(t, kafka.ErrInvalidConfig, kafkaTopicResults[0].Error.Code())
+	assert.NotNil(t, resultTopicError)
+	assert.Equal(t, sarama.ErrInvalidConfig, resultTopicError.Err)
+	assert.Equal(t, "no azure namespace found for EventHub - unable to delete EventHub 'TestTopicName'", *resultTopicError.ErrMsg)
 	mockCache.AssertExpectations(t)
 }
 
-// Test The EventHub AdminClient DeleteTopics() Functionality - No HubManager Path
-func TestEventHubAdminClientDeleteTopicsNoHubManager(t *testing.T) {
+// Test The EventHub AdminClient DeleteTopic() Functionality - No HubManager Path
+func TestEventHubAdminClientDeleteTopicNoHubManager(t *testing.T) {
 
 	// Test Data
 	ctx := context.TODO()
@@ -471,19 +453,17 @@ func TestEventHubAdminClientDeleteTopicsNoHubManager(t *testing.T) {
 	adminClient := &EventHubAdminClient{logger: logger, cache: mockCache}
 
 	// Perform The Test
-	kafkaTopicResults, err := adminClient.DeleteTopics(ctx, []string{topicName})
+	resultTopicError := adminClient.DeleteTopic(ctx, topicName)
 
 	// Verify The Results
-	assert.NotNil(t, err)
-	assert.NotNil(t, kafkaTopicResults)
-	assert.Len(t, kafkaTopicResults, 1)
-	assert.Equal(t, topicName, kafkaTopicResults[0].Topic)
-	assert.Equal(t, kafka.ErrInvalidConfig, kafkaTopicResults[0].Error.Code())
+	assert.NotNil(t, resultTopicError)
+	assert.Equal(t, sarama.ErrInvalidConfig, resultTopicError.Err)
+	assert.Equal(t, "azure namespace has invalid HubManager - unable to delete EventHub 'TestTopicName'", *resultTopicError.ErrMsg)
 	mockCache.AssertExpectations(t)
 }
 
-// Test The EventHub AdminClient DeleteTopics() Functionality - Delete Error Path
-func TestEventHubAdminClientDeleteTopicsError(t *testing.T) {
+// Test The EventHub AdminClient DeleteTopic() Functionality - Delete Error Path
+func TestEventHubAdminClientDeleteTopicError(t *testing.T) {
 
 	// Test Data
 	ctx := context.TODO()
@@ -507,14 +487,12 @@ func TestEventHubAdminClientDeleteTopicsError(t *testing.T) {
 	adminClient := &EventHubAdminClient{logger: logger, cache: mockCache}
 
 	// Perform The Test
-	kafkaTopicResults, err := adminClient.DeleteTopics(ctx, []string{topicName})
+	resultTopicError := adminClient.DeleteTopic(ctx, topicName)
 
 	// Verify The Results
-	assert.NotNil(t, err)
-	assert.NotNil(t, kafkaTopicResults)
-	assert.Len(t, kafkaTopicResults, 1)
-	assert.Equal(t, topicName, kafkaTopicResults[0].Topic)
-	assert.Equal(t, kafka.ErrFail, kafkaTopicResults[0].Error.Code())
+	assert.NotNil(t, resultTopicError)
+	assert.Equal(t, sarama.ErrUnknown, resultTopicError.Err)
+	assert.Equal(t, "expected test error", *resultTopicError.ErrMsg)
 	mockHubManager.AssertExpectations(t)
 	mockCache.AssertExpectations(t)
 }
@@ -558,9 +536,10 @@ func TestEventHubAdminClientClose(t *testing.T) {
 	adminClient := &EventHubAdminClient{logger: logger, namespace: namespace}
 
 	// Perform The Test
-	adminClient.Close()
+	err := adminClient.Close()
 
 	// Nothing To Verify (No-Op)
+	assert.Nil(t, err)
 }
 
 //

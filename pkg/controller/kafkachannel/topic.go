@@ -3,7 +3,7 @@ package kafkachannel
 import (
 	"context"
 	"fmt"
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	kafkav1alpha1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
@@ -45,43 +45,38 @@ func (r *Reconciler) reconcileTopic(ctx context.Context, channel *kafkav1alpha1.
 }
 
 // Create The Specified Kafka Topic
-func (r *Reconciler) createTopic(ctx context.Context, topicName string, partitions int, replicationFactor int, retentionMillis int64) error {
+func (r *Reconciler) createTopic(ctx context.Context, topicName string, partitions int32, replicationFactor int16, retentionMillis int64) error {
 
 	// Setup The Logger
 	logger := r.logger.With(zap.String("Topic", topicName))
 
-	// Create The TopicSpecification
-	topicSpecifications := []kafka.TopicSpecification{
-		{
-			Topic:             topicName,
-			NumPartitions:     partitions,
-			ReplicationFactor: replicationFactor,
-			Config: map[string]string{
-				constants.KafkaTopicConfigRetentionMs: strconv.FormatInt(retentionMillis, 10),
-			},
+	// Create The TopicDefinition
+	retentionMillisString := strconv.FormatInt(retentionMillis, 10)
+	topicDetail := &sarama.TopicDetail{
+		NumPartitions:     partitions,
+		ReplicationFactor: replicationFactor,
+		ReplicaAssignment: nil,
+		ConfigEntries: map[string]*string{
+			constants.KafkaTopicConfigRetentionMs: &retentionMillisString,
 		},
 	}
 
-	// Attempt To Create The Topic & Process Results
-	topicResults, err := r.adminClient.CreateTopics(ctx, topicSpecifications)
-	if len(topicResults) > 0 {
-		topicResultError := topicResults[0].Error
-		topicResultErrorCode := topicResultError.Code()
-		if topicResultErrorCode == kafka.ErrTopicAlreadyExists {
+	// Attempt To Create The Topic & Process TopicError Results (Including Success ;)
+	err := r.adminClient.CreateTopic(ctx, topicName, topicDetail)
+	if err != nil {
+		switch err.Err {
+		case sarama.ErrNoError:
+			logger.Info("Successfully Created New Kafka Topic (ErrNoError)")
+			return nil
+		case sarama.ErrTopicAlreadyExists:
 			logger.Info("Kafka Topic Already Exists - No Creation Required")
 			return nil
-		} else if topicResultErrorCode == kafka.ErrNoError {
-			logger.Info("Successfully Created New Kafka Topic")
-			return nil
-		} else {
-			logger.Error("Failed To Create Topic (Results)", zap.Error(err), zap.Any("TopicResults", topicResults))
-			return topicResults[0].Error
+		default:
+			logger.Error("Failed To Create Topic", zap.Any("TopicError", err))
+			return err
 		}
-	} else if err != nil {
-		logger.Error("Failed To Create Topic (Error)", zap.Error(err))
-		return err
 	} else {
-		logger.Warn("Received Empty TopicResults From CreateTopics Request")
+		logger.Info("Successfully Created Existing Kafka Topic (Nil TopicError)")
 		return nil
 	}
 }
@@ -93,37 +88,34 @@ func (r *Reconciler) deleteTopic(ctx context.Context, topicName string) error {
 	logger := r.logger.With(zap.String("Topic", topicName))
 
 	// Attempt To Delete The Topic & Process Results
-	topicResults, err := r.adminClient.DeleteTopics(ctx, []string{topicName})
-	if len(topicResults) > 0 {
-		topicResultError := topicResults[0].Error
-		topicResultErrorCode := topicResultError.Code()
-		logger = logger.With(zap.Any("topicResultErrorCode", topicResultErrorCode))
-		if topicResultErrorCode == kafka.ErrUnknownTopic ||
-			topicResultErrorCode == kafka.ErrUnknownPartition ||
-			topicResultErrorCode == kafka.ErrUnknownTopicOrPart {
-
+	err := r.adminClient.DeleteTopic(ctx, topicName)
+	if err != nil {
+		switch err.Err {
+		case sarama.ErrNoError:
+			logger.Info("Successfully Deleted Existing Kafka Topic (ErrNoError)")
+			return nil
+		case sarama.ErrUnknownTopicOrPartition, sarama.ErrInvalidTopic, sarama.ErrInvalidPartitions:
 			logger.Info("Kafka Topic or Partition Not Found - No Deletion Required")
 			return nil
-		} else if topicResultErrorCode == kafka.ErrInvalidConfig && r.environment.KafkaProvider == env.KafkaProviderValueAzure {
-			// While this could be a valid Kafka error, this most likely is coming from our custom EventHub AdminClient
-			// implementation and represents the fact that the EventHub Cache does not contain this topic.  This can
-			// happen when an EventHub could not be created due to exceeding the number of allowable EventHubs.  The
-			// KafkaChannel is then in an "UNKNOWN" state having never been fully reconciled.  We want to swallow this
-			// error here so that the deletion of the Topic / EventHub doesn't block the deletion of the KafkaChannel.
-			logger.Warn("Invalid Kafka Topic Configuration (Likely EventHub Namespace Cache) - Unable To Delete", zap.Error(err))
-			return nil
-		} else if topicResultErrorCode == kafka.ErrNoError {
-			logger.Info("Successfully Deleted Existing Kafka Topic")
-			return nil
-		} else {
-			logger.Error("Failed To Delete Topic (Results)", zap.Error(err), zap.Any("TopicResults", topicResults))
-			return topicResults[0].Error
+		case sarama.ErrInvalidConfig:
+			if r.environment.KafkaProvider == env.KafkaProviderValueAzure {
+				// While this could be a valid Kafka error, this most likely is coming from our custom EventHub AdminClient
+				// implementation and represents the fact that the EventHub Cache does not contain this topic.  This can
+				// happen when an EventHub could not be created due to exceeding the number of allowable EventHubs.  The
+				// KafkaChannel is then in an "UNKNOWN" state having never been fully reconciled.  We want to swallow this
+				// error here so that the deletion of the Topic / EventHub doesn't block the deletion of the KafkaChannel.
+				logger.Warn("Unable To Delete Topic Due To Invalid Kafka Topic Config (Likely EventHub Namespace Cache)", zap.Error(err))
+				return nil
+			} else {
+				logger.Error("Failed To Delete Topic Due To Invalid Config", zap.Any("TopicError", err))
+				return err
+			}
+		default:
+			logger.Error("Failed To Delete Topic", zap.Any("TopicError", err))
+			return err
 		}
-	} else if err != nil {
-		logger.Error("Failed To Delete Topic (Error)", zap.Error(err))
-		return err
 	} else {
-		logger.Warn("Received Empty TopicResults From DeleteTopics Request")
+		logger.Info("Successfully Deleted Existing Kafka Topic (Nil TopicError)")
 		return nil
 	}
 }

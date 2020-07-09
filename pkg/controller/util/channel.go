@@ -63,20 +63,20 @@ func ChannelHostName(channelName, channelNamespace string) string {
 }
 
 // Utility Function To Get The NumPartitions - First From Channel Spec And Then From Environment
-func NumPartitions(channel *kafkav1alpha1.KafkaChannel, environment *env.Environment, logger *zap.Logger) int {
-	value := int(channel.Spec.NumPartitions)
+func NumPartitions(channel *kafkav1alpha1.KafkaChannel, environment *env.Environment, logger *zap.Logger) int32 {
+	value := channel.Spec.NumPartitions
 	if value <= 0 {
-		logger.Debug("Kafka Channel Spec 'NumPartitions' Not Specified - Using Default", zap.Int("Value", environment.DefaultNumPartitions))
+		logger.Debug("Kafka Channel Spec 'NumPartitions' Not Specified - Using Default", zap.Int32("Value", environment.DefaultNumPartitions))
 		value = environment.DefaultNumPartitions
 	}
 	return value
 }
 
 // Utility Function To Get The ReplicationFactor - First From Channel Spec And Then From Environment
-func ReplicationFactor(channel *kafkav1alpha1.KafkaChannel, environment *env.Environment, logger *zap.Logger) int {
-	value := int(channel.Spec.ReplicationFactor)
+func ReplicationFactor(channel *kafkav1alpha1.KafkaChannel, environment *env.Environment, logger *zap.Logger) int16 {
+	value := channel.Spec.ReplicationFactor
 	if value <= 0 {
-		logger.Debug("Kafka Channel Spec 'ReplicationFactor' Not Specified - Using Default", zap.Int("Value", environment.DefaultReplicationFactor))
+		logger.Debug("Kafka Channel Spec 'ReplicationFactor' Not Specified - Using Default", zap.Int16("Value", environment.DefaultReplicationFactor))
 		value = environment.DefaultReplicationFactor
 	}
 	return value

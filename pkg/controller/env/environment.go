@@ -67,8 +67,8 @@ type Environment struct {
 	KafkaOffsetCommitDurationMillis int64  // Optional
 
 	// Default Values To Use If Not Available In Knative Channels Argument
-	DefaultNumPartitions     int   // Required
-	DefaultReplicationFactor int   // Required
+	DefaultNumPartitions     int32 // Required
+	DefaultReplicationFactor int16 // Required
 	DefaultRetentionMillis   int64 // Optional
 
 	// Resource configuration
@@ -159,11 +159,12 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 	if err != nil {
 		return nil, err
 	} else {
-		environment.DefaultNumPartitions, err = strconv.Atoi(defaultNumPartitionsString)
+		defaultNumPartitions, err := strconv.ParseInt(defaultNumPartitionsString, 10, 32)
 		if err != nil {
-			logger.Error("Invalid DefaultNumPartitions (Non Integer)", zap.String("Value", defaultNumPartitionsString), zap.Error(err))
-			return nil, fmt.Errorf("invalid (non-integer) value '%s' for environment variable '%s'", defaultNumPartitionsString, DefaultNumPartitionsEnvVarKey)
+			logger.Error("Invalid DefaultNumPartitions (Int32)", zap.String("Value", defaultNumPartitionsString), zap.Error(err))
+			return nil, fmt.Errorf("invalid (int32) value '%s' for environment variable '%s'", defaultNumPartitionsString, DefaultNumPartitionsEnvVarKey)
 		}
+		environment.DefaultNumPartitions = int32(defaultNumPartitions)
 	}
 
 	// Get The Required DefaultReplicationFactor Config Value & Convert To Int
@@ -171,11 +172,12 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 	if err != nil {
 		return nil, err
 	} else {
-		environment.DefaultReplicationFactor, err = strconv.Atoi(defaultReplicationFactorString)
+		defaultReplicationFactor, err := strconv.ParseInt(defaultReplicationFactorString, 10, 16)
 		if err != nil {
-			logger.Error("Invalid DefaultReplicationFactor (Non Integer)", zap.String("Value", defaultReplicationFactorString), zap.Error(err))
-			return nil, fmt.Errorf("invalid (non-integer) value '%s' for environment variable '%s'", defaultReplicationFactorString, DefaultReplicationFactorEnvVarKey)
+			logger.Error("Invalid DefaultReplicationFactor (Int16)", zap.String("Value", defaultReplicationFactorString), zap.Error(err))
+			return nil, fmt.Errorf("invalid (int16) value '%s' for environment variable '%s'", defaultReplicationFactorString, DefaultReplicationFactorEnvVarKey)
 		}
+		environment.DefaultReplicationFactor = int16(defaultReplicationFactor)
 	}
 
 	// Get The Optional DefaultRetentionMillis Config Value & Convert To Int

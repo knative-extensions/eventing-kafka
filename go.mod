@@ -8,13 +8,10 @@ require (
 	github.com/Shopify/sarama v1.24.0
 	github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.0.0-00010101000000-000000000000
 	github.com/cloudevents/sdk-go/v2 v2.0.0
-	github.com/confluentinc/confluent-kafka-go v1.4.2
-	github.com/google/go-cmp v0.4.1
+	github.com/google/go-cmp v0.4.1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.13.0 // indirect
-	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.5.0
 	github.com/prometheus/client_model v0.2.0
-	github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0
 	github.com/slok/goresilience v0.2.0
 	github.com/stretchr/testify v1.5.1
 	go.uber.org/zap v1.14.1
