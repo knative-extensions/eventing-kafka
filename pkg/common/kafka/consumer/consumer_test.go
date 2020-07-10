@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
+	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	kafkatesting "knative.dev/eventing-kafka/pkg/common/kafka/testing"
 	"testing"
 )
@@ -12,6 +13,7 @@ import (
 func TestCreateConsumerGroup(t *testing.T) {
 
 	// Test Data
+	clientId := "TestClientId"
 	brokers := []string{"TestBroker"}
 	groupId := "TestGroupId"
 	username := "TestUsername"
@@ -23,6 +25,8 @@ func TestCreateConsumerGroup(t *testing.T) {
 		assert.Equal(t, brokers, brokersArg)
 		assert.Equal(t, groupId, groupIdArg)
 		assert.NotNil(t, configArg)
+		assert.Equal(t, clientId, configArg.ClientID)
+		assert.Equal(t, constants.ConfigKafkaVersion, configArg.Version)
 		assert.Equal(t, sarama.V2_3_0_0, configArg.Version)
 		assert.True(t, configArg.Consumer.Return.Errors)
 		assert.Equal(t, username, configArg.Net.SASL.User)
@@ -32,6 +36,7 @@ func TestCreateConsumerGroup(t *testing.T) {
 		assert.True(t, configArg.Net.TLS.Enable)
 		assert.True(t, configArg.Net.TLS.Config.InsecureSkipVerify)
 		assert.Equal(t, tls.NoClientCert, configArg.Net.TLS.Config.ClientAuth)
+		assert.Equal(t, constants.ConfigConsumerOffsetsCommitInterval, configArg.Consumer.Offsets.CommitInterval)
 		return kafkatesting.NewMockConsumerGroup(t), nil
 	}
 	defer func() {
@@ -39,7 +44,7 @@ func TestCreateConsumerGroup(t *testing.T) {
 	}()
 
 	// Perform The Test
-	consumerGroup, err := CreateConsumerGroup(brokers, groupId, username, password)
+	consumerGroup, err := CreateConsumerGroup(clientId, brokers, groupId, username, password)
 
 	// Verify The Results
 	assert.Nil(t, err)

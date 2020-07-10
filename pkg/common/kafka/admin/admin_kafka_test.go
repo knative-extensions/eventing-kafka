@@ -20,6 +20,7 @@ import (
 func TestNewKafkaAdminClientSuccess(t *testing.T) {
 
 	// Test Data
+	clientId := "TestClientId"
 	namespace := "TestNamespace"
 	kafkaSecretName := "TestKafkaSecretName"
 	kafkaSecretBrokers := "TestKafkaSecretBrokers"
@@ -42,6 +43,9 @@ func TestNewKafkaAdminClientSuccess(t *testing.T) {
 		assert.Len(t, brokers, 1)
 		assert.Equal(t, kafkaSecretBrokers, brokers[0])
 		assert.NotNil(t, config)
+		assert.Equal(t, clientId, config.ClientID)
+		assert.Equal(t, constants.ConfigAdminTimeout, config.Admin.Timeout)
+		assert.Equal(t, constants.ConfigKafkaVersion, config.Version)
 		assert.Equal(t, kafkaSecretUsername, config.Net.SASL.User)
 		assert.Equal(t, kafkaSecretPassword, config.Net.SASL.Password)
 		return mockClusterAdmin, nil
@@ -51,7 +55,7 @@ func TestNewKafkaAdminClientSuccess(t *testing.T) {
 	}()
 
 	// Perform The Test
-	adminClient, err := NewKafkaAdminClient(ctx, namespace)
+	adminClient, err := NewKafkaAdminClient(ctx, clientId, namespace)
 
 	// Verify The Results
 	assert.Nil(t, err)
@@ -62,6 +66,7 @@ func TestNewKafkaAdminClientSuccess(t *testing.T) {
 func TestNewKafkaAdminClientNoSecrets(t *testing.T) {
 
 	// Test Data
+	clientId := "TestClientId"
 	namespace := "TestNamespace"
 
 	// Create A Context With Test Logger & K8S Client
@@ -69,7 +74,7 @@ func TestNewKafkaAdminClientNoSecrets(t *testing.T) {
 	ctx = context.WithValue(ctx, injectionclient.Key{}, fake.NewSimpleClientset())
 
 	// Perform The Test
-	adminClient, err := NewKafkaAdminClient(ctx, namespace)
+	adminClient, err := NewKafkaAdminClient(ctx, clientId, namespace)
 
 	// Verify The Results
 	assert.Nil(t, err)

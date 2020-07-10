@@ -17,6 +17,7 @@ import (
 // Define A Dispatcher Config Struct To Hold Configuration
 type DispatcherConfig struct {
 	Logger                      *zap.Logger
+	ClientId                    string
 	Brokers                     []string
 	Topic                       string
 	PollTimeoutMillis           int
@@ -109,7 +110,7 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 			logger := d.Logger.With(zap.String("GroupId", groupId))
 
 			// Attempt To Create A Kafka ConsumerGroup
-			consumerGroup, err := consumer.CreateConsumerGroup(d.Brokers, groupId, d.Username, d.Password)
+			consumerGroup, err := consumer.CreateConsumerGroup(d.ClientId, d.Brokers, groupId, d.Username, d.Password)
 			if err != nil {
 
 				// Log & Return Failure

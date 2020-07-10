@@ -23,10 +23,16 @@ type Producer struct {
 }
 
 // Initialize The Producer
-func NewProducer(logger *zap.Logger, brokers []string, username string, password string, metricsServer *prometheus.MetricsServer, healthServer *health.Server) (*Producer, error) {
+func NewProducer(logger *zap.Logger,
+	clientId string,
+	brokers []string,
+	username string,
+	password string,
+	metricsServer *prometheus.MetricsServer,
+	healthServer *health.Server) (*Producer, error) {
 
 	// Create The Kafka Producer Using The Specified Kafka Authentication
-	kafkaProducer, err := createSyncProducerWrapper(brokers, username, password)
+	kafkaProducer, err := createSyncProducerWrapper(clientId, brokers, username, password)
 	if err != nil {
 		logger.Error("Failed To Create Kafka SyncProducer - Exiting", zap.Error(err), zap.Any("Brokers", brokers))
 		return nil, err
@@ -51,8 +57,8 @@ func NewProducer(logger *zap.Logger, brokers []string, username string, password
 }
 
 // Wrapper Around Common Kafka SyncProducer Creation To Facilitate Unit Testing
-var createSyncProducerWrapper = func(brokers []string, username string, password string) (sarama.SyncProducer, error) {
-	return kafkaproducer.CreateSyncProducer(brokers, username, password)
+var createSyncProducerWrapper = func(clientId string, brokers []string, username string, password string) (sarama.SyncProducer, error) {
+	return kafkaproducer.CreateSyncProducer(clientId, brokers, username, password)
 }
 
 // Produce A KafkaMessage From The Specified CloudEvent To The Specified Topic And Wait For The Delivery Report

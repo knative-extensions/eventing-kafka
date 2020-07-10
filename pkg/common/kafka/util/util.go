@@ -13,17 +13,11 @@ func AddSaslAuthentication(config *sarama.Config, username string, password stri
 
 	// Update Config With With PLAIN SASL Auth If Specified
 	if config != nil && len(username) > 0 && len(password) > 0 {
-
-		// TODO - Default is v0 (required for azure eventhubs ?!)  TRY IT OUT WITH V1 and EVENTHUBS !!!
-		//      - Docs say use v1 for kafka v1 or later but should work?
-		//      - But we need to expose the whole config as a ConfigMap eventually anyway...
-		//config.Net.SASL.Version = sarama.SASLHandshakeV1
-
+		config.Net.SASL.Version = constants.ConfigNetSaslVersion
 		config.Net.SASL.Enable = true
 		config.Net.SASL.Mechanism = sarama.SASLTypePlaintext
 		config.Net.SASL.User = username
 		config.Net.SASL.Password = password
-
 		config.Net.TLS.Enable = true
 		config.Net.TLS.Config = &tls.Config{
 			InsecureSkipVerify: true,

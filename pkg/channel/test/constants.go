@@ -4,6 +4,8 @@ import cloudevents "github.com/cloudevents/sdk-go/v2"
 
 // Test Data
 const (
+	ClientId = "TestClientId"
+
 	KafkaBrokers  = "TestBrokers"
 	KafkaUsername = "TestUsername"
 	KafkaPassword = "TestPassword"

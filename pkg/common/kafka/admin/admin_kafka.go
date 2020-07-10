@@ -28,11 +28,12 @@ type KafkaAdminClient struct {
 	logger       *zap.Logger
 	namespace    string
 	kafkaSecret  string
+	clientId     string
 	clusterAdmin sarama.ClusterAdmin
 }
 
 // Create A New Kafka AdminClient Based On The Kafka Secret In The Specified K8S Namespace
-func NewKafkaAdminClient(ctx context.Context, namespace string) (AdminClientInterface, error) {
+func NewKafkaAdminClient(ctx context.Context, clientId string, namespace string) (AdminClientInterface, error) {
 
 	// Get The Logger From The Context
 	logger := logging.FromContext(ctx).Desugar()
@@ -69,7 +70,7 @@ func NewKafkaAdminClient(ctx context.Context, namespace string) (AdminClientInte
 	password := string(kafkaSecret.Data[constants.KafkaSecretKeyPassword])
 
 	// Create The Sarama ClusterAdmin Configuration
-	config := getConfig(username, password)
+	config := getConfig(clientId, username, password)
 
 	// Crate A New Sarama ClusterAdmin
 	clusterAdmin, err := NewClusterAdminWrapper(brokers, config)
@@ -133,15 +134,19 @@ func (k KafkaAdminClient) GetKafkaSecretName(_ string) string {
 }
 
 // Get The Default Sarama ClusterAdmin Config
-func getConfig(username string, password string) *sarama.Config {
+func getConfig(clientId string, username string, password string) *sarama.Config {
 
 	// Create The Basic Sarama Config
 	config := sarama.NewConfig()
 
-	// TODO - Strimzi is up on kafka v2.4.1 and 2.5.0
-	//      - kafka eventhubs are compatible with version 1.0 and later?
-	//      - will need to be exposed for end users though in ConfigMap ; )
-	config.Version = sarama.V2_3_0_0
+	// Set The ClusterAdmin's ClientID
+	config.ClientID = clientId
+
+	// Specify Kafka Version Compatibility
+	config.Version = constants.ConfigKafkaVersion
+
+	// Increase Default Admin Timeout Of 3 Seconds For Topic Creation/Deletion
+	config.Admin.Timeout = constants.ConfigAdminTimeout
 
 	// Add Optional SASL Configuration
 	util.AddSaslAuthentication(config, username, password)

@@ -19,6 +19,11 @@ import (
 	"strings"
 )
 
+// Constants
+const (
+	Component = "KafkaChannel"
+)
+
 // Variables
 var (
 	logger        *zap.Logger
@@ -65,7 +70,7 @@ func main() {
 	defer channel.Close()
 
 	// Initialize The Kafka Producer In Order To Start Processing Status Events
-	kafkaProducer, err = producer.NewProducer(logger, strings.Split(environment.KafkaBrokers, ","), environment.KafkaUsername, environment.KafkaPassword, metricsServer, healthServer)
+	kafkaProducer, err = producer.NewProducer(logger, Component, strings.Split(environment.KafkaBrokers, ","), environment.KafkaUsername, environment.KafkaPassword, metricsServer, healthServer)
 	if err != nil {
 		logger.Fatal("Failed To Initialize Kafka Producer", zap.Error(err))
 	}

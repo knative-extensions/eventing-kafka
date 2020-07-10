@@ -47,10 +47,10 @@ const (
 //
 // * If no authorization is required (local dev instance) then specify username and password as the empty string ""
 //
-func CreateAdminClient(ctx context.Context, adminClientType AdminClientType) (AdminClientInterface, error) {
+func CreateAdminClient(ctx context.Context, clientId string, adminClientType AdminClientType) (AdminClientInterface, error) {
 	switch adminClientType {
 	case Kafka:
-		return NewKafkaAdminClientWrapper(ctx, constants.KnativeEventingNamespace)
+		return NewKafkaAdminClientWrapper(ctx, clientId, constants.KnativeEventingNamespace)
 	case EventHub:
 		return NewEventHubAdminClientWrapper(ctx, constants.KnativeEventingNamespace)
 	default:
@@ -59,8 +59,8 @@ func CreateAdminClient(ctx context.Context, adminClientType AdminClientType) (Ad
 }
 
 // New Kafka AdminClient Wrapper To Facilitate Unit Testing
-var NewKafkaAdminClientWrapper = func(ctx context.Context, namespace string) (AdminClientInterface, error) {
-	return NewKafkaAdminClient(ctx, namespace)
+var NewKafkaAdminClientWrapper = func(ctx context.Context, clientId string, namespace string) (AdminClientInterface, error) {
+	return NewKafkaAdminClient(ctx, clientId, namespace)
 }
 
 // New EventHub AdminClient Wrapper To Facilitate Unit Testing

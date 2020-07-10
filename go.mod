@@ -8,7 +8,7 @@ require (
 	github.com/Shopify/sarama v1.24.0
 	github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.0.0-00010101000000-000000000000
 	github.com/cloudevents/sdk-go/v2 v2.0.0
-	github.com/google/go-cmp v0.4.1 // indirect
+	github.com/google/go-cmp v0.4.1
 	github.com/grpc-ecosystem/grpc-gateway v1.13.0 // indirect
 	github.com/prometheus/client_golang v1.5.0
 	github.com/prometheus/client_model v0.2.0
@@ -17,7 +17,7 @@ require (
 	go.uber.org/zap v1.14.1
 	google.golang.org/protobuf v1.22.0 // indirect
 	k8s.io/api v0.17.4
-	k8s.io/apimachinery v0.17.4
+	k8s.io/apimachinery v0.18.2
 	k8s.io/client-go v12.0.0+incompatible
 	knative.dev/eventing v0.14.1-0.20200515003800-b3a3da6ce0a6
 	knative.dev/eventing-contrib v0.14.1-0.20200515032200-98e505fd8247

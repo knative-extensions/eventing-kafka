@@ -4,18 +4,17 @@ import (
 	"crypto/tls"
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
+	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	"testing"
 )
 
 // Test Constants
 const (
+	ClientId      = "TestClientId"
 	KafkaBrokers  = "TestBrokers"
 	KafkaUsername = "TestUsername"
 	KafkaPassword = "TestPassword"
 )
-
-// Mock Producer Reference
-var mockSyncProducer sarama.SyncProducer
 
 // Test The CreateSyncProducer() Functionality
 func TestCreateSyncProducer(t *testing.T) {
@@ -39,30 +38,30 @@ func performCreateSyncProducerTest(t *testing.T, username string, password strin
 		assert.NotNil(t, brokers)
 		assert.Len(t, brokers, 1)
 		assert.Equal(t, brokers[0], KafkaBrokers)
-		verifySaramaConfig(t, config, username, password)
+		verifySaramaConfig(t, config, ClientId, username, password)
 		return mockSyncProducer, nil
 	}
 	defer func() { newSyncProducerWrapper = newSyncProducerWrapperPlaceholder }()
 
 	// Perform The Test
-	producer, err := CreateSyncProducer([]string{KafkaBrokers}, username, password)
+	producer, err := CreateSyncProducer(ClientId, []string{KafkaBrokers}, username, password)
 
 	// Verify The Results
 	assert.Nil(t, err)
 	assert.NotNil(t, producer)
 	assert.Equal(t, mockSyncProducer, producer)
-
 }
 
 // Verify The Sarama Config Is As Expected
-func verifySaramaConfig(t *testing.T, config *sarama.Config, username string, password string) {
+func verifySaramaConfig(t *testing.T, config *sarama.Config, clientId string, username string, password string) {
 	assert.NotNil(t, config)
-	assert.Equal(t, sarama.V2_3_0_0, config.Version)
-	assert.NotNil(t, config.MetricRegistry) // TODO ???
+	assert.Equal(t, clientId, config.ClientID)
+	assert.Equal(t, constants.ConfigKafkaVersion, config.Version)
+	assert.Equal(t, constants.ConfigProducerIdempotent, config.Producer.Idempotent)
 	assert.True(t, config.Producer.Return.Successes)
 
 	if len(username) > 0 && len(password) > 0 {
-		assert.Equal(t, sarama.SASLHandshakeV0, config.Net.SASL.Version) // TODO - not sure which version this will land on?
+		assert.Equal(t, constants.ConfigNetSaslVersion, config.Net.SASL.Version)
 		assert.True(t, config.Net.SASL.Enable)
 		assert.Equal(t, sarama.SASLMechanism(sarama.SASLTypePlaintext), config.Net.SASL.Mechanism)
 		assert.Equal(t, username, config.Net.SASL.User)
@@ -75,7 +74,7 @@ func verifySaramaConfig(t *testing.T, config *sarama.Config, username string, pa
 		assert.NotNil(t, config.Net)
 		assert.False(t, config.Net.TLS.Enable)
 		assert.Nil(t, config.Net.TLS.Config)
-		assert.Equal(t, sarama.SASLHandshakeV0, config.Net.SASL.Version) // TODO - not sure which version this will land on?
+		assert.Equal(t, constants.ConfigNetSaslVersion, config.Net.SASL.Version)
 		assert.NotNil(t, config.Net.SASL)
 		assert.False(t, config.Net.SASL.Enable)
 		assert.Equal(t, sarama.SASLMechanism(""), config.Net.SASL.Mechanism)

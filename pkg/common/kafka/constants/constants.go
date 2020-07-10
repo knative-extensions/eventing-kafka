@@ -1,5 +1,10 @@
 package constants
 
+import (
+	"github.com/Shopify/sarama"
+	"time"
+)
+
 // Constants
 const (
 
@@ -18,44 +23,11 @@ const (
 	KafkaSecretKeyUsername  = "username"
 	KafkaSecretKeyPassword  = "password"
 
-	// Common Kafka Configuration Properties
-	ConfigPropertyDebug                      = "debug"
-	ConfigPropertyBootstrapServers           = "bootstrap.servers"
-	ConfigPropertyRequestTimeoutMs           = "request.timeout.ms"
-	ConfigPropertyRequestTimeoutMsValue      = 30000
-	ConfigPropertyStatisticsInterval         = "statistics.interval.ms"
-	ConfigPropertyStatisticsIntervalValue    = 5000
-	ConfigPropertySocketKeepAliveEnable      = "socket.keepalive.enable"
-	ConfigPropertySocketKeepAliveEnableValue = true
-	ConfigPropertyMetadataMaxAgeMs           = "metadata.max.age.ms"
-	ConfigPropertyMetadataMaxAgeMsValue      = 180000
-
-	// Kafka Security/Auth Configuration Properties
-	ConfigPropertySecurityProtocol      = "security.protocol"
-	ConfigPropertySecurityProtocolValue = "SASL_SSL"
-	ConfigPropertySaslMechanisms        = "sasl.mechanisms"
-	// TODO - can probably remove these below (and above too ; )
-	ConfigPropertySaslMechanismsPlain = "PLAIN"
-	ConfigPropertySaslUsername        = "sasl.username"
-	ConfigPropertySaslPassword        = "sasl.password"
-
-	// Kafka Producer Configuration Properties
-	ConfigPropertyPartitioner      = "partitioner"
-	ConfigPropertyPartitionerValue = "murmur2_random"
-	ConfigPropertyIdempotence      = "enable.idempotence"
-	ConfigPropertyIdempotenceValue = false // Desirable but not available in Azure EventHubs yet, so disabled for now.
-
-	// Kafka Consumer Configuration Properties
-	ConfigPropertyBrokerAddressFamily          = "broker.address.family"
-	ConfigPropertyBrokerAddressFamilyValue     = "v4"
-	ConfigPropertyGroupId                      = "group.id"
-	ConfigPropertyEnableAutoOffsetStore        = "enable.auto.offset.store"
-	ConfigPropertyEnableAutoOffsetStoreValue   = false
-	ConfigPropertyEnableAutoOffsetCommit       = "enable.auto.commit"
-	ConfigPropertyEnableAutoOffsetCommitValue  = false // Event loss is possible with auto-commit enabled so we will manually commit offsets!
-	ConfigPropertyAutoOffsetReset              = "auto.offset.reset"
-	ConfigPropertyQueuedMaxMessagesKbytes      = "queued.max.messages.kbytes" // Controls the amount of pre-fetched messages the consumer will pull down per partition
-	ConfigPropertyQueuedMaxMessagesKbytesValue = "7000"
+	// Kafka Admin/Consumer/Producer Config Values
+	ConfigAdminTimeout                  = 10 * time.Second
+	ConfigNetSaslVersion                = sarama.SASLHandshakeV0 // TODO - Docs say to use v1 for kafka v1 or later but might need v0 for EventHubs ???  (Try v1 with eventhubs and use that if it works!)
+	ConfigConsumerOffsetsCommitInterval = 5 * time.Second
+	ConfigProducerIdempotent            = false // Desirable but not available in Azure EventHubs yet, so disabled for now.
 
 	// Kafka Topic Config Keys
 	TopicDetailConfigRetentionMs = "retention.ms"
@@ -71,4 +43,10 @@ const (
 
 	// KafkaChannel Constants
 	KafkaChannelServiceNameSuffix = "kafkachannel"
+)
+
+// Non-Constant Constants ;)
+var (
+	// Kafka Admin/Consumer/Producer Config Values
+	ConfigKafkaVersion = sarama.V2_3_0_0
 )

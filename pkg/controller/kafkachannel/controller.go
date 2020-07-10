@@ -50,7 +50,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	}
 
 	// Get The Kafka AdminClient
-	adminClient, err := kafkaadmin.CreateAdminClient(ctx, kafkaAdminClientType)
+	adminClient, err := kafkaadmin.CreateAdminClient(ctx, constants.ControllerComponentName, kafkaAdminClientType)
 	if adminClient == nil || err != nil {
 		logger.Fatal("Failed To Create Kafka AdminClient", zap.Error(err))
 	}
@@ -109,7 +109,7 @@ func Shutdown() {
 // Recreate The Kafka AdminClient On The Reconciler (Useful To Reload Cache Which Is Not Yet Exposed)
 func (r *Reconciler) resetKafkaAdminClient(ctx context.Context, kafkaAdminClientType kafkaadmin.AdminClientType) func(obj interface{}) {
 	return func(obj interface{}) {
-		adminClient, err := kafkaadmin.CreateAdminClient(ctx, kafkaAdminClientType)
+		adminClient, err := kafkaadmin.CreateAdminClient(ctx, constants.ControllerComponentName, kafkaAdminClientType)
 		if adminClient == nil || err != nil {
 			r.logger.Error("Failed To Re-Create Kafka AdminClient", zap.Error(err))
 		} else {

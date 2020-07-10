@@ -16,13 +16,15 @@ func TestCreateAdminClientKafka(t *testing.T) {
 
 	// Test Data
 	ctx := context.TODO()
+	clientId := "TestClientId"
 	adminClientType := Kafka
 	mockAdminClient = &MockAdminClient{}
 
 	// Replace the NewKafkaAdminClientWrapper To Provide Mock AdminClient & Defer Reset
 	NewKafkaAdminClientWrapperRef := NewKafkaAdminClientWrapper
-	NewKafkaAdminClientWrapper = func(ctxArg context.Context, namespaceArg string) (AdminClientInterface, error) {
+	NewKafkaAdminClientWrapper = func(ctxArg context.Context, clientIdArg string, namespaceArg string) (AdminClientInterface, error) {
 		assert.Equal(t, ctx, ctxArg)
+		assert.Equal(t, clientId, clientIdArg)
 		assert.Equal(t, constants.KnativeEventingNamespace, namespaceArg)
 		assert.Equal(t, adminClientType, adminClientType)
 		return mockAdminClient, nil
@@ -30,7 +32,7 @@ func TestCreateAdminClientKafka(t *testing.T) {
 	defer func() { NewKafkaAdminClientWrapper = NewKafkaAdminClientWrapperRef }()
 
 	// Perform The Test
-	adminClient, err := CreateAdminClient(ctx, adminClientType)
+	adminClient, err := CreateAdminClient(ctx, clientId, adminClientType)
 
 	// Verify The Results
 	assert.Nil(t, err)
@@ -43,6 +45,7 @@ func TestCreateAdminClientEventHub(t *testing.T) {
 
 	// Test Data
 	ctx := context.TODO()
+	clientId := "TestClientId"
 	adminClientType := EventHub
 	mockAdminClient = &MockAdminClient{}
 
@@ -57,7 +60,7 @@ func TestCreateAdminClientEventHub(t *testing.T) {
 	defer func() { NewEventHubAdminClientWrapper = NewEventHubAdminClientWrapperRef }()
 
 	// Perform The Test
-	adminClient, err := CreateAdminClient(ctx, adminClientType)
+	adminClient, err := CreateAdminClient(ctx, clientId, adminClientType)
 
 	// Verify The Results
 	assert.Nil(t, err)

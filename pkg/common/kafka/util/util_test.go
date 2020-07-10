@@ -25,6 +25,7 @@ func TestAddSaslAuthentication(t *testing.T) {
 	assert.Equal(t, password, config.Net.SASL.Password)
 	assert.True(t, config.Net.SASL.Enable)
 	assert.Equal(t, sarama.SASLMechanism(sarama.SASLTypePlaintext), config.Net.SASL.Mechanism)
+	assert.Equal(t, constants.ConfigNetSaslVersion, config.Net.SASL.Version)
 	assert.True(t, config.Net.TLS.Enable)
 	assert.True(t, config.Net.TLS.Config.InsecureSkipVerify)
 	assert.Equal(t, tls.NoClientCert, config.Net.TLS.Config.ClientAuth)

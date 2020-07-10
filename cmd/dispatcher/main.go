@@ -117,6 +117,7 @@ func main() {
 	// Create The Dispatcher With Specified Configuration
 	dispatcherConfig := dispatch.DispatcherConfig{
 		Logger:                      logger,
+		ClientId:                    Component,
 		Brokers:                     strings.Split(kafkaBrokers, ","),
 		Topic:                       kafkaTopic,
 		PollTimeoutMillis:           DefaultKafkaConsumerPollTimeoutMillis,
