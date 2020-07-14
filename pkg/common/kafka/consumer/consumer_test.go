@@ -27,7 +27,7 @@ func TestCreateConsumerGroup(t *testing.T) {
 		assert.NotNil(t, configArg)
 		assert.Equal(t, clientId, configArg.ClientID)
 		assert.Equal(t, constants.ConfigKafkaVersion, configArg.Version)
-		assert.Equal(t, sarama.V2_3_0_0, configArg.Version)
+		assert.Equal(t, constants.ConfigNetKeepAlive, configArg.Net.KeepAlive)
 		assert.True(t, configArg.Consumer.Return.Errors)
 		assert.Equal(t, username, configArg.Net.SASL.User)
 		assert.Equal(t, password, configArg.Net.SASL.Password)
@@ -44,9 +44,10 @@ func TestCreateConsumerGroup(t *testing.T) {
 	}()
 
 	// Perform The Test
-	consumerGroup, err := CreateConsumerGroup(clientId, brokers, groupId, username, password)
+	consumerGroup, registry, err := CreateConsumerGroup(clientId, brokers, groupId, username, password)
 
 	// Verify The Results
 	assert.Nil(t, err)
 	assert.NotNil(t, consumerGroup)
+	assert.NotNil(t, registry)
 }

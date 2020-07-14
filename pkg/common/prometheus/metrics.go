@@ -2,12 +2,17 @@ package prometheus
 
 import (
 	"context"
-	"encoding/json"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"net/http"
-	"strconv"
+	"strings"
+)
+
+// Constants
+const (
+	// Sarama Metrics
+	RecordSendRateForTopicPrefix = "record-send-rate-for-topic-"
 )
 
 // The MetricsServer Struct
@@ -17,7 +22,6 @@ type MetricsServer struct {
 	httpPort               string
 	path                   string
 	producedMsgCountGauges *prometheus.GaugeVec
-	receivedMsgCountGauges *prometheus.GaugeVec
 }
 
 // MetricsServer Constructor
@@ -29,21 +33,14 @@ func NewMetricsServer(logger *zap.Logger, httpPort string, path string) *Metrics
 		httpPort: httpPort,
 		path:     path,
 		producedMsgCountGauges: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Name: "knative_kafka_produced_msg_count",
-		}, []string{"producer", "topic", "partition"}),
-		receivedMsgCountGauges: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Name: "knative_kafka_consumed_msg_count",
-		}, []string{"consumer", "topic", "partition"}),
+			Name: "eventing_kafka_produced_msg_count",
+		}, []string{"topic"}),
 	}
 
 	// Register Produced/Received Message Count Gauges
 	producedErr := prometheus.Register(metricsServer.producedMsgCountGauges)
 	if producedErr != nil {
 		logger.Error("Failed To Register ProducedMsgCountGauges", zap.Error(producedErr))
-	}
-	receivedErr := prometheus.Register(metricsServer.receivedMsgCountGauges)
-	if receivedErr != nil {
-		logger.Error("Failed To Register ReceivedMsgCountGauges", zap.Error(receivedErr))
 	}
 
 	// Initialize The HTTP Server
@@ -89,41 +86,43 @@ func (m *MetricsServer) initializeServer() {
 	m.server = server
 }
 
-// Observe Kafka Metrics
-func (m *MetricsServer) Observe(stats string) {
+//
+// Track The Sarama Metrics (go-metrics) In Our Prometheus Server
+//
+// NOTE - Sarama provides lots of metrics which would be good to expose in Prometheus,
+//        but for now we're just quickly parsing out message counts.  This is for rough
+//        parity with the prior Confluent implementation and due to uncertainty around
+//        integrating with Knative Observability and potentially Sarama v2 using
+//        OpenTelemetry directly as described here...
+//
+//			https://github.com/Shopify/sarama/issues/1340
+//
+//        If we do decide to expose all available metrics, the following library might be useful...
+//
+//          https://github.com/deathowl/go-metrics-prometheus
+//
+//        Further the Sarama Consumer metrics don't track messages so we might need/want
+//        to manually track produced/consumed messages at the Topic/Partition/ConsumerGroup
+//        level.
+//
+func (m *MetricsServer) ObserveMetrics(metrics map[string]map[string]interface{}) {
 
-	m.logger.Debug("New Producer Metrics Observed")
-	var statsMap map[string]interface{}
-	err := json.Unmarshal([]byte(stats), &statsMap)
+	// Validate The Metrics
+	if len(metrics) > 0 {
 
-	// If Unable To Parse Log And Move On
-	if err != nil {
-		m.logger.Error("Unable To Parse Kafka Metrics", zap.Error(err))
-		return
-	}
+		// Loop Over The Observed Metrics
+		for metricKey, metricValue := range metrics {
 
-	// Name Of Producer Or Consumer
-	name := statsMap["name"].(string)
-
-	// Loop Over Topics And Partitions Updating Metrics
-	for _, t := range statsMap["topics"].(map[string]interface{}) {
-		topic := t.(map[string]interface{})
-		topicName := topic["topic"].(string)
-
-		for _, partition := range topic["partitions"].(map[string]interface{}) {
-			updatePartitionGauge(name, topicName, partition.(map[string]interface{}), "txmsgs", m.producedMsgCountGauges)
-			updatePartitionGauge(name, topicName, partition.(map[string]interface{}), "rxmsgs", m.receivedMsgCountGauges)
+			// Only Handle Specific Metrics
+			if strings.HasPrefix(metricKey, RecordSendRateForTopicPrefix) {
+				topicName := strings.TrimPrefix(metricKey, RecordSendRateForTopicPrefix)
+				msgCount, ok := metricValue["count"].(int64)
+				if ok {
+					m.producedMsgCountGauges.WithLabelValues(topicName).Set(float64(msgCount))
+				} else {
+					m.logger.Warn("Encountered Non Int64 'count' Field In Metric", zap.String("Metric", metricKey))
+				}
+			}
 		}
-	}
-}
-
-// Update A Partition Level Gauge
-func updatePartitionGauge(name string, topicName string, partition map[string]interface{}, field string, gauge *prometheus.GaugeVec) {
-	partitionNum := partition["partition"].(float64)
-	partitionNumStr := strconv.FormatFloat(partitionNum, 'f', -1, 64)
-
-	if partitionNumStr != "-1" {
-		msgCount := partition[field].(float64)
-		gauge.WithLabelValues(name, topicName, partitionNumStr).Set(msgCount)
 	}
 }

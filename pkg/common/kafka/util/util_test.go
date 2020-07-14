@@ -9,23 +9,26 @@ import (
 	"testing"
 )
 
-// Test The AddAddSaslAuthentication() Functionality
-func TestAddSaslAuthentication(t *testing.T) {
+// Test The NewSaramaConfig() Functionality
+func TestNewSaramaConfig(t *testing.T) {
 
 	// Test Data
+	clientId := "TestClientId"
 	username := "TestUsername"
 	password := "TestPassword"
-	config := sarama.NewConfig()
 
 	// Perform The Test
-	AddSaslAuthentication(config, username, password)
+	config := NewSaramaConfig(clientId, username, password)
 
 	// Verify The Results
-	assert.Equal(t, username, config.Net.SASL.User)
-	assert.Equal(t, password, config.Net.SASL.Password)
+	assert.Equal(t, clientId, config.ClientID)
+	assert.Equal(t, constants.ConfigKafkaVersion, config.Version)
+	assert.Equal(t, constants.ConfigNetKeepAlive, config.Net.KeepAlive)
+	assert.Equal(t, constants.ConfigNetSaslVersion, config.Net.SASL.Version)
 	assert.True(t, config.Net.SASL.Enable)
 	assert.Equal(t, sarama.SASLMechanism(sarama.SASLTypePlaintext), config.Net.SASL.Mechanism)
-	assert.Equal(t, constants.ConfigNetSaslVersion, config.Net.SASL.Version)
+	assert.Equal(t, username, config.Net.SASL.User)
+	assert.Equal(t, password, config.Net.SASL.Password)
 	assert.True(t, config.Net.TLS.Enable)
 	assert.True(t, config.Net.TLS.Config.InsecureSkipVerify)
 	assert.Equal(t, tls.NoClientCert, config.Net.TLS.Config.ClientAuth)

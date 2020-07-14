@@ -24,10 +24,12 @@ const (
 	KafkaSecretKeyPassword  = "password"
 
 	// Kafka Admin/Consumer/Producer Config Values
-	ConfigAdminTimeout                  = 10 * time.Second
-	ConfigNetSaslVersion                = sarama.SASLHandshakeV0 // TODO - Docs say to use v1 for kafka v1 or later but might need v0 for EventHubs ???  (Try v1 with eventhubs and use that if it works!)
-	ConfigConsumerOffsetsCommitInterval = 5 * time.Second
-	ConfigProducerIdempotent            = false // Desirable but not available in Azure EventHubs yet, so disabled for now.
+	ConfigAdminTimeout                  = 10 * time.Second       // Bumped up from 3 seconds just for some extra margin.
+	ConfigNetSaslVersion                = sarama.SASLHandshakeV1 // Latest version, seems to work with EventHubs as well.
+	ConfigNetKeepAlive                  = 30 * time.Second       // Pretty sure Sarama documentation is incorrect and 0 means default of 15 seconds but we'll forcibly set that anyway. (see Golang Net.Dialer.KeepAlive)
+	ConfigConsumerOffsetsCommitInterval = 5 * time.Second        // Auto offset commit interval for message Marked as consumed.
+	ConfigProducerIdempotent            = false                  // Desirable but not available in Azure EventHubs yet, so disabled for now.
+	ConfigProducerRequiredAcks          = sarama.WaitForAll      // Most stringent option for "at-least-once" delivery.
 
 	// Kafka Topic Config Keys
 	TopicDetailConfigRetentionMs = "retention.ms"

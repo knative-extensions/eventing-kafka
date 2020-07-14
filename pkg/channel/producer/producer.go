@@ -6,20 +6,26 @@ import (
 	"github.com/Shopify/sarama"
 	kafkasaramaprotocol "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"github.com/cloudevents/sdk-go/v2/binding"
+	"github.com/rcrowley/go-metrics"
 	"go.uber.org/zap"
+	"knative.dev/eventing-kafka/pkg/channel/constants"
 	"knative.dev/eventing-kafka/pkg/channel/health"
 	"knative.dev/eventing-kafka/pkg/channel/util"
 	kafkaproducer "knative.dev/eventing-kafka/pkg/common/kafka/producer"
 	"knative.dev/eventing-kafka/pkg/common/prometheus"
 	eventingChannel "knative.dev/eventing/pkg/channel"
+	"time"
 )
 
 // Producer Struct
 type Producer struct {
-	logger        *zap.Logger
-	kafkaProducer sarama.SyncProducer
-	healthServer  *health.Server
-	metricsServer *prometheus.MetricsServer
+	logger             *zap.Logger
+	kafkaProducer      sarama.SyncProducer
+	healthServer       *health.Server
+	metricsServer      *prometheus.MetricsServer
+	metricsRegistry    metrics.Registry
+	metricsStopChan    chan struct{}
+	metricsStoppedChan chan struct{}
 }
 
 // Initialize The Producer
@@ -32,7 +38,7 @@ func NewProducer(logger *zap.Logger,
 	healthServer *health.Server) (*Producer, error) {
 
 	// Create The Kafka Producer Using The Specified Kafka Authentication
-	kafkaProducer, err := createSyncProducerWrapper(clientId, brokers, username, password)
+	kafkaProducer, metricsRegistry, err := createSyncProducerWrapper(clientId, brokers, username, password)
 	if err != nil {
 		logger.Error("Failed To Create Kafka SyncProducer - Exiting", zap.Error(err), zap.Any("Brokers", brokers))
 		return nil, err
@@ -42,11 +48,17 @@ func NewProducer(logger *zap.Logger,
 
 	// Create A New Producer
 	producer := &Producer{
-		logger:        logger,
-		kafkaProducer: kafkaProducer,
-		healthServer:  healthServer,
-		metricsServer: metricsServer,
+		logger:             logger,
+		kafkaProducer:      kafkaProducer,
+		healthServer:       healthServer,
+		metricsServer:      metricsServer,
+		metricsRegistry:    metricsRegistry,
+		metricsStopChan:    make(chan struct{}),
+		metricsStoppedChan: make(chan struct{}),
 	}
+
+	// Start Observing Metrics
+	producer.ObserveMetrics(constants.MetricsInterval)
 
 	// Mark The Producer As Ready
 	healthServer.SetProducerReady(true)
@@ -57,7 +69,7 @@ func NewProducer(logger *zap.Logger,
 }
 
 // Wrapper Around Common Kafka SyncProducer Creation To Facilitate Unit Testing
-var createSyncProducerWrapper = func(clientId string, brokers []string, username string, password string) (sarama.SyncProducer, error) {
+var createSyncProducerWrapper = func(clientId string, brokers []string, username string, password string) (sarama.SyncProducer, metrics.Registry, error) {
 	return kafkaproducer.CreateSyncProducer(clientId, brokers, username, password)
 }
 
@@ -94,11 +106,46 @@ func (p *Producer) ProduceKafkaMessage(ctx context.Context, channelReference eve
 	}
 }
 
+// Async Process For Observing Kafka Metrics
+func (p *Producer) ObserveMetrics(interval time.Duration) {
+
+	// Fork A New Process To Run Async Metrics Collection
+	go func() {
+
+		// Infinite Loop For Periodically Observing Sarama Metrics From Registry
+		for {
+
+			select {
+
+			case <-p.metricsStopChan:
+				p.logger.Info("Stopped Metrics Tracking")
+				close(p.metricsStoppedChan)
+				return
+
+			default:
+
+				// Get All The Sarama Metrics From The Producer's Metrics Registry
+				kafkaMetrics := p.metricsRegistry.GetAll()
+
+				// Forward Metrics To Prometheus For Observation
+				p.metricsServer.ObserveMetrics(kafkaMetrics)
+			}
+
+			// Sleep The Specified Interval Before Collecting Metrics Again
+			time.Sleep(interval)
+		}
+	}()
+}
+
 // Close The Producer (Stop Processing)
 func (p *Producer) Close() {
 
 	// Mark The Producer As No Longer Ready
 	p.healthServer.SetProducerReady(false)
+
+	// Stop Observing Metrics
+	close(p.metricsStopChan)
+	<-p.metricsStoppedChan
 
 	// Close The Kafka Producer & Log Results
 	err := p.kafkaProducer.Close()
@@ -108,40 +155,3 @@ func (p *Producer) Close() {
 		p.logger.Error("Successfully Closed Kafka Producer")
 	}
 }
-
-// TODO - WHERE / HOW TO HANDLE METRICS ?
-//      - the whole usage of confluent stats ??? - this is the rcrowley/go-metricsServer
-//      - https://github.com/Shopify/sarama/issues/1260
-//      - https://godoc.org/github.com/Shopify/sarama#example-Config--Metrics
-//      - https://github.com/Shopify/sarama/issues/683
-//      - https://github.com/Shopify/sarama/issues/915
-//  case *kafka.Stats:
-//     Update Kafka Prometheus Metrics
-//     p.metricsServer.Observe(ev.String())
-//
-// ORIGINAL CONFLUENT PRODUCER EVENT PROCESSING LOGIC
-//// Infinite Loop For Processing Kafka Producer Events
-//func (p *Producer) processProducerEvents(healthServer *health.Server) {
-//	for {
-//		select {
-//		case msg := <-p.kafkaProducer.Events():
-//			switch ev := msg.(type) {
-//			case *kafka.Message:
-//				p.logger.Warn("Kafka Message Arrived On The Wrong Channel", zap.Any("Message", msg))
-//			case kafka.Error:
-//				p.logger.Warn("Kafka Error", zap.Error(ev))
-//			case *kafka.Stats:
-//				// Update Kafka Prometheus Metrics
-//				p.metricsServer.Observe(ev.String())
-//			default:
-//				p.logger.Info("Ignored Event", zap.String("Event", ev.String()))
-//			}
-//
-//		case <-p.stopChannel:
-//			p.logger.Info("Terminating Producer Event Processing")
-//			healthServer.SetProducerReady(false)
-//			close(p.stoppedChannel) // Inform On Stop Completion & Return
-//			return
-//		}
-//	}
-//}

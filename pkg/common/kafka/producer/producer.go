@@ -2,18 +2,20 @@ package producer
 
 import (
 	"github.com/Shopify/sarama"
+	"github.com/rcrowley/go-metrics"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	"knative.dev/eventing-kafka/pkg/common/kafka/util"
 )
 
 // Create A Sarama Kafka SyncProducer (Optional Authentication)
-func CreateSyncProducer(clientId string, brokers []string, username string, password string) (sarama.SyncProducer, error) {
+func CreateSyncProducer(clientId string, brokers []string, username string, password string) (sarama.SyncProducer, metrics.Registry, error) {
 
 	// Create The Sarama SyncProducer Config
 	config := getConfig(clientId, username, password)
 
 	// Create A New Sarama SyncProducer & Return Results
-	return newSyncProducerWrapper(brokers, config)
+	syncProducer, err := newSyncProducerWrapper(brokers, config)
+	return syncProducer, config.MetricRegistry, err
 }
 
 // Function Reference Variable To Facilitate Mocking In Unit Tests
@@ -24,23 +26,14 @@ var newSyncProducerWrapper = func(brokers []string, config *sarama.Config) (sara
 // Get The Default Sarama SyncProducer Config
 func getConfig(clientId string, username string, password string) *sarama.Config {
 
-	// Create The Basic Sarama Config
-	config := sarama.NewConfig()
-
-	// Set The Consumer's ClientID
-	config.ClientID = clientId
-
-	// Specify Kafka Version Compatibility
-	config.Version = constants.ConfigKafkaVersion
+	// Create A New Base Sarama Config
+	config := util.NewSaramaConfig(clientId, username, password)
 
 	// Specify Producer Idempotence
 	config.Producer.Idempotent = constants.ConfigProducerIdempotent
 
-	// TODO - From Paul's performance testing - do we want to use this? - thinking we do in one form or another...
-	//config.MetricRegistry = metrics.DefaultRegistry
-
-	// Add Optional SASL Configuration
-	util.AddSaslAuthentication(config, username, password)
+	// Specify Producer RequiredAcks For At-Least-Once Delivery
+	config.Producer.RequiredAcks = constants.ConfigProducerRequiredAcks
 
 	// We Want "Message Produced" Success Messages For Use With SyncProducer
 	config.Producer.Return.Successes = true

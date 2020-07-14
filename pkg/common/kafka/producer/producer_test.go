@@ -44,12 +44,13 @@ func performCreateSyncProducerTest(t *testing.T, username string, password strin
 	defer func() { newSyncProducerWrapper = newSyncProducerWrapperPlaceholder }()
 
 	// Perform The Test
-	producer, err := CreateSyncProducer(ClientId, []string{KafkaBrokers}, username, password)
+	producer, registry, err := CreateSyncProducer(ClientId, []string{KafkaBrokers}, username, password)
 
 	// Verify The Results
 	assert.Nil(t, err)
 	assert.NotNil(t, producer)
 	assert.Equal(t, mockSyncProducer, producer)
+	assert.NotNil(t, registry)
 }
 
 // Verify The Sarama Config Is As Expected
@@ -57,7 +58,9 @@ func verifySaramaConfig(t *testing.T, config *sarama.Config, clientId string, us
 	assert.NotNil(t, config)
 	assert.Equal(t, clientId, config.ClientID)
 	assert.Equal(t, constants.ConfigKafkaVersion, config.Version)
+	assert.Equal(t, constants.ConfigNetKeepAlive, config.Net.KeepAlive)
 	assert.Equal(t, constants.ConfigProducerIdempotent, config.Producer.Idempotent)
+	assert.Equal(t, constants.ConfigProducerRequiredAcks, config.Producer.RequiredAcks)
 	assert.True(t, config.Producer.Return.Successes)
 
 	if len(username) > 0 && len(password) > 0 {
@@ -74,7 +77,7 @@ func verifySaramaConfig(t *testing.T, config *sarama.Config, clientId string, us
 		assert.NotNil(t, config.Net)
 		assert.False(t, config.Net.TLS.Enable)
 		assert.Nil(t, config.Net.TLS.Config)
-		assert.Equal(t, constants.ConfigNetSaslVersion, config.Net.SASL.Version)
+		assert.Equal(t, sarama.SASLHandshakeV0, config.Net.SASL.Version)
 		assert.NotNil(t, config.Net.SASL)
 		assert.False(t, config.Net.SASL.Enable)
 		assert.Equal(t, sarama.SASLMechanism(""), config.Net.SASL.Mechanism)

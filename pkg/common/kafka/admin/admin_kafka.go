@@ -136,20 +136,11 @@ func (k KafkaAdminClient) GetKafkaSecretName(_ string) string {
 // Get The Default Sarama ClusterAdmin Config
 func getConfig(clientId string, username string, password string) *sarama.Config {
 
-	// Create The Basic Sarama Config
-	config := sarama.NewConfig()
-
-	// Set The ClusterAdmin's ClientID
-	config.ClientID = clientId
-
-	// Specify Kafka Version Compatibility
-	config.Version = constants.ConfigKafkaVersion
+	// Create A New Base Sarama Config
+	config := util.NewSaramaConfig(clientId, username, password)
 
 	// Increase Default Admin Timeout Of 3 Seconds For Topic Creation/Deletion
 	config.Admin.Timeout = constants.ConfigAdminTimeout
-
-	// Add Optional SASL Configuration
-	util.AddSaslAuthentication(config, username, password)
 
 	// Return The Sarama Config
 	return config

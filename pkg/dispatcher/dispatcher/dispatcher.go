@@ -27,7 +27,7 @@ type DispatcherConfig struct {
 	Username                    string
 	Password                    string
 	ChannelKey                  string
-	Metrics                     *prometheus.MetricsServer
+	MetricsServer               *prometheus.MetricsServer
 	ExponentialBackoff          bool
 	InitialRetryInterval        int64
 	MaxRetryTime                int64
@@ -110,7 +110,7 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 			logger := d.Logger.With(zap.String("GroupId", groupId))
 
 			// Attempt To Create A Kafka ConsumerGroup
-			consumerGroup, err := consumer.CreateConsumerGroup(d.ClientId, d.Brokers, groupId, d.Username, d.Password)
+			consumerGroup, _, err := consumer.CreateConsumerGroup(d.ClientId, d.Brokers, groupId, d.Username, d.Password)
 			if err != nil {
 
 				// Log & Return Failure
@@ -121,6 +121,8 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 
 				// Create A New SubscriberWrapper With The ConsumerGroup
 				subscriber := NewSubscriberWrapper(subscriberSpec, groupId, consumerGroup)
+
+				// Should start observing metrics from Sarama Config.MetricsRegistry from CreateConsumerGroup() above ; )
 
 				// Start The ConsumerGroup Processing Messages
 				d.startConsuming(subscriber)

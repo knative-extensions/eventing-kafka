@@ -8,11 +8,23 @@ import (
 	"strings"
 )
 
-// Utility Function For Adding SASL Credentials To Kafka Config
-func AddSaslAuthentication(config *sarama.Config, username string, password string) {
+// Utility Function For Configuring Common Settings For Admin/Producer/Consumer
+func NewSaramaConfig(clientId string, username string, password string) *sarama.Config {
+
+	// Create A Default Sarama Config
+	config := sarama.NewConfig()
+
+	// Set The ClientID For Logging
+	config.ClientID = clientId
+
+	// Specify Kafka Version Compatibility
+	config.Version = constants.ConfigKafkaVersion
+
+	// Set Basic Network Settings
+	config.Net.KeepAlive = constants.ConfigNetKeepAlive
 
 	// Update Config With With PLAIN SASL Auth If Specified
-	if config != nil && len(username) > 0 && len(password) > 0 {
+	if len(username) > 0 && len(password) > 0 {
 		config.Net.SASL.Version = constants.ConfigNetSaslVersion
 		config.Net.SASL.Enable = true
 		config.Net.SASL.Mechanism = sarama.SASLTypePlaintext
@@ -24,6 +36,9 @@ func AddSaslAuthentication(config *sarama.Config, username string, password stri
 			ClientAuth:         tls.NoClientCert,
 		}
 	}
+
+	// Return The Initialized Config
+	return config
 }
 
 // Get The Formatted Kafka Topic Name From The Specified Components

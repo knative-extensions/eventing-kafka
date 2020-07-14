@@ -8,415 +8,62 @@ import (
 	"testing"
 )
 
-func TestMetricsServer_Observe(t *testing.T) {
+// Test The MetricsServer's ObserveMetrics() Functionality
+func TestObserveMetrics(t *testing.T) {
 
+	// Test Data
+	topic := "test-topic"
+	count := int64(99)
+	metrics := createTestMetrics(topic, count)
+
+	// Create A Test Logger
 	logger := logtesting.TestLogger(t).Desugar()
-	
-	m := NewMetricsServer(logger, "8888", "/metrics")
 
-	m.Observe(statsJson)
+	// Create A MetricsServer To Test
+	metricsServer := NewMetricsServer(logger, "8888", "/path")
 
-	assertGaugeEqual(t, m.receivedMsgCountGauges, "rdkafka#consumer-2", "test", "1", 3.0)
-	assertGaugeEqual(t, m.producedMsgCountGauges, "rdkafka#consumer-2", "test", "1", 215.0)
+	// Perform The Test
+	metricsServer.ObserveMetrics(metrics)
 
+	// Verify The Gauge Was Updated As Expected
+	assertGaugeEqual(t, metricsServer.producedMsgCountGauges, topic, float64(count))
 }
 
-func assertGaugeEqual(t *testing.T, gaugeVec *prometheus.GaugeVec, name string, topicName string, partition string, expectedValue float64) {
-	gauge, err := gaugeVec.GetMetricWithLabelValues(name, topicName, partition)
-	if err != nil {
-		t.Fatalf("Unexpected Error: %s", err)
-	}
-	metric := &dto.Metric{}
-	gauge.Write(metric)
+// Utility Function For Creating Sample Test Metrics  (Representative Data From Sarama Metrics Trace - With Custom Test Data)
+func createTestMetrics(topic string, count int64) map[string]map[string]interface{} {
+	metrics := make(map[string]map[string]interface{})
+	metrics["batch-size"] = map[string]interface{}{"75%": 422, "95%": 422, "99%": 422, "99.9%": 422, "count": 5, "max": 422, "mean": 422, "median": 422, "min": 422, "stddev": 0}
+	metrics["batch-size-for-topic-"+topic] = map[string]interface{}{"75%": 422, "95%": 422, "99%": 422, "99.9%": 422, "count": 5, "max": 422, "mean": 422, "median": 422, "min": 422, "stddev": 0}
+	metrics["compression-ratio"] = map[string]interface{}{"75%": 100, "95%": 100, "99%": 100, "99.9%": 100, "count": 5, "max": 100, "mean": 100, "median": 100, "min": 100, "stddev": 0}
+	metrics["compression-ratio-for-topic-stage_sample-kafka-channel-1"] = map[string]interface{}{"75%": 100, "95%": 100, "99%": 100, "99.9%": 100, "count": 5, "max": 100, "mean": 100, "median": 100, "min": 100, "stddev": 0}
+	metrics["incoming-byte-rate"] = map[string]interface{}{"15m.rate": 338.48922714325533, "1m.rate": 148.6636907525621, "5m.rate": 300.3520357972228, "count": 2157, "mean.rate": 36.136821927158024}
+	metrics["incoming-byte-rate-for-broker-0"] = map[string]interface{}{"15m.rate": 57.04287862876796, "1m.rate": 49.81665008593679, "5m.rate": 55.94572447585394, "count": 360, "mean.rate": 26.962040661298193}
+	metrics["outgoing-byte-rate"] = map[string]interface{}{"15m.rate": 8.542065819239612, "1m.rate": 36.494569810073976, "5m.rate": 13.085405055952117, "count": 2501, "mean.rate": 41.89999208758941}
+	metrics["outgoing-byte-rate-for-broker-0"] = map[string]interface{}{"15m.rate": 391.3775283696023, "1m.rate": 341.7975714229552, "5m.rate": 383.8498318204423, "count": 2470, "mean.rate": 184.9934008427559}
+	metrics["record-send-rate"] = map[string]interface{}{"15m.rate": 0.7922622031773328, "1m.rate": 0.6918979178602331, "5m.rate": 0.777023951053527, "count": 5, "mean.rate": 0.3744896470537649}
+	metrics[RecordSendRateForTopicPrefix+topic] = map[string]interface{}{"15m.rate": 0.7922622031773328, "1m.rate": 0.6918979178602331, "5m.rate": 0.777023951053527, "count": count, "mean.rate": 0.3744894223293246}
+	metrics["records-per-request"] = map[string]interface{}{"75%": 1, "95%": 1, "99%": 1, "99.9%": 1, "count": 5, "max": 1, "mean": 1, "median": 1, "min": 1, "stddev": 0}
+	metrics["records-per-request-for-topic-stage_sample-kafka-channel-1"] = map[string]interface{}{"75%": 1, "95%": 1, "99%": 1, "99.9%": 1, "count": 5, "max": 1, "mean": 1, "median": 1, "min": 1, "stddev": 0}
+	metrics["request-latency-in-ms"] = map[string]interface{}{"75%": 24, "95%": 78, "99%": 78, "99.9%": 78, "count": 6, "max": 78, "mean": 16.666666666666668, "median": 5, "min": 3, "stddev": 27.45096638655105}
+	metrics["request-latency-in-ms-for-broker-0"] = map[string]interface{}{"75%": 42, "95%": 78, "99%": 78, "99.9%": 78, "count": 5, "max": 78, "mean": 19.4, "median": 5, "min": 3, "stddev": 29.31620712165883}
+	metrics["request-rate"] = map[string]interface{}{"15m.rate": 0.19362878205360173, "1m.rate": 0.1488272222720787, "5m.rate": 0.1825385339752764, "count": 6, "mean.rate": 0.1005196891551448}
+	metrics["request-rate-for-broker-0"] = map[string]interface{}{"15m.rate": 0.7922622031773328, "1m.rate": 0.6918979178602331, "5m.rate": 0.777023951053527, "count": 5, "mean.rate": 0.37447298101266696}
+	metrics["request-size"] = map[string]interface{}{"75%": 494, "95%": 494, "99%": 494, "99.9%": 494, "count": 6, "max": 494, "mean": 416.8333333333333, "median": 494, "min": 31, "stddev": 172.54991226373375}
+	metrics["request-size-for-broker-0"] = map[string]interface{}{"75%": 494, "95%": 494, "99%": 494, "99.9%": 494, "count": 5, "max": 494, "mean": 494, "median": 494, "min": 494, "stddev": 0}
+	metrics["response-rate"] = map[string]interface{}{"15m.rate": 0.19362878205360173, "1m.rate": 0.1488272222720787, "5m.rate": 0.1825385339752764, "count": 6, "mean.rate": 0.10051977925613151}
+	metrics["response-rate-for-broker-0"] = map[string]interface{}{"15m.rate": 0.7922622031773328, "1m.rate": 0.6918979178602331, "5m.rate": 0.777023951053527, "count": 5, "mean.rate": 0.3744806601376294}
+	metrics["response-size"] = map[string]interface{}{"75%": 503.25, "95%": 1797, "99%": 1797, "99.9%": 1797, "count": 6, "max": 1797, "mean": 359.5, "median": 72, "min": 72, "stddev": 642.8695435311895}
+	metrics["response-size-for-broker-0"] = map[string]interface{}{"75%": 72, "95%": 72, "99%": 72, "99.9%": 72, "count": 5, "max": 72, "mean": 72, "median": 72, "min": 72, "stddev": 0}
+	return metrics
+}
 
+// Utility Function For Comparing Expected Prometheus Gauge Values
+func assertGaugeEqual(t *testing.T, gaugeVec *prometheus.GaugeVec, topic string, expectedValue float64) {
+	gauge, err := gaugeVec.GetMetricWithLabelValues(topic)
+	assert.Nil(t, err)
+	assert.NotNil(t, gauge)
+	metric := &dto.Metric{}
+	err = gauge.Write(metric)
+	assert.Nil(t, err)
 	assert.Equal(t, expectedValue, *metric.Gauge.Value)
 }
-
-var statsJson = `
-{
-  "name": "rdkafka#consumer-2",
-  "client_id": "rdkafka",
-  "type": "consumer",
-  "ts": 5016483227792,
-  "time": 1527060869,
-  "replyq": 0,
-  "msg_cnt": 22710,
-  "msg_size": 704010,
-  "msg_max": 500000,
-  "msg_size_max": 1073741824,
-  "simple_cnt": 0,
-  "metadata_cache_cnt": 1,
-  "brokers": {
-    "localhost:9092/2": {
-      "name": "localhost:9092/2",
-      "nodeid": 2,
-      "nodename": "localhost:9092",
-      "source": "learned",
-      "state": "UP",
-      "stateage": 9057234,
-      "outbuf_cnt": 0,
-      "outbuf_msg_cnt": 0,
-      "waitresp_cnt": 0,
-      "waitresp_msg_cnt": 0,
-      "tx": 320,
-      "txbytes": 84283332,
-      "txerrs": 0,
-      "txretries": 0,
-      "req_timeouts": 0,
-      "rx": 320,
-      "rxbytes": 15708,
-      "rxerrs": 0,
-      "rxcorriderrs": 0,
-      "rxpartial": 0,
-      "zbuf_grow": 0,
-      "buf_grow": 0,
-      "wakeups": 591067,
-      "int_latency": {
-        "min": 86,
-        "max": 59375,
-        "avg": 23726,
-        "sum": 5694616664,
-        "stddev": 13982,
-        "p50": 28031,
-        "p75": 36095,
-        "p90": 39679,
-        "p95": 43263,
-        "p99": 48639,
-        "p99_99": 59391,
-        "outofrange": 0,
-        "hdrsize": 11376,
-        "cnt": 240012
-      },
-      "rtt": {
-        "min": 1580,
-        "max": 3389,
-        "avg": 2349,
-        "sum": 79868,
-        "stddev": 474,
-        "p50": 2319,
-        "p75": 2543,
-        "p90": 3183,
-        "p95": 3199,
-        "p99": 3391,
-        "p99_99": 3391,
-        "outofrange": 0,
-        "hdrsize": 13424,
-        "cnt": 34
-      },
-      "throttle": {
-        "min": 0,
-        "max": 0,
-        "avg": 0,
-        "sum": 0,
-        "stddev": 0,
-        "p50": 0,
-        "p75": 0,
-        "p90": 0,
-        "p95": 0,
-        "p99": 0,
-        "p99_99": 0,
-        "outofrange": 0,
-        "hdrsize": 17520,
-        "cnt": 34
-      },
-      "toppars": {
-        "test-1": {
-          "topic": "test",
-          "partition": 1
-        }
-      }
-    },
-    "localhost:9093/3": {
-      "name": "localhost:9093/3",
-      "nodeid": 3,
-      "nodename": "localhost:9093",
-      "source": "learned",
-      "state": "UP",
-      "stateage": 9057209,
-      "outbuf_cnt": 0,
-      "outbuf_msg_cnt": 0,
-      "waitresp_cnt": 0,
-      "waitresp_msg_cnt": 0,
-      "tx": 310,
-      "txbytes": 84301122,
-      "txerrs": 0,
-      "txretries": 0,
-      "req_timeouts": 0,
-      "rx": 310,
-      "rxbytes": 15104,
-      "rxerrs": 0,
-      "rxcorriderrs": 0,
-      "rxpartial": 0,
-      "zbuf_grow": 0,
-      "buf_grow": 0,
-      "wakeups": 607956,
-      "int_latency": {
-        "min": 82,
-        "max": 58069,
-        "avg": 23404,
-        "sum": 5617432101,
-        "stddev": 14021,
-        "p50": 27391,
-        "p75": 35839,
-        "p90": 39679,
-        "p95": 42751,
-        "p99": 48639,
-        "p99_99": 58111,
-        "outofrange": 0,
-        "hdrsize": 11376,
-        "cnt": 240016
-      },
-      "rtt": {
-        "min": 1704,
-        "max": 3572,
-        "avg": 2493,
-        "sum": 87289,
-        "stddev": 559,
-        "p50": 2447,
-        "p75": 2895,
-        "p90": 3375,
-        "p95": 3407,
-        "p99": 3583,
-        "p99_99": 3583,
-        "outofrange": 0,
-        "hdrsize": 13424,
-        "cnt": 35
-      },
-      "throttle": {
-        "min": 0,
-        "max": 0,
-        "avg": 0,
-        "sum": 0,
-        "stddev": 0,
-        "p50": 0,
-        "p75": 0,
-        "p90": 0,
-        "p95": 0,
-        "p99": 0,
-        "p99_99": 0,
-        "outofrange": 0,
-        "hdrsize": 17520,
-        "cnt": 35
-      },
-      "toppars": {
-        "test-0": {
-          "topic": "test",
-          "partition": 0
-        }
-      }
-    },
-    "localhost:9094/4": {
-      "name": "localhost:9094/4",
-      "nodeid": 4,
-      "nodename": "localhost:9094",
-      "source": "learned",
-      "state": "UP",
-      "stateage": 9057207,
-      "outbuf_cnt": 0,
-      "outbuf_msg_cnt": 0,
-      "waitresp_cnt": 0,
-      "waitresp_msg_cnt": 0,
-      "tx": 1,
-      "txbytes": 25,
-      "txerrs": 0,
-      "txretries": 0,
-      "req_timeouts": 0,
-      "rx": 1,
-      "rxbytes": 272,
-      "rxerrs": 0,
-      "rxcorriderrs": 0,
-      "rxpartial": 0,
-      "zbuf_grow": 0,
-      "buf_grow": 0,
-      "wakeups": 4,
-      "int_latency": {
-        "min": 0,
-        "max": 0,
-        "avg": 0,
-        "sum": 0,
-        "stddev": 0,
-        "p50": 0,
-        "p75": 0,
-        "p90": 0,
-        "p95": 0,
-        "p99": 0,
-        "p99_99": 0,
-        "outofrange": 0,
-        "hdrsize": 11376,
-        "cnt": 0
-      },
-      "rtt": {
-        "min": 0,
-        "max": 0,
-        "avg": 0,
-        "sum": 0,
-        "stddev": 0,
-        "p50": 0,
-        "p75": 0,
-        "p90": 0,
-        "p95": 0,
-        "p99": 0,
-        "p99_99": 0,
-        "outofrange": 0,
-        "hdrsize": 13424,
-        "cnt": 0
-      },
-      "throttle": {
-        "min": 0,
-        "max": 0,
-        "avg": 0,
-        "sum": 0,
-        "stddev": 0,
-        "p50": 0,
-        "p75": 0,
-        "p90": 0,
-        "p95": 0,
-        "p99": 0,
-        "p99_99": 0,
-        "outofrange": 0,
-        "hdrsize": 17520,
-        "cnt": 0
-      },
-      "toppars": {}
-    }
-  },
-  "topics": {
-    "test": {
-      "topic": "test",
-      "metadata_age": 9060,
-      "batchsize": {
-        "min": 99,
-        "max": 391805,
-        "avg": 272593,
-        "sum": 18808985,
-        "stddev": 180408,
-        "p50": 393215,
-        "p75": 393215,
-        "p90": 393215,
-        "p95": 393215,
-        "p99": 393215,
-        "p99_99": 393215,
-        "outofrange": 0,
-        "hdrsize": 14448,
-        "cnt": 69
-      },
-      "batchcnt": {
-        "min": 1,
-        "max": 10000,
-        "avg": 6956,
-        "sum": 480028,
-        "stddev": 4608,
-        "p50": 10047,
-        "p75": 10047,
-        "p90": 10047,
-        "p95": 10047,
-        "p99": 10047,
-        "p99_99": 10047,
-        "outofrange": 0,
-        "hdrsize": 8304,
-        "cnt": 69
-      },
-      "partitions": {
-        "0": {
-          "partition": 0,
-          "broker": 3,
-          "leader": 3,
-          "desired": false,
-          "unknown": false,
-          "msgq_cnt": 1,
-          "msgq_bytes": 31,
-          "xmit_msgq_cnt": 0,
-          "xmit_msgq_bytes": 0,
-          "fetchq_cnt": 0,
-          "fetchq_size": 0,
-          "fetch_state": "none",
-          "query_offset": 0,
-          "next_offset": 0,
-          "app_offset": -1001,
-          "stored_offset": -1001,
-          "commited_offset": -1001,
-          "committed_offset": -1001,
-          "eof_offset": -1001,
-          "lo_offset": -1001,
-          "hi_offset": -1001,
-          "consumer_lag": -1,
-          "txmsgs": 2150617,
-          "txbytes": 66669127,
-          "rxmsgs": 0,
-          "rxbytes": 0,
-          "msgs": 2160510,
-          "rx_ver_drops": 0
-        },
-        "1": {
-          "partition": 1,
-          "broker": 2,
-          "leader": 2,
-          "desired": false,
-          "unknown": false,
-          "msgq_cnt": 0,
-          "msgq_bytes": 0,
-          "xmit_msgq_cnt": 0,
-          "xmit_msgq_bytes": 0,
-          "fetchq_cnt": 0,
-          "fetchq_size": 0,
-          "fetch_state": "none",
-          "query_offset": 0,
-          "next_offset": 0,
-          "app_offset": -1001,
-          "stored_offset": -1001,
-          "commited_offset": -1001,
-          "committed_offset": -1001,
-          "eof_offset": -1001,
-          "lo_offset": -1001,
-          "hi_offset": -1001,
-          "consumer_lag": -1,
-          "txmsgs": 215,
-          "txbytes": 66654216,
-          "rxmsgs": 3,
-          "rxbytes": 0,
-          "msgs": 2159735,
-          "rx_ver_drops": 0
-        },
-        "-1": {
-          "partition": -1,
-          "broker": -1,
-          "leader": -1,
-          "desired": false,
-          "unknown": false,
-          "msgq_cnt": 0,
-          "msgq_bytes": 0,
-          "xmit_msgq_cnt": 0,
-          "xmit_msgq_bytes": 0,
-          "fetchq_cnt": 0,
-          "fetchq_size": 0,
-          "fetch_state": "none",
-          "query_offset": 0,
-          "next_offset": 0,
-          "app_offset": -1001,
-          "stored_offset": -1001,
-          "commited_offset": -1001,
-          "committed_offset": -1001,
-          "eof_offset": -1001,
-          "lo_offset": -1001,
-          "hi_offset": -1001,
-          "consumer_lag": -1,
-          "txmsgs": 0,
-          "txbytes": 0,
-          "rxmsgs": 0,
-          "rxbytes": 0,
-          "msgs": 1177,
-          "rx_ver_drops": 0
-        }
-      }
-    }
-  },
-  "tx": 631,
-  "tx_bytes": 168584479,
-  "rx": 631,
-  "rx_bytes": 31084,
-  "txmsgs": 4300753,
-  "txmsg_bytes": 133323343,
-  "rxmsgs": 0,
-  "rxmsg_bytes": 0
-}
-`

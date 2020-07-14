@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/Shopify/sarama"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	"github.com/rcrowley/go-metrics"
 	"github.com/stretchr/testify/assert"
 	"knative.dev/eventing-kafka/pkg/channel/constants"
 	channelhealth "knative.dev/eventing-kafka/pkg/channel/health"
@@ -84,12 +85,13 @@ func createTestProducer(t *testing.T, kafkaSyncProducer sarama.SyncProducer) *Pr
 
 	// Stub The Kafka Producer Creation Wrapper With Test Version Returning Specified SyncProducer
 	createSyncProducerWrapperPlaceholder := createSyncProducerWrapper
-	createSyncProducerWrapper = func(clientId string, brokers []string, username string, password string) (sarama.SyncProducer, error) {
+	createSyncProducerWrapper = func(clientId string, brokers []string, username string, password string) (sarama.SyncProducer, metrics.Registry, error) {
 		assert.Equal(t, test.ClientId, clientId)
 		assert.Equal(t, []string{test.KafkaBrokers}, brokers)
 		assert.Equal(t, test.KafkaUsername, username)
 		assert.Equal(t, test.KafkaPassword, password)
-		return kafkaSyncProducer, nil
+		registry := metrics.NewRegistry()
+		return kafkaSyncProducer, registry, nil
 	}
 	defer func() { createSyncProducerWrapper = createSyncProducerWrapperPlaceholder }()
 

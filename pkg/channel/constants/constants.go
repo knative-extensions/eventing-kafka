@@ -1,8 +1,12 @@
 package constants
 
+import "time"
+
 // Global Constants
 const (
 	Component = "KafkaChannel"
+
+	MetricsInterval = 5 * time.Second
 
 	ExtensionKeyPartitionKey = "partitionkey"
 

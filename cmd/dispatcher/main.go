@@ -127,7 +127,7 @@ func main() {
 		Username:                    kafkaUsername,
 		Password:                    kafkaPassword,
 		ChannelKey:                  channelKey,
-		Metrics:                     metricsServer,
+		MetricsServer:               metricsServer,
 		ExponentialBackoff:          exponentialBackoff,
 		InitialRetryInterval:        initialRetryInterval,
 		MaxRetryTime:                maxRetryTime,
