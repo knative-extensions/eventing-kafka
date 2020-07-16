@@ -53,7 +53,7 @@ func TestInitializeObservability(t *testing.T) {
 	ctx = context.WithValue(ctx, injectionclient.Key{}, fakeK8sClient)
 
 	// Perform The Test (Initialize The Observability Watcher)
-	InitializeObservability(logger, ctx, test.MetricsDomain)
+	InitializeObservability(logger, ctx, test.MetricsDomain, test.MetricsPort)
 
 	// If the InitializeObservability Succeeds, it will not fatally exit
 	// (Not the best test of failure conditions but it does run through the WatchObservabilityConfigOrDie() call at least

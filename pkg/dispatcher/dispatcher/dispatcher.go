@@ -6,7 +6,7 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"go.uber.org/zap"
 	kafkaconsumer "knative.dev/eventing-kafka/pkg/common/kafka/consumer"
-	"knative.dev/eventing-kafka/pkg/common/prometheus"
+	"knative.dev/eventing-kafka/pkg/common/metrics"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1alpha1"
 	"knative.dev/eventing/pkg/channel"
 	"strings"
@@ -27,7 +27,7 @@ type DispatcherConfig struct {
 	Username                    string
 	Password                    string
 	ChannelKey                  string
-	Metrics                     *prometheus.MetricsServer
+	Reporter                    metrics.StatsReporter
 	ExponentialBackoff          bool
 	InitialRetryInterval        int64
 	MaxRetryTime                int64
@@ -186,7 +186,7 @@ func (d *Dispatcher) handleKafkaMessages(consumerOffset ConsumerOffset, subscrip
 
 			case *kafka.Stats:
 				// Update Kafka Prometheus Metrics
-				d.Metrics.Observe(e.String())
+				d.Reporter.Report(e.String())
 
 			case kafka.Error:
 				logger.Warn("Received Kafka Error", zap.Error(e))

@@ -10,12 +10,13 @@ import (
 	"knative.dev/eventing-contrib/kafka/channel/pkg/client/informers/externalversions"
 	commonenv "knative.dev/eventing-kafka/pkg/common/env"
 	commonk8s "knative.dev/eventing-kafka/pkg/common/k8s"
-	"knative.dev/eventing-kafka/pkg/common/prometheus"
+	"knative.dev/eventing-kafka/pkg/common/metrics"
 	"knative.dev/eventing-kafka/pkg/dispatcher/controller"
 	dispatch "knative.dev/eventing-kafka/pkg/dispatcher/dispatcher"
 	dispatcherhealth "knative.dev/eventing-kafka/pkg/dispatcher/health"
 	kncontroller "knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	eventingmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/signals"
 	"os"
 	"strconv"
@@ -48,8 +49,9 @@ func main() {
 	ctx := commonk8s.LoggingContext(signals.NewContext(), Component, *masterURL, *kubeconfig)
 
 	// Get The Logger From The Context & Defer Flushing Any Buffered Log Entries On Exit
-	logger = logging.FromContext(ctx).Desugar()
-	defer func() { _ = logger.Sync() }()
+	sl := logging.FromContext(ctx)
+	defer flush(sl)
+	logger = sl.Desugar()
 
 	// Load Environment Variables
 	metricsPort := os.Getenv(commonenv.MetricsPortEnvVarKey)
@@ -105,18 +107,20 @@ func main() {
 	}
 
 	// Initialize Tracing (Watches config-tracing ConfigMap, Assumes Context Came From LoggingContext With Embedded K8S Client Key)
-	commonk8s.InitializeTracing(logger.Sugar(), ctx, serviceName)
+	commonk8s.InitializeTracing(sl, ctx, serviceName)
 
 	// Initialize Observability (Watches config-observability ConfigMap And Starts Profiling Server)
-	commonk8s.InitializeObservability(logger.Sugar(), ctx, metricsDomain)
+	metricsPortInt, err := strconv.Atoi(metricsPort)
+	if err != nil {
+		logger.Fatal("Invalid Metrics Port - Terminating", zap.Error(err))
+	}
+	commonk8s.InitializeObservability(sl, ctx, metricsDomain, metricsPortInt)
 
 	// Start The Liveness And Readiness Servers
 	healthServer := dispatcherhealth.NewDispatcherHealthServer(healthPort)
 	healthServer.Start(logger)
 
-	// Start The Prometheus Metrics Server (Prometheus)
-	metricsServer := prometheus.NewMetricsServer(logger, metricsPort, "/metrics")
-	metricsServer.Start()
+	reporter := metrics.NewStatsReporter(logger)
 
 	// Create The Dispatcher With Specified Configuration
 	dispatcherConfig := dispatch.DispatcherConfig{
@@ -131,7 +135,7 @@ func main() {
 		Username:                    kafkaUsername,
 		Password:                    kafkaPassword,
 		ChannelKey:                  channelKey,
-		Metrics:                     metricsServer,
+		Reporter:                    reporter,
 		ExponentialBackoff:          exponentialBackoff,
 		InitialRetryInterval:        initialRetryInterval,
 		MaxRetryTime:                maxRetryTime,
@@ -187,9 +191,11 @@ func main() {
 	// Close Consumer Connections
 	dispatcher.StopConsumers()
 
-	// Shutdown The Prometheus Metrics Server
-	metricsServer.Stop()
-
 	// Stop The Liveness And Readiness Servers
 	healthServer.Stop(logger)
+}
+
+func flush(logger *zap.SugaredLogger) {
+	_ = logger.Sync()
+	eventingmetrics.FlushExporter()
 }

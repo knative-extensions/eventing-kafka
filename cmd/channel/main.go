@@ -12,10 +12,12 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/producer"
 	commonk8s "knative.dev/eventing-kafka/pkg/common/k8s"
 	kafkautil "knative.dev/eventing-kafka/pkg/common/kafka/util"
-	"knative.dev/eventing-kafka/pkg/common/prometheus"
+	"knative.dev/eventing-kafka/pkg/common/metrics"
 	eventingchannel "knative.dev/eventing/pkg/channel"
 	"knative.dev/pkg/logging"
+	eventingmetrics "knative.dev/pkg/metrics"
 	nethttp "net/http"
+	"strconv"
 )
 
 // Variables
@@ -36,8 +38,9 @@ func main() {
 	ctx := commonk8s.LoggingContext(context.Background(), constants.Component, *masterURL, *kubeconfig)
 
 	// Get The Logger From The Context & Defer Flushing Any Buffered Log Entries On Exit
-	logger = logging.FromContext(ctx).Desugar()
-	defer func() { _ = logger.Sync() }()
+	sl := logging.FromContext(ctx)
+	defer flush(sl)
+	logger = sl.Desugar()
 
 	// Load Environment Variables
 	environment, err := env.GetEnvironment(logger)
@@ -46,18 +49,18 @@ func main() {
 	}
 
 	// Initialize Tracing (Watches config-tracing ConfigMap, Assumes Context Came From LoggingContext With Embedded K8S Client Key)
-	commonk8s.InitializeTracing(logger.Sugar(), ctx, environment.ServiceName)
+	commonk8s.InitializeTracing(sl, ctx, environment.ServiceName)
 
 	// Initialize Observability (Watches config-observability ConfigMap And Starts Profiling Server)
-	commonk8s.InitializeObservability(logger.Sugar(), ctx, environment.MetricsDomain)
+	metricsPort, err := strconv.Atoi(environment.MetricsPort)
+	if err != nil {
+		logger.Fatal("Invalid Metrics Port - Terminating", zap.Error(err))
+	}
+	commonk8s.InitializeObservability(sl, ctx, environment.MetricsDomain, metricsPort)
 
 	// Start The Liveness And Readiness Servers
 	healthServer := channelhealth.NewChannelHealthServer(environment.HealthPort)
 	healthServer.Start(logger)
-
-	// Start The Prometheus Metrics Server (Prometheus)
-	metricsServer := prometheus.NewMetricsServer(logger, environment.MetricsPort, "/metrics")
-	metricsServer.Start()
 
 	// Initialize The KafkaChannel Lister Used To Validate Events
 	err = channel.InitializeKafkaChannelLister(ctx, *masterURL, *kubeconfig, healthServer)
@@ -66,8 +69,10 @@ func main() {
 	}
 	defer channel.Close()
 
+	reporter := metrics.NewStatsReporter(logger)
+
 	// Initialize The Kafka Producer In Order To Start Processing Status Events
-	kafkaProducer, err = producer.NewProducer(logger, environment.KafkaBrokers, environment.KafkaUsername, environment.KafkaPassword, metricsServer, healthServer)
+	kafkaProducer, err = producer.NewProducer(logger, environment.KafkaBrokers, environment.KafkaUsername, environment.KafkaPassword, reporter, healthServer)
 	if err != nil {
 		logger.Fatal("Failed To Initialize Kafka Producer", zap.Error(err))
 	}
@@ -91,11 +96,13 @@ func main() {
 	// Reset The Liveness and Readiness Flags In Preparation For Shutdown
 	healthServer.Shutdown()
 
-	// Shutdown The Prometheus Metrics Server
-	metricsServer.Stop()
-
 	// Stop The Liveness And Readiness Servers
 	healthServer.Stop(logger)
+}
+
+func flush(logger *zap.SugaredLogger) {
+	_ = logger.Sync()
+	eventingmetrics.FlushExporter()
 }
 
 // CloudEvent Message Handler - Converts To KafkaMessage And Produces To Channel's Kafka Topic

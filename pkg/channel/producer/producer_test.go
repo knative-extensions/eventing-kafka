@@ -8,7 +8,7 @@ import (
 	channelhealth "knative.dev/eventing-kafka/pkg/channel/health"
 	"knative.dev/eventing-kafka/pkg/channel/test"
 	kafkaproducer "knative.dev/eventing-kafka/pkg/common/kafka/producer"
-	"knative.dev/eventing-kafka/pkg/common/prometheus"
+	"knative.dev/eventing-kafka/pkg/common/metrics"
 	logtesting "knative.dev/pkg/logging/testing"
 	"testing"
 )
@@ -32,7 +32,7 @@ func TestNewProducer(t *testing.T) {
 
 	// Perform The Test
 	healthServer := channelhealth.NewChannelHealthServer("12345")
-	producer, err := NewProducer(logger, brokers, username, password, prometheus.NewMetricsServer(logger, "8888", "/metrics"), healthServer)
+	producer, err := NewProducer(logger, brokers, username, password, metrics.NewStatsReporter(logger), healthServer)
 
 	// Verify The Results
 	assert.Nil(t, err)
@@ -111,7 +111,7 @@ func createTestProducer(t *testing.T, kafkaProducer kafkaproducer.ProducerInterf
 		kafkaProducer:  kafkaProducer,
 		stopChannel:    make(chan struct{}),
 		stoppedChannel: make(chan struct{}),
-		metrics:        prometheus.NewMetricsServer(logger, "8888", "/metrics"),
+		statsReporter:  metrics.NewStatsReporter(logger),
 	}
 
 	// Return The Test Producer

@@ -34,7 +34,7 @@ const (
 	// Environment Test Data
 	ServiceAccount                         = "TestServiceAccount"
 	MetricsPort                            = 9876
-	MetricsDomain                          = "example.com/eventing-kafka"
+	MetricsDomain                          = "eventing-kafka"
 	HealthPort                             = 8082
 	KafkaOffsetCommitMessageCount          = 99
 	KafkaOffsetCommitDurationMillis        = 9999
