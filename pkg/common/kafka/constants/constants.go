@@ -27,6 +27,7 @@ const (
 	ConfigAdminTimeout                  = 10 * time.Second       // Bumped up from 3 seconds just for some extra margin.
 	ConfigNetSaslVersion                = sarama.SASLHandshakeV1 // Latest version, seems to work with EventHubs as well.
 	ConfigNetKeepAlive                  = 30 * time.Second       // Pretty sure Sarama documentation is incorrect and 0 means default of 15 seconds but we'll forcibly set that anyway. (see Golang Net.Dialer.KeepAlive)
+	ConfigMetadataRefreshFrequency      = 5 * time.Minute        // How often to refresh metadata, reduced from default value of 10 minutes.
 	ConfigConsumerOffsetsCommitInterval = 5 * time.Second        // Auto offset commit interval for message Marked as consumed.
 	ConfigProducerIdempotent            = false                  // Desirable but not available in Azure EventHubs yet, so disabled for now.
 	ConfigProducerRequiredAcks          = sarama.WaitForAll      // Most stringent option for "at-least-once" delivery.

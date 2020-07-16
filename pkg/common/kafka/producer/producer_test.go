@@ -84,6 +84,7 @@ func verifySaramaConfig(t *testing.T, config *sarama.Config, clientId string, us
 		assert.Equal(t, "", config.Net.SASL.User)
 		assert.Equal(t, "", config.Net.SASL.Password)
 	}
+	assert.Equal(t, constants.ConfigMetadataRefreshFrequency, config.Metadata.RefreshFrequency)
 }
 
 //

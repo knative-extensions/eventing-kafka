@@ -76,7 +76,7 @@ func (r *Reconciler) createTopic(ctx context.Context, topicName string, partitio
 			return err
 		}
 	} else {
-		logger.Info("Successfully Created Existing Kafka Topic (Nil TopicError)")
+		logger.Info("Successfully Created New Kafka Topic (Nil TopicError)")
 		return nil
 	}
 }

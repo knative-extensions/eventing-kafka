@@ -9,6 +9,22 @@ import (
 	"testing"
 )
 
+// Test Enabling Sarama Logging
+func TestEnableSaramaLogging(t *testing.T) {
+
+	// Restore Sarama Logger After Test
+	saramaLoggerPlaceholder := sarama.Logger
+	defer func() {
+		sarama.Logger = saramaLoggerPlaceholder
+	}()
+
+	// Perform The Test
+	EnableSaramaLogging()
+
+	// Verify Results (Not Much Is Possible)
+	sarama.Logger.Print("TestMessage")
+}
+
 // Test The NewSaramaConfig() Functionality
 func TestNewSaramaConfig(t *testing.T) {
 
@@ -32,6 +48,7 @@ func TestNewSaramaConfig(t *testing.T) {
 	assert.True(t, config.Net.TLS.Enable)
 	assert.True(t, config.Net.TLS.Config.InsecureSkipVerify)
 	assert.Equal(t, tls.NoClientCert, config.Net.TLS.Config.ClientAuth)
+	assert.Equal(t, constants.ConfigMetadataRefreshFrequency, config.Metadata.RefreshFrequency)
 }
 
 // Test The TopicName() Functionality

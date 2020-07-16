@@ -5,8 +5,15 @@ import (
 	"fmt"
 	"github.com/Shopify/sarama"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
+	"log"
+	"os"
 	"strings"
 )
+
+// Utility Function For Enabling Sarama Logging (Debugging)
+func EnableSaramaLogging() {
+	sarama.Logger = log.New(os.Stdout, "[sarama] ", log.LstdFlags)
+}
 
 // Utility Function For Configuring Common Settings For Admin/Producer/Consumer
 func NewSaramaConfig(clientId string, username string, password string) *sarama.Config {
@@ -36,6 +43,9 @@ func NewSaramaConfig(clientId string, username string, password string) *sarama.
 			ClientAuth:         tls.NoClientCert,
 		}
 	}
+
+	// Increase The MetaData Refresh Frequency
+	config.Metadata.RefreshFrequency = constants.ConfigMetadataRefreshFrequency
 
 	// Return The Initialized Config
 	return config
