@@ -21,8 +21,8 @@ import (
 	"os"
 )
 
-// Package Level Kafka AdminClient Reference (For Shutdown() Usage)
-var adminClient kafkaadmin.AdminClientInterface
+// Track The Reconciler For Shutdown() Usage
+var rec *Reconciler
 
 // Create A New KafkaChannel Controller
 func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
@@ -55,8 +55,8 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 		logger.Fatal("Failed To Create Kafka AdminClient", zap.Error(err))
 	}
 
-	// Create A KafkaChannel Reconciler
-	r := &Reconciler{
+	// Create A KafkaChannel Reconciler & Track As Package Variable
+	rec = &Reconciler{
 		logger:               logging.FromContext(ctx),
 		kubeClientset:        kubeclient.Get(ctx),
 		environment:          environment,
@@ -69,7 +69,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	}
 
 	// Create A New KafkaChannel Controller Impl With The Reconciler
-	controllerImpl := kafkachannelreconciler.NewImpl(ctx, r)
+	controllerImpl := kafkachannelreconciler.NewImpl(ctx, rec)
 
 	//
 	// Configure The Informers' EventHandlers
@@ -79,7 +79,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	//        Kubernetes OwnerReferences are not intended to be cross-namespace and thus don't include the namespace
 	//        information.
 	//
-	r.logger.Info("Setting Up EventHandlers")
+	rec.logger.Info("Setting Up EventHandlers")
 	kafkachannelInformer.Informer().AddEventHandler(
 		controller.HandleAll(controllerImpl.Enqueue),
 	)
@@ -92,7 +92,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 		Handler:    controller.HandleAll(controllerImpl.EnqueueLabelOfNamespaceScopedResource(constants.KafkaChannelNamespaceLabel, constants.KafkaChannelNameLabel)),
 	})
 	kafkaSecretInformer.Informer().AddEventHandler(
-		controller.HandleAll(r.resetKafkaAdminClient(ctx, kafkaAdminClientType)),
+		controller.HandleAll(createKafkaSecretEventHandler(rec, ctx, kafkaAdminClientType)),
 	)
 
 	// Return The KafkaChannel Controller Impl
@@ -101,20 +101,12 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 
 // Graceful Shutdown Hook
 func Shutdown() {
-	if adminClient != nil {
-		adminClient.Close()
-	}
+	rec.CloseKafkaAdminClient()
 }
 
-// Recreate The Kafka AdminClient On The Reconciler (Useful To Reload Cache Which Is Not Yet Exposed)
-func (r *Reconciler) resetKafkaAdminClient(ctx context.Context, kafkaAdminClientType kafkaadmin.AdminClientType) func(obj interface{}) {
+// Create The KafkaSecret Event Handler With Specified Parameters
+func createKafkaSecretEventHandler(rec *Reconciler, ctx context.Context, kafkaAdminClientType kafkaadmin.AdminClientType) func(obj interface{}) {
 	return func(obj interface{}) {
-		adminClient, err := kafkaadmin.CreateAdminClient(ctx, constants.ControllerComponentName, kafkaAdminClientType)
-		if adminClient == nil || err != nil {
-			r.logger.Error("Failed To Re-Create Kafka AdminClient", zap.Error(err))
-		} else {
-			r.logger.Info("Successfully Re-Created Kafka AdminClient")
-			r.adminClient = adminClient
-		}
+		rec.ResetKafkaAdminClient(ctx, kafkaAdminClientType)
 	}
 }

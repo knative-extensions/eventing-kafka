@@ -2,6 +2,7 @@ package kafkachannel
 
 import (
 	"context"
+	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -9,6 +10,7 @@ import (
 	kafkav1alpha1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
 	fakekafkaclient "knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/client/fake"
 	kafkachannelreconciler "knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/reconciler/messaging/v1alpha1/kafkachannel"
+	kafkaadmin "knative.dev/eventing-kafka/pkg/common/kafka/admin"
 	"knative.dev/eventing-kafka/pkg/controller/event"
 	"knative.dev/eventing-kafka/pkg/controller/test"
 	"knative.dev/eventing/pkg/logging"
@@ -25,6 +27,65 @@ import (
 func init() {
 	_ = kafkav1alpha1.AddToScheme(scheme.Scheme)
 	_ = duckv1alpha1.AddToScheme(scheme.Scheme)
+}
+
+// Test The Reconciler's ResetKafkaAdminClient() Functionality
+func TestResetKafkaAdminClient(t *testing.T) {
+
+	// Test Data
+	clientType := kafkaadmin.Kafka
+
+	// Create A Test Logger
+	logger := logtesting.TestLogger(t).Desugar()
+
+	// Create A Couple Of Mock AdminClients
+	mockAdminClient1 := &test.MockAdminClient{}
+	mockAdminClient2 := &test.MockAdminClient{}
+
+	// Mock The Creation Of Kafka ClusterAdmin
+	newKafkaAdminClientWrapperPlaceholder := kafkaadmin.NewKafkaAdminClientWrapper
+	kafkaadmin.NewKafkaAdminClientWrapper = func(ctx context.Context, clientId string, namespace string) (kafkaadmin.AdminClientInterface, error) {
+		return mockAdminClient2, nil
+	}
+	defer func() {
+		kafkaadmin.NewKafkaAdminClientWrapper = newKafkaAdminClientWrapperPlaceholder
+	}()
+
+	// Create A Reconciler To Test
+	reconciler := &Reconciler{
+		logger:      logger,
+		adminClient: mockAdminClient1,
+	}
+
+	// Perform The Test
+	reconciler.ResetKafkaAdminClient(context.TODO(), clientType)
+
+	// Verify Results
+	assert.True(t, mockAdminClient1.CloseCalled())
+	assert.NotNil(t, reconciler.adminClient)
+	assert.Equal(t, mockAdminClient2, reconciler.adminClient)
+}
+
+// Test The Reconciler's CloseKafkaAdminClient() Functionality
+func TestCloseKafkaAdminClient(t *testing.T) {
+
+	// Create A Test Logger
+	logger := logtesting.TestLogger(t).Desugar()
+
+	// Create A Mock AdminClient
+	mockAdminClient := &test.MockAdminClient{}
+
+	// Create A Reconciler To Test
+	reconciler := &Reconciler{
+		logger:      logger,
+		adminClient: mockAdminClient,
+	}
+
+	// Perform The Test
+	reconciler.CloseKafkaAdminClient()
+
+	// Verify Results
+	assert.True(t, mockAdminClient.CloseCalled())
 }
 
 // Test The Reconcile Functionality

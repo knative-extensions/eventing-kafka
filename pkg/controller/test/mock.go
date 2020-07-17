@@ -15,6 +15,7 @@ var _ kafkaadmin.AdminClientInterface = &MockAdminClient{}
 
 // Mock Kafka AdminClient Implementation
 type MockAdminClient struct {
+	closeCalled         bool
 	createTopicsCalled  bool
 	deleteTopicsCalled  bool
 	MockCreateTopicFunc func(context.Context, string, *sarama.TopicDetail) *sarama.TopicError
@@ -53,7 +54,13 @@ func (m *MockAdminClient) DeleteTopicsCalled() bool {
 
 // Mock Kafka AdminClient Close Function - NoOp
 func (m *MockAdminClient) Close() error {
+	m.closeCalled = true
 	return nil
+}
+
+// Check On Calls To Close()
+func (m *MockAdminClient) CloseCalled() bool {
+	return m.closeCalled
 }
 
 // Mock Kafka Secret Name Function - Return Test Data

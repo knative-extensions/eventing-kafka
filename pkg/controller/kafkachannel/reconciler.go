@@ -39,6 +39,28 @@ var (
 	_ kafkachannel.Finalizer = (*Reconciler)(nil) // Verify Reconciler Implements Finalizer
 )
 
+// Re-Create The Kafka AdminClient On The Reconciler (Useful To Reload Cache Which Is Not Yet Exposed)
+func (r *Reconciler) ResetKafkaAdminClient(ctx context.Context, kafkaAdminClientType kafkaadmin.AdminClientType) {
+	adminClient, err := kafkaadmin.CreateAdminClient(ctx, constants.ControllerComponentName, kafkaAdminClientType)
+	if adminClient == nil || err != nil {
+		r.logger.Error("Failed To Re-Create Kafka AdminClient", zap.Error(err))
+	} else {
+		r.CloseKafkaAdminClient()
+		r.logger.Info("Successfully Re-Created Kafka AdminClient")
+		r.adminClient = adminClient
+	}
+}
+
+// Close The Reconciler's AdminClient
+func (r *Reconciler) CloseKafkaAdminClient() {
+	if r.adminClient != nil {
+		err := r.adminClient.Close()
+		if err != nil {
+			r.logger.Error("Failed To Close Kafka AdminClient", zap.Error(err))
+		}
+	}
+}
+
 // ReconcileKind Implements The Reconciler Interface & Is Responsible For Performing The Reconciliation (Creation)
 func (r *Reconciler) ReconcileKind(ctx context.Context, channel *kafkav1alpha1.KafkaChannel) reconciler.Event {
 
