@@ -72,7 +72,7 @@ func NewKafkaAdminClient(ctx context.Context, clientId string, namespace string)
 	// Create The Sarama ClusterAdmin Configuration
 	config := getConfig(clientId, username, password)
 
-	// Crate A New Sarama ClusterAdmin
+	// Create A New Sarama ClusterAdmin
 	clusterAdmin, err := NewClusterAdminWrapper(brokers, config)
 	if err != nil {
 		logger.Error("Failed To Create New ClusterAdmin", zap.Any("Config", config), zap.Error(err))
@@ -84,6 +84,7 @@ func NewKafkaAdminClient(ctx context.Context, clientId string, namespace string)
 		logger:       logger,
 		namespace:    namespace,
 		kafkaSecret:  kafkaSecret.Name,
+		clientId:     clientId,
 		clusterAdmin: clusterAdmin,
 	}
 

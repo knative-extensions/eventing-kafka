@@ -323,6 +323,10 @@ type MockClusterAdmin struct {
 	mock.Mock
 }
 
+func (m *MockClusterAdmin) DescribeLogDirs(brokers []int32) (map[int32][]sarama.DescribeLogDirsResponseDirMetadata, error) {
+	panic("implement me")
+}
+
 func (m *MockClusterAdmin) CreateTopic(topic string, detail *sarama.TopicDetail, validateOnly bool) error {
 	args := m.Called(topic, detail)
 	return args.Get(0).(*sarama.TopicError)
@@ -342,6 +346,14 @@ func (m *MockClusterAdmin) DeleteTopic(topic string) error {
 }
 
 func (m *MockClusterAdmin) CreatePartitions(topic string, count int32, assignment [][]int32, validateOnly bool) error {
+	panic("implement me")
+}
+
+func (m *MockClusterAdmin) AlterPartitionReassignments(topic string, assignment [][]int32) error {
+	panic("implement me")
+}
+
+func (m *MockClusterAdmin) ListPartitionReassignments(topics string, partitions []int32) (topicStatus map[string]map[int32]*sarama.PartitionReplicaReassignmentsStatus, err error) {
 	panic("implement me")
 }
 
