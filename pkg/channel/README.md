@@ -32,7 +32,7 @@ configmaps (see [Accessing CloudEvent traces](https://knative.dev/docs/eventing/
 [Installing logging, metrics, and traces](https://knative.dev/docs/serving/installing-logging-metrics-traces)
 for more information on the basic Knative-Eventing concepts behind these features.  The default behavior for
 tracing and profiling is provided such that accessing a tracing server (such as Zipkin), and the debug profiling
-information (via ), should work as described in those links.  For example, you might access your zipkin server
+information, should work as described in those links.  For example, you might access your zipkin server
 via http://localhost:8001/api/v1/namespaces/knative-eventing/services/zipkin:9411/proxy/zipkin after running a
 "kubectl proxy" command or your profiling server via http://localhost:8008/debug/pprof after executing
 "kubectl -n knative-eventing port-forward my-channel-pod-name 8008:8008"
