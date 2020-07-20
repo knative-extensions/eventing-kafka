@@ -8,11 +8,11 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned"
 	"knative.dev/eventing-contrib/kafka/channel/pkg/client/informers/externalversions"
-	commonenv "knative.dev/eventing-kafka/pkg/common/env"
 	commonk8s "knative.dev/eventing-kafka/pkg/common/k8s"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
 	"knative.dev/eventing-kafka/pkg/dispatcher/controller"
 	dispatch "knative.dev/eventing-kafka/pkg/dispatcher/dispatcher"
+	"knative.dev/eventing-kafka/pkg/dispatcher/env"
 	dispatcherhealth "knative.dev/eventing-kafka/pkg/dispatcher/health"
 	kncontroller "knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -49,75 +49,25 @@ func main() {
 	ctx := commonk8s.LoggingContext(signals.NewContext(), Component, *masterURL, *kubeconfig)
 
 	// Get The Logger From The Context & Defer Flushing Any Buffered Log Entries On Exit
-	sl := logging.FromContext(ctx)
-	defer flush(sl)
-	logger = sl.Desugar()
+	sugaredLogger := logging.FromContext(ctx)
+	defer flush(sugaredLogger)
+	logger = sugaredLogger.Desugar()
 
 	// Load Environment Variables
-	metricsPort := os.Getenv(commonenv.MetricsPortEnvVarKey)
-	metricsDomain := os.Getenv(commonenv.MetricsDomainEnvVarKey)
-	healthPort := os.Getenv(commonenv.HealthPortEnvVarKey)
-	rawExpBackoff, expBackoffPresent := os.LookupEnv(commonenv.ExponentialBackoffEnvVarKey)
-	exponentialBackoff, _ := strconv.ParseBool(rawExpBackoff)
-	maxRetryTime, _ := strconv.ParseInt(os.Getenv(commonenv.MaxRetryTimeEnvVarKey), 10, 64)
-	initialRetryInterval, _ := strconv.ParseInt(os.Getenv(commonenv.InitialRetryIntervalEnvVarKey), 10, 64)
-	kafkaBrokers := os.Getenv(commonenv.KafkaBrokerEnvVarKey)
-	kafkaTopic := os.Getenv(commonenv.KafkaTopicEnvVarKey)
-	channelKey := os.Getenv(commonenv.ChannelKeyEnvVarKey)
-	serviceName := os.Getenv(commonenv.ServiceNameEnvVarKey)
-	kafkaUsername := os.Getenv(commonenv.KafkaUsernameEnvVarKey)
-	kafkaPassword := os.Getenv(commonenv.KafkaPasswordEnvVarKey)
-	kafkaPasswordLog := ""
-	kafkaOffsetCommitMessageCount, _ := strconv.ParseInt(os.Getenv(commonenv.KafkaOffsetCommitMessageCountEnvVarKey), 10, 64)
-	kafkaOffsetCommitDurationMillis, _ := strconv.ParseInt(os.Getenv(commonenv.KafkaOffsetCommitDurationMillisEnvVarKey), 10, 64)
-
-	if len(kafkaPassword) > 0 {
-		kafkaPasswordLog = "*************"
-	}
-
-	// Log Environment Variables
-	logger.Info("Environment Variables",
-		zap.String(commonenv.HealthPortEnvVarKey, healthPort),
-		zap.String(commonenv.MetricsPortEnvVarKey, metricsPort),
-		zap.Bool(commonenv.ExponentialBackoffEnvVarKey, exponentialBackoff),
-		zap.Int64(commonenv.InitialRetryIntervalEnvVarKey, initialRetryInterval),
-		zap.Int64(commonenv.MaxRetryTimeEnvVarKey, maxRetryTime),
-		zap.String(commonenv.KafkaBrokerEnvVarKey, kafkaBrokers),
-		zap.String(commonenv.KafkaTopicEnvVarKey, kafkaTopic),
-		zap.Int64(commonenv.KafkaOffsetCommitMessageCountEnvVarKey, kafkaOffsetCommitMessageCount),
-		zap.Int64(commonenv.KafkaOffsetCommitDurationMillisEnvVarKey, kafkaOffsetCommitDurationMillis),
-		zap.String(commonenv.KafkaUsernameEnvVarKey, kafkaUsername),
-		zap.String(commonenv.KafkaPasswordEnvVarKey, kafkaPasswordLog),
-		zap.String(commonenv.ChannelKeyEnvVarKey, channelKey),
-		zap.String(commonenv.ServiceNameEnvVarKey, serviceName))
-
-	// Validate Required Environment Variables
-	if len(metricsPort) == 0 ||
-		len(healthPort) == 0 ||
-		maxRetryTime <= 0 ||
-		initialRetryInterval <= 0 ||
-		!expBackoffPresent ||
-		len(kafkaBrokers) == 0 ||
-		len(kafkaTopic) == 0 ||
-		len(channelKey) == 0 ||
-		len(serviceName) == 0 ||
-		kafkaOffsetCommitMessageCount <= 0 ||
-		kafkaOffsetCommitDurationMillis <= 0 {
-		logger.Fatal("Invalid / Missing Environment Variables - Terminating")
+	environment, err := env.GetEnvironment(logger)
+	if err != nil {
+		logger.Panic("Failed To Load Environment Variables - Terminating!", zap.Error(err))
+		os.Exit(1)
 	}
 
 	// Initialize Tracing (Watches config-tracing ConfigMap, Assumes Context Came From LoggingContext With Embedded K8S Client Key)
-	commonk8s.InitializeTracing(sl, ctx, serviceName)
+	commonk8s.InitializeTracing(sugaredLogger, ctx, environment.ServiceName)
 
 	// Initialize Observability (Watches config-observability ConfigMap And Starts Profiling Server)
-	metricsPortInt, err := strconv.Atoi(metricsPort)
-	if err != nil {
-		logger.Fatal("Invalid Metrics Port - Terminating", zap.Error(err))
-	}
-	commonk8s.InitializeObservability(sl, ctx, metricsDomain, metricsPortInt)
+	commonk8s.InitializeObservability(sugaredLogger, ctx, environment.MetricsDomain, environment.MetricsPort)
 
 	// Start The Liveness And Readiness Servers
-	healthServer := dispatcherhealth.NewDispatcherHealthServer(healthPort)
+	healthServer := dispatcherhealth.NewDispatcherHealthServer(strconv.Itoa(environment.HealthPort))
 	healthServer.Start(logger)
 
 	reporter := metrics.NewStatsReporter(logger)
@@ -125,20 +75,20 @@ func main() {
 	// Create The Dispatcher With Specified Configuration
 	dispatcherConfig := dispatch.DispatcherConfig{
 		Logger:                      logger,
-		Brokers:                     kafkaBrokers,
-		Topic:                       kafkaTopic,
+		Brokers:                     environment.KafkaBrokers,
+		Topic:                       environment.KafkaTopic,
 		Offset:                      DefaultKafkaConsumerOffset,
 		PollTimeoutMillis:           DefaultKafkaConsumerPollTimeoutMillis,
-		OffsetCommitCount:           kafkaOffsetCommitMessageCount,
-		OffsetCommitDuration:        time.Duration(kafkaOffsetCommitDurationMillis) * time.Millisecond,
+		OffsetCommitCount:           environment.KafkaOffsetCommitMessageCount,
+		OffsetCommitDuration:        time.Duration(environment.KafkaOffsetCommitDurationMillis) * time.Millisecond,
 		OffsetCommitDurationMinimum: MinimumKafkaConsumerOffsetCommitDurationMillis * time.Millisecond,
-		Username:                    kafkaUsername,
-		Password:                    kafkaPassword,
-		ChannelKey:                  channelKey,
+		Username:                    environment.KafkaUsername,
+		Password:                    environment.KafkaPassword,
+		ChannelKey:                  environment.ChannelKey,
 		Reporter:                    reporter,
-		ExponentialBackoff:          exponentialBackoff,
-		InitialRetryInterval:        initialRetryInterval,
-		MaxRetryTime:                maxRetryTime,
+		ExponentialBackoff:          environment.ExponentialBackoff,
+		InitialRetryInterval:        environment.InitialRetryInterval,
+		MaxRetryTime:                environment.MaxRetryTime,
 	}
 	dispatcher = dispatch.NewDispatcher(dispatcherConfig)
 

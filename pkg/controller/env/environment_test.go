@@ -120,8 +120,18 @@ func TestGetEnvironment(t *testing.T) {
 	testCase.kafkaOffsetCommitMessageCount = ""
 	testCases = append(testCases, testCase)
 
+	testCase = getValidTestCase("Invalid Config - KafkaOffsetCommitMessageCount")
+	testCase.kafkaOffsetCommitMessageCount = "NAN"
+	testCase.expectedError = getInvalidIntegerEnvironmentVariableError(testCase.kafkaOffsetCommitMessageCount, commonenv.KafkaOffsetCommitMessageCountEnvVarKey)
+	testCases = append(testCases, testCase)
+
 	testCase = getValidTestCase("Missing Optional Config - KafkaOffsetCommitDurationMillis")
 	testCase.kafkaOffsetCommitDurationMillis = ""
+	testCases = append(testCases, testCase)
+
+	testCase = getValidTestCase("Invalid Config - KafkaOffsetCommitDurationMillis")
+	testCase.kafkaOffsetCommitDurationMillis = "NAN"
+	testCase.expectedError = getInvalidIntegerEnvironmentVariableError(testCase.kafkaOffsetCommitDurationMillis, commonenv.KafkaOffsetCommitDurationMillisEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Required Config - DefaultNumPartitions")

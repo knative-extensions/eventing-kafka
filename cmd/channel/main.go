@@ -38,9 +38,9 @@ func main() {
 	ctx := commonk8s.LoggingContext(context.Background(), constants.Component, *masterURL, *kubeconfig)
 
 	// Get The Logger From The Context & Defer Flushing Any Buffered Log Entries On Exit
-	sl := logging.FromContext(ctx)
-	defer flush(sl)
-	logger = sl.Desugar()
+	sugaredLogger := logging.FromContext(ctx)
+	defer flush(sugaredLogger)
+	logger = sugaredLogger.Desugar()
 
 	// Load Environment Variables
 	environment, err := env.GetEnvironment(logger)
@@ -49,17 +49,13 @@ func main() {
 	}
 
 	// Initialize Tracing (Watches config-tracing ConfigMap, Assumes Context Came From LoggingContext With Embedded K8S Client Key)
-	commonk8s.InitializeTracing(sl, ctx, environment.ServiceName)
+	commonk8s.InitializeTracing(sugaredLogger, ctx, environment.ServiceName)
 
 	// Initialize Observability (Watches config-observability ConfigMap And Starts Profiling Server)
-	metricsPort, err := strconv.Atoi(environment.MetricsPort)
-	if err != nil {
-		logger.Fatal("Invalid Metrics Port - Terminating", zap.Error(err))
-	}
-	commonk8s.InitializeObservability(sl, ctx, environment.MetricsDomain, metricsPort)
+	commonk8s.InitializeObservability(sugaredLogger, ctx, environment.MetricsDomain, environment.MetricsPort)
 
 	// Start The Liveness And Readiness Servers
-	healthServer := channelhealth.NewChannelHealthServer(environment.HealthPort)
+	healthServer := channelhealth.NewChannelHealthServer(strconv.Itoa(environment.HealthPort))
 	healthServer.Start(logger)
 
 	// Initialize The KafkaChannel Lister Used To Validate Events

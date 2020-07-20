@@ -2,7 +2,6 @@ package k8s
 
 import (
 	"context"
-	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
@@ -15,7 +14,6 @@ import (
 	"knative.dev/pkg/system"
 	nethttp "net/http"
 	"strings"
-	"time"
 )
 
 //
@@ -23,6 +21,9 @@ import (
 // Much Of This Function Is Taken From The knative.dev sharedmain Package
 //
 func InitializeObservability(logger *zap.SugaredLogger, ctx context.Context, metricsDomain string, metricsPort int) {
+
+	// Initialize the profiling server
+	// Taken from knative.dev/pkg/injection/sharedmain/main.go::MainWithConfig
 	profilingHandler := profiling.NewHandler(logger, false)
 	profilingServer := profiling.NewServer(profilingHandler)
 	eg, egCtx := errgroup.WithContext(ctx)
@@ -41,16 +42,15 @@ func InitializeObservability(logger *zap.SugaredLogger, ctx context.Context, met
 		}
 	}()
 
-	msp := metrics.NewMemStatsAll()
-	msp.Start(ctx, 30*time.Second)
-	if err := view.Register(msp.DefaultViews()...); err != nil {
-		logger.Fatalf("Error exporting go memstats view: %v", err)
-	}
+	// Initialize the memory stats, which will be added to the eventing metrics exporter every 30 seconds
+	sharedmain.MemStatsOrDie(ctx)
 
 	// Create A Watcher On The Observability ConfigMap & Dynamically Update Observability Configuration
 	cmw := sharedmain.SetupConfigMapWatchOrDie(ctx, logger)
 
 	// Start The Observability ConfigMap Watcher
+	// Taken from knative.dev/pkg/injection/sharedmain/main.go::WatchObservabilityConfigOrDie
+	// and knative.dev/pkg/metrics/exporter.go::ConfigMapWatcher
 	if _, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(metrics.ConfigMapName(),
 		metav1.GetOptions{}); err == nil {
 		cmw.Watch(metrics.ConfigMapName(),

@@ -2,6 +2,7 @@ package k8s
 
 import (
 	"context"
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,6 +14,7 @@ import (
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/system"
+	"net/http"
 	"os"
 	"testing"
 )
@@ -40,9 +42,9 @@ func TestInitializeObservability(t *testing.T) {
 			Name:      metrics.ConfigMapName(),
 			Namespace: system.Namespace(),
 		},
-		Data: map[string]string {
+		Data: map[string]string{
 			"metrics.backend-destination": "prometheus",
-			"profiling.enable": "true",
+			"profiling.enable":            "true",
 		},
 	}
 
@@ -55,7 +57,16 @@ func TestInitializeObservability(t *testing.T) {
 	// Perform The Test (Initialize The Observability Watcher)
 	InitializeObservability(logger, ctx, test.MetricsDomain, test.MetricsPort)
 
-	// If the InitializeObservability Succeeds, it will not fatally exit
-	// (Not the best test of failure conditions but it does run through the WatchObservabilityConfigOrDie() call at least
-	//  and verify that the happy-path doesn't error out)
+	// Verify that the profiling endpoint exists and responds to requests
+	assertGet(t, "http://localhost:8008/debug/pprof", 200)
+	// Verify that the metrics endpoint exists and responds to requests
+	assertGet(t, fmt.Sprintf("http://localhost:%v/metrics", test.MetricsPort), 200)
+}
+
+func assertGet(t *testing.T, url string, expected int) {
+	resp, err := http.Get(url)
+	assert.Nil(t, err)
+	assert.Equal(t, expected, resp.StatusCode)
+	err = resp.Body.Close()
+	assert.Nil(t, err)
 }
