@@ -9,30 +9,30 @@ import (
 type Environment struct {
 
 	// Metrics Configuration
-	MetricsPort int							// Required
-	MetricsDomain string					// Required
+	MetricsPort int                         // Required
+	MetricsDomain string                    // Required
 
 	// Health Configuration
-	HealthPort int 							// Required
+	HealthPort int                          // Required
 
 	// Dispatcher Retry Settings
-	ExponentialBackoff bool 				// Required
-	ExpBackoffPresent bool 					// Derived
-	MaxRetryTime int64 						// Required
-	InitialRetryInterval int64 				// Required
+	ExponentialBackoff bool                 // Required
+	ExpBackoffPresent bool                  // Derived
+	MaxRetryTime int64                      // Required
+	InitialRetryInterval int64              // Required
 
 	// Kafka Configuration
-	KafkaBrokers string 					// Required
-	KafkaTopic string 						// Required
-	ChannelKey string 						// Required
-	ServiceName string 						// Required
-	KafkaOffsetCommitMessageCount int64 	// Required
-	KafkaOffsetCommitDurationMillis int64 	// Required
+	KafkaBrokers string                     // Required
+	KafkaTopic string                       // Required
+	ChannelKey string                       // Required
+	ServiceName string                      // Required
+	KafkaOffsetCommitMessageCount int64     // Required
+	KafkaOffsetCommitDurationMillis int64   // Required
 
 	// Kafka Authorization
-	KafkaUsername string 					// Optional
-	KafkaPassword string 					// Optional
-	KafkaPasswordLog string 				// Derived
+	KafkaUsername string                    // Optional
+	KafkaPassword string                    // Optional
+	KafkaPasswordLog string                 // Derived
 }
 
 // Get The Environment

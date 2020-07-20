@@ -7,22 +7,22 @@ import (
 
 // The Environment Struct
 type Environment struct {
-	
+
 	// Metrics Configuration
-	MetricsPort int							// Required
-	MetricsDomain string					// Required
+	MetricsPort int                         // Required
+	MetricsDomain string                    // Required
 
 	// Health Configuration
-	HealthPort int 							// Required
+	HealthPort int                          // Required
 
 	// Kafka Configuration
-	KafkaBrokers string 					// Required
-	ServiceName string 						// Required
+	KafkaBrokers string                     // Required
+	ServiceName string                      // Required
 
 	// Kafka Authorization
-	KafkaUsername string 					// Optional
-	KafkaPassword string 					// Optional
-	KafkaPasswordLog string 				// Derived
+	KafkaUsername string                    // Optional
+	KafkaPassword string                    // Optional
+	KafkaPasswordLog string                 // Derived
 }
 
 // Get The Environment
