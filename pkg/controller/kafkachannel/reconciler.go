@@ -18,6 +18,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/controller/env"
 	"knative.dev/eventing-kafka/pkg/controller/event"
 	"knative.dev/eventing-kafka/pkg/controller/util"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/reconciler"
 )
 
@@ -26,6 +27,7 @@ type Reconciler struct {
 	logger               *zap.Logger
 	kubeClientset        kubernetes.Interface
 	kafkaClientSet       kafkaclientset.Interface
+	adminClientType      kafkaadmin.AdminClientType
 	adminClient          kafkaadmin.AdminClientInterface
 	environment          *env.Environment
 	kafkachannelLister   kafkalisters.KafkaChannelLister
@@ -39,25 +41,36 @@ var (
 	_ kafkachannel.Finalizer = (*Reconciler)(nil) // Verify Reconciler Implements Finalizer
 )
 
-// Re-Create The Kafka AdminClient On The Reconciler (Useful To Reload Cache Which Is Not Yet Exposed)
-func (r *Reconciler) ResetKafkaAdminClient(ctx context.Context, kafkaAdminClientType kafkaadmin.AdminClientType) {
-	adminClient, err := kafkaadmin.CreateAdminClient(ctx, constants.ControllerComponentName, kafkaAdminClientType)
-	if adminClient == nil || err != nil {
-		r.logger.Error("Failed To Re-Create Kafka AdminClient", zap.Error(err))
-	} else {
-		r.CloseKafkaAdminClient()
-		r.logger.Info("Successfully Re-Created Kafka AdminClient")
-		r.adminClient = adminClient
+//
+// Clear / Re-Set The Kafka AdminClient On The Reconciler
+//
+// Ideally we would re-use the Kafka AdminClient but due to an Issues with the Sarama ClusterAdmin we're
+// forced to recreate a new connection every time.  We were seeing "broken-pipe" failures (non-recoverable)
+// with the ClusterAdmin after periods of inactivity.
+//   https://github.com/Shopify/sarama/issues/1162
+//   https://github.com/Shopify/sarama/issues/866
+//
+// EventHub AdminClients could be reused, and this is somewhat inefficient for them, but they are very simple
+// lightweight REST clients so recreating them isn't a big deal and it simplifies the code significantly to
+// not have to support both use cases.
+//
+func (r *Reconciler) SetKafkaAdminClient(ctx context.Context) {
+	r.ClearKafkaAdminClient()
+	var err error
+	r.adminClient, err = kafkaadmin.CreateAdminClient(ctx, constants.ControllerComponentName, r.adminClientType)
+	if err != nil {
+		r.logger.Error("Failed To Create Kafka AdminClient", zap.Error(err))
 	}
 }
 
-// Close The Reconciler's AdminClient
-func (r *Reconciler) CloseKafkaAdminClient() {
+// Clear (Close) The Reconciler's Kafka AdminClient
+func (r *Reconciler) ClearKafkaAdminClient() {
 	if r.adminClient != nil {
 		err := r.adminClient.Close()
 		if err != nil {
 			r.logger.Error("Failed To Close Kafka AdminClient", zap.Error(err))
 		}
+		r.adminClient = nil
 	}
 }
 
@@ -65,6 +78,13 @@ func (r *Reconciler) CloseKafkaAdminClient() {
 func (r *Reconciler) ReconcileKind(ctx context.Context, channel *kafkav1alpha1.KafkaChannel) reconciler.Event {
 
 	r.logger.Debug("<==========  START KAFKA-CHANNEL RECONCILIATION  ==========>")
+
+	// Add The K8S ClientSet To The Reconcile Context
+	ctx = context.WithValue(ctx, kubeclient.Key{}, r.kubeClientset)
+
+	// Create A New Kafka AdminClient For Each Reconciliation Attempt
+	r.SetKafkaAdminClient(ctx)
+	defer r.ClearKafkaAdminClient()
 
 	// Reset The Channel's Status Conditions To Unknown (Addressable, Topic, Service, Deployment, etc...)
 	channel.Status.InitializeConditions()
@@ -87,6 +107,13 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, channel *kafkav1alpha1.K
 func (r *Reconciler) FinalizeKind(ctx context.Context, channel *kafkav1alpha1.KafkaChannel) reconciler.Event {
 
 	r.logger.Debug("<==========  START KAFKA-CHANNEL FINALIZATION  ==========>")
+
+	// Add The K8S ClientSet To The Reconcile Context
+	ctx = context.WithValue(ctx, kubeclient.Key{}, r.kubeClientset)
+
+	// Create A New Kafka AdminClient For Each Reconciliation Attempt
+	r.SetKafkaAdminClient(ctx)
+	defer r.ClearKafkaAdminClient()
 
 	// Get The Kafka Topic Name For Specified Channel
 	topicName := util.TopicName(channel)

@@ -37,7 +37,8 @@ func TestCreateConsumerGroup(t *testing.T) {
 		assert.True(t, configArg.Net.TLS.Config.InsecureSkipVerify)
 		assert.Equal(t, tls.NoClientCert, configArg.Net.TLS.Config.ClientAuth)
 		assert.Equal(t, constants.ConfigMetadataRefreshFrequency, configArg.Metadata.RefreshFrequency)
-		assert.Equal(t, constants.ConfigConsumerOffsetsCommitInterval, configArg.Consumer.Offsets.CommitInterval)
+		assert.Equal(t, constants.ConfigConsumerOffsetsAutoCommitInterval, configArg.Consumer.Offsets.AutoCommit.Interval)
+		assert.Equal(t, constants.ConfigConsumerOffsetsRetention, configArg.Consumer.Offsets.Retention)
 		return kafkatesting.NewMockConsumerGroup(t), nil
 	}
 	defer func() {

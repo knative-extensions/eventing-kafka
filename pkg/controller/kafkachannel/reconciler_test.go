@@ -29,8 +29,8 @@ func init() {
 	_ = duckv1alpha1.AddToScheme(scheme.Scheme)
 }
 
-// Test The Reconciler's ResetKafkaAdminClient() Functionality
-func TestResetKafkaAdminClient(t *testing.T) {
+// Test The Reconciler's SetKafkaAdminClient() Functionality
+func TestSetKafkaAdminClient(t *testing.T) {
 
 	// Test Data
 	clientType := kafkaadmin.Kafka
@@ -53,12 +53,13 @@ func TestResetKafkaAdminClient(t *testing.T) {
 
 	// Create A Reconciler To Test
 	reconciler := &Reconciler{
-		logger:      logger,
-		adminClient: mockAdminClient1,
+		logger:          logger,
+		adminClientType: clientType,
+		adminClient:     mockAdminClient1,
 	}
 
 	// Perform The Test
-	reconciler.ResetKafkaAdminClient(context.TODO(), clientType)
+	reconciler.SetKafkaAdminClient(context.TODO())
 
 	// Verify Results
 	assert.True(t, mockAdminClient1.CloseCalled())
@@ -66,8 +67,11 @@ func TestResetKafkaAdminClient(t *testing.T) {
 	assert.Equal(t, mockAdminClient2, reconciler.adminClient)
 }
 
-// Test The Reconciler's CloseKafkaAdminClient() Functionality
-func TestCloseKafkaAdminClient(t *testing.T) {
+// Test The Reconciler's ClearKafkaAdminClient() Functionality
+func TestClearKafkaAdminClient(t *testing.T) {
+
+	// Test Data
+	clientType := kafkaadmin.Kafka
 
 	// Create A Test Logger
 	logger := logtesting.TestLogger(t).Desugar()
@@ -77,12 +81,13 @@ func TestCloseKafkaAdminClient(t *testing.T) {
 
 	// Create A Reconciler To Test
 	reconciler := &Reconciler{
-		logger:      logger,
-		adminClient: mockAdminClient,
+		logger:          logger,
+		adminClientType: clientType,
+		adminClient:     mockAdminClient,
 	}
 
 	// Perform The Test
-	reconciler.CloseKafkaAdminClient()
+	reconciler.ClearKafkaAdminClient()
 
 	// Verify Results
 	assert.True(t, mockAdminClient.CloseCalled())
@@ -380,13 +385,23 @@ func TestReconcile(t *testing.T) {
 		},
 	}
 
+	// Mock The Common Kafka AdminClient Creation For Test
+	newKafkaAdminClientWrapperPlaceholder := kafkaadmin.NewKafkaAdminClientWrapper
+	kafkaadmin.NewKafkaAdminClientWrapper = func(ctx context.Context, clientId string, namespace string) (kafkaadmin.AdminClientInterface, error) {
+		return &test.MockAdminClient{}, nil
+	}
+	defer func() {
+		kafkaadmin.NewKafkaAdminClientWrapper = newKafkaAdminClientWrapperPlaceholder
+	}()
+
 	// Run The TableTest Using The KafkaChannel Reconciler Provided By The Factory
 	logger := logtesting.TestLogger(t)
 	tableTest.Test(t, test.MakeFactory(func(ctx context.Context, listers *test.Listers, cmw configmap.Watcher) controller.Reconciler {
 		r := &Reconciler{
 			logger:               logging.FromContext(ctx),
 			kubeClientset:        kubeclient.Get(ctx),
-			adminClient:          &test.MockAdminClient{},
+			adminClientType:      kafkaadmin.Kafka,
+			adminClient:          nil,
 			environment:          test.NewEnvironment(),
 			kafkachannelLister:   listers.GetKafkaChannelLister(),
 			kafkachannelInformer: nil,

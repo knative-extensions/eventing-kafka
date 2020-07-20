@@ -51,6 +51,9 @@ func main() {
 	logger = logging.FromContext(ctx).Desugar()
 	defer func() { _ = logger.Sync() }()
 
+	// UnComment To Enable Sarama Logging For Local Debug
+	// kafkautil.EnableSaramaLogging()
+
 	// Load Environment Variables
 	metricsPort := os.Getenv(commonenv.MetricsPortEnvVarKey)
 	healthPort := os.Getenv(commonenv.HealthPortEnvVarKey)

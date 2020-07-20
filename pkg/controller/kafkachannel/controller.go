@@ -11,7 +11,6 @@ import (
 	kafkaadmin "knative.dev/eventing-kafka/pkg/common/kafka/admin"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
 	"knative.dev/eventing-kafka/pkg/controller/env"
-	"knative.dev/eventing-kafka/pkg/controller/kafkasecretinformer"
 	"knative.dev/eventing/pkg/logging"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
@@ -34,7 +33,6 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	kafkachannelInformer := kafkachannel.Get(ctx)
 	deploymentInformer := deployment.Get(ctx)
 	serviceInformer := service.Get(ctx)
-	kafkaSecretInformer := kafkasecretinformer.Get(ctx)
 
 	// Load The Environment Variables
 	environment, err := env.GetEnvironment(logger)
@@ -49,12 +47,6 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 		kafkaAdminClientType = kafkaadmin.EventHub
 	}
 
-	// Get The Kafka AdminClient
-	adminClient, err := kafkaadmin.CreateAdminClient(ctx, constants.ControllerComponentName, kafkaAdminClientType)
-	if adminClient == nil || err != nil {
-		logger.Fatal("Failed To Create Kafka AdminClient", zap.Error(err))
-	}
-
 	// Create A KafkaChannel Reconciler & Track As Package Variable
 	rec = &Reconciler{
 		logger:               logging.FromContext(ctx),
@@ -65,7 +57,8 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 		kafkachannelInformer: kafkachannelInformer.Informer(),
 		deploymentLister:     deploymentInformer.Lister(),
 		serviceLister:        serviceInformer.Lister(),
-		adminClient:          adminClient,
+		adminClientType:      kafkaAdminClientType,
+		adminClient:          nil,
 	}
 
 	// Create A New KafkaChannel Controller Impl With The Reconciler
@@ -91,9 +84,6 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 		FilterFunc: controller.FilterGroupVersionKind(kafkachannelv1alpha1.SchemeGroupVersion.WithKind(constants.KafkaChannelKind)),
 		Handler:    controller.HandleAll(controllerImpl.EnqueueLabelOfNamespaceScopedResource(constants.KafkaChannelNamespaceLabel, constants.KafkaChannelNameLabel)),
 	})
-	kafkaSecretInformer.Informer().AddEventHandler(
-		controller.HandleAll(createKafkaSecretEventHandler(rec, ctx, kafkaAdminClientType)),
-	)
 
 	// Return The KafkaChannel Controller Impl
 	return controllerImpl
@@ -101,12 +91,5 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 
 // Graceful Shutdown Hook
 func Shutdown() {
-	rec.CloseKafkaAdminClient()
-}
-
-// Create The KafkaSecret Event Handler With Specified Parameters
-func createKafkaSecretEventHandler(rec *Reconciler, ctx context.Context, kafkaAdminClientType kafkaadmin.AdminClientType) func(obj interface{}) {
-	return func(obj interface{}) {
-		rec.ResetKafkaAdminClient(ctx, kafkaAdminClientType)
-	}
+	rec.ClearKafkaAdminClient()
 }

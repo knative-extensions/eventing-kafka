@@ -17,6 +17,9 @@ func main() {
 	defer kafkachannel.Shutdown()
 	defer kafkasecret.Shutdown()
 
+	// UnComment To Enable Sarama Logging For Local Debug
+	// kafkautil.EnableSaramaLogging()
+
 	// Create The SharedMain Instance With The Various Controllers
 	sharedmain.Main(constants.ControllerComponentName, kafkachannel.NewController, kafkasecret.NewController)
 }
