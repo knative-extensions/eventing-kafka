@@ -26,10 +26,10 @@ choke point that could easily allow one Topic's traffic to impact the
 throughput of another Topic.  It is also not horizontally scalable as it only
 supports a single instance of the dispatcher/consumer.  Further, no ordering
 guarantees on the consumption side are provided which is required in certain
-use cases.  
+use cases.
 
-We also had the need to support a variety of Kafka providers, including Azure 
-EventHubs in Kafka compatibility mode.  Finally, the ability to expose Kafka 
+We also had the need to support a variety of Kafka providers, including Azure
+EventHubs in Kafka compatibility mode.  Finally, the ability to expose Kafka
 configuration was very limited, and we needed the ability to customize certain
 aspects of the Kafka Topics / Producers / Consumers.
 
@@ -42,9 +42,9 @@ the controller.  This also predated any of the more recent duck-typing and
 higher level abstractions (brokers, triggers, etc) which have since been added
 to knative-eventing.
 
-The implementation initially utilized the [Confluent Go Client](https://github.com/confluentinc/confluent-kafka-go), 
+The implementation initially utilized the [Confluent Go Client](https://github.com/confluentinc/confluent-kafka-go),
 and the [librdkafka C library](https://github.com/edenhill/librdkafka) on which
-it is based.  Initially the [Sarama Go Client](https://github.com/Shopify/sarama) 
+it is based.  Initially the [Sarama Go Client](https://github.com/Shopify/sarama)
 had limitations which have since been resolved so we have refactored to that
 library instead.
 

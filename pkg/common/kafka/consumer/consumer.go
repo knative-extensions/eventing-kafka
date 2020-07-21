@@ -31,7 +31,7 @@ func getConfig(clientId string, username string, password string) *sarama.Config
 
 	// Increase Default Offset Commit Interval So As To Not Overwhelm EventHub RateLimit Specs
 	config.Consumer.Offsets.AutoCommit.Interval = constants.ConfigConsumerOffsetsAutoCommitInterval
-	
+
 	// Increase Default Offset Retention In (Kafka Default Is 24Hrs)
 	config.Consumer.Offsets.Retention = constants.ConfigConsumerOffsetsRetention
 
