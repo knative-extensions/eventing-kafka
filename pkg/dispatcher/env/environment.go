@@ -134,7 +134,7 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 		environment.KafkaPasswordLog = "*************"
 	}
 
-	// Log The ControllerConfig Loaded From Environment Variables
+	// Log The Dispatcher Configuration Loaded From Environment Variables
 	logger.Info("Environment Variables", zap.Any("Environment", environment))
 
 	// Return The Populated Dispatcher Configuration Environment Structure
