@@ -3,6 +3,10 @@ package k8s
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"os"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,9 +18,6 @@ import (
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/system"
-	"net/http"
-	"os"
-	"testing"
 )
 
 // Test The InitializeObservability() Functionality

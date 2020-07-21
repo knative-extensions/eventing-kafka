@@ -2,12 +2,13 @@ package env
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/assert"
-	"k8s.io/apimachinery/pkg/api/resource"
-	logtesting "knative.dev/pkg/logging/testing"
 	"os"
 	"strconv"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/api/resource"
+	logtesting "knative.dev/pkg/logging/testing"
 )
 
 const (

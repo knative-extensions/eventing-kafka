@@ -67,4 +67,3 @@ eventing_kafka_consumed_msg_count{consumer="rdkafka#consumer-2",partition="1",to
 eventing_kafka_consumed_msg_count{consumer="rdkafka#consumer-2",partition="2",topic="mynamespace.my-kafkachannel-service"} 1
 eventing_kafka_consumed_msg_count{consumer="rdkafka#consumer-2",partition="3",topic="mynamespace.my-kafkachannel-service"} 0
 ```
- 

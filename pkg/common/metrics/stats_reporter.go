@@ -3,13 +3,14 @@ package metrics
 import (
 	"context"
 	"encoding/json"
+	"log"
+	"strconv"
+
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 	"go.uber.org/zap"
 	"knative.dev/pkg/metrics"
-	"log"
-	"strconv"
 )
 
 const (
@@ -29,14 +30,14 @@ const (
 var (
 	// producedMessageCount is a counter which records the number of events produced
 	producedMessageCount = stats.Int64(
-		"produced_msg_count",  // The METRICS_DOMAIN will be prepended to the name.
+		"produced_msg_count", // The METRICS_DOMAIN will be prepended to the name.
 		"Produced Message Count",
 		stats.UnitDimensionless,
 	)
 
 	// consumedMessageCount is a counter which records the number of events consumed
 	consumedMessageCount = stats.Int64(
-		"consumed_msg_count",  // The METRICS_DOMAIN will be prepended to the name.
+		"consumed_msg_count", // The METRICS_DOMAIN will be prepended to the name.
 		"Consumed Message Count",
 		stats.UnitDimensionless,
 	)
@@ -54,7 +55,7 @@ var (
 
 // ReportArgs is the parent structure for the producer and consumer child structures
 type ReportArgs struct {
-	Topic string
+	Topic     string
 	Partition string
 }
 
@@ -86,7 +87,7 @@ var emptyContext = context.Background()
 
 // Reporter holds cached metric objects to report message metrics
 type reporter struct {
-	logger                 *zap.Logger
+	logger *zap.Logger
 }
 
 // NewStatsReporter creates a reporter that collects and reports ingress metrics
@@ -101,7 +102,7 @@ func register() {
 		Description: producedMessageCount.Description(),
 		Measure:     producedMessageCount,
 		Aggregation: view.LastValue(),
-		TagKeys:     []tag.Key{
+		TagKeys: []tag.Key{
 			producer,
 			topic,
 			partition},
@@ -109,7 +110,7 @@ func register() {
 		Description: consumedMessageCount.Description(),
 		Measure:     consumedMessageCount,
 		Aggregation: view.LastValue(),
-		TagKeys:     []tag.Key{
+		TagKeys: []tag.Key{
 			consumer,
 			topic,
 			partition},
@@ -200,8 +201,8 @@ func (r *reporter) updateProducedMessageCount(name string, topicName string, par
 		msgCount := partition[field].(float64)
 
 		reportArgs := &ProducerReportArgs{
-			ReportArgs: ReportArgs{Topic: topicName, Partition: partitionNumStr },
-			Producer: name,
+			ReportArgs: ReportArgs{Topic: topicName, Partition: partitionNumStr},
+			Producer:   name,
 		}
 		err := r.ReportProducedEvent(reportArgs, int64(msgCount))
 		if err != nil {
@@ -220,8 +221,8 @@ func (r *reporter) updateReceivedMessageCount(name string, topicName string, par
 		msgCount := partition[field].(float64)
 
 		reportArgs := &ConsumerReportArgs{
-			ReportArgs: ReportArgs{Topic: topicName, Partition: partitionNumStr },
-			Consumer: name,
+			ReportArgs: ReportArgs{Topic: topicName, Partition: partitionNumStr},
+			Consumer:   name,
 		}
 		err := r.ReportConsumedEvent(reportArgs, int64(msgCount))
 		if err != nil {
@@ -229,4 +230,3 @@ func (r *reporter) updateReceivedMessageCount(name string, topicName string, par
 		}
 	}
 }
-

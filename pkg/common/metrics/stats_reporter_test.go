@@ -3,8 +3,14 @@ package metrics
 import (
 	"context"
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
+	"net/http"
+	"os"
+	"regexp"
+	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
@@ -16,11 +22,6 @@ import (
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/system"
-	"net/http"
-	"os"
-	"regexp"
-	"strings"
-	"testing"
 )
 
 func TestMetricsServer_Report(t *testing.T) {
@@ -38,9 +39,9 @@ func TestMetricsServer_Report(t *testing.T) {
 			Name:      metrics.ConfigMapName(),
 			Namespace: system.Namespace(),
 		},
-		Data: map[string]string {
+		Data: map[string]string{
 			"metrics.backend-destination": "prometheus",
-			"profiling.enable": "true",
+			"profiling.enable":            "true",
 		},
 	}
 

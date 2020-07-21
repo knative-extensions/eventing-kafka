@@ -2,6 +2,9 @@ package k8s
 
 import (
 	"context"
+	nethttp "net/http"
+	"strings"
+
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
@@ -12,8 +15,6 @@ import (
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/system"
-	nethttp "net/http"
-	"strings"
 )
 
 //
@@ -56,11 +57,11 @@ func InitializeObservability(logger *zap.SugaredLogger, ctx context.Context, met
 		cmw.Watch(metrics.ConfigMapName(),
 			func(configMap *corev1.ConfigMap) {
 				err := metrics.UpdateExporter(metrics.ExporterOptions{
-					Domain:    metrics.Domain(),
-					Component: strings.ReplaceAll(metricsDomain, "-", "_"),
-					ConfigMap: configMap.Data,
+					Domain:         metrics.Domain(),
+					Component:      strings.ReplaceAll(metricsDomain, "-", "_"),
+					ConfigMap:      configMap.Data,
 					PrometheusPort: metricsPort,
-					Secrets:   sharedmain.SecretFetcher(ctx),
+					Secrets:        sharedmain.SecretFetcher(ctx),
 				}, logger)
 				if err != nil {
 					logger.Error("Error during UpdateExporter", zap.Error(err))

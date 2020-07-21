@@ -2,13 +2,14 @@ package env
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
-	"knative.dev/eventing-kafka/pkg/common/env"
 	"log"
 	"os"
 	"strconv"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
+	"knative.dev/eventing-kafka/pkg/common/env"
 )
 
 // Test Constants

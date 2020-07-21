@@ -2,10 +2,11 @@ package env
 
 import (
 	"fmt"
-	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"os"
 	"strconv"
+
+	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 // Get The Specified Required Config Value From OS & Log Errors If Not Present
