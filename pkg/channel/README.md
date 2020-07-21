@@ -58,4 +58,3 @@ eventing_kafka_produced_msg_count{partition="1",producer="rdkafka#producer-1",to
 eventing_kafka_produced_msg_count{partition="2",producer="rdkafka#producer-1",topic="mynamespace.my-kafkachannel-service"} 1
 eventing_kafka_produced_msg_count{partition="3",producer="rdkafka#producer-1",topic="mynamespace.my-kafkachannel-service"} 0
 ```
- 
