@@ -18,7 +18,6 @@ import (
 	"knative.dev/pkg/logging"
 	eventingmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/signals"
-	"os"
 	"strconv"
 	"time"
 )
@@ -56,8 +55,7 @@ func main() {
 	// Load Environment Variables
 	environment, err := env.GetEnvironment(logger)
 	if err != nil {
-		logger.Panic("Failed To Load Environment Variables - Terminating!", zap.Error(err))
-		os.Exit(1)
+		logger.Fatal("Failed To Load Environment Variables - Terminating!", zap.Error(err))
 	}
 
 	// Initialize Tracing (Watches config-tracing ConfigMap, Assumes Context Came From LoggingContext With Embedded K8S Client Key)
