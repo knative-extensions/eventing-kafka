@@ -27,7 +27,7 @@ func GetRequiredConfigInt(logger *zap.Logger, envKey string, name string) (int, 
 	}
 	envInt, err := strconv.Atoi(envString)
 	if err != nil {
-		logger.Error("Invalid " + name + " (Non Integer)", zap.String("Value", envString), zap.Error(err))
+		logger.Error("Invalid "+name+" (Non Integer)", zap.String("Value", envString), zap.Error(err))
 		return 0, fmt.Errorf("invalid (non-integer) value '%s' for environment variable '%s'", envString, envKey)
 	}
 	return envInt, nil
@@ -41,7 +41,7 @@ func GetRequiredConfigBool(logger *zap.Logger, envKey string, name string) (bool
 	}
 	envBool, err := strconv.ParseBool(envString)
 	if err != nil {
-		logger.Error("Invalid " + name + " (Non Integer)", zap.String("Value", envString), zap.Error(err))
+		logger.Error("Invalid "+name+" (Non Integer)", zap.String("Value", envString), zap.Error(err))
 		return false, false, fmt.Errorf("invalid (non-boolean) value '%s' for environment variable '%s'", envString, envKey)
 	}
 	return envBool, true, nil
@@ -55,7 +55,7 @@ func GetRequiredConfigInt64(logger *zap.Logger, envKey string, name string) (int
 	}
 	envInt, err := strconv.ParseInt(envString, 10, 64)
 	if err != nil {
-		logger.Error("Invalid " + name + " (Non Integer)", zap.String("Value", envString), zap.Error(err))
+		logger.Error("Invalid "+name+" (Non Integer)", zap.String("Value", envString), zap.Error(err))
 		return 0, fmt.Errorf("invalid (non-integer) value '%s' for environment variable '%s'", envString, envKey)
 	}
 	return envInt, nil
@@ -76,7 +76,7 @@ func GetOptionalConfigBool(logger *zap.Logger, envKey string, defaultValue strin
 	envString := GetOptionalConfigValue(logger, envKey, defaultValue)
 	envBool, err := strconv.ParseBool(envString)
 	if err != nil {
-		logger.Error("Invalid " + name + " (Non Boolean)", zap.String("Value", envString), zap.Error(err))
+		logger.Error("Invalid "+name+" (Non Boolean)", zap.String("Value", envString), zap.Error(err))
 		return false, fmt.Errorf("invalid (non-boolean) value '%s' for environment variable '%s'", envString, envKey)
 	}
 	return envBool, nil
@@ -87,7 +87,7 @@ func GetOptionalConfigInt64(logger *zap.Logger, envKey string, defaultValue stri
 	envString := GetOptionalConfigValue(logger, envKey, defaultValue)
 	envInt, err := strconv.ParseInt(envString, 10, 64)
 	if err != nil {
-		logger.Error("Invalid " + name + " (Non Integer)", zap.String("Value", envString), zap.Error(err))
+		logger.Error("Invalid "+name+" (Non Integer)", zap.String("Value", envString), zap.Error(err))
 		return 0, fmt.Errorf("invalid (non-integer) value '%s' for environment variable '%s'", envString, envKey)
 	}
 	return envInt, nil

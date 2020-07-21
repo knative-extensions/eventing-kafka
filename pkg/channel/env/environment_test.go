@@ -13,28 +13,28 @@ import (
 
 // Test Constants
 const (
-	metricsPort =                        "9999"
-	metricsDomain =                      "kafka-eventing"
-	healthPort =                         "1234"
-	kafkaBrokers =                       "TestKafkaBrokers"
-	serviceName =                        "TestServiceName"
-	kafkaUsername =                      "TestKafkaUsername"
-	kafkaPassword =                      "TestKafkaPassword"
-	kafkaPasswordLog =                   ""
+	metricsPort      = "9999"
+	metricsDomain    = "kafka-eventing"
+	healthPort       = "1234"
+	kafkaBrokers     = "TestKafkaBrokers"
+	serviceName      = "TestServiceName"
+	kafkaUsername    = "TestKafkaUsername"
+	kafkaPassword    = "TestKafkaPassword"
+	kafkaPasswordLog = ""
 )
 
 // Define The TestCase Struct
 type TestCase struct {
-	name                                 string
-	metricsPort                          string
-	metricsDomain                        string
-	healthPort                           string
-	kafkaBrokers                         string
-	serviceName                          string
-	kafkaUsername                        string
-	kafkaPassword                        string
-	kafkaPasswordLog                     string
-	expectedError                        error
+	name             string
+	metricsPort      string
+	metricsDomain    string
+	healthPort       string
+	kafkaBrokers     string
+	serviceName      string
+	kafkaUsername    string
+	kafkaPassword    string
+	kafkaPasswordLog string
+	expectedError    error
 }
 
 // Test All Permutations Of The GetEnvironment() Functionality
@@ -53,7 +53,6 @@ func TestGetEnvironment(t *testing.T) {
 	testCase.expectedError = getMissingRequiredEnvironmentVariableError(env.MetricsDomainEnvVarKey)
 	testCases = append(testCases, testCase)
 
-
 	testCase = getValidTestCase("Missing Required Config - MetricsPort")
 	testCase.metricsPort = ""
 	testCase.expectedError = getMissingRequiredEnvironmentVariableError(env.MetricsPortEnvVarKey)
@@ -64,9 +63,8 @@ func TestGetEnvironment(t *testing.T) {
 	testCase.expectedError = getInvalidIntegerEnvironmentVariableError(testCase.metricsPort, env.MetricsPortEnvVarKey)
 	testCases = append(testCases, testCase)
 
-
 	testCase = getValidTestCase("Missing Required Config - HealthPort")
-	testCase.healthPort= ""
+	testCase.healthPort = ""
 	testCase.expectedError = getMissingRequiredEnvironmentVariableError(env.HealthPortEnvVarKey)
 	testCases = append(testCases, testCase)
 
@@ -75,27 +73,23 @@ func TestGetEnvironment(t *testing.T) {
 	testCase.expectedError = getInvalidIntegerEnvironmentVariableError(testCase.healthPort, env.HealthPortEnvVarKey)
 	testCases = append(testCases, testCase)
 
-
 	testCase = getValidTestCase("Missing Required Config - KafkaBrokers")
-	testCase.kafkaBrokers= ""
+	testCase.kafkaBrokers = ""
 	testCase.expectedError = getMissingRequiredEnvironmentVariableError(env.KafkaBrokerEnvVarKey)
 	testCases = append(testCases, testCase)
 
-
 	testCase = getValidTestCase("Missing Required Config - ServiceName")
-	testCase.serviceName= ""
+	testCase.serviceName = ""
 	testCase.expectedError = getMissingRequiredEnvironmentVariableError(env.ServiceNameEnvVarKey)
 	testCases = append(testCases, testCase)
 
-
 	testCase = getValidTestCase("Missing Required Config - KafkaUsername")
-	testCase.kafkaUsername= ""
+	testCase.kafkaUsername = ""
 	testCase.expectedError = getMissingRequiredEnvironmentVariableError(env.KafkaUsernameEnvVarKey)
 	testCases = append(testCases, testCase)
 
-
 	testCase = getValidTestCase("Missing Required Config - KafkaPassword")
-	testCase.kafkaPassword= ""
+	testCase.kafkaPassword = ""
 	testCase.expectedError = getMissingRequiredEnvironmentVariableError(env.KafkaPasswordEnvVarKey)
 	testCases = append(testCases, testCase)
 
@@ -104,13 +98,13 @@ func TestGetEnvironment(t *testing.T) {
 
 		// (Re)Setup The Environment Variables From TestCase
 		os.Clearenv()
-		assertSetenv(t,env.MetricsDomainEnvVarKey, testCase.metricsDomain)
-		assertSetenvNonempty(t,env.MetricsPortEnvVarKey, testCase.metricsPort)
-		assertSetenvNonempty(t,env.HealthPortEnvVarKey, testCase.healthPort)
-		assertSetenv(t,env.KafkaBrokerEnvVarKey, testCase.kafkaBrokers)
-		assertSetenv(t,env.ServiceNameEnvVarKey, testCase.serviceName)
-		assertSetenv(t,env.KafkaUsernameEnvVarKey, testCase.kafkaUsername)
-		assertSetenv(t,env.KafkaPasswordEnvVarKey, testCase.kafkaPassword)
+		assertSetenv(t, env.MetricsDomainEnvVarKey, testCase.metricsDomain)
+		assertSetenvNonempty(t, env.MetricsPortEnvVarKey, testCase.metricsPort)
+		assertSetenvNonempty(t, env.HealthPortEnvVarKey, testCase.healthPort)
+		assertSetenv(t, env.KafkaBrokerEnvVarKey, testCase.kafkaBrokers)
+		assertSetenv(t, env.ServiceNameEnvVarKey, testCase.serviceName)
+		assertSetenv(t, env.KafkaUsernameEnvVarKey, testCase.kafkaUsername)
+		assertSetenv(t, env.KafkaPasswordEnvVarKey, testCase.kafkaPassword)
 
 		// Perform The Test
 		environment, err := GetEnvironment(logger)
@@ -148,16 +142,16 @@ func assertSetenvNonempty(t *testing.T, envKey string, value string) {
 // Get The Base / Valid Test Case - All Config Specified / No Errors
 func getValidTestCase(name string) TestCase {
 	return TestCase{
-		name:                                 name,
-		metricsPort:                          metricsPort,
-		metricsDomain:                        metricsDomain,
-		healthPort:                           healthPort,
-		kafkaBrokers:                         kafkaBrokers,
-		serviceName:                          serviceName,
-		kafkaUsername:                        kafkaUsername,
-		kafkaPassword:                        kafkaPassword,
-		kafkaPasswordLog:                     kafkaPasswordLog,
-		expectedError:                        nil,
+		name:             name,
+		metricsPort:      metricsPort,
+		metricsDomain:    metricsDomain,
+		healthPort:       healthPort,
+		kafkaBrokers:     kafkaBrokers,
+		serviceName:      serviceName,
+		kafkaUsername:    kafkaUsername,
+		kafkaPassword:    kafkaPassword,
+		kafkaPasswordLog: kafkaPasswordLog,
+		expectedError:    nil,
 	}
 }
 
