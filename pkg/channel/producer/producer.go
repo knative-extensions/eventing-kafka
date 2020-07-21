@@ -89,10 +89,12 @@ func (p *Producer) ProduceKafkaMessage(ctx context.Context, channelReference eve
 	// Initialize The Sarama ProducerMessage With The Specified Topic Name
 	producerMessage := &sarama.ProducerMessage{Topic: topicName}
 
-	// TODO - Previously we added the "ce_time" header to the KafkaMessage with context timestamp - kafka_sarama protocol doesn't do this for ProducerMessage - not sure if that's important?
-
 	// Use The SaramaKafka Protocol To Convert The Binding Message To A ProducerMessage
 	err := kafkasaramaprotocol.WriteProducerMessage(ctx, message, producerMessage, transformers...)
+	if err != nil {
+		p.logger.Error("Failed To Convert BindingMessage To Sarama ProducerMessage", zap.Error(err))
+		return err
+	}
 
 	// Produce The Kafka Message To The Kafka Topic
 	logger.Debug("Producing Kafka Message", zap.Any("Headers", producerMessage.Headers), zap.Any("Message", producerMessage.Value))

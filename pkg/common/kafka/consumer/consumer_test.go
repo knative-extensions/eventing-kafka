@@ -34,7 +34,7 @@ func TestCreateConsumerGroup(t *testing.T) {
 		assert.True(t, configArg.Net.SASL.Enable)
 		assert.Equal(t, sarama.SASLMechanism(sarama.SASLTypePlaintext), configArg.Net.SASL.Mechanism)
 		assert.True(t, configArg.Net.TLS.Enable)
-		assert.True(t, configArg.Net.TLS.Config.InsecureSkipVerify)
+		assert.False(t, configArg.Net.TLS.Config.InsecureSkipVerify)
 		assert.Equal(t, tls.NoClientCert, configArg.Net.TLS.Config.ClientAuth)
 		assert.Equal(t, constants.ConfigMetadataRefreshFrequency, configArg.Metadata.RefreshFrequency)
 		assert.Equal(t, constants.ConfigConsumerOffsetsAutoCommitInterval, configArg.Consumer.Offsets.AutoCommit.Interval)

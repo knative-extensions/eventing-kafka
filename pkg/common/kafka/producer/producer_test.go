@@ -71,7 +71,7 @@ func verifySaramaConfig(t *testing.T, config *sarama.Config, clientId string, us
 		assert.Equal(t, password, config.Net.SASL.Password)
 		assert.True(t, config.Net.TLS.Enable)
 		assert.NotNil(t, config.Net.TLS.Config)
-		assert.True(t, config.Net.TLS.Config.InsecureSkipVerify)
+		assert.False(t, config.Net.TLS.Config.InsecureSkipVerify)
 		assert.Equal(t, tls.NoClientCert, config.Net.TLS.Config.ClientAuth)
 	} else {
 		assert.NotNil(t, config.Net)

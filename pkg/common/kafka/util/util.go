@@ -39,8 +39,7 @@ func NewSaramaConfig(clientId string, username string, password string) *sarama.
 		config.Net.SASL.Password = password
 		config.Net.TLS.Enable = true
 		config.Net.TLS.Config = &tls.Config{
-			InsecureSkipVerify: true,
-			ClientAuth:         tls.NoClientCert,
+			ClientAuth: tls.NoClientCert,
 		}
 	}
 
