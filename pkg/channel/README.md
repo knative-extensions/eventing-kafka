@@ -19,7 +19,7 @@ implementation can use the hostname of the request to map incoming CloudEvents
 to the appropriate Kafka Topic.
 
 The implementation makes use of the
-[Conluent Go Client](https://github.com/confluentinc/confluent-kafka-go)
+[Confluent Go Client](https://github.com/confluentinc/confluent-kafka-go)
 library, along with the underlying C/C++
 [librdkafka](https://github.com/edenhill/librdkafka) library.
 The Kafka brokers and credentials are obtained from mounted Secret data
@@ -33,8 +33,8 @@ configmaps (see [Accessing CloudEvent traces](https://knative.dev/docs/eventing/
 for more information on the basic Knative-Eventing concepts behind these features.  The default behavior for
 tracing and profiling is provided such that accessing a tracing server (such as Zipkin), and the debug profiling
 information, should work as described in those links.  For example, you might access your zipkin server
-via http://localhost:8001/api/v1/namespaces/knative-eventing/services/zipkin:9411/proxy/zipkin after running a
-"kubectl proxy" command or your profiling server via http://localhost:8008/debug/pprof after executing
+via `http://localhost:8001/api/v1/namespaces/knative-eventing/services/zipkin:9411/proxy/zipkin` after running a
+"kubectl proxy" command or your profiling server via `http://localhost:8008/debug/pprof` after executing
 "kubectl -n knative-eventing port-forward my-channel-pod-name 8008:8008"
 
 Eventing-Kafka does provide some of its own custom metrics that use the Prometheus server provided by
@@ -44,11 +44,14 @@ endpoint of 8081 in the service.  These commands presume you are running from in
 curl available:
 
 Send a cloud event to your eventing-kafka installation:
+
 ```
 echo -e "{\n  \"id\": \"12345\",\n  \"originationTime\": \"$(date -u +'%Y-%m-%dT%H:%M:%S.000000000Z')\",\n  \"content\": \"Test Message\"\n}" | curl -X POST -H "Content-Type: application/json" -H "cache-control: no-cache" -H "ce-id: 123" -H "ce-source: /testsource" -H "ce-specversion: 1.0" -H "ce-type: test.type.v1" --data @- -v http://my-kafkachannel-service.mynamespace.svc.cluster.local/
 < HTTP/1.1 202 Accepted
 ```
+
 Check the channel metrics, noting that the eventing_kafka_produced_msg_count has increased by 1 on one of the partitions
+
 ```
 curl -v http://kafka-cluster-channel.knative-eventing.svc.cluster.local:8081/metrics | grep produced_msg_count | sort
 # HELP eventing_kafka_produced_msg_count Produced Message Count
