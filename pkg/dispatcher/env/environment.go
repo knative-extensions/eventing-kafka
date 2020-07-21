@@ -137,6 +137,6 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 	// Log The ControllerConfig Loaded From Environment Variables
 	logger.Info("Environment Variables", zap.Any("Environment", environment))
 
-	// Return The Populated ControllerConfig
+	// Return The Populated Dispatcher Configuration Environment Structure
 	return environment, nil
 }
