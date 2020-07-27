@@ -5,6 +5,7 @@ const (
 	// Eventing-Kafka Configuration
 	ServiceAccountEnvVarKey = "SERVICE_ACCOUNT"
 	MetricsPortEnvVarKey    = "METRICS_PORT"
+	MetricsDomainEnvVarKey  = "METRICS_DOMAIN"
 	HealthPortEnvVarKey     = "HEALTH_PORT"
 
 	// Kafka Authorization

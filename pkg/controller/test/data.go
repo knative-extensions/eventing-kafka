@@ -34,6 +34,7 @@ const (
 	// Environment Test Data
 	ServiceAccount                         = "TestServiceAccount"
 	MetricsPort                            = 9876
+	MetricsDomain                          = "eventing-kafka"
 	HealthPort                             = 8082
 	KafkaOffsetCommitMessageCount          = 99
 	KafkaOffsetCommitDurationMillis        = 9999
@@ -97,6 +98,7 @@ func NewEnvironment() *env.Environment {
 	return &env.Environment{
 		ServiceAccount:                       ServiceAccount,
 		MetricsPort:                          MetricsPort,
+		MetricsDomain:                        MetricsDomain,
 		KafkaOffsetCommitMessageCount:        KafkaOffsetCommitMessageCount,
 		KafkaOffsetCommitDurationMillis:      KafkaOffsetCommitDurationMillis,
 		DefaultNumPartitions:                 DefaultNumPartitions,
@@ -490,6 +492,10 @@ func NewKafkaChannelChannelDeployment() *appsv1.Deployment {
 									Value: strconv.Itoa(MetricsPort),
 								},
 								{
+									Name:  commonenv.MetricsDomainEnvVarKey,
+									Value: MetricsDomain,
+								},
+								{
 									Name:  commonenv.HealthPortEnvVarKey,
 									Value: strconv.Itoa(HealthPort),
 								},
@@ -661,6 +667,10 @@ func NewKafkaChannelDispatcherDeployment() *appsv1.Deployment {
 								{
 									Name:  commonenv.MetricsPortEnvVarKey,
 									Value: strconv.Itoa(MetricsPort),
+								},
+								{
+									Name:  commonenv.MetricsDomainEnvVarKey,
+									Value: MetricsDomain,
 								},
 								{
 									Name:  commonenv.HealthPortEnvVarKey,

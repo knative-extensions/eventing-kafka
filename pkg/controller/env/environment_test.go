@@ -15,6 +15,7 @@ import (
 const (
 	serviceAccount = "TestServiceAccount"
 	metricsPort    = "9999"
+	metricsDomain  = "example.com/kafka-eventing"
 	kafkaProvider  = "confluent"
 
 	kafkaOffsetCommitMessageCount   = "500"
@@ -48,6 +49,7 @@ type TestCase struct {
 	name                                 string
 	serviceAccount                       string
 	metricsPort                          string
+	metricsDomain                        string
 	kafkaProvider                        string
 	kafkaOffsetCommitMessageCount        string
 	kafkaOffsetCommitDurationMillis      string
@@ -89,6 +91,11 @@ func TestGetEnvironment(t *testing.T) {
 	testCase.expectedError = getMissingRequiredEnvironmentVariableError(commonenv.ServiceAccountEnvVarKey)
 	testCases = append(testCases, testCase)
 
+	testCase = getValidTestCase("Missing Required Config - MetricsDomain")
+	testCase.metricsDomain = ""
+	testCase.expectedError = getMissingRequiredEnvironmentVariableError(commonenv.MetricsDomainEnvVarKey)
+	testCases = append(testCases, testCase)
+
 	testCase = getValidTestCase("Missing Required Config - MetricsPort")
 	testCase.metricsPort = ""
 	testCase.expectedError = getMissingRequiredEnvironmentVariableError(commonenv.MetricsPortEnvVarKey)
@@ -96,7 +103,7 @@ func TestGetEnvironment(t *testing.T) {
 
 	testCase = getValidTestCase("Invalid Config - MetricsPort")
 	testCase.metricsPort = "NAN"
-	testCase.expectedError = getInvalidIntegerEnvironmentVariableError(testCase.metricsPort, commonenv.MetricsPortEnvVarKey)
+	testCase.expectedError = getInvalidIntEnvironmentVariableError(testCase.metricsPort, commonenv.MetricsPortEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Required Config - KafkaProvider")
@@ -113,8 +120,18 @@ func TestGetEnvironment(t *testing.T) {
 	testCase.kafkaOffsetCommitMessageCount = ""
 	testCases = append(testCases, testCase)
 
+	testCase = getValidTestCase("Invalid Config - KafkaOffsetCommitMessageCount")
+	testCase.kafkaOffsetCommitMessageCount = "NAN"
+	testCase.expectedError = getInvalidInt64EnvironmentVariableError(testCase.kafkaOffsetCommitMessageCount, commonenv.KafkaOffsetCommitMessageCountEnvVarKey)
+	testCases = append(testCases, testCase)
+
 	testCase = getValidTestCase("Missing Optional Config - KafkaOffsetCommitDurationMillis")
 	testCase.kafkaOffsetCommitDurationMillis = ""
+	testCases = append(testCases, testCase)
+
+	testCase = getValidTestCase("Invalid Config - KafkaOffsetCommitDurationMillis")
+	testCase.kafkaOffsetCommitDurationMillis = "NAN"
+	testCase.expectedError = getInvalidInt64EnvironmentVariableError(testCase.kafkaOffsetCommitDurationMillis, commonenv.KafkaOffsetCommitDurationMillisEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Required Config - DefaultNumPartitions")
@@ -143,7 +160,7 @@ func TestGetEnvironment(t *testing.T) {
 
 	testCase = getValidTestCase("Invalid Config - DefaultRetentionMillis")
 	testCase.defaultRetentionMillis = "NAN"
-	testCase.expectedError = getInvalidIntegerEnvironmentVariableError(testCase.defaultRetentionMillis, DefaultRetentionMillisEnvVarKey)
+	testCase.expectedError = getInvalidInt64EnvironmentVariableError(testCase.defaultRetentionMillis, DefaultRetentionMillisEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Optional Config - DispatcherRetryInitialIntervalMillis")
@@ -152,7 +169,7 @@ func TestGetEnvironment(t *testing.T) {
 
 	testCase = getValidTestCase("Invalid Config - DispatcherRetryInitialIntervalMillis")
 	testCase.dispatcherRetryInitialIntervalMillis = "NAN"
-	testCase.expectedError = getInvalidIntegerEnvironmentVariableError(testCase.dispatcherRetryInitialIntervalMillis, DispatcherRetryInitialIntervalMillisEnvVarKey)
+	testCase.expectedError = getInvalidInt64EnvironmentVariableError(testCase.dispatcherRetryInitialIntervalMillis, DispatcherRetryInitialIntervalMillisEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Optional Config - DispatcherRetryTimeMillisMax")
@@ -161,7 +178,7 @@ func TestGetEnvironment(t *testing.T) {
 
 	testCase = getValidTestCase("Invalid Config - DispatcherRetryTimeMillisMax")
 	testCase.dispatcherRetryTimeMillisMax = "NAN"
-	testCase.expectedError = getInvalidIntegerEnvironmentVariableError(testCase.dispatcherRetryTimeMillisMax, DispatcherRetryTimeMillisMaxEnvVarKey)
+	testCase.expectedError = getInvalidInt64EnvironmentVariableError(testCase.dispatcherRetryTimeMillisMax, DispatcherRetryTimeMillisMaxEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Optional Config - DispatcherRetryExponentialBackoff")
@@ -185,7 +202,7 @@ func TestGetEnvironment(t *testing.T) {
 
 	testCase = getValidTestCase("Invalid Config - DispatcherReplicas")
 	testCase.dispatcherReplicas = "NAN"
-	testCase.expectedError = getInvalidIntegerEnvironmentVariableError(testCase.dispatcherReplicas, DispatcherReplicasEnvVarKey)
+	testCase.expectedError = getInvalidIntEnvironmentVariableError(testCase.dispatcherReplicas, DispatcherReplicasEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Required Config - DispatcherMemoryRequest")
@@ -240,7 +257,7 @@ func TestGetEnvironment(t *testing.T) {
 
 	testCase = getValidTestCase("Invalid Config - DispatcherReplicas")
 	testCase.channelReplicas = "NAN"
-	testCase.expectedError = getInvalidIntegerEnvironmentVariableError(testCase.channelReplicas, ChannelReplicasEnvVarKey)
+	testCase.expectedError = getInvalidIntEnvironmentVariableError(testCase.channelReplicas, ChannelReplicasEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Required Config - ChannelMemoryRequest")
@@ -289,6 +306,7 @@ func TestGetEnvironment(t *testing.T) {
 		// (Re)Setup The Environment Variables From TestCase
 		os.Clearenv()
 		assert.Nil(t, os.Setenv(commonenv.ServiceAccountEnvVarKey, testCase.serviceAccount))
+		assert.Nil(t, os.Setenv(commonenv.MetricsDomainEnvVarKey, testCase.metricsDomain))
 		if len(testCase.metricsPort) > 0 {
 			assert.Nil(t, os.Setenv(commonenv.MetricsPortEnvVarKey, testCase.metricsPort))
 		}
@@ -393,6 +411,7 @@ func getValidTestCase(name string) TestCase {
 		name:                                 name,
 		serviceAccount:                       serviceAccount,
 		metricsPort:                          metricsPort,
+		metricsDomain:                        metricsDomain,
 		kafkaProvider:                        kafkaProvider,
 		kafkaOffsetCommitMessageCount:        kafkaOffsetCommitMessageCount,
 		kafkaOffsetCommitDurationMillis:      kafkaOffsetCommitDurationMillis,
@@ -425,28 +444,33 @@ func getMissingRequiredEnvironmentVariableError(envVarKey string) error {
 }
 
 // Get The Expected Error Message For An Invalid Integer Environment Variable
-func getInvalidIntegerEnvironmentVariableError(value string, envVarKey string) error {
-	return fmt.Errorf("invalid (non-integer) value '%s' for environment variable '%s'", value, envVarKey)
+func getInvalidIntEnvironmentVariableError(value string, envVarKey string) error {
+	return fmt.Errorf("invalid (non int) value '%s' for environment variable '%s'", value, envVarKey)
+}
+
+// Get The Expected Error Message For An Invalid Int64 Environment Variable
+func getInvalidInt64EnvironmentVariableError(value string, envVarKey string) error {
+	return fmt.Errorf("invalid (non int64) value '%s' for environment variable '%s'", value, envVarKey)
 }
 
 // Get The Expected Error Message For An Invalid Int32 Environment Variable
 func getInvalidInt32EnvironmentVariableError(value string, envVarKey string) error {
-	return fmt.Errorf("invalid (int32) value '%s' for environment variable '%s'", value, envVarKey)
+	return fmt.Errorf("invalid (non int32) value '%s' for environment variable '%s'", value, envVarKey)
 }
 
 // Get The Expected Error Message For An Invalid Int16 Environment Variable
 func getInvalidInt16EnvironmentVariableError(value string, envVarKey string) error {
-	return fmt.Errorf("invalid (int16) value '%s' for environment variable '%s'", value, envVarKey)
+	return fmt.Errorf("invalid (non int16) value '%s' for environment variable '%s'", value, envVarKey)
 }
 
 // Get The Expected Error Message For An Invalid Quantity Environment Variable
 func getInvalidQuantityEnvironmentVariableError(value string, envVarKey string) error {
-	return fmt.Errorf("invalid (non-quantity) value '%s' for environment variable '%s'", value, envVarKey)
+	return fmt.Errorf("invalid (non quantity) value '%s' for environment variable '%s'", value, envVarKey)
 }
 
 // Get The Expected Error Message For An Invalid Boolean Environment Variable
 func getInvalidBooleanEnvironmentVariableError(value string, envVarKey string) error {
-	return fmt.Errorf("invalid (non-boolean) value '%s' for environment variable '%s'", value, envVarKey)
+	return fmt.Errorf("invalid (non boolean) value '%s' for environment variable '%s'", value, envVarKey)
 }
 
 // Initialize The Logger - Fatal Exit Upon Error

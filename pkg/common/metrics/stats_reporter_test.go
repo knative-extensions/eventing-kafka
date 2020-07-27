@@ -1,32 +1,88 @@
-package prometheus
+package metrics
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
-	dto "github.com/prometheus/client_model/go"
-	"github.com/stretchr/testify/assert"
-	logtesting "knative.dev/pkg/logging/testing"
+	"context"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"regexp"
+	"strconv"
+	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
+	"knative.dev/eventing-kafka/pkg/common/env"
+	"knative.dev/eventing-kafka/pkg/common/k8s"
+	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
+	injectionclient "knative.dev/pkg/client/injection/kube/client"
+	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/metrics"
+	"knative.dev/pkg/system"
 )
 
-// Test The MetricsServer's ObserveMetrics() Functionality
-func TestObserveMetrics(t *testing.T) {
+// Test The MetricsServer's Report() Functionality
+func TestMetricsServer_Report(t *testing.T) {
 
 	// Test Data
-	topic := "test-topic"
-	count := int64(99)
-	metrics := createTestMetrics(topic, count)
+	metricsPort := 9876
+	metricsDomain := "eventing-kafka"
+	topicName := "test-topic-name"
+	msgCount := 13579
+
+	// Initialize The Environment For The Test
+	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, constants.KnativeEventingNamespace))
+	assert.Nil(t, os.Setenv(env.MetricsDomainEnvVarKey, metricsDomain))
+
+	// Create An Observability ConfigMap For The InitializeObservability() Call To Watch
+	observabilityConfigMap := &corev1.ConfigMap{
+		TypeMeta: v1.TypeMeta{
+			Kind:       "ConfigMap",
+			APIVersion: corev1.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: v1.ObjectMeta{
+			Name:      metrics.ConfigMapName(),
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{
+			"metrics.backend-destination": "prometheus",
+			"profiling.enable":            "true",
+		},
+	}
+
+	// Create The Fake K8S Client And Add It To The ConfigMap
+	fakeK8sClient := fake.NewSimpleClientset(observabilityConfigMap)
+
+	// Add The Fake K8S Client To The Context (Required By InitializeObservability)
+	ctx := context.WithValue(context.TODO(), injectionclient.Key{}, fakeK8sClient)
 
 	// Create A Test Logger
 	logger := logtesting.TestLogger(t).Desugar()
 
-	// Create A MetricsServer To Test
-	metricsServer := NewMetricsServer(logger, "8888", "/path")
+	// Initialize The Observability Watcher
+	k8s.InitializeObservability(logger.Sugar(), ctx, metricsDomain, metricsPort)
+
+	// Create A New StatsReporter To Test
+	statsReporter := NewStatsReporter(logger)
+
+	// Create The Stats / Metrics To Report
+	stats := createTestMetrics(topicName, int64(msgCount))
 
 	// Perform The Test
-	metricsServer.ObserveMetrics(metrics)
+	statsReporter.Report(stats)
 
-	// Verify The Gauge Was Updated As Expected
-	assertGaugeEqual(t, metricsServer.producedMsgCountGauges, topic, float64(count))
+	// Verify The Results By Querying Metrics Endpoint And Parsing Results
+	resp, err := http.Get(fmt.Sprintf("http://localhost:%v/metrics", metricsPort))
+	assert.Nil(t, err)
+	body, err := ioutil.ReadAll(resp.Body)
+	assert.Nil(t, err)
+	err = resp.Body.Close()
+	assert.Nil(t, err)
+	bodyStrings := strings.Split(string(body), "\n")
+	assert.True(t, verifyMetric(bodyStrings, "eventing_kafka_produced_msg_count", topicName, strconv.Itoa(msgCount)))
 }
 
 // Utility Function For Creating Sample Test Metrics  (Representative Data From Sarama Metrics Trace - With Custom Test Data)
@@ -57,13 +113,24 @@ func createTestMetrics(topic string, count int64) map[string]map[string]interfac
 	return metrics
 }
 
-// Utility Function For Comparing Expected Prometheus Gauge Values
-func assertGaugeEqual(t *testing.T, gaugeVec *prometheus.GaugeVec, topic string, expectedValue float64) {
-	gauge, err := gaugeVec.GetMetricWithLabelValues(topic)
-	assert.Nil(t, err)
-	assert.NotNil(t, gauge)
-	metric := &dto.Metric{}
-	err = gauge.Write(metric)
-	assert.Nil(t, err)
-	assert.Equal(t, expectedValue, *metric.Gauge.Value)
+// Verifies that the metrics response string slice contains the desired values
+// This is test code so a quick regex check will suffice rather than parsing the Prometheus output in a more structured manner
+func verifyMetric(body []string, name string, topicName string, expectedValue string) bool {
+	for _, line := range body {
+		if isMatch(line, fmt.Sprintf(`^%s`, name)) &&
+			isMatch(line, fmt.Sprintf(`topic="%s"`, topicName)) &&
+			isMatch(line, fmt.Sprintf(` %s$`, expectedValue)) {
+			return true
+		}
+	}
+	return false
+}
+
+// Simple regex match that treats errors as false, for testing only
+func isMatch(source string, regex string) bool {
+	match, err := regexp.MatchString(regex, source)
+	if err != nil {
+		return false
+	}
+	return match
 }

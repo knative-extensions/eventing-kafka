@@ -4,12 +4,14 @@ import (
 	"context"
 	"github.com/Shopify/sarama"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
-	"github.com/rcrowley/go-metrics"
+	gometrics "github.com/rcrowley/go-metrics"
 	"github.com/stretchr/testify/assert"
 	"knative.dev/eventing-kafka/pkg/channel/constants"
 	channelhealth "knative.dev/eventing-kafka/pkg/channel/health"
 	"knative.dev/eventing-kafka/pkg/channel/test"
-	"knative.dev/eventing-kafka/pkg/common/prometheus"
+
+	"knative.dev/eventing-kafka/pkg/common/metrics"
+	//>>>>>>> master
 	logtesting "knative.dev/pkg/logging/testing"
 	"testing"
 )
@@ -24,10 +26,7 @@ func TestNewProducer(t *testing.T) {
 	producer := createTestProducer(t, mockSyncProducer)
 
 	// Verify The Results
-	assert.Equal(t, mockSyncProducer, producer.kafkaProducer)
-	assert.Equal(t, producer.healthServer, producer.healthServer)
-	assert.Equal(t, producer.metricsServer, producer.metricsServer)
-	assert.Equal(t, true, producer.healthServer.ProducerReady())
+	assert.True(t, producer.healthServer.ProducerReady())
 }
 
 // Test The ProduceKafkaMessage() Functionality
@@ -85,12 +84,12 @@ func createTestProducer(t *testing.T, kafkaSyncProducer sarama.SyncProducer) *Pr
 
 	// Stub The Kafka Producer Creation Wrapper With Test Version Returning Specified SyncProducer
 	createSyncProducerWrapperPlaceholder := createSyncProducerWrapper
-	createSyncProducerWrapper = func(clientId string, brokers []string, username string, password string) (sarama.SyncProducer, metrics.Registry, error) {
+	createSyncProducerWrapper = func(clientId string, brokers []string, username string, password string) (sarama.SyncProducer, gometrics.Registry, error) {
 		assert.Equal(t, test.ClientId, clientId)
 		assert.Equal(t, []string{test.KafkaBrokers}, brokers)
 		assert.Equal(t, test.KafkaUsername, username)
 		assert.Equal(t, test.KafkaPassword, password)
-		registry := metrics.NewRegistry()
+		registry := gometrics.NewRegistry()
 		return kafkaSyncProducer, registry, nil
 	}
 	defer func() { createSyncProducerWrapper = createSyncProducerWrapperPlaceholder }()
@@ -98,13 +97,16 @@ func createTestProducer(t *testing.T, kafkaSyncProducer sarama.SyncProducer) *Pr
 	// Create A Test Logger
 	logger := logtesting.TestLogger(t).Desugar()
 
-	// Create New Metrics / Health Servers
+	// Create New Metrics Server & StatsReporter
 	healthServer := channelhealth.NewChannelHealthServer("12345")
-	metricsServer := prometheus.NewMetricsServer(logger, "8888", "/metricsServer")
+	statsReporter := metrics.NewStatsReporter(logger)
 
 	// Create The Producer
-	producer, err := NewProducer(logger, test.ClientId, []string{test.KafkaBrokers}, test.KafkaUsername, test.KafkaPassword, metricsServer, healthServer)
+	producer, err := NewProducer(logger, test.ClientId, []string{test.KafkaBrokers}, test.KafkaUsername, test.KafkaPassword, statsReporter, healthServer)
 	assert.Nil(t, err)
+	assert.Equal(t, kafkaSyncProducer, producer.kafkaProducer)
+	assert.Equal(t, healthServer, producer.healthServer)
+	assert.Equal(t, statsReporter, producer.statsReporter)
 
 	// Return The Producer
 	return producer

@@ -19,7 +19,6 @@ import (
 	"knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	"os"
 )
 
 // Create A New KafkaSecret Controller
@@ -37,8 +36,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	// Load The Environment Variables
 	environment, err := env.GetEnvironment(logger)
 	if err != nil {
-		logger.Panic("Failed To Load Environment Variables - Terminating!", zap.Error(err))
-		os.Exit(1)
+		logger.Fatal("Failed To Load Environment Variables - Terminating!", zap.Error(err))
 	}
 
 	// Create The KafkaSecret Reconciler

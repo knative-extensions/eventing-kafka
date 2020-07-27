@@ -6,13 +6,13 @@ import (
 	"github.com/Shopify/sarama"
 	kafkasaramaprotocol "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"github.com/cloudevents/sdk-go/v2/binding"
-	"github.com/rcrowley/go-metrics"
+	gometrics "github.com/rcrowley/go-metrics"
 	"go.uber.org/zap"
 	"knative.dev/eventing-kafka/pkg/channel/constants"
 	"knative.dev/eventing-kafka/pkg/channel/health"
 	"knative.dev/eventing-kafka/pkg/channel/util"
 	kafkaproducer "knative.dev/eventing-kafka/pkg/common/kafka/producer"
-	"knative.dev/eventing-kafka/pkg/common/prometheus"
+	"knative.dev/eventing-kafka/pkg/common/metrics"
 	eventingChannel "knative.dev/eventing/pkg/channel"
 	"time"
 )
@@ -22,8 +22,8 @@ type Producer struct {
 	logger             *zap.Logger
 	kafkaProducer      sarama.SyncProducer
 	healthServer       *health.Server
-	metricsServer      *prometheus.MetricsServer
-	metricsRegistry    metrics.Registry
+	statsReporter      metrics.StatsReporter
+	metricsRegistry    gometrics.Registry
 	metricsStopChan    chan struct{}
 	metricsStoppedChan chan struct{}
 }
@@ -34,7 +34,7 @@ func NewProducer(logger *zap.Logger,
 	brokers []string,
 	username string,
 	password string,
-	metricsServer *prometheus.MetricsServer,
+	statsReporter metrics.StatsReporter,
 	healthServer *health.Server) (*Producer, error) {
 
 	// Create The Kafka Producer Using The Specified Kafka Authentication
@@ -51,7 +51,7 @@ func NewProducer(logger *zap.Logger,
 		logger:             logger,
 		kafkaProducer:      kafkaProducer,
 		healthServer:       healthServer,
-		metricsServer:      metricsServer,
+		statsReporter:      statsReporter,
 		metricsRegistry:    metricsRegistry,
 		metricsStopChan:    make(chan struct{}),
 		metricsStoppedChan: make(chan struct{}),
@@ -69,7 +69,7 @@ func NewProducer(logger *zap.Logger,
 }
 
 // Wrapper Around Common Kafka SyncProducer Creation To Facilitate Unit Testing
-var createSyncProducerWrapper = func(clientId string, brokers []string, username string, password string) (sarama.SyncProducer, metrics.Registry, error) {
+var createSyncProducerWrapper = func(clientId string, brokers []string, username string, password string) (sarama.SyncProducer, gometrics.Registry, error) {
 	return kafkaproducer.CreateSyncProducer(clientId, brokers, username, password)
 }
 
@@ -130,7 +130,7 @@ func (p *Producer) ObserveMetrics(interval time.Duration) {
 				kafkaMetrics := p.metricsRegistry.GetAll()
 
 				// Forward Metrics To Prometheus For Observation
-				p.metricsServer.ObserveMetrics(kafkaMetrics)
+				p.statsReporter.Report(kafkaMetrics)
 			}
 
 			// Sleep The Specified Interval Before Collecting Metrics Again

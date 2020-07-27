@@ -17,7 +17,6 @@ import (
 	"knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	"os"
 )
 
 // Track The Reconciler For Shutdown() Usage
@@ -37,8 +36,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	// Load The Environment Variables
 	environment, err := env.GetEnvironment(logger)
 	if err != nil {
-		logger.Panic("Failed To Load Environment Variables - Terminating!", zap.Error(err))
-		os.Exit(1)
+		logger.Fatal("Failed To Load Environment Variables - Terminating!", zap.Error(err))
 	}
 
 	// Determine The Kafka AdminClient Type (Assume Kafka Unless Azure EventHubs Are Specified)
