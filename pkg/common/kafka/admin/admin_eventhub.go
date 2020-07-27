@@ -112,7 +112,7 @@ func (c *EventHubAdminClient) CreateTopic(ctx context.Context, topicName string,
 			return adminutil.NewTopicError(sarama.ErrTopicAlreadyExists, "mapped from EventHubErrorCodeConflict")
 		} else if errorCode == constants.EventHubErrorCodeCapacityLimit {
 			c.logger.Warn("Failed To Create EventHub - Reached Capacity Limit", zap.Error(err))
-			return adminutil.NewTopicError(sarama.ErrInvalidTxnState, "mapped from EventHubErrorCodeCapacityLimit") // TODO - or maybe ErrNotEnoughReplicas ??? or just unknown ???
+			return adminutil.NewTopicError(sarama.ErrInvalidTxnState, "mapped from EventHubErrorCodeCapacityLimit")
 		} else if errorCode == constants.EventHubErrorCodeUnknown {
 			c.logger.Error("Failed To Create EventHub - Missing Error Code", zap.Error(err))
 			return adminutil.NewUnknownTopicError("mapped from EventHubErrorCodeUnknown")

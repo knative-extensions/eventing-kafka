@@ -156,6 +156,8 @@ func (h *Handler) consumeMessage(consumerMessage *sarama.ConsumerMessage, destin
 // Message Sending Functionality For Use Within Retry Runner (With Custom StatusCode Handling)
 func (h *Handler) sendMessage(ctx context.Context, message *kafkasaramaprotocol.Message, destinationURL *url.URL, replyURL *url.URL) error {
 
+	// TODO - The latest version of eventing has DispatchMessageWithRetries() - possibly refactor to rely on that instead ; )
+
 	// Dispatch The Message
 	err := h.MessageDispatcher.DispatchMessage(ctx, message, nil, destinationURL, replyURL, nil)
 	if err == nil {
@@ -181,7 +183,7 @@ func (h *Handler) sendMessage(ctx context.Context, message *kafkasaramaprotocol.
 			return errors.New("server returned a bad response code")
 		} else if statusCode >= 300 {
 			logger.Warn("Failed To Send Message To Subscriber Service, Not Retrying")
-			// TODO - would we want to send to DLQ here???  301=moved, 302=found, 307=redirect, etc...
+			// TODO - ??? would we want to send to DLQ here???  301=moved, 302=found, 307=redirect, etc...
 		} else if statusCode == -1 {
 			logger.Warn("No StatusCode Detected In Error, Retrying")
 			return errors.New("no response code detected in error, retrying")

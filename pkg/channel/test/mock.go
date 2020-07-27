@@ -24,10 +24,6 @@ type MockSyncProducer struct {
 
 func NewMockSyncProducer(topicName string) *MockSyncProducer {
 	return &MockSyncProducer{
-		//config: nil,
-		//produce: make(chan *kafka.Message, 1),
-		//events:              make(chan kafka.Event, 1),
-		//testResponseMessage: testResponseMessage,
 		producerMessages: make(chan sarama.ProducerMessage, 1),
 		closed:           false,
 	}
