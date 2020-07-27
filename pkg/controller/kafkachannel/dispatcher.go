@@ -321,6 +321,10 @@ func (r *Reconciler) dispatcherDeploymentEnvVars(channel *kafkav1alpha1.KafkaCha
 			Value: strconv.Itoa(r.environment.MetricsPort),
 		},
 		{
+			Name:  commonenv.MetricsDomainEnvVarKey,
+			Value: r.environment.MetricsDomain,
+		},
+		{
 			Name:  commonenv.HealthPortEnvVarKey,
 			Value: strconv.Itoa(constants.HealthPort),
 		},

@@ -9,7 +9,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/message"
 	"knative.dev/eventing-kafka/pkg/channel/util"
 	kafkaproducer "knative.dev/eventing-kafka/pkg/common/kafka/producer"
-	"knative.dev/eventing-kafka/pkg/common/prometheus"
+	"knative.dev/eventing-kafka/pkg/common/metrics"
 	eventingChannel "knative.dev/eventing/pkg/channel"
 )
 
@@ -19,11 +19,11 @@ type Producer struct {
 	kafkaProducer  kafkaproducer.ProducerInterface
 	stopChannel    chan struct{}
 	stoppedChannel chan struct{}
-	metrics        *prometheus.MetricsServer
+	statsReporter  metrics.StatsReporter
 }
 
 // Initialize The Producer
-func NewProducer(logger *zap.Logger, brokers string, username string, password string, metricsServer *prometheus.MetricsServer, healthServer *health.Server) (*Producer, error) {
+func NewProducer(logger *zap.Logger, brokers string, username string, password string, reporter metrics.StatsReporter, healthServer *health.Server) (*Producer, error) {
 
 	// Create The Producer Using The Specified Kafka Authentication
 	kafkaProducer, err := createProducerFunctionWrapper(brokers, username, password)
@@ -40,7 +40,7 @@ func NewProducer(logger *zap.Logger, brokers string, username string, password s
 		kafkaProducer:  kafkaProducer,
 		stopChannel:    make(chan struct{}),
 		stoppedChannel: make(chan struct{}),
-		metrics:        metricsServer,
+		statsReporter:  reporter,
 	}
 
 	// Mark The Kafka Producer As Ready
@@ -143,7 +143,7 @@ func (p *Producer) processProducerEvents(healthServer *health.Server) {
 				p.logger.Warn("Kafka Error", zap.Error(ev))
 			case *kafka.Stats:
 				// Update Kafka Prometheus Metrics
-				p.metrics.Observe(ev.String())
+				p.statsReporter.Report(ev.String())
 			default:
 				p.logger.Info("Ignored Event", zap.String("Event", ev.String()))
 			}

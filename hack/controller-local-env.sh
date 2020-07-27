@@ -7,7 +7,7 @@
 export SYSTEM_NAMESPACE="knative-eventing"
 export SERVICE_ACCOUNT="eventing-kafka-channel-controller"
 export METRICS_PORT="8081"
-export METRICS_DOMAIN="knative.dev/eventing"
+export METRICS_DOMAIN="eventing-kafka"
 export KAFKA_PROVIDER="azure"
 export KAFKA_BROKERS="eventhub.servicebus.windows.net:9093"
 export KAFKA_OFFSET_COMMIT_MESSAGE_COUNT="50"

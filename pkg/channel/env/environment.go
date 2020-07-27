@@ -1,71 +1,90 @@
 package env
 
 import (
-	"errors"
 	"go.uber.org/zap"
-	commonenv "knative.dev/eventing-kafka/pkg/common/env"
-	"os"
+	"knative.dev/eventing-kafka/pkg/common/env"
 )
 
 // The Environment Struct
 type Environment struct {
-	MetricsPort   string
-	HealthPort    string
-	KafkaBrokers  string
-	KafkaUsername string
-	KafkaPassword string
-	ServiceName   string
+
+	// Metrics Configuration
+	MetricsPort   int    // Required
+	MetricsDomain string // Required
+
+	// Health Configuration
+	HealthPort int // Required
+
+	// Kafka Configuration
+	KafkaBrokers string // Required
+	ServiceName  string // Required
+
+	// Kafka Authorization
+	KafkaUsername    string // Optional
+	KafkaPassword    string // Optional
+	KafkaPasswordLog string // Derived
 }
 
-// Load & Return The Environment Variables
-func GetEnvironment(logger *zap.Logger) (Environment, error) {
+// Get The Environment
+func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 
-	// Create The Environment With Current Values
-	environment := Environment{
-		MetricsPort:   os.Getenv(commonenv.MetricsPortEnvVarKey),
-		HealthPort:    os.Getenv(commonenv.HealthPortEnvVarKey),
-		KafkaBrokers:  os.Getenv(commonenv.KafkaBrokerEnvVarKey),
-		KafkaUsername: os.Getenv(commonenv.KafkaUsernameEnvVarKey),
-		KafkaPassword: os.Getenv(commonenv.KafkaPasswordEnvVarKey),
-		ServiceName:   os.Getenv(commonenv.ServiceNameEnvVarKey),
+	// Error Reference
+	var err error
+
+	// The ControllerConfig Reference
+	environment := &Environment{}
+
+	// Get The Required Metrics Port Config Value & Convert To Int
+	environment.MetricsPort, err = env.GetRequiredConfigInt(logger, env.MetricsPortEnvVarKey, "MetricsPort")
+	if err != nil {
+		return nil, err
 	}
 
-	// Safely Log The ControllerConfig Loaded From Environment Variables
-	safeEnvironment := environment
-	safeEnvironment.KafkaPassword = ""
+	// Get The Required Metrics Domain Config Value
+	environment.MetricsDomain, err = env.GetRequiredConfigValue(logger, env.MetricsDomainEnvVarKey)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get The Required HealthPort Port Config Value & Convert To Int
+	environment.HealthPort, err = env.GetRequiredConfigInt(logger, env.HealthPortEnvVarKey, "HealthPort")
+	if err != nil {
+		return nil, err
+	}
+
+	// Get The Required K8S KafkaBrokers Config Value
+	environment.KafkaBrokers, err = env.GetRequiredConfigValue(logger, env.KafkaBrokerEnvVarKey)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get The Required K8S ServiceName Config Value
+	environment.ServiceName, err = env.GetRequiredConfigValue(logger, env.ServiceNameEnvVarKey)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get The Required KafkaUsername Config Value
+	environment.KafkaUsername, err = env.GetRequiredConfigValue(logger, env.KafkaUsernameEnvVarKey)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get The Required KafkaPassword Config Value
+	environment.KafkaPassword, err = env.GetRequiredConfigValue(logger, env.KafkaPasswordEnvVarKey)
+	if err != nil {
+		return nil, err
+	}
+
+	// Mask The Password For Logging (If There Was One)
+	environment.KafkaPasswordLog = ""
 	if len(environment.KafkaPassword) > 0 {
-		safeEnvironment.KafkaPassword = "********"
+		environment.KafkaPasswordLog = "*************"
 	}
-	logger.Info("Environment Variables", zap.Any("Environment", safeEnvironment))
 
-	// Validate The Environment Variables
-	err := validateEnvironment(logger, environment)
+	// Log The Channel Configuration Loaded From Environment Variables
+	logger.Info("Environment Variables", zap.Any("Environment", environment))
 
-	// Return Results
-	return environment, err
-}
-
-// Validate The Specified Environment Variables
-func validateEnvironment(logger *zap.Logger, environment Environment) error {
-
-	valid := validateRequiredEnvironmentVariable(logger, commonenv.MetricsPortEnvVarKey, environment.MetricsPort) &&
-		validateRequiredEnvironmentVariable(logger, commonenv.HealthPortEnvVarKey, environment.HealthPort) &&
-		validateRequiredEnvironmentVariable(logger, commonenv.KafkaBrokerEnvVarKey, environment.KafkaBrokers) &&
-		validateRequiredEnvironmentVariable(logger, commonenv.ServiceNameEnvVarKey, environment.ServiceName)
-
-	if valid {
-		return nil
-	} else {
-		return errors.New("invalid / incomplete environment variables")
-	}
-}
-
-// Log The Missing Required Environment Variable With Specified Key
-func validateRequiredEnvironmentVariable(logger *zap.Logger, key string, value string) bool {
-	if len(value) <= 0 {
-		logger.Error("Missing Required Environment Variable", zap.String("Key", key))
-		return false
-	} else {
-		return true
-	}
+	// Return The Populated Channel Configuration Environment Structure
+	return environment, nil
 }

@@ -1,35 +1,101 @@
-package prometheus
+package metrics
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
-	dto "github.com/prometheus/client_model/go"
-	"github.com/stretchr/testify/assert"
-	logtesting "knative.dev/pkg/logging/testing"
+	"context"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"regexp"
+	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
+	"knative.dev/eventing-kafka/pkg/common/env"
+	"knative.dev/eventing-kafka/pkg/common/k8s"
+	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
+	"knative.dev/eventing-kafka/pkg/controller/test"
+	injectionclient "knative.dev/pkg/client/injection/kube/client"
+	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/metrics"
+	"knative.dev/pkg/system"
 )
 
-func TestMetricsServer_Observe(t *testing.T) {
+func TestMetricsServer_Report(t *testing.T) {
 
-	logger := logtesting.TestLogger(t).Desugar()
-	
-	m := NewMetricsServer(logger, "8888", "/metrics")
+	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, constants.KnativeEventingNamespace))
+	assert.Nil(t, os.Setenv(env.MetricsDomainEnvVarKey, test.MetricsDomain))
 
-	m.Observe(statsJson)
+	// Create A Test Observability ConfigMap For The InitializeObservability() Call To Watch
+	tracingConfigMap := &corev1.ConfigMap{
+		TypeMeta: v1.TypeMeta{
+			Kind:       "ConfigMap",
+			APIVersion: corev1.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: v1.ObjectMeta{
+			Name:      metrics.ConfigMapName(),
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{
+			"metrics.backend-destination": "prometheus",
+			"profiling.enable":            "true",
+		},
+	}
 
-	assertGaugeEqual(t, m.receivedMsgCountGauges, "rdkafka#consumer-2", "test", "1", 3.0)
-	assertGaugeEqual(t, m.producedMsgCountGauges, "rdkafka#consumer-2", "test", "1", 215.0)
+	// Create The Fake K8S Client And Add It To The ConfigMap
+	fakeK8sClient := fake.NewSimpleClientset(tracingConfigMap)
 
+	// Add The Fake K8S Client To The Context (Required By InitializeObservability)
+	ctx := context.WithValue(context.TODO(), injectionclient.Key{}, fakeK8sClient)
+
+	sl := logtesting.TestLogger(t)
+	logger := sl.Desugar()
+
+	// Perform The Test (Initialize The Observability Watcher)
+	k8s.InitializeObservability(sl, ctx, test.MetricsDomain, test.MetricsPort)
+
+	m := NewStatsReporter(logger)
+
+	m.Report(statsJson)
+
+	resp, err := http.Get(fmt.Sprintf("http://localhost:%v/metrics", test.MetricsPort))
+	assert.Nil(t, err)
+	body, err := ioutil.ReadAll(resp.Body)
+	assert.Nil(t, err)
+	err = resp.Body.Close()
+	assert.Nil(t, err)
+
+	bodyStrings := strings.Split(string(body), "\n")
+
+	assert.True(t, verifyMetric(bodyStrings, "eventing_kafka_consumed_msg_count", "consumer", "rdkafka#consumer-2", "test", "1", "3"))
+	assert.True(t, verifyMetric(bodyStrings, "eventing_kafka_consumed_msg_count", "consumer", "rdkafka#consumer-2", "test", "1", "215"))
 }
 
-func assertGaugeEqual(t *testing.T, gaugeVec *prometheus.GaugeVec, name string, topicName string, partition string, expectedValue float64) {
-	gauge, err := gaugeVec.GetMetricWithLabelValues(name, topicName, partition)
+// Simple regex match that treats errors as false, for testing only
+func isMatch(source string, regex string) bool {
+	match, err := regexp.MatchString(source, regex)
 	if err != nil {
-		t.Fatalf("Unexpected Error: %s", err)
+		return false
 	}
-	metric := &dto.Metric{}
-	gauge.Write(metric)
+	return match
+}
 
-	assert.Equal(t, expectedValue, *metric.Gauge.Value)
+// Verifies that the metrics response string slice contains the desired values
+// This is test code so a quick regex check will suffice rather than parsing the Prometheus output in a more structured manner
+func verifyMetric(body []string, name string, source string, sourceValue string, topicName string, partition string, expectedValue string) bool {
+	for _, line := range body {
+		if isMatch(line, fmt.Sprintf(`^%s`, name)) &&
+			isMatch(line, fmt.Sprintf(`%s="%s"`, source, sourceValue)) &&
+			isMatch(line, fmt.Sprintf(`partition="%s"`, partition)) &&
+			isMatch(line, fmt.Sprintf(`topic="%s"`, topicName)) &&
+			isMatch(line, fmt.Sprintf(` %s$`, expectedValue)) {
+			return true
+		}
+	}
+	return false
 }
 
 var statsJson = `

@@ -15,6 +15,7 @@ import (
 const (
 	serviceAccount = "TestServiceAccount"
 	metricsPort    = "9999"
+	metricsDomain  = "example.com/kafka-eventing"
 	kafkaProvider  = "confluent"
 
 	kafkaOffsetCommitMessageCount   = "500"
@@ -48,6 +49,7 @@ type TestCase struct {
 	name                                 string
 	serviceAccount                       string
 	metricsPort                          string
+	metricsDomain                        string
 	kafkaProvider                        string
 	kafkaOffsetCommitMessageCount        string
 	kafkaOffsetCommitDurationMillis      string
@@ -89,6 +91,11 @@ func TestGetEnvironment(t *testing.T) {
 	testCase.expectedError = getMissingRequiredEnvironmentVariableError(commonenv.ServiceAccountEnvVarKey)
 	testCases = append(testCases, testCase)
 
+	testCase = getValidTestCase("Missing Required Config - MetricsDomain")
+	testCase.metricsDomain = ""
+	testCase.expectedError = getMissingRequiredEnvironmentVariableError(commonenv.MetricsDomainEnvVarKey)
+	testCases = append(testCases, testCase)
+
 	testCase = getValidTestCase("Missing Required Config - MetricsPort")
 	testCase.metricsPort = ""
 	testCase.expectedError = getMissingRequiredEnvironmentVariableError(commonenv.MetricsPortEnvVarKey)
@@ -113,8 +120,18 @@ func TestGetEnvironment(t *testing.T) {
 	testCase.kafkaOffsetCommitMessageCount = ""
 	testCases = append(testCases, testCase)
 
+	testCase = getValidTestCase("Invalid Config - KafkaOffsetCommitMessageCount")
+	testCase.kafkaOffsetCommitMessageCount = "NAN"
+	testCase.expectedError = getInvalidIntegerEnvironmentVariableError(testCase.kafkaOffsetCommitMessageCount, commonenv.KafkaOffsetCommitMessageCountEnvVarKey)
+	testCases = append(testCases, testCase)
+
 	testCase = getValidTestCase("Missing Optional Config - KafkaOffsetCommitDurationMillis")
 	testCase.kafkaOffsetCommitDurationMillis = ""
+	testCases = append(testCases, testCase)
+
+	testCase = getValidTestCase("Invalid Config - KafkaOffsetCommitDurationMillis")
+	testCase.kafkaOffsetCommitDurationMillis = "NAN"
+	testCase.expectedError = getInvalidIntegerEnvironmentVariableError(testCase.kafkaOffsetCommitDurationMillis, commonenv.KafkaOffsetCommitDurationMillisEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Required Config - DefaultNumPartitions")
@@ -289,6 +306,7 @@ func TestGetEnvironment(t *testing.T) {
 		// (Re)Setup The Environment Variables From TestCase
 		os.Clearenv()
 		assert.Nil(t, os.Setenv(commonenv.ServiceAccountEnvVarKey, testCase.serviceAccount))
+		assert.Nil(t, os.Setenv(commonenv.MetricsDomainEnvVarKey, testCase.metricsDomain))
 		if len(testCase.metricsPort) > 0 {
 			assert.Nil(t, os.Setenv(commonenv.MetricsPortEnvVarKey, testCase.metricsPort))
 		}
@@ -393,6 +411,7 @@ func getValidTestCase(name string) TestCase {
 		name:                                 name,
 		serviceAccount:                       serviceAccount,
 		metricsPort:                          metricsPort,
+		metricsDomain:                        metricsDomain,
 		kafkaProvider:                        kafkaProvider,
 		kafkaOffsetCommitMessageCount:        kafkaOffsetCommitMessageCount,
 		kafkaOffsetCommitDurationMillis:      kafkaOffsetCommitDurationMillis,
