@@ -20,14 +20,11 @@ import (
 	"knative.dev/pkg/signals"
 	"strconv"
 	"strings"
-	"time"
 )
 
 // Constants
 const (
-	Component                                      = "KafkaDispatcher"
-	DefaultKafkaConsumerPollTimeoutMillis          = 500 // Timeout Millis When Polling For Events
-	MinimumKafkaConsumerOffsetCommitDurationMillis = 250 // Azure EventHubs Restrict To 250ms Between Offset Commits
+	Component = "KafkaDispatcher"
 )
 
 // Variables
@@ -73,21 +70,17 @@ func main() {
 
 	// Create The Dispatcher With Specified Configuration
 	dispatcherConfig := dispatch.DispatcherConfig{
-		Logger:                      logger,
-		ClientId:                    Component,
-		Brokers:                     strings.Split(environment.KafkaBrokers, ","),
-		Topic:                       environment.KafkaTopic,
-		PollTimeoutMillis:           DefaultKafkaConsumerPollTimeoutMillis,
-		OffsetCommitCount:           environment.KafkaOffsetCommitMessageCount,
-		OffsetCommitDuration:        time.Duration(environment.KafkaOffsetCommitDurationMillis) * time.Millisecond,
-		OffsetCommitDurationMinimum: MinimumKafkaConsumerOffsetCommitDurationMillis * time.Millisecond,
-		Username:                    environment.KafkaUsername,
-		Password:                    environment.KafkaPassword,
-		ChannelKey:                  environment.ChannelKey,
-		StatsReporter:               statsReporter,
-		ExponentialBackoff:          environment.ExponentialBackoff,
-		InitialRetryInterval:        environment.InitialRetryInterval,
-		MaxRetryTime:                environment.MaxRetryTime,
+		Logger:               logger,
+		ClientId:             Component,
+		Brokers:              strings.Split(environment.KafkaBrokers, ","),
+		Topic:                environment.KafkaTopic,
+		Username:             environment.KafkaUsername,
+		Password:             environment.KafkaPassword,
+		ChannelKey:           environment.ChannelKey,
+		StatsReporter:        statsReporter,
+		ExponentialBackoff:   environment.ExponentialBackoff,
+		InitialRetryInterval: environment.InitialRetryInterval,
+		MaxRetryTime:         environment.MaxRetryTime,
 	}
 	dispatcher = dispatch.NewDispatcher(dispatcherConfig)
 

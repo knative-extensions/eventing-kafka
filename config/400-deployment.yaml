@@ -41,7 +41,7 @@ spec:
         - name: METRICS_PORT
           value: "8081"
         - name: METRICS_DOMAIN
-          value: "knative.dev/eventing"
+          value: "eventing-kafka"
         - name: KAFKA_PROVIDER
           value: "local"
         - name: KAFKA_OFFSET_COMMIT_MESSAGE_COUNT

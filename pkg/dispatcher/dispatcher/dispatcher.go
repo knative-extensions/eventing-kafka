@@ -11,26 +11,21 @@ import (
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1alpha1"
 	"knative.dev/eventing/pkg/channel"
 	"sync"
-	"time"
 )
 
 // Define A Dispatcher Config Struct To Hold Configuration
 type DispatcherConfig struct {
-	Logger                      *zap.Logger
-	ClientId                    string
-	Brokers                     []string
-	Topic                       string
-	PollTimeoutMillis           int
-	OffsetCommitCount           int64
-	OffsetCommitDuration        time.Duration
-	OffsetCommitDurationMinimum time.Duration
-	Username                    string
-	Password                    string
-	ChannelKey                  string
-	StatsReporter               metrics.StatsReporter
-	ExponentialBackoff          bool
-	InitialRetryInterval        int64
-	MaxRetryTime                int64
+	Logger               *zap.Logger
+	ClientId             string
+	Brokers              []string
+	Topic                string
+	Username             string
+	Password             string
+	ChannelKey           string
+	StatsReporter        metrics.StatsReporter
+	ExponentialBackoff   bool
+	InitialRetryInterval int64
+	MaxRetryTime         int64
 }
 
 // Knative Eventing SubscriberSpec Wrapper Enhanced With Sarama ConsumerGroup

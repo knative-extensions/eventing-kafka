@@ -116,24 +116,6 @@ func TestGetEnvironment(t *testing.T) {
 	testCase.expectedError = fmt.Errorf("invalid (unknown) value 'foo' for environment variable '%s'", commonenv.KafkaProviderEnvVarKey)
 	testCases = append(testCases, testCase)
 
-	testCase = getValidTestCase("Missing Optional Config - KafkaOffsetCommitMessageCount")
-	testCase.kafkaOffsetCommitMessageCount = ""
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Invalid Config - KafkaOffsetCommitMessageCount")
-	testCase.kafkaOffsetCommitMessageCount = "NAN"
-	testCase.expectedError = getInvalidInt64EnvironmentVariableError(testCase.kafkaOffsetCommitMessageCount, commonenv.KafkaOffsetCommitMessageCountEnvVarKey)
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Missing Optional Config - KafkaOffsetCommitDurationMillis")
-	testCase.kafkaOffsetCommitDurationMillis = ""
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Invalid Config - KafkaOffsetCommitDurationMillis")
-	testCase.kafkaOffsetCommitDurationMillis = "NAN"
-	testCase.expectedError = getInvalidInt64EnvironmentVariableError(testCase.kafkaOffsetCommitDurationMillis, commonenv.KafkaOffsetCommitDurationMillisEnvVarKey)
-	testCases = append(testCases, testCase)
-
 	testCase = getValidTestCase("Missing Required Config - DefaultNumPartitions")
 	testCase.defaultNumPartitions = ""
 	testCase.expectedError = getMissingRequiredEnvironmentVariableError(DefaultNumPartitionsEnvVarKey)
@@ -312,8 +294,6 @@ func TestGetEnvironment(t *testing.T) {
 		}
 
 		assert.Nil(t, os.Setenv(commonenv.KafkaProviderEnvVarKey, testCase.kafkaProvider))
-		assert.Nil(t, os.Setenv(commonenv.KafkaOffsetCommitMessageCountEnvVarKey, testCase.kafkaOffsetCommitMessageCount))
-		assert.Nil(t, os.Setenv(commonenv.KafkaOffsetCommitDurationMillisEnvVarKey, testCase.kafkaOffsetCommitDurationMillis))
 		if len(testCase.defaultNumPartitions) > 0 {
 			assert.Nil(t, os.Setenv(DefaultNumPartitionsEnvVarKey, testCase.defaultNumPartitions))
 		}
@@ -355,18 +335,6 @@ func TestGetEnvironment(t *testing.T) {
 			assert.Equal(t, testCase.metricsPort, strconv.Itoa(environment.MetricsPort))
 			assert.Equal(t, testCase.channelImage, environment.ChannelImage)
 			assert.Equal(t, testCase.dispatcherImage, environment.DispatcherImage)
-
-			if len(testCase.kafkaOffsetCommitMessageCount) > 0 {
-				assert.Equal(t, testCase.kafkaOffsetCommitMessageCount, strconv.FormatInt(environment.KafkaOffsetCommitMessageCount, 10))
-			} else {
-				assert.Equal(t, DefaultKafkaOffsetCommitMessageCount, strconv.FormatInt(environment.KafkaOffsetCommitMessageCount, 10))
-			}
-
-			if len(testCase.kafkaOffsetCommitDurationMillis) > 0 {
-				assert.Equal(t, testCase.kafkaOffsetCommitDurationMillis, strconv.FormatInt(environment.KafkaOffsetCommitDurationMillis, 10))
-			} else {
-				assert.Equal(t, DefaultKafkaOffsetCommitDurationMillis, strconv.FormatInt(environment.KafkaOffsetCommitDurationMillis, 10))
-			}
 
 			assert.Equal(t, testCase.defaultNumPartitions, fmt.Sprint(environment.DefaultNumPartitions))
 			assert.Equal(t, testCase.defaultReplicationFactor, fmt.Sprint(environment.DefaultReplicationFactor))

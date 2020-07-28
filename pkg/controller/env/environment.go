@@ -10,9 +10,6 @@ import (
 
 // Package Constants
 const (
-	// Default Values To Use If Not Available In Env Variables
-	DefaultKafkaOffsetCommitMessageCount   = "100"
-	DefaultKafkaOffsetCommitDurationMillis = "5000"
 
 	// Default Values To Use If Not Available In Knative Channels Argument
 	DefaultNumPartitionsEnvVarKey     = "DEFAULT_NUM_PARTITIONS"
@@ -135,18 +132,6 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 			logger.Error("Invalid / Unknown KafkaProvider", zap.String("Value", kafkaProviderString), zap.Error(err))
 			return nil, fmt.Errorf("invalid (unknown) value '%s' for environment variable '%s'", kafkaProviderString, env.KafkaProviderEnvVarKey)
 		}
-	}
-
-	// Get The Optional KafkaOffsetCommitMessageCount Config Value
-	environment.KafkaOffsetCommitMessageCount, err = env.GetOptionalConfigInt64(logger, env.KafkaOffsetCommitMessageCountEnvVarKey, DefaultKafkaOffsetCommitMessageCount, "KafkaOffsetCommitMessageCount")
-	if err != nil {
-		return nil, err
-	}
-
-	// Get The Optional KafkaOffsetCommitDurationMillis Config Value
-	environment.KafkaOffsetCommitDurationMillis, err = env.GetOptionalConfigInt64(logger, env.KafkaOffsetCommitDurationMillisEnvVarKey, DefaultKafkaOffsetCommitDurationMillis, "KafkaOffsetCommitMessageCount")
-	if err != nil {
-		return nil, err
 	}
 
 	// Get The Required DefaultNumPartitions Config Value & Convert To Int

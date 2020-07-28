@@ -104,18 +104,6 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 		return nil, err
 	}
 
-	// Get The Required K8S KafkaOffsetCommitMessageCount Config Value
-	environment.KafkaOffsetCommitMessageCount, err = env.GetRequiredConfigInt64(logger, env.KafkaOffsetCommitMessageCountEnvVarKey, "KafkaOffsetCommitMessageCount")
-	if err != nil {
-		return nil, err
-	}
-
-	// Get The Required K8S KafkaOffsetCommitDurationMillis Config Value
-	environment.KafkaOffsetCommitDurationMillis, err = env.GetRequiredConfigInt64(logger, env.KafkaOffsetCommitDurationMillisEnvVarKey, "KafkaOffsetCommitDurationMillis")
-	if err != nil {
-		return nil, err
-	}
-
 	// Get The Optional KafkaUsername Config Value
 	environment.KafkaUsername = env.GetOptionalConfigValue(logger, env.KafkaUsernameEnvVarKey, "")
 	if err != nil {

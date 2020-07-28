@@ -689,14 +689,6 @@ func NewKafkaChannelDispatcherDeployment() *appsv1.Deployment {
 									Value: topicName,
 								},
 								{
-									Name:  commonenv.KafkaOffsetCommitMessageCountEnvVarKey,
-									Value: strconv.Itoa(KafkaOffsetCommitMessageCount),
-								},
-								{
-									Name:  commonenv.KafkaOffsetCommitDurationMillisEnvVarKey,
-									Value: strconv.Itoa(KafkaOffsetCommitDurationMillis),
-								},
-								{
 									Name:  commonenv.ExponentialBackoffEnvVarKey,
 									Value: strconv.FormatBool(DefaultExponentialBackoff),
 								},
