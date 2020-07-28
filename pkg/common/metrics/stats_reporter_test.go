@@ -49,7 +49,6 @@ func TestMetricsServer_Report(t *testing.T) {
 		},
 		Data: map[string]string{
 			"metrics.backend-destination": "prometheus",
-			"profiling.enable":            "true",
 		},
 	}
 
