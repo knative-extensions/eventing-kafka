@@ -9,9 +9,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/constants"
 	channelhealth "knative.dev/eventing-kafka/pkg/channel/health"
 	"knative.dev/eventing-kafka/pkg/channel/test"
-
 	"knative.dev/eventing-kafka/pkg/common/metrics"
-	//>>>>>>> master
 	logtesting "knative.dev/pkg/logging/testing"
 	"testing"
 )
@@ -29,14 +27,30 @@ func TestNewProducer(t *testing.T) {
 	assert.True(t, producer.healthServer.ProducerReady())
 }
 
+// Test The ProduceKafkaMessage() Functionality For Event With PartitionKey
+func TestProduceKafkaMessageWithPartitionKey(t *testing.T) {
+	performProduceKafkaMessageTest(t, test.PartitionKey)
+}
+
+// Test The ProduceKafkaMessage() Functionality For Event Without PartitionKey
+func TestProduceKafkaMessageWithoutPartitionKey(t *testing.T) {
+	performProduceKafkaMessageTest(t, "")
+}
+
 // Test The ProduceKafkaMessage() Functionality
-func TestProduceKafkaMessage(t *testing.T) {
+func performProduceKafkaMessageTest(t *testing.T, partitionKey string) {
 
 	// Create Test Data
 	mockSyncProducer := test.NewMockSyncProducer(test.TopicName)
 	producer := createTestProducer(t, mockSyncProducer)
 	channelReference := test.CreateChannelReference(test.ChannelName, test.ChannelNamespace)
-	bindingMessage := test.CreateBindingMessage(cloudevents.VersionV1)
+	bindingMessage := test.CreateBindingMessage(cloudevents.VersionV1, partitionKey)
+
+	// Setup Expected PartitionKey (Defaults To Subject If Not Present In Event)
+	expectedPartitionKey := partitionKey
+	if len(partitionKey) <= 0 {
+		expectedPartitionKey = test.EventSubject
+	}
 
 	// Perform The Test & Verify Results
 	err := producer.ProduceKafkaMessage(context.Background(), channelReference, bindingMessage)
@@ -51,15 +65,16 @@ func TestProduceKafkaMessage(t *testing.T) {
 	assert.Equal(t, test.EventDataJson, value)
 	key, err := producerMessage.Key.Encode()
 	assert.Nil(t, err)
-	assert.Equal(t, test.PartitionKey, string(key))
-	test.ValidateProducerMessageHeader(t, producerMessage.Headers, constants.KafkaHeaderKeyContentType, test.EventDataContentType)
-	test.ValidateProducerMessageHeader(t, producerMessage.Headers, constants.CeKafkaHeaderKeySpecVersion, cloudevents.VersionV1)
-	test.ValidateProducerMessageHeader(t, producerMessage.Headers, constants.CeKafkaHeaderKeyType, test.EventType)
-	test.ValidateProducerMessageHeader(t, producerMessage.Headers, constants.CeKafkaHeaderKeyId, test.EventId)
-	test.ValidateProducerMessageHeader(t, producerMessage.Headers, constants.CeKafkaHeaderKeySource, test.EventSource)
-	test.ValidateProducerMessageHeader(t, producerMessage.Headers, constants.CeKafkaHeaderKeySubject, test.EventSubject)
-	test.ValidateProducerMessageHeader(t, producerMessage.Headers, constants.CeKafkaHeaderKeyDataSchema, test.EventDataSchema)
-	test.ValidateProducerMessageHeader(t, producerMessage.Headers, constants.CeKafkaHeaderKeyPartitionKey, test.PartitionKey)
+	assert.Equal(t, expectedPartitionKey, string(key))
+	test.ValidateProducerMessageHeaderValuePresent(t, producerMessage.Headers, constants.CeKafkaHeaderKeyTime)
+	test.ValidateProducerMessageHeaderValueEquality(t, producerMessage.Headers, constants.KafkaHeaderKeyContentType, test.EventDataContentType)
+	test.ValidateProducerMessageHeaderValueEquality(t, producerMessage.Headers, constants.CeKafkaHeaderKeySpecVersion, cloudevents.VersionV1)
+	test.ValidateProducerMessageHeaderValueEquality(t, producerMessage.Headers, constants.CeKafkaHeaderKeyType, test.EventType)
+	test.ValidateProducerMessageHeaderValueEquality(t, producerMessage.Headers, constants.CeKafkaHeaderKeyId, test.EventId)
+	test.ValidateProducerMessageHeaderValueEquality(t, producerMessage.Headers, constants.CeKafkaHeaderKeySource, test.EventSource)
+	test.ValidateProducerMessageHeaderValueEquality(t, producerMessage.Headers, constants.CeKafkaHeaderKeySubject, test.EventSubject)
+	test.ValidateProducerMessageHeaderValueEquality(t, producerMessage.Headers, constants.CeKafkaHeaderKeyDataSchema, test.EventDataSchema)
+	test.ValidateProducerMessageHeaderValueEquality(t, producerMessage.Headers, constants.CeKafkaHeaderKeyPartitionKey, expectedPartitionKey)
 }
 
 // Test The Producer's Close() Functionality

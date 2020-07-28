@@ -1,7 +1,5 @@
 package test
 
-import cloudevents "github.com/cloudevents/sdk-go/v2"
-
 // Test Data
 const (
 	ClientId = "TestClientId"
@@ -16,7 +14,6 @@ const (
 	TopicName = "TestChannelNamespace.TestChannelName" // Match util.go TopicName() Implementation For Channel Name/Namespace Abovce
 
 	PartitionKey         = "TestPartitionKey"
-	EventVersion         = cloudevents.VersionV1
 	EventId              = "TestEventId"
 	EventType            = "com.cloudevents.readme.sent"
 	EventSource          = "http://localhost:8080/"

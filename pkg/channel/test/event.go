@@ -10,7 +10,7 @@ import (
 var EventDataJson, _ = json.Marshal(map[string]string{EventDataKey: EventDataValue})
 
 // Utility Function For Creating A Test CloudEvent
-func CreateCloudEvent(cloudEventVersion string) *event.Event {
+func CreateCloudEvent(cloudEventVersion string, partitionKey string) *event.Event {
 	cloudEvent := event.New(cloudEventVersion)
 	cloudEvent.SetID(EventId)
 	cloudEvent.SetType(EventType)
@@ -18,7 +18,9 @@ func CreateCloudEvent(cloudEventVersion string) *event.Event {
 	cloudEvent.SetDataContentType(EventDataContentType)
 	cloudEvent.SetSubject(EventSubject)
 	cloudEvent.SetDataSchema(EventDataSchema)
-	cloudEvent.SetExtension(constants.ExtensionKeyPartitionKey, PartitionKey)
+	if len(partitionKey) > 0 {
+		cloudEvent.SetExtension(constants.ExtensionKeyPartitionKey, partitionKey)
+	}
 	_ = cloudEvent.SetData(EventDataContentType, EventDataJson)
 	return &cloudEvent
 }
