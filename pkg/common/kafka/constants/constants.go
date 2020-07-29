@@ -51,6 +51,14 @@ const (
 
 // Non-Constant Constants ;)
 var (
-	// Kafka Admin/Consumer/Producer Config Values
-	ConfigKafkaVersion = sarama.V2_3_0_0
+
+	//
+	// Kafka Version
+	//
+	// As with all the Sarama / Kafka config above this should be exposed for customization.
+	// Until then the value is hard-coded to the lowest common denominator version to provide
+	// the most compatible solution.  Specifically, Sarama's ConsumerGroups repeatedly close
+	// due to EOF failures when working against Azure EventHubs.
+	//
+	ConfigKafkaVersion = sarama.V1_0_0_0
 )

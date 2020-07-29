@@ -6,9 +6,6 @@ import (
 	"github.com/Shopify/sarama"
 	kafkasaramaprotocol "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"github.com/cloudevents/sdk-go/v2/binding"
-	"github.com/cloudevents/sdk-go/v2/binding/spec"
-	"github.com/cloudevents/sdk-go/v2/binding/transformer"
-	"github.com/cloudevents/sdk-go/v2/types"
 	gometrics "github.com/rcrowley/go-metrics"
 	"go.uber.org/zap"
 	"knative.dev/eventing-kafka/pkg/channel/constants"
@@ -89,12 +86,6 @@ func (p *Producer) ProduceKafkaMessage(ctx context.Context, channelReference eve
 	topicName := util.TopicName(channelReference)
 	logger := p.logger.With(zap.String("Topic", topicName))
 
-	// Append Time Transformer To Add "ce_time" Extension If Not Present
-	transformers = append(transformers, transformer.AddExtension("time", time.Now()))
-
-	// Append PartitionKey Transformer To Default "partitionkey" Extension To "subject" If Not Present
-	transformers = append(transformers, DefaultPartitionKeyTransformer())
-
 	// Initialize The Sarama ProducerMessage With The Specified Topic Name
 	producerMessage := &sarama.ProducerMessage{Topic: topicName}
 
@@ -113,20 +104,6 @@ func (p *Producer) ProduceKafkaMessage(ctx context.Context, channelReference eve
 		return err
 	} else {
 		logger.Debug("Successfully Sent Message To Kafka", zap.Int32("Partition", partition), zap.Int64("Offset", offset))
-		return nil
-	}
-}
-
-// Returns A CloudEvents TransformerFunc For Setting The "partitionkey" Extension To The Message's Subject If Not Already Set
-func DefaultPartitionKeyTransformer() binding.TransformerFunc {
-	return func(reader binding.MessageMetadataReader, writer binding.MessageMetadataWriter) error {
-		partitionKey := reader.GetExtension(constants.ExtensionKeyPartitionKey)
-		if types.IsZero(partitionKey) {
-			_, subjectValue := reader.GetAttribute(spec.Subject)
-			if !types.IsZero(subjectValue) {
-				return writer.SetExtension(constants.ExtensionKeyPartitionKey, subjectValue)
-			}
-		}
 		return nil
 	}
 }
