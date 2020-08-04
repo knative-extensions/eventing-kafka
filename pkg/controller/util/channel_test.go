@@ -17,10 +17,10 @@ const (
 	kafkaSecret              = "testkafkasecret"
 	channelName              = "testname"
 	channelNamespace         = "testnamespace"
-	numPartitions            = 123
-	defaultNumPartitions     = 987
-	replicationFactor        = 22
-	defaultReplicationFactor = 33
+	numPartitions            = int32(123)
+	defaultNumPartitions     = int32(987)
+	replicationFactor        = int16(22)
+	defaultReplicationFactor = int16(33)
 	defaultRetentionMillis   = int64(55555)
 )
 

@@ -1,6 +1,9 @@
 package constants
 
 const (
+	// The Controller's Component Name
+	ControllerComponentName = "eventingkafkachannel_controller"
+
 	// Knative Eventing Namespace
 	KnativeEventingNamespace = "knative-eventing"
 

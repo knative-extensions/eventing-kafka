@@ -69,7 +69,8 @@ const (
 	ReplicationFactor = 456
 
 	// Test MetaData
-	ErrorString = "Expected Mock Test Error"
+	ErrorString   = "Expected Mock Test Error"
+	SuccessString = "Expected Mock Test Success"
 
 	// Test Dispatcher Resources
 	DispatcherMemoryRequest = "20Mi"
@@ -82,6 +83,10 @@ const (
 	ChannelMemoryLimit   = "20Mi"
 	ChannelCpuRequest    = "10m"
 	ChannelCpuLimit      = "100m"
+)
+
+var (
+	DefaultRetentionMillisString = strconv.FormatInt(DefaultRetentionMillis, 10)
 )
 
 //
@@ -682,14 +687,6 @@ func NewKafkaChannelDispatcherDeployment() *appsv1.Deployment {
 								{
 									Name:  commonenv.KafkaTopicEnvVarKey,
 									Value: topicName,
-								},
-								{
-									Name:  commonenv.KafkaOffsetCommitMessageCountEnvVarKey,
-									Value: strconv.Itoa(KafkaOffsetCommitMessageCount),
-								},
-								{
-									Name:  commonenv.KafkaOffsetCommitDurationMillisEnvVarKey,
-									Value: strconv.Itoa(KafkaOffsetCommitDurationMillis),
 								},
 								{
 									Name:  commonenv.ExponentialBackoffEnvVarKey,

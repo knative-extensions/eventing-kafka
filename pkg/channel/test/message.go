@@ -1,24 +1,35 @@
 package test
 
 import (
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/Shopify/sarama"
+	"github.com/cloudevents/sdk-go/v2/binding"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
-// Utility Function For Validating A Kafka Message Header
-func ValidateKafkaMessageHeader(t *testing.T, headers []kafka.Header, headerKey string, headerValue string) {
-	found := false
+// Utility Function For Creating A CloudEvents sdk-go BindingMessage
+func CreateBindingMessage(cloudEventVersion string) binding.Message {
+	return binding.ToMessage(CreateCloudEvent(cloudEventVersion))
+}
+
+// Utility Function For Validating A Kafka Message Header Is Present With Specified Value
+func ValidateProducerMessageHeader(t *testing.T, headers []sarama.RecordHeader, headerKey string, headerValue string) {
+	header := GetProducerMessageHeader(t, headers, headerKey)
+	assert.NotNil(t, header)
+	assert.Equal(t, headerKey, string(header.Key))
+	assert.Equal(t, headerValue, string(header.Value))
+}
+
+// Utility Function For Acquiring A Kafka Message Header With The Specified Key
+func GetProducerMessageHeader(t *testing.T, headers []sarama.RecordHeader, headerKey string) *sarama.RecordHeader {
 	assert.NotNil(t, headers)
 	if len(headerKey) > 0 {
 		for _, header := range headers {
 			assert.NotNil(t, header)
-			if header.Key == headerKey {
-				assert.Equal(t, headerValue, string(header.Value))
-				found = true
-				break
+			if string(header.Key) == headerKey {
+				return &header
 			}
 		}
 	}
-	assert.True(t, found)
+	return nil
 }

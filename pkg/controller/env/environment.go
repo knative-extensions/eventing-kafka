@@ -10,9 +10,6 @@ import (
 
 // Package Constants
 const (
-	// Default Values To Use If Not Available In Env Variables
-	DefaultKafkaOffsetCommitMessageCount   = "100"
-	DefaultKafkaOffsetCommitDurationMillis = "5000"
 
 	// Default Values To Use If Not Available In Knative Channels Argument
 	DefaultNumPartitionsEnvVarKey     = "DEFAULT_NUM_PARTITIONS"
@@ -66,8 +63,8 @@ type Environment struct {
 	KafkaOffsetCommitDurationMillis int64  // Optional
 
 	// Default Values To Use If Not Available In Knative Channels Argument
-	DefaultNumPartitions     int   // Required
-	DefaultReplicationFactor int   // Required
+	DefaultNumPartitions     int32 // Required
+	DefaultReplicationFactor int16 // Required
 	DefaultRetentionMillis   int64 // Optional
 
 	// Resource configuration
@@ -137,26 +134,14 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 		}
 	}
 
-	// Get The Optional KafkaOffsetCommitMessageCount Config Value
-	environment.KafkaOffsetCommitMessageCount, err = env.GetOptionalConfigInt64(logger, env.KafkaOffsetCommitMessageCountEnvVarKey, DefaultKafkaOffsetCommitMessageCount, "KafkaOffsetCommitMessageCount")
-	if err != nil {
-		return nil, err
-	}
-
-	// Get The Optional KafkaOffsetCommitDurationMillis Config Value
-	environment.KafkaOffsetCommitDurationMillis, err = env.GetOptionalConfigInt64(logger, env.KafkaOffsetCommitDurationMillisEnvVarKey, DefaultKafkaOffsetCommitDurationMillis, "KafkaOffsetCommitMessageCount")
-	if err != nil {
-		return nil, err
-	}
-
 	// Get The Required DefaultNumPartitions Config Value & Convert To Int
-	environment.DefaultNumPartitions, err = env.GetRequiredConfigInt(logger, DefaultNumPartitionsEnvVarKey, "DefaultNumPartitions")
+	environment.DefaultNumPartitions, err = env.GetRequiredConfigInt32(logger, DefaultNumPartitionsEnvVarKey, "DefaultNumPartitions")
 	if err != nil {
 		return nil, err
 	}
 
 	// Get The Required DefaultReplicationFactor Config Value & Convert To Int
-	environment.DefaultReplicationFactor, err = env.GetRequiredConfigInt(logger, DefaultReplicationFactorEnvVarKey, "DefaultReplicationFactor")
+	environment.DefaultReplicationFactor, err = env.GetRequiredConfigInt16(logger, DefaultReplicationFactorEnvVarKey, "DefaultReplicationFactor")
 	if err != nil {
 		return nil, err
 	}

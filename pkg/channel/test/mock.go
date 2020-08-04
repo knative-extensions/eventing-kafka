@@ -2,88 +2,55 @@ package test
 
 import (
 	"errors"
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/Shopify/sarama"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	kafkav1alpha1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
 	kafkalisters "knative.dev/eventing-contrib/kafka/channel/pkg/client/listers/messaging/v1alpha1"
-	kafkaproducer "knative.dev/eventing-kafka/pkg/common/kafka/producer"
 )
 
 //
-// Mock Confluent Producer
+// Mock Kafka Producer
 //
 
-var _ kafkaproducer.ProducerInterface = &MockProducer{}
+var _ sarama.SyncProducer = &MockSyncProducer{}
 
-type MockProducer struct {
-	config              *kafka.ConfigMap
-	produce             chan *kafka.Message
-	events              chan kafka.Event
-	testResponseMessage *kafka.Message
-	closed              bool
+type MockSyncProducer struct {
+	producerMessages chan sarama.ProducerMessage
+	offset           int64
+	closed           bool
 }
 
-func NewMockProducer(topicName string) *MockProducer {
-
-	testResponseMessage := &kafka.Message{
-		TopicPartition: kafka.TopicPartition{
-			Topic:     &topicName,
-			Partition: 1,
-			Offset:    -1,
-			Error:     nil,
-		},
-	}
-
-	return &MockProducer{
-		config:              nil,
-		produce:             make(chan *kafka.Message, 1),
-		events:              make(chan kafka.Event, 1),
-		testResponseMessage: testResponseMessage,
-		closed:              false,
+func NewMockSyncProducer(topicName string) *MockSyncProducer {
+	return &MockSyncProducer{
+		producerMessages: make(chan sarama.ProducerMessage, 1),
+		closed:           false,
 	}
 }
 
-// String returns a human readable name for a Producer instance
-func (p *MockProducer) String() string {
-	return ""
+func (p *MockSyncProducer) SendMessage(msg *sarama.ProducerMessage) (partition int32, offset int64, err error) {
+	p.producerMessages <- *msg
+	p.offset = p.offset + 1
+	return 1, p.offset, nil
 }
 
-func (p *MockProducer) Produce(msg *kafka.Message, deliveryChan chan kafka.Event) error {
-	p.produce <- msg
-
-	// Write back to the deliveryChan has to be done in a separate goroutine
-	go func() {
-		deliveryChan <- p.testResponseMessage
-	}()
-
+func (p *MockSyncProducer) SendMessages(msgs []*sarama.ProducerMessage) error {
+	// Not Currently In Use - No Need To Mock
 	return nil
 }
 
-func (p *MockProducer) Events() chan kafka.Event {
-	return p.events
+func (p *MockSyncProducer) GetMessage() sarama.ProducerMessage {
+	return <-p.producerMessages
 }
 
-func (p *MockProducer) ProduceChannel() chan *kafka.Message {
-	return p.produce
-}
-
-func (p *MockProducer) Len() int {
-	return 0
-}
-
-func (p *MockProducer) Flush(timeoutMs int) int {
-	return 0
-}
-
-func (p *MockProducer) Close() {
-	close(p.events)
-	close(p.produce)
+func (p *MockSyncProducer) Close() error {
 	p.closed = true
+	close(p.producerMessages)
+	return nil
 }
 
-func (p *MockProducer) Closed() bool {
+func (p *MockSyncProducer) Closed() bool {
 	return p.closed
 }
 

@@ -1,23 +1,26 @@
 package controller
 
 import (
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
 	clientgotesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/record"
 	"knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
 	"knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned"
-	kafkaconsumer "knative.dev/eventing-kafka/pkg/common/kafka/consumer"
+	fakeclientset "knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned/fake"
+	"knative.dev/eventing-contrib/kafka/channel/pkg/client/informers/externalversions"
 	"knative.dev/eventing-kafka/pkg/dispatcher/dispatcher"
 	dispatchertesting "knative.dev/eventing-kafka/pkg/dispatcher/testing"
 	reconciletesting "knative.dev/eventing-kafka/pkg/dispatcher/testing"
+	eventingduck "knative.dev/eventing/pkg/apis/duck/v1alpha1"
 	"knative.dev/pkg/controller"
+	kncontroller "knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
 	. "knative.dev/pkg/reconciler/testing"
 	reconcilertesting "knative.dev/pkg/reconciler/testing"
-	"sync"
 	"testing"
 	"time"
 )
@@ -25,19 +28,6 @@ import (
 const (
 	testNS = "test-namespace"
 	kcName = "test-kc"
-
-	testBrokers                 = "TestBrokers"
-	testTopic                   = "TestTopic"
-	testOffset                  = "latest"
-	testPollTimeoutMillis       = 500 // Not Used By Mock Consumer ; )
-	testOffsetCommitCount       = 2
-	testOffsetCommitDuration    = 50 * time.Millisecond // Small Durations For Testing!
-	testOffsetCommitDurationMin = 50 * time.Millisecond // Small Durations For Testing!
-	testUsername                = "TestUsername"
-	testPassword                = "TestPassword"
-	testExponentialBackoff      = false
-	testInitialRetryInterval    = 500
-	testMaxRetryTime            = 5000
 )
 
 func init() {
@@ -45,19 +35,41 @@ func init() {
 	_ = v1alpha1.AddToScheme(scheme.Scheme)
 }
 
+// Test The NewController() Functionality
+func TestNewController(t *testing.T) {
+
+	// Test Data
+	logger := logtesting.TestLogger(t).Desugar()
+	channelKey := "TestChannelKey"
+	mockDispatcher := NewMockDispatcher(t)
+	fakeKafkaChannelClientSet := fakeclientset.NewSimpleClientset()
+	fakeK8sClientSet := fake.NewSimpleClientset()
+	kafkaInformerFactory := externalversions.NewSharedInformerFactory(fakeKafkaChannelClientSet, kncontroller.DefaultResyncPeriod)
+	kafkaChannelInformer := kafkaInformerFactory.Messaging().V1alpha1().KafkaChannels()
+	stopChan := make(chan struct{})
+
+	// Perform The Test
+	c := NewController(logger, channelKey, mockDispatcher, kafkaChannelInformer, fakeK8sClientSet, fakeKafkaChannelClientSet, stopChan)
+
+	// Verify Results
+	assert.NotNil(t, c)
+
+	// Close The
+	close(stopChan)
+}
+
+// Test KafkaChannel Controller Reconciliation
 func TestAllCases(t *testing.T) {
 	kcKey := testNS + "/" + kcName
 
 	table := reconcilertesting.TableTest{
 		{
-			Name: "bad workqueue key",
-			// Make sure Reconcile handles bad keys.
-			Key: "too/many/parts",
+			Name: "bad workqueue key", // Make sure Reconcile handles bad keys.
+			Key:  "too/many/parts",
 		},
 		{
-			Name: "key not found",
-			// Make sure Reconcile handles good keys that don't exist.
-			Key: "foo/not-found",
+			Name: "key not found", // Make sure Reconcile handles good keys that don't exist.
+			Key:  "foo/not-found",
 		},
 		{
 			Name: "not our channel, so should be ignored",
@@ -131,12 +143,13 @@ func TestAllCases(t *testing.T) {
 
 	table.Test(t, reconciletesting.MakeFactory(func(listers *dispatchertesting.Listers, kafkaClient versioned.Interface, eventRecorder record.EventRecorder) controller.Reconciler {
 		return &Reconciler{
-			Logger:               logtesting.TestLogger(t).Desugar(),
+			logger:               logtesting.TestLogger(t).Desugar(),
+			channelKey:           kcKey,
 			kafkachannelInformer: nil,
 			kafkachannelLister:   listers.GetKafkaChannelLister(),
-			dispatcher:           NewTestDispatcher(t, kcKey),
-			Recorder:             eventRecorder,
-			KafkaClientSet:       kafkaClient,
+			dispatcher:           NewMockDispatcher(t),
+			recorder:             eventRecorder,
+			kafkaClientSet:       kafkaClient,
 		}
 	}))
 
@@ -144,130 +157,26 @@ func TestAllCases(t *testing.T) {
 	time.Sleep(1 * time.Second)
 }
 
-func NewTestDispatcher(t *testing.T, channelKey string) *dispatcher.Dispatcher {
+//
+// Mock Dispatcher Implementation
+//
 
-	// Create A Test Logger
-	logger := logtesting.TestLogger(t).Desugar()
+// Verify The Mock MessageDispatcher Implements The Interface
+var _ dispatcher.Dispatcher = &MockDispatcher{}
 
-	// Replace The NewClient Wrapper To Provide Mock Consumer & Defer Reset
-	newConsumerWrapperPlaceholder := kafkaconsumer.NewConsumerWrapper
-	kafkaconsumer.NewConsumerWrapper = func(configMap *kafka.ConfigMap) (kafkaconsumer.ConsumerInterface, error) {
-		return NewMockConsumer(), nil
-	}
-	defer func() { kafkaconsumer.NewConsumerWrapper = newConsumerWrapperPlaceholder }()
-
-	// Create A New Dispatcher
-	dispatcherConfig := dispatcher.DispatcherConfig{
-		Logger:                      logger,
-		Brokers:                     testBrokers,
-		Topic:                       testTopic,
-		Offset:                      testOffset,
-		PollTimeoutMillis:           testPollTimeoutMillis,
-		OffsetCommitCount:           testOffsetCommitCount,
-		OffsetCommitDuration:        testOffsetCommitDuration,
-		OffsetCommitDurationMinimum: testOffsetCommitDurationMin,
-		Username:                    testUsername,
-		Password:                    testPassword,
-		ChannelKey:                  channelKey,
-		ExponentialBackoff:          testExponentialBackoff,
-		InitialRetryInterval:        testInitialRetryInterval,
-		MaxRetryTime:                testMaxRetryTime,
-	}
-	testDispatcher := dispatcher.NewDispatcher(dispatcherConfig)
-	return testDispatcher
+// Define The Mock Dispatcher
+type MockDispatcher struct {
+	t *testing.T
 }
 
-var _ kafkaconsumer.ConsumerInterface = &MockConsumer{}
-
-func NewMockConsumer() *MockConsumer {
-	return &MockConsumer{
-		events:       make(chan kafka.Event),
-		commits:      make(map[int32]kafka.Offset),
-		offsets:      make(map[int32]kafka.Offset),
-		offsetsMutex: &sync.Mutex{},
-		closed:       false,
-	}
+// Mock Dispatcher Constructor
+func NewMockDispatcher(t *testing.T) MockDispatcher {
+	return MockDispatcher{t: t}
 }
 
-type MockConsumer struct {
-	events             chan kafka.Event
-	commits            map[int32]kafka.Offset
-	offsets            map[int32]kafka.Offset
-	offsetsMutex       *sync.Mutex
-	eventsChanEnable   bool
-	readerTermChan     chan bool
-	rebalanceCb        kafka.RebalanceCb
-	appReassigned      bool
-	appRebalanceEnable bool // config setting
-	closed             bool
+func (m MockDispatcher) Shutdown() {
 }
 
-func (mc *MockConsumer) OffsetsForTimes(times []kafka.TopicPartition, timeoutMs int) (offsets []kafka.TopicPartition, err error) {
-	return nil, nil
-}
-
-func (mc *MockConsumer) GetMetadata(topic *string, allTopics bool, timeoutMs int) (*kafka.Metadata, error) {
-	return nil, nil
-}
-
-func (mc *MockConsumer) CommitOffsets(offsets []kafka.TopicPartition) ([]kafka.TopicPartition, error) {
-	return nil, nil
-}
-
-func (mc *MockConsumer) QueryWatermarkOffsets(topic string, partition int32, timeoutMs int) (low, high int64, err error) {
-	return 0, 0, nil
-}
-
-func (mc *MockConsumer) Poll(timeout int) kafka.Event {
-	// Non-Blocking Event Forwarding (Timeout Ignored)
-	select {
-	case event := <-mc.events:
-		return event
-	default:
-		return nil
-	}
-}
-
-func (mc *MockConsumer) CommitMessage(message *kafka.Message) ([]kafka.TopicPartition, error) {
-	return nil, nil
-}
-
-func (mc *MockConsumer) Close() error {
-	mc.closed = true
-	close(mc.events)
+func (m MockDispatcher) UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error {
 	return nil
-}
-
-func (mc *MockConsumer) Subscribe(topic string, rebalanceCb kafka.RebalanceCb) error {
-	return nil
-}
-
-func (mc *MockConsumer) sendMessage(message kafka.Event) {
-	mc.events <- message
-}
-
-func (mc *MockConsumer) getCommits() map[int32]kafka.Offset {
-	return mc.commits
-}
-
-func (mc *MockConsumer) Assignment() (partitions []kafka.TopicPartition, err error) {
-	return nil, nil
-}
-
-func (mc *MockConsumer) Commit() ([]kafka.TopicPartition, error) {
-	mc.offsetsMutex.Lock()
-	for partition, offset := range mc.offsets {
-		mc.commits[partition] = offset
-	}
-	mc.offsetsMutex.Unlock()
-	return nil, nil
-}
-
-func (mc *MockConsumer) StoreOffsets(offsets []kafka.TopicPartition) (storedOffsets []kafka.TopicPartition, err error) {
-	mc.offsetsMutex.Lock()
-	for _, partition := range offsets {
-		mc.offsets[partition.Partition] = partition.Offset
-	}
-	mc.offsetsMutex.Unlock()
-	return nil, nil
 }

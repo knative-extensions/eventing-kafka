@@ -2,13 +2,12 @@ package test
 
 import (
 	"context"
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/Shopify/sarama"
 	kafkaadmin "knative.dev/eventing-kafka/pkg/common/kafka/admin"
-	kafkaconsumer "knative.dev/eventing-kafka/pkg/common/kafka/consumer"
 )
 
 //
-// Mock Confluent AdminClient
+// Mock Kafka AdminClient
 //
 
 // Verify The Mock AdminClient Implements The KafkaAdminClient Interface
@@ -16,19 +15,21 @@ var _ kafkaadmin.AdminClientInterface = &MockAdminClient{}
 
 // Mock Kafka AdminClient Implementation
 type MockAdminClient struct {
+	closeCalled         bool
 	createTopicsCalled  bool
 	deleteTopicsCalled  bool
-	MockCreateTopicFunc func(context.Context, []kafka.TopicSpecification, ...kafka.CreateTopicsAdminOption) ([]kafka.TopicResult, error)
-	MockDeleteTopicFunc func(context.Context, []string, ...kafka.DeleteTopicsAdminOption) ([]kafka.TopicResult, error)
+	MockCreateTopicFunc func(context.Context, string, *sarama.TopicDetail) *sarama.TopicError
+	MockDeleteTopicFunc func(context.Context, string) *sarama.TopicError
 }
 
-// Mock Kafka AdminClient CreateTopics Function - Calls Custom CreateTopics If Specified, Otherwise Returns Success
-func (m *MockAdminClient) CreateTopics(ctx context.Context, topics []kafka.TopicSpecification, options ...kafka.CreateTopicsAdminOption) (result []kafka.TopicResult, err error) {
+// Mock Kafka AdminClient CreateTopic() Function - Calls Custom CreateTopic() If Specified, Otherwise Returns Success
+func (m *MockAdminClient) CreateTopic(ctx context.Context, topicName string, topicDetail *sarama.TopicDetail) *sarama.TopicError {
 	m.createTopicsCalled = true
 	if m.MockCreateTopicFunc != nil {
-		return m.MockCreateTopicFunc(ctx, topics, options...)
+		return m.MockCreateTopicFunc(ctx, topicName, topicDetail)
 	}
-	return []kafka.TopicResult{}, nil
+	errMsg := "mock CreateTopic() success"
+	return &sarama.TopicError{Err: sarama.ErrNoError, ErrMsg: &errMsg}
 }
 
 // Check On Calls To CreateTopics()
@@ -36,13 +37,14 @@ func (m *MockAdminClient) CreateTopicsCalled() bool {
 	return m.createTopicsCalled
 }
 
-// Mock Kafka AdminClient DeleteTopics Function - Calls Custom DeleteTopics If Specified, Otherwise Returns Success
-func (m *MockAdminClient) DeleteTopics(ctx context.Context, topics []string, options ...kafka.DeleteTopicsAdminOption) (result []kafka.TopicResult, err error) {
+// Mock Kafka AdminClient DeleteTopic() Function - Calls Custom DeleteTopic() If Specified, Otherwise Returns Success
+func (m *MockAdminClient) DeleteTopic(ctx context.Context, topicName string) *sarama.TopicError {
 	m.deleteTopicsCalled = true
 	if m.MockDeleteTopicFunc != nil {
-		return m.MockDeleteTopicFunc(ctx, topics, options...)
+		return m.MockDeleteTopicFunc(ctx, topicName)
 	}
-	return []kafka.TopicResult{}, nil
+	errMsg := "mock DeleteTopic() success"
+	return &sarama.TopicError{Err: sarama.ErrNoError, ErrMsg: &errMsg}
 }
 
 // Check On Calls To DeleteTopics()
@@ -51,80 +53,17 @@ func (m *MockAdminClient) DeleteTopicsCalled() bool {
 }
 
 // Mock Kafka AdminClient Close Function - NoOp
-func (m *MockAdminClient) Close() {
-	return
+func (m *MockAdminClient) Close() error {
+	m.closeCalled = true
+	return nil
+}
+
+// Check On Calls To Close()
+func (m *MockAdminClient) CloseCalled() bool {
+	return m.closeCalled
 }
 
 // Mock Kafka Secret Name Function - Return Test Data
-func (m *MockAdminClient) GetKafkaSecretName(topicName string) string {
+func (m *MockAdminClient) GetKafkaSecretName(_ string) string {
 	return KafkaSecretName
-}
-
-//
-// Mock ConsumerInterface Implementation
-//
-
-var _ kafkaconsumer.ConsumerInterface = &MockConsumer{}
-
-type MockConsumer struct {
-	events             chan kafka.Event
-	eventsChanEnable   bool
-	readerTermChan     chan bool
-	rebalanceCb        kafka.RebalanceCb
-	appReassigned      bool
-	appRebalanceEnable bool // config setting
-	closed             bool
-}
-
-func (mc *MockConsumer) StoreOffsets(offsets []kafka.TopicPartition) (storedOffsets []kafka.TopicPartition, err error) {
-	return nil, nil
-}
-
-func (mc *MockConsumer) Commit() ([]kafka.TopicPartition, error) {
-	return nil, nil
-}
-
-func (mc *MockConsumer) QueryWatermarkOffsets(topic string, partition int32, timeoutMs int) (low, high int64, err error) {
-	return 0, 0, nil
-}
-
-func (mc *MockConsumer) OffsetsForTimes(times []kafka.TopicPartition, timeoutMs int) (offsets []kafka.TopicPartition, err error) {
-	return nil, nil
-}
-
-func (mc *MockConsumer) GetMetadata(topic *string, allTopics bool, timeoutMs int) (*kafka.Metadata, error) {
-	metadata := kafka.Metadata{
-		Topics: map[string]kafka.TopicMetadata{
-			TopicName: {
-				Partitions: []kafka.PartitionMetadata{{}, {}},
-			},
-		},
-	}
-	return &metadata, nil
-}
-
-func (mc *MockConsumer) CommitOffsets(offsets []kafka.TopicPartition) ([]kafka.TopicPartition, error) {
-	return nil, nil
-}
-
-func (mc *MockConsumer) Poll(timeout int) kafka.Event {
-	return <-mc.events
-}
-
-func (mc *MockConsumer) CommitMessage(*kafka.Message) ([]kafka.TopicPartition, error) {
-	return nil, nil
-}
-
-func (mc *MockConsumer) Close() error {
-	mc.closed = true
-	close(mc.events)
-	return nil
-}
-
-func (mc *MockConsumer) Subscribe(topic string, rebalanceCb kafka.RebalanceCb) error {
-	return nil
-}
-
-func (mc *MockConsumer) sendMessage(message kafka.Event) {
-	mc.events <- message
 }

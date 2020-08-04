@@ -18,12 +18,7 @@ knative-eventing namespace.  This is all necessary so that the Channel
 implementation can use the hostname of the request to map incoming CloudEvents
 to the appropriate Kafka Topic.
 
-The implementation makes use of the
-[Confluent Go Client](https://github.com/confluentinc/confluent-kafka-go)
-library, along with the underlying C/C++
-[librdkafka](https://github.com/edenhill/librdkafka) library.
-The Kafka brokers and credentials are obtained from mounted Secret data
-from the aforementiond Kafka Secret.
+The Kafka brokers and credentials are obtained from mounted Secret data from the aforementiond Kafka Secret.
 
 ## Tracing, Profiling, and Metrics
 

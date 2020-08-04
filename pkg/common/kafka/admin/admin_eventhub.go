@@ -2,12 +2,12 @@ package admin
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	eventhub "github.com/Azure/azure-event-hubs-go"
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
 	"knative.dev/eventing-kafka/pkg/common/kafka/admin/eventhubcache"
+	adminutil "knative.dev/eventing-kafka/pkg/common/kafka/admin/util"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	"knative.dev/pkg/logging"
 	"math"
@@ -67,37 +67,14 @@ func NewEventHubAdminClient(ctx context.Context, namespace string) (AdminClientI
 }
 
 // Kafka AdminClient CreateTopics Implementation Using Azure EventHub API
-func (c *EventHubAdminClient) CreateTopics(ctx context.Context, topicSpecifications []kafka.TopicSpecification, createTopicsAdminOptions ...kafka.CreateTopicsAdminOption) ([]kafka.TopicResult, error) {
-
-	// Create The TopicResults Array For Collecting Results
-	topicResults := make([]kafka.TopicResult, len(topicSpecifications))
-
-	// Loop Over All TopicSpecifications
-	var topicErr error
-	for index, topicSpecification := range topicSpecifications {
-
-		// Create The Specified Topic (EventHub) & Track Results
-		topicResult, err := c.createTopic(ctx, topicSpecification)
-		topicResults[index] = topicResult
-		if err != nil {
-			topicErr = err // Will Just Use Last Error - Similar To What Kafka Does
-		}
-	}
-
-	// Return The Topic Results
-	return topicResults, topicErr
-}
-
-// Create A Single Topic (EventHub) From The Specified TopicSpecification
-func (c *EventHubAdminClient) createTopic(ctx context.Context, topicSpecification kafka.TopicSpecification) (kafka.TopicResult, error) {
+func (c *EventHubAdminClient) CreateTopic(ctx context.Context, topicName string, topicDetail *sarama.TopicDetail) *sarama.TopicError {
 
 	// Extract The Kafka TopicSpecification Configuration
-	topicName := topicSpecification.Topic
-	topicNumPartitions := topicSpecification.NumPartitions
-	topicRetentionMillis, err := strconv.ParseInt(topicSpecification.Config[constants.TopicSpecificationConfigRetentionMs], 10, 64)
+	topicNumPartitions := topicDetail.NumPartitions
+	topicRetentionMillis, err := strconv.ParseInt(*topicDetail.ConfigEntries[constants.TopicDetailConfigRetentionMs], 10, 64)
 	if err != nil {
-		c.logger.Error("Failed To Parse Retention Millis From TopicSpecification", zap.Error(err))
-		return getTopicResult(topicName, kafka.ErrInvalidConfig), err
+		c.logger.Error("Failed To Parse Retention Millis From TopicDetail", zap.Error(err))
+		return adminutil.NewTopicError(sarama.ErrInvalidConfig, "failed to parse retention millis from TopicDetail")
 	}
 
 	// Convert Kafka Retention Millis To Azure EventHub Retention Days
@@ -113,40 +90,38 @@ func (c *EventHubAdminClient) createTopic(ctx context.Context, topicSpecificatio
 
 			// No EventHub Namespaces Found In Cache - Return Error
 			c.logger.Warn("Found No EventHub Namespace In Cache - Skipping Topic Creation", zap.String("Topic", topicName))
-			err = errors.New(fmt.Sprintf("no azure eventhub namespaces in cache - unable to create EventHub '%s'", topicName))
-			return getTopicResult(topicName, kafka.ErrInvalidConfig), err
+			return adminutil.NewTopicError(sarama.ErrInvalidConfig, fmt.Sprintf("no azure eventhub namespaces in cache - unable to create EventHub '%s'", topicName))
 		}
 	}
 
 	// If The HubManager Is Not Valid Then Return Error
 	if eventHubNamespace.HubManager == nil {
 		c.logger.Warn("Failed To Find EventHub Namespace With Valid HubManager - Skipping Topic Creation", zap.String("Topic", topicName))
-		err = errors.New(fmt.Sprintf("azure namespace has invalid HubManager - unable to create EventHub '%s'", topicName))
-		return getTopicResult(topicName, kafka.ErrInvalidConfig), err
+		return adminutil.NewTopicError(sarama.ErrInvalidConfig, fmt.Sprintf("azure namespace has invalid HubManager - unable to create EventHub '%s'", topicName))
 	}
 
 	// Create The EventHub (Topic) Via The PUT Rest Endpoint
 	_, err = eventHubNamespace.HubManager.Put(ctx, topicName,
-		eventhub.HubWithPartitionCount(int32(topicNumPartitions)),
+		eventhub.HubWithPartitionCount(topicNumPartitions),
 		eventhub.HubWithMessageRetentionInDays(topicRetentionDays))
 	if err != nil {
 
 		// Handle Specific EventHub Error Codes (To Emulate Kafka Admin Behavior)
 		errorCode := getEventHubErrorCode(err)
 		if errorCode == constants.EventHubErrorCodeConflict {
-			return getTopicResult(topicName, kafka.ErrTopicAlreadyExists), nil
+			return adminutil.NewTopicError(sarama.ErrTopicAlreadyExists, "mapped from EventHubErrorCodeConflict")
 		} else if errorCode == constants.EventHubErrorCodeCapacityLimit {
 			c.logger.Warn("Failed To Create EventHub - Reached Capacity Limit", zap.Error(err))
-			return getTopicResult(topicName, kafka.ErrTopicException), err
+			return adminutil.NewTopicError(sarama.ErrInvalidTxnState, "mapped from EventHubErrorCodeCapacityLimit")
 		} else if errorCode == constants.EventHubErrorCodeUnknown {
 			c.logger.Error("Failed To Create EventHub - Missing Error Code", zap.Error(err))
-			return getTopicResult(topicName, kafka.ErrUnknown), err
+			return adminutil.NewUnknownTopicError("mapped from EventHubErrorCodeUnknown")
 		} else if errorCode == constants.EventHubErrorCodeParseFailure {
 			c.logger.Error("Failed To Create EventHub - Failed To Parse Error Code", zap.Error(err))
-			return getTopicResult(topicName, kafka.ErrFail), err
+			return adminutil.NewUnknownTopicError("mapped from EventHubErrorCodeParseFailure")
 		} else {
 			c.logger.Error("Failed To Create EventHub - Received Unmapped Error Code", zap.Error(err))
-			return getTopicResult(topicName, kafka.ErrFail), err
+			return adminutil.NewUnknownTopicError(fmt.Sprintf("received unmapped eventhub error code '%d'", errorCode))
 		}
 	}
 
@@ -154,33 +129,11 @@ func (c *EventHubAdminClient) createTopic(ctx context.Context, topicSpecificatio
 	c.cache.AddEventHub(ctx, topicName, eventHubNamespace)
 
 	// Return Success!
-	return getTopicResult(topicName, kafka.ErrNoError), nil
+	return adminutil.NewTopicError(sarama.ErrNoError, "successfully created topic")
 }
 
-// Kafka AdminClient DeleteTopics Implementation Using Azure EventHub API
-func (c *EventHubAdminClient) DeleteTopics(ctx context.Context, topicNames []string, deleteOptions ...kafka.DeleteTopicsAdminOption) ([]kafka.TopicResult, error) {
-
-	// Create The TopicResults Array For Collecting Results
-	topicResults := make([]kafka.TopicResult, len(topicNames))
-
-	// Loop Over All Topic Names
-	var topicErr error
-	for index, topicName := range topicNames {
-
-		// Delete The Specified Topic (EventHub) & Track Results
-		topicResult, err := c.deleteTopic(ctx, topicName)
-		topicResults[index] = topicResult
-		if err != nil {
-			topicErr = err // Will Just Use Last Error - Similar To What Kafka Does
-		}
-	}
-
-	// Return The Topic Results
-	return topicResults, topicErr
-}
-
-// Delete A Single Topic (EventHub) From The Specified TopicSpecification
-func (c *EventHubAdminClient) deleteTopic(ctx context.Context, topicName string, deleteOptions ...kafka.DeleteTopicsAdminOption) (kafka.TopicResult, error) {
+// Delete A Single Topic (EventHub) Via The Azure EventHub API
+func (c *EventHubAdminClient) DeleteTopic(ctx context.Context, topicName string) *sarama.TopicError {
 
 	// Azure EventHub Delete API Does NOT Accept Any Parameters So The Kafka DeleteTopicsAdminOptions Are Ignored
 
@@ -190,30 +143,29 @@ func (c *EventHubAdminClient) deleteTopic(ctx context.Context, topicName string,
 	// If No Namespace Was Found For The EventHub (Topic) Then Return Error
 	if eventHubNamespace == nil {
 		c.logger.Warn("Failed To Find EventHub Namespace For Topic - Skipping Topic Deletion", zap.String("Topic", topicName))
-		err := errors.New(fmt.Sprintf("no azure namespace found for EventHub - unable to delete EventHub '%s'", topicName))
-		return getTopicResult(topicName, kafka.ErrInvalidConfig), err
+		return adminutil.NewTopicError(sarama.ErrInvalidConfig, fmt.Sprintf("no azure namespace found for EventHub - unable to delete EventHub '%s'", topicName))
 	}
 
 	// If The HubManager Is Not Valid Then Return Error
 	if eventHubNamespace.HubManager == nil {
 		c.logger.Warn("Failed To Find EventHub Namespace With Valid HubManager - Skipping Topic Deletion", zap.String("Topic", topicName))
-		err := errors.New(fmt.Sprintf("azure namespace has invalid HubManager - unable to delete EventHub '%s'", topicName))
-		return getTopicResult(topicName, kafka.ErrInvalidConfig), err
+		return adminutil.NewTopicError(sarama.ErrInvalidConfig, fmt.Sprintf("azure namespace has invalid HubManager - unable to delete EventHub '%s'", topicName))
 	}
 
 	// Delete The Specified Topic (EventHub)
 	err := eventHubNamespace.HubManager.Delete(ctx, topicName)
 	if err != nil {
 
-		// Delete API Returns Success For Non-Existent Topics - Nothing To Map (yet?!)
-		return getTopicResult(topicName, kafka.ErrFail), err
+		// Delete API Returns Success For Non-Existent Topics - Nothing To Map - Just Return Error
+		c.logger.Error("Failed To Delete EventHub", zap.String("TopicName", topicName), zap.Error(err))
+		return adminutil.PromoteErrorToTopicError(err)
 	}
 
 	// Remove The EventHub From The Cache
 	c.cache.RemoveEventHub(ctx, topicName)
 
 	// Return Success!
-	return getTopicResult(topicName, kafka.ErrNoError), nil
+	return adminutil.NewTopicError(sarama.ErrNoError, "successfully deleted topic")
 }
 
 // Get The K8S Secret With Kafka Credentials For The Specified Topic (EventHub)
@@ -233,28 +185,13 @@ func (c *EventHubAdminClient) GetKafkaSecretName(topicName string) string {
 }
 
 // Kafka AdminClient Close Implementation Using Azure EventHub API
-func (c *EventHubAdminClient) Close() {
-
-	// Nothing to "close" in the HubManager (just a REST client) so this is just a compatibility no-op.
-	return
+func (c *EventHubAdminClient) Close() error {
+	return nil // Nothing to "close" in the HubManager (just a REST client) so this is just a compatibility no-op.
 }
 
 // Utility Function For Converting Millis To Days (Rounded Up To Larger Day Value)
 func convertMillisToDays(millis int64) int32 {
 	return int32(math.Ceil(float64(millis) / float64(constants.MillisPerDay)))
-}
-
-// Utility Function For Creating A Kafka TopicResult With Optional ErrorCode (ErrNoError == Success)
-func getTopicResult(topicName string, err kafka.ErrorCode) kafka.TopicResult {
-
-	// If A Kafka ErrorCode Was Specified Then Create The Corresponding KafkaError
-	var kafkaError kafka.Error
-	if err != kafka.ErrNoError {
-		kafkaError = kafka.NewError(err, topicName, false)
-	}
-
-	// Return The Specified TopicResult With Optional Kafka Error
-	return kafka.TopicResult{Topic: topicName, Error: kafkaError}
 }
 
 //

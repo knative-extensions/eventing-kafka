@@ -1,108 +1,109 @@
 package producer
 
 import (
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"crypto/tls"
+	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	"testing"
 )
 
-// Mock Producer Reference
-var mockProducer ProducerInterface
+// Test Constants
+const (
+	ClientId      = "TestClientId"
+	KafkaBrokers  = "TestBrokers"
+	KafkaUsername = "TestUsername"
+	KafkaPassword = "TestPassword"
+)
 
-// Test The CreateProducer() Functionality
-func TestCreateProducer(t *testing.T) {
-	performCreateProducerTest(t, "TestBrokers", "", "")
+// Test The CreateSyncProducer() Functionality
+func TestCreateSyncProducer(t *testing.T) {
+	performCreateSyncProducerTest(t, "", "")
 }
 
-// Test The CreateProducer() Functionality With SASL Auth
-func TestCreateProducerWithSaslAuth(t *testing.T) {
-	performCreateProducerTest(t, "TestBrokers", "TestUsername", "TestPassword")
+// Test The CreateSyncProducer() Functionality With SASL PLAIN Auth
+func TestCreateSyncProducerWithSasl(t *testing.T) {
+	performCreateSyncProducerTest(t, KafkaUsername, KafkaPassword)
 }
 
 // Perform A Single Instance Of The CreateProducer() Test With Specified Config
-func performCreateProducerTest(t *testing.T, brokers string, username string, password string) {
+func performCreateSyncProducerTest(t *testing.T, username string, password string) {
 
-	// Create The Expected Kafka Producer ConfigMap
-	expectedConfigMap := createKafkaProducerConfigMap(t, brokers, username, password)
+	// Create A Mock SyncProducer
+	mockSyncProducer := &MockSyncProducer{}
 
-	// Replace The NewProducer Wrapper To Provide Mock Producer & Defer Reset
-	newProducerWrapperPlaceholder := NewProducerWrapper
-	NewProducerWrapper = func(configMap *kafka.ConfigMap) (ProducerInterface, error) {
-		assert.Equal(t, expectedConfigMap, configMap)
-		mockProducer = &MockProducer{}
-		return mockProducer, nil
+	// Stub The Kafka SyncProducer Creation Wrapper With Test Version Returning Mock SyncProducer
+	newSyncProducerWrapperPlaceholder := newSyncProducerWrapper
+	newSyncProducerWrapper = func(brokers []string, config *sarama.Config) (sarama.SyncProducer, error) {
+		assert.NotNil(t, brokers)
+		assert.Len(t, brokers, 1)
+		assert.Equal(t, brokers[0], KafkaBrokers)
+		verifySaramaConfig(t, config, ClientId, username, password)
+		return mockSyncProducer, nil
 	}
-	defer func() { NewProducerWrapper = newProducerWrapperPlaceholder }()
+	defer func() { newSyncProducerWrapper = newSyncProducerWrapperPlaceholder }()
 
 	// Perform The Test
-	producer, err := CreateProducer(brokers, username, password)
+	producer, registry, err := CreateSyncProducer(ClientId, []string{KafkaBrokers}, username, password)
 
 	// Verify The Results
 	assert.Nil(t, err)
-	assert.Equal(t, mockProducer, producer)
+	assert.NotNil(t, producer)
+	assert.Equal(t, mockSyncProducer, producer)
+	assert.NotNil(t, registry)
 }
 
-// Create The Specified Kafka Producer ConfigMap
-func createKafkaProducerConfigMap(t *testing.T, brokers string, username string, password string) *kafka.ConfigMap {
+// Verify The Sarama Config Is As Expected
+func verifySaramaConfig(t *testing.T, config *sarama.Config, clientId string, username string, password string) {
+	assert.NotNil(t, config)
+	assert.Equal(t, clientId, config.ClientID)
+	assert.Equal(t, constants.ConfigKafkaVersion, config.Version)
+	assert.Equal(t, constants.ConfigNetKeepAlive, config.Net.KeepAlive)
+	assert.Equal(t, constants.ConfigProducerIdempotent, config.Producer.Idempotent)
+	assert.Equal(t, constants.ConfigProducerRequiredAcks, config.Producer.RequiredAcks)
+	assert.True(t, config.Producer.Return.Successes)
 
-	// Create The Expected Kafka Base ConfigMap
-	configMap := &kafka.ConfigMap{
-		constants.ConfigPropertyBootstrapServers:      brokers,
-		constants.ConfigPropertyPartitioner:           constants.ConfigPropertyPartitionerValue,
-		constants.ConfigPropertyIdempotence:           constants.ConfigPropertyIdempotenceValue,
-		constants.ConfigPropertyStatisticsInterval:    constants.ConfigPropertyStatisticsIntervalValue,
-		constants.ConfigPropertyRequestTimeoutMs:      constants.ConfigPropertyRequestTimeoutMsValue,
-		constants.ConfigPropertyMetadataMaxAgeMs:      constants.ConfigPropertyMetadataMaxAgeMsValue,
-		constants.ConfigPropertySocketKeepAliveEnable: constants.ConfigPropertySocketKeepAliveEnableValue,
-	}
-
-	// Optionally Add The SASL ConfigMap Entries
 	if len(username) > 0 && len(password) > 0 {
-		assert.Nil(t, configMap.SetKey(constants.ConfigPropertySecurityProtocol, constants.ConfigPropertySecurityProtocolValue))
-		assert.Nil(t, configMap.SetKey(constants.ConfigPropertySaslMechanisms, constants.ConfigPropertySaslMechanismsPlain))
-		assert.Nil(t, configMap.SetKey(constants.ConfigPropertySaslUsername, username))
-		assert.Nil(t, configMap.SetKey(constants.ConfigPropertySaslPassword, password))
+		assert.Equal(t, constants.ConfigNetSaslVersion, config.Net.SASL.Version)
+		assert.True(t, config.Net.SASL.Enable)
+		assert.Equal(t, sarama.SASLMechanism(sarama.SASLTypePlaintext), config.Net.SASL.Mechanism)
+		assert.Equal(t, username, config.Net.SASL.User)
+		assert.Equal(t, password, config.Net.SASL.Password)
+		assert.True(t, config.Net.TLS.Enable)
+		assert.NotNil(t, config.Net.TLS.Config)
+		assert.False(t, config.Net.TLS.Config.InsecureSkipVerify)
+		assert.Equal(t, tls.NoClientCert, config.Net.TLS.Config.ClientAuth)
+	} else {
+		assert.NotNil(t, config.Net)
+		assert.False(t, config.Net.TLS.Enable)
+		assert.Nil(t, config.Net.TLS.Config)
+		assert.Equal(t, sarama.SASLHandshakeV0, config.Net.SASL.Version)
+		assert.NotNil(t, config.Net.SASL)
+		assert.False(t, config.Net.SASL.Enable)
+		assert.Equal(t, sarama.SASLMechanism(""), config.Net.SASL.Mechanism)
+		assert.Equal(t, "", config.Net.SASL.User)
+		assert.Equal(t, "", config.Net.SASL.Password)
 	}
-
-	// Return The Populated Kafka ConfigMap
-	return configMap
+	assert.Equal(t, constants.ConfigMetadataRefreshFrequency, config.Metadata.RefreshFrequency)
 }
 
 //
-// Mock ProducerInterface
+// Mock Sarama SyncProducer Implementation
 //
 
-var _ ProducerInterface = &MockProducer{}
+var _ sarama.SyncProducer = &MockSyncProducer{}
 
-type MockProducer struct {
+type MockSyncProducer struct {
 }
 
-// String returns a human readable name for a Producer instance
-func (p MockProducer) String() string {
-	return ""
+func (p *MockSyncProducer) SendMessage(msg *sarama.ProducerMessage) (partition int32, offset int64, err error) {
+	return 0, 0, nil
 }
 
-func (p MockProducer) Produce(msg *kafka.Message, deliveryChan chan kafka.Event) error {
+func (p *MockSyncProducer) SendMessages(msgs []*sarama.ProducerMessage) error {
 	return nil
 }
 
-func (p MockProducer) Events() chan kafka.Event {
+func (p *MockSyncProducer) Close() error {
 	return nil
-}
-
-func (p MockProducer) ProduceChannel() chan *kafka.Message {
-	return nil
-}
-
-func (p MockProducer) Len() int {
-	return 0
-}
-
-func (p MockProducer) Flush(timeoutMs int) int {
-	return 0
-}
-
-func (p MockProducer) Close() {
-	return
 }

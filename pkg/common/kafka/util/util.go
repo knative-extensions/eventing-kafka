@@ -1,37 +1,53 @@
 package util
 
 import (
+	"crypto/tls"
 	"fmt"
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/Shopify/sarama"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
+	"log"
+	"os"
 	"strings"
 )
 
-// Utility Function For Adding Authentication Credentials To Kafka ConfigMap
-func AddSaslAuthentication(configMap *kafka.ConfigMap, mechanism string, username string, password string) {
-
-	// Update The Kafka ConfigMap With SASL Username & Password (Ignoring Impossible Errors)
-	_ = configMap.SetKey(constants.ConfigPropertySecurityProtocol, constants.ConfigPropertySecurityProtocolValue)
-	_ = configMap.SetKey(constants.ConfigPropertySaslMechanisms, mechanism)
-	_ = configMap.SetKey(constants.ConfigPropertySaslUsername, username)
-	_ = configMap.SetKey(constants.ConfigPropertySaslPassword, password)
+// Utility Function For Enabling Sarama Logging (Debugging)
+func EnableSaramaLogging() {
+	sarama.Logger = log.New(os.Stdout, "[sarama] ", log.LstdFlags)
 }
 
-//
-// Utility Function For Adding Debug Flags To Kafka ConfigMap
-//
-// Note - Flags is a CSV string of all the appropriate kafka/librdkafka debug settings.
-//        Valid values as of this writing include...
-//            generic, broker, topic, metadata, feature, queue, msg, protocol, cgrp,
-//            security, fetch, interceptor, plugin, consumer, admin, eos, all
-//
-// Example - Common Producer values might be "broker,topic,msg,protocol,security"
-//
-func AddDebugFlags(configMap *kafka.ConfigMap, flags string) {
+// Utility Function For Configuring Common Settings For Admin/Producer/Consumer
+func NewSaramaConfig(clientId string, username string, password string) *sarama.Config {
 
-	// Update The Kafka ConfigMap With The Specified Debug Flags (Ignoring Impossible Errors)
-	_ = configMap.SetKey(constants.ConfigPropertyDebug, flags)
+	// Create A Default Sarama Config
+	config := sarama.NewConfig()
 
+	// Set The ClientID For Logging
+	config.ClientID = clientId
+
+	// Specify Kafka Version Compatibility
+	config.Version = constants.ConfigKafkaVersion
+
+	// Set Basic Network Settings
+	config.Net.KeepAlive = constants.ConfigNetKeepAlive
+
+	// Update Config With With PLAIN SASL Auth If Specified
+	if len(username) > 0 && len(password) > 0 {
+		config.Net.SASL.Version = constants.ConfigNetSaslVersion
+		config.Net.SASL.Enable = true
+		config.Net.SASL.Mechanism = sarama.SASLTypePlaintext
+		config.Net.SASL.User = username
+		config.Net.SASL.Password = password
+		config.Net.TLS.Enable = true
+		config.Net.TLS.Config = &tls.Config{
+			ClientAuth: tls.NoClientCert,
+		}
+	}
+
+	// Increase The MetaData Refresh Frequency
+	config.Metadata.RefreshFrequency = constants.ConfigMetadataRefreshFrequency
+
+	// Return The Initialized Config
+	return config
 }
 
 // Get The Formatted Kafka Topic Name From The Specified Components

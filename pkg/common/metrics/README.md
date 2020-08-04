@@ -1,16 +1,17 @@
-# Prometheus Metrics HTTP Server
+# Stats Reporter
 
-This code provides the ability to start/stop a native Golang HTTP Server backed by the default
-[Prometheus](https://github.com/prometheus/client_golang) handler.  The desired HTTP Port & Path are
-specified upon server creation.  This should allow the Channel, Controller, and Dispatcher to
-quickly add this capability in a consistent manner without code duplication.
+This code provides the ability to register with OpenCensus the Views required to have the various
+metrics associated with eventing-kafka exported to whatever backend is configured (Prometheus by default).
+The METRICS_DOMAIN and METRICS_PORT environment variables will be used by Knative to produce unique
+metrics names and start the metrics service when InitializeObservability is called.
 
-This code only serves to expose the default Prometheus metrics on a specified port/path.  The creation
-of the K8S Service and Prometheus ServiceMonitor is left up to the individual component to provide.
+Note that this will serve only to expose the metrics on the specified port.  The creation of the K8S Service
+and any external monitoring is left up to the individual component to provide.
 
 ## Metrics Endpoint
 
-In order to manually test the exposed /metrics endpoint you can port forward the service
+Assuming the use of the default Prometheus backend and port, you may manually test the exposed /metrics endpoint
+by running a Kubernetes port forward to the service.
 
 ```
 kubectl port-forward svc/<service> -n <namespace> 8081:8081

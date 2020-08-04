@@ -103,7 +103,7 @@ func TestGetEnvironment(t *testing.T) {
 
 	testCase = getValidTestCase("Invalid Config - MetricsPort")
 	testCase.metricsPort = "NAN"
-	testCase.expectedError = getInvalidIntegerEnvironmentVariableError(testCase.metricsPort, commonenv.MetricsPortEnvVarKey)
+	testCase.expectedError = getInvalidIntEnvironmentVariableError(testCase.metricsPort, commonenv.MetricsPortEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Required Config - KafkaProvider")
@@ -116,24 +116,6 @@ func TestGetEnvironment(t *testing.T) {
 	testCase.expectedError = fmt.Errorf("invalid (unknown) value 'foo' for environment variable '%s'", commonenv.KafkaProviderEnvVarKey)
 	testCases = append(testCases, testCase)
 
-	testCase = getValidTestCase("Missing Optional Config - KafkaOffsetCommitMessageCount")
-	testCase.kafkaOffsetCommitMessageCount = ""
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Invalid Config - KafkaOffsetCommitMessageCount")
-	testCase.kafkaOffsetCommitMessageCount = "NAN"
-	testCase.expectedError = getInvalidIntegerEnvironmentVariableError(testCase.kafkaOffsetCommitMessageCount, commonenv.KafkaOffsetCommitMessageCountEnvVarKey)
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Missing Optional Config - KafkaOffsetCommitDurationMillis")
-	testCase.kafkaOffsetCommitDurationMillis = ""
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Invalid Config - KafkaOffsetCommitDurationMillis")
-	testCase.kafkaOffsetCommitDurationMillis = "NAN"
-	testCase.expectedError = getInvalidIntegerEnvironmentVariableError(testCase.kafkaOffsetCommitDurationMillis, commonenv.KafkaOffsetCommitDurationMillisEnvVarKey)
-	testCases = append(testCases, testCase)
-
 	testCase = getValidTestCase("Missing Required Config - DefaultNumPartitions")
 	testCase.defaultNumPartitions = ""
 	testCase.expectedError = getMissingRequiredEnvironmentVariableError(DefaultNumPartitionsEnvVarKey)
@@ -141,7 +123,7 @@ func TestGetEnvironment(t *testing.T) {
 
 	testCase = getValidTestCase("Invalid Config - DefaultNumPartitions")
 	testCase.defaultNumPartitions = "NAN"
-	testCase.expectedError = getInvalidIntegerEnvironmentVariableError(testCase.defaultNumPartitions, DefaultNumPartitionsEnvVarKey)
+	testCase.expectedError = getInvalidInt32EnvironmentVariableError(testCase.defaultNumPartitions, DefaultNumPartitionsEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Required Config - DefaultReplicationFactor")
@@ -151,7 +133,7 @@ func TestGetEnvironment(t *testing.T) {
 
 	testCase = getValidTestCase("Invalid Config - DefaultReplicationFactor")
 	testCase.defaultReplicationFactor = "NAN"
-	testCase.expectedError = getInvalidIntegerEnvironmentVariableError(testCase.defaultReplicationFactor, DefaultReplicationFactorEnvVarKey)
+	testCase.expectedError = getInvalidInt16EnvironmentVariableError(testCase.defaultReplicationFactor, DefaultReplicationFactorEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Optional Config - DefaultRetentionMillis")
@@ -160,7 +142,7 @@ func TestGetEnvironment(t *testing.T) {
 
 	testCase = getValidTestCase("Invalid Config - DefaultRetentionMillis")
 	testCase.defaultRetentionMillis = "NAN"
-	testCase.expectedError = getInvalidIntegerEnvironmentVariableError(testCase.defaultRetentionMillis, DefaultRetentionMillisEnvVarKey)
+	testCase.expectedError = getInvalidInt64EnvironmentVariableError(testCase.defaultRetentionMillis, DefaultRetentionMillisEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Optional Config - DispatcherRetryInitialIntervalMillis")
@@ -169,7 +151,7 @@ func TestGetEnvironment(t *testing.T) {
 
 	testCase = getValidTestCase("Invalid Config - DispatcherRetryInitialIntervalMillis")
 	testCase.dispatcherRetryInitialIntervalMillis = "NAN"
-	testCase.expectedError = getInvalidIntegerEnvironmentVariableError(testCase.dispatcherRetryInitialIntervalMillis, DispatcherRetryInitialIntervalMillisEnvVarKey)
+	testCase.expectedError = getInvalidInt64EnvironmentVariableError(testCase.dispatcherRetryInitialIntervalMillis, DispatcherRetryInitialIntervalMillisEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Optional Config - DispatcherRetryTimeMillisMax")
@@ -178,7 +160,7 @@ func TestGetEnvironment(t *testing.T) {
 
 	testCase = getValidTestCase("Invalid Config - DispatcherRetryTimeMillisMax")
 	testCase.dispatcherRetryTimeMillisMax = "NAN"
-	testCase.expectedError = getInvalidIntegerEnvironmentVariableError(testCase.dispatcherRetryTimeMillisMax, DispatcherRetryTimeMillisMaxEnvVarKey)
+	testCase.expectedError = getInvalidInt64EnvironmentVariableError(testCase.dispatcherRetryTimeMillisMax, DispatcherRetryTimeMillisMaxEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Optional Config - DispatcherRetryExponentialBackoff")
@@ -202,7 +184,7 @@ func TestGetEnvironment(t *testing.T) {
 
 	testCase = getValidTestCase("Invalid Config - DispatcherReplicas")
 	testCase.dispatcherReplicas = "NAN"
-	testCase.expectedError = getInvalidIntegerEnvironmentVariableError(testCase.dispatcherReplicas, DispatcherReplicasEnvVarKey)
+	testCase.expectedError = getInvalidIntEnvironmentVariableError(testCase.dispatcherReplicas, DispatcherReplicasEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Required Config - DispatcherMemoryRequest")
@@ -257,7 +239,7 @@ func TestGetEnvironment(t *testing.T) {
 
 	testCase = getValidTestCase("Invalid Config - DispatcherReplicas")
 	testCase.channelReplicas = "NAN"
-	testCase.expectedError = getInvalidIntegerEnvironmentVariableError(testCase.channelReplicas, ChannelReplicasEnvVarKey)
+	testCase.expectedError = getInvalidIntEnvironmentVariableError(testCase.channelReplicas, ChannelReplicasEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Required Config - ChannelMemoryRequest")
@@ -312,8 +294,6 @@ func TestGetEnvironment(t *testing.T) {
 		}
 
 		assert.Nil(t, os.Setenv(commonenv.KafkaProviderEnvVarKey, testCase.kafkaProvider))
-		assert.Nil(t, os.Setenv(commonenv.KafkaOffsetCommitMessageCountEnvVarKey, testCase.kafkaOffsetCommitMessageCount))
-		assert.Nil(t, os.Setenv(commonenv.KafkaOffsetCommitDurationMillisEnvVarKey, testCase.kafkaOffsetCommitDurationMillis))
 		if len(testCase.defaultNumPartitions) > 0 {
 			assert.Nil(t, os.Setenv(DefaultNumPartitionsEnvVarKey, testCase.defaultNumPartitions))
 		}
@@ -356,20 +336,8 @@ func TestGetEnvironment(t *testing.T) {
 			assert.Equal(t, testCase.channelImage, environment.ChannelImage)
 			assert.Equal(t, testCase.dispatcherImage, environment.DispatcherImage)
 
-			if len(testCase.kafkaOffsetCommitMessageCount) > 0 {
-				assert.Equal(t, testCase.kafkaOffsetCommitMessageCount, strconv.FormatInt(environment.KafkaOffsetCommitMessageCount, 10))
-			} else {
-				assert.Equal(t, DefaultKafkaOffsetCommitMessageCount, strconv.FormatInt(environment.KafkaOffsetCommitMessageCount, 10))
-			}
-
-			if len(testCase.kafkaOffsetCommitDurationMillis) > 0 {
-				assert.Equal(t, testCase.kafkaOffsetCommitDurationMillis, strconv.FormatInt(environment.KafkaOffsetCommitDurationMillis, 10))
-			} else {
-				assert.Equal(t, DefaultKafkaOffsetCommitDurationMillis, strconv.FormatInt(environment.KafkaOffsetCommitDurationMillis, 10))
-			}
-
-			assert.Equal(t, testCase.defaultNumPartitions, strconv.Itoa(environment.DefaultNumPartitions))
-			assert.Equal(t, testCase.defaultReplicationFactor, strconv.Itoa(environment.DefaultReplicationFactor))
+			assert.Equal(t, testCase.defaultNumPartitions, fmt.Sprint(environment.DefaultNumPartitions))
+			assert.Equal(t, testCase.defaultReplicationFactor, fmt.Sprint(environment.DefaultReplicationFactor))
 
 			if len(testCase.defaultRetentionMillis) > 0 {
 				assert.Equal(t, testCase.defaultRetentionMillis, strconv.FormatInt(environment.DefaultRetentionMillis, 10))
@@ -444,18 +412,33 @@ func getMissingRequiredEnvironmentVariableError(envVarKey string) error {
 }
 
 // Get The Expected Error Message For An Invalid Integer Environment Variable
-func getInvalidIntegerEnvironmentVariableError(value string, envVarKey string) error {
-	return fmt.Errorf("invalid (non-integer) value '%s' for environment variable '%s'", value, envVarKey)
+func getInvalidIntEnvironmentVariableError(value string, envVarKey string) error {
+	return fmt.Errorf("invalid (non int) value '%s' for environment variable '%s'", value, envVarKey)
+}
+
+// Get The Expected Error Message For An Invalid Int64 Environment Variable
+func getInvalidInt64EnvironmentVariableError(value string, envVarKey string) error {
+	return fmt.Errorf("invalid (non int64) value '%s' for environment variable '%s'", value, envVarKey)
+}
+
+// Get The Expected Error Message For An Invalid Int32 Environment Variable
+func getInvalidInt32EnvironmentVariableError(value string, envVarKey string) error {
+	return fmt.Errorf("invalid (non int32) value '%s' for environment variable '%s'", value, envVarKey)
+}
+
+// Get The Expected Error Message For An Invalid Int16 Environment Variable
+func getInvalidInt16EnvironmentVariableError(value string, envVarKey string) error {
+	return fmt.Errorf("invalid (non int16) value '%s' for environment variable '%s'", value, envVarKey)
 }
 
 // Get The Expected Error Message For An Invalid Quantity Environment Variable
 func getInvalidQuantityEnvironmentVariableError(value string, envVarKey string) error {
-	return fmt.Errorf("invalid (non-quantity) value '%s' for environment variable '%s'", value, envVarKey)
+	return fmt.Errorf("invalid (non quantity) value '%s' for environment variable '%s'", value, envVarKey)
 }
 
 // Get The Expected Error Message For An Invalid Boolean Environment Variable
 func getInvalidBooleanEnvironmentVariableError(value string, envVarKey string) error {
-	return fmt.Errorf("invalid (non-boolean) value '%s' for environment variable '%s'", value, envVarKey)
+	return fmt.Errorf("invalid (non boolean) value '%s' for environment variable '%s'", value, envVarKey)
 }
 
 // Initialize The Logger - Fatal Exit Upon Error

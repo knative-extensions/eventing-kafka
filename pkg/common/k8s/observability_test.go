@@ -13,7 +13,6 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"knative.dev/eventing-kafka/pkg/common/env"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
-	"knative.dev/eventing-kafka/pkg/controller/test"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/metrics"
@@ -25,13 +24,15 @@ func TestInitializeObservability(t *testing.T) {
 
 	// Test Data
 	ctx := context.TODO()
+	metricsPort := 9876
+	metricsDomain := "eventing-kafka"
 
 	// Obtain a Test Logger (Required By Observability Function)
 	logger := logtesting.TestLogger(t)
 
 	// Setup Environment
 	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, constants.KnativeEventingNamespace))
-	assert.Nil(t, os.Setenv(env.MetricsDomainEnvVarKey, test.MetricsDomain))
+	assert.Nil(t, os.Setenv(env.MetricsDomainEnvVarKey, metricsDomain))
 
 	// Create A Test Observability ConfigMap For The InitializeObservability() Call To Watch
 	tracingConfigMap := &corev1.ConfigMap{
@@ -56,12 +57,12 @@ func TestInitializeObservability(t *testing.T) {
 	ctx = context.WithValue(ctx, injectionclient.Key{}, fakeK8sClient)
 
 	// Perform The Test (Initialize The Observability Watcher)
-	InitializeObservability(logger, ctx, test.MetricsDomain, test.MetricsPort)
+	InitializeObservability(logger, ctx, metricsDomain, metricsPort)
 
 	// Verify that the profiling endpoint exists and responds to requests
 	assertGet(t, "http://localhost:8008/debug/pprof", 200)
 	// Verify that the metrics endpoint exists and responds to requests
-	assertGet(t, fmt.Sprintf("http://localhost:%v/metrics", test.MetricsPort), 200)
+	assertGet(t, fmt.Sprintf("http://localhost:%v/metrics", metricsPort), 200)
 }
 
 func assertGet(t *testing.T, url string, expected int) {

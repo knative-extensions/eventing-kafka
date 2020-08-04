@@ -14,10 +14,8 @@ const (
 	KafkaPasswordEnvVarKey = "KAFKA_PASSWORD"
 
 	// Kafka Configuration
-	KafkaProviderEnvVarKey                   = "KAFKA_PROVIDER"
-	KafkaOffsetCommitMessageCountEnvVarKey   = "KAFKA_OFFSET_COMMIT_MESSAGE_COUNT"
-	KafkaOffsetCommitDurationMillisEnvVarKey = "KAFKA_OFFSET_COMMIT_DURATION_MILLIS"
-	KafkaTopicEnvVarKey                      = "KAFKA_TOPIC"
+	KafkaProviderEnvVarKey = "KAFKA_PROVIDER"
+	KafkaTopicEnvVarKey    = "KAFKA_TOPIC"
 
 	// Dispatcher Configuration
 	ChannelKeyEnvVarKey           = "CHANNEL_KEY"
@@ -26,4 +24,3 @@ const (
 	InitialRetryIntervalEnvVarKey = "INITIAL_RETRY_INTERVAL"
 	MaxRetryTimeEnvVarKey         = "MAX_RETRY_TIME"
 )
-

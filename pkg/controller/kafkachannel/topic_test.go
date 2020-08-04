@@ -2,7 +2,7 @@ package kafkachannel
 
 import (
 	"context"
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/Shopify/sarama"
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -12,26 +12,27 @@ import (
 	"knative.dev/eventing-kafka/pkg/controller/test"
 	"knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
-	"strconv"
 	"testing"
 )
 
 // Define The Topic TestCase Type
 type TopicTestCase struct {
-	Name                   string
-	Channel                *kafkav1alpha1.KafkaChannel
-	WantTopicSpecification kafka.TopicSpecification
-	MockErrorCode          kafka.ErrorCode
-	WantError              string
-	WantCreate             bool
-	WantDelete             bool
+	Name    string
+	Channel *kafkav1alpha1.KafkaChannel
+	//	WantTopicSpecification kafka.TopicSpecification
+	WantTopicDetail *sarama.TopicDetail
+	//	MockErrorCode          kafka.ErrorCode
+	MockErrorCode sarama.KError
+	WantError     string
+	WantCreate    bool
+	WantDelete    bool
 }
 
 //
 // Test The Kafka Topic Reconciliation
 //
 // Ideally the Knative Eventing test runner implementation would have provided a hook for additional
-// channel-type-specific (ie kafka, nats, etc) validation, but unfortunately it is solely focused
+// channel-type-specific (ie Kafka, NATS, etc) validation, but unfortunately it is solely focused
 // on the K8S objects existing/not.  Therefore we're left to test the actual Topic handling separately.
 //
 func TestReconcileTopic(t *testing.T) {
@@ -66,13 +67,10 @@ func TestReconcileTopic(t *testing.T) {
 			),
 			WantCreate: true,
 			WantDelete: false,
-			WantTopicSpecification: kafka.TopicSpecification{
-				Topic:             test.TopicName,
+			WantTopicDetail: &sarama.TopicDetail{
 				NumPartitions:     test.NumPartitions,
 				ReplicationFactor: test.ReplicationFactor,
-				Config: map[string]string{
-					constants.KafkaTopicConfigRetentionMs: strconv.FormatInt(test.DefaultRetentionMillis, 10),
-				},
+				ConfigEntries:     map[string]*string{constants.KafkaTopicConfigRetentionMs: &test.DefaultRetentionMillisString},
 			},
 		},
 		{
@@ -88,15 +86,12 @@ func TestReconcileTopic(t *testing.T) {
 			),
 			WantCreate: true,
 			WantDelete: false,
-			WantTopicSpecification: kafka.TopicSpecification{
-				Topic:             test.TopicName,
+			WantTopicDetail: &sarama.TopicDetail{
 				NumPartitions:     test.NumPartitions,
 				ReplicationFactor: test.ReplicationFactor,
-				Config: map[string]string{
-					constants.KafkaTopicConfigRetentionMs: strconv.FormatInt(test.DefaultRetentionMillis, 10),
-				},
+				ConfigEntries:     map[string]*string{constants.KafkaTopicConfigRetentionMs: &test.DefaultRetentionMillisString},
 			},
-			MockErrorCode: kafka.ErrTopicAlreadyExists,
+			MockErrorCode: sarama.ErrTopicAlreadyExists,
 		},
 		{
 			Name: "Error Creating Topic",
@@ -111,16 +106,13 @@ func TestReconcileTopic(t *testing.T) {
 			),
 			WantCreate: true,
 			WantDelete: false,
-			WantTopicSpecification: kafka.TopicSpecification{
-				Topic:             test.TopicName,
+			WantTopicDetail: &sarama.TopicDetail{
 				NumPartitions:     test.NumPartitions,
 				ReplicationFactor: test.ReplicationFactor,
-				Config: map[string]string{
-					constants.KafkaTopicConfigRetentionMs: strconv.FormatInt(test.DefaultRetentionMillis, 10),
-				},
+				ConfigEntries:     map[string]*string{constants.KafkaTopicConfigRetentionMs: &test.DefaultRetentionMillisString},
 			},
-			MockErrorCode: kafka.ErrAllBrokersDown,
-			WantError:     test.ErrorString,
+			MockErrorCode: sarama.ErrBrokerNotAvailable,
+			WantError:     sarama.ErrBrokerNotAvailable.Error() + " - " + test.ErrorString,
 		},
 		{
 			Name: "Delete Existing Topic",
@@ -135,9 +127,6 @@ func TestReconcileTopic(t *testing.T) {
 			),
 			WantCreate: false,
 			WantDelete: true,
-			WantTopicSpecification: kafka.TopicSpecification{
-				Topic: test.TopicName,
-			},
 		},
 		{
 			Name: "Delete Nonexistent Topic",
@@ -150,12 +139,9 @@ func TestReconcileTopic(t *testing.T) {
 				test.WithChannelDeploymentReady,
 				test.WithDispatcherDeploymentReady,
 			),
-			WantCreate: false,
-			WantDelete: true,
-			WantTopicSpecification: kafka.TopicSpecification{
-				Topic: test.TopicName,
-			},
-			MockErrorCode: kafka.ErrUnknownTopic,
+			WantCreate:    false,
+			WantDelete:    true,
+			MockErrorCode: sarama.ErrUnknownTopicOrPartition,
 		},
 		{
 			Name: "Error Deleting Topic",
@@ -168,13 +154,10 @@ func TestReconcileTopic(t *testing.T) {
 				test.WithChannelDeploymentReady,
 				test.WithDispatcherDeploymentReady,
 			),
-			WantCreate: false,
-			WantDelete: true,
-			WantTopicSpecification: kafka.TopicSpecification{
-				Topic: test.TopicName,
-			},
-			MockErrorCode: kafka.ErrAllBrokersDown,
-			WantError:     test.ErrorString,
+			WantCreate:    false,
+			WantDelete:    true,
+			MockErrorCode: sarama.ErrBrokerNotAvailable,
+			WantError:     sarama.ErrBrokerNotAvailable.Error() + " - " + test.ErrorString,
 		},
 	}
 
@@ -239,61 +222,50 @@ func createMockAdminClientForTestCase(t *testing.T, tc TopicTestCase) *test.Mock
 	return &test.MockAdminClient{
 
 		// Mock CreateTopic Behavior - Validate Parameters & Return MockError
-		MockCreateTopicFunc: func(ctx context.Context, topics []kafka.TopicSpecification, options ...kafka.CreateTopicsAdminOption) (result []kafka.TopicResult, err error) {
+		MockCreateTopicFunc: func(ctx context.Context, topicName string, topicDetail *sarama.TopicDetail) *sarama.TopicError {
 			if !tc.WantCreate {
-				t.Errorf("Unexpected CreateTopics() Call")
+				t.Error("Unexpected CreateTopics() Call")
 			}
 			if ctx == nil {
 				t.Error("expected non nil context")
 			}
-			if len(topics) != 1 {
-				t.Errorf("expected one TopicSpecification but received %d", len(topics))
+			if topicName != test.TopicName {
+				t.Errorf("unexpected topic name '%s'", topicName)
 			}
-			if diff := cmp.Diff(tc.WantTopicSpecification, topics[0]); diff != "" {
-				t.Errorf("expected TopicSpecification: %+v", diff)
+			if diff := cmp.Diff(tc.WantTopicDetail, topicDetail); diff != "" {
+				t.Errorf("expected TopicDetail: %+v", diff)
 			}
-			if options != nil {
-				t.Error("expected nil options")
+			errMsg := test.SuccessString
+			if tc.MockErrorCode != sarama.ErrNoError {
+				errMsg = test.ErrorString
 			}
-			var topicResults []kafka.TopicResult
-			if tc.MockErrorCode != 0 {
-				topicResults = []kafka.TopicResult{
-					{
-						Topic: tc.WantTopicSpecification.Topic,
-						Error: kafka.NewError(tc.MockErrorCode, test.ErrorString, false),
-					},
-				}
+			topicError := &sarama.TopicError{
+				Err:    tc.MockErrorCode,
+				ErrMsg: &errMsg,
 			}
-			return topicResults, nil
+			return topicError
 		},
 
-		//Mock DeleteTopic Behavior - Validate Parameters & Return MockError
-		MockDeleteTopicFunc: func(ctx context.Context, topics []string, options ...kafka.DeleteTopicsAdminOption) (result []kafka.TopicResult, err error) {
+		// Mock DeleteTopic Behavior - Validate Parameters & Return MockError
+		MockDeleteTopicFunc: func(ctx context.Context, topicName string) *sarama.TopicError {
 			if !tc.WantDelete {
-				t.Errorf("Unexpected DeleteTopics() Call")
+				t.Error("Unexpected DeleteTopics() Call")
 			}
 			if ctx == nil {
 				t.Error("expected non nil context")
 			}
-			if len(topics) != 1 {
-				t.Errorf("expected one TopicSpecification but received %d", len(topics))
+			if topicName != test.TopicName {
+				t.Errorf("unexpected topic name '%s'", topicName)
 			}
-			if diff := cmp.Diff(tc.WantTopicSpecification.Topic, topics[0]); diff != "" {
-				t.Errorf("expected TopicSpecification: %+v", diff)
+			errMsg := test.SuccessString
+			if tc.MockErrorCode != sarama.ErrNoError {
+				errMsg = test.ErrorString
 			}
-			if options != nil {
-				t.Error("expected nil options")
+			topicError := &sarama.TopicError{
+				Err:    tc.MockErrorCode,
+				ErrMsg: &errMsg,
 			}
-			var topicResults []kafka.TopicResult
-			if tc.MockErrorCode != 0 {
-				topicResults = []kafka.TopicResult{
-					{
-						Topic: tc.WantTopicSpecification.Topic,
-						Error: kafka.NewError(tc.MockErrorCode, test.ErrorString, false),
-					},
-				}
-			}
-			return topicResults, nil
+			return topicError
 		},
 	}
 }

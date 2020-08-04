@@ -23,12 +23,7 @@ changes to the Subscribable (Channelable) list of subscribers.  It also updates
 the KafkaChannel's SubscriberStatus when the Kafka ConsumerGroups are deemed to
 be operational.
 
-The implementation makes use of the
-[Confluent Go Client](https://github.com/confluentinc/confluent-kafka-go)
-library, along with the underlying C/C++
-[librdkafka](https://github.com/edenhill/librdkafka) library.
-The Kafka brokers and credentials are obtained from mounted Secret data
-from the aforementiond Kafka Secret.
+The Kafka brokers and credentials are obtained from mounted Secret data from the aforementiond Kafka Secret.
 
 ## Tracing, Profiling, and Metrics
 

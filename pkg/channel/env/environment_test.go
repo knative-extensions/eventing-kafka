@@ -84,16 +84,6 @@ func TestGetEnvironment(t *testing.T) {
 	testCase.expectedError = getMissingRequiredEnvironmentVariableError(env.ServiceNameEnvVarKey)
 	testCases = append(testCases, testCase)
 
-	testCase = getValidTestCase("Missing Required Config - KafkaUsername")
-	testCase.kafkaUsername = ""
-	testCase.expectedError = getMissingRequiredEnvironmentVariableError(env.KafkaUsernameEnvVarKey)
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Missing Required Config - KafkaPassword")
-	testCase.kafkaPassword = ""
-	testCase.expectedError = getMissingRequiredEnvironmentVariableError(env.KafkaPasswordEnvVarKey)
-	testCases = append(testCases, testCase)
-
 	// Loop Over All The TestCases
 	for _, testCase := range testCases {
 
@@ -163,7 +153,7 @@ func getMissingRequiredEnvironmentVariableError(envVarKey string) error {
 
 // Get The Expected Error Message For An Invalid Integer Environment Variable
 func getInvalidIntegerEnvironmentVariableError(value string, envVarKey string) error {
-	return fmt.Errorf("invalid (non-integer) value '%s' for environment variable '%s'", value, envVarKey)
+	return fmt.Errorf("invalid (non int) value '%s' for environment variable '%s'", value, envVarKey)
 }
 
 // Initialize The Logger - Fatal Exit Upon Error

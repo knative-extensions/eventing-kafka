@@ -341,14 +341,6 @@ func (r *Reconciler) dispatcherDeploymentEnvVars(channel *kafkav1alpha1.KafkaCha
 			Value: topicName,
 		},
 		{
-			Name:  commonenv.KafkaOffsetCommitMessageCountEnvVarKey,
-			Value: strconv.FormatInt(r.environment.KafkaOffsetCommitMessageCount, 10),
-		},
-		{
-			Name:  commonenv.KafkaOffsetCommitDurationMillisEnvVarKey,
-			Value: strconv.FormatInt(r.environment.KafkaOffsetCommitDurationMillis, 10),
-		},
-		{
 			Name:  commonenv.ExponentialBackoffEnvVarKey,
 			Value: strconv.FormatBool(r.environment.DispatcherRetryExponentialBackoff),
 		},

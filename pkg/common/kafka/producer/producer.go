@@ -1,60 +1,43 @@
 package producer
 
 import (
-	"errors"
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/Shopify/sarama"
+	"github.com/rcrowley/go-metrics"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	"knative.dev/eventing-kafka/pkg/common/kafka/util"
 )
 
-// Confluent Client Doesn't Code To Interfaces Or Provide Mocks So We're Wrapping Our Usage Of The Producer For Testing
-type ProducerInterface interface {
-	String() string
-	Produce(msg *kafka.Message, deliveryChan chan kafka.Event) error
-	Events() chan kafka.Event
-	ProduceChannel() chan *kafka.Message
-	Len() int
-	Flush(timeoutMs int) int
-	Close()
+// Create A Sarama Kafka SyncProducer (Optional Authentication)
+func CreateSyncProducer(clientId string, brokers []string, username string, password string) (sarama.SyncProducer, metrics.Registry, error) {
+
+	// Create The Sarama SyncProducer Config
+	config := getConfig(clientId, username, password)
+
+	// Create A New Sarama SyncProducer & Return Results
+	syncProducer, err := newSyncProducerWrapper(brokers, config)
+	return syncProducer, config.MetricRegistry, err
 }
 
-// Create A Kafka Producer (Optional Authentication)
-func CreateProducer(brokers string, username string, password string) (ProducerInterface, error) {
-
-	// Validate Parameters
-	if len(brokers) <= 0 {
-		return nil, errors.New("required parameters not provided")
-	}
-
-	// Create The Kafka Producer Configuration
-	configMap := getBaseProducerConfigMap(brokers)
-
-	// Append SASL Authentication If Specified
-	if len(username) > 0 && len(password) > 0 {
-		util.AddSaslAuthentication(configMap, constants.ConfigPropertySaslMechanismsPlain, username, password)
-	}
-
-	// Enable Kafka Producer Debug Logging (Debug Only - Do Not Commit Enabled!)
-	// util.AddDebugFlags(configMap, "broker,topic,msg,protocol,security")
-
-	// Create The Kafka Producer Via Wrapper & Return Results
-	return NewProducerWrapper(configMap)
+// Function Reference Variable To Facilitate Mocking In Unit Tests
+var newSyncProducerWrapper = func(brokers []string, config *sarama.Config) (sarama.SyncProducer, error) {
+	return sarama.NewSyncProducer(brokers, config)
 }
 
-// Kafka Function Reference Variable To Facilitate Mocking In Unit Tests
-var NewProducerWrapper = func(configMap *kafka.ConfigMap) (ProducerInterface, error) {
-	return kafka.NewProducer(configMap)
-}
+// Get The Default Sarama SyncProducer Config
+func getConfig(clientId string, username string, password string) *sarama.Config {
 
-// Utility Function For Returning The Base/Common Kafka ConfigMap (Values Shared By All Connections)
-func getBaseProducerConfigMap(brokers string) *kafka.ConfigMap {
-	return &kafka.ConfigMap{
-		constants.ConfigPropertyBootstrapServers:      brokers,
-		constants.ConfigPropertyPartitioner:           constants.ConfigPropertyPartitionerValue,
-		constants.ConfigPropertyIdempotence:           constants.ConfigPropertyIdempotenceValue,
-		constants.ConfigPropertyStatisticsInterval:    constants.ConfigPropertyStatisticsIntervalValue,
-		constants.ConfigPropertySocketKeepAliveEnable: constants.ConfigPropertySocketKeepAliveEnableValue,
-		constants.ConfigPropertyMetadataMaxAgeMs:      constants.ConfigPropertyMetadataMaxAgeMsValue,
-		constants.ConfigPropertyRequestTimeoutMs:      constants.ConfigPropertyRequestTimeoutMsValue,
-	}
+	// Create A New Base Sarama Config
+	config := util.NewSaramaConfig(clientId, username, password)
+
+	// Specify Producer Idempotence
+	config.Producer.Idempotent = constants.ConfigProducerIdempotent
+
+	// Specify Producer RequiredAcks For At-Least-Once Delivery
+	config.Producer.RequiredAcks = constants.ConfigProducerRequiredAcks
+
+	// We Want "Message Produced" Success Messages For Use With SyncProducer
+	config.Producer.Return.Successes = true
+
+	// Return The Sarama Config
+	return config
 }

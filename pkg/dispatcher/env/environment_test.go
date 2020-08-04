@@ -14,44 +14,40 @@ import (
 
 // Test Constants
 const (
-	metricsPort                     = "9999"
-	metricsDomain                   = "kafka-eventing"
-	healthPort                      = "1234"
-	exponentialBackoff              = "true"
-	expBackoffPresent               = "true"
-	maxRetryTime                    = "1234567890"
-	initialRetryInterval            = "2345678901"
-	kafkaBrokers                    = "TestKafkaBrokers"
-	kafkaTopic                      = "TestKafkaTopic"
-	channelKey                      = "TestChannelKey"
-	serviceName                     = "TestServiceName"
-	kafkaOffsetCommitMessageCount   = "3456789012"
-	kafkaOffsetCommitDurationMillis = "4567890123"
-	kafkaUsername                   = "TestKafkaUsername"
-	kafkaPassword                   = "TestKafkaPassword"
-	kafkaPasswordLog                = ""
+	metricsPort          = "9999"
+	metricsDomain        = "kafka-eventing"
+	healthPort           = "1234"
+	exponentialBackoff   = "true"
+	expBackoffPresent    = "true"
+	maxRetryTime         = "1234567890"
+	initialRetryInterval = "2345678901"
+	kafkaBrokers         = "TestKafkaBrokers"
+	kafkaTopic           = "TestKafkaTopic"
+	channelKey           = "TestChannelKey"
+	serviceName          = "TestServiceName"
+	kafkaUsername        = "TestKafkaUsername"
+	kafkaPassword        = "TestKafkaPassword"
+	kafkaPasswordLog     = ""
 )
 
 // Define The TestCase Struct
 type TestCase struct {
-	name                            string
-	metricsPort                     string
-	metricsDomain                   string
-	healthPort                      string
-	exponentialBackoff              string
-	expBackoffPresent               string
-	maxRetryTime                    string
-	initialRetryInterval            string
-	kafkaBrokers                    string
-	kafkaTopic                      string
-	channelKey                      string
-	serviceName                     string
-	kafkaOffsetCommitMessageCount   string
-	kafkaOffsetCommitDurationMillis string
-	kafkaUsername                   string
-	kafkaPassword                   string
-	kafkaPasswordLog                string
-	expectedError                   error
+	name                 string
+	metricsPort          string
+	metricsDomain        string
+	healthPort           string
+	exponentialBackoff   string
+	expBackoffPresent    string
+	maxRetryTime         string
+	initialRetryInterval string
+	kafkaBrokers         string
+	kafkaTopic           string
+	channelKey           string
+	serviceName          string
+	kafkaUsername        string
+	kafkaPassword        string
+	kafkaPasswordLog     string
+	expectedError        error
 }
 
 // Test All Permutations Of The GetEnvironment() Functionality
@@ -77,7 +73,7 @@ func TestGetEnvironment(t *testing.T) {
 
 	testCase = getValidTestCase("Invalid Config - MetricsPort")
 	testCase.metricsPort = "NAN"
-	testCase.expectedError = getInvalidIntegerEnvironmentVariableError(testCase.metricsPort, commonenv.MetricsPortEnvVarKey)
+	testCase.expectedError = getInvalidIntEnvironmentVariableError(testCase.metricsPort, commonenv.MetricsPortEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Required Config - HealthPort")
@@ -87,7 +83,7 @@ func TestGetEnvironment(t *testing.T) {
 
 	testCase = getValidTestCase("Invalid Config - HealthPort")
 	testCase.healthPort = "NAN"
-	testCase.expectedError = getInvalidIntegerEnvironmentVariableError(testCase.healthPort, commonenv.HealthPortEnvVarKey)
+	testCase.expectedError = getInvalidIntEnvironmentVariableError(testCase.healthPort, commonenv.HealthPortEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Required Config - ExponentialBackoff")
@@ -107,7 +103,7 @@ func TestGetEnvironment(t *testing.T) {
 
 	testCase = getValidTestCase("Invalid Config - MaxRetryTime")
 	testCase.maxRetryTime = "NAN"
-	testCase.expectedError = getInvalidIntegerEnvironmentVariableError(testCase.maxRetryTime, commonenv.MaxRetryTimeEnvVarKey)
+	testCase.expectedError = getInvalidInt64EnvironmentVariableError(testCase.maxRetryTime, commonenv.MaxRetryTimeEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Required Config - InitialRetryInterval")
@@ -117,7 +113,7 @@ func TestGetEnvironment(t *testing.T) {
 
 	testCase = getValidTestCase("Invalid Config - InitialRetryInterval")
 	testCase.initialRetryInterval = "NAN"
-	testCase.expectedError = getInvalidIntegerEnvironmentVariableError(testCase.initialRetryInterval, commonenv.InitialRetryIntervalEnvVarKey)
+	testCase.expectedError = getInvalidInt64EnvironmentVariableError(testCase.initialRetryInterval, commonenv.InitialRetryIntervalEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Required Config - KafkaBrokers")
@@ -140,36 +136,6 @@ func TestGetEnvironment(t *testing.T) {
 	testCase.expectedError = getMissingRequiredEnvironmentVariableError(commonenv.ServiceNameEnvVarKey)
 	testCases = append(testCases, testCase)
 
-	testCase = getValidTestCase("Missing Required Config - KafkaOffsetCommitMessageCount")
-	testCase.kafkaOffsetCommitMessageCount = ""
-	testCase.expectedError = getMissingRequiredEnvironmentVariableError(commonenv.KafkaOffsetCommitMessageCountEnvVarKey)
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Invalid Config - KafkaOffsetCommitMessageCount")
-	testCase.kafkaOffsetCommitMessageCount = "NAN"
-	testCase.expectedError = getInvalidIntegerEnvironmentVariableError(testCase.kafkaOffsetCommitMessageCount, commonenv.KafkaOffsetCommitMessageCountEnvVarKey)
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Missing Required Config - KafkaOffsetCommitDurationMillis")
-	testCase.kafkaOffsetCommitDurationMillis = ""
-	testCase.expectedError = getMissingRequiredEnvironmentVariableError(commonenv.KafkaOffsetCommitDurationMillisEnvVarKey)
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Invalid Config - KafkaOffsetCommitDurationMillis")
-	testCase.kafkaOffsetCommitDurationMillis = "NAN"
-	testCase.expectedError = getInvalidIntegerEnvironmentVariableError(testCase.kafkaOffsetCommitDurationMillis, commonenv.KafkaOffsetCommitDurationMillisEnvVarKey)
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Missing Required Config - KafkaUsername")
-	testCase.kafkaUsername = ""
-	testCase.expectedError = getMissingRequiredEnvironmentVariableError(commonenv.KafkaUsernameEnvVarKey)
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Missing Required Config - KafkaPassword")
-	testCase.kafkaPassword = ""
-	testCase.expectedError = getMissingRequiredEnvironmentVariableError(commonenv.KafkaPasswordEnvVarKey)
-	testCases = append(testCases, testCase)
-
 	// Loop Over All The TestCases
 	for _, testCase := range testCases {
 
@@ -185,8 +151,6 @@ func TestGetEnvironment(t *testing.T) {
 		assertSetenv(t, commonenv.KafkaTopicEnvVarKey, testCase.kafkaTopic)
 		assertSetenv(t, commonenv.ChannelKeyEnvVarKey, testCase.channelKey)
 		assertSetenv(t, commonenv.ServiceNameEnvVarKey, testCase.serviceName)
-		assertSetenvNonempty(t, commonenv.KafkaOffsetCommitMessageCountEnvVarKey, testCase.kafkaOffsetCommitMessageCount)
-		assertSetenvNonempty(t, commonenv.KafkaOffsetCommitDurationMillisEnvVarKey, testCase.kafkaOffsetCommitDurationMillis)
 		assertSetenv(t, commonenv.KafkaUsernameEnvVarKey, testCase.kafkaUsername)
 		assertSetenv(t, commonenv.KafkaPasswordEnvVarKey, testCase.kafkaPassword)
 
@@ -208,8 +172,6 @@ func TestGetEnvironment(t *testing.T) {
 			assert.Equal(t, testCase.kafkaTopic, environment.KafkaTopic)
 			assert.Equal(t, testCase.channelKey, environment.ChannelKey)
 			assert.Equal(t, testCase.serviceName, environment.ServiceName)
-			assert.Equal(t, testCase.kafkaOffsetCommitMessageCount, strconv.FormatInt(environment.KafkaOffsetCommitMessageCount, 10))
-			assert.Equal(t, testCase.kafkaOffsetCommitDurationMillis, strconv.FormatInt(environment.KafkaOffsetCommitDurationMillis, 10))
 			assert.Equal(t, testCase.kafkaUsername, environment.KafkaUsername)
 			assert.Equal(t, testCase.kafkaPassword, environment.KafkaPassword)
 
@@ -234,24 +196,22 @@ func assertSetenvNonempty(t *testing.T, envKey string, value string) {
 // Get The Base / Valid Test Case - All Config Specified / No Errors
 func getValidTestCase(name string) TestCase {
 	return TestCase{
-		name:                            name,
-		metricsPort:                     metricsPort,
-		metricsDomain:                   metricsDomain,
-		healthPort:                      healthPort,
-		exponentialBackoff:              exponentialBackoff,
-		expBackoffPresent:               expBackoffPresent,
-		maxRetryTime:                    maxRetryTime,
-		initialRetryInterval:            initialRetryInterval,
-		kafkaBrokers:                    kafkaBrokers,
-		kafkaTopic:                      kafkaTopic,
-		channelKey:                      channelKey,
-		serviceName:                     serviceName,
-		kafkaOffsetCommitMessageCount:   kafkaOffsetCommitMessageCount,
-		kafkaOffsetCommitDurationMillis: kafkaOffsetCommitDurationMillis,
-		kafkaUsername:                   kafkaUsername,
-		kafkaPassword:                   kafkaPassword,
-		kafkaPasswordLog:                kafkaPasswordLog,
-		expectedError:                   nil,
+		name:                 name,
+		metricsPort:          metricsPort,
+		metricsDomain:        metricsDomain,
+		healthPort:           healthPort,
+		exponentialBackoff:   exponentialBackoff,
+		expBackoffPresent:    expBackoffPresent,
+		maxRetryTime:         maxRetryTime,
+		initialRetryInterval: initialRetryInterval,
+		kafkaBrokers:         kafkaBrokers,
+		kafkaTopic:           kafkaTopic,
+		channelKey:           channelKey,
+		serviceName:          serviceName,
+		kafkaUsername:        kafkaUsername,
+		kafkaPassword:        kafkaPassword,
+		kafkaPasswordLog:     kafkaPasswordLog,
+		expectedError:        nil,
 	}
 }
 
@@ -260,14 +220,19 @@ func getMissingRequiredEnvironmentVariableError(envVarKey string) error {
 	return fmt.Errorf("missing required environment variable '%s'", envVarKey)
 }
 
-// Get The Expected Error Message For An Invalid Integer Environment Variable
-func getInvalidIntegerEnvironmentVariableError(value string, envVarKey string) error {
-	return fmt.Errorf("invalid (non-integer) value '%s' for environment variable '%s'", value, envVarKey)
+// Get The Expected Error Message For An Invalid Int Environment Variable
+func getInvalidIntEnvironmentVariableError(value string, envVarKey string) error {
+	return fmt.Errorf("invalid (non int) value '%s' for environment variable '%s'", value, envVarKey)
+}
+
+// Get The Expected Error Message For An Invalid Int64 Environment Variable
+func getInvalidInt64EnvironmentVariableError(value string, envVarKey string) error {
+	return fmt.Errorf("invalid (non int64) value '%s' for environment variable '%s'", value, envVarKey)
 }
 
 // Get The Expected Error Message For An Invalid Boolean Environment Variable
 func getInvalidBooleanEnvironmentVariableError(value string, envVarKey string) error {
-	return fmt.Errorf("invalid (non-boolean) value '%s' for environment variable '%s'", value, envVarKey)
+	return fmt.Errorf("invalid (non boolean) value '%s' for environment variable '%s'", value, envVarKey)
 }
 
 // Initialize The Logger - Fatal Exit Upon Error

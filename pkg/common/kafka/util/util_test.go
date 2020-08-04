@@ -1,54 +1,54 @@
 package util
 
 import (
+	"crypto/tls"
 	"fmt"
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	"testing"
 )
 
-// Test The AddAuthenticationCredentials() Functionality
-func TestAddAuthenticationCredentials(t *testing.T) {
+// Test Enabling Sarama Logging
+func TestEnableSaramaLogging(t *testing.T) {
+
+	// Restore Sarama Logger After Test
+	saramaLoggerPlaceholder := sarama.Logger
+	defer func() {
+		sarama.Logger = saramaLoggerPlaceholder
+	}()
+
+	// Perform The Test
+	EnableSaramaLogging()
+
+	// Verify Results (Not Much Is Possible)
+	sarama.Logger.Print("TestMessage")
+}
+
+// Test The NewSaramaConfig() Functionality
+func TestNewSaramaConfig(t *testing.T) {
 
 	// Test Data
+	clientId := "TestClientId"
 	username := "TestUsername"
 	password := "TestPassword"
 
-	// Test ConfigMap
-	configMap := &kafka.ConfigMap{}
-
 	// Perform The Test
-	AddSaslAuthentication(configMap, constants.ConfigPropertySaslMechanismsPlain, username, password)
+	config := NewSaramaConfig(clientId, username, password)
 
 	// Verify The Results
-	verifyConfigMapValue(t, configMap, constants.ConfigPropertySecurityProtocol, constants.ConfigPropertySecurityProtocolValue)
-	verifyConfigMapValue(t, configMap, constants.ConfigPropertySaslMechanisms, constants.ConfigPropertySaslMechanismsPlain)
-	verifyConfigMapValue(t, configMap, constants.ConfigPropertySaslUsername, username)
-	verifyConfigMapValue(t, configMap, constants.ConfigPropertySaslPassword, password)
-}
-
-// Test The AddDebugFlags() Functionality
-func TestAddDebugFlags(t *testing.T) {
-
-	// Test Data
-	flags := "TestDebugFlags"
-
-	// Test ConfigMap
-	configMap := &kafka.ConfigMap{}
-
-	// Perform The Test
-	AddDebugFlags(configMap, flags)
-
-	// Verify The Results
-	verifyConfigMapValue(t, configMap, constants.ConfigPropertyDebug, flags)
-}
-
-// Utility Function To Verify The Specified Individual ConfigMap Value
-func verifyConfigMapValue(t *testing.T, configMap *kafka.ConfigMap, key string, expected kafka.ConfigValue) {
-	property, err := configMap.Get(key, nil)
-	assert.Nil(t, err)
-	assert.Equal(t, expected, property)
+	assert.Equal(t, clientId, config.ClientID)
+	assert.Equal(t, constants.ConfigKafkaVersion, config.Version)
+	assert.Equal(t, constants.ConfigNetKeepAlive, config.Net.KeepAlive)
+	assert.Equal(t, constants.ConfigNetSaslVersion, config.Net.SASL.Version)
+	assert.True(t, config.Net.SASL.Enable)
+	assert.Equal(t, sarama.SASLMechanism(sarama.SASLTypePlaintext), config.Net.SASL.Mechanism)
+	assert.Equal(t, username, config.Net.SASL.User)
+	assert.Equal(t, password, config.Net.SASL.Password)
+	assert.True(t, config.Net.TLS.Enable)
+	assert.False(t, config.Net.TLS.Config.InsecureSkipVerify)
+	assert.Equal(t, tls.NoClientCert, config.Net.TLS.Config.ClientAuth)
+	assert.Equal(t, constants.ConfigMetadataRefreshFrequency, config.Metadata.RefreshFrequency)
 }
 
 // Test The TopicName() Functionality

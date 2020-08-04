@@ -2,7 +2,7 @@ package admin
 
 import (
 	"context"
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
@@ -20,6 +20,7 @@ import (
 func TestNewKafkaAdminClientSuccess(t *testing.T) {
 
 	// Test Data
+	clientId := "TestClientId"
 	namespace := "TestNamespace"
 	kafkaSecretName := "TestKafkaSecretName"
 	kafkaSecretBrokers := "TestKafkaSecretBrokers"
@@ -33,8 +34,28 @@ func TestNewKafkaAdminClientSuccess(t *testing.T) {
 	ctx := logging.WithLogger(context.TODO(), logtesting.TestLogger(t))
 	ctx = context.WithValue(ctx, injectionclient.Key{}, fake.NewSimpleClientset(kafkaSecret))
 
+	// Create A Mock Sarama ClusterAdmin To Test Against
+	mockClusterAdmin := &MockClusterAdmin{}
+
+	// Mock The Sarama ClusterAdmin Creation For Testing
+	newClusterAdminWrapperPlaceholder := NewClusterAdminWrapper
+	NewClusterAdminWrapper = func(brokers []string, config *sarama.Config) (sarama.ClusterAdmin, error) {
+		assert.Len(t, brokers, 1)
+		assert.Equal(t, kafkaSecretBrokers, brokers[0])
+		assert.NotNil(t, config)
+		assert.Equal(t, clientId, config.ClientID)
+		assert.Equal(t, constants.ConfigAdminTimeout, config.Admin.Timeout)
+		assert.Equal(t, constants.ConfigKafkaVersion, config.Version)
+		assert.Equal(t, kafkaSecretUsername, config.Net.SASL.User)
+		assert.Equal(t, kafkaSecretPassword, config.Net.SASL.Password)
+		return mockClusterAdmin, nil
+	}
+	defer func() {
+		NewClusterAdminWrapper = newClusterAdminWrapperPlaceholder
+	}()
+
 	// Perform The Test
-	adminClient, err := NewKafkaAdminClient(ctx, namespace)
+	adminClient, err := NewKafkaAdminClient(ctx, clientId, namespace)
 
 	// Verify The Results
 	assert.Nil(t, err)
@@ -45,6 +66,7 @@ func TestNewKafkaAdminClientSuccess(t *testing.T) {
 func TestNewKafkaAdminClientNoSecrets(t *testing.T) {
 
 	// Test Data
+	clientId := "TestClientId"
 	namespace := "TestNamespace"
 
 	// Create A Context With Test Logger & K8S Client
@@ -52,72 +74,141 @@ func TestNewKafkaAdminClientNoSecrets(t *testing.T) {
 	ctx = context.WithValue(ctx, injectionclient.Key{}, fake.NewSimpleClientset())
 
 	// Perform The Test
-	adminClient, err := NewKafkaAdminClient(ctx, namespace)
+	adminClient, err := NewKafkaAdminClient(ctx, clientId, namespace)
 
 	// Verify The Results
 	assert.Nil(t, err)
 	assert.NotNil(t, adminClient)
 }
 
-// Test The Kafka AdminClient CreateTopics() Functionality
-func TestKafkaAdminClientCreateTopics(t *testing.T) {
+// Test The Kafka AdminClient CreateTopic() Functionality
+func TestKafkaAdminClientCreateTopic(t *testing.T) {
 
 	// Test Data
 	ctx := context.TODO()
 	topicName := "TestTopicName"
-	topicNumPartitions := 4
-	topicRetentionMillis := int64(3 * constants.MillisPerDay)
+	topicNumPartitions := int32(4)
+	topicRetentionDays := int32(3)
+	topicRetentionMillis := int64(topicRetentionDays * constants.MillisPerDay)
+	topicRetentionMillisString := strconv.FormatInt(topicRetentionMillis, 10)
 
-	// Create The Kafka TopicSpecification For The Topic/EventHub To Be Created
-	topicSpecifications := []kafka.TopicSpecification{{
-		Topic:         topicName,
+	// Create The Kafka TopicDetail For The Topic/EventHub To Be Created
+	topicDetail := &sarama.TopicDetail{
 		NumPartitions: topicNumPartitions,
-		Config:        map[string]string{constants.TopicSpecificationConfigRetentionMs: strconv.FormatInt(topicRetentionMillis, 10)},
-	}}
+		ConfigEntries: map[string]*string{constants.TopicDetailConfigRetentionMs: &topicRetentionMillisString},
+	}
 
-	// Create The Kafka TopicResults To Return
-	topicResults := []kafka.TopicResult{{Topic: topicName, Error: kafka.NewError(kafka.ErrNoError, topicName, false)}}
+	// Create The Kafka TopicError To Return
+	errMsg := "test CreateTopic() success"
+	testTopicError := &sarama.TopicError{
+		Err:    sarama.ErrNoError,
+		ErrMsg: &errMsg,
+	}
 
-	// Create A Mock Confluent AdminClient To Test Against
-	mockConfluentAdminClient := &MockConfluentAdminClient{}
-	mockConfluentAdminClient.On("CreateTopics", ctx, topicSpecifications, []kafka.CreateTopicsAdminOption(nil)).Return(topicResults, nil)
+	// Create A Mock Sarama ClusterAdmin To Test Against
+	mockClusterAdmin := &MockClusterAdmin{}
+	mockClusterAdmin.On("CreateTopic", topicName, topicDetail).Return(testTopicError)
 
 	// Test Logger
 	logger := logtesting.TestLogger(t).Desugar()
 
 	// Create A New Kafka AdminClient To Test
 	adminClient := &KafkaAdminClient{
-		logger:      logger,
-		adminClient: mockConfluentAdminClient,
+		logger:       logger,
+		clusterAdmin: mockClusterAdmin,
 	}
 
 	// Perform The Test
-	kafkaTopicResults, err := adminClient.CreateTopics(ctx, topicSpecifications)
+	resultTopicError := adminClient.CreateTopic(ctx, topicName, topicDetail)
 
 	// Verify The Results
-	assert.Nil(t, err)
-	assert.NotNil(t, kafkaTopicResults)
-	assert.Len(t, kafkaTopicResults, 1)
-	assert.Equal(t, topicName, kafkaTopicResults[0].Topic)
-	assert.Equal(t, kafka.ErrNoError, kafkaTopicResults[0].Error.Code())
-	mockConfluentAdminClient.AssertExpectations(t)
+	assert.NotNil(t, resultTopicError)
+	assert.Equal(t, sarama.ErrNoError, resultTopicError.Err)
+	assert.Equal(t, errMsg, *resultTopicError.ErrMsg)
+	mockClusterAdmin.AssertExpectations(t)
 }
 
-// Test The Kafka AdminClient CreateTopics() Without AdminClient Functionality
-func TestKafkaAdminClientCreateTopicsInvalidAdminClient(t *testing.T) {
+// Test The Kafka AdminClient CreateTopic() Without ClusterAdmin Functionality
+func TestKafkaAdminClientCreateTopicInvalidAdminClient(t *testing.T) {
 
 	// Test Data
 	ctx := context.TODO()
 	topicName := "TestTopicName"
-	topicNumPartitions := 4
-	topicRetentionMillis := int64(3 * constants.MillisPerDay)
+	topicNumPartitions := int32(4)
+	topicRetentionDays := int32(3)
+	topicRetentionMillis := int64(topicRetentionDays * constants.MillisPerDay)
+	topicRetentionMillisString := strconv.FormatInt(topicRetentionMillis, 10)
 
-	// Create The Kafka TopicSpecification For The Topic/EventHub To Be Created
-	topicSpecifications := []kafka.TopicSpecification{{
-		Topic:         topicName,
+	// Create The Kafka TopicDetail For The Topic/EventHub To Be Created
+	topicDetail := &sarama.TopicDetail{
 		NumPartitions: topicNumPartitions,
-		Config:        map[string]string{constants.TopicSpecificationConfigRetentionMs: strconv.FormatInt(topicRetentionMillis, 10)},
-	}}
+		ConfigEntries: map[string]*string{constants.TopicDetailConfigRetentionMs: &topicRetentionMillisString},
+	}
+
+	// The Expected Error Message
+	errMsg := "unable to create topic due to invalid ClusterAdmin - check Kafka authorization secrets"
+
+	// Test Logger
+	logger := logtesting.TestLogger(t).Desugar()
+
+	// Create A New Kafka AdminClient To Test (No ClusterAdmin)
+	adminClient := &KafkaAdminClient{logger: logger}
+
+	// Perform The Test
+	resultTopicError := adminClient.CreateTopic(ctx, topicName, topicDetail)
+
+	// Verify The Results
+	assert.NotNil(t, resultTopicError)
+	assert.Equal(t, sarama.ErrUnknown, resultTopicError.Err)
+	assert.Equal(t, errMsg, *resultTopicError.ErrMsg)
+}
+
+// Test The Kafka AdminClient DeleteTopic() Functionality
+func TestKafkaAdminClientDeleteTopic(t *testing.T) {
+
+	// Test Data
+	ctx := context.TODO()
+	topicName := "TestTopicName"
+
+	// Create The Kafka TopicError To Return
+	errMsg := "test DeleteTopic() success"
+	testTopicError := &sarama.TopicError{
+		Err:    sarama.ErrNoError,
+		ErrMsg: &errMsg,
+	}
+
+	// Create A Mock Sarama ClusterAdmin To Test Against
+	mockClusterAdmin := &MockClusterAdmin{}
+	mockClusterAdmin.On("DeleteTopic", topicName).Return(testTopicError)
+
+	// Test Logger
+	logger := logtesting.TestLogger(t).Desugar()
+
+	// Create A New Kafka AdminClient To Test
+	adminClient := &KafkaAdminClient{
+		logger:       logger,
+		clusterAdmin: mockClusterAdmin,
+	}
+
+	// Perform The Test
+	resultTopicError := adminClient.DeleteTopic(ctx, topicName)
+
+	// Verify The Results
+	assert.NotNil(t, resultTopicError)
+	assert.Equal(t, sarama.ErrNoError, resultTopicError.Err)
+	assert.Equal(t, errMsg, *resultTopicError.ErrMsg)
+	mockClusterAdmin.AssertExpectations(t)
+}
+
+// Test The Kafka AdminClient DeleteTopic() Without AdminClient Functionality
+func TestKafkaAdminClientDeleteTopicInvalidAdminClient(t *testing.T) {
+
+	// Test Data
+	ctx := context.TODO()
+	topicName := "TestTopicName"
+
+	// The Expected Error Message
+	errMsg := "unable to delete topic due to invalid ClusterAdmin - check Kafka authorization secrets"
 
 	// Test Logger
 	logger := logtesting.TestLogger(t).Desugar()
@@ -126,90 +217,36 @@ func TestKafkaAdminClientCreateTopicsInvalidAdminClient(t *testing.T) {
 	adminClient := &KafkaAdminClient{logger: logger}
 
 	// Perform The Test
-	kafkaTopicResults, err := adminClient.CreateTopics(ctx, topicSpecifications)
+	resultTopicError := adminClient.DeleteTopic(ctx, topicName)
 
 	// Verify The Results
-	assert.NotNil(t, err)
-	assert.Nil(t, kafkaTopicResults)
-}
-
-// Test The Kafka AdminClient DeleteTopics() Functionality
-func TestKafkaAdminClientDeleteTopics(t *testing.T) {
-
-	// Test Data
-	ctx := context.TODO()
-	topicName := "TestTopicName"
-
-	// Create The Kafka TopicResults To Return
-	topicResults := []kafka.TopicResult{{Topic: topicName, Error: kafka.NewError(kafka.ErrNoError, topicName, false)}}
-
-	// Create A Mock Confluent AdminClient To Test Against
-	mockConfluentAdminClient := &MockConfluentAdminClient{}
-	mockConfluentAdminClient.On("DeleteTopics", ctx, []string{topicName}, []kafka.DeleteTopicsAdminOption(nil)).Return(topicResults, nil)
-
-	// Test Logger
-	logger := logtesting.TestLogger(t).Desugar()
-
-	// Create A New Kafka AdminClient To Test
-	adminClient := &KafkaAdminClient{
-		logger:      logger,
-		adminClient: mockConfluentAdminClient,
-	}
-
-	// Perform The Test
-	kafkaTopicResults, err := adminClient.DeleteTopics(ctx, []string{topicName})
-
-	// Verify The Results
-	assert.Nil(t, err)
-	assert.NotNil(t, kafkaTopicResults)
-	assert.Len(t, kafkaTopicResults, 1)
-	assert.Equal(t, topicName, kafkaTopicResults[0].Topic)
-	assert.Equal(t, kafka.ErrNoError, kafkaTopicResults[0].Error.Code())
-	mockConfluentAdminClient.AssertExpectations(t)
-}
-
-// Test The Kafka AdminClient DeleteTopics() Without AdminClient Functionality
-func TestKafkaAdminClientDeleteTopicsInvalidAdminClient(t *testing.T) {
-
-	// Test Data
-	ctx := context.TODO()
-	topicName := "TestTopicName"
-
-	// Test Logger
-	logger := logtesting.TestLogger(t).Desugar()
-
-	// Create A New Kafka AdminClient To Test
-	adminClient := &KafkaAdminClient{logger: logger}
-
-	// Perform The Test
-	kafkaTopicResults, err := adminClient.DeleteTopics(ctx, []string{topicName})
-
-	// Verify The Results
-	assert.NotNil(t, err)
-	assert.Nil(t, kafkaTopicResults)
+	assert.NotNil(t, resultTopicError)
+	assert.Equal(t, sarama.ErrUnknown, resultTopicError.Err)
+	assert.Equal(t, errMsg, *resultTopicError.ErrMsg)
 }
 
 // Test The Kafka AdminClient Close() Functionality
 func TestKafkaAdminClientClose(t *testing.T) {
 
-	// Create A Mock Confluent AdminClient To Test Against
-	mockConfluentAdminClient := &MockConfluentAdminClient{}
-	mockConfluentAdminClient.On("Close").Return()
+	// Create A Mock Sarama ClusterAdmin To Test Against
+	mockClusterAdmin := &MockClusterAdmin{}
+	mockClusterAdmin.On("Close").Return(nil)
 
 	// Test Logger
 	logger := logtesting.TestLogger(t).Desugar()
 
 	// Create A New Kafka AdminClient To Test
 	adminClient := &KafkaAdminClient{
-		logger:      logger,
-		adminClient: mockConfluentAdminClient,
+		logger:       logger,
+		clusterAdmin: mockClusterAdmin,
 	}
 
 	// Perform The Test
-	adminClient.Close()
+	err := adminClient.Close()
 
 	// Verify The Results
-	mockConfluentAdminClient.AssertExpectations(t)
+	assert.Nil(t, err)
+	mockClusterAdmin.AssertExpectations(t)
 }
 
 // Test The Kafka AdminClient Close() Without AdminClient Functionality
@@ -222,9 +259,10 @@ func TestKafkaAdminClientCloseInvalidAdminClient(t *testing.T) {
 	adminClient := &KafkaAdminClient{logger: logger}
 
 	// Perform The Test
-	adminClient.Close()
+	err := adminClient.Close()
 
-	// Nothing To Verify
+	// Verify The Results
+	assert.Equal(t, "unable to close invalid ClusterAdmin - check Kafka authorization secrets", err.Error())
 }
 
 // Test The Kafka AdminClient GetKafkaSecretName() Functionality
@@ -274,27 +312,96 @@ func createKafkaSecret(name string, namespace string, brokers string, username s
 }
 
 //
-// Mock Confluent Kafka AdminClient
+// Mock Sarama Kafka ClusterAdmin
 //
 
-// Verify The Mock Confluent AdminClient Implements The Interface
-var _ ConfluentAdminClientInterface = &MockConfluentAdminClient{}
+// Verify The Mock Sarama ClusterAdmin Implements The Interface
+var _ sarama.ClusterAdmin = &MockClusterAdmin{}
 
-// The Mock Confluent AdminClient
-type MockConfluentAdminClient struct {
+// The Mock Sarama ClusterAdmin
+type MockClusterAdmin struct {
 	mock.Mock
 }
 
-func (m MockConfluentAdminClient) CreateTopics(ctx context.Context, topicSpecifications []kafka.TopicSpecification, options ...kafka.CreateTopicsAdminOption) ([]kafka.TopicResult, error) {
-	args := m.Called(ctx, topicSpecifications, options)
-	return args.Get(0).([]kafka.TopicResult), args.Error(1)
+func (m *MockClusterAdmin) DescribeLogDirs(brokers []int32) (map[int32][]sarama.DescribeLogDirsResponseDirMetadata, error) {
+	panic("implement me")
 }
 
-func (m MockConfluentAdminClient) DeleteTopics(ctx context.Context, topics []string, options ...kafka.DeleteTopicsAdminOption) ([]kafka.TopicResult, error) {
-	args := m.Called(ctx, topics, options)
-	return args.Get(0).([]kafka.TopicResult), args.Error(1)
+func (m *MockClusterAdmin) CreateTopic(topic string, detail *sarama.TopicDetail, validateOnly bool) error {
+	args := m.Called(topic, detail)
+	return args.Get(0).(*sarama.TopicError)
 }
 
-func (m MockConfluentAdminClient) Close() {
-	m.Called()
+func (m *MockClusterAdmin) ListTopics() (map[string]sarama.TopicDetail, error) {
+	panic("implement me")
+}
+
+func (m *MockClusterAdmin) DescribeTopics(topics []string) (metadata []*sarama.TopicMetadata, err error) {
+	panic("implement me")
+}
+
+func (m *MockClusterAdmin) DeleteTopic(topic string) error {
+	args := m.Called(topic)
+	return args.Get(0).(*sarama.TopicError)
+}
+
+func (m *MockClusterAdmin) CreatePartitions(topic string, count int32, assignment [][]int32, validateOnly bool) error {
+	panic("implement me")
+}
+
+func (m *MockClusterAdmin) AlterPartitionReassignments(topic string, assignment [][]int32) error {
+	panic("implement me")
+}
+
+func (m *MockClusterAdmin) ListPartitionReassignments(topics string, partitions []int32) (topicStatus map[string]map[int32]*sarama.PartitionReplicaReassignmentsStatus, err error) {
+	panic("implement me")
+}
+
+func (m *MockClusterAdmin) DeleteRecords(topic string, partitionOffsets map[int32]int64) error {
+	panic("implement me")
+}
+
+func (m *MockClusterAdmin) DescribeConfig(resource sarama.ConfigResource) ([]sarama.ConfigEntry, error) {
+	panic("implement me")
+}
+
+func (m *MockClusterAdmin) AlterConfig(resourceType sarama.ConfigResourceType, name string, entries map[string]*string, validateOnly bool) error {
+	panic("implement me")
+}
+
+func (m *MockClusterAdmin) CreateACL(resource sarama.Resource, acl sarama.Acl) error {
+	panic("implement me")
+}
+
+func (m *MockClusterAdmin) ListAcls(filter sarama.AclFilter) ([]sarama.ResourceAcls, error) {
+	panic("implement me")
+}
+
+func (m *MockClusterAdmin) DeleteACL(filter sarama.AclFilter, validateOnly bool) ([]sarama.MatchingAcl, error) {
+	panic("implement me")
+}
+
+func (m *MockClusterAdmin) ListConsumerGroups() (map[string]string, error) {
+	panic("implement me")
+}
+
+func (m *MockClusterAdmin) DescribeConsumerGroups(groups []string) ([]*sarama.GroupDescription, error) {
+	panic("implement me")
+}
+
+func (m *MockClusterAdmin) ListConsumerGroupOffsets(group string, topicPartitions map[string][]int32) (*sarama.OffsetFetchResponse, error) {
+	panic("implement me")
+}
+
+func (m *MockClusterAdmin) DeleteConsumerGroup(group string) error {
+	panic("implement me")
+}
+
+func (m *MockClusterAdmin) DescribeCluster() (brokers []*sarama.Broker, controllerID int32, err error) {
+	panic("implement me")
+}
+
+func (m *MockClusterAdmin) Close() error {
+	args := m.Called()
+	return args.Error(0)
 }

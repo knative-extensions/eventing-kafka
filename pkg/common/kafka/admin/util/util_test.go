@@ -1,6 +1,8 @@
 package util
 
 import (
+	"errors"
+	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,6 +38,63 @@ func TestGetKafkaSecrets(t *testing.T) {
 	assert.Len(t, kafkaSecretList.Items, 2)
 	assert.Contains(t, kafkaSecretList.Items, *kafkaSecret1)
 	assert.Contains(t, kafkaSecretList.Items, *kafkaSecret2)
+}
+
+// Test The PromoteErrorToTopicError() Functionality
+func TestPromoteErrorToTopicError(t *testing.T) {
+
+	// Test Data
+	defaultErrMsg := "test default error"
+	defaultErr := errors.New(defaultErrMsg)
+	topicErrMsg := "test TopicError"
+	topicErr := &sarama.TopicError{
+		Err:    sarama.ErrInvalidConfig,
+		ErrMsg: &topicErrMsg,
+	}
+
+	// Perform The Test (Both Cases)
+	nilTopicError := PromoteErrorToTopicError(nil)
+	defaultTopicError := PromoteErrorToTopicError(defaultErr)
+	saramaTopicError := PromoteErrorToTopicError(topicErr)
+
+	// Verify The Results
+	assert.Nil(t, nilTopicError)
+	assert.NotNil(t, defaultTopicError)
+	assert.Equal(t, sarama.ErrUnknown, defaultTopicError.Err)
+	assert.Equal(t, defaultErrMsg, *defaultTopicError.ErrMsg)
+	assert.NotNil(t, saramaTopicError)
+	assert.Equal(t, topicErr.Err, saramaTopicError.Err)
+	assert.Equal(t, topicErrMsg, *saramaTopicError.ErrMsg)
+}
+
+// Test The NewUnknownTopicError() Functionality
+func TestNewUnknownTopicError(t *testing.T) {
+
+	// Test Data
+	errMsg := "test error message"
+
+	// Perform The Test
+	topicError := NewUnknownTopicError(errMsg)
+
+	// Verify The Results
+	assert.NotNil(t, topicError)
+	assert.Equal(t, sarama.ErrUnknown, topicError.Err)
+	assert.Equal(t, errMsg, *topicError.ErrMsg)
+}
+
+// Test The NewTopicError() Functionality
+func TestNewTopicError(t *testing.T) {
+
+	// Test Data
+	errMsg := "test error message"
+
+	// Perform The Test
+	topicError := NewTopicError(sarama.ErrInvalidConfig, errMsg)
+
+	// Verify The Results
+	assert.NotNil(t, topicError)
+	assert.Equal(t, sarama.ErrInvalidConfig, topicError.Err)
+	assert.Equal(t, errMsg, *topicError.ErrMsg)
 }
 
 //

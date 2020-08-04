@@ -11,7 +11,6 @@ import (
 	kafkaadmin "knative.dev/eventing-kafka/pkg/common/kafka/admin"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
 	"knative.dev/eventing-kafka/pkg/controller/env"
-	"knative.dev/eventing-kafka/pkg/controller/kafkasecretinformer"
 	"knative.dev/eventing/pkg/logging"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
@@ -20,8 +19,8 @@ import (
 	"knative.dev/pkg/controller"
 )
 
-// Package Level Kafka AdminClient Reference (For Shutdown() Usage)
-var adminClient kafkaadmin.AdminClientInterface
+// Track The Reconciler For Shutdown() Usage
+var rec *Reconciler
 
 // Create A New KafkaChannel Controller
 func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
@@ -33,7 +32,6 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	kafkachannelInformer := kafkachannel.Get(ctx)
 	deploymentInformer := deployment.Get(ctx)
 	serviceInformer := service.Get(ctx)
-	kafkaSecretInformer := kafkasecretinformer.Get(ctx)
 
 	// Load The Environment Variables
 	environment, err := env.GetEnvironment(logger)
@@ -47,14 +45,8 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 		kafkaAdminClientType = kafkaadmin.EventHub
 	}
 
-	// Get The Kafka AdminClient
-	adminClient, err := kafkaadmin.CreateAdminClient(ctx, kafkaAdminClientType)
-	if adminClient == nil || err != nil {
-		logger.Fatal("Failed To Create Kafka AdminClient", zap.Error(err))
-	}
-
-	// Create A KafkaChannel Reconciler
-	r := &Reconciler{
+	// Create A KafkaChannel Reconciler & Track As Package Variable
+	rec = &Reconciler{
 		logger:               logging.FromContext(ctx),
 		kubeClientset:        kubeclient.Get(ctx),
 		environment:          environment,
@@ -63,11 +55,12 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 		kafkachannelInformer: kafkachannelInformer.Informer(),
 		deploymentLister:     deploymentInformer.Lister(),
 		serviceLister:        serviceInformer.Lister(),
-		adminClient:          adminClient,
+		adminClientType:      kafkaAdminClientType,
+		adminClient:          nil,
 	}
 
 	// Create A New KafkaChannel Controller Impl With The Reconciler
-	controllerImpl := kafkachannelreconciler.NewImpl(ctx, r)
+	controllerImpl := kafkachannelreconciler.NewImpl(ctx, rec)
 
 	//
 	// Configure The Informers' EventHandlers
@@ -77,7 +70,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	//        Kubernetes OwnerReferences are not intended to be cross-namespace and thus don't include the namespace
 	//        information.
 	//
-	r.logger.Info("Setting Up EventHandlers")
+	rec.logger.Info("Setting Up EventHandlers")
 	kafkachannelInformer.Informer().AddEventHandler(
 		controller.HandleAll(controllerImpl.Enqueue),
 	)
@@ -89,9 +82,6 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 		FilterFunc: controller.FilterGroupVersionKind(kafkachannelv1alpha1.SchemeGroupVersion.WithKind(constants.KafkaChannelKind)),
 		Handler:    controller.HandleAll(controllerImpl.EnqueueLabelOfNamespaceScopedResource(constants.KafkaChannelNamespaceLabel, constants.KafkaChannelNameLabel)),
 	})
-	kafkaSecretInformer.Informer().AddEventHandler(
-		controller.HandleAll(r.resetKafkaAdminClient(ctx, kafkaAdminClientType)),
-	)
 
 	// Return The KafkaChannel Controller Impl
 	return controllerImpl
@@ -99,20 +89,5 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 
 // Graceful Shutdown Hook
 func Shutdown() {
-	if adminClient != nil {
-		adminClient.Close()
-	}
-}
-
-// Recreate The Kafka AdminClient On The Reconciler (Useful To Reload Cache Which Is Not Yet Exposed)
-func (r *Reconciler) resetKafkaAdminClient(ctx context.Context, kafkaAdminClientType kafkaadmin.AdminClientType) func(obj interface{}) {
-	return func(obj interface{}) {
-		adminClient, err := kafkaadmin.CreateAdminClient(ctx, kafkaAdminClientType)
-		if adminClient == nil || err != nil {
-			r.logger.Error("Failed To Re-Create Kafka AdminClient", zap.Error(err))
-		} else {
-			r.logger.Info("Successfully Re-Created Kafka AdminClient")
-			r.adminClient = adminClient
-		}
-	}
+	rec.ClearKafkaAdminClient()
 }

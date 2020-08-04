@@ -4,7 +4,7 @@ This readme describes the implementation of this "kafka" common package.  Primar
 providing utilities for creating the basic connections (i.e. AdminClient, Producer, Consumer) used in a Kafka based
 solution.  The solution provides support for various Kafka implementations / deployments both with and without
 authentication.  Further, the implementation provides support for administering Azure EventHubs (Topics) via the
-standard Confluent / librdkafka client so that the users of this logic do not have to concern themselves with the
+standard Sarama ClusterAdmin so that the users of this logic do not have to concern themselves with the
 underlying implementation.
 
 ## AdminClient & K8S Secrets

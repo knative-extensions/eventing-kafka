@@ -1,66 +1,43 @@
 package consumer
 
 import (
-	"errors"
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/Shopify/sarama"
+	"github.com/rcrowley/go-metrics"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	"knative.dev/eventing-kafka/pkg/common/kafka/util"
 )
 
-// Confluent Client Doesn't Code To Interfaces Or Provide Mocks So We're Wrapping Our Usage Of The Consumer For Testing
-type ConsumerInterface interface {
-	Subscribe(topic string, rebalanceCb kafka.RebalanceCb) error
-	Poll(int) kafka.Event
-	CommitMessage(*kafka.Message) ([]kafka.TopicPartition, error)
-	Close() error
-	OffsetsForTimes(times []kafka.TopicPartition, timeoutMs int) (offsets []kafka.TopicPartition, err error)
-	GetMetadata(topic *string, allTopics bool, timeoutMs int) (*kafka.Metadata, error)
-	CommitOffsets(offsets []kafka.TopicPartition) ([]kafka.TopicPartition, error)
-	QueryWatermarkOffsets(topic string, partition int32, timeoutMs int) (low, high int64, err error)
-	StoreOffsets(offsets []kafka.TopicPartition) (storedOffsets []kafka.TopicPartition, err error)
-	Commit() ([]kafka.TopicPartition, error)
+// Create A Kafka ConsumerGroup (Optional SASL Authentication)
+func CreateConsumerGroup(clientId string, brokers []string, groupId string, username string, password string) (sarama.ConsumerGroup, metrics.Registry, error) {
+
+	// Create The Sarama Consumer Config
+	config := getConfig(clientId, username, password)
+
+	// Create A New Sarama ConsumerGroup & Return Results
+	consumerGroup, err := NewConsumerGroupWrapper(brokers, groupId, config)
+	return consumerGroup, config.MetricRegistry, err
 }
 
-// Create A Kafka Consumer (Optional SASL Authentication)
-func CreateConsumer(brokers string, groupId string, offset string, username string, password string) (ConsumerInterface, error) {
-
-	// Validate Parameters
-	if len(brokers) <= 0 ||
-		len(groupId) <= 0 ||
-		len(offset) <= 0 {
-		return nil, errors.New("required parameters not provided")
-	}
-
-	// Create The Kafka Consumer Configuration
-	configMap := getBaseConsumerConfigMap(brokers, groupId, offset)
-
-	// Append SASL Authentication If Specified
-	if len(username) > 0 && len(password) > 0 {
-		util.AddSaslAuthentication(configMap, constants.ConfigPropertySaslMechanismsPlain, username, password)
-	}
-
-	// Enable Kafka Consumer Debug Logging (Debug Only - Do Not Commit Enabled!)
-	// util.AddDebugFlags(configMap, "consumer,cgrp,topic,fetch,protocol,security")
-
-	// Create The Kafka Consumer Via Wrapper & Return Results
-	return NewConsumerWrapper(configMap)
+// Function Reference Variable To Facilitate Mocking In Unit Tests
+var NewConsumerGroupWrapper = func(brokers []string, groupId string, config *sarama.Config) (sarama.ConsumerGroup, error) {
+	return sarama.NewConsumerGroup(brokers, groupId, config)
 }
 
-// Kafka Function Reference Variable To Facilitate Mocking In Unit Tests
-var NewConsumerWrapper = func(configMap *kafka.ConfigMap) (ConsumerInterface, error) {
-	return kafka.NewConsumer(configMap)
-}
+// Get The Default Sarama Consumer Config
+func getConfig(clientId string, username string, password string) *sarama.Config {
 
-// Utility Function For Returning The Base/Common Kafka ConfigMap (Values Shared By All Connections)
-func getBaseConsumerConfigMap(brokers string, groupId string, offset string) *kafka.ConfigMap {
-	return &kafka.ConfigMap{
-		constants.ConfigPropertyBootstrapServers:        brokers,
-		constants.ConfigPropertyBrokerAddressFamily:     constants.ConfigPropertyBrokerAddressFamilyValue,
-		constants.ConfigPropertyGroupId:                 groupId,
-		constants.ConfigPropertyEnableAutoOffsetStore:   constants.ConfigPropertyEnableAutoOffsetStoreValue,
-		constants.ConfigPropertyEnableAutoOffsetCommit:  constants.ConfigPropertyEnableAutoOffsetCommitValue,
-		constants.ConfigPropertyAutoOffsetReset:         offset,
-		constants.ConfigPropertyQueuedMaxMessagesKbytes: constants.ConfigPropertyQueuedMaxMessagesKbytesValue,
-		constants.ConfigPropertyStatisticsInterval:      constants.ConfigPropertyStatisticsIntervalValue,
-	}
+	// Create A New Base Sarama Config
+	config := util.NewSaramaConfig(clientId, username, password)
+
+	// Increase Default Offset Commit Interval So As To Not Overwhelm EventHub RateLimit Specs
+	config.Consumer.Offsets.AutoCommit.Interval = constants.ConfigConsumerOffsetsAutoCommitInterval
+
+	// Increase Default Offset Retention In (Kafka Default Is 24Hrs)
+	config.Consumer.Offsets.Retention = constants.ConfigConsumerOffsetsRetention
+
+	// We Want To Know About Consumer Errors
+	config.Consumer.Return.Errors = true
+
+	// Return The Sarama Config
+	return config
 }
