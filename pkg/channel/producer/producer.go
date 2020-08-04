@@ -154,6 +154,6 @@ func (p *Producer) Close() {
 	if err != nil {
 		p.logger.Error("Failed To Close Kafka Producer", zap.Error(err))
 	} else {
-		p.logger.Error("Successfully Closed Kafka Producer")
+		p.logger.Info("Successfully Closed Kafka Producer")
 	}
 }
