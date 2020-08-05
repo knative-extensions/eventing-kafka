@@ -313,7 +313,7 @@ func (r *Reconciler) dispatcherDeploymentEnvVars(channel *kafkav1alpha1.KafkaCha
 			Value: constants.KnativeEventingNamespace,
 		},
 		{
-			Name:  logging.ConfigMapNameEnv,
+			Name:  commonenv.KnativeLoggingConfigMapNameEnvVarKey,
 			Value: logging.ConfigMapName(),
 		},
 		{

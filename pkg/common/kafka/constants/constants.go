@@ -46,7 +46,7 @@ const (
 	MaxEventHubNamespaces = 100
 
 	// KafkaChannel Constants
-	KafkaChannelServiceNameSuffix = "kafkachannel"
+	KafkaChannelServiceNameSuffix = "kn-channel" // Specific Value For Use With Knative e2e Tests!
 )
 
 // Non-Constant Constants ;)

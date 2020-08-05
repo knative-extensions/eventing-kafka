@@ -12,6 +12,7 @@ import (
 	kafkav1alpha1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
 	commonenv "knative.dev/eventing-kafka/pkg/common/env"
 	"knative.dev/eventing-kafka/pkg/common/health"
+	commonKafkaConstants "knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	kafkautil "knative.dev/eventing-kafka/pkg/common/kafka/util"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
 	"knative.dev/eventing-kafka/pkg/controller/env"
@@ -284,7 +285,7 @@ func WithLabels(kafkachannel *kafkav1alpha1.KafkaChannel) {
 func WithAddress(kafkachannel *kafkav1alpha1.KafkaChannel) {
 	kafkachannel.Status.SetAddress(&apis.URL{
 		Scheme: "http",
-		Host:   fmt.Sprintf("%s-kafkachannel.%s.svc.cluster.local", KafkaChannelName, KafkaChannelNamespace),
+		Host:   fmt.Sprintf("%s-%s.%s.svc.cluster.local", KafkaChannelName, commonKafkaConstants.KafkaChannelServiceNameSuffix, KafkaChannelNamespace),
 	})
 }
 
@@ -480,7 +481,7 @@ func NewKafkaChannelChannelDeployment() *appsv1.Deployment {
 									Value: constants.KnativeEventingNamespace,
 								},
 								{
-									Name:  logging.ConfigMapNameEnv,
+									Name:  commonenv.KnativeLoggingConfigMapNameEnvVarKey,
 									Value: logging.ConfigMapName(),
 								},
 								{
@@ -661,7 +662,7 @@ func NewKafkaChannelDispatcherDeployment() *appsv1.Deployment {
 									Value: constants.KnativeEventingNamespace,
 								},
 								{
-									Name:  logging.ConfigMapNameEnv,
+									Name:  commonenv.KnativeLoggingConfigMapNameEnvVarKey,
 									Value: logging.ConfigMapName(),
 								},
 								{

@@ -6,7 +6,7 @@ import (
 	kafkav1alpha1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
 	eventingChannel "knative.dev/eventing/pkg/channel"
 	knativeapis "knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 // Utility Function For Creating A Test ChannelReference (Knative)
@@ -34,7 +34,7 @@ func CreateKafkaChannel(name string, namespace string, ready corev1.ConditionSta
 			Subscribable:      nil,
 		},
 		Status: kafkav1alpha1.KafkaChannelStatus{
-			Status: duckv1beta1.Status{
+			Status: duckv1.Status{
 				Conditions: []knativeapis.Condition{
 					{Type: knativeapis.ConditionReady, Status: ready},
 				},

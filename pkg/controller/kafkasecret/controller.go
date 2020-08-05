@@ -59,11 +59,11 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 		controller.HandleAll(controllerImpl.Enqueue),
 	)
 	serviceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterGroupVersionKind(corev1.SchemeGroupVersion.WithKind(constants.SecretKind)),
+		FilterFunc: controller.FilterControllerGVK(corev1.SchemeGroupVersion.WithKind(constants.SecretKind)),
 		Handler:    controller.HandleAll(controllerImpl.EnqueueControllerOf),
 	})
 	deploymentInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterGroupVersionKind(corev1.SchemeGroupVersion.WithKind(constants.SecretKind)),
+		FilterFunc: controller.FilterControllerGVK(corev1.SchemeGroupVersion.WithKind(constants.SecretKind)),
 		Handler:    controller.HandleAll(controllerImpl.EnqueueControllerOf),
 	})
 	kafkachannelInformer.Informer().AddEventHandler(

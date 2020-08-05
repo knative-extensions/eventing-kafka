@@ -6,6 +6,7 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/stretchr/testify/assert"
 	"knative.dev/eventing/pkg/channel"
+	"knative.dev/eventing/pkg/kncloudevents"
 	"net/http"
 	"net/url"
 	"testing"
@@ -35,6 +36,10 @@ func NewMockMessageDispatcher(t *testing.T, errorResponses map[url.URL]error) Mo
 		errorResponses:     errorResponses,
 		DispatchedMessages: make(map[url.URL][]cloudevents.Message, 0),
 	}
+}
+
+func (m MockMessageDispatcher) DispatchMessageWithRetries(ctx context.Context, message cloudevents.Message, additionalHeaders http.Header, destination *url.URL, reply *url.URL, deadLetter *url.URL, config *kncloudevents.RetryConfig) error {
+	panic("implement me")
 }
 
 func (m MockMessageDispatcher) DispatchMessage(ctx context.Context, message cloudevents.Message, additionalHeaders http.Header, destination *url.URL, reply *url.URL, deadLetter *url.URL) error {

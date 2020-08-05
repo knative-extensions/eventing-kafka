@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"go.uber.org/zap"
 	kafkav1alpha1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
+	commonk8s "knative.dev/eventing-kafka/pkg/common/k8s"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
 	"knative.dev/eventing-kafka/pkg/controller/util"
 	"knative.dev/eventing/pkg/apis/messaging"
@@ -98,16 +99,16 @@ func (r *Reconciler) reconcileLabels(channel *kafkav1alpha1.KafkaChannel) bool {
 	modified := false
 
 	// Add Kafka Topic Label If Missing
-	topicName := util.TopicName(channel)
-	if labels[constants.KafkaTopicLabel] != topicName {
-		labels[constants.KafkaTopicLabel] = topicName
+	safeTopicName := commonk8s.TruncateLabelValue(util.TopicName(channel))
+	if labels[constants.KafkaTopicLabel] != safeTopicName {
+		labels[constants.KafkaTopicLabel] = safeTopicName
 		modified = true
 	}
 
 	// Add Kafka Secret Label If Missing
-	secretName := r.kafkaSecretName(channel) // Can Only Be Called AFTER Topic Reconciliation !!!
-	if labels[constants.KafkaSecretLabel] != secretName {
-		labels[constants.KafkaSecretLabel] = secretName
+	safeSecretName := commonk8s.TruncateLabelValue(r.kafkaSecretName(channel)) // Can Only Be Called AFTER Topic Reconciliation !!!
+	if labels[constants.KafkaSecretLabel] != safeSecretName {
+		labels[constants.KafkaSecretLabel] = safeSecretName
 		modified = true
 	}
 

@@ -5,7 +5,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kafkav1alpha1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
-	messagingv1alpha1 "knative.dev/eventing/pkg/apis/messaging/v1alpha1"
+	messagingv1 "knative.dev/eventing/pkg/apis/messaging/v1"
 	"testing"
 )
 
@@ -13,14 +13,14 @@ import (
 func TestNewControllerRef(t *testing.T) {
 
 	// Test Data
-	subscription := &messagingv1alpha1.Subscription{ObjectMeta: metav1.ObjectMeta{Name: channelName}}
+	subscription := &messagingv1.Subscription{ObjectMeta: metav1.ObjectMeta{Name: channelName}}
 
 	// Perform The Test
 	actualControllerRef := NewSubscriptionControllerRef(subscription)
 
 	// Verify The Results
 	assert.NotNil(t, actualControllerRef)
-	assert.Equal(t, messagingv1alpha1.SchemeGroupVersion.Group+"/"+messagingv1alpha1.SchemeGroupVersion.Version, actualControllerRef.APIVersion)
+	assert.Equal(t, messagingv1.SchemeGroupVersion.Group+"/"+messagingv1.SchemeGroupVersion.Version, actualControllerRef.APIVersion)
 	assert.Equal(t, "Subscription", actualControllerRef.Kind)
 	assert.Equal(t, channelName, actualControllerRef.Name)
 }

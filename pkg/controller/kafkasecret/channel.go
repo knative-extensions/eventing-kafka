@@ -330,7 +330,7 @@ func (r *Reconciler) channelDeploymentEnvVars(secret *corev1.Secret) ([]corev1.E
 			Value: constants.KnativeEventingNamespace,
 		},
 		{
-			Name:  logging.ConfigMapNameEnv,
+			Name:  commonenv.KnativeLoggingConfigMapNameEnvVarKey,
 			Value: logging.ConfigMapName(),
 		},
 		{

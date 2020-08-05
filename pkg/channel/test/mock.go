@@ -22,7 +22,7 @@ type MockSyncProducer struct {
 	closed           bool
 }
 
-func NewMockSyncProducer(topicName string) *MockSyncProducer {
+func NewMockSyncProducer() *MockSyncProducer {
 	return &MockSyncProducer{
 		producerMessages: make(chan sarama.ProducerMessage, 1),
 		closed:           false,
@@ -35,7 +35,7 @@ func (p *MockSyncProducer) SendMessage(msg *sarama.ProducerMessage) (partition i
 	return 1, p.offset, nil
 }
 
-func (p *MockSyncProducer) SendMessages(msgs []*sarama.ProducerMessage) error {
+func (p *MockSyncProducer) SendMessages(_ []*sarama.ProducerMessage) error {
 	// Not Currently In Use - No Need To Mock
 	return nil
 }
@@ -78,7 +78,7 @@ func NewMockKafkaChannelLister(name string, namespace string, exists bool, ready
 	}
 }
 
-func (m MockKafkaChannelLister) List(selector labels.Selector) (ret []*kafkav1alpha1.KafkaChannel, err error) {
+func (m MockKafkaChannelLister) List(_ labels.Selector) (ret []*kafkav1alpha1.KafkaChannel, err error) {
 	panic("implement me")
 }
 
@@ -110,7 +110,7 @@ func NewMockKafkaChannelNamespaceLister(name string, namespace string, exists bo
 	}
 }
 
-func (m MockKafkaChannelNamespaceLister) List(selector labels.Selector) (ret []*kafkav1alpha1.KafkaChannel, err error) {
+func (m MockKafkaChannelNamespaceLister) List(_ labels.Selector) (ret []*kafkav1alpha1.KafkaChannel, err error) {
 	panic("implement me")
 }
 
