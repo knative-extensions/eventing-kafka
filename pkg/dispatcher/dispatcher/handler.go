@@ -115,7 +115,7 @@ func (h *Handler) consumeMessage(consumerMessage *sarama.ConsumerMessage, destin
 		return errors.New("received a message with unknown encoding - skipping")
 	}
 
-	// TODO - The latest version of eventing has DispatchMessageWithRetries() - refactor to use on that instead ; )
+	// TODO - The latest version of eventing has DispatchMessageWithRetries() - refactor to use that instead ; )
 	// Create A New Retry Runner With Configured Backoff Behavior
 	retryRunner := retry.New(
 		retry.Config{
