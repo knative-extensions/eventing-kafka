@@ -75,13 +75,11 @@ func (h *Handler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama
 	}
 
 	var deadLetterURL *url.URL
-	if h.Subscriber.Delivery != nil && h.Subscriber.Delivery.DeadLetterSink != nil {
-		if !h.Subscriber.Delivery.DeadLetterSink.URI.IsEmpty() {
-			deadLetterURL = h.Subscriber.Delivery.DeadLetterSink.URI.URL()
-		} else if h.Subscriber.Delivery.DeadLetterSink.Ref != nil { // TODO - Ref is first priority over URI in the URIResolver ?
-			// TODO - add manual lightweight support for Ref ?
-			h.Logger.Warn("TODO - IMPLEMENT SUPPORT FOR DEADLETTERSINK REF !!!")
-		}
+	if h.Subscriber.Delivery != nil &&
+		h.Subscriber.Delivery.DeadLetterSink != nil &&
+		h.Subscriber.Delivery.DeadLetterSink.URI != nil &&
+		!h.Subscriber.Delivery.DeadLetterSink.URI.IsEmpty() {
+		deadLetterURL = h.Subscriber.Delivery.DeadLetterSink.URI.URL()
 	}
 
 	// Pull Any Available Messages From The ConsumerGroupClaim
@@ -117,6 +115,7 @@ func (h *Handler) consumeMessage(consumerMessage *sarama.ConsumerMessage, destin
 		return errors.New("received a message with unknown encoding - skipping")
 	}
 
+	// TODO - The latest version of eventing has DispatchMessageWithRetries() - refactor to use on that instead ; )
 	// Create A New Retry Runner With Configured Backoff Behavior
 	retryRunner := retry.New(
 		retry.Config{
@@ -159,8 +158,6 @@ func (h *Handler) consumeMessage(consumerMessage *sarama.ConsumerMessage, destin
 
 // Message Sending Functionality For Use Within Retry Runner (With Custom StatusCode Handling)
 func (h *Handler) sendMessage(ctx context.Context, message *kafkasaramaprotocol.Message, destinationURL *url.URL, replyURL *url.URL) error {
-
-	// TODO - The latest version of eventing has DispatchMessageWithRetries() - possibly refactor to rely on that instead ; )
 
 	// Dispatch The Message
 	err := h.MessageDispatcher.DispatchMessage(ctx, message, nil, destinationURL, replyURL, nil)
