@@ -3,7 +3,8 @@ package test
 import (
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kafkav1alpha1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
+	kafkav1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
+	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	eventingChannel "knative.dev/eventing/pkg/channel"
 	knativeapis "knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
@@ -17,27 +18,30 @@ func CreateChannelReference(name string, namespace string) eventingChannel.Chann
 	}
 }
 
-// Utility Function For Creating A Test KafkaChannel (Eventing-Kafka)
-func CreateKafkaChannel(name string, namespace string, ready corev1.ConditionStatus) *kafkav1alpha1.KafkaChannel {
-	return &kafkav1alpha1.KafkaChannel{
+func CreateKafkaChannel(name string, namespace string, ready corev1.ConditionStatus) *kafkav1beta1.KafkaChannel {
+	return &kafkav1beta1.KafkaChannel{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "KafkaChannel",
-			APIVersion: kafkav1alpha1.SchemeGroupVersion.String(),
+			APIVersion: kafkav1beta1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: v1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
-		Spec: kafkav1alpha1.KafkaChannelSpec{
+		Spec: kafkav1beta1.KafkaChannelSpec{
 			NumPartitions:     0,
 			ReplicationFactor: 0,
-			Subscribable:      nil,
+			ChannelableSpec:   eventingduck.ChannelableSpec{},
 		},
-		Status: kafkav1alpha1.KafkaChannelStatus{
-			Status: duckv1.Status{
-				Conditions: []knativeapis.Condition{
-					{Type: knativeapis.ConditionReady, Status: ready},
+		Status: kafkav1beta1.KafkaChannelStatus{
+			ChannelableStatus: eventingduck.ChannelableStatus{
+				Status: duckv1.Status{
+					Conditions: []knativeapis.Condition{
+						{Type: knativeapis.ConditionReady, Status: ready},
+					},
 				},
+				AddressStatus:      duckv1.AddressStatus{},
+				SubscribableStatus: eventingduck.SubscribableStatus{},
 			},
 		},
 	}

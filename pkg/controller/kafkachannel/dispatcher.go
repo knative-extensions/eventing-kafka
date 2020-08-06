@@ -9,7 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	kafkav1alpha1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
+	kafkav1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
 	commonenv "knative.dev/eventing-kafka/pkg/common/env"
 	"knative.dev/eventing-kafka/pkg/common/health"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
@@ -24,7 +24,7 @@ import (
 //
 // Reconcile The Dispatcher (Kafka Consumer) For The Specified KafkaChannel
 //
-func (r *Reconciler) reconcileDispatcher(ctx context.Context, channel *kafkav1alpha1.KafkaChannel) error {
+func (r *Reconciler) reconcileDispatcher(ctx context.Context, channel *kafkav1beta1.KafkaChannel) error {
 
 	// Get Channel Specific Logger
 	logger := util.ChannelLogger(r.logger, channel)
@@ -60,7 +60,7 @@ func (r *Reconciler) reconcileDispatcher(ctx context.Context, channel *kafkav1al
 //
 
 // Reconcile The Dispatcher Service
-func (r *Reconciler) reconcileDispatcherService(channel *kafkav1alpha1.KafkaChannel) error {
+func (r *Reconciler) reconcileDispatcherService(channel *kafkav1beta1.KafkaChannel) error {
 
 	// Attempt To Get The Dispatcher Service Associated With The Specified Channel
 	service, err := r.getDispatcherService(channel)
@@ -89,7 +89,7 @@ func (r *Reconciler) reconcileDispatcherService(channel *kafkav1alpha1.KafkaChan
 }
 
 // Get The Dispatcher Service Associated With The Specified Channel
-func (r *Reconciler) getDispatcherService(channel *kafkav1alpha1.KafkaChannel) (*corev1.Service, error) {
+func (r *Reconciler) getDispatcherService(channel *kafkav1beta1.KafkaChannel) (*corev1.Service, error) {
 
 	// Get The Dispatcher Service Name
 	serviceName := util.DispatcherDnsSafeName(channel)
@@ -103,7 +103,7 @@ func (r *Reconciler) getDispatcherService(channel *kafkav1alpha1.KafkaChannel) (
 }
 
 // Create Dispatcher Service Model For The Specified Subscription
-func (r *Reconciler) newDispatcherService(channel *kafkav1alpha1.KafkaChannel) *corev1.Service {
+func (r *Reconciler) newDispatcherService(channel *kafkav1beta1.KafkaChannel) *corev1.Service {
 
 	// Get The Dispatcher Service Name For The Channel
 	serviceName := util.DispatcherDnsSafeName(channel)
@@ -147,7 +147,7 @@ func (r *Reconciler) newDispatcherService(channel *kafkav1alpha1.KafkaChannel) *
 //
 
 // Reconcile The Dispatcher Deployment
-func (r *Reconciler) reconcileDispatcherDeployment(channel *kafkav1alpha1.KafkaChannel) error {
+func (r *Reconciler) reconcileDispatcherDeployment(channel *kafkav1beta1.KafkaChannel) error {
 
 	// Attempt To Get The Dispatcher Deployment Associated With The Specified Channel
 	deployment, err := r.getDispatcherDeployment(channel)
@@ -190,7 +190,7 @@ func (r *Reconciler) reconcileDispatcherDeployment(channel *kafkav1alpha1.KafkaC
 }
 
 // Get The Dispatcher Deployment Associated With The Specified Channel
-func (r *Reconciler) getDispatcherDeployment(channel *kafkav1alpha1.KafkaChannel) (*appsv1.Deployment, error) {
+func (r *Reconciler) getDispatcherDeployment(channel *kafkav1beta1.KafkaChannel) (*appsv1.Deployment, error) {
 
 	// Get The Dispatcher Deployment Name For The Channel
 	deploymentName := util.DispatcherDnsSafeName(channel)
@@ -204,7 +204,7 @@ func (r *Reconciler) getDispatcherDeployment(channel *kafkav1alpha1.KafkaChannel
 }
 
 // Create Dispatcher Deployment Model For The Specified Channel
-func (r *Reconciler) newDispatcherDeployment(channel *kafkav1alpha1.KafkaChannel) (*appsv1.Deployment, error) {
+func (r *Reconciler) newDispatcherDeployment(channel *kafkav1beta1.KafkaChannel) (*appsv1.Deployment, error) {
 
 	// Get The Dispatcher Deployment Name For The Channel
 	deploymentName := util.DispatcherDnsSafeName(channel)
@@ -301,7 +301,7 @@ func (r *Reconciler) newDispatcherDeployment(channel *kafkav1alpha1.KafkaChannel
 }
 
 // Create The Dispatcher Container's Env Vars
-func (r *Reconciler) dispatcherDeploymentEnvVars(channel *kafkav1alpha1.KafkaChannel) ([]corev1.EnvVar, error) {
+func (r *Reconciler) dispatcherDeploymentEnvVars(channel *kafkav1beta1.KafkaChannel) ([]corev1.EnvVar, error) {
 
 	// Get The TopicName For Specified Channel
 	topicName := util.TopicName(channel)

@@ -8,7 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/eventing-kafka/pkg/common/kafka/consumer"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
-	eventingduck "knative.dev/eventing/pkg/apis/duck/v1alpha1"
+	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/channel"
 	"sync"
 )

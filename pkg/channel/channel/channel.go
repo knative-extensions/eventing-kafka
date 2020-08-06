@@ -8,7 +8,7 @@ import (
 	k8sclientcmd "k8s.io/client-go/tools/clientcmd"
 	kafkaclientset "knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned"
 	kafkainformers "knative.dev/eventing-contrib/kafka/channel/pkg/client/informers/externalversions"
-	kafkalisters "knative.dev/eventing-contrib/kafka/channel/pkg/client/listers/messaging/v1alpha1"
+	kafkalisters "knative.dev/eventing-contrib/kafka/channel/pkg/client/listers/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/channel/health"
 	eventingChannel "knative.dev/eventing/pkg/channel"
 	knativecontroller "knative.dev/pkg/controller"
@@ -57,7 +57,7 @@ func InitializeKafkaChannelLister(ctx context.Context, masterUrl string, kubecon
 	stopChan = make(chan struct{})
 
 	// Get A KafkaChannel Informer From The SharedInformerFactory - Start The Informer & Wait For It
-	kafkaChannelInformer := sharedInformerFactory.Messaging().V1alpha1().KafkaChannels()
+	kafkaChannelInformer := sharedInformerFactory.Messaging().V1beta1().KafkaChannels()
 	go kafkaChannelInformer.Informer().Run(stopChan)
 	sharedInformerFactory.WaitForCacheSync(stopChan)
 

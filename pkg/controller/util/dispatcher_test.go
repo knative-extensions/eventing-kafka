@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kafkav1alpha1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
+	kafkav1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
 	messagingv1 "knative.dev/eventing/pkg/apis/messaging/v1"
 	"testing"
 )
@@ -29,7 +29,7 @@ func TestNewControllerRef(t *testing.T) {
 func TestDispatcherDnsSafeName(t *testing.T) {
 
 	// Test Data
-	channel := &kafkav1alpha1.KafkaChannel{ObjectMeta: metav1.ObjectMeta{Name: channelName, Namespace: channelNamespace}}
+	channel := &kafkav1beta1.KafkaChannel{ObjectMeta: metav1.ObjectMeta{Name: channelName, Namespace: channelNamespace}}
 
 	// Perform The Test
 	actualResult := DispatcherDnsSafeName(channel)

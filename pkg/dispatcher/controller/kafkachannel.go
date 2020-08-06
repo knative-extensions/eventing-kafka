@@ -11,14 +11,13 @@ import (
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
-	kafkav1alpha1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
+	kafkav1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
 	"knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned"
 	"knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned/scheme"
-	"knative.dev/eventing-contrib/kafka/channel/pkg/client/informers/externalversions/messaging/v1alpha1"
-	listers "knative.dev/eventing-contrib/kafka/channel/pkg/client/listers/messaging/v1alpha1"
+	informers "knative.dev/eventing-contrib/kafka/channel/pkg/client/informers/externalversions/messaging/v1beta1"
+	listers "knative.dev/eventing-contrib/kafka/channel/pkg/client/listers/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/dispatcher/dispatcher"
-	eventingduckv1alpha1 "knative.dev/eventing/pkg/apis/duck/v1alpha1"
-	eventingduckv1beta1 "knative.dev/eventing/pkg/apis/duck/v1beta1"
+	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"reflect"
@@ -54,7 +53,7 @@ func NewController(
 	logger *zap.Logger,
 	channelKey string,
 	dispatcher dispatcher.Dispatcher,
-	kafkachannelInformer v1alpha1.KafkaChannelInformer,
+	kafkachannelInformer informers.KafkaChannelInformer,
 	kubeClient kubernetes.Interface,
 	kafkaClientSet versioned.Interface,
 	stopChannel <-chan struct{},
@@ -150,23 +149,23 @@ func (r Reconciler) Reconcile(ctx context.Context, key string) error {
 }
 
 // Reconcile The Specified KafkaChannel
-func (r Reconciler) reconcile(channel *kafkav1alpha1.KafkaChannel) error {
+func (r Reconciler) reconcile(channel *kafkav1beta1.KafkaChannel) error {
 
 	// The KafkaChannel's Subscribers
-	var subscribers []eventingduckv1alpha1.SubscriberSpec
+	var subscribers []eventingduck.SubscriberSpec
 
 	// Clone The Subscribers If They Exist - Otherwise Create Empty Array
-	if channel.Spec.Subscribable != nil && channel.Spec.Subscribable.Subscribers != nil {
-		subscribers = channel.Spec.Subscribable.Subscribers
+	if channel.Spec.Subscribers != nil {
+		subscribers = channel.Spec.Subscribers
 	} else {
-		subscribers = make([]eventingduckv1alpha1.SubscriberSpec, 0)
+		subscribers = make([]eventingduck.SubscriberSpec, 0)
 	}
 
 	// Update The ConsumerGroups To Align With Current KafkaChannel Subscribers
 	failedSubscriptions := r.dispatcher.UpdateSubscriptions(subscribers)
 
 	// Update The KafkaChannel Subscribable Status Based On ConsumerGroup Creation Status
-	channel.Status.SubscribableStatus = r.createSubscribableStatus(channel.Spec.Subscribable, failedSubscriptions)
+	channel.Status.SubscribableStatus = r.createSubscribableStatus(channel.Spec.Subscribers, failedSubscriptions)
 
 	// Log Failed Subscriptions & Return Error
 	if len(failedSubscriptions) > 0 {
@@ -179,13 +178,13 @@ func (r Reconciler) reconcile(channel *kafkav1alpha1.KafkaChannel) error {
 }
 
 // Create The SubscribableStatus Block Based On The Updated Subscriptions
-func (r *Reconciler) createSubscribableStatus(subscribable *eventingduckv1alpha1.Subscribable, failedSubscriptions map[eventingduckv1alpha1.SubscriberSpec]error) *eventingduckv1alpha1.SubscribableStatus {
+func (r *Reconciler) createSubscribableStatus(subscribers []eventingduck.SubscriberSpec, failedSubscriptions map[eventingduck.SubscriberSpec]error) eventingduck.SubscribableStatus {
 
-	subscriberStatus := make([]eventingduckv1beta1.SubscriberStatus, 0)
+	subscriberStatus := make([]eventingduck.SubscriberStatus, 0)
 
-	if subscribable != nil && subscribable.Subscribers != nil {
-		for _, subscriber := range subscribable.Subscribers {
-			status := eventingduckv1beta1.SubscriberStatus{
+	if subscribers != nil {
+		for _, subscriber := range subscribers {
+			status := eventingduck.SubscriberStatus{
 				UID:                subscriber.UID,
 				ObservedGeneration: subscriber.Generation,
 				Ready:              corev1.ConditionTrue,
@@ -198,12 +197,12 @@ func (r *Reconciler) createSubscribableStatus(subscribable *eventingduckv1alpha1
 		}
 	}
 
-	return &eventingduckv1alpha1.SubscribableStatus{
+	return eventingduck.SubscribableStatus{
 		Subscribers: subscriberStatus,
 	}
 }
 
-func (r *Reconciler) updateStatus(desired *kafkav1alpha1.KafkaChannel) (*kafkav1alpha1.KafkaChannel, error) {
+func (r *Reconciler) updateStatus(desired *kafkav1beta1.KafkaChannel) (*kafkav1beta1.KafkaChannel, error) {
 	kc, err := r.kafkachannelLister.KafkaChannels(desired.Namespace).Get(desired.Name)
 	if err != nil {
 		return nil, err
@@ -217,6 +216,6 @@ func (r *Reconciler) updateStatus(desired *kafkav1alpha1.KafkaChannel) (*kafkav1
 	// Don't modify the informers copy.
 	existing := kc.DeepCopy()
 	existing.Status = desired.Status
-	updated, err := r.kafkaClientSet.MessagingV1alpha1().KafkaChannels(desired.Namespace).UpdateStatus(existing)
+	updated, err := r.kafkaClientSet.MessagingV1beta1().KafkaChannels(desired.Namespace).UpdateStatus(existing)
 	return updated, err
 }

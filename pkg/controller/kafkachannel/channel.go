@@ -7,7 +7,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kafkav1alpha1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
+	kafkav1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
 	kafkautil "knative.dev/eventing-kafka/pkg/common/kafka/util"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
 	"knative.dev/eventing-kafka/pkg/controller/event"
@@ -19,7 +19,7 @@ import (
 )
 
 // Reconcile The "Channel" Inbound For The Specified Channel
-func (r *Reconciler) reconcileChannel(ctx context.Context, channel *kafkav1alpha1.KafkaChannel) error {
+func (r *Reconciler) reconcileChannel(ctx context.Context, channel *kafkav1beta1.KafkaChannel) error {
 
 	// Get Channel Specific Logger
 	logger := util.ChannelLogger(r.logger, channel)
@@ -45,7 +45,7 @@ func (r *Reconciler) reconcileChannel(ctx context.Context, channel *kafkav1alpha
 //
 
 // Reconcile The KafkaChannel Service
-func (r *Reconciler) reconcileKafkaChannelService(channel *kafkav1alpha1.KafkaChannel) error {
+func (r *Reconciler) reconcileKafkaChannelService(channel *kafkav1beta1.KafkaChannel) error {
 
 	// Attempt To Get The Service Associated With The Specified Channel
 	service, err := r.getKafkaChannelService(channel)
@@ -86,7 +86,7 @@ func (r *Reconciler) reconcileKafkaChannelService(channel *kafkav1alpha1.KafkaCh
 }
 
 // Get The KafkaChannel Service Associated With The Specified Channel
-func (r *Reconciler) getKafkaChannelService(channel *kafkav1alpha1.KafkaChannel) (*corev1.Service, error) {
+func (r *Reconciler) getKafkaChannelService(channel *kafkav1beta1.KafkaChannel) (*corev1.Service, error) {
 
 	// Get The KafkaChannel Service Name
 	serviceName := kafkautil.AppendKafkaChannelServiceNameSuffix(channel.Name)
@@ -100,7 +100,7 @@ func (r *Reconciler) getKafkaChannelService(channel *kafkav1alpha1.KafkaChannel)
 }
 
 // Create KafkaChannel Service Model For The Specified Channel
-func (r *Reconciler) newKafkaChannelService(channel *kafkav1alpha1.KafkaChannel) *corev1.Service {
+func (r *Reconciler) newKafkaChannelService(channel *kafkav1beta1.KafkaChannel) *corev1.Service {
 
 	// Get The KafkaChannel Service Name
 	serviceName := kafkautil.AppendKafkaChannelServiceNameSuffix(channel.Name)
@@ -140,6 +140,6 @@ func (r *Reconciler) newKafkaChannelService(channel *kafkav1alpha1.KafkaChannel)
 //
 
 // Get The Kafka Auth Secret Corresponding To The Specified KafkaChannel
-func (r *Reconciler) kafkaSecretName(channel *kafkav1alpha1.KafkaChannel) string {
+func (r *Reconciler) kafkaSecretName(channel *kafkav1beta1.KafkaChannel) string {
 	return r.adminClient.GetKafkaSecretName(util.TopicName(channel))
 }

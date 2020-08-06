@@ -7,7 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
-	kafkav1alpha1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
+	kafkav1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
 	"knative.dev/eventing-kafka/pkg/controller/util"
 	"knative.dev/pkg/reconciler"
@@ -62,7 +62,7 @@ func (r *Reconciler) reconcileKafkaChannelStatus(secret *corev1.Secret,
 }
 
 // Update A Single KafkaChannel's Status To Reflect The Specified Channel Service/Deployment State
-func (r *Reconciler) updateKafkaChannelStatus(originalChannel *kafkav1alpha1.KafkaChannel,
+func (r *Reconciler) updateKafkaChannelStatus(originalChannel *kafkav1beta1.KafkaChannel,
 	serviceValid bool, serviceReason string, serviceMessage string,
 	deploymentValid bool, deploymentReason string, deploymentMessage string) error {
 
@@ -110,7 +110,7 @@ func (r *Reconciler) updateKafkaChannelStatus(originalChannel *kafkav1alpha1.Kaf
 		if !equality.Semantic.DeepEqual(originalChannel.Status, updatedChannel.Status) {
 
 			// Then Attempt To Update The KafkaChannel Status
-			_, err = r.kafkaChannelClient.MessagingV1alpha1().KafkaChannels(updatedChannel.Namespace).UpdateStatus(updatedChannel)
+			_, err = r.kafkaChannelClient.MessagingV1beta1().KafkaChannels(updatedChannel.Namespace).UpdateStatus(updatedChannel)
 			if err != nil {
 				logger.Error("Failed To Update KafkaChannel Status", zap.Error(err))
 				return err

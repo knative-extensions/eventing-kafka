@@ -97,7 +97,7 @@ func main() {
 	kafkaInformerFactory := externalversions.NewSharedInformerFactory(kafkaClientSet, kncontroller.DefaultResyncPeriod)
 
 	// Create KafkaChannel Informer
-	kafkaChannelInformer := kafkaInformerFactory.Messaging().V1alpha1().KafkaChannels()
+	kafkaChannelInformer := kafkaInformerFactory.Messaging().V1beta1().KafkaChannels()
 
 	// Construct Array Of Controllers, In Our Case Just The One
 	controllers := [...]*kncontroller.Impl{

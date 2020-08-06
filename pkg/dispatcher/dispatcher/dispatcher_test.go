@@ -7,8 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	kafkaconsumer "knative.dev/eventing-kafka/pkg/common/kafka/consumer"
 	kafkatesting "knative.dev/eventing-kafka/pkg/common/kafka/testing"
-	"knative.dev/eventing/pkg/apis/duck/v1alpha1"
-	eventingduck "knative.dev/eventing/pkg/apis/duck/v1alpha1"
+	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	logtesting "knative.dev/pkg/logging/testing"
 	"testing"
 	"time"
@@ -28,7 +27,7 @@ const (
 func TestNewSubscriberWrapper(t *testing.T) {
 
 	// Test Data
-	subscriber := v1alpha1.SubscriberSpec{UID: uid123}
+	subscriber := eventingduck.SubscriberSpec{UID: uid123}
 	groupId := "TestGroupId"
 	consumerGroup := kafkatesting.NewMockConsumerGroup(t)
 
@@ -65,9 +64,9 @@ func TestShutdown(t *testing.T) {
 	consumerGroup3 := kafkatesting.NewMockConsumerGroup(t)
 
 	// Create Test Subscribers To Close The ConsumerGroups Of
-	subscriber1 := v1alpha1.SubscriberSpec{UID: id123}
-	subscriber2 := v1alpha1.SubscriberSpec{UID: id456}
-	subscriber3 := v1alpha1.SubscriberSpec{UID: id789}
+	subscriber1 := eventingduck.SubscriberSpec{UID: id123}
+	subscriber2 := eventingduck.SubscriberSpec{UID: id456}
+	subscriber3 := eventingduck.SubscriberSpec{UID: id789}
 	groupId1 := fmt.Sprintf("kafka.%s", subscriber1.UID)
 	groupId2 := fmt.Sprintf("kafka.%s", subscriber2.UID)
 	groupId3 := fmt.Sprintf("kafka.%s", subscriber3.UID)

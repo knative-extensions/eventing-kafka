@@ -8,14 +8,14 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	clientgotesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/record"
-	"knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
+	"knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
 	"knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned"
 	fakeclientset "knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned/fake"
 	"knative.dev/eventing-contrib/kafka/channel/pkg/client/informers/externalversions"
 	"knative.dev/eventing-kafka/pkg/dispatcher/dispatcher"
 	dispatchertesting "knative.dev/eventing-kafka/pkg/dispatcher/testing"
 	reconciletesting "knative.dev/eventing-kafka/pkg/dispatcher/testing"
-	eventingduck "knative.dev/eventing/pkg/apis/duck/v1alpha1"
+	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/pkg/controller"
 	kncontroller "knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
@@ -32,7 +32,7 @@ const (
 
 func init() {
 	// Add types to scheme
-	_ = v1alpha1.AddToScheme(scheme.Scheme)
+	_ = v1beta1.AddToScheme(scheme.Scheme)
 }
 
 // Test The NewController() Functionality
@@ -45,7 +45,7 @@ func TestNewController(t *testing.T) {
 	fakeKafkaChannelClientSet := fakeclientset.NewSimpleClientset()
 	fakeK8sClientSet := fake.NewSimpleClientset()
 	kafkaInformerFactory := externalversions.NewSharedInformerFactory(fakeKafkaChannelClientSet, kncontroller.DefaultResyncPeriod)
-	kafkaChannelInformer := kafkaInformerFactory.Messaging().V1alpha1().KafkaChannels()
+	kafkaChannelInformer := kafkaInformerFactory.Messaging().V1beta1().KafkaChannels()
 	stopChan := make(chan struct{})
 
 	// Perform The Test

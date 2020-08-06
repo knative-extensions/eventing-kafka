@@ -1,11 +1,11 @@
 package util
 
 import (
-	kafkav1alpha1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
+	kafkav1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
 	commonkafkautil "knative.dev/eventing-kafka/pkg/common/kafka/util"
 )
 
 // Get The TopicName For Specified KafkaChannel (ChannelNamespace.ChannelName)
-func TopicName(channel *kafkav1alpha1.KafkaChannel) string {
+func TopicName(channel *kafkav1beta1.KafkaChannel) string {
 	return commonkafkautil.TopicName(channel.Namespace, channel.Name)
 }

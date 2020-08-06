@@ -5,28 +5,28 @@ import (
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	kafkav1alpha1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
+	kafkav1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
 	"knative.dev/eventing-kafka/pkg/controller/env"
 	"knative.dev/eventing/pkg/utils"
 )
 
 // Get A Logger With Channel Info
-func ChannelLogger(logger *zap.Logger, channel *kafkav1alpha1.KafkaChannel) *zap.Logger {
+func ChannelLogger(logger *zap.Logger, channel *kafkav1beta1.KafkaChannel) *zap.Logger {
 	return logger.With(zap.String("Namespace", channel.Namespace), zap.String("Name", channel.Name))
 }
 
 // Create A Knative Reconciler "Key" Formatted Representation Of The Specified Channel
-func ChannelKey(channel *kafkav1alpha1.KafkaChannel) string {
+func ChannelKey(channel *kafkav1beta1.KafkaChannel) string {
 	return fmt.Sprintf("%s/%s", channel.Namespace, channel.Name)
 }
 
 // Create A New OwnerReference For The Specified KafkaChannel (Controller)
-func NewChannelOwnerReference(channel *kafkav1alpha1.KafkaChannel) metav1.OwnerReference {
+func NewChannelOwnerReference(channel *kafkav1beta1.KafkaChannel) metav1.OwnerReference {
 
 	kafkaChannelGroupVersion := schema.GroupVersion{
-		Group:   kafkav1alpha1.SchemeGroupVersion.Group,
-		Version: kafkav1alpha1.SchemeGroupVersion.Version,
+		Group:   kafkav1beta1.SchemeGroupVersion.Group,
+		Version: kafkav1beta1.SchemeGroupVersion.Version,
 	}
 
 	blockOwnerDeletion := true
@@ -63,7 +63,7 @@ func ChannelHostName(channelName, channelNamespace string) string {
 }
 
 // Utility Function To Get The NumPartitions - First From Channel Spec And Then From Environment
-func NumPartitions(channel *kafkav1alpha1.KafkaChannel, environment *env.Environment, logger *zap.Logger) int32 {
+func NumPartitions(channel *kafkav1beta1.KafkaChannel, environment *env.Environment, logger *zap.Logger) int32 {
 	value := channel.Spec.NumPartitions
 	if value <= 0 {
 		logger.Debug("Kafka Channel Spec 'NumPartitions' Not Specified - Using Default", zap.Int32("Value", environment.DefaultNumPartitions))
@@ -73,7 +73,7 @@ func NumPartitions(channel *kafkav1alpha1.KafkaChannel, environment *env.Environ
 }
 
 // Utility Function To Get The ReplicationFactor - First From Channel Spec And Then From Environment
-func ReplicationFactor(channel *kafkav1alpha1.KafkaChannel, environment *env.Environment, logger *zap.Logger) int16 {
+func ReplicationFactor(channel *kafkav1beta1.KafkaChannel, environment *env.Environment, logger *zap.Logger) int16 {
 	value := channel.Spec.ReplicationFactor
 	if value <= 0 {
 		logger.Debug("Kafka Channel Spec 'ReplicationFactor' Not Specified - Using Default", zap.Int16("Value", environment.DefaultReplicationFactor))
@@ -83,7 +83,7 @@ func ReplicationFactor(channel *kafkav1alpha1.KafkaChannel, environment *env.Env
 }
 
 // Utility Function To Get The RetentionMillis - First From Channel Spec And Then From Environment
-func RetentionMillis(channel *kafkav1alpha1.KafkaChannel, environment *env.Environment, logger *zap.Logger) int64 {
+func RetentionMillis(channel *kafkav1beta1.KafkaChannel, environment *env.Environment, logger *zap.Logger) int64 {
 	//
 	// TODO - The eventing-contrib KafkaChannel CRD does not include RetentionMillis so we're
 	//        currently just using the default value specified in Controller Environment Variables.

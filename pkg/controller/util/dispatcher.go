@@ -2,11 +2,11 @@ package util
 
 import (
 	"fmt"
-	kafkav1alpha1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
+	kafkav1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
 )
 
 // Create A DNS Safe Name For The Specified KafkaChannel Suitable For Use With K8S Services
-func DispatcherDnsSafeName(channel *kafkav1alpha1.KafkaChannel) string {
+func DispatcherDnsSafeName(channel *kafkav1beta1.KafkaChannel) string {
 
 	// In order for the resulting name to be a valid DNS component is 63 characters.  We are appending 12 characters to separate
 	// the components and to indicate this is a Dispatcher which further reduces the available length to 51.  We will allocate 30
