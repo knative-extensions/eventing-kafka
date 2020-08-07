@@ -960,7 +960,7 @@ k8s.io/utils/buffer
 k8s.io/utils/integer
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# knative.dev/eventing v0.16.1-0.20200805125228-0b129d3eca14
+# knative.dev/eventing v0.16.1-0.20200806200629-e4bc346017b6
 ## explicit
 knative.dev/eventing/pkg/apis/config
 knative.dev/eventing/pkg/apis/configs
@@ -1015,7 +1015,7 @@ knative.dev/eventing/pkg/logging
 knative.dev/eventing/pkg/reconciler/names
 knative.dev/eventing/pkg/tracing
 knative.dev/eventing/pkg/utils
-# knative.dev/eventing-contrib v0.16.1-0.20200805184428-a87b96ae9579
+# knative.dev/eventing-contrib v0.16.1-0.20200807151229-48505ce5b1e7
 ## explicit
 knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging
 knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1
@@ -1042,7 +1042,7 @@ knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/reconciler/messa
 knative.dev/eventing-contrib/kafka/channel/pkg/client/listers/messaging/v1alpha1
 knative.dev/eventing-contrib/kafka/channel/pkg/client/listers/messaging/v1beta1
 knative.dev/eventing-contrib/kafka/channel/pkg/utils
-# knative.dev/pkg v0.0.0-20200805045628-bb91a15b1a18
+# knative.dev/pkg v0.0.0-20200806230728-62f2560aa795
 ## explicit
 knative.dev/pkg/apis
 knative.dev/pkg/apis/duck
@@ -1093,7 +1093,7 @@ knative.dev/pkg/tracker
 knative.dev/pkg/version
 knative.dev/pkg/webhook
 knative.dev/pkg/webhook/certificates/resources
-# knative.dev/test-infra v0.0.0-20200803175002-5efff0c4bd0a
+# knative.dev/test-infra v0.0.0-20200806191129-68b7defbd189
 ## explicit
 knative.dev/test-infra/scripts
 # pack.ag/amqp v0.12.4

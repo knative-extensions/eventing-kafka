@@ -17,10 +17,10 @@ require (
 	k8s.io/api v0.18.7-rc.0
 	k8s.io/apimachinery v0.18.7-rc.0
 	k8s.io/client-go v12.0.0+incompatible
-	knative.dev/eventing v0.16.1-0.20200805125228-0b129d3eca14
-	knative.dev/eventing-contrib v0.16.1-0.20200805184428-a87b96ae9579
-	knative.dev/pkg v0.0.0-20200805045628-bb91a15b1a18
-	knative.dev/test-infra v0.0.0-20200803175002-5efff0c4bd0a
+	knative.dev/eventing v0.16.1-0.20200806200629-e4bc346017b6
+	knative.dev/eventing-contrib v0.16.1-0.20200807151229-48505ce5b1e7
+	knative.dev/pkg v0.0.0-20200806230728-62f2560aa795
+	knative.dev/test-infra v0.0.0-20200806191129-68b7defbd189
 	pack.ag/amqp v0.12.4 // indirect
 )
 
