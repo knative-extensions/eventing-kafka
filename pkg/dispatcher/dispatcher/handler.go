@@ -8,7 +8,7 @@ import (
 	"github.com/cloudevents/sdk-go/v2/binding"
 	"github.com/slok/goresilience/retry"
 	"go.uber.org/zap"
-	eventingduck "knative.dev/eventing/pkg/apis/duck/v1alpha1"
+	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/channel"
 	"math"
 	"net/url"
@@ -63,20 +63,22 @@ func (h *Handler) Cleanup(_ sarama.ConsumerGroupSession) error {
 // ConsumerGroupHandler Lifecycle Method (Main processing loop, must finish when Messages() channel closes.)
 func (h *Handler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 
-	// TODO - use pkg/resolver/URIResolver to support object reference
 	// Extract The Relevant Knative Subscription Event URLs
 	var destinationURL *url.URL
 	if !h.Subscriber.SubscriberURI.IsEmpty() {
 		destinationURL = h.Subscriber.SubscriberURI.URL()
 	}
+
 	var replyURL *url.URL
 	if !h.Subscriber.ReplyURI.IsEmpty() {
 		replyURL = h.Subscriber.ReplyURI.URL()
 	}
+
 	var deadLetterURL *url.URL
-	if h.Subscriber.DeadLetterSinkURI != nil {
-		deadLetterURL = h.Subscriber.DeadLetterSinkURI.URL()
-	} else if h.Subscriber.Delivery != nil && h.Subscriber.Delivery.DeadLetterSink != nil && !h.Subscriber.Delivery.DeadLetterSink.URI.IsEmpty() {
+	if h.Subscriber.Delivery != nil &&
+		h.Subscriber.Delivery.DeadLetterSink != nil &&
+		h.Subscriber.Delivery.DeadLetterSink.URI != nil &&
+		!h.Subscriber.Delivery.DeadLetterSink.URI.IsEmpty() {
 		deadLetterURL = h.Subscriber.Delivery.DeadLetterSink.URI.URL()
 	}
 
@@ -113,6 +115,7 @@ func (h *Handler) consumeMessage(consumerMessage *sarama.ConsumerMessage, destin
 		return errors.New("received a message with unknown encoding - skipping")
 	}
 
+	// TODO - The latest version of eventing has DispatchMessageWithRetries() - refactor to use that instead ; )
 	// Create A New Retry Runner With Configured Backoff Behavior
 	retryRunner := retry.New(
 		retry.Config{
@@ -155,8 +158,6 @@ func (h *Handler) consumeMessage(consumerMessage *sarama.ConsumerMessage, destin
 
 // Message Sending Functionality For Use Within Retry Runner (With Custom StatusCode Handling)
 func (h *Handler) sendMessage(ctx context.Context, message *kafkasaramaprotocol.Message, destinationURL *url.URL, replyURL *url.URL) error {
-
-	// TODO - The latest version of eventing has DispatchMessageWithRetries() - possibly refactor to rely on that instead ; )
 
 	// Dispatch The Message
 	err := h.MessageDispatcher.DispatchMessage(ctx, message, nil, destinationURL, replyURL, nil)

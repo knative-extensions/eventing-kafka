@@ -6,8 +6,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
-	kafkav1alpha1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
-	kafkalisters "knative.dev/eventing-contrib/kafka/channel/pkg/client/listers/messaging/v1alpha1"
+	kafkav1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
+	kafkalisters "knative.dev/eventing-contrib/kafka/channel/pkg/client/listers/messaging/v1beta1"
 )
 
 //
@@ -22,7 +22,7 @@ type MockSyncProducer struct {
 	closed           bool
 }
 
-func NewMockSyncProducer(topicName string) *MockSyncProducer {
+func NewMockSyncProducer() *MockSyncProducer {
 	return &MockSyncProducer{
 		producerMessages: make(chan sarama.ProducerMessage, 1),
 		closed:           false,
@@ -35,7 +35,7 @@ func (p *MockSyncProducer) SendMessage(msg *sarama.ProducerMessage) (partition i
 	return 1, p.offset, nil
 }
 
-func (p *MockSyncProducer) SendMessages(msgs []*sarama.ProducerMessage) error {
+func (p *MockSyncProducer) SendMessages(_ []*sarama.ProducerMessage) error {
 	// Not Currently In Use - No Need To Mock
 	return nil
 }
@@ -78,7 +78,7 @@ func NewMockKafkaChannelLister(name string, namespace string, exists bool, ready
 	}
 }
 
-func (m MockKafkaChannelLister) List(selector labels.Selector) (ret []*kafkav1alpha1.KafkaChannel, err error) {
+func (m MockKafkaChannelLister) List(_ labels.Selector) (ret []*kafkav1beta1.KafkaChannel, err error) {
 	panic("implement me")
 }
 
@@ -110,16 +110,16 @@ func NewMockKafkaChannelNamespaceLister(name string, namespace string, exists bo
 	}
 }
 
-func (m MockKafkaChannelNamespaceLister) List(selector labels.Selector) (ret []*kafkav1alpha1.KafkaChannel, err error) {
+func (m MockKafkaChannelNamespaceLister) List(_ labels.Selector) (ret []*kafkav1beta1.KafkaChannel, err error) {
 	panic("implement me")
 }
 
-func (m MockKafkaChannelNamespaceLister) Get(name string) (*kafkav1alpha1.KafkaChannel, error) {
+func (m MockKafkaChannelNamespaceLister) Get(name string) (*kafkav1beta1.KafkaChannel, error) {
 	if m.err {
 		return nil, k8serrors.NewInternalError(errors.New("expected Unit Test error from MockKafkaChannelNamespaceLister"))
 	} else if m.exists {
 		return CreateKafkaChannel(m.name, m.namespace, m.ready), nil
 	} else {
-		return nil, k8serrors.NewNotFound(kafkav1alpha1.Resource("KafkaChannel"), name)
+		return nil, k8serrors.NewNotFound(kafkav1beta1.Resource("KafkaChannel"), name)
 	}
 }

@@ -8,7 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 	injectionclient "knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/client"
-	"knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/informers/messaging/v1alpha1/kafkachannel"
+	"knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/informers/messaging/v1beta1/kafkachannel"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
 	"knative.dev/eventing-kafka/pkg/controller/env"
 	"knative.dev/eventing-kafka/pkg/controller/kafkasecretinformer"
@@ -59,11 +59,11 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 		controller.HandleAll(controllerImpl.Enqueue),
 	)
 	serviceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterGroupVersionKind(corev1.SchemeGroupVersion.WithKind(constants.SecretKind)),
+		FilterFunc: controller.FilterControllerGVK(corev1.SchemeGroupVersion.WithKind(constants.SecretKind)),
 		Handler:    controller.HandleAll(controllerImpl.EnqueueControllerOf),
 	})
 	deploymentInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterGroupVersionKind(corev1.SchemeGroupVersion.WithKind(constants.SecretKind)),
+		FilterFunc: controller.FilterControllerGVK(corev1.SchemeGroupVersion.WithKind(constants.SecretKind)),
 		Handler:    controller.HandleAll(controllerImpl.EnqueueControllerOf),
 	})
 	kafkachannelInformer.Informer().AddEventHandler(

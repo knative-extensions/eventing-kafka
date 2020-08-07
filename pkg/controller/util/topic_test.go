@@ -3,7 +3,7 @@ package util
 import (
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kafkav1alpha1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
+	kafkav1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
 	"testing"
 )
 
@@ -17,7 +17,7 @@ func TestTopicName(t *testing.T) {
 	)
 
 	// The KafkaChannel To Test
-	channel := &kafkav1alpha1.KafkaChannel{
+	channel := &kafkav1beta1.KafkaChannel{
 		ObjectMeta: metav1.ObjectMeta{Name: channelName, Namespace: channelNamespace},
 	}
 

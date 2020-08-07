@@ -18,7 +18,7 @@ import (
 func TestNewProducer(t *testing.T) {
 
 	// Create A Mock Kafka SyncProducer
-	mockSyncProducer := test.NewMockSyncProducer(test.TopicName)
+	mockSyncProducer := test.NewMockSyncProducer()
 
 	// Create A Test Producer
 	producer := createTestProducer(t, mockSyncProducer)
@@ -31,7 +31,7 @@ func TestNewProducer(t *testing.T) {
 func TestProduceKafkaMessage(t *testing.T) {
 
 	// Create Test Data
-	mockSyncProducer := test.NewMockSyncProducer(test.TopicName)
+	mockSyncProducer := test.NewMockSyncProducer()
 	producer := createTestProducer(t, mockSyncProducer)
 	channelReference := test.CreateChannelReference(test.ChannelName, test.ChannelNamespace)
 	bindingMessage := test.CreateBindingMessage(cloudevents.VersionV1)
@@ -64,7 +64,7 @@ func TestProduceKafkaMessage(t *testing.T) {
 func TestClose(t *testing.T) {
 
 	// Create A Mock Kafka SyncProducer
-	mockSyncProducer := test.NewMockSyncProducer(test.TopicName)
+	mockSyncProducer := test.NewMockSyncProducer()
 
 	// Create A Test Producer
 	producer := createTestProducer(t, mockSyncProducer)

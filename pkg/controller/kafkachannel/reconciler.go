@@ -9,10 +9,10 @@ import (
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-	kafkav1alpha1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
+	kafkav1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
 	kafkaclientset "knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned"
-	"knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/reconciler/messaging/v1alpha1/kafkachannel"
-	kafkalisters "knative.dev/eventing-contrib/kafka/channel/pkg/client/listers/messaging/v1alpha1"
+	"knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
+	kafkalisters "knative.dev/eventing-contrib/kafka/channel/pkg/client/listers/messaging/v1beta1"
 	kafkaadmin "knative.dev/eventing-kafka/pkg/common/kafka/admin"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
 	"knative.dev/eventing-kafka/pkg/controller/env"
@@ -75,7 +75,7 @@ func (r *Reconciler) ClearKafkaAdminClient() {
 }
 
 // ReconcileKind Implements The Reconciler Interface & Is Responsible For Performing The Reconciliation (Creation)
-func (r *Reconciler) ReconcileKind(ctx context.Context, channel *kafkav1alpha1.KafkaChannel) reconciler.Event {
+func (r *Reconciler) ReconcileKind(ctx context.Context, channel *kafkav1beta1.KafkaChannel) reconciler.Event {
 
 	r.logger.Debug("<==========  START KAFKA-CHANNEL RECONCILIATION  ==========>")
 
@@ -104,7 +104,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, channel *kafkav1alpha1.K
 }
 
 // ReconcileKind Implements The Finalizer Interface & Is Responsible For Performing The Finalization (Topic Deletion)
-func (r *Reconciler) FinalizeKind(ctx context.Context, channel *kafkav1alpha1.KafkaChannel) reconciler.Event {
+func (r *Reconciler) FinalizeKind(ctx context.Context, channel *kafkav1beta1.KafkaChannel) reconciler.Event {
 
 	r.logger.Debug("<==========  START KAFKA-CHANNEL FINALIZATION  ==========>")
 
@@ -131,7 +131,7 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, channel *kafkav1alpha1.Ka
 }
 
 // Perform The Actual Channel Reconciliation
-func (r *Reconciler) reconcile(ctx context.Context, channel *kafkav1alpha1.KafkaChannel) error {
+func (r *Reconciler) reconcile(ctx context.Context, channel *kafkav1beta1.KafkaChannel) error {
 
 	// NOTE - The sequential order of reconciliation must be "Topic" then "Channel / Dispatcher" in order for the
 	//        EventHub Cache to know the dynamically determined EventHub Namespace / Kafka Secret selected for the topic.

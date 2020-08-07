@@ -7,7 +7,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
-	kafkav1alpha1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
+	kafkav1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
 	"knative.dev/eventing-kafka/pkg/controller/test"
 	"knative.dev/pkg/controller"
@@ -17,15 +17,13 @@ import (
 
 // Define The Topic TestCase Type
 type TopicTestCase struct {
-	Name    string
-	Channel *kafkav1alpha1.KafkaChannel
-	//	WantTopicSpecification kafka.TopicSpecification
+	Name            string
+	Channel         *kafkav1beta1.KafkaChannel
 	WantTopicDetail *sarama.TopicDetail
-	//	MockErrorCode          kafka.ErrorCode
-	MockErrorCode sarama.KError
-	WantError     string
-	WantCreate    bool
-	WantDelete    bool
+	MockErrorCode   sarama.KError
+	WantError       string
+	WantCreate      bool
+	WantDelete      bool
 }
 
 //

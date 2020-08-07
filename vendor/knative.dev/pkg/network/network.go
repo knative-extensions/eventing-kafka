@@ -36,6 +36,15 @@ const (
 	// We should consider exposing this as a configuration.
 	DefaultConnTimeout = 200 * time.Millisecond
 
+	// DefaultDrainTimeout is the time that Knative components on the data
+	// path will wait before shutting down server, but after starting to fail
+	// readiness probes to ensure network layer propagation and so that no requests
+	// are routed to this pod.
+	// Note that this was bumped from 30s due to intermittent issues where
+	// the webhook would get a bad request from the API Server when running
+	// under chaos.
+	DefaultDrainTimeout = 45 * time.Second
+
 	// UserAgentKey is the constant for header "User-Agent".
 	UserAgentKey = "User-Agent"
 

@@ -23,7 +23,6 @@ metadata:
     duck.knative.dev/addressable: "true"
 spec:
   group: messaging.knative.dev
-  version: v1alpha1
   names:
     kind: KafkaChannel
     plural: kafkachannels
@@ -103,3 +102,18 @@ spec:
                       replyURI:
                         type: string
                         minLength: 1
+  versions:
+  - name: v1alpha1
+    served: false # Disabled Until We Include The Conversion Webhook From... eventing-contrib/kafka/channel/cmd/webhook
+    storage: false
+  - name: v1beta1
+    served: true
+    storage: true
+# Conversion Is Disabled Until We Include The Conversion Webhook From... eventing-contrib/kafka/channel/cmd/webhook
+#  conversion:
+#    strategy: Webhook
+#    conversionReviewVersions: ["v1beta1", "v1alpha1"]
+#    webhookClientConfig:
+#      service:
+#        name: kafka-webhook
+#        namespace: knative-eventing

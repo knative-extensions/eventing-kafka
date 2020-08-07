@@ -1,14 +1,14 @@
 package constants
 
 const (
-	// The Controller's Component Name
-	ControllerComponentName = "eventingkafkachannel_controller"
+	// The Controller's Component Name (Needs To Be DNS Safe!)
+	ControllerComponentName = "eventingkafka-controller"
 
 	// Knative Eventing Namespace
 	KnativeEventingNamespace = "knative-eventing"
 
 	// Knative Duck Versions
-	SubscribableDuckVersionAnnotationV1Alpha1 = "v1alpha1"
+	SubscribableDuckVersionAnnotationV1 = "v1"
 
 	// Knative Controller Naming
 	KafkaChannelControllerAgentName = "kafka-channel-controller"
@@ -43,7 +43,7 @@ const (
 	// Reconciliation Error Messages
 	ReconciliationFailedError = "reconciliation failed"
 
-	// Eventingkafka Finalizers Prefix
+	// Eventing-Kafka Finalizers Prefix
 	EventingKafkaFinalizerPrefix = "eventing-kafka/"
 
 	// Labels

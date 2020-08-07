@@ -7,6 +7,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+	"knative.dev/eventing-kafka/pkg/common/env"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
@@ -25,7 +26,7 @@ func TestLoggingContext(t *testing.T) {
 
 	// Setup Environment
 	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, constants.KnativeEventingNamespace))
-	assert.Nil(t, os.Setenv(logging.ConfigMapNameEnv, logging.ConfigMapName()))
+	assert.Nil(t, os.Setenv(env.KnativeLoggingConfigMapNameEnvVarKey, logging.ConfigMapName()))
 
 	// Create A Test Logging ConfigMap
 	loggingConfigMap := &corev1.ConfigMap{

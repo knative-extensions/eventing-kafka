@@ -8,9 +8,9 @@ import (
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-	kafkav1alpha1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
+	kafkav1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
 	fakekafkaclientset "knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned/fake"
-	kafkalisters "knative.dev/eventing-contrib/kafka/channel/pkg/client/listers/messaging/v1alpha1"
+	kafkalisters "knative.dev/eventing-contrib/kafka/channel/pkg/client/listers/messaging/v1beta1"
 	fakeeventingclientset "knative.dev/eventing/pkg/client/clientset/versioned/fake"
 	fakeeventsclientset "knative.dev/eventing/pkg/client/clientset/versioned/fake"
 	"knative.dev/pkg/reconciler/testing"
@@ -84,7 +84,7 @@ func (l *Listers) GetEndpointsLister() corev1listers.EndpointsLister {
 }
 
 func (l *Listers) GetKafkaChannelLister() kafkalisters.KafkaChannelLister {
-	return kafkalisters.NewKafkaChannelLister(l.indexerFor(&kafkav1alpha1.KafkaChannel{}))
+	return kafkalisters.NewKafkaChannelLister(l.indexerFor(&kafkav1beta1.KafkaChannel{}))
 }
 
 func (l *Listers) GetDeploymentLister() appsv1listers.DeploymentLister {

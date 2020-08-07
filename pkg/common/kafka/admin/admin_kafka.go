@@ -52,14 +52,14 @@ func NewKafkaAdminClient(ctx context.Context, clientId string, namespace string)
 	var kafkaSecret corev1.Secret
 	if len(kafkaSecrets.Items) != 1 {
 		logger.Warn(fmt.Sprintf("Expected 1 Kafka Secret But Found %d - Kafka AdminClient Will Not Be Functional!", len(kafkaSecrets.Items)))
-		return &KafkaAdminClient{logger: logger, namespace: namespace}, nil
+		return &KafkaAdminClient{logger: logger, namespace: namespace, clientId: clientId}, nil
 	} else {
 		logger.Info("Found 1 Kafka Secret", zap.String("Secret", kafkaSecrets.Items[0].Name))
 		kafkaSecret = kafkaSecrets.Items[0]
 	}
 
 	// Validate Secret Data
-	if !validateKafkaSecret(logger, &kafkaSecret) {
+	if !adminutil.ValidateKafkaSecret(logger, &kafkaSecret) {
 		err = errors.New("invalid Kafka Secret found")
 		return nil, err
 	}
@@ -145,43 +145,4 @@ func getConfig(clientId string, username string, password string) *sarama.Config
 
 	// Return The Sarama Config
 	return config
-}
-
-// Utility Function For Validating Kafka Secret
-func validateKafkaSecret(logger *zap.Logger, secret *corev1.Secret) bool {
-
-	// Assume Invalid Until Proven Otherwise
-	valid := false
-
-	// Validate The Kafka Secret
-	if secret != nil {
-
-		// Extract The Relevant Data From The Kafka Secret
-		brokers := string(secret.Data[constants.KafkaSecretKeyBrokers])
-		username := string(secret.Data[constants.KafkaSecretKeyUsername])
-		password := string(secret.Data[constants.KafkaSecretKeyPassword])
-
-		// Validate Kafka Secret Data (Allowing for Kafka not having Authentication enabled)
-		if len(brokers) > 0 && len(username) >= 0 && len(password) >= 0 {
-
-			// Mark Kafka Secret As Valid
-			valid = true
-
-		} else {
-
-			// Invalid Kafka Secret - Log State
-			pwdString := ""
-			if len(password) > 0 {
-				pwdString = "********"
-			}
-			logger.Error("Kafka Secret Contains Invalid Data",
-				zap.String("Name", secret.Name),
-				zap.String("Brokers", brokers),
-				zap.String("Username", username),
-				zap.String("Password", pwdString))
-		}
-	}
-
-	// Return Kafka Secret Validity
-	return valid
 }

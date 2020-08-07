@@ -6,7 +6,7 @@ import (
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
-	kafkav1alpha1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
+	kafkav1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
 	"knative.dev/eventing-kafka/pkg/controller/env"
 	"knative.dev/eventing-kafka/pkg/controller/event"
@@ -16,7 +16,7 @@ import (
 )
 
 // Reconcile The Kafka Topic Associated With The Specified Channel & Return The Kafka Secret
-func (r *Reconciler) reconcileTopic(ctx context.Context, channel *kafkav1alpha1.KafkaChannel) error {
+func (r *Reconciler) reconcileTopic(ctx context.Context, channel *kafkav1beta1.KafkaChannel) error {
 
 	// Get The TopicName For Specified Channel
 	topicName := util.TopicName(channel)

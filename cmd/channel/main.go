@@ -118,7 +118,7 @@ func handleMessage(ctx context.Context, channelReference eventingchannel.Channel
 	logger.Debug("~~~~~~~~~~~~~~~~~~~~  Processing Request  ~~~~~~~~~~~~~~~~~~~~")
 	logger.Debug("Received Message", zap.Any("Message", message), zap.Any("ChannelReference", channelReference))
 
-	// Trim The "-kafkachannel" Suffix From The Service Name
+	// Trim The "-kn-channel" Suffix From The Service Name
 	channelReference.Name = kafkautil.TrimKafkaChannelServiceNameSuffix(channelReference.Name)
 
 	// Validate The KafkaChannel Prior To Producing Kafka Message

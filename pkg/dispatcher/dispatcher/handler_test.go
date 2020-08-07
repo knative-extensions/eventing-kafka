@@ -10,9 +10,10 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
 	dispatchertesting "knative.dev/eventing-kafka/pkg/dispatcher/testing"
-	eventingduck "knative.dev/eventing/pkg/apis/duck/v1alpha1"
+	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/channel"
 	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	logtesting "knative.dev/pkg/logging/testing"
 	"net/url"
 	"testing"
@@ -21,7 +22,7 @@ import (
 
 // Test Data
 const (
-	testSubscriberUID        = types.UID(123)
+	testSubscriberUID        = types.UID("123")
 	testExponentialBackoff   = true
 	testInitialRetryInterval = int64(111)
 	testMaxRetryTime         = int64(22)
@@ -171,12 +172,15 @@ func createTestHandler(t *testing.T, subscriberURL *apis.URL, deadLetterURL *api
 	// Test Data
 	logger := logtesting.TestLogger(t).Desugar()
 	testSubscriber := &eventingduck.SubscriberSpec{
-		UID:               testSubscriberUID,
-		Generation:        0,
-		SubscriberURI:     subscriberURL,
-		ReplyURI:          nil,
-		DeadLetterSinkURI: deadLetterURL,
-		Delivery:          nil,
+		UID:           testSubscriberUID,
+		Generation:    0,
+		SubscriberURI: subscriberURL,
+		ReplyURI:      nil,
+		Delivery: &eventingduck.DeliverySpec{
+			DeadLetterSink: &duckv1.Destination{
+				URI: deadLetterURL,
+			},
+		},
 	}
 
 	// Perform The Test Create The Test Handler
