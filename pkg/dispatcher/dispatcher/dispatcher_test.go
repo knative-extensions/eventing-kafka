@@ -1,26 +1,79 @@
 package dispatcher
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
+
 	"github.com/Shopify/sarama"
+	"github.com/ghodss/yaml"
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	kafkaconsumer "knative.dev/eventing-kafka/pkg/common/kafka/consumer"
 	kafkatesting "knative.dev/eventing-kafka/pkg/common/kafka/testing"
+	"knative.dev/eventing-kafka/pkg/dispatcher/constants"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
+	"knative.dev/eventing/pkg/channel"
 	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/system"
+
 	"testing"
 	"time"
 )
 
 // Test Data
 const (
-	id123  = "123"
-	id456  = "456"
-	id789  = "789"
-	uid123 = types.UID(id123)
-	uid456 = types.UID(id456)
-	uid789 = types.UID(id789)
+	id123         = "123"
+	id456         = "456"
+	id789         = "789"
+	uid123        = types.UID(id123)
+	uid456        = types.UID(id456)
+	uid789        = types.UID(id789)
+	TestConfigNet = `
+Net:
+  TLS:
+    Config:
+      ClientAuth: 0
+  SASL:
+    Mechanism: PLAIN
+    Version: 1
+`
+	TestConfigConsumer = `
+Consumer:
+  Offsets:
+    AutoCommit:
+        Interval: 5000000000
+    Retention: 604800000000000
+  Return:
+    Errors: true
+`
+
+	TestConfigMeta = `
+Metadata:
+  RefreshFrequency: 300000000000`
+
+	TestConfigBase = TestConfigNet + TestConfigMeta + TestConfigConsumer
+
+	TestConfigMetadataChange = TestConfigNet + `
+Metadata:
+  RefreshFrequency: 200000` + TestConfigConsumer
+
+	TestConfigProducerChange = TestConfigNet + TestConfigMeta + `
+Producer:
+  MaxMessageBytes: 300` + TestConfigConsumer
+
+	TestConfigConsumerChange = TestConfigNet + TestConfigMeta + TestConfigConsumer + `
+  Fetch:
+    Min: 200
+`
+
+	TestConfigAdminChange = `
+Admin:
+  Retry:
+    Max: 100` + TestConfigNet + TestConfigMeta + TestConfigConsumer
 )
 
 // Test The NewSubscriberWrapper() Functionality
@@ -93,6 +146,14 @@ func TestShutdown(t *testing.T) {
 	assert.Len(t, dispatcher.subscribers, 0)
 }
 
+func getSaramaConfigFromYaml(t *testing.T, saramaYaml string) *sarama.Config {
+	var config *sarama.Config
+	jsonSettings, err := yaml.YAMLToJSON([]byte(saramaYaml))
+	assert.Nil(t, err)
+	assert.Nil(t, json.Unmarshal(jsonSettings, &config))
+	return config
+}
+
 // Test The UpdateSubscriptions() Functionality
 func TestUpdateSubscriptions(t *testing.T) {
 
@@ -117,7 +178,8 @@ func TestUpdateSubscriptions(t *testing.T) {
 			name: "Add First Subscription",
 			fields: fields{
 				DispatcherConfig: DispatcherConfig{
-					Logger: logtesting.TestLogger(t).Desugar(),
+					currentConfig: getSaramaConfigFromYaml(t, TestConfigBase),
+					Logger:        logtesting.TestLogger(t).Desugar(),
 				},
 				subscribers: map[types.UID]*SubscriberWrapper{},
 			},
@@ -132,7 +194,8 @@ func TestUpdateSubscriptions(t *testing.T) {
 			name: "Add Second Subscription",
 			fields: fields{
 				DispatcherConfig: DispatcherConfig{
-					Logger: logtesting.TestLogger(t).Desugar(),
+					currentConfig: getSaramaConfigFromYaml(t, TestConfigBase),
+					Logger:        logtesting.TestLogger(t).Desugar(),
 				},
 				subscribers: map[types.UID]*SubscriberWrapper{
 					uid123: createSubscriberWrapper(t, uid123),
@@ -150,7 +213,8 @@ func TestUpdateSubscriptions(t *testing.T) {
 			name: "Add And Remove Subscriptions",
 			fields: fields{
 				DispatcherConfig: DispatcherConfig{
-					Logger: logtesting.TestLogger(t).Desugar(),
+					currentConfig: getSaramaConfigFromYaml(t, TestConfigBase),
+					Logger:        logtesting.TestLogger(t).Desugar(),
 				},
 				subscribers: map[types.UID]*SubscriberWrapper{
 					uid123: createSubscriberWrapper(t, uid123),
@@ -169,7 +233,8 @@ func TestUpdateSubscriptions(t *testing.T) {
 			name: "Remove Penultimate Subscription",
 			fields: fields{
 				DispatcherConfig: DispatcherConfig{
-					Logger: logtesting.TestLogger(t).Desugar(),
+					currentConfig: getSaramaConfigFromYaml(t, TestConfigBase),
+					Logger:        logtesting.TestLogger(t).Desugar(),
 				},
 				subscribers: map[types.UID]*SubscriberWrapper{
 					uid123: createSubscriberWrapper(t, uid123),
@@ -187,7 +252,8 @@ func TestUpdateSubscriptions(t *testing.T) {
 			name: "Remove Last Subscription",
 			fields: fields{
 				DispatcherConfig: DispatcherConfig{
-					Logger: logtesting.TestLogger(t).Desugar(),
+					currentConfig: getSaramaConfigFromYaml(t, TestConfigBase),
+					Logger:        logtesting.TestLogger(t).Desugar(),
 				},
 				subscribers: map[types.UID]*SubscriberWrapper{
 					uid123: createSubscriberWrapper(t, uid123),
@@ -247,4 +313,64 @@ func TestUpdateSubscriptions(t *testing.T) {
 // Utility Function For Creating A SubscriberWrapper With Specified UID & Mock ConsumerGroup
 func createSubscriberWrapper(t *testing.T, uid types.UID) *SubscriberWrapper {
 	return NewSubscriberWrapper(eventingduck.SubscriberSpec{UID: uid}, fmt.Sprintf("kafka.%s", string(uid)), kafkatesting.NewMockConsumerGroup(t))
+}
+
+// Test The Dispatcher's ConfigChanged Functionality
+func TestConfigChanged(t *testing.T) {
+	logger := logtesting.TestLogger(t).Desugar()
+
+	// Setup Environment
+	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, constants.KnativeEventingNamespace))
+
+	// Create Mocks
+	dispatcher := &DispatcherImpl{
+		DispatcherConfig:  DispatcherConfig{Logger: logger},
+		subscribers:       make(map[types.UID]*SubscriberWrapper),
+		messageDispatcher: channel.NewMessageDispatcher(logger),
+	}
+
+	// Create Test Data
+	configMap := &corev1.ConfigMap{
+		TypeMeta: v1.TypeMeta{
+			Kind:       "ConfigMap",
+			APIVersion: corev1.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: v1.ObjectMeta{
+			Name:      commonconfig.SettingsConfigMapName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{
+			commonconfig.SaramaSettingsConfigKey: TestConfigBase,
+		},
+	}
+
+	// Apply a change to the Consumer config
+	runConfigChangedTest(t, dispatcher, configMap, TestConfigConsumerChange, true)
+
+	// Apply the base config again
+	runConfigChangedTest(t, dispatcher, configMap, TestConfigBase, true)
+
+	// Verify that non-Consumer changes do not cause Reconfigure to be called
+	runConfigChangedTest(t, dispatcher, configMap, TestConfigMetadataChange, false)
+	runConfigChangedTest(t, dispatcher, configMap, TestConfigAdminChange, false)
+	runConfigChangedTest(t, dispatcher, configMap, TestConfigProducerChange, false)
+}
+
+func runConfigChangedTest(t *testing.T, component *DispatcherImpl, base *corev1.ConfigMap, changed string, expectedNewDispatcher bool) {
+	// Change the Consumer settings to the base config
+	component.ConfigChanged(base)
+
+	// Alter the configmap to use the changed settings
+	newConfig := base
+	newConfig.Data[commonconfig.SaramaSettingsConfigKey] = changed
+
+	// Inform the Dispatcher that the config has changed to the new settings
+	newDispatcher := component.ConfigChanged(newConfig)
+
+	// Verify that a new dispatcher was created or not, as expected
+	if expectedNewDispatcher {
+		assert.NotNil(t, newDispatcher)
+	} else {
+		assert.Nil(t, newDispatcher)
+	}
 }

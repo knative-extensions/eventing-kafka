@@ -19,4 +19,6 @@ const (
 	CeKafkaHeaderKeySubject      = "ce_subject"
 	CeKafkaHeaderKeyDataSchema   = "ce_dataschema"
 	CeKafkaHeaderKeyPartitionKey = "ce_partitionkey"
+
+	KnativeEventingNamespace     = "knative-eventing"
 )

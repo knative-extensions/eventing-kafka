@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
+	"knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/common/env"
 )
 
@@ -163,4 +164,31 @@ func getLogger() *zap.Logger {
 		log.Fatalf("Failed To Create New Zap Production Logger: %+v", err)
 	}
 	return logger
+}
+
+func TestApplyOverrides(t *testing.T) {
+	var ekConfig config.EventingKafkaConfig
+
+	assertSetenv(t, env.MetricsDomainEnvVarKey, metricsDomain)
+	assertSetenvNonempty(t, env.MetricsPortEnvVarKey, metricsPort)
+	assertSetenvNonempty(t, env.HealthPortEnvVarKey, healthPort)
+	assertSetenv(t, env.KafkaBrokerEnvVarKey, kafkaBrokers)
+	assertSetenv(t, env.ServiceNameEnvVarKey, serviceName)
+	assertSetenv(t, env.KafkaUsernameEnvVarKey, kafkaUsername)
+	assertSetenv(t, env.KafkaPasswordEnvVarKey, kafkaPassword)
+
+	environment, err := GetEnvironment(getLogger())
+	assert.Nil(t, err)
+
+	ApplyOverrides(&ekConfig, environment)
+
+	assert.Equal(t, ekConfig.Metrics.Port, environment.MetricsPort)
+	assert.Equal(t, ekConfig.Metrics.Domain, environment.MetricsDomain)
+	assert.Equal(t, ekConfig.Health.Port, environment.HealthPort)
+	assert.Equal(t, ekConfig.Kafka.Brokers, environment.KafkaBrokers)
+	assert.Equal(t, ekConfig.Kafka.ServiceName, environment.ServiceName)
+	assert.Equal(t, ekConfig.Kafka.Username, environment.KafkaUsername)
+	assert.Equal(t, ekConfig.Kafka.Password, environment.KafkaPassword)
+	assert.Equal(t, ekConfig.Kafka.PasswordLog, environment.KafkaPasswordLog)
+
 }

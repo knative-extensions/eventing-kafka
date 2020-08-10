@@ -8,10 +8,7 @@ import (
 )
 
 // Create A Sarama Kafka SyncProducer (Optional Authentication)
-func CreateSyncProducer(clientId string, brokers []string, username string, password string) (sarama.SyncProducer, metrics.Registry, error) {
-
-	// Create The Sarama SyncProducer Config
-	config := getConfig(clientId, username, password)
+func CreateSyncProducer(brokers []string, config *sarama.Config) (sarama.SyncProducer, metrics.Registry, error) {
 
 	// Create A New Sarama SyncProducer & Return Results
 	syncProducer, err := newSyncProducerWrapper(brokers, config)
@@ -23,11 +20,11 @@ var newSyncProducerWrapper = func(brokers []string, config *sarama.Config) (sara
 	return sarama.NewSyncProducer(brokers, config)
 }
 
-// Get The Default Sarama SyncProducer Config
-func getConfig(clientId string, username string, password string) *sarama.Config {
+// Add our fields to the provided sarama.Config struct
+// TODO: EDV: The constants that aren't username/password/clientId should be moved to our configmap
+func UpdateConfig(config *sarama.Config, clientId string, username string, password string) {
 
-	// Create A New Base Sarama Config
-	config := util.NewSaramaConfig(clientId, username, password)
+	util.UpdateSaramaConfig(config, clientId, username, password)
 
 	// Specify Producer Idempotence
 	config.Producer.Idempotent = constants.ConfigProducerIdempotent
@@ -37,7 +34,4 @@ func getConfig(clientId string, username string, password string) *sarama.Config
 
 	// We Want "Message Produced" Success Messages For Use With SyncProducer
 	config.Producer.Return.Successes = true
-
-	// Return The Sarama Config
-	return config
 }

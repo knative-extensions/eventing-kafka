@@ -7,12 +7,14 @@ require (
 	github.com/Shopify/sarama v1.26.4
 	github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.2.0
 	github.com/cloudevents/sdk-go/v2 v2.2.0
+	github.com/ghodss/yaml v1.0.0
 	github.com/google/go-cmp v0.5.1
 	github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0
 	github.com/slok/goresilience v0.2.0
 	github.com/stretchr/testify v1.5.1
 	go.opencensus.io v0.22.5-0.20200716030834-3456e1d174b2
 	go.uber.org/zap v1.15.0
+	golang.org/x/net v0.0.0-20200707034311-ab3426394381
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
 	k8s.io/api v0.18.7-rc.0
 	k8s.io/apimachinery v0.18.7-rc.0

@@ -1,12 +1,12 @@
 package util
 
 import (
-	"crypto/tls"
 	"fmt"
+	"testing"
+
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
-	"testing"
 )
 
 // Test Enabling Sarama Logging
@@ -25,8 +25,8 @@ func TestEnableSaramaLogging(t *testing.T) {
 	sarama.Logger.Print("TestMessage")
 }
 
-// Test The NewSaramaConfig() Functionality
-func TestNewSaramaConfig(t *testing.T) {
+// Test The UpdateSaramaConfig() Functionality
+func TestUpdateSaramaConfig(t *testing.T) {
 
 	// Test Data
 	clientId := "TestClientId"
@@ -34,21 +34,13 @@ func TestNewSaramaConfig(t *testing.T) {
 	password := "TestPassword"
 
 	// Perform The Test
-	config := NewSaramaConfig(clientId, username, password)
+	config := sarama.NewConfig()
+	UpdateSaramaConfig(config, clientId, username, password)
 
 	// Verify The Results
 	assert.Equal(t, clientId, config.ClientID)
-	assert.Equal(t, constants.ConfigKafkaVersion, config.Version)
-	assert.Equal(t, constants.ConfigNetKeepAlive, config.Net.KeepAlive)
-	assert.Equal(t, constants.ConfigNetSaslVersion, config.Net.SASL.Version)
-	assert.True(t, config.Net.SASL.Enable)
-	assert.Equal(t, sarama.SASLMechanism(sarama.SASLTypePlaintext), config.Net.SASL.Mechanism)
 	assert.Equal(t, username, config.Net.SASL.User)
 	assert.Equal(t, password, config.Net.SASL.Password)
-	assert.True(t, config.Net.TLS.Enable)
-	assert.False(t, config.Net.TLS.Config.InsecureSkipVerify)
-	assert.Equal(t, tls.NoClientCert, config.Net.TLS.Config.ClientAuth)
-	assert.Equal(t, constants.ConfigMetadataRefreshFrequency, config.Metadata.RefreshFrequency)
 }
 
 // Test The TopicName() Functionality

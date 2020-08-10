@@ -3,18 +3,26 @@ package producer
 import (
 	"context"
 	"errors"
+	"time"
+
 	"github.com/Shopify/sarama"
 	kafkasaramaprotocol "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"github.com/cloudevents/sdk-go/v2/binding"
 	gometrics "github.com/rcrowley/go-metrics"
 	"go.uber.org/zap"
+	v1 "k8s.io/api/core/v1"
 	"knative.dev/eventing-kafka/pkg/channel/constants"
 	"knative.dev/eventing-kafka/pkg/channel/health"
 	"knative.dev/eventing-kafka/pkg/channel/util"
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	kafkaproducer "knative.dev/eventing-kafka/pkg/common/kafka/producer"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
 	eventingChannel "knative.dev/eventing/pkg/channel"
-	"time"
+)
+
+const (
+	ConfigChangedLogMsg    = "Configuration received; applying new Producer settings"
+	ConfigNotChangedLogMsg = "No Producer changes detected in new config; ignoring"
 )
 
 // Producer Struct
@@ -26,19 +34,19 @@ type Producer struct {
 	metricsRegistry    gometrics.Registry
 	metricsStopChan    chan struct{}
 	metricsStoppedChan chan struct{}
+	currentConfig      *sarama.Config
+	currentBrokers     []string
 }
 
 // Initialize The Producer
 func NewProducer(logger *zap.Logger,
-	clientId string,
+	config *sarama.Config,
 	brokers []string,
-	username string,
-	password string,
 	statsReporter metrics.StatsReporter,
 	healthServer *health.Server) (*Producer, error) {
 
 	// Create The Kafka Producer Using The Specified Kafka Authentication
-	kafkaProducer, metricsRegistry, err := createSyncProducerWrapper(clientId, brokers, username, password)
+	kafkaProducer, metricsRegistry, err := createSyncProducerWrapper(config, brokers)
 	if err != nil {
 		logger.Error("Failed To Create Kafka SyncProducer - Exiting", zap.Error(err), zap.Any("Brokers", brokers))
 		return nil, err
@@ -55,6 +63,8 @@ func NewProducer(logger *zap.Logger,
 		metricsRegistry:    metricsRegistry,
 		metricsStopChan:    make(chan struct{}),
 		metricsStoppedChan: make(chan struct{}),
+		currentConfig:      config,
+		currentBrokers:     brokers,
 	}
 
 	// Start Observing Metrics
@@ -69,8 +79,8 @@ func NewProducer(logger *zap.Logger,
 }
 
 // Wrapper Around Common Kafka SyncProducer Creation To Facilitate Unit Testing
-var createSyncProducerWrapper = func(clientId string, brokers []string, username string, password string) (sarama.SyncProducer, gometrics.Registry, error) {
-	return kafkaproducer.CreateSyncProducer(clientId, brokers, username, password)
+var createSyncProducerWrapper = func(config *sarama.Config, brokers []string) (sarama.SyncProducer, gometrics.Registry, error) {
+	return kafkaproducer.CreateSyncProducer(brokers, config)
 }
 
 // Produce A KafkaMessage From The Specified CloudEvent To The Specified Topic And Wait For The Delivery Report
@@ -156,4 +166,59 @@ func (p *Producer) Close() {
 	} else {
 		p.logger.Info("Successfully Closed Kafka Producer")
 	}
+}
+
+// ConfigChanged is called by the configMapObserver handler function in main() so that
+// settings specific to the producer may be extracted and the producer restarted if necessary.
+func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
+	p.logger.Debug("New ConfigMap Received", zap.String("configMap.Name", configMap.ObjectMeta.Name))
+
+	// If there aren't any producer-specific differences between the current config and the new one,
+	// then just log that and move on; do not restart the Producer unnecessarily.
+
+	newConfig := sarama.NewConfig()
+	err := commonconfig.MergeSaramaSettings(newConfig, configMap)
+	if err != nil {
+		p.logger.Error("Unable to merge sarama settings", zap.Error(err))
+		return nil
+	}
+
+	// Don't care about Admin or Consumer sections; everything else is a change that needs to be implemented.
+	newConfig.Admin = sarama.Config{}.Admin
+	newConfig.Consumer = sarama.Config{}.Consumer
+
+	if p.currentConfig != nil {
+		// Some of the current config settings may not be overridden by the configmap (username, password, etc.)
+		kafkaproducer.UpdateConfig(newConfig, p.currentConfig.ClientID, p.currentConfig.Net.SASL.User, p.currentConfig.Net.SASL.Password)
+
+		// Create a shallow copy of the current config so that we can empty out the Admin and Consumer before comparing.
+		configCopy := p.currentConfig
+
+		// The current config should theoretically have these sections zeroed already because Reconfigure should have been passed
+		// a newConfig with the structs empty, but this is more explicit as to what our goal is and doesn't hurt.
+		configCopy.Admin = sarama.Config{}.Admin
+		configCopy.Consumer = sarama.Config{}.Consumer
+		if commonconfig.SaramaConfigEqual(newConfig, configCopy) {
+			p.logger.Info(ConfigNotChangedLogMsg)
+			return nil
+		}
+	}
+
+	return p.reconfigure(newConfig)
+}
+
+// Reconfigure takes a new sarama.Config struct and applies the updated settings, restarting the Producer if required
+// Returns the new Producer if necessary, or nil if the configuration change did not require a new one
+func (p *Producer) reconfigure(config *sarama.Config) *Producer {
+	p.logger.Info(ConfigChangedLogMsg)
+
+	// "Reconfiguring" the Producer involves creating a new one, but we can re-use some
+	// of the original components (logger, brokers, statsReporter, and healthServer don't change when reconfiguring)
+	p.Close()
+	reconfiguredKafkaProducer, err := NewProducer(p.logger, config, p.currentBrokers, p.statsReporter, p.healthServer)
+	if err != nil {
+		p.logger.Fatal("Failed To Reconfigure Kafka Producer", zap.Error(err))
+		return nil
+	}
+	return reconfiguredKafkaProducer
 }

@@ -2,13 +2,19 @@ package main
 
 import (
 	"flag"
+	"strconv"
+	"strings"
+
 	"go.uber.org/zap"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned"
 	"knative.dev/eventing-contrib/kafka/channel/pkg/client/informers/externalversions"
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	commonk8s "knative.dev/eventing-kafka/pkg/common/k8s"
+	"knative.dev/eventing-kafka/pkg/common/kafka/consumer"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
 	"knative.dev/eventing-kafka/pkg/dispatcher/controller"
 	dispatch "knative.dev/eventing-kafka/pkg/dispatcher/dispatcher"
@@ -18,8 +24,6 @@ import (
 	"knative.dev/pkg/logging"
 	eventingmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/signals"
-	"strconv"
-	"strings"
 )
 
 // Constants
@@ -56,33 +60,56 @@ func main() {
 		logger.Fatal("Failed To Load Environment Variables - Terminating!", zap.Error(err))
 	}
 
+	// Load the sarama and eventing-kafka settings from our settings configmap
+	saramaConfig, ekConfig, err := commonconfig.LoadEventingKafkaSettings(ctx)
+	if err != nil {
+		logger.Fatal("Failed To Load Sarama Settings", zap.Error(err))
+	}
+	// Overwrite configmap settings with anything provided by the environment
+	env.ApplyOverrides(ekConfig, environment)
+
 	// Initialize Tracing (Watches config-tracing ConfigMap, Assumes Context Came From LoggingContext With Embedded K8S Client Key)
-	commonk8s.InitializeTracing(logger.Sugar(), ctx, environment.ServiceName)
+	err = commonconfig.InitializeTracing(logger.Sugar(), ctx, ekConfig.Kafka.ServiceName)
+	if err != nil {
+		logger.Fatal("Could Not Initialize Tracing - Terminating", zap.Error(err))
+	}
 
 	// Initialize Observability (Watches config-observability ConfigMap And Starts Profiling Server)
-	commonk8s.InitializeObservability(logger.Sugar(), ctx, environment.MetricsDomain, environment.MetricsPort)
+	err = commonconfig.InitializeObservability(logger.Sugar(), ctx, ekConfig.Metrics.Domain, ekConfig.Metrics.Port)
+	if err != nil {
+		logger.Fatal("Could Not Initialize Observability - Terminating", zap.Error(err))
+	}
 
 	// Start The Liveness And Readiness Servers
-	healthServer := dispatcherhealth.NewDispatcherHealthServer(strconv.Itoa(environment.HealthPort))
+	healthServer := dispatcherhealth.NewDispatcherHealthServer(strconv.Itoa(ekConfig.Health.Port))
 	healthServer.Start(logger)
 
 	statsReporter := metrics.NewStatsReporter(logger)
+
+	// Add username/password/components overrides to the Sarama config (these take precedence over what's in the configmap)
+	consumer.UpdateConfig(saramaConfig, Component, ekConfig.Kafka.Username, ekConfig.Kafka.Password)
 
 	// Create The Dispatcher With Specified Configuration
 	dispatcherConfig := dispatch.DispatcherConfig{
 		Logger:               logger,
 		ClientId:             Component,
-		Brokers:              strings.Split(environment.KafkaBrokers, ","),
-		Topic:                environment.KafkaTopic,
-		Username:             environment.KafkaUsername,
-		Password:             environment.KafkaPassword,
-		ChannelKey:           environment.ChannelKey,
+		Brokers:              strings.Split(ekConfig.Kafka.Brokers, ","),
+		Topic:                ekConfig.Kafka.Topic,
+		Username:             ekConfig.Kafka.Username,
+		Password:             ekConfig.Kafka.Password,
+		ChannelKey:           ekConfig.Kafka.ChannelKey,
 		StatsReporter:        statsReporter,
-		ExponentialBackoff:   environment.ExponentialBackoff,
-		InitialRetryInterval: environment.InitialRetryInterval,
-		MaxRetryTime:         environment.MaxRetryTime,
+		ExponentialBackoff:   ekConfig.Dispatcher.RetryExponentialBackoff,
+		InitialRetryInterval: ekConfig.Dispatcher.RetryInitialIntervalMillis,
+		MaxRetryTime:         ekConfig.Dispatcher.RetryTimeMillis,
 	}
 	dispatcher = dispatch.NewDispatcher(dispatcherConfig)
+
+	// Watch The Settings ConfigMap For Changes
+	err = commonconfig.InitializeConfigWatcher(logger.Sugar(), ctx, configMapObserver)
+	if err != nil {
+		logger.Fatal("Failed To Initialize ConfigMap Watcher", zap.Error(err))
+	}
 
 	config, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
 	if err != nil {
@@ -103,7 +130,7 @@ func main() {
 	controllers := [...]*kncontroller.Impl{
 		controller.NewController(
 			logger,
-			environment.ChannelKey,
+			ekConfig.Kafka.ChannelKey,
 			dispatcher,
 			kafkaChannelInformer,
 			kubeClient,
@@ -141,4 +168,14 @@ func main() {
 func flush(logger *zap.Logger) {
 	_ = logger.Sync()
 	eventingmetrics.FlushExporter()
+}
+
+// configMapObserver is the callback function that handles changes to our ConfigMap
+func configMapObserver(configMap *v1.ConfigMap) {
+	// Toss the new config map to the dispatcher for inspection and action
+	newDispatcher := dispatcher.ConfigChanged(configMap)
+	if newDispatcher != nil {
+		// The configuration change caused a new dispatcher to be created, so switch to that one
+		dispatcher = newDispatcher
+	}
 }

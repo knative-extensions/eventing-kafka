@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
+	"knative.dev/eventing-kafka/pkg/common/config"
 	commonenv "knative.dev/eventing-kafka/pkg/common/env"
 )
 
@@ -242,4 +243,44 @@ func getLogger() *zap.Logger {
 		log.Fatalf("Failed To Create New Zap Production Logger: %+v", err)
 	}
 	return logger
+}
+
+func TestApplyOverrides(t *testing.T) {
+	var ekConfig config.EventingKafkaConfig
+
+	assertSetenv(t, commonenv.MetricsDomainEnvVarKey, metricsDomain)
+	assertSetenvNonempty(t, commonenv.MetricsPortEnvVarKey, metricsPort)
+	assertSetenvNonempty(t, commonenv.HealthPortEnvVarKey, healthPort)
+	assertSetenv(t, commonenv.ExponentialBackoffEnvVarKey, exponentialBackoff)
+	assertSetenvNonempty(t, commonenv.MaxRetryTimeEnvVarKey, maxRetryTime)
+	assertSetenvNonempty(t, commonenv.InitialRetryIntervalEnvVarKey, initialRetryInterval)
+	assertSetenv(t, commonenv.KafkaBrokerEnvVarKey, kafkaBrokers)
+	assertSetenv(t, commonenv.KafkaTopicEnvVarKey, kafkaTopic)
+	assertSetenv(t, commonenv.ChannelKeyEnvVarKey, channelKey)
+	assertSetenv(t, commonenv.ServiceNameEnvVarKey, serviceName)
+	assertSetenv(t, commonenv.KafkaUsernameEnvVarKey, kafkaUsername)
+	assertSetenv(t, commonenv.KafkaPasswordEnvVarKey, kafkaPassword)
+
+	environment, err := GetEnvironment(getLogger())
+	assert.Nil(t, err)
+
+	ApplyOverrides(&ekConfig, environment)
+
+	assert.Equal(t, ekConfig.Metrics.Port, environment.MetricsPort)
+	assert.Equal(t, ekConfig.Metrics.Domain, environment.MetricsDomain)
+	assert.Equal(t, ekConfig.Dispatcher.RetryExponentialBackoff, environment.ExponentialBackoff)
+	assert.Equal(t, ekConfig.Dispatcher.ExponentialBackoffPresent, environment.ExpBackoffPresent)
+	assert.Equal(t, ekConfig.Health.Port, environment.HealthPort)
+	assert.Equal(t, ekConfig.Dispatcher.RetryTimeMillis, environment.MaxRetryTime)
+	assert.Equal(t, ekConfig.Dispatcher.RetryInitialIntervalMillis, environment.InitialRetryInterval)
+	assert.Equal(t, ekConfig.Kafka.Brokers, environment.KafkaBrokers)
+	assert.Equal(t, ekConfig.Kafka.Topic, environment.KafkaTopic)
+	assert.Equal(t, ekConfig.Kafka.ChannelKey, environment.ChannelKey)
+	assert.Equal(t, ekConfig.Kafka.ServiceName, environment.ServiceName)
+	assert.Equal(t, ekConfig.Kafka.Offset.CommitMessageCount, environment.KafkaOffsetCommitMessageCount)
+	assert.Equal(t, ekConfig.Kafka.Offset.CommitDurationMillis, environment.KafkaOffsetCommitDurationMillis)
+	assert.Equal(t, ekConfig.Kafka.Username, environment.KafkaUsername)
+	assert.Equal(t, ekConfig.Kafka.Password, environment.KafkaPassword)
+	assert.Equal(t, ekConfig.Kafka.PasswordLog, environment.KafkaPasswordLog)
+
 }

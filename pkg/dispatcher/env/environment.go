@@ -2,6 +2,7 @@ package env
 
 import (
 	"go.uber.org/zap"
+	"knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/common/env"
 )
 
@@ -106,15 +107,9 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 
 	// Get The Optional KafkaUsername Config Value
 	environment.KafkaUsername = env.GetOptionalConfigValue(logger, env.KafkaUsernameEnvVarKey, "")
-	if err != nil {
-		return nil, err
-	}
 
 	// Get The Optional KafkaPassword Config Value
 	environment.KafkaPassword = env.GetOptionalConfigValue(logger, env.KafkaPasswordEnvVarKey, "")
-	if err != nil {
-		return nil, err
-	}
 
 	// Mask The Password For Logging (If There Was One)
 	environment.KafkaPasswordLog = ""
@@ -127,4 +122,27 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 
 	// Return The Populated Dispatcher Configuration Environment Structure
 	return environment, nil
+}
+
+// ApplyOverrides overwrites an EventingKafkaConfig struct with the values from an Environment struct
+// This allows us to remove variables from the required environment list as desired instead of
+// changing everything at once.  As they are removed from the GetEnvironment function (and the Environment
+// struct itself), the values from the configmap will take over.
+func ApplyOverrides(ekConfig *config.EventingKafkaConfig, environment *Environment) {
+	ekConfig.Metrics.Port = environment.MetricsPort
+	ekConfig.Metrics.Domain = environment.MetricsDomain
+	ekConfig.Dispatcher.RetryExponentialBackoff = environment.ExponentialBackoff
+	ekConfig.Dispatcher.ExponentialBackoffPresent = environment.ExpBackoffPresent
+	ekConfig.Health.Port = environment.HealthPort
+	ekConfig.Dispatcher.RetryTimeMillis = environment.MaxRetryTime
+	ekConfig.Dispatcher.RetryInitialIntervalMillis = environment.InitialRetryInterval
+	ekConfig.Kafka.Brokers = environment.KafkaBrokers
+	ekConfig.Kafka.Topic = environment.KafkaTopic
+	ekConfig.Kafka.ChannelKey = environment.ChannelKey
+	ekConfig.Kafka.ServiceName = environment.ServiceName
+	ekConfig.Kafka.Offset.CommitMessageCount = environment.KafkaOffsetCommitMessageCount
+	ekConfig.Kafka.Offset.CommitDurationMillis = environment.KafkaOffsetCommitDurationMillis
+	ekConfig.Kafka.Username = environment.KafkaUsername
+	ekConfig.Kafka.Password = environment.KafkaPassword
+	ekConfig.Kafka.PasswordLog = environment.KafkaPasswordLog
 }

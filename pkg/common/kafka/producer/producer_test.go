@@ -2,10 +2,13 @@ package producer
 
 import (
 	"crypto/tls"
+
+	"testing"
+
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
+	"knative.dev/eventing-kafka/pkg/channel/test"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
-	"testing"
 )
 
 // Test Constants
@@ -44,13 +47,23 @@ func performCreateSyncProducerTest(t *testing.T, username string, password strin
 	defer func() { newSyncProducerWrapper = newSyncProducerWrapperPlaceholder }()
 
 	// Perform The Test
-	producer, registry, err := CreateSyncProducer(ClientId, []string{KafkaBrokers}, username, password)
+	config := sarama.NewConfig()
+	UpdateConfig(config, ClientId, username, password)
+	producer, registry, err := CreateSyncProducer([]string{KafkaBrokers}, config)
 
 	// Verify The Results
 	assert.Nil(t, err)
 	assert.NotNil(t, producer)
 	assert.Equal(t, mockSyncProducer, producer)
 	assert.NotNil(t, registry)
+}
+
+func TestUpdateConfig(t *testing.T) {
+	config := sarama.NewConfig()
+	UpdateConfig(config, test.ClientId, KafkaUsername, KafkaPassword)
+	assert.Equal(t, ClientId, config.ClientID)
+	assert.Equal(t, KafkaUsername, config.Net.SASL.User)
+	assert.Equal(t, KafkaPassword, config.Net.SASL.Password)
 }
 
 // Verify The Sarama Config Is As Expected

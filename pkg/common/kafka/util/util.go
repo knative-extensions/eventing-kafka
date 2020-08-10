@@ -3,11 +3,12 @@ package util
 import (
 	"crypto/tls"
 	"fmt"
-	"github.com/Shopify/sarama"
-	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	"log"
 	"os"
 	"strings"
+
+	"github.com/Shopify/sarama"
+	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 )
 
 // Utility Function For Enabling Sarama Logging (Debugging)
@@ -16,10 +17,8 @@ func EnableSaramaLogging() {
 }
 
 // Utility Function For Configuring Common Settings For Admin/Producer/Consumer
-func NewSaramaConfig(clientId string, username string, password string) *sarama.Config {
-
-	// Create A Default Sarama Config
-	config := sarama.NewConfig()
+// TODO:  EDV:  This constants in this function should not be necessary any longer when our configmap has this information in it; remove
+func UpdateSaramaConfig(config *sarama.Config, clientId string, username string, password string) {
 
 	// Set The ClientID For Logging
 	config.ClientID = clientId
@@ -45,9 +44,6 @@ func NewSaramaConfig(clientId string, username string, password string) *sarama.
 
 	// Increase The MetaData Refresh Frequency
 	config.Metadata.RefreshFrequency = constants.ConfigMetadataRefreshFrequency
-
-	// Return The Initialized Config
-	return config
 }
 
 // Get The Formatted Kafka Topic Name From The Specified Components

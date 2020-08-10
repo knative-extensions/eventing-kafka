@@ -2,16 +2,21 @@ package admin
 
 import (
 	"context"
+	"os"
+
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+	"knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/system"
+
 	"strconv"
 	"testing"
 )
@@ -26,13 +31,28 @@ func TestNewKafkaAdminClientSuccess(t *testing.T) {
 	kafkaSecretBrokers := "TestKafkaSecretBrokers"
 	kafkaSecretUsername := "TestKafkaSecretUsername"
 	kafkaSecretPassword := "TestKafkaSecretPassword"
+	saramaSettings := `
+Net:
+  TLS:
+    Enable: true
+  SASL:
+    Enable: true
+    Mechanism: PLAIN
+    Version: 1
+Metadata:
+  RefreshFrequency: 300000000000
+`
+	
+	// Setup Environment
+	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, constants.KnativeEventingNamespace))
 
-	// Create Test Kafka Secret
+	// Create Test Kafka Secret And ConfigMap
 	kafkaSecret := createKafkaSecret(kafkaSecretName, namespace, kafkaSecretBrokers, kafkaSecretUsername, kafkaSecretPassword)
+	kafkaConfig := createKafkaConfig(config.SettingsConfigMapName, system.Namespace(), saramaSettings)
 
 	// Create A Context With Test Logger & K8S Client
 	ctx := logging.WithLogger(context.TODO(), logtesting.TestLogger(t))
-	ctx = context.WithValue(ctx, injectionclient.Key{}, fake.NewSimpleClientset(kafkaSecret))
+	ctx = context.WithValue(ctx, injectionclient.Key{}, fake.NewSimpleClientset(kafkaSecret, kafkaConfig))
 
 	// Create A Mock Sarama ClusterAdmin To Test Against
 	mockClusterAdmin := &MockClusterAdmin{}
@@ -307,6 +327,23 @@ func createKafkaSecret(name string, namespace string, brokers string, username s
 			constants.KafkaSecretKeyBrokers:  []byte(brokers),
 			constants.KafkaSecretKeyUsername: []byte(username),
 			constants.KafkaSecretKeyPassword: []byte(password),
+		},
+	}
+}
+
+// Create K8S Kafka ConfigMap With Specified Config
+func createKafkaConfig(name string, namespace string, saramaConfig string) *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ConfigMap",
+			APIVersion: corev1.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Data: map[string]string{
+			config.SaramaSettingsConfigKey: saramaConfig,
 		},
 	}
 }

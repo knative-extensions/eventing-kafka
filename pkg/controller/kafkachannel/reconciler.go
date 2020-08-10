@@ -3,6 +3,7 @@ package kafkachannel
 import (
 	"context"
 	"fmt"
+
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -44,7 +45,7 @@ var (
 //
 // Clear / Re-Set The Kafka AdminClient On The Reconciler
 //
-// Ideally we would re-use the Kafka AdminClient but due to an Issues with the Sarama ClusterAdmin we're
+// Ideally we would re-use the Kafka AdminClient but due to Issues with the Sarama ClusterAdmin we're
 // forced to recreate a new connection every time.  We were seeing "broken-pipe" failures (non-recoverable)
 // with the ClusterAdmin after periods of inactivity.
 //   https://github.com/Shopify/sarama/issues/1162

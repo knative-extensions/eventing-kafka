@@ -4,15 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	adminutil "knative.dev/eventing-kafka/pkg/common/kafka/admin/util"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	"knative.dev/eventing-kafka/pkg/common/kafka/util"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
-	"strings"
 )
 
 //
@@ -69,8 +71,15 @@ func NewKafkaAdminClient(ctx context.Context, clientId string, namespace string)
 	username := string(kafkaSecret.Data[constants.KafkaSecretKeyUsername])
 	password := string(kafkaSecret.Data[constants.KafkaSecretKeyPassword])
 
-	// Create The Sarama ClusterAdmin Configuration
-	config := getConfig(clientId, username, password)
+	// Load Sarama Settings From Our ConfigMap
+	config, _, err := commonconfig.LoadEventingKafkaSettings(ctx)
+	if err != nil {
+		logger.Error("Failed To Load Eventing-Kafka ConfigMap", zap.Error(err))
+	}
+	logger.Debug("Loaded settings from ConfigMap", zap.String("SettingsConfigMapName", commonconfig.SettingsConfigMapName))
+
+	// Update The Sarama ClusterAdmin Configuration With Our Values
+	updateConfig(config, clientId, username, password)
 
 	// Create A New Sarama ClusterAdmin
 	clusterAdmin, err := NewClusterAdminWrapper(brokers, config)
@@ -135,14 +144,12 @@ func (k KafkaAdminClient) GetKafkaSecretName(_ string) string {
 }
 
 // Get The Default Sarama ClusterAdmin Config
-func getConfig(clientId string, username string, password string) *sarama.Config {
+// TODO: EDV: The setting of the ConfigAdminTimeout constant should no longer be necessary once we are using the configmap
+func updateConfig(config *sarama.Config, clientId string, username string, password string) {
 
-	// Create A New Base Sarama Config
-	config := util.NewSaramaConfig(clientId, username, password)
+	// Update The Sarama Config With New Values
+	util.UpdateSaramaConfig(config, clientId, username, password)
 
 	// Increase Default Admin Timeout Of 3 Seconds For Topic Creation/Deletion
 	config.Admin.Timeout = constants.ConfigAdminTimeout
-
-	// Return The Sarama Config
-	return config
 }
