@@ -5,6 +5,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	commonenv "knative.dev/eventing-kafka/pkg/common/env"
+	"knative.dev/eventing-kafka/pkg/common/kafka/admin"
 	"log"
 	"os"
 	"strconv"
@@ -16,7 +17,7 @@ const (
 	serviceAccount = "TestServiceAccount"
 	metricsPort    = "9999"
 	metricsDomain  = "example.com/kafka-eventing"
-	kafkaProvider  = "confluent"
+	kafkaAdminType = "kafka"
 
 	kafkaOffsetCommitMessageCount   = "500"
 	kafkaOffsetCommitDurationMillis = "2000"
@@ -50,7 +51,7 @@ type TestCase struct {
 	serviceAccount                       string
 	metricsPort                          string
 	metricsDomain                        string
-	kafkaProvider                        string
+	kafkaAdminType                       string
 	kafkaOffsetCommitMessageCount        string
 	kafkaOffsetCommitDurationMillis      string
 	defaultNumPartitions                 string
@@ -106,14 +107,13 @@ func TestGetEnvironment(t *testing.T) {
 	testCase.expectedError = getInvalidIntEnvironmentVariableError(testCase.metricsPort, commonenv.MetricsPortEnvVarKey)
 	testCases = append(testCases, testCase)
 
-	testCase = getValidTestCase("Missing Required Config - KafkaProvider")
-	testCase.kafkaProvider = ""
-	testCase.expectedError = getMissingRequiredEnvironmentVariableError(commonenv.KafkaProviderEnvVarKey)
+	testCase = getValidTestCase("Missing Optional Config - KafkaAdminType")
+	testCase.kafkaAdminType = ""
 	testCases = append(testCases, testCase)
 
-	testCase = getValidTestCase("Invalid Config - KafkaProvider")
-	testCase.kafkaProvider = "foo"
-	testCase.expectedError = fmt.Errorf("invalid (unknown) value 'foo' for environment variable '%s'", commonenv.KafkaProviderEnvVarKey)
+	testCase = getValidTestCase("Invalid Config - KafkaAdminType")
+	testCase.kafkaAdminType = "foo"
+	testCase.expectedError = fmt.Errorf("invalid (unknown) value 'foo' for environment variable '%s'", commonenv.KafkaAdminTypeEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Required Config - DefaultNumPartitions")
@@ -293,7 +293,7 @@ func TestGetEnvironment(t *testing.T) {
 			assert.Nil(t, os.Setenv(commonenv.MetricsPortEnvVarKey, testCase.metricsPort))
 		}
 
-		assert.Nil(t, os.Setenv(commonenv.KafkaProviderEnvVarKey, testCase.kafkaProvider))
+		assert.Nil(t, os.Setenv(commonenv.KafkaAdminTypeEnvVarKey, testCase.kafkaAdminType))
 		if len(testCase.defaultNumPartitions) > 0 {
 			assert.Nil(t, os.Setenv(DefaultNumPartitionsEnvVarKey, testCase.defaultNumPartitions))
 		}
@@ -333,6 +333,7 @@ func TestGetEnvironment(t *testing.T) {
 			assert.NotNil(t, environment)
 			assert.Equal(t, testCase.serviceAccount, environment.ServiceAccount)
 			assert.Equal(t, testCase.metricsPort, strconv.Itoa(environment.MetricsPort))
+			assert.Equal(t, admin.Kafka, environment.KafkaAdminType)
 			assert.Equal(t, testCase.channelImage, environment.ChannelImage)
 			assert.Equal(t, testCase.dispatcherImage, environment.DispatcherImage)
 
@@ -380,7 +381,7 @@ func getValidTestCase(name string) TestCase {
 		serviceAccount:                       serviceAccount,
 		metricsPort:                          metricsPort,
 		metricsDomain:                        metricsDomain,
-		kafkaProvider:                        kafkaProvider,
+		kafkaAdminType:                       kafkaAdminType,
 		kafkaOffsetCommitMessageCount:        kafkaOffsetCommitMessageCount,
 		kafkaOffsetCommitDurationMillis:      kafkaOffsetCommitDurationMillis,
 		defaultNumPartitions:                 defaultNumPartitions,

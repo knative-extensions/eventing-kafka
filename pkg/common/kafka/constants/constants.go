@@ -47,6 +47,9 @@ const (
 
 	// KafkaChannel Constants
 	KafkaChannelServiceNameSuffix = "kn-channel" // Specific Value For Use With Knative e2e Tests!
+
+	// Plugin AdminClient Name (Plugin Writers Must Ensure The Binary Is Names As Such)
+	PluginAdminClientName = "kafka-admin-client.so"
 )
 
 // Non-Constant Constants ;)

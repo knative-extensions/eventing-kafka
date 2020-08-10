@@ -44,8 +44,8 @@ spec:
           value: "8081"
         - name: METRICS_DOMAIN
           value: "eventing-kafka"
-        - name: KAFKA_PROVIDER
-          value: "local"
+        - name: KAFKA_ADMIN_TYPE # Valid Values Include... "kafka" (default), "eventhub", "plugin"
+          value: "kafka"
         - name: KAFKA_OFFSET_COMMIT_MESSAGE_COUNT
           value: "50"
         - name: KAFKA_OFFSET_COMMIT_DURATION_MILLIS

@@ -5,6 +5,7 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"knative.dev/eventing-kafka/pkg/common/env"
+	"knative.dev/eventing-kafka/pkg/common/kafka/admin"
 	"strings"
 )
 
@@ -27,10 +28,10 @@ const (
 	DefaultEventRetryTimeMillisMax         = "300000"    // 5 minutes
 	DefaultExponentialBackoff              = "true"      // Enabled
 
-	// Kafka Provider Types
-	KafkaProviderValueLocal     = "local"
-	KafkaProviderValueConfluent = "confluent"
-	KafkaProviderValueAzure     = "azure"
+	// Kafka Admin Types
+	KafkaAdminTypeValueKafka    = "kafka"
+	KafkaAdminTypeValueEventHub = "eventhub"
+	KafkaAdminTypeValuePlugin   = "plugin"
 
 	// Dispatcher Resources
 	DispatcherImageEnvVarKey         = "DISPATCHER_IMAGE"
@@ -58,9 +59,9 @@ type Environment struct {
 	MetricsDomain  string // Required
 
 	// Kafka Configuration / Authorization
-	KafkaProvider                   string // Required
-	KafkaOffsetCommitMessageCount   int64  // Optional
-	KafkaOffsetCommitDurationMillis int64  // Optional
+	KafkaAdminType                  admin.AdminClientType // Required
+	KafkaOffsetCommitMessageCount   int64                 // Optional
+	KafkaOffsetCommitDurationMillis int64                 // Optional
 
 	// Default Values To Use If Not Available In Knative Channels Argument
 	DefaultNumPartitions     int32 // Required
@@ -116,22 +117,19 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 		return nil, err
 	}
 
-	// Get The Required Kafka Provider Config Value
-	kafkaProviderString, err := env.GetRequiredConfigValue(logger, env.KafkaProviderEnvVarKey)
-	if err != nil {
-		return nil, err
-	} else {
-		switch strings.ToLower(kafkaProviderString) {
-		case KafkaProviderValueLocal:
-			environment.KafkaProvider = KafkaProviderValueLocal
-		case KafkaProviderValueConfluent:
-			environment.KafkaProvider = KafkaProviderValueConfluent
-		case KafkaProviderValueAzure:
-			environment.KafkaProvider = KafkaProviderValueAzure
-		default:
-			logger.Error("Invalid / Unknown KafkaProvider", zap.String("Value", kafkaProviderString), zap.Error(err))
-			return nil, fmt.Errorf("invalid (unknown) value '%s' for environment variable '%s'", kafkaProviderString, env.KafkaProviderEnvVarKey)
-		}
+	// Get The Optional Kafka Admin Type Config Value (Defaults To "kafka")
+	kafkaAdminType := env.GetOptionalConfigValue(logger, env.KafkaAdminTypeEnvVarKey, KafkaAdminTypeValueKafka)
+	switch strings.ToLower(kafkaAdminType) {
+	case KafkaAdminTypeValueKafka:
+		environment.KafkaAdminType = admin.Kafka
+	case KafkaAdminTypeValueEventHub:
+		environment.KafkaAdminType = admin.EventHub
+	case KafkaAdminTypeValuePlugin:
+		environment.KafkaAdminType = admin.Plugin
+	default:
+		logger.Error("Invalid / Unknown KafkaAdminType", zap.String("Value", kafkaAdminType), zap.Error(err))
+		environment.KafkaAdminType = admin.Unknown
+		return nil, fmt.Errorf("invalid (unknown) value '%s' for environment variable '%s'", kafkaAdminType, env.KafkaAdminTypeEnvVarKey)
 	}
 
 	// Get The Required DefaultNumPartitions Config Value & Convert To Int

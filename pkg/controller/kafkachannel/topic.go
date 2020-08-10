@@ -7,8 +7,8 @@ import (
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	kafkav1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
+	"knative.dev/eventing-kafka/pkg/common/kafka/admin"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
-	"knative.dev/eventing-kafka/pkg/controller/env"
 	"knative.dev/eventing-kafka/pkg/controller/event"
 	"knative.dev/eventing-kafka/pkg/controller/util"
 	"knative.dev/pkg/controller"
@@ -98,7 +98,7 @@ func (r *Reconciler) deleteTopic(ctx context.Context, topicName string) error {
 			logger.Info("Kafka Topic or Partition Not Found - No Deletion Required")
 			return nil
 		case sarama.ErrInvalidConfig:
-			if r.environment.KafkaProvider == env.KafkaProviderValueAzure {
+			if r.environment.KafkaAdminType == admin.EventHub {
 				// While this could be a valid Kafka error, this most likely is coming from our custom EventHub AdminClient
 				// implementation and represents the fact that the EventHub Cache does not contain this topic.  This can
 				// happen when an EventHub could not be created due to exceeding the number of allowable EventHubs.  The

@@ -8,7 +8,6 @@ import (
 	kafkaclientsetinjection "knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/client"
 	"knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/informers/messaging/v1beta1/kafkachannel"
 	kafkachannelreconciler "knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
-	kafkaadmin "knative.dev/eventing-kafka/pkg/common/kafka/admin"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
 	"knative.dev/eventing-kafka/pkg/controller/env"
 	"knative.dev/eventing/pkg/logging"
@@ -39,12 +38,6 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 		logger.Fatal("Failed To Load Environment Variables - Terminating!", zap.Error(err))
 	}
 
-	// Determine The Kafka AdminClient Type (Assume Kafka Unless Azure EventHubs Are Specified)
-	kafkaAdminClientType := kafkaadmin.Kafka
-	if environment.KafkaProvider == env.KafkaProviderValueAzure {
-		kafkaAdminClientType = kafkaadmin.EventHub
-	}
-
 	// Create A KafkaChannel Reconciler & Track As Package Variable
 	rec = &Reconciler{
 		logger:               logging.FromContext(ctx),
@@ -55,7 +48,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 		kafkachannelInformer: kafkachannelInformer.Informer(),
 		deploymentLister:     deploymentInformer.Lister(),
 		serviceLister:        serviceInformer.Lister(),
-		adminClientType:      kafkaAdminClientType,
+		adminClientType:      environment.KafkaAdminType,
 		adminClient:          nil,
 	}
 
