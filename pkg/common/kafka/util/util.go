@@ -25,8 +25,14 @@ func NewSaramaConfig() *sarama.Config {
 
 // Forces Some Sarama Settings To Have Mandatory Values
 func enforceSaramaConfig(config *sarama.Config) {
+
+	// Latest version, seems to work with EventHubs as well.
 	config.Version = constants.ConfigKafkaVersion
+
+	// We Want To Know About Consumer Errors
 	config.Consumer.Return.Errors = true
+
+	// We Want "Message Produced" Success Messages For Use With SyncProducer
 	config.Producer.Return.Successes = true
 }
 
