@@ -254,7 +254,7 @@ func (d *DispatcherImpl) ConfigChanged(configMap *v1.ConfigMap) Dispatcher {
 	// In order to compare configs "without the producer section" we use a known-base config
 	// and ensure that those sections are always the same.  The reason we can't just use, for example,
 	// sarama.Config{}.Producer as the empty struct is that the Sarama calls to create objects like ConsumerGroup
-	// verify that certain fields (such as Admin.Timeout) are nonzero and fail otherwise.
+	// still verify that certain fields (such as Producer.MaxMessageBytes) are nonzero and fail otherwise.
 	emptyProducer := newConfig.Producer
 
 	// If there aren't any consumer-specific differences between the current config and the new one,
@@ -273,7 +273,7 @@ func (d *DispatcherImpl) ConfigChanged(configMap *v1.ConfigMap) Dispatcher {
 		// Some of the current config settings may not be overridden by the configmap (username, password, etc.)
 		util.UpdateSaramaConfig(newConfig, d.SaramaConfig.ClientID, d.SaramaConfig.Net.SASL.User, d.SaramaConfig.Net.SASL.Password)
 
-		// Create a shallow copy of the current config so that we can empty out the Admin and Consumer before comparing.
+		// Create a shallow copy of the current config so that we can empty out the Producer before comparing.
 		configCopy := d.SaramaConfig
 
 		// The current config should theoretically have these sections zeroed already because Reconfigure should have been passed

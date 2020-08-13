@@ -173,7 +173,7 @@ func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 	// In order to compare configs "without the admin or consumer sections" we use a known-base config
 	// and ensure that those sections are always the same.  The reason we can't just use, for example,
 	// sarama.Config{}.Admin as the empty struct is that the Sarama calls to create objects like SyncProducer
-	// verify that certain fields (such as Admin.Timeout) are nonzero and fail otherwise.
+	// still verify that certain fields (such as Admin.Timeout) are nonzero and fail otherwise.
 	emptyAdmin := newConfig.Admin
 	emptyConsumer := newConfig.Consumer
 
