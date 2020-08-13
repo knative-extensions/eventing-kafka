@@ -61,7 +61,7 @@ func NewPluginAdminClient(ctx context.Context, namespace string) (AdminClientInt
 	// Open The Specified Plugin
 	adminClientPlugin, err := plugin.Open(adminClientPluginPath)
 	if err != nil {
-		logger.Error("Failed To Open Kafka AdminClient Plugin", zap.Error(err))
+		logger.Error("Failed To Open Kafka AdminClient Plugin", zap.String("Plugin Path", adminClientPluginPath), zap.Error(err))
 		return nil, err
 	} else if adminClientPlugin == nil {
 		logger.Warn("Opened Nil Kafka AdminClient Plugin")

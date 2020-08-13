@@ -60,7 +60,11 @@ them from your custom Kafka AdminClient plugin.
 The plugin must be named `kafka-admin-client.so` and be in the `$KO_DATA_PATH` (defaults to **/var/run/ko**) as
 described in the [ko documentation](https://github.com/google/ko).  The easiest way to do this is to create
 a separate GO project for your custom Kafka AdminClient, from which you use the official eventing-kafka controller
-image as the Base Docker Image onto which you can place the kafka-admin-client.so built from your custom source.
+image as the base Docker image onto which you can place the kafka-admin-client.so built from your custom source.
+Make sure to specify the following entrypoint in your custom Plugin Dockerfile!
+```
+ENTRYPOINT ["/ko-app/controller"]
+```
 
 > Note - Deployment of the plugin based controller will have to be managed outside the normal eventing-kafka ko
 > deployment. 
