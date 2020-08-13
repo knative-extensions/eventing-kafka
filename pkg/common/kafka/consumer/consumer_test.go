@@ -64,6 +64,7 @@ func TestCreateConsumerGroup(t *testing.T) {
 	assert.NotNil(t, registry)
 }
 
+// Test that the UpdateSaramaConfig sets values as expected
 func TestUpdateConfig(t *testing.T) {
 	config := sarama.NewConfig()
 	util.UpdateSaramaConfig(config, ClientId, KafkaUsername, KafkaPassword)

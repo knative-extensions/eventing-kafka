@@ -61,6 +61,7 @@ func performCreateSyncProducerTest(t *testing.T, username string, password strin
 	assert.NotNil(t, registry)
 }
 
+// Test that the UpdateSaramaConfig sets values as expected
 func TestUpdateConfig(t *testing.T) {
 	config := sarama.NewConfig()
 	util.UpdateSaramaConfig(config, test.ClientId, KafkaUsername, KafkaPassword)
