@@ -227,7 +227,7 @@ type CompareSaramaConfig struct {
 // This custom marshaller converts a sarama.Config struct to our CompareSaramaConfig using the ability of go
 // to initialize one struct with another identical one (aside from field tags).  It then uses the CompareSaramaConfig
 // field tags to skip the fields that cause problematic JSON output (such as function pointers).
-// And error of "cannot convert *config (type sarama.Config) to type CompareSaramaConfig" indicates that the
+// An error of "cannot convert *config (type sarama.Config) to type CompareSaramaConfig" indicates that the
 // CompareSaramaConfig structure above needs to be brought in sync with the current config.Sarama struct.
 func MarshalSaramaJSON(config *sarama.Config) (string, error) {
 	bytes, err := json.Marshal(CompareSaramaConfig(*config))
