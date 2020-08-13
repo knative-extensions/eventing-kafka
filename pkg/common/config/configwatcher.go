@@ -93,7 +93,7 @@ type EventingKafkaConfig struct {
 
 // This is a copy of the sarama.Config struct with tags that remove function pointers and any
 // other problematic fields, in order to make comparisons to new settings easier.  The downside
-// to this mechanism is that this does require that this structure be updates whenever we update to
+// to this mechanism is that this does require that this structure be updated whenever we update to
 // a new sarama.Config object, or the custom MarshalJSON() call will fail.
 // On the brighter side, a change to the sarama.Config struct will cause this to fail at compile-time
 // with "cannot convert *config (type sarama.Config) to type CompareSaramaConfig" so the chances of
