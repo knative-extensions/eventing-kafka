@@ -2,7 +2,7 @@ apiVersion: v1
 data:
   sarama: |
     Admin:
-      Timeout: 10000000000
+      Timeout: 10000000000  # 10 seconds, bumped up from 3 seconds just for some extra margin.
     Net:
       TLS:
         Config:
@@ -10,17 +10,17 @@ data:
       SASL:
         Mechanism: PLAIN
         Version: 1
-      KeepAlive: 30000000000
+      KeepAlive: 30000000000  # 30 seconds
     Metadata:
-      RefreshFrequency: 300000000000
+      RefreshFrequency: 300000000000  # 5 minutes, reduced from default value of 10 minutes
     Consumer:
       Offsets:
         AutoCommit:
-          Interval: 5000000000
-        Retention: 604800000000000
+          Interval: 5000000000  # 5 seconds
+        Retention: 604800000000000  # 1 week, increased from default of 1 day
     Producer:
-      Idempotent: false  # This must be false if using Azure eventhubs, otherwise true is preferred
-      RequiredAcks: -1
+      Idempotent: false  # Desirable but not available in Azure EventHubs yet
+      RequiredAcks: -1  # "WaitForAll" waits for all in-sync replicas to commit before responding.
   eventing-kafka: |
     channel:
       cpuLimit: 200m
