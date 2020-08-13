@@ -72,15 +72,11 @@ dispatcher:
   retryTimeMillis: 300000
   retryExponentialBackoff: true
 kafka:
-  brokers: "eventhub.servicebus.windows.net:9093"
   offset:
     commitAsync: false
     commitDurationMillis: 30000
     commitMessageCount: 50
-  password: TODO
   provider: azure
-  secret: kafka-credentials
-  username: $Connection-String
 metrics:
   domain: eventing-kafka
   port: 8081
@@ -252,14 +248,14 @@ func TestLoadDefaultSaramaSettings(t *testing.T) {
 	assert.Equal(t, int64(500), ekConfig.Dispatcher.RetryInitialIntervalMillis)
 	assert.Equal(t, int64(300000), ekConfig.Dispatcher.RetryTimeMillis)
 	assert.Equal(t, true, ekConfig.Dispatcher.RetryExponentialBackoff)
-	assert.Equal(t, "eventhub.servicebus.windows.net:9093", ekConfig.Kafka.Brokers)
+	assert.Equal(t, "", ekConfig.Kafka.Brokers)
 	assert.Equal(t, false, ekConfig.Kafka.Offset.CommitAsync)
 	assert.Equal(t, int64(30000), ekConfig.Kafka.Offset.CommitDurationMillis)
 	assert.Equal(t, int64(50), ekConfig.Kafka.Offset.CommitMessageCount)
-	assert.Equal(t, "TODO", ekConfig.Kafka.Password)
+	assert.Equal(t, "", ekConfig.Kafka.Password)
 	assert.Equal(t, "azure", ekConfig.Kafka.Provider)
-	assert.Equal(t, "kafka-credentials", ekConfig.Kafka.Secret)
-	assert.Equal(t, "$Connection-String", ekConfig.Kafka.Username)
+	assert.Equal(t, "", ekConfig.Kafka.Secret)
+	assert.Equal(t, "", ekConfig.Kafka.Username)
 	assert.Equal(t, "eventing-kafka", ekConfig.Metrics.Domain)
 	assert.Equal(t, 8081, ekConfig.Metrics.Port)
 	assert.Equal(t, "eventing-kafka-channel-controller", ekConfig.ServiceAccount)
