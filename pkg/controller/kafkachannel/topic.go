@@ -62,8 +62,6 @@ func (r *Reconciler) createTopic(ctx context.Context, topicName string, partitio
 		},
 	}
 
-	fmt.Printf("EDV: r: %v\n", r)
-	fmt.Printf("EDV: r.adminClient: %v\n", r.adminClient)
 	// Attempt To Create The Topic & Process TopicError Results (Including Success ;)
 	err := r.adminClient.CreateTopic(ctx, topicName, topicDetail)
 	if err != nil {
