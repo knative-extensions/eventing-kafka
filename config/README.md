@@ -2,10 +2,8 @@
 
 These yaml files install Eventing-Kafka into a cluster which must already have Knative-Eventing installed and have a Kafka
 cluster available. The values of the [Kafka Secret](300-kafka-secret.yaml) should be correctly populated. The yaml files
-use ko references, and must be installed using ko. Due to complexities of cross compilation, this ko build must be executed
-from inside of a docker container. There is a [convenience script](../hack/local-dev.sh) added to the hack folder. This
-script will build a docker image to run ko in if it is not already present, and then start a bash shell. `ko apply -f ./config`
-can be executed here to build and deploy the project. This script must be executed from the root of the project.
+use ko references, and must be installed using ko. `ko apply -f ./config` can be executed here to build and deploy the
+project.
 
 ## Kafka Providers
 

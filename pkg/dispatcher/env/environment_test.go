@@ -28,7 +28,6 @@ const (
 	serviceName          = "TestServiceName"
 	kafkaUsername        = "TestKafkaUsername"
 	kafkaPassword        = "TestKafkaPassword"
-	kafkaPasswordLog     = ""
 )
 
 // Define The TestCase Struct
@@ -47,7 +46,6 @@ type TestCase struct {
 	serviceName          string
 	kafkaUsername        string
 	kafkaPassword        string
-	kafkaPasswordLog     string
 	expectedError        error
 }
 
@@ -211,7 +209,6 @@ func getValidTestCase(name string) TestCase {
 		serviceName:          serviceName,
 		kafkaUsername:        kafkaUsername,
 		kafkaPassword:        kafkaPassword,
-		kafkaPasswordLog:     kafkaPasswordLog,
 		expectedError:        nil,
 	}
 }

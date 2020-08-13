@@ -15,28 +15,26 @@ import (
 
 // Test Constants
 const (
-	metricsPort      = "9999"
-	metricsDomain    = "kafka-eventing"
-	healthPort       = "1234"
-	kafkaBrokers     = "TestKafkaBrokers"
-	serviceName      = "TestServiceName"
-	kafkaUsername    = "TestKafkaUsername"
-	kafkaPassword    = "TestKafkaPassword"
-	kafkaPasswordLog = ""
+	metricsPort   = "9999"
+	metricsDomain = "kafka-eventing"
+	healthPort    = "1234"
+	kafkaBrokers  = "TestKafkaBrokers"
+	serviceName   = "TestServiceName"
+	kafkaUsername = "TestKafkaUsername"
+	kafkaPassword = "TestKafkaPassword"
 )
 
 // Define The TestCase Struct
 type TestCase struct {
-	name             string
-	metricsPort      string
-	metricsDomain    string
-	healthPort       string
-	kafkaBrokers     string
-	serviceName      string
-	kafkaUsername    string
-	kafkaPassword    string
-	kafkaPasswordLog string
-	expectedError    error
+	name          string
+	metricsPort   string
+	metricsDomain string
+	healthPort    string
+	kafkaBrokers  string
+	serviceName   string
+	kafkaUsername string
+	kafkaPassword string
+	expectedError error
 }
 
 // Test All Permutations Of The GetEnvironment() Functionality
@@ -134,16 +132,15 @@ func assertSetenvNonempty(t *testing.T, envKey string, value string) {
 // Get The Base / Valid Test Case - All Config Specified / No Errors
 func getValidTestCase(name string) TestCase {
 	return TestCase{
-		name:             name,
-		metricsPort:      metricsPort,
-		metricsDomain:    metricsDomain,
-		healthPort:       healthPort,
-		kafkaBrokers:     kafkaBrokers,
-		serviceName:      serviceName,
-		kafkaUsername:    kafkaUsername,
-		kafkaPassword:    kafkaPassword,
-		kafkaPasswordLog: kafkaPasswordLog,
-		expectedError:    nil,
+		name:          name,
+		metricsPort:   metricsPort,
+		metricsDomain: metricsDomain,
+		healthPort:    healthPort,
+		kafkaBrokers:  kafkaBrokers,
+		serviceName:   serviceName,
+		kafkaUsername: kafkaUsername,
+		kafkaPassword: kafkaPassword,
+		expectedError: nil,
 	}
 }
 
