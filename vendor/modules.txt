@@ -188,6 +188,8 @@ github.com/google/go-cmp/cmp/internal/function
 github.com/google/go-cmp/cmp/internal/value
 # github.com/google/gofuzz v1.1.0
 github.com/google/gofuzz
+# github.com/google/ko v0.5.1
+## explicit
 # github.com/google/uuid v1.1.1
 github.com/google/uuid
 # github.com/googleapis/gax-go/v2 v2.0.5
@@ -1035,9 +1037,7 @@ knative.dev/eventing-contrib/kafka/channel/pkg/client/informers/externalversions
 knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/client
 knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/client/fake
 knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/informers/factory
-knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/informers/messaging/v1alpha1/kafkachannel
 knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/informers/messaging/v1beta1/kafkachannel
-knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/reconciler/messaging/v1alpha1/kafkachannel
 knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel
 knative.dev/eventing-contrib/kafka/channel/pkg/client/listers/messaging/v1alpha1
 knative.dev/eventing-contrib/kafka/channel/pkg/client/listers/messaging/v1beta1
