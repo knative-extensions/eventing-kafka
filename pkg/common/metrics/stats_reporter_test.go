@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -74,7 +75,16 @@ func TestMetricsServer_Report(t *testing.T) {
 	statsReporter.Report(stats)
 
 	// Verify The Results By Querying Metrics Endpoint And Parsing Results
-	resp, err := http.Get(fmt.Sprintf("http://localhost:%v/metrics", metricsPort))
+	var resp *http.Response
+	var err error
+
+	// Allow a few tries to give the observability servers a second or two to start up if necessary
+	for bailOut := 0; bailOut < 20; bailOut++ {
+		if resp, err = http.Get(fmt.Sprintf("http://localhost:%v/metrics", metricsPort)); err == nil {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
 	assert.Nil(t, err)
 	body, err := ioutil.ReadAll(resp.Body)
 	assert.Nil(t, err)

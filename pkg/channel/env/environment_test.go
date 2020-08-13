@@ -186,6 +186,4 @@ func TestApplyOverrides(t *testing.T) {
 	assert.Equal(t, ekConfig.Kafka.ServiceName, environment.ServiceName)
 	assert.Equal(t, ekConfig.Kafka.Username, environment.KafkaUsername)
 	assert.Equal(t, ekConfig.Kafka.Password, environment.KafkaPassword)
-	assert.Equal(t, ekConfig.Kafka.PasswordLog, environment.KafkaPasswordLog)
-
 }

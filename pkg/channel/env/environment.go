@@ -95,5 +95,4 @@ func ApplyOverrides(ekConfig *config.EventingKafkaConfig, environment *Environme
 	ekConfig.Kafka.ServiceName = environment.ServiceName
 	ekConfig.Kafka.Username = environment.KafkaUsername
 	ekConfig.Kafka.Password = environment.KafkaPassword
-	ekConfig.Kafka.PasswordLog = environment.KafkaPasswordLog
 }

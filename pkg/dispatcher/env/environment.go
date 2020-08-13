@@ -143,5 +143,4 @@ func ApplyOverrides(ekConfig *config.EventingKafkaConfig, environment *Environme
 	ekConfig.Kafka.Offset.CommitDurationMillis = environment.KafkaOffsetCommitDurationMillis
 	ekConfig.Kafka.Username = environment.KafkaUsername
 	ekConfig.Kafka.Password = environment.KafkaPassword
-	ekConfig.Kafka.PasswordLog = environment.KafkaPasswordLog
 }

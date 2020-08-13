@@ -278,6 +278,4 @@ func TestApplyOverrides(t *testing.T) {
 	assert.Equal(t, ekConfig.Kafka.Offset.CommitDurationMillis, environment.KafkaOffsetCommitDurationMillis)
 	assert.Equal(t, ekConfig.Kafka.Username, environment.KafkaUsername)
 	assert.Equal(t, ekConfig.Kafka.Password, environment.KafkaPassword)
-	assert.Equal(t, ekConfig.Kafka.PasswordLog, environment.KafkaPasswordLog)
-
 }
