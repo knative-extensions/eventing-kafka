@@ -42,7 +42,7 @@ Net:
 Metadata:
   RefreshFrequency: 300000000000
 `
-	
+
 	// Setup Environment
 	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, constants.KnativeEventingNamespace))
 
@@ -64,7 +64,6 @@ Metadata:
 		assert.Equal(t, kafkaSecretBrokers, brokers[0])
 		assert.NotNil(t, config)
 		assert.Equal(t, clientId, config.ClientID)
-		assert.Equal(t, constants.ConfigAdminTimeout, config.Admin.Timeout)
 		assert.Equal(t, constants.ConfigKafkaVersion, config.Version)
 		assert.Equal(t, kafkaSecretUsername, config.Net.SASL.User)
 		assert.Equal(t, kafkaSecretPassword, config.Net.SASL.Password)

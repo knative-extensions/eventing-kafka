@@ -1,6 +1,7 @@
 package util
 
 import (
+	"crypto/tls"
 	"fmt"
 	"testing"
 
@@ -25,6 +26,14 @@ func TestEnableSaramaLogging(t *testing.T) {
 	sarama.Logger.Print("TestMessage")
 }
 
+// Test The NewSaramaConfig() Functionality
+func TestNewSaramaConfig(t *testing.T) {
+	config := NewSaramaConfig()
+	assert.Equal(t, constants.ConfigKafkaVersion, config.Version)
+	assert.True(t, config.Consumer.Return.Errors)
+	assert.True(t, config.Producer.Return.Successes)
+}
+
 // Test The UpdateSaramaConfig() Functionality
 func TestUpdateSaramaConfig(t *testing.T) {
 
@@ -41,6 +50,10 @@ func TestUpdateSaramaConfig(t *testing.T) {
 	assert.Equal(t, clientId, config.ClientID)
 	assert.Equal(t, username, config.Net.SASL.User)
 	assert.Equal(t, password, config.Net.SASL.Password)
+	assert.Equal(t, constants.ConfigKafkaVersion, config.Version)
+	assert.True(t, config.Net.SASL.Enable)
+	assert.True(t, config.Net.TLS.Enable)
+	assert.Equal(t, &tls.Config{ClientAuth: tls.NoClientCert}, config.Net.TLS.Config)
 }
 
 // Test The TopicName() Functionality

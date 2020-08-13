@@ -79,7 +79,7 @@ func NewKafkaAdminClient(ctx context.Context, clientId string, namespace string)
 	logger.Debug("Loaded settings from ConfigMap", zap.String("SettingsConfigMapName", commonconfig.SettingsConfigMapName))
 
 	// Update The Sarama ClusterAdmin Configuration With Our Values
-	updateConfig(config, clientId, username, password)
+	util.UpdateSaramaConfig(config, clientId, username, password)
 
 	// Create A New Sarama ClusterAdmin
 	clusterAdmin, err := NewClusterAdminWrapper(brokers, config)
@@ -141,15 +141,4 @@ func (k KafkaAdminClient) Close() error {
 // Get The K8S Secret With Kafka Credentials For The Specified Topic Name
 func (k KafkaAdminClient) GetKafkaSecretName(_ string) string {
 	return k.kafkaSecret
-}
-
-// Get The Default Sarama ClusterAdmin Config
-// TODO: EDV: The setting of the ConfigAdminTimeout constant should no longer be necessary once we are using the configmap
-func updateConfig(config *sarama.Config, clientId string, username string, password string) {
-
-	// Update The Sarama Config With New Values
-	util.UpdateSaramaConfig(config, clientId, username, password)
-
-	// Increase Default Admin Timeout Of 3 Seconds For Topic Creation/Deletion
-	config.Admin.Timeout = constants.ConfigAdminTimeout
 }

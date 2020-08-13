@@ -24,6 +24,11 @@ import (
 )
 
 const (
+	TestConfigAdmin = `
+Admin:
+  Timeout: 10000000000
+`
+
 	TestConfigNet = `
 Net:
   TLS:
@@ -43,21 +48,29 @@ Consumer:
     Errors: true
 `
 
+	TestConfigProducer = `
+Producer:
+  Idempotent: false
+  RequiredAcks: -1
+  Return:
+    Successes: true
+`
+
 	TestConfigMeta = `
 Metadata:
   RefreshFrequency: 300000000000`
 
-	TestConfigBase = TestConfigNet + TestConfigMeta + TestConfigConsumer
+	TestConfigBase = TestConfigAdmin + TestConfigNet + TestConfigMeta + TestConfigConsumer + TestConfigProducer
 
-	TestConfigMetadataChange = TestConfigNet + `
+	TestConfigMetadataChange = TestConfigAdmin + TestConfigNet + `
 Metadata:
-  RefreshFrequency: 200000` + TestConfigConsumer
+  RefreshFrequency: 200000` + TestConfigConsumer + TestConfigProducer
 
-	TestConfigProducerChange = TestConfigNet + TestConfigMeta + `
+	TestConfigProducerChange = TestConfigAdmin + TestConfigNet + TestConfigMeta + TestConfigProducer + `
 Producer:
   MaxMessageBytes: 300` + TestConfigConsumer
 
-	TestConfigConsumerChange = TestConfigNet + TestConfigMeta + TestConfigConsumer + `
+	TestConfigConsumerChange = TestConfigAdmin + TestConfigNet + TestConfigMeta + TestConfigProducer + TestConfigConsumer + `
   Fetch:
     Min: 200
 `
@@ -65,9 +78,9 @@ Producer:
 	TestConfigAdminChange = `
 Admin:
   Retry:
-    Max: 100` + TestConfigNet + TestConfigMeta + TestConfigConsumer
+    Max: 100` + TestConfigNet + TestConfigMeta + TestConfigProducer + TestConfigConsumer
 
-	TestSaramaConfigYaml = `
+	TestSaramaConfigYaml = TestConfigAdmin + `
 Net:
   TLS:
     Config:
@@ -127,17 +140,8 @@ func TestProduceKafkaMessage(t *testing.T) {
 	test.ValidateProducerMessageHeader(t, producerMessage.Headers, constants.CeKafkaHeaderKeyPartitionKey, test.PartitionKey)
 }
 
-// Test The Producer's ConfigChanged Functionality
-func TestConfigChanged(t *testing.T) {
-
-	// Setup Environment
-	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, constants.KnativeEventingNamespace))
-	// Create Mocks
-	mockSyncProducer := test.NewMockSyncProducer()
-	producer := createTestProducer(t, mockSyncProducer)
-
-	// Create Test Data
-	configMap := &corev1.ConfigMap{
+func getBaseConfigMap() *corev1.ConfigMap {
+	return &corev1.ConfigMap{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "ConfigMap",
 			APIVersion: corev1.SchemeGroupVersion.String(),
@@ -150,35 +154,61 @@ func TestConfigChanged(t *testing.T) {
 			commonconfig.SaramaSettingsConfigKey: TestConfigBase,
 		},
 	}
-
-	// Apply a change to the Producer config
-	runConfigChangedTest(t, producer, configMap, TestConfigProducerChange, true)
-
-	// Apply the base config again
-	runConfigChangedTest(t, producer, configMap, TestConfigBase, true)
-
-	// Verify that non-Producer changes do not cause Reconfigure to be called
-	runConfigChangedTest(t, producer, configMap, TestConfigMetadataChange, false)
-	runConfigChangedTest(t, producer, configMap, TestConfigAdminChange, false)
-	runConfigChangedTest(t, producer, configMap, TestConfigConsumerChange, false)
 }
 
-func runConfigChangedTest(t *testing.T, component *Producer, base *corev1.ConfigMap, changed string, expectedNewProducer bool) {
+// Test The Producer's ConfigChanged Functionality
+func TestConfigChanged(t *testing.T) {
+	// Stub The Kafka Producer Creation Wrapper With Test Version Returning Specified SyncProducer
+	createSyncProducerWrapperPlaceholder := createSyncProducerWrapper
+	createSyncProducerWrapper = func(config *sarama.Config, brokers []string) (sarama.SyncProducer, gometrics.Registry, error) {
+		registry := gometrics.NewRegistry()
+		return test.NewMockSyncProducer(), registry, nil
+	}
+	defer func() { createSyncProducerWrapper = createSyncProducerWrapperPlaceholder }()
+
+	// Setup Environment
+	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, constants.KnativeEventingNamespace))
+	// Create Mocks
+	mockSyncProducer := test.NewMockSyncProducer()
+	producer := createTestProducer(t, mockSyncProducer)
+
+	// Apply a change to the Producer config
+	producer = runConfigChangedTest(t, producer, getBaseConfigMap(), TestConfigProducerChange, true)
+
+	// Apply a metadata change
+	producer = runConfigChangedTest(t, producer, getBaseConfigMap(), TestConfigMetadataChange, true)
+
+	// Verify that Admin changes do not cause Reconfigure to be called
+	producer = runConfigChangedTest(t, producer, getBaseConfigMap(), TestConfigAdminChange, false)
+	// Verify that Consumer changes do not cause Reconfigure to be called
+	producer = runConfigChangedTest(t, producer, getBaseConfigMap(), TestConfigConsumerChange, false)
+}
+
+func runConfigChangedTest(t *testing.T, component *Producer, base *corev1.ConfigMap, changed string, expectedNewProducer bool) *Producer {
+
 	// Change the Producer settings to the base config
-	component.ConfigChanged(base)
+	newProducer := component.ConfigChanged(base)
+	if newProducer != nil {
+		// Simulate what happens in main() when the producer changes
+		component = newProducer
+	}
 
 	// Alter the configmap to use the changed settings
 	newConfig := base
 	newConfig.Data[commonconfig.SaramaSettingsConfigKey] = changed
 
 	// Inform the Producer that the config has changed to the new settings
-	newProducer := component.ConfigChanged(newConfig)
+	newProducer = component.ConfigChanged(newConfig)
 
 	// Verify that a new producer was created or not, as expected
 	if expectedNewProducer {
 		assert.NotNil(t, newProducer)
+		// Simulate what happens in main() when the producer changes by returning the new producer
+		return newProducer
 	} else {
 		assert.Nil(t, newProducer)
+		// No producer change so return the original component for future tests
+		return component
 	}
 }
 

@@ -16,20 +16,27 @@ func EnableSaramaLogging() {
 	sarama.Logger = log.New(os.Stdout, "[sarama] ", log.LstdFlags)
 }
 
+// Creates A sarama.Config With Some Default Settings
+func NewSaramaConfig() *sarama.Config {
+	config := sarama.NewConfig()
+	enforceSaramaConfig(config)
+	return config
+}
+
+// Forces Some Sarama Settings To Have Mandatory Values
+func enforceSaramaConfig(config *sarama.Config) {
+	config.Version = constants.ConfigKafkaVersion
+	config.Consumer.Return.Errors = true
+	config.Producer.Return.Successes = true
+}
+
 // Utility Function For Configuring Common Settings For Admin/Producer/Consumer
-// TODO:  EDV:  This constants in this function should not be necessary any longer when our configmap has this information in it; remove
 func UpdateSaramaConfig(config *sarama.Config, clientId string, username string, password string) {
 
 	// Set The ClientID For Logging
 	config.ClientID = clientId
 
-	// Specify Kafka Version Compatibility
-	config.Version = constants.ConfigKafkaVersion
-
-	// Set Basic Network Settings
-	config.Net.KeepAlive = constants.ConfigNetKeepAlive
-
-	// Update Config With With PLAIN SASL Auth If Specified
+	// Update Config With With Additional SASL Auth If Specified
 	if len(username) > 0 && len(password) > 0 {
 		config.Net.SASL.Version = constants.ConfigNetSaslVersion
 		config.Net.SASL.Enable = true
@@ -42,8 +49,8 @@ func UpdateSaramaConfig(config *sarama.Config, clientId string, username string,
 		}
 	}
 
-	// Increase The MetaData Refresh Frequency
-	config.Metadata.RefreshFrequency = constants.ConfigMetadataRefreshFrequency
+	// Do not permit changing of some particular settings
+	enforceSaramaConfig(config)
 }
 
 // Get The Formatted Kafka Topic Name From The Specified Components

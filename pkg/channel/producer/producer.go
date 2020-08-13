@@ -16,13 +16,9 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/util"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	kafkaproducer "knative.dev/eventing-kafka/pkg/common/kafka/producer"
+	commonutil "knative.dev/eventing-kafka/pkg/common/kafka/util"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
 	eventingChannel "knative.dev/eventing/pkg/channel"
-)
-
-const (
-	ConfigChangedLogMsg    = "Configuration received; applying new Producer settings"
-	ConfigNotChangedLogMsg = "No Producer changes detected in new config; ignoring"
 )
 
 // Producer Struct
@@ -134,17 +130,13 @@ func (p *Producer) ObserveMetrics(interval time.Duration) {
 				close(p.metricsStoppedChan)
 				return
 
-			default:
-
+			case <-time.After(interval):
 				// Get All The Sarama Metrics From The Producer's Metrics Registry
 				kafkaMetrics := p.metricsRegistry.GetAll()
 
 				// Forward Metrics To Prometheus For Observation
 				p.statsReporter.Report(kafkaMetrics)
 			}
-
-			// Sleep The Specified Interval Before Collecting Metrics Again
-			time.Sleep(interval)
 		}
 	}()
 }
@@ -176,7 +168,15 @@ func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 	// If there aren't any producer-specific differences between the current config and the new one,
 	// then just log that and move on; do not restart the Producer unnecessarily.
 
-	newConfig := sarama.NewConfig()
+	newConfig := commonutil.NewSaramaConfig()
+
+	// In order to compare configs "without the admin or consumer sections" we use a known-base config
+	// and ensure that those sections are always the same.  The reason we can't just use, for example,
+	// sarama.Config{}.Admin as the empty struct is that the Sarama calls to create objects like SyncProducer
+	// verify that certain fields (such as Admin.Timeout) are nonzero and fail otherwise.
+	emptyAdmin := newConfig.Admin
+	emptyConsumer := newConfig.Consumer
+
 	err := commonconfig.MergeSaramaSettings(newConfig, configMap)
 	if err != nil {
 		p.logger.Error("Unable to merge sarama settings", zap.Error(err))
@@ -184,22 +184,22 @@ func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 	}
 
 	// Don't care about Admin or Consumer sections; everything else is a change that needs to be implemented.
-	newConfig.Admin = sarama.Config{}.Admin
-	newConfig.Consumer = sarama.Config{}.Consumer
+	newConfig.Admin = emptyAdmin
+	newConfig.Consumer = emptyConsumer
 
 	if p.currentConfig != nil {
 		// Some of the current config settings may not be overridden by the configmap (username, password, etc.)
-		kafkaproducer.UpdateConfig(newConfig, p.currentConfig.ClientID, p.currentConfig.Net.SASL.User, p.currentConfig.Net.SASL.Password)
+		commonutil.UpdateSaramaConfig(newConfig, p.currentConfig.ClientID, p.currentConfig.Net.SASL.User, p.currentConfig.Net.SASL.Password)
 
 		// Create a shallow copy of the current config so that we can empty out the Admin and Consumer before comparing.
 		configCopy := p.currentConfig
 
 		// The current config should theoretically have these sections zeroed already because Reconfigure should have been passed
 		// a newConfig with the structs empty, but this is more explicit as to what our goal is and doesn't hurt.
-		configCopy.Admin = sarama.Config{}.Admin
-		configCopy.Consumer = sarama.Config{}.Consumer
+		configCopy.Admin = emptyAdmin
+		configCopy.Consumer = emptyConsumer
 		if commonconfig.SaramaConfigEqual(newConfig, configCopy) {
-			p.logger.Info(ConfigNotChangedLogMsg)
+			p.logger.Info("No Producer changes detected in new config; ignoring")
 			return nil
 		}
 	}
@@ -210,7 +210,7 @@ func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 // Reconfigure takes a new sarama.Config struct and applies the updated settings, restarting the Producer if required
 // Returns the new Producer if necessary, or nil if the configuration change did not require a new one
 func (p *Producer) reconfigure(config *sarama.Config) *Producer {
-	p.logger.Info(ConfigChangedLogMsg)
+	p.logger.Info("Configuration received; applying new Producer settings")
 
 	// "Reconfiguring" the Producer involves creating a new one, but we can re-use some
 	// of the original components (logger, brokers, statsReporter, and healthServer don't change when reconfiguring)

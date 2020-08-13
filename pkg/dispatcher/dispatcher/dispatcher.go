@@ -11,7 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/common/kafka/consumer"
-	kafkaconsumer "knative.dev/eventing-kafka/pkg/common/kafka/consumer"
+	"knative.dev/eventing-kafka/pkg/common/kafka/util"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/channel"
@@ -30,7 +30,7 @@ type DispatcherConfig struct {
 	ExponentialBackoff     bool
 	InitialRetryInterval   int64
 	MaxRetryTime           int64
-	currentConfig          *sarama.Config
+	SaramaConfig           *sarama.Config
 	currentSubscriberSpecs []eventingduck.SubscriberSpec
 }
 
@@ -41,11 +41,6 @@ type SubscriberWrapper struct {
 	ConsumerGroup sarama.ConsumerGroup
 	StopChan      chan struct{}
 }
-
-const (
-	ConfigChangedLogMsg    = "Configuration received; applying new Consumer settings"
-	ConfigNotChangedLogMsg = "No Consumer changes detected in new config; ignoring"
-)
 
 // SubscriberWrapper Constructor
 func NewSubscriberWrapper(subscriberSpec eventingduck.SubscriberSpec, groupId string, consumerGroup sarama.ConsumerGroup) *SubscriberWrapper {
@@ -99,7 +94,7 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 	// Save the current subscriber specs so that reconfigure() can use them to recreate the Dispatcher if necessary
 	d.currentSubscriberSpecs = subscriberSpecs
 
-	if d.currentConfig == nil {
+	if d.SaramaConfig == nil {
 		d.Logger.Error("Dispatcher has no config!")
 		return nil
 	}
@@ -125,7 +120,7 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 			logger := d.Logger.With(zap.String("GroupId", groupId))
 
 			// Attempt To Create A Kafka ConsumerGroup
-			consumerGroup, _, err := consumer.CreateConsumerGroup(d.Brokers, d.currentConfig, groupId)
+			consumerGroup, _, err := consumer.CreateConsumerGroup(d.Brokers, d.SaramaConfig, groupId)
 			if err != nil {
 
 				// Log & Return Failure
@@ -254,33 +249,38 @@ func (d *DispatcherImpl) closeConsumerGroup(subscriber *SubscriberWrapper) {
 func (d *DispatcherImpl) ConfigChanged(configMap *v1.ConfigMap) Dispatcher {
 	d.Logger.Debug("New ConfigMap Received", zap.String("configMap.Name", configMap.ObjectMeta.Name))
 
+	newConfig := util.NewSaramaConfig()
+
+	// In order to compare configs "without the producer section" we use a known-base config
+	// and ensure that those sections are always the same.  The reason we can't just use, for example,
+	// sarama.Config{}.Producer as the empty struct is that the Sarama calls to create objects like ConsumerGroup
+	// verify that certain fields (such as Admin.Timeout) are nonzero and fail otherwise.
+	emptyProducer := newConfig.Producer
+
 	// If there aren't any consumer-specific differences between the current config and the new one,
 	// then just log that and move on; do not restart the ConsumerGroups unnecessarily.
 
-	newConfig := sarama.NewConfig()
 	err := commonconfig.MergeSaramaSettings(newConfig, configMap)
 	if err != nil {
 		d.Logger.Error("Unable to merge sarama settings", zap.Error(err))
 		return nil
 	}
 
-	// Don't care about Admin or Producer sections; everything else is a change that needs to be implemented.
-	newConfig.Admin = sarama.Config{}.Admin
-	newConfig.Producer = sarama.Config{}.Producer
+	// Don't care about Producer section; everything else is a change that needs to be implemented.
+	newConfig.Producer = emptyProducer
 
-	if d.currentConfig != nil {
+	if d.SaramaConfig != nil {
 		// Some of the current config settings may not be overridden by the configmap (username, password, etc.)
-		kafkaconsumer.UpdateConfig(newConfig, d.currentConfig.ClientID, d.currentConfig.Net.SASL.User, d.currentConfig.Net.SASL.Password)
+		util.UpdateSaramaConfig(newConfig, d.SaramaConfig.ClientID, d.SaramaConfig.Net.SASL.User, d.SaramaConfig.Net.SASL.Password)
 
 		// Create a shallow copy of the current config so that we can empty out the Admin and Consumer before comparing.
-		configCopy := d.currentConfig
+		configCopy := d.SaramaConfig
 
 		// The current config should theoretically have these sections zeroed already because Reconfigure should have been passed
 		// a newConfig with the structs empty, but this is more explicit as to what our goal is and doesn't hurt.
-		configCopy.Admin = sarama.Config{}.Admin
-		configCopy.Producer = sarama.Config{}.Producer
+		configCopy.Producer = emptyProducer
 		if commonconfig.SaramaConfigEqual(newConfig, configCopy) {
-			d.Logger.Info(ConfigNotChangedLogMsg)
+			d.Logger.Info("No Consumer changes detected in new config; ignoring")
 			return nil
 		}
 	}
@@ -291,12 +291,12 @@ func (d *DispatcherImpl) ConfigChanged(configMap *v1.ConfigMap) Dispatcher {
 // Reconfigure takes a new sarama.Config struct and applies the updated settings,
 // restarting the Dispatcher/ConsumerGroups if required
 func (d *DispatcherImpl) reconfigure(config *sarama.Config) Dispatcher {
-	d.Logger.Info(ConfigChangedLogMsg)
+	d.Logger.Info("Configuration received; applying new Consumer settings")
 
 	// "Reconfiguring" the Dispatcher involves creating a new one, but we can re-use some
 	// of the original components, such as the list of current subscribers
 	d.Shutdown()
-	d.DispatcherConfig.currentConfig = config
+	d.DispatcherConfig.SaramaConfig = config
 	newDispatcher := NewDispatcher(d.DispatcherConfig)
 	newDispatcher.UpdateSubscriptions(d.currentSubscriberSpecs)
 	d.Logger.Info("Dispatcher Reconfigured; Switching to New Dispatcher")

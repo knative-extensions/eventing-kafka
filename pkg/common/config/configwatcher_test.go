@@ -24,13 +24,13 @@ import (
 var watchedConfigMap *corev1.ConfigMap
 
 const (
-	OldClientId = "TestOldClientId"
-	NewClientId = "TestNewClientId"
-	OldUsername = "TestOldUsername"
-	NewUsername = "TestNewUsername"
-	TestDispatcherReplicas = "3"
+	OldClientId                = "TestOldClientId"
+	NewClientId                = "TestNewClientId"
+	OldUsername                = "TestOldUsername"
+	NewUsername                = "TestNewUsername"
+	TestDispatcherReplicas     = "3"
 	TestDispatcherRetryInitial = "5000"
-	TestDispatcherRetry = "500000"
+	TestDispatcherRetry        = "500000"
 
 	EKDefaultSaramaConfig = `
 Net:
@@ -125,7 +125,6 @@ dispatcher:
   retryTimeMillis: ` + TestDispatcherRetry + `
   retryExponentialBackoff: true
 `
-
 )
 
 // Returns A ConfigMap Containing The Desired Sarama Config JSON Fragment
@@ -140,7 +139,7 @@ func getTestSaramaConfigMap(saramaConfig string, ekConfig string) *corev1.Config
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
-			SaramaSettingsConfigKey: saramaConfig,
+			SaramaSettingsConfigKey:        saramaConfig,
 			EventingKafkaSettingsConfigKey: ekConfig,
 		},
 	}
@@ -185,10 +184,8 @@ func TestInitializeConfigWatcher(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, testConfigMap.Data["sarama"], NewSaramaConfig)
 
-	bailoutCounter := 0
 	// Wait for the configWatcherHandler to be called (happens pretty quickly; loop usually only runs once)
-	for watchedConfigMap == nil && bailoutCounter < 100 {
-		bailoutCounter++
+	for bailoutCounter := 0; watchedConfigMap == nil && bailoutCounter < 100; bailoutCounter++ {
 		time.Sleep(5 * time.Millisecond)
 	}
 	assert.NotNil(t, watchedConfigMap)
@@ -230,7 +227,7 @@ func TestLoadEventingKafkaSettings(t *testing.T) {
 	assert.Equal(t, TestDispatcherRetry, strconv.FormatInt(ekConfig.Dispatcher.RetryTimeMillis, 10))
 }
 
-// This test is specifically to validate that our default settings (used in 300-config-eventing-kafka.yaml)
+// This test is specifically to validate that our default settings (used in 200-eventing-kafka-configmap.yaml)
 // are valid.  If the defaults in the file change, change this test to match for verification purposes.
 func TestLoadDefaultSaramaSettings(t *testing.T) {
 	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, constants.KnativeEventingNamespace))
@@ -344,10 +341,10 @@ func TestSaramaConfigEqual(t *testing.T) {
 	// Change some of the values back and forth and verify that the comparison function is correctly evaluated
 	assert.True(t, SaramaConfigEqual(config1, config2))
 
-	config1.Admin = sarama.Config{}.Admin	// Zero out the entire Admin sub-struct
+	config1.Admin = sarama.Config{}.Admin // Zero out the entire Admin sub-struct
 	assert.False(t, SaramaConfigEqual(config1, config2))
 
-	config2.Admin = sarama.Config{}.Admin	// Zero out the entire Admin sub-struct
+	config2.Admin = sarama.Config{}.Admin // Zero out the entire Admin sub-struct
 	assert.True(t, SaramaConfigEqual(config1, config2))
 
 	config1.Net.SASL.Version = 12345

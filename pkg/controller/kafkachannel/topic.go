@@ -3,6 +3,8 @@ package kafkachannel
 import (
 	"context"
 	"fmt"
+	"strconv"
+
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -12,7 +14,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/controller/event"
 	"knative.dev/eventing-kafka/pkg/controller/util"
 	"knative.dev/pkg/controller"
-	"strconv"
 )
 
 // Reconcile The Kafka Topic Associated With The Specified Channel & Return The Kafka Secret
@@ -61,6 +62,8 @@ func (r *Reconciler) createTopic(ctx context.Context, topicName string, partitio
 		},
 	}
 
+	fmt.Printf("EDV: r: %v\n", r)
+	fmt.Printf("EDV: r.adminClient: %v\n", r.adminClient)
 	// Attempt To Create The Topic & Process TopicError Results (Including Success ;)
 	err := r.adminClient.CreateTopic(ctx, topicName, topicDetail)
 	if err != nil {

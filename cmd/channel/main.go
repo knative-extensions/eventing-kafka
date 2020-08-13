@@ -17,7 +17,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/producer"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	commonk8s "knative.dev/eventing-kafka/pkg/common/k8s"
-	kafkaproducer "knative.dev/eventing-kafka/pkg/common/kafka/producer"
+	"knative.dev/eventing-kafka/pkg/common/kafka/util"
 	kafkautil "knative.dev/eventing-kafka/pkg/common/kafka/util"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
 	eventingchannel "knative.dev/eventing/pkg/channel"
@@ -103,7 +103,7 @@ func main() {
 
 	// Create The Sarama SyncProducer Config
 	// Add username/password/components overrides to the Sarama config (these take precedence over what's in the configmap)
-	kafkaproducer.UpdateConfig(saramaConfig, Component, ekConfig.Kafka.Username, ekConfig.Kafka.Password)
+	util.UpdateSaramaConfig(saramaConfig, Component, ekConfig.Kafka.Username, ekConfig.Kafka.Password)
 
 	// Initialize The Kafka Producer In Order To Start Processing Status Events
 	kafkaProducer, err = producer.NewProducer(logger, saramaConfig, strings.Split(ekConfig.Kafka.Brokers, ","), statsReporter, healthServer)
@@ -170,6 +170,16 @@ func handleMessage(ctx context.Context, channelReference eventingchannel.Channel
 
 // configMapObserver is the callback function that handles changes to our ConfigMap
 func configMapObserver(configMap *v1.ConfigMap) {
+	if configMap == nil {
+		logger.Warn("Nil ConfigMap passed to configMapObserver; ignoring")
+		return
+	}
+	if kafkaProducer == nil {
+		// This typically happens during startup
+		logger.Debug("Producer is nil during call to configMapObserver; ignoring changes")
+		return
+	}
+
 	// Toss the new config map to the producer for inspection and action
 	newProducer := kafkaProducer.ConfigChanged(configMap)
 	if newProducer != nil {

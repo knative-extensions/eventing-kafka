@@ -18,6 +18,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	commonutil "knative.dev/eventing-kafka/pkg/common/kafka/util"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/injection/sharedmain"
@@ -28,7 +29,7 @@ const (
 	// The name of the configmap used to hold eventing-kafka settings
 	SettingsConfigMapName = "config-eventing-kafka"
 	// The name of the key in the Data section of the eventing-kafka configmap that holds a Sarama JSON settings fragment
-	SaramaSettingsConfigKey = "sarama"
+	SaramaSettingsConfigKey        = "sarama"
 	EventingKafkaSettingsConfigKey = "eventing-kafka"
 )
 
@@ -36,59 +37,59 @@ const (
 // stored in the config-eventing-kafka configmap.  The sub-structs are explicitly declared so that they
 // can have their own JSON tags in the overall EventingKafkaConfig
 type EKChannelConfig struct {
-	CpuLimit string       `json:"cpuLimit,omitempty"`
-	CpuRequest string     `json:"cpuRequest,omitempty"`
-	MemoryLimit string    `json:"memoryLimit,omitempty"`
-	MemoryRequest string  `json:"memoryRequest,omitempty"`
-	Replicas int          `json:"replicas,omitempty"`
+	CpuLimit      string `json:"cpuLimit,omitempty"`
+	CpuRequest    string `json:"cpuRequest,omitempty"`
+	MemoryLimit   string `json:"memoryLimit,omitempty"`
+	MemoryRequest string `json:"memoryRequest,omitempty"`
+	Replicas      int    `json:"replicas,omitempty"`
 }
 
 type EKDefaultConfig struct {
-	NumPartitions int              `json:"numPartitions,omitempty"`
-	ReplicationFactor int          `json:"replicationFactor,omitempty"`
-	RetentionMillis int64          `json:"retentionMillis,omitempty"`
+	NumPartitions     int   `json:"numPartitions,omitempty"`
+	ReplicationFactor int   `json:"replicationFactor,omitempty"`
+	RetentionMillis   int64 `json:"retentionMillis,omitempty"`
 }
 
 type EKDispatcherConfig struct {
-	CpuLimit string                   `json:"cpuLimit,omitempty"`
-	CpuRequest string                 `json:"cpuRequest,omitempty"`
-	MemoryLimit string                `json:"memoryLimit,omitempty"`
-	MemoryRequest string              `json:"memoryRequest,omitempty"`
-	Replicas int                      `json:"replicas,omitempty"`
+	CpuLimit                   string `json:"cpuLimit,omitempty"`
+	CpuRequest                 string `json:"cpuRequest,omitempty"`
+	MemoryLimit                string `json:"memoryLimit,omitempty"`
+	MemoryRequest              string `json:"memoryRequest,omitempty"`
+	Replicas                   int    `json:"replicas,omitempty"`
 	RetryInitialIntervalMillis int64  `json:"retryInitialIntervalMillis,omitempty"`
-	RetryTimeMillis int64             `json:"retryTimeMillis,omitempty"`
-	RetryExponentialBackoff bool      `json:"retryExponentialBackoff,omitempty"`
-	ExponentialBackoffPresent bool    `json:"-"`
+	RetryTimeMillis            int64  `json:"retryTimeMillis,omitempty"`
+	RetryExponentialBackoff    bool   `json:"retryExponentialBackoff,omitempty"`
+	ExponentialBackoffPresent  bool   `json:"-"`
 }
 
 type EKKafkaConfig struct {
-	Topic string                    `json::"topic,omitempty"`
-	Brokers string                  `json:"brokers,omitempty"`
-	Offset struct {
-		CommitAsync bool            `json:"commitAsync,omitempty"`
-		CommitDurationMillis int64  `json:"commitDurationMillis,omitempty"`
-		CommitMessageCount int64    `json:"commitMessageCount,omitempty"`
+	Topic   string `json::"topic,omitempty"`
+	Brokers string `json:"brokers,omitempty"`
+	Offset  struct {
+		CommitAsync          bool  `json:"commitAsync,omitempty"`
+		CommitDurationMillis int64 `json:"commitDurationMillis,omitempty"`
+		CommitMessageCount   int64 `json:"commitMessageCount,omitempty"`
 	}
-	Password string    `json:"password,omitempty"`
+	Password    string `json:"password,omitempty"`
 	PasswordLog string `json:"-"`
-	Provider string    `json:"provider,omitempty"`
-	Secret string      `json:"secret,omitempty"`
-	Username string    `json:"username,omitempty"`
-	ChannelKey string  `json:"channelKey,omitempty"`
+	Provider    string `json:"provider,omitempty"`
+	Secret      string `json:"secret,omitempty"`
+	Username    string `json:"username,omitempty"`
+	ChannelKey  string `json:"channelKey,omitempty"`
 	ServiceName string `json:"serviceName,omitempty"`
 }
 
 type EKMetricsConfig struct {
-	Domain string  `json:"domain,omitempty"`
-	Port int       `json:"port,omitempty"`
+	Domain string `json:"domain,omitempty"`
+	Port   int    `json:"port,omitempty"`
 }
 
 type EKHealthConfig struct {
-	Port int       `json:"port,omitempty"`
+	Port int `json:"port,omitempty"`
 }
 
 type EventingKafkaConfig struct {
-	Channel        EKChannelConfig    `json:"channel,omitempty"` 
+	Channel        EKChannelConfig    `json:"channel,omitempty"`
 	Default        EKDefaultConfig    `json:"default,omitempty"`
 	Dispatcher     EKDispatcherConfig `json:"dispatcher,omitempty"`
 	Kafka          EKKafkaConfig      `json:"kafka,omitempty"`
@@ -107,72 +108,72 @@ type EventingKafkaConfig struct {
 type CompareSaramaConfig struct {
 	Admin struct {
 		Retry struct {
-			Max int
+			Max     int
 			Backoff time.Duration
 		}
 		Timeout time.Duration
 	}
 	Net struct {
 		MaxOpenRequests int
-		DialTimeout  time.Duration
-		ReadTimeout  time.Duration
-		WriteTimeout time.Duration
-		TLS struct {
+		DialTimeout     time.Duration
+		ReadTimeout     time.Duration
+		WriteTimeout    time.Duration
+		TLS             struct {
 			Enable bool
-			Config *tls.Config  `json:"-"`
+			Config *tls.Config `json:"-"`
 		}
 		SASL struct {
-			Enable bool
-			Mechanism sarama.SASLMechanism
-			Version int16
-			Handshake bool
-			AuthIdentity string
-			User string
-			Password string
-			SCRAMAuthzID string
-			SCRAMClientGeneratorFunc func() sarama.SCRAMClient  `json:"-"`
-			TokenProvider sarama.AccessTokenProvider
-			GSSAPI sarama.GSSAPIConfig
+			Enable                   bool
+			Mechanism                sarama.SASLMechanism
+			Version                  int16
+			Handshake                bool
+			AuthIdentity             string
+			User                     string
+			Password                 string
+			SCRAMAuthzID             string
+			SCRAMClientGeneratorFunc func() sarama.SCRAMClient `json:"-"`
+			TokenProvider            sarama.AccessTokenProvider
+			GSSAPI                   sarama.GSSAPIConfig
 		}
 		KeepAlive time.Duration
 		LocalAddr net.Addr
-		Proxy struct {
+		Proxy     struct {
 			Enable bool
 			Dialer proxy.Dialer
 		}
 	}
 	Metadata struct {
 		Retry struct {
-			Max int
-			Backoff time.Duration
-			BackoffFunc func(retries, maxRetries int) time.Duration  `json:"-"`
+			Max         int
+			Backoff     time.Duration
+			BackoffFunc func(retries, maxRetries int) time.Duration `json:"-"`
 		}
 		RefreshFrequency time.Duration
-		Full bool
-		Timeout time.Duration
+		Full             bool
+		Timeout          time.Duration
 	}
 	Producer struct {
-		MaxMessageBytes int
-		RequiredAcks sarama.RequiredAcks
-		Timeout time.Duration
-		Compression sarama.CompressionCodec
+		MaxMessageBytes  int
+		RequiredAcks     sarama.RequiredAcks
+		Timeout          time.Duration
+		Compression      sarama.CompressionCodec
 		CompressionLevel int
-		Partitioner sarama.PartitionerConstructor  `json:"-"`
-		Idempotent bool
-		Return struct {
+		Partitioner      sarama.PartitionerConstructor `json:"-"`
+		Idempotent       bool
+		Return           struct {
 			Successes bool
-			Errors bool
+			Errors    bool
 		}
 		Flush struct {
-			Bytes int
-			Messages int
-			Frequency time.Duration
+			Bytes       int
+			Messages    int
+			Frequency   time.Duration
 			MaxMessages int
 		}
 		Retry struct {
-			Max int
-			Backoff time.Duration
-			BackoffFunc func(retries, maxRetries int) time.Duration  `json:"-"`
+			Max         int
+			Backoff     time.Duration
+			BackoffFunc func(retries, maxRetries int) time.Duration `json:"-"`
 		}
 	}
 	Consumer struct {
@@ -184,10 +185,10 @@ type CompareSaramaConfig struct {
 				Interval time.Duration
 			}
 			Rebalance struct {
-				Strategy sarama.BalanceStrategy  `json:"-"`
-				Timeout time.Duration
-				Retry struct {
-					Max int
+				Strategy sarama.BalanceStrategy `json:"-"`
+				Timeout  time.Duration
+				Retry    struct {
+					Max     int
 					Backoff time.Duration
 				}
 			}
@@ -196,38 +197,38 @@ type CompareSaramaConfig struct {
 			}
 		}
 		Retry struct {
-			Backoff time.Duration
-			BackoffFunc func(retries int) time.Duration  `json:"-"`
+			Backoff     time.Duration
+			BackoffFunc func(retries int) time.Duration `json:"-"`
 		}
 		Fetch struct {
-			Min int32
+			Min     int32
 			Default int32
-			Max int32
+			Max     int32
 		}
-		MaxWaitTime time.Duration
+		MaxWaitTime       time.Duration
 		MaxProcessingTime time.Duration
-		Return struct {
+		Return            struct {
 			Errors bool
 		}
 		Offsets struct {
 			CommitInterval time.Duration
-			AutoCommit struct {
-				Enable bool
+			AutoCommit     struct {
+				Enable   bool
 				Interval time.Duration
 			}
-			Initial int64
+			Initial   int64
 			Retention time.Duration
-			Retry struct {
+			Retry     struct {
 				Max int
 			}
 		}
 		IsolationLevel sarama.IsolationLevel
 	}
-	ClientID string
-	RackID string
+	ClientID          string
+	RackID            string
 	ChannelBufferSize int
-	Version sarama.KafkaVersion
-	MetricRegistry metrics.Registry  `json:"-"`
+	Version           sarama.KafkaVersion
+	MetricRegistry    metrics.Registry `json:"-"`
 }
 
 // This custom marshaller converts a sarama.Config struct to our CompareSaramaConfig using the ability of go
@@ -292,7 +293,7 @@ func LoadEventingKafkaSettings(ctx context.Context) (*sarama.Config, *EventingKa
 	if err != nil {
 		return nil, nil, err
 	}
-	config := sarama.NewConfig()
+	config := commonutil.NewSaramaConfig()
 	err = MergeSaramaSettings(config, configMap)
 	if err != nil {
 		return nil, nil, err

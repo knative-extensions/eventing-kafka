@@ -14,7 +14,7 @@ import (
 	"knative.dev/eventing-contrib/kafka/channel/pkg/client/informers/externalversions"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	commonk8s "knative.dev/eventing-kafka/pkg/common/k8s"
-	"knative.dev/eventing-kafka/pkg/common/kafka/consumer"
+	"knative.dev/eventing-kafka/pkg/common/kafka/util"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
 	"knative.dev/eventing-kafka/pkg/dispatcher/controller"
 	dispatch "knative.dev/eventing-kafka/pkg/dispatcher/dispatcher"
@@ -33,6 +33,7 @@ const (
 
 // Variables
 var (
+	logger     *zap.Logger
 	dispatcher dispatch.Dispatcher
 	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
@@ -48,7 +49,7 @@ func main() {
 	ctx := commonk8s.LoggingContext(signals.NewContext(), Component, *masterURL, *kubeconfig)
 
 	// Get The Logger From The Context & Defer Flushing Any Buffered Log Entries On Exit
-	logger := logging.FromContext(ctx).Desugar()
+	logger = logging.FromContext(ctx).Desugar()
 	defer flush(logger)
 
 	// UnComment To Enable Sarama Logging For Local Debug
@@ -87,7 +88,7 @@ func main() {
 	statsReporter := metrics.NewStatsReporter(logger)
 
 	// Add username/password/components overrides to the Sarama config (these take precedence over what's in the configmap)
-	consumer.UpdateConfig(saramaConfig, Component, ekConfig.Kafka.Username, ekConfig.Kafka.Password)
+	util.UpdateSaramaConfig(saramaConfig, Component, ekConfig.Kafka.Username, ekConfig.Kafka.Password)
 
 	// Create The Dispatcher With Specified Configuration
 	dispatcherConfig := dispatch.DispatcherConfig{
@@ -102,6 +103,7 @@ func main() {
 		ExponentialBackoff:   ekConfig.Dispatcher.RetryExponentialBackoff,
 		InitialRetryInterval: ekConfig.Dispatcher.RetryInitialIntervalMillis,
 		MaxRetryTime:         ekConfig.Dispatcher.RetryTimeMillis,
+		SaramaConfig:         saramaConfig,
 	}
 	dispatcher = dispatch.NewDispatcher(dispatcherConfig)
 
@@ -172,6 +174,17 @@ func flush(logger *zap.Logger) {
 
 // configMapObserver is the callback function that handles changes to our ConfigMap
 func configMapObserver(configMap *v1.ConfigMap) {
+	if configMap == nil {
+		logger.Warn("Nil ConfigMap passed to configMapObserver; ignoring")
+		return
+	}
+
+	if dispatcher == nil {
+		// This typically happens during startup
+		logger.Info("Dispatcher is nil during call to configMapObserver; ignoring changes")
+		return
+	}
+
 	// Toss the new config map to the dispatcher for inspection and action
 	newDispatcher := dispatcher.ConfigChanged(configMap)
 	if newDispatcher != nil {

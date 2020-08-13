@@ -60,9 +60,6 @@ func TestInitializeObservability(t *testing.T) {
 	// Perform The Test (Initialize The Observability Watcher)
 	InitializeObservability(logger, ctx, metricsDomain, metricsPort)
 
-	// Wait For Observability To Initialize?
-	time.Sleep(2 * time.Second)
-	
 	// Verify that the profiling endpoint exists and responds to requests
 	assertGet(t, "http://localhost:8008/debug/pprof", 200)
 	// Verify that the metrics endpoint exists and responds to requests
@@ -70,7 +67,16 @@ func TestInitializeObservability(t *testing.T) {
 }
 
 func assertGet(t *testing.T, url string, expected int) {
-	resp, err := http.Get(url)
+	var resp *http.Response
+	var err error
+
+	// Allow a few tries to give the observability servers a second or two to start up if necessary
+	for bailOut := 0; bailOut < 20; bailOut++ {
+		if resp, err = http.Get(url); err == nil {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
 	assert.Nil(t, err)
 	assert.NotNil(t, resp)
 	assert.Equal(t, expected, resp.StatusCode)
