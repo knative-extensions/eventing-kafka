@@ -1,23 +1,25 @@
 package testing
 
 import (
-	"context"
-	"os"
+	"encoding/json"
+	"net/http"
 	"testing"
+	"time"
 
 	"github.com/Shopify/sarama"
+	"github.com/ghodss/yaml"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/fake"
-	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
-	injectionclient "knative.dev/pkg/client/injection/kube/client"
-	"knative.dev/pkg/system"
+	commonutil "knative.dev/eventing-kafka/pkg/common/kafka/util"
 )
 
 // Test Constants
 const (
-	KnativeEventingNamespace = "knative-eventing"
+	KnativeEventingNamespace       = "knative-eventing"
+	SettingsConfigMapName          = "config-eventing-kafka"
+	SaramaSettingsConfigKey        = "sarama"
+	EventingKafkaSettingsConfigKey = "eventing-kafka"
 
 	// These constants are used here to make sure that the CreateConsumerGroup() call doesn't have problems,
 	// but they aren't non-testing defaults since most settings are now in 200-eventing-kafka-configmap.yaml
@@ -51,32 +53,51 @@ Producer:
 `
 )
 
-// Returns A ConfigMap Containing The Desired Sarama Config JSON Fragment
-func getTestSaramaConfigMap(saramaConfig string, ekConfig string) *corev1.ConfigMap {
+// Returns A ConfigMap Containing The Desired Sarama Config JSON Fragment, Name And Namespace
+func GetTestSaramaConfigMapNamespaced(name, namespace, saramaConfig, ekConfig string) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "ConfigMap",
 			APIVersion: corev1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      commonconfig.SettingsConfigMapName,
-			Namespace: system.Namespace(),
+			Name:      name,
+			Namespace: namespace,
 		},
 		Data: map[string]string{
-			commonconfig.SaramaSettingsConfigKey:        saramaConfig,
-			commonconfig.EventingKafkaSettingsConfigKey: ekConfig,
+			SaramaSettingsConfigKey:        saramaConfig,
+			EventingKafkaSettingsConfigKey: ekConfig,
 		},
 	}
 }
 
+// Returns A ConfigMap Containing The Desired Sarama Config JSON Fragment
+func GetTestSaramaConfigMap(saramaConfig string, ekConfig string) *corev1.ConfigMap {
+	return GetTestSaramaConfigMapNamespaced(SettingsConfigMapName, KnativeEventingNamespace, saramaConfig, ekConfig)
+}
+
 func GetDefaultSaramaConfig(t *testing.T) *sarama.Config {
-	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, KnativeEventingNamespace))
-	configMap := getTestSaramaConfigMap(SaramaDefaultConfigYaml, "")
-	fakeK8sClient := fake.NewSimpleClientset(configMap)
-
-	ctx := context.WithValue(context.Background(), injectionclient.Key{}, fakeK8sClient)
-
-	config, _, err := commonconfig.LoadEventingKafkaSettings(ctx)
+	config := commonutil.NewSaramaConfig()
+	assert.NotNil(t, config)
+	jsonSettings, err := yaml.YAMLToJSON([]byte(SaramaDefaultConfigYaml))
 	assert.Nil(t, err)
+	assert.Nil(t, json.Unmarshal(jsonSettings, &config))
 	return config
+}
+
+// Retries an HTTP GET request a specified number of times before giving up
+func RetryGet(url string, pause time.Duration, retryCount int) (*http.Response, error) {
+	var resp *http.Response
+	var err error
+
+	// Retry up to "retryCount" number of attempts, waiting for "pause" duration between tries.
+	for tryCounter := 0; tryCounter < retryCount; tryCounter++ {
+		if resp, err = http.Get(url); err == nil {
+			// GET request succeeded; return immediately
+			return resp, err
+		}
+		time.Sleep(pause)
+	}
+	// Request failed too many times; return the error for caller to process
+	return resp, err
 }

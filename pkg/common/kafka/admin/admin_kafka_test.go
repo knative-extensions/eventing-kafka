@@ -11,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	"knative.dev/eventing-kafka/pkg/common/config"
+	internaltesting "knative.dev/eventing-kafka/pkg/common/internal/testing"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
@@ -332,19 +333,7 @@ func createKafkaSecret(name string, namespace string, brokers string, username s
 
 // Create K8S Kafka ConfigMap With Specified Config
 func createKafkaConfig(name string, namespace string, saramaConfig string) *corev1.ConfigMap {
-	return &corev1.ConfigMap{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "ConfigMap",
-			APIVersion: corev1.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Data: map[string]string{
-			config.SaramaSettingsConfigKey: saramaConfig,
-		},
-	}
+	return internaltesting.GetTestSaramaConfigMapNamespaced(name, namespace, saramaConfig, "")
 }
 
 //

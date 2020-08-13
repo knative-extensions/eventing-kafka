@@ -25,13 +25,7 @@ import (
 	"knative.dev/pkg/system"
 )
 
-const (
-	// The name of the configmap used to hold eventing-kafka settings
-	SettingsConfigMapName = "config-eventing-kafka"
-	// The name of the key in the Data section of the eventing-kafka configmap that holds a Sarama JSON settings fragment
-	SaramaSettingsConfigKey        = "sarama"
-	EventingKafkaSettingsConfigKey = "eventing-kafka"
-)
+const ()
 
 // The EventingKafkaConfig and these EK sub-structs contain our custom configuration settings,
 // stored in the config-eventing-kafka configmap.  The sub-structs are explicitly declared so that they

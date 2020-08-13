@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"regexp"
 	"strconv"
@@ -18,6 +17,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/common/env"
+	internaltesting "knative.dev/eventing-kafka/pkg/common/internal/testing"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	logtesting "knative.dev/pkg/logging/testing"
@@ -75,16 +75,7 @@ func TestMetricsServer_Report(t *testing.T) {
 	statsReporter.Report(stats)
 
 	// Verify The Results By Querying Metrics Endpoint And Parsing Results
-	var resp *http.Response
-	var err error
-
-	// Allow a few tries to give the observability servers a second or two to start up if necessary
-	for bailOut := 0; bailOut < 20; bailOut++ {
-		if resp, err = http.Get(fmt.Sprintf("http://localhost:%v/metrics", metricsPort)); err == nil {
-			break
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
+	resp, err := internaltesting.RetryGet(fmt.Sprintf("http://localhost:%v/metrics", metricsPort), 100*time.Millisecond, 20)
 	assert.Nil(t, err)
 	body, err := ioutil.ReadAll(resp.Body)
 	assert.Nil(t, err)

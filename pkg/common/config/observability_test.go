@@ -3,15 +3,16 @@ package config
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	"knative.dev/eventing-kafka/pkg/common/env"
+	internaltesting "knative.dev/eventing-kafka/pkg/common/internal/testing"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	logtesting "knative.dev/pkg/logging/testing"
@@ -67,7 +68,7 @@ func TestInitializeObservability(t *testing.T) {
 }
 
 func assertGet(t *testing.T, url string, expected int) {
-	resp, err := http.Get(url)
+	resp, err := internaltesting.RetryGet(url, 100*time.Millisecond, 20)
 	assert.Nil(t, err)
 	assert.Equal(t, expected, resp.StatusCode)
 	err = resp.Body.Close()

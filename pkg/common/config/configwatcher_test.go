@@ -14,6 +14,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+	internaltesting "knative.dev/eventing-kafka/pkg/common/internal/testing"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	logtesting "knative.dev/pkg/logging/testing"
@@ -129,20 +130,7 @@ dispatcher:
 
 // Returns A ConfigMap Containing The Desired Sarama Config JSON Fragment
 func getTestSaramaConfigMap(saramaConfig string, ekConfig string) *corev1.ConfigMap {
-	return &corev1.ConfigMap{
-		TypeMeta: v1.TypeMeta{
-			Kind:       "ConfigMap",
-			APIVersion: corev1.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: v1.ObjectMeta{
-			Name:      SettingsConfigMapName,
-			Namespace: system.Namespace(),
-		},
-		Data: map[string]string{
-			SaramaSettingsConfigKey:        saramaConfig,
-			EventingKafkaSettingsConfigKey: ekConfig,
-		},
-	}
+	return internaltesting.GetTestSaramaConfigMap(saramaConfig, ekConfig)
 }
 
 // Test The InitializeObservability() Functionality
@@ -185,7 +173,7 @@ func TestInitializeConfigWatcher(t *testing.T) {
 	assert.Equal(t, testConfigMap.Data["sarama"], NewSaramaConfig)
 
 	// Wait for the configWatcherHandler to be called (happens pretty quickly; loop usually only runs once)
-	for bailoutCounter := 0; watchedConfigMap == nil && bailoutCounter < 100; bailoutCounter++ {
+	for try := 0; watchedConfigMap == nil && try < 100; try++ {
 		time.Sleep(5 * time.Millisecond)
 	}
 	assert.NotNil(t, watchedConfigMap)
