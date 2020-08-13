@@ -20,9 +20,8 @@ type Environment struct {
 	ServiceName  string // Required
 
 	// Kafka Authorization
-	KafkaUsername    string // Optional
-	KafkaPassword    string // Optional
-	KafkaPasswordLog string // Derived
+	KafkaUsername string // Optional
+	KafkaPassword string // Optional
 }
 
 // Get The Environment
@@ -76,14 +75,14 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 		return nil, err
 	}
 
-	// Mask The Password For Logging (If There Was One)
-	environment.KafkaPasswordLog = ""
-	if len(environment.KafkaPassword) > 0 {
-		environment.KafkaPasswordLog = "*************"
+	// Clone The Environment & Mask The Password For Safe Logging
+	safeEnvironment := *environment
+	if len(safeEnvironment.KafkaPassword) > 0 {
+		safeEnvironment.KafkaPassword = "*************"
 	}
 
 	// Log The Channel Configuration Loaded From Environment Variables
-	logger.Info("Environment Variables", zap.Any("Environment", environment))
+	logger.Info("Environment Variables", zap.Any("Environment", safeEnvironment))
 
 	// Return The Populated Channel Configuration Environment Structure
 	return environment, nil
