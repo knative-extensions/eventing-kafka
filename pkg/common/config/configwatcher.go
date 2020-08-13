@@ -65,7 +65,6 @@ type EKKafkaConfig struct {
 		CommitMessageCount   int64 `json:"commitMessageCount,omitempty"`
 	}
 	Password    string `json:"password,omitempty"`
-	PasswordLog string `json:"-"`
 	Provider    string `json:"provider,omitempty"`
 	Secret      string `json:"secret,omitempty"`
 	Username    string `json:"username,omitempty"`
