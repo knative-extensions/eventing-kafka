@@ -145,7 +145,7 @@ func handleMessage(ctx context.Context, channelReference eventingchannel.Channel
 
 	// Note - The context provided here is a different context from the one created in main() and does not have our logger instance.
 	logger.Debug("~~~~~~~~~~~~~~~~~~~~  Processing Request  ~~~~~~~~~~~~~~~~~~~~")
-	logger.Debug("Received Message", zap.Any("Message", message), zap.Any("ChannelReference", channelReference))
+	logger.Debug("Received Message", zap.Any("ChannelReference", channelReference))
 
 	// Trim The "-kn-channel" Suffix From The Service Name
 	channelReference.Name = kafkautil.TrimKafkaChannelServiceNameSuffix(channelReference.Name)
