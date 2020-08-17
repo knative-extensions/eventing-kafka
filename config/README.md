@@ -2,7 +2,7 @@
 
 These yaml files install Eventing-Kafka into a cluster which must already have Knative-Eventing installed and have a Kafka
 cluster available. The values of the [Kafka Secret](300-kafka-secret.yaml) should be correctly populated. The yaml files
-use ko references, and must be installed using ko. `ko apply -f ./config` can be executed here to build and deploy the 
+use ko references, and must be installed using ko. `ko apply -f ./config` can be executed here to build and deploy the
 project.
 
 ## Kafka Providers
