@@ -148,48 +148,48 @@ func (err ControllerConfigurationError) Error() string {
 // The fields here are not permitted to be overridden by the values from the config-eventing-kafka configmap
 // VerifyOverrides returns an error if mandatory fields in the EventingKafkaConfig have not been set either
 // via the external configmap or the internal variables.
-func VerifyOverrides(ekConfig *config.EventingKafkaConfig, environment *Environment) error {
-	ekConfig.ServiceAccount = environment.ServiceAccount
-	ekConfig.Kafka.Provider = environment.KafkaProvider
-	ekConfig.Dispatcher.Image = environment.DispatcherImage
-	ekConfig.Channel.Image = environment.ChannelImage
-	ekConfig.Metrics.Port = environment.MetricsPort
-	ekConfig.Metrics.Domain = environment.MetricsDomain
-	ekConfig.Health.Port = constants.HealthPort
+func VerifyOverrides(configuration *config.EventingKafkaConfig, environment *Environment) error {
+	configuration.ServiceAccount = environment.ServiceAccount
+	configuration.Kafka.Provider = environment.KafkaProvider
+	configuration.Dispatcher.Image = environment.DispatcherImage
+	configuration.Channel.Image = environment.ChannelImage
+	configuration.Metrics.Port = environment.MetricsPort
+	configuration.Metrics.Domain = environment.MetricsDomain
+	configuration.Health.Port = constants.HealthPort
 
-	// Verify mandatory ekConfig settings
+	// Verify mandatory configuration settings
 	switch {
-	case ekConfig.Kafka.Topic.DefaultNumPartitions < 1:
+	case configuration.Kafka.Topic.DefaultNumPartitions < 1:
 		return ControllerConfigurationError("Kafka.Topic.DefaultNumPartitions must be > 0")
-	case ekConfig.Kafka.Topic.DefaultReplicationFactor < 1:
+	case configuration.Kafka.Topic.DefaultReplicationFactor < 1:
 		return ControllerConfigurationError("Kafka.Topic.DefaultReplicationFactor must be > 0")
-	case ekConfig.Kafka.Topic.DefaultRetentionMillis < 1:
+	case configuration.Kafka.Topic.DefaultRetentionMillis < 1:
 		return ControllerConfigurationError("Kafka.Topic.DefaultRetentionMillis must be > 0")
-	case ekConfig.Dispatcher.CpuLimit == resource.Quantity{}:
+	case configuration.Dispatcher.CpuLimit == resource.Quantity{}:
 		return ControllerConfigurationError("Dispatcher.CpuLimit must be nonzero")
-	case ekConfig.Dispatcher.CpuRequest == resource.Quantity{}:
+	case configuration.Dispatcher.CpuRequest == resource.Quantity{}:
 		return ControllerConfigurationError("Dispatcher.CpuRequest must be nonzero")
-	case ekConfig.Dispatcher.MemoryLimit == resource.Quantity{}:
+	case configuration.Dispatcher.MemoryLimit == resource.Quantity{}:
 		return ControllerConfigurationError("Dispatcher.MemoryLimit must be nonzero")
-	case ekConfig.Dispatcher.MemoryRequest == resource.Quantity{}:
+	case configuration.Dispatcher.MemoryRequest == resource.Quantity{}:
 		return ControllerConfigurationError("Dispatcher.MemoryRequest must be nonzero")
-	case ekConfig.Dispatcher.Replicas < 1:
+	case configuration.Dispatcher.Replicas < 1:
 		return ControllerConfigurationError("Dispatcher.Replicas must be > 0")
-	case ekConfig.Channel.CpuLimit == resource.Quantity{}:
+	case configuration.Channel.CpuLimit == resource.Quantity{}:
 		return ControllerConfigurationError("Channel.CpuLimit must be nonzero")
-	case ekConfig.Channel.CpuRequest == resource.Quantity{}:
+	case configuration.Channel.CpuRequest == resource.Quantity{}:
 		return ControllerConfigurationError("Channel.CpuRequest must be nonzero")
-	case ekConfig.Channel.MemoryLimit == resource.Quantity{}:
+	case configuration.Channel.MemoryLimit == resource.Quantity{}:
 		return ControllerConfigurationError("Channel.MemoryLimit must be nonzero")
-	case ekConfig.Channel.MemoryRequest == resource.Quantity{}:
+	case configuration.Channel.MemoryRequest == resource.Quantity{}:
 		return ControllerConfigurationError("Channel.MemoryRequest must be nonzero")
-	case ekConfig.Channel.Replicas < 1:
+	case configuration.Channel.Replicas < 1:
 		return ControllerConfigurationError("Channel.Replicas must be > 0")
-	case ekConfig.Health.Port < 1:
+	case configuration.Health.Port < 1:
 		return ControllerConfigurationError("Health.Port must be > 0")
-	case ekConfig.Metrics.Port < 1:
+	case configuration.Metrics.Port < 1:
 		return ControllerConfigurationError("Metrics.Port must be > 0")
-	case ekConfig.Metrics.Domain == "":
+	case configuration.Metrics.Domain == "":
 		return ControllerConfigurationError("Metrics.Domain must not be empty")
 	}
 	return nil // no problems found

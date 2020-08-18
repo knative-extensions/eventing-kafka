@@ -46,50 +46,10 @@ spec:
           value: "eventing-kafka"
         - name: KAFKA_PROVIDER
           value: "local"
-        - name: KAFKA_OFFSET_COMMIT_MESSAGE_COUNT
-          value: "50"
-        - name: KAFKA_OFFSET_COMMIT_DURATION_MILLIS
-          value: "5000"
-        - name: KAFKA_OFFSET_COMMIT_ASYNC
-          value: "false"
         - name: CHANNEL_IMAGE
           value: "ko://knative.dev/eventing-kafka/cmd/channel"
-        - name: CHANNEL_REPLICAS
-          value: "1"
         - name: DISPATCHER_IMAGE
           value: "ko://knative.dev/eventing-kafka/cmd/dispatcher"
-        - name: DEFAULT_NUM_PARTITIONS
-          value: "4"
-        - name: DEFAULT_REPLICATION_FACTOR
-          value: "1"
-        - name: DEFAULT_RETENTION_MILLIS
-          value: "604800000"
-        - name: DEFAULT_KAFKA_CONSUMERS
-          value: "4"
-        - name: "DISPATCHER_REPLICAS"
-          value: "1"
-        - name: DISPATCHER_RETRY_INITIAL_INTERVAL_MILLIS
-          value: "500"
-        - name: DISPATCHER_RETRY_TIME_MILLIS
-          value: "300000"
-        - name: DISPATCHER_RETRY_EXPONENTIAL_BACKOFF
-          value: "true"
-        - name: DISPATCHER_CPU_REQUEST
-          value: "300m"
-        - name: DISPATCHER_CPU_LIMIT
-          value: "500m"
-        - name: DISPATCHER_MEMORY_REQUEST
-          value: "50Mi"
-        - name: DISPATCHER_MEMORY_LIMIT
-          value: "128Mi"
-        - name: CHANNEL_MEMORY_REQUEST
-          value: "50Mi"
-        - name: CHANNEL_MEMORY_LIMIT
-          value: "100Mi"
-        - name: CHANNEL_CPU_REQUEST
-          value: "100m"
-        - name: CHANNEL_CPU_LIMIT
-          value: "200m"
         resources:
           requests:
             cpu: 20m

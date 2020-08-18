@@ -369,23 +369,23 @@ func TestVerifyOverrides_Validation(t *testing.T) {
 }
 
 func TestApplyOverrides_EnvironmentSettings(t *testing.T) {
-	var ekConfig config.EventingKafkaConfig
+	var configuration config.EventingKafkaConfig
 
 	environment := getValidEnvironment(t)
 
-	err := VerifyOverrides(&ekConfig, environment)
+	err := VerifyOverrides(&configuration, environment)
 	assert.Nil(t, err)
 
-	assert.Equal(t, environment.MetricsPort, ekConfig.Metrics.Port)
-	assert.Equal(t, environment.MetricsDomain, ekConfig.Metrics.Domain)
-	assert.Equal(t, constants.DefaultExponentialBackoff, *ekConfig.Dispatcher.RetryExponentialBackoff)
-	assert.Equal(t, environment.HealthPort, ekConfig.Health.Port)
-	assert.Equal(t, int64(constants.DefaultEventRetryTimeMillisMax), ekConfig.Dispatcher.RetryTimeMillis)
-	assert.Equal(t, int64(constants.DefaultEventRetryInitialIntervalMillis), ekConfig.Dispatcher.RetryInitialIntervalMillis)
-	assert.Equal(t, environment.KafkaBrokers, ekConfig.Kafka.Brokers)
-	assert.Equal(t, environment.KafkaTopic, ekConfig.Kafka.Topic.Name)
-	assert.Equal(t, environment.ChannelKey, ekConfig.Kafka.ChannelKey)
-	assert.Equal(t, environment.ServiceName, ekConfig.Kafka.ServiceName)
-	assert.Equal(t, environment.KafkaUsername, ekConfig.Kafka.Username)
-	assert.Equal(t, environment.KafkaPassword, ekConfig.Kafka.Password)
+	assert.Equal(t, environment.MetricsPort, configuration.Metrics.Port)
+	assert.Equal(t, environment.MetricsDomain, configuration.Metrics.Domain)
+	assert.Equal(t, constants.DefaultExponentialBackoff, *configuration.Dispatcher.RetryExponentialBackoff)
+	assert.Equal(t, environment.HealthPort, configuration.Health.Port)
+	assert.Equal(t, int64(constants.DefaultEventRetryTimeMillisMax), configuration.Dispatcher.RetryTimeMillis)
+	assert.Equal(t, int64(constants.DefaultEventRetryInitialIntervalMillis), configuration.Dispatcher.RetryInitialIntervalMillis)
+	assert.Equal(t, environment.KafkaBrokers, configuration.Kafka.Brokers)
+	assert.Equal(t, environment.KafkaTopic, configuration.Kafka.Topic.Name)
+	assert.Equal(t, environment.ChannelKey, configuration.Kafka.ChannelKey)
+	assert.Equal(t, environment.ServiceName, configuration.Kafka.ServiceName)
+	assert.Equal(t, environment.KafkaUsername, configuration.Kafka.Username)
+	assert.Equal(t, environment.KafkaPassword, configuration.Kafka.Password)
 }

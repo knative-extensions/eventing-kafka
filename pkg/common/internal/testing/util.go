@@ -54,7 +54,7 @@ Producer:
 )
 
 // Returns A ConfigMap Containing The Desired Sarama Config JSON Fragment, Name And Namespace
-func GetTestSaramaConfigMapNamespaced(name, namespace, saramaConfig, ekConfig string) *corev1.ConfigMap {
+func GetTestSaramaConfigMapNamespaced(name, namespace, saramaConfig, configuration string) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "ConfigMap",
@@ -66,14 +66,14 @@ func GetTestSaramaConfigMapNamespaced(name, namespace, saramaConfig, ekConfig st
 		},
 		Data: map[string]string{
 			SaramaSettingsConfigKey:        saramaConfig,
-			EventingKafkaSettingsConfigKey: ekConfig,
+			EventingKafkaSettingsConfigKey: configuration,
 		},
 	}
 }
 
 // Returns A ConfigMap Containing The Desired Sarama Config JSON Fragment
-func GetTestSaramaConfigMap(saramaConfig string, ekConfig string) *corev1.ConfigMap {
-	return GetTestSaramaConfigMapNamespaced(SettingsConfigMapName, KnativeEventingNamespace, saramaConfig, ekConfig)
+func GetTestSaramaConfigMap(saramaConfig string, configuration string) *corev1.ConfigMap {
+	return GetTestSaramaConfigMapNamespaced(SettingsConfigMapName, KnativeEventingNamespace, saramaConfig, configuration)
 }
 
 func GetDefaultSaramaConfig(t *testing.T) *sarama.Config {

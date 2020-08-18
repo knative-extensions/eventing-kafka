@@ -60,31 +60,31 @@ func main() {
 		logger.Fatal("Invalid / Missing Environment Variables - Terminating", zap.Error(err))
 	}
 
-	// Load the Sarama SyncProducer settings from our configmap
-	saramaConfig, ekConfig, err := commonconfig.LoadEventingKafkaSettings(ctx)
+	// Load the Sarama SyncProducer and Eventing-Kafka settings from our configmap
+	saramaConfig, configuration, err := commonconfig.LoadEventingKafkaSettings(ctx)
 	if err != nil {
 		logger.Fatal("Failed To Load Sarama Settings", zap.Error(err))
 	}
 
-	// Overwrite configmap settings with anything provided by the environment
-	if err = env.VerifyOverrides(ekConfig, environment); err != nil {
+	// Overwrite some configmap settings with specific values provided by the environment
+	if err = env.VerifyOverrides(configuration, environment); err != nil {
 		logger.Fatal("Invalid / Missing Settings - Terminating", zap.Error(err))
 	}
 
 	// Initialize Tracing (Watches config-tracing ConfigMap, Assumes Context Came From LoggingContext With Embedded K8S Client Key)
-	err = commonconfig.InitializeTracing(logger.Sugar(), ctx, ekConfig.Kafka.ServiceName)
+	err = commonconfig.InitializeTracing(logger.Sugar(), ctx, configuration.Kafka.ServiceName)
 	if err != nil {
 		logger.Fatal("Could Not Initialize Tracing - Terminating", zap.Error(err))
 	}
 
 	// Initialize Observability (Watches config-observability ConfigMap And Starts Profiling Server)
-	err = commonconfig.InitializeObservability(logger.Sugar(), ctx, ekConfig.Metrics.Domain, ekConfig.Metrics.Port)
+	err = commonconfig.InitializeObservability(logger.Sugar(), ctx, configuration.Metrics.Domain, configuration.Metrics.Port)
 	if err != nil {
 		logger.Fatal("Could Not Initialize Observability - Terminating", zap.Error(err))
 	}
 
 	// Start The Liveness And Readiness Servers
-	healthServer := channelhealth.NewChannelHealthServer(strconv.Itoa(ekConfig.Health.Port))
+	healthServer := channelhealth.NewChannelHealthServer(strconv.Itoa(configuration.Health.Port))
 	healthServer.Start(logger)
 
 	// Initialize The KafkaChannel Lister Used To Validate Events
@@ -105,10 +105,10 @@ func main() {
 
 	// Create The Sarama SyncProducer Config
 	// Add username/password/components overrides to the Sarama config (these take precedence over what's in the configmap)
-	util.UpdateSaramaConfig(saramaConfig, Component, ekConfig.Kafka.Username, ekConfig.Kafka.Password)
+	util.UpdateSaramaConfig(saramaConfig, Component, configuration.Kafka.Username, configuration.Kafka.Password)
 
 	// Initialize The Kafka Producer In Order To Start Processing Status Events
-	kafkaProducer, err = producer.NewProducer(logger, saramaConfig, strings.Split(ekConfig.Kafka.Brokers, ","), statsReporter, healthServer)
+	kafkaProducer, err = producer.NewProducer(logger, saramaConfig, strings.Split(configuration.Kafka.Brokers, ","), statsReporter, healthServer)
 	if err != nil {
 		logger.Fatal("Failed To Initialize Kafka Producer", zap.Error(err))
 	}

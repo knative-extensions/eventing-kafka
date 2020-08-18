@@ -95,23 +95,23 @@ func (err ChannelConfigurationError) Error() string {
 // The fields here are not permitted to be overridden by the values from the config-eventing-kafka configmap
 // VerifyOverrides returns an error if mandatory fields in the EventingKafkaConfig have not been set either
 // via the external configmap or the internal variables.
-func VerifyOverrides(ekConfig *config.EventingKafkaConfig, environment *Environment) error {
-	// Copy environment to ekConfig struct
-	ekConfig.Metrics.Port = environment.MetricsPort
-	ekConfig.Metrics.Domain = environment.MetricsDomain
-	ekConfig.Health.Port = environment.HealthPort
-	ekConfig.Kafka.Brokers = environment.KafkaBrokers
-	ekConfig.Kafka.ServiceName = environment.ServiceName
-	ekConfig.Kafka.Username = environment.KafkaUsername
-	ekConfig.Kafka.Password = environment.KafkaPassword
+func VerifyOverrides(configuration *config.EventingKafkaConfig, environment *Environment) error {
+	// Copy environment to configuration struct
+	configuration.Metrics.Port = environment.MetricsPort
+	configuration.Metrics.Domain = environment.MetricsDomain
+	configuration.Health.Port = environment.HealthPort
+	configuration.Kafka.Brokers = environment.KafkaBrokers
+	configuration.Kafka.ServiceName = environment.ServiceName
+	configuration.Kafka.Username = environment.KafkaUsername
+	configuration.Kafka.Password = environment.KafkaPassword
 
-	// Verify mandatory ekConfig settings
+	// Verify mandatory configuration settings
 	switch {
-	case ekConfig.Health.Port < 1:
+	case configuration.Health.Port < 1:
 		return ChannelConfigurationError("Health.Port must be > 0")
-	case ekConfig.Metrics.Port < 1:
+	case configuration.Metrics.Port < 1:
 		return ChannelConfigurationError("Metrics.Port must be > 0")
-	case ekConfig.Metrics.Domain == "":
+	case configuration.Metrics.Domain == "":
 		return ChannelConfigurationError("Metrics.Domain must not be empty")
 	}
 	return nil // no problems found

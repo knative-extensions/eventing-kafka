@@ -62,49 +62,50 @@ func main() {
 	}
 
 	// Load the sarama and eventing-kafka settings from our settings configmap
-	saramaConfig, ekConfig, err := commonconfig.LoadEventingKafkaSettings(ctx)
+	saramaConfig, configuration, err := commonconfig.LoadEventingKafkaSettings(ctx)
 	if err != nil {
 		logger.Fatal("Failed To Load Sarama Settings", zap.Error(err))
 	}
-	// Overwrite configmap settings with anything provided by the environment
-	if err = env.VerifyOverrides(ekConfig, environment); err != nil {
+
+	// Overwrite some configmap settings with specific values provided by the environment
+	if err = env.VerifyOverrides(configuration, environment); err != nil {
 		logger.Fatal("Invalid / Missing Settings - Terminating", zap.Error(err))
 	}
 
 	// Initialize Tracing (Watches config-tracing ConfigMap, Assumes Context Came From LoggingContext With Embedded K8S Client Key)
-	err = commonconfig.InitializeTracing(logger.Sugar(), ctx, ekConfig.Kafka.ServiceName)
+	err = commonconfig.InitializeTracing(logger.Sugar(), ctx, configuration.Kafka.ServiceName)
 	if err != nil {
 		logger.Fatal("Could Not Initialize Tracing - Terminating", zap.Error(err))
 	}
 
 	// Initialize Observability (Watches config-observability ConfigMap And Starts Profiling Server)
-	err = commonconfig.InitializeObservability(logger.Sugar(), ctx, ekConfig.Metrics.Domain, ekConfig.Metrics.Port)
+	err = commonconfig.InitializeObservability(logger.Sugar(), ctx, configuration.Metrics.Domain, configuration.Metrics.Port)
 	if err != nil {
 		logger.Fatal("Could Not Initialize Observability - Terminating", zap.Error(err))
 	}
 
 	// Start The Liveness And Readiness Servers
-	healthServer := dispatcherhealth.NewDispatcherHealthServer(strconv.Itoa(ekConfig.Health.Port))
+	healthServer := dispatcherhealth.NewDispatcherHealthServer(strconv.Itoa(configuration.Health.Port))
 	healthServer.Start(logger)
 
 	statsReporter := metrics.NewStatsReporter(logger)
 
 	// Add username/password/components overrides to the Sarama config (these take precedence over what's in the configmap)
-	util.UpdateSaramaConfig(saramaConfig, Component, ekConfig.Kafka.Username, ekConfig.Kafka.Password)
+	util.UpdateSaramaConfig(saramaConfig, Component, configuration.Kafka.Username, configuration.Kafka.Password)
 
 	// Create The Dispatcher With Specified Configuration
 	dispatcherConfig := dispatch.DispatcherConfig{
 		Logger:               logger,
 		ClientId:             Component,
-		Brokers:              strings.Split(ekConfig.Kafka.Brokers, ","),
-		Topic:                ekConfig.Kafka.Topic.Name,
-		Username:             ekConfig.Kafka.Username,
-		Password:             ekConfig.Kafka.Password,
-		ChannelKey:           ekConfig.Kafka.ChannelKey,
+		Brokers:              strings.Split(configuration.Kafka.Brokers, ","),
+		Topic:                configuration.Kafka.Topic.Name,
+		Username:             configuration.Kafka.Username,
+		Password:             configuration.Kafka.Password,
+		ChannelKey:           configuration.Kafka.ChannelKey,
 		StatsReporter:        statsReporter,
-		ExponentialBackoff:   *ekConfig.Dispatcher.RetryExponentialBackoff,
-		InitialRetryInterval: ekConfig.Dispatcher.RetryInitialIntervalMillis,
-		MaxRetryTime:         ekConfig.Dispatcher.RetryTimeMillis,
+		ExponentialBackoff:   *configuration.Dispatcher.RetryExponentialBackoff,
+		InitialRetryInterval: configuration.Dispatcher.RetryInitialIntervalMillis,
+		MaxRetryTime:         configuration.Dispatcher.RetryTimeMillis,
 		SaramaConfig:         saramaConfig,
 	}
 	dispatcher = dispatch.NewDispatcher(dispatcherConfig)
@@ -134,7 +135,7 @@ func main() {
 	controllers := [...]*kncontroller.Impl{
 		controller.NewController(
 			logger,
-			ekConfig.Kafka.ChannelKey,
+			configuration.Kafka.ChannelKey,
 			dispatcher,
 			kafkaChannelInformer,
 			kubeClient,

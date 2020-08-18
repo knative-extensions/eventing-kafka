@@ -72,9 +72,9 @@ dispatcher:
   retryExponentialBackoff: true
 kafka:
   topic:
-    numPartitions: 4
-    replicationFactor: 1
-    retentionMillis: 604800000
+    defaultNumPartitions: 4
+    defaultReplicationFactor: 1
+    defaultRetentionMillis: 604800000
   provider: azure
 `
 
@@ -131,8 +131,8 @@ dispatcher:
 )
 
 // Returns A ConfigMap Containing The Desired Sarama Config JSON Fragment
-func getTestSaramaConfigMap(saramaConfig string, ekConfig string) *corev1.ConfigMap {
-	return internaltesting.GetTestSaramaConfigMap(saramaConfig, ekConfig)
+func getTestSaramaConfigMap(saramaConfig string, configuration string) *corev1.ConfigMap {
+	return internaltesting.GetTestSaramaConfigMap(saramaConfig, configuration)
 }
 
 // Test The InitializeObservability() Functionality
@@ -207,17 +207,17 @@ func TestLoadEventingKafkaSettings(t *testing.T) {
 
 	ctx := context.WithValue(context.Background(), injectionclient.Key{}, fakeK8sClient)
 
-	config, ekConfig, err := LoadEventingKafkaSettings(ctx)
+	config, configuration, err := LoadEventingKafkaSettings(ctx)
 	assert.Nil(t, err)
 	// Quick checks to make sure the loaded configs aren't complete junk
 	assert.Equal(t, OldClientId, config.ClientID)
 	assert.Equal(t, OldUsername, config.Net.SASL.User)
-	assert.Equal(t, TestDispatcherReplicas, strconv.Itoa(ekConfig.Dispatcher.Replicas))
-	assert.Equal(t, TestDispatcherRetryInitial, strconv.FormatInt(ekConfig.Dispatcher.RetryInitialIntervalMillis, 10))
-	assert.Equal(t, TestDispatcherRetry, strconv.FormatInt(ekConfig.Dispatcher.RetryTimeMillis, 10))
+	assert.Equal(t, TestDispatcherReplicas, strconv.Itoa(configuration.Dispatcher.Replicas))
+	assert.Equal(t, TestDispatcherRetryInitial, strconv.FormatInt(configuration.Dispatcher.RetryInitialIntervalMillis, 10))
+	assert.Equal(t, TestDispatcherRetry, strconv.FormatInt(configuration.Dispatcher.RetryTimeMillis, 10))
 	// Verify that the "RetryExponentialBackoff" field is set properly (bool pointer)
-	assert.NotNil(t, ekConfig.Dispatcher.RetryExponentialBackoff)
-	assert.True(t, *ekConfig.Dispatcher.RetryExponentialBackoff)
+	assert.NotNil(t, configuration.Dispatcher.RetryExponentialBackoff)
+	assert.True(t, *configuration.Dispatcher.RetryExponentialBackoff)
 }
 
 func TestLoadEventingKafkaSettings_NoBackoff(t *testing.T) {
@@ -228,10 +228,10 @@ func TestLoadEventingKafkaSettings_NoBackoff(t *testing.T) {
 
 	ctx := context.WithValue(context.Background(), injectionclient.Key{}, fakeK8sClient)
 
-	_, ekConfig, err := LoadEventingKafkaSettings(ctx)
+	_, configuration, err := LoadEventingKafkaSettings(ctx)
 	assert.Nil(t, err)
 	// Verify that the "RetryExponentialBackoff" field is set properly (bool pointer)
-	assert.Nil(t, ekConfig.Dispatcher.RetryExponentialBackoff)
+	assert.Nil(t, configuration.Dispatcher.RetryExponentialBackoff)
 }
 
 // This test is specifically to validate that our default settings (used in 200-eventing-kafka-configmap.yaml)
@@ -242,7 +242,7 @@ func TestLoadDefaultSaramaSettings(t *testing.T) {
 	fakeK8sClient := fake.NewSimpleClientset(configMap)
 	ctx := context.WithValue(context.Background(), injectionclient.Key{}, fakeK8sClient)
 
-	config, ekConfig, err := LoadEventingKafkaSettings(ctx)
+	config, configuration, err := LoadEventingKafkaSettings(ctx)
 	assert.Nil(t, err)
 	// Make sure all of our default Sarama settings were loaded properly
 	assert.Equal(t, tls.ClientAuthType(0), config.Net.TLS.Config.ClientAuth)
@@ -255,23 +255,23 @@ func TestLoadDefaultSaramaSettings(t *testing.T) {
 
 	// Make sure all of our default eventing-kafka settings were loaded properly
 	// Specifically checking the type (e.g. int64, int16, int) is important
-	assert.Equal(t, resource.MustParse("200m"), ekConfig.Channel.CpuLimit)
-	assert.Equal(t, resource.MustParse("100m"), ekConfig.Channel.CpuRequest)
-	assert.Equal(t, resource.MustParse("100Mi"), ekConfig.Channel.MemoryLimit)
-	assert.Equal(t, resource.MustParse("50Mi"), ekConfig.Channel.MemoryRequest)
-	assert.Equal(t, 1, ekConfig.Channel.Replicas)
-	assert.Equal(t, int32(4), ekConfig.Kafka.Topic.DefaultNumPartitions)
-	assert.Equal(t, int16(1), ekConfig.Kafka.Topic.DefaultReplicationFactor)
-	assert.Equal(t, int64(604800000), ekConfig.Kafka.Topic.DefaultRetentionMillis)
-	assert.Equal(t, resource.MustParse("500m"), ekConfig.Dispatcher.CpuLimit)
-	assert.Equal(t, resource.MustParse("300m"), ekConfig.Dispatcher.CpuRequest)
-	assert.Equal(t, resource.MustParse("128Mi"), ekConfig.Dispatcher.MemoryLimit)
-	assert.Equal(t, resource.MustParse("50Mi"), ekConfig.Dispatcher.MemoryRequest)
-	assert.Equal(t, 1, ekConfig.Dispatcher.Replicas)
-	assert.Equal(t, int64(500), ekConfig.Dispatcher.RetryInitialIntervalMillis)
-	assert.Equal(t, int64(300000), ekConfig.Dispatcher.RetryTimeMillis)
-	assert.Equal(t, true, *ekConfig.Dispatcher.RetryExponentialBackoff)
-	assert.Equal(t, "azure", ekConfig.Kafka.Provider)
+	assert.Equal(t, resource.MustParse("200m"), configuration.Channel.CpuLimit)
+	assert.Equal(t, resource.MustParse("100m"), configuration.Channel.CpuRequest)
+	assert.Equal(t, resource.MustParse("100Mi"), configuration.Channel.MemoryLimit)
+	assert.Equal(t, resource.MustParse("50Mi"), configuration.Channel.MemoryRequest)
+	assert.Equal(t, 1, configuration.Channel.Replicas)
+	assert.Equal(t, int32(4), configuration.Kafka.Topic.DefaultNumPartitions)
+	assert.Equal(t, int16(1), configuration.Kafka.Topic.DefaultReplicationFactor)
+	assert.Equal(t, int64(604800000), configuration.Kafka.Topic.DefaultRetentionMillis)
+	assert.Equal(t, resource.MustParse("500m"), configuration.Dispatcher.CpuLimit)
+	assert.Equal(t, resource.MustParse("300m"), configuration.Dispatcher.CpuRequest)
+	assert.Equal(t, resource.MustParse("128Mi"), configuration.Dispatcher.MemoryLimit)
+	assert.Equal(t, resource.MustParse("50Mi"), configuration.Dispatcher.MemoryRequest)
+	assert.Equal(t, 1, configuration.Dispatcher.Replicas)
+	assert.Equal(t, int64(500), configuration.Dispatcher.RetryInitialIntervalMillis)
+	assert.Equal(t, int64(300000), configuration.Dispatcher.RetryTimeMillis)
+	assert.Equal(t, true, *configuration.Dispatcher.RetryExponentialBackoff)
+	assert.Equal(t, "azure", configuration.Kafka.Provider)
 }
 
 // Verify that the JSON fragment can be loaded into a sarama.Config struct

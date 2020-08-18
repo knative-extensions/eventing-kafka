@@ -293,18 +293,18 @@ func TestVerifyOverrides_Validation(t *testing.T) {
 }
 
 func TestApplyOverrides(t *testing.T) {
-	var ekConfig config.EventingKafkaConfig
+	var configuration config.EventingKafkaConfig
 
 	environment := getValidEnvironment(t)
 
-	err := VerifyOverrides(&ekConfig, environment)
+	err := VerifyOverrides(&configuration, environment)
 	assert.Nil(t, err)
 
-	assert.Equal(t, ekConfig.Metrics.Port, environment.MetricsPort)
-	assert.Equal(t, ekConfig.Metrics.Domain, environment.MetricsDomain)
-	assert.Equal(t, ekConfig.Health.Port, environment.HealthPort)
-	assert.Equal(t, ekConfig.Kafka.Brokers, environment.KafkaBrokers)
-	assert.Equal(t, ekConfig.Kafka.ServiceName, environment.ServiceName)
-	assert.Equal(t, ekConfig.Kafka.Username, environment.KafkaUsername)
-	assert.Equal(t, ekConfig.Kafka.Password, environment.KafkaPassword)
+	assert.Equal(t, configuration.Metrics.Port, environment.MetricsPort)
+	assert.Equal(t, configuration.Metrics.Domain, environment.MetricsDomain)
+	assert.Equal(t, configuration.Health.Port, environment.HealthPort)
+	assert.Equal(t, configuration.Kafka.Brokers, environment.KafkaBrokers)
+	assert.Equal(t, configuration.Kafka.ServiceName, environment.ServiceName)
+	assert.Equal(t, configuration.Kafka.Username, environment.KafkaUsername)
+	assert.Equal(t, configuration.Kafka.Password, environment.KafkaPassword)
 }

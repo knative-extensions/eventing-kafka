@@ -43,13 +43,13 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 
 	// Load the Sarama and other eventing-kafka settings from our configmap
 	// (though we don't need the Sarama settings here; the AdminClient loads them from the configmap each time it needs them)
-	_, ekConfig, err := commonconfig.LoadEventingKafkaSettings(ctx)
+	_, configuration, err := commonconfig.LoadEventingKafkaSettings(ctx)
 	if err != nil {
 		logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Error(err))
 	}
 
-	// Overwrite configmap settings with anything provided by the environment
-	if err = env.VerifyOverrides(ekConfig, environment); err != nil {
+	// Overwrite some configmap settings with specific values provided by the environment
+	if err = env.VerifyOverrides(configuration, environment); err != nil {
 		logger.Fatal("Invalid / Missing Settings - Terminating", zap.Error(err))
 	}
 
@@ -57,7 +57,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	r := &Reconciler{
 		logger:             logging.FromContext(ctx),
 		kubeClientset:      kubeclient.Get(ctx),
-		config:             ekConfig,
+		config:             configuration,
 		kafkaChannelClient: injectionclient.Get(ctx),
 		kafkachannelLister: kafkachannelInformer.Lister(),
 		deploymentLister:   deploymentInformer.Lister(),

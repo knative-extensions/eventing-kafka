@@ -110,47 +110,47 @@ func (err DispatcherConfigurationError) Error() string {
 // The fields here are not permitted to be overridden by the values from the config-eventing-kafka configmap
 // VerifyOverrides returns an error if mandatory fields in the EventingKafkaConfig have not been set either
 // via the external configmap or the internal variables.
-func VerifyOverrides(ekConfig *config.EventingKafkaConfig, environment *Environment) error {
-	ekConfig.Metrics.Port = environment.MetricsPort
-	ekConfig.Metrics.Domain = environment.MetricsDomain
-	ekConfig.Health.Port = environment.HealthPort
-	ekConfig.Kafka.Brokers = environment.KafkaBrokers
-	ekConfig.Kafka.Topic.Name = environment.KafkaTopic
-	ekConfig.Kafka.ChannelKey = environment.ChannelKey
-	ekConfig.Kafka.ServiceName = environment.ServiceName
-	ekConfig.Kafka.Username = environment.KafkaUsername
-	ekConfig.Kafka.Password = environment.KafkaPassword
+func VerifyOverrides(configuration *config.EventingKafkaConfig, environment *Environment) error {
+	configuration.Metrics.Port = environment.MetricsPort
+	configuration.Metrics.Domain = environment.MetricsDomain
+	configuration.Health.Port = environment.HealthPort
+	configuration.Kafka.Brokers = environment.KafkaBrokers
+	configuration.Kafka.Topic.Name = environment.KafkaTopic
+	configuration.Kafka.ChannelKey = environment.ChannelKey
+	configuration.Kafka.ServiceName = environment.ServiceName
+	configuration.Kafka.Username = environment.KafkaUsername
+	configuration.Kafka.Password = environment.KafkaPassword
 
 	// Set Default Values For Some Fields If Not Provided
-	if ekConfig.Dispatcher.RetryExponentialBackoff == nil {
+	if configuration.Dispatcher.RetryExponentialBackoff == nil {
 		backoffDefault := constants.DefaultExponentialBackoff
-		ekConfig.Dispatcher.RetryExponentialBackoff = &backoffDefault
+		configuration.Dispatcher.RetryExponentialBackoff = &backoffDefault
 	}
 
-	if ekConfig.Dispatcher.RetryInitialIntervalMillis < 1 {
-		ekConfig.Dispatcher.RetryInitialIntervalMillis = constants.DefaultEventRetryInitialIntervalMillis
+	if configuration.Dispatcher.RetryInitialIntervalMillis < 1 {
+		configuration.Dispatcher.RetryInitialIntervalMillis = constants.DefaultEventRetryInitialIntervalMillis
 	}
 
-	if ekConfig.Dispatcher.RetryTimeMillis < 1 {
-		ekConfig.Dispatcher.RetryTimeMillis = constants.DefaultEventRetryTimeMillisMax
+	if configuration.Dispatcher.RetryTimeMillis < 1 {
+		configuration.Dispatcher.RetryTimeMillis = constants.DefaultEventRetryTimeMillisMax
 	}
 
-	// Verify Mandatory ekConfig Settings
+	// Verify Mandatory configuration Settings
 	switch {
-	case ekConfig.Health.Port < 1:
+	case configuration.Health.Port < 1:
 		return DispatcherConfigurationError("Health.Port must be > 0")
-	case ekConfig.Metrics.Port < 1:
+	case configuration.Metrics.Port < 1:
 		return DispatcherConfigurationError("Metrics.Port must be > 0")
-	case ekConfig.Metrics.Domain == "":
+	case configuration.Metrics.Domain == "":
 		return DispatcherConfigurationError("Metrics.Domain must not be empty")
 
 	// These settings should never be invalid because of the default values above, but verifying them
 	// is cheap insurance against inadvertent changes
-	case ekConfig.Dispatcher.RetryExponentialBackoff == nil:
+	case configuration.Dispatcher.RetryExponentialBackoff == nil:
 		return DispatcherConfigurationError("Dispatcher.RetryExponentialBackoff must not be nil")
-	case ekConfig.Dispatcher.RetryTimeMillis < 1:
+	case configuration.Dispatcher.RetryTimeMillis < 1:
 		return DispatcherConfigurationError("Dispatcher.RetryTimeMillis must be > 0")
-	case ekConfig.Dispatcher.RetryInitialIntervalMillis < 1:
+	case configuration.Dispatcher.RetryInitialIntervalMillis < 1:
 		return DispatcherConfigurationError("Dispatcher.RetryInitialIntervalMillis must be > 0")
 	}
 	return nil // no problems found
