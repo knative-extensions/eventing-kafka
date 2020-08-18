@@ -67,7 +67,9 @@ func main() {
 	}
 
 	// Overwrite configmap settings with anything provided by the environment
-	env.ApplyOverrides(ekConfig, environment)
+	if err = env.VerifyOverrides(ekConfig, environment); err != nil {
+		logger.Fatal("Invalid / Missing Settings - Terminating", zap.Error(err))
+	}
 
 	// Initialize Tracing (Watches config-tracing ConfigMap, Assumes Context Came From LoggingContext With Embedded K8S Client Key)
 	err = commonconfig.InitializeTracing(logger.Sugar(), ctx, ekConfig.Kafka.ServiceName)

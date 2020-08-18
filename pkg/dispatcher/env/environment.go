@@ -4,6 +4,7 @@ import (
 	"go.uber.org/zap"
 	"knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/common/env"
+	"knative.dev/eventing-kafka/pkg/dispatcher/constants"
 )
 
 // Environment Structure
@@ -16,19 +17,11 @@ type Environment struct {
 	// Health Configuration
 	HealthPort int // Required
 
-	// Dispatcher Retry Settings
-	ExponentialBackoff   bool  // Required
-	ExpBackoffPresent    bool  // Derived
-	MaxRetryTime         int64 // Required
-	InitialRetryInterval int64 // Required
-
 	// Kafka Configuration
-	KafkaBrokers                    string // Required
-	KafkaTopic                      string // Required
-	ChannelKey                      string // Required
-	ServiceName                     string // Required
-	KafkaOffsetCommitMessageCount   int64  // Required
-	KafkaOffsetCommitDurationMillis int64  // Required
+	KafkaBrokers string // Required
+	KafkaTopic   string // Required
+	ChannelKey   string // Required
+	ServiceName  string // Required
 
 	// Kafka Authorization
 	KafkaUsername string // Optional
@@ -58,24 +51,6 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 
 	// Get The Required HealthPort Port Config Value & Convert To Int
 	environment.HealthPort, err = env.GetRequiredConfigInt(logger, env.HealthPortEnvVarKey, "HealthPort")
-	if err != nil {
-		return nil, err
-	}
-
-	// Get The Required MaxRetryTime Config Value
-	environment.ExponentialBackoff, environment.ExpBackoffPresent, err = env.GetRequiredConfigBool(logger, env.ExponentialBackoffEnvVarKey, "ExponentialBackoff")
-	if err != nil {
-		return nil, err
-	}
-
-	// Get The Required MaxRetryTime Config Value
-	environment.MaxRetryTime, err = env.GetRequiredConfigInt64(logger, env.MaxRetryTimeEnvVarKey, "MaxRetryTime")
-	if err != nil {
-		return nil, err
-	}
-
-	// Get The Required InitialRetryInterval Config Value
-	environment.InitialRetryInterval, err = env.GetRequiredConfigInt64(logger, env.InitialRetryIntervalEnvVarKey, "InitialRetryInterval")
 	if err != nil {
 		return nil, err
 	}
@@ -123,24 +98,60 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 	return environment, nil
 }
 
-// ApplyOverrides overwrites an EventingKafkaConfig struct with the values from an Environment struct
-// This allows us to remove variables from the required environment list as desired instead of
-// changing everything at once.  As they are removed from the GetEnvironment function (and the Environment
-// struct itself), the values from the configmap will take over.
-func ApplyOverrides(ekConfig *config.EventingKafkaConfig, environment *Environment) {
+// ConfigurationError is the type of error returned from VerifyOverrides
+// when a setting is missing or invalid
+type DispatcherConfigurationError string
+
+func (err DispatcherConfigurationError) Error() string {
+	return "dispatcher: invalid configuration (" + string(err) + ")"
+}
+
+// VerifyOverrides overwrites an EventingKafkaConfig struct with the values from an Environment struct
+// The fields here are not permitted to be overridden by the values from the config-eventing-kafka configmap
+// VerifyOverrides returns an error if mandatory fields in the EventingKafkaConfig have not been set either
+// via the external configmap or the internal variables.
+func VerifyOverrides(ekConfig *config.EventingKafkaConfig, environment *Environment) error {
 	ekConfig.Metrics.Port = environment.MetricsPort
 	ekConfig.Metrics.Domain = environment.MetricsDomain
-	ekConfig.Dispatcher.RetryExponentialBackoff = environment.ExponentialBackoff
-	ekConfig.Dispatcher.ExponentialBackoffPresent = environment.ExpBackoffPresent
 	ekConfig.Health.Port = environment.HealthPort
-	ekConfig.Dispatcher.RetryTimeMillis = environment.MaxRetryTime
-	ekConfig.Dispatcher.RetryInitialIntervalMillis = environment.InitialRetryInterval
 	ekConfig.Kafka.Brokers = environment.KafkaBrokers
-	ekConfig.Kafka.Topic = environment.KafkaTopic
+	ekConfig.Kafka.Topic.Name = environment.KafkaTopic
 	ekConfig.Kafka.ChannelKey = environment.ChannelKey
 	ekConfig.Kafka.ServiceName = environment.ServiceName
-	ekConfig.Kafka.Offset.CommitMessageCount = environment.KafkaOffsetCommitMessageCount
-	ekConfig.Kafka.Offset.CommitDurationMillis = environment.KafkaOffsetCommitDurationMillis
 	ekConfig.Kafka.Username = environment.KafkaUsername
 	ekConfig.Kafka.Password = environment.KafkaPassword
+
+	// Set Default Values For Some Fields If Not Provided
+	if ekConfig.Dispatcher.RetryExponentialBackoff == nil {
+		backoffDefault := constants.DefaultExponentialBackoff
+		ekConfig.Dispatcher.RetryExponentialBackoff = &backoffDefault
+	}
+
+	if ekConfig.Dispatcher.RetryInitialIntervalMillis < 1 {
+		ekConfig.Dispatcher.RetryInitialIntervalMillis = constants.DefaultEventRetryInitialIntervalMillis
+	}
+
+	if ekConfig.Dispatcher.RetryTimeMillis < 1 {
+		ekConfig.Dispatcher.RetryTimeMillis = constants.DefaultEventRetryTimeMillisMax
+	}
+
+	// Verify Mandatory ekConfig Settings
+	switch {
+	case ekConfig.Health.Port < 1:
+		return DispatcherConfigurationError("Health.Port must be > 0")
+	case ekConfig.Metrics.Port < 1:
+		return DispatcherConfigurationError("Metrics.Port must be > 0")
+	case ekConfig.Metrics.Domain == "":
+		return DispatcherConfigurationError("Metrics.Domain must not be empty")
+
+	// These settings should never be invalid because of the default values above, but verifying them
+	// is cheap insurance against inadvertent changes
+	case ekConfig.Dispatcher.RetryExponentialBackoff == nil:
+		return DispatcherConfigurationError("Dispatcher.RetryExponentialBackoff must not be nil")
+	case ekConfig.Dispatcher.RetryTimeMillis < 1:
+		return DispatcherConfigurationError("Dispatcher.RetryTimeMillis must be > 0")
+	case ekConfig.Dispatcher.RetryInitialIntervalMillis < 1:
+		return DispatcherConfigurationError("Dispatcher.RetryInitialIntervalMillis must be > 0")
+	}
+	return nil // no problems found
 }

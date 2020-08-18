@@ -163,9 +163,53 @@ func getLogger() *zap.Logger {
 	return logger
 }
 
-func TestApplyOverrides(t *testing.T) {
-	var ekConfig config.EventingKafkaConfig
+// Define The VerifyTestCase Struct
+type VerifyTestCase struct {
+	name string
 
+	// Environment settings
+	envMetricsPort   int
+	envMetricsDomain string
+	envHealthPort    int
+
+	// Config settings
+	metricsPort           int
+	metricsDomain         string
+	healthPort            int
+	expectedMetricsPort   int
+	expectedMetricsDomain string
+	expectedHealthPort    int
+
+	expectedError error
+}
+
+// Convenience function for testing to allow inline string-to-int conversions
+func atoiOrZero(str string) int64 {
+	intOut, err := strconv.ParseInt(str, 10, 64)
+	if err != nil {
+		return 0
+	}
+	return intOut
+}
+
+// Get The Base / Valid Test Case - All Config Specified / No Errors
+func getValidVerifyTestCase(name string) VerifyTestCase {
+	return VerifyTestCase{
+		name:                  name,
+		envMetricsPort:        int(atoiOrZero(metricsPort)),
+		envMetricsDomain:      metricsDomain,
+		envHealthPort:         int(atoiOrZero(healthPort)),
+		metricsPort:           int(atoiOrZero(metricsPort)),
+		metricsDomain:         metricsDomain,
+		healthPort:            int(atoiOrZero(healthPort)),
+		expectedMetricsPort:   int(atoiOrZero(metricsPort)),
+		expectedMetricsDomain: metricsDomain,
+		expectedHealthPort:    int(atoiOrZero(healthPort)),
+		expectedError:         nil,
+	}
+}
+
+func getValidEnvironment(t *testing.T) *Environment {
 	assertSetenv(t, env.MetricsDomainEnvVarKey, metricsDomain)
 	assertSetenvNonempty(t, env.MetricsPortEnvVarKey, metricsPort)
 	assertSetenvNonempty(t, env.HealthPortEnvVarKey, healthPort)
@@ -173,11 +217,88 @@ func TestApplyOverrides(t *testing.T) {
 	assertSetenv(t, env.ServiceNameEnvVarKey, serviceName)
 	assertSetenv(t, env.KafkaUsernameEnvVarKey, kafkaUsername)
 	assertSetenv(t, env.KafkaPasswordEnvVarKey, kafkaPassword)
-
 	environment, err := GetEnvironment(getLogger())
 	assert.Nil(t, err)
+	return environment
+}
 
-	ApplyOverrides(&ekConfig, environment)
+// Test All Permutations Of The VerifyOverrides() Functionality
+func TestVerifyOverrides_Validation(t *testing.T) {
+
+	// Define The TestCases
+	testCases := make([]VerifyTestCase, 0, 7)
+	testCase := getValidVerifyTestCase("Valid Complete Config")
+	testCases = append(testCases, testCase)
+
+	testCase = getValidVerifyTestCase("Invalid Config - MetricsPort")
+	testCase.metricsPort = -1
+	testCase.envMetricsPort = -1
+	testCase.expectedError = ChannelConfigurationError("Metrics.Port must be > 0")
+	testCases = append(testCases, testCase)
+
+	testCase = getValidVerifyTestCase("Invalid Config - MetricsPort - Overridden")
+	testCase.metricsPort = -1
+	testCase.expectedError = nil
+	testCases = append(testCases, testCase)
+
+	testCase = getValidVerifyTestCase("Invalid Config - MetricsDomain")
+	testCase.metricsDomain = ""
+	testCase.envMetricsDomain = ""
+	testCase.expectedError = ChannelConfigurationError("Metrics.Domain must not be empty")
+	testCases = append(testCases, testCase)
+
+	testCase = getValidVerifyTestCase("Invalid Config - MetricsDomain - Overridden")
+	testCase.metricsDomain = ""
+	testCase.expectedError = nil
+	testCases = append(testCases, testCase)
+
+	testCase = getValidVerifyTestCase("Invalid Config - HealthPort")
+	testCase.healthPort = -1
+	testCase.envHealthPort = -1
+	testCase.expectedError = ChannelConfigurationError("Health.Port must be > 0")
+	testCases = append(testCases, testCase)
+
+	testCase = getValidVerifyTestCase("Invalid Config - HealthPort - Overridden")
+	testCase.healthPort = -1
+	testCase.expectedError = nil
+	testCases = append(testCases, testCase)
+
+	// Loop Over All The TestCases
+	for _, testCase := range testCases {
+
+		environment := getValidEnvironment(t)
+		environment.MetricsPort = testCase.envMetricsPort
+		environment.MetricsDomain = testCase.envMetricsDomain
+		environment.HealthPort = testCase.envHealthPort
+		testConfig := &config.EventingKafkaConfig{}
+		testConfig.Metrics.Port = testCase.metricsPort
+		testConfig.Metrics.Domain = testCase.metricsDomain
+		testConfig.Health.Port = testCase.healthPort
+
+		// Perform The Test
+		err := VerifyOverrides(testConfig, environment)
+
+		// Verify The Results
+		if testCase.expectedError == nil {
+			assert.Nil(t, err)
+			assert.NotNil(t, environment)
+			assert.Equal(t, testCase.expectedMetricsPort, testConfig.Metrics.Port)
+			assert.Equal(t, testCase.expectedMetricsDomain, testConfig.Metrics.Domain)
+			assert.Equal(t, testCase.expectedHealthPort, testConfig.Health.Port)
+		} else {
+			assert.Equal(t, testCase.expectedError, err)
+		}
+
+	}
+}
+
+func TestApplyOverrides(t *testing.T) {
+	var ekConfig config.EventingKafkaConfig
+
+	environment := getValidEnvironment(t)
+
+	err := VerifyOverrides(&ekConfig, environment)
+	assert.Nil(t, err)
 
 	assert.Equal(t, ekConfig.Metrics.Port, environment.MetricsPort)
 	assert.Equal(t, ekConfig.Metrics.Domain, environment.MetricsDomain)

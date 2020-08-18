@@ -2,6 +2,8 @@ package kafkachannel
 
 import (
 	"context"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -20,7 +22,6 @@ import (
 	"knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
 	. "knative.dev/pkg/reconciler/testing"
-	"testing"
 )
 
 // Initialization - Add types to scheme
@@ -402,7 +403,7 @@ func TestReconcile(t *testing.T) {
 			kubeClientset:        kubeclient.Get(ctx),
 			adminClientType:      kafkaadmin.Kafka,
 			adminClient:          nil,
-			environment:          test.NewEnvironment(),
+			config:               test.NewConfig(),
 			kafkachannelLister:   listers.GetKafkaChannelLister(),
 			kafkachannelInformer: nil,
 			deploymentLister:     listers.GetDeploymentLister(),

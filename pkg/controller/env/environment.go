@@ -2,10 +2,13 @@ package env
 
 import (
 	"fmt"
+	"strings"
+
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/common/env"
-	"strings"
+	"knative.dev/eventing-kafka/pkg/controller/constants"
 )
 
 // Package Constants
@@ -16,37 +19,16 @@ const (
 	DefaultReplicationFactorEnvVarKey = "DEFAULT_REPLICATION_FACTOR"
 	DefaultRetentionMillisEnvVarKey   = "DEFAULT_RETENTION_MILLIS"
 
-	// Dispatcher Event Retry Values
-	DispatcherRetryInitialIntervalMillisEnvVarKey = "DISPATCHER_RETRY_INITIAL_INTERVAL_MILLIS"
-	DispatcherRetryTimeMillisMaxEnvVarKey         = "DISPATCHER_RETRY_TIME_MILLIS"
-	DispatcherRetryExponentialBackoffEnvVarKey    = "DISPATCHER_RETRY_EXPONENTIAL_BACKOFF"
-
-	// Default Values If Optional Environment Variable Defaults Not Specified
-	DefaultRetentionMillis                 = "604800000" // 1 Week
-	DefaultEventRetryInitialIntervalMillis = "500"       // 0.5 seconds
-	DefaultEventRetryTimeMillisMax         = "300000"    // 5 minutes
-	DefaultExponentialBackoff              = "true"      // Enabled
-
 	// Kafka Provider Types
 	KafkaProviderValueLocal     = "local"
 	KafkaProviderValueConfluent = "confluent"
 	KafkaProviderValueAzure     = "azure"
 
 	// Dispatcher Resources
-	DispatcherImageEnvVarKey         = "DISPATCHER_IMAGE"
-	DispatcherReplicasEnvVarKey      = "DISPATCHER_REPLICAS"
-	DispatcherCpuRequestEnvVarKey    = "DISPATCHER_CPU_REQUEST"
-	DispatcherCpuLimitEnvVarKey      = "DISPATCHER_CPU_LIMIT"
-	DispatcherMemoryRequestEnvVarKey = "DISPATCHER_MEMORY_REQUEST"
-	DispatcherMemoryLimitEnvVarKey   = "DISPATCHER_MEMORY_LIMIT"
+	DispatcherImageEnvVarKey = "DISPATCHER_IMAGE"
 
 	// Channel Resources
-	ChannelImageEnvVarKey         = "CHANNEL_IMAGE"
-	ChannelReplicasEnvVarKey      = "CHANNEL_REPLICAS"
-	ChannelMemoryRequestEnvVarKey = "CHANNEL_MEMORY_REQUEST"
-	ChannelMemoryLimitEnvVarKey   = "CHANNEL_MEMORY_LIMIT"
-	ChannelCpuRequestEnvVarKey    = "CHANNEL_CPU_REQUEST"
-	ChannelCpuLimitEnvVarKey      = "CHANNEL_CPU_LIMIT"
+	ChannelImageEnvVarKey = "CHANNEL_IMAGE"
 )
 
 // Environment Structure
@@ -58,9 +40,7 @@ type Environment struct {
 	MetricsDomain  string // Required
 
 	// Kafka Configuration / Authorization
-	KafkaProvider                   string // Required
-	KafkaOffsetCommitMessageCount   int64  // Optional
-	KafkaOffsetCommitDurationMillis int64  // Optional
+	KafkaProvider string // Required
 
 	// Default Values To Use If Not Available In Knative Channels Argument
 	DefaultNumPartitions     int32 // Required
@@ -74,11 +54,6 @@ type Environment struct {
 	DispatcherMemoryLimit   resource.Quantity // Required
 	DispatcherCpuRequest    resource.Quantity // Required
 	DispatcherCpuLimit      resource.Quantity // Required
-
-	// Dispatcher Retry Settings
-	DispatcherRetryInitialIntervalMillis int64 // Optional
-	DispatcherRetryTimeMillisMax         int64 // Optional
-	DispatcherRetryExponentialBackoff    bool  // Optional
 
 	// Resource Limits for each Channel Deployment
 	ChannelImage         string            // Required
@@ -134,86 +109,12 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 		}
 	}
 
-	// Get The Required DefaultNumPartitions Config Value & Convert To Int
-	environment.DefaultNumPartitions, err = env.GetRequiredConfigInt32(logger, DefaultNumPartitionsEnvVarKey, "DefaultNumPartitions")
-	if err != nil {
-		return nil, err
-	}
-
-	// Get The Required DefaultReplicationFactor Config Value & Convert To Int
-	environment.DefaultReplicationFactor, err = env.GetRequiredConfigInt16(logger, DefaultReplicationFactorEnvVarKey, "DefaultReplicationFactor")
-	if err != nil {
-		return nil, err
-	}
-
-	// Get The Optional DefaultRetentionMillis Config Value & Convert To Int
-	environment.DefaultRetentionMillis, err = env.GetOptionalConfigInt64(logger, DefaultRetentionMillisEnvVarKey, DefaultRetentionMillis, "DefaultRetentionMillis")
-	if err != nil {
-		return nil, err
-	}
-
 	//
 	// Dispatcher Configuration
 	//
 
 	// Get The Required DispatcherImage Config Value
 	environment.DispatcherImage, err = env.GetRequiredConfigValue(logger, DispatcherImageEnvVarKey)
-	if err != nil {
-		return nil, err
-	}
-
-	// Get The Required DispatcherReplicas Config Value & Convert To Int
-	environment.DispatcherReplicas, err = env.GetRequiredConfigInt(logger, DispatcherReplicasEnvVarKey, "DispatcherReplicas")
-	if err != nil {
-		return nil, err
-	}
-
-	// Get The Required DispatcherMemoryRequest Config Value
-	quantity, err := env.GetRequiredQuantityConfigValue(logger, DispatcherMemoryRequestEnvVarKey)
-	if err != nil {
-		return nil, err
-	} else {
-		environment.DispatcherMemoryRequest = *quantity
-	}
-
-	// Get The Required DispatcherMemoryLimit Config Value
-	quantity, err = env.GetRequiredQuantityConfigValue(logger, DispatcherMemoryLimitEnvVarKey)
-	if err != nil {
-		return nil, err
-	} else {
-		environment.DispatcherMemoryLimit = *quantity
-	}
-
-	// Get The Required DispatcherCpuRequest Config Value
-	quantity, err = env.GetRequiredQuantityConfigValue(logger, DispatcherCpuRequestEnvVarKey)
-	if err != nil {
-		return nil, err
-	} else {
-		environment.DispatcherCpuRequest = *quantity
-	}
-
-	// Get The Required DispatcherCpuLimit Config Value
-	quantity, err = env.GetRequiredQuantityConfigValue(logger, DispatcherCpuLimitEnvVarKey)
-	if err != nil {
-		return nil, err
-	} else {
-		environment.DispatcherCpuLimit = *quantity
-	}
-
-	// Get The Optional DispatcherRetryInitialIntervalMillis Config Value & Convert To Int
-	environment.DispatcherRetryInitialIntervalMillis, err = env.GetOptionalConfigInt64(logger, DispatcherRetryInitialIntervalMillisEnvVarKey, DefaultEventRetryInitialIntervalMillis, "DispatcherRetryInitialIntervalMillis")
-	if err != nil {
-		return nil, err
-	}
-
-	// Get The Optional DispatcherRetryTimeMillisMax Config Value & Convert To Int
-	environment.DispatcherRetryTimeMillisMax, err = env.GetOptionalConfigInt64(logger, DispatcherRetryTimeMillisMaxEnvVarKey, DefaultEventRetryTimeMillisMax, "DispatcherRetryTimeMillisMax")
-	if err != nil {
-		return nil, err
-	}
-
-	// Get The Optional DispatcherRetryExponentialBackoff Config Value & Convert To Bool
-	environment.DispatcherRetryExponentialBackoff, err = env.GetOptionalConfigBool(logger, DispatcherRetryExponentialBackoffEnvVarKey, DefaultExponentialBackoff, "DispatcherRetryExponentialBackoff")
 	if err != nil {
 		return nil, err
 	}
@@ -228,43 +129,68 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 		return nil, err
 	}
 
-	// Get The Required ChannelReplicas Config Value & Convert To Int
-	environment.ChannelReplicas, err = env.GetRequiredConfigInt(logger, ChannelReplicasEnvVarKey, "ChannelReplicas")
-	if err != nil {
-		return nil, err
-	}
-
-	quantity, err = env.GetRequiredQuantityConfigValue(logger, ChannelMemoryRequestEnvVarKey)
-	if err != nil {
-		return nil, err
-	} else {
-		environment.ChannelMemoryRequest = *quantity
-	}
-
-	quantity, err = env.GetRequiredQuantityConfigValue(logger, ChannelMemoryLimitEnvVarKey)
-	if err != nil {
-		return nil, err
-	} else {
-		environment.ChannelMemoryLimit = *quantity
-	}
-
-	quantity, err = env.GetRequiredQuantityConfigValue(logger, ChannelCpuRequestEnvVarKey)
-	if err != nil {
-		return nil, err
-	} else {
-		environment.ChannelCpuRequest = *quantity
-	}
-
-	quantity, err = env.GetRequiredQuantityConfigValue(logger, ChannelCpuLimitEnvVarKey)
-	if err != nil {
-		return nil, err
-	} else {
-		environment.ChannelCpuLimit = *quantity
-	}
-
 	// Log The ControllerConfig Loaded From Environment Variables
 	logger.Info("Environment Variables", zap.Any("Environment", environment))
 
 	// Return The Populated ControllerConfig
 	return environment, nil
+}
+
+// ConfigurationError is the type of error returned from VerifyOverrides
+// when a setting is missing or invalid
+type ControllerConfigurationError string
+
+func (err ControllerConfigurationError) Error() string {
+	return "controller: invalid configuration (" + string(err) + ")"
+}
+
+// VerifyOverrides overwrites an EventingKafkaConfig struct with the values from an Environment struct
+// The fields here are not permitted to be overridden by the values from the config-eventing-kafka configmap
+// VerifyOverrides returns an error if mandatory fields in the EventingKafkaConfig have not been set either
+// via the external configmap or the internal variables.
+func VerifyOverrides(ekConfig *config.EventingKafkaConfig, environment *Environment) error {
+	ekConfig.ServiceAccount = environment.ServiceAccount
+	ekConfig.Kafka.Provider = environment.KafkaProvider
+	ekConfig.Dispatcher.Image = environment.DispatcherImage
+	ekConfig.Channel.Image = environment.ChannelImage
+	ekConfig.Metrics.Port = environment.MetricsPort
+	ekConfig.Metrics.Domain = environment.MetricsDomain
+	ekConfig.Health.Port = constants.HealthPort
+
+	// Verify mandatory ekConfig settings
+	switch {
+	case ekConfig.Kafka.Topic.DefaultNumPartitions < 1:
+		return ControllerConfigurationError("Kafka.Topic.DefaultNumPartitions must be > 0")
+	case ekConfig.Kafka.Topic.DefaultReplicationFactor < 1:
+		return ControllerConfigurationError("Kafka.Topic.DefaultReplicationFactor must be > 0")
+	case ekConfig.Kafka.Topic.DefaultRetentionMillis < 1:
+		return ControllerConfigurationError("Kafka.Topic.DefaultRetentionMillis must be > 0")
+	case ekConfig.Dispatcher.CpuLimit == resource.Quantity{}:
+		return ControllerConfigurationError("Dispatcher.CpuLimit must be nonzero")
+	case ekConfig.Dispatcher.CpuRequest == resource.Quantity{}:
+		return ControllerConfigurationError("Dispatcher.CpuRequest must be nonzero")
+	case ekConfig.Dispatcher.MemoryLimit == resource.Quantity{}:
+		return ControllerConfigurationError("Dispatcher.MemoryLimit must be nonzero")
+	case ekConfig.Dispatcher.MemoryRequest == resource.Quantity{}:
+		return ControllerConfigurationError("Dispatcher.MemoryRequest must be nonzero")
+	case ekConfig.Dispatcher.Replicas < 1:
+		return ControllerConfigurationError("Dispatcher.Replicas must be > 0")
+	case ekConfig.Channel.CpuLimit == resource.Quantity{}:
+		return ControllerConfigurationError("Channel.CpuLimit must be nonzero")
+	case ekConfig.Channel.CpuRequest == resource.Quantity{}:
+		return ControllerConfigurationError("Channel.CpuRequest must be nonzero")
+	case ekConfig.Channel.MemoryLimit == resource.Quantity{}:
+		return ControllerConfigurationError("Channel.MemoryLimit must be nonzero")
+	case ekConfig.Channel.MemoryRequest == resource.Quantity{}:
+		return ControllerConfigurationError("Channel.MemoryRequest must be nonzero")
+	case ekConfig.Channel.Replicas < 1:
+		return ControllerConfigurationError("Channel.Replicas must be > 0")
+	case ekConfig.Health.Port < 1:
+		return ControllerConfigurationError("Health.Port must be > 0")
+	case ekConfig.Metrics.Port < 1:
+		return ControllerConfigurationError("Metrics.Port must be > 0")
+	case ekConfig.Metrics.Domain == "":
+		return ControllerConfigurationError("Metrics.Domain must not be empty")
+	}
+	return nil // no problems found
 }

@@ -16,6 +16,7 @@ import (
 	"golang.org/x/net/proxy"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	commonutil "knative.dev/eventing-kafka/pkg/common/kafka/util"
@@ -25,51 +26,45 @@ import (
 	"knative.dev/pkg/system"
 )
 
-const ()
-
 // The EventingKafkaConfig and these EK sub-structs contain our custom configuration settings,
 // stored in the config-eventing-kafka configmap.  The sub-structs are explicitly declared so that they
 // can have their own JSON tags in the overall EventingKafkaConfig
-type EKChannelConfig struct {
-	CpuLimit      string `json:"cpuLimit,omitempty"`
-	CpuRequest    string `json:"cpuRequest,omitempty"`
-	MemoryLimit   string `json:"memoryLimit,omitempty"`
-	MemoryRequest string `json:"memoryRequest,omitempty"`
-	Replicas      int    `json:"replicas,omitempty"`
+type EKKubernetesConfig struct {
+	CpuLimit      resource.Quantity `json:"cpuLimit,omitempty"`
+	CpuRequest    resource.Quantity `json:"cpuRequest,omitempty"`
+	MemoryLimit   resource.Quantity `json:"memoryLimit,omitempty"`
+	MemoryRequest resource.Quantity `json:"memoryRequest,omitempty"`
+	Replicas      int               `json:"replicas,omitempty"`
+	Image         string            `json:"image,omitempty"`
 }
 
-type EKDefaultConfig struct {
-	NumPartitions     int   `json:"numPartitions,omitempty"`
-	ReplicationFactor int   `json:"replicationFactor,omitempty"`
-	RetentionMillis   int64 `json:"retentionMillis,omitempty"`
+type EKChannelConfig struct {
+	EKKubernetesConfig
 }
 
 type EKDispatcherConfig struct {
-	CpuLimit                   string `json:"cpuLimit,omitempty"`
-	CpuRequest                 string `json:"cpuRequest,omitempty"`
-	MemoryLimit                string `json:"memoryLimit,omitempty"`
-	MemoryRequest              string `json:"memoryRequest,omitempty"`
-	Replicas                   int    `json:"replicas,omitempty"`
-	RetryInitialIntervalMillis int64  `json:"retryInitialIntervalMillis,omitempty"`
-	RetryTimeMillis            int64  `json:"retryTimeMillis,omitempty"`
-	RetryExponentialBackoff    bool   `json:"retryExponentialBackoff,omitempty"`
-	ExponentialBackoffPresent  bool   `json:"-"`
+	EKKubernetesConfig
+	RetryInitialIntervalMillis int64 `json:"retryInitialIntervalMillis,omitempty"`
+	RetryTimeMillis            int64 `json:"retryTimeMillis,omitempty"`
+	RetryExponentialBackoff    *bool `json:"retryExponentialBackoff,omitempty"`
+}
+
+type EKKafkaTopicConfig struct {
+	Name                     string `json:"name,omitempty"`
+	DefaultNumPartitions     int32  `json:"defaultNumPartitions,omitempty"`
+	DefaultReplicationFactor int16  `json:"defaultReplicationFactor,omitempty"`
+	DefaultRetentionMillis   int64  `json:"defaultRetentionMillis,omitempty"`
 }
 
 type EKKafkaConfig struct {
-	Topic   string `json::"topic,omitempty"`
-	Brokers string `json:"brokers,omitempty"`
-	Offset  struct {
-		CommitAsync          bool  `json:"commitAsync,omitempty"`
-		CommitDurationMillis int64 `json:"commitDurationMillis,omitempty"`
-		CommitMessageCount   int64 `json:"commitMessageCount,omitempty"`
-	}
-	Password    string `json:"password,omitempty"`
-	Provider    string `json:"provider,omitempty"`
-	Secret      string `json:"secret,omitempty"`
-	Username    string `json:"username,omitempty"`
-	ChannelKey  string `json:"channelKey,omitempty"`
-	ServiceName string `json:"serviceName,omitempty"`
+	Topic       EKKafkaTopicConfig `json:"topic,omitempty"`
+	Provider    string             `json:"provider,omitempty"`
+	Password    string             `json:"password,omitempty"`
+	Brokers     string             `json:"brokers,omitempty"`
+	Secret      string             `json:"secret,omitempty"`
+	Username    string             `json:"username,omitempty"`
+	ChannelKey  string             `json:"channelKey,omitempty"`
+	ServiceName string             `json:"serviceName,omitempty"`
 }
 
 type EKMetricsConfig struct {
@@ -83,7 +78,6 @@ type EKHealthConfig struct {
 
 type EventingKafkaConfig struct {
 	Channel        EKChannelConfig    `json:"channel,omitempty"`
-	Default        EKDefaultConfig    `json:"default,omitempty"`
 	Dispatcher     EKDispatcherConfig `json:"dispatcher,omitempty"`
 	Kafka          EKKafkaConfig      `json:"kafka,omitempty"`
 	Metrics        EKMetricsConfig    `json:"metrics,omitempty"`

@@ -12,6 +12,7 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	internaltesting "knative.dev/eventing-kafka/pkg/common/internal/testing"
@@ -51,6 +52,8 @@ Consumer:
   Return:
     Errors: true
 `
+
+	// EKDefaultConfigYaml is intended to match what's in 200-eventing-kafka-configmap.yaml
 	EKDefaultConfigYaml = `
 channel:
   cpuLimit: 200m
@@ -58,10 +61,6 @@ channel:
   memoryLimit: 100Mi
   memoryRequest: 50Mi
   replicas: 1
-default:
-  numPartitions: 4
-  replicationFactor: 1
-  retentionMillis: 604800000
 dispatcher:
   cpuLimit: 500m
   cpuRequest: 300m
@@ -72,15 +71,11 @@ dispatcher:
   retryTimeMillis: 300000
   retryExponentialBackoff: true
 kafka:
-  offset:
-    commitAsync: false
-    commitDurationMillis: 30000
-    commitMessageCount: 50
+  topic:
+    numPartitions: 4
+    replicationFactor: 1
+    retentionMillis: 604800000
   provider: azure
-metrics:
-  domain: eventing-kafka
-  port: 8081
-serviceAccount: eventing-kafka-channel-controller
 `
 
 	OldSaramaConfig = `
@@ -121,6 +116,17 @@ dispatcher:
   retryInitialIntervalMillis: ` + TestDispatcherRetryInitial + `
   retryTimeMillis: ` + TestDispatcherRetry + `
   retryExponentialBackoff: true
+`
+
+	TestEKConfigNoBackoff = `
+dispatcher:
+  cpuLimit: 500m
+  cpuRequest: 300m
+  memoryLimit: 128Mi
+  memoryRequest: 50Mi
+  replicas: ` + TestDispatcherReplicas + `
+  retryInitialIntervalMillis: ` + TestDispatcherRetryInitial + `
+  retryTimeMillis: ` + TestDispatcherRetry + `
 `
 )
 
@@ -209,6 +215,23 @@ func TestLoadEventingKafkaSettings(t *testing.T) {
 	assert.Equal(t, TestDispatcherReplicas, strconv.Itoa(ekConfig.Dispatcher.Replicas))
 	assert.Equal(t, TestDispatcherRetryInitial, strconv.FormatInt(ekConfig.Dispatcher.RetryInitialIntervalMillis, 10))
 	assert.Equal(t, TestDispatcherRetry, strconv.FormatInt(ekConfig.Dispatcher.RetryTimeMillis, 10))
+	// Verify that the "RetryExponentialBackoff" field is set properly (bool pointer)
+	assert.NotNil(t, ekConfig.Dispatcher.RetryExponentialBackoff)
+	assert.True(t, *ekConfig.Dispatcher.RetryExponentialBackoff)
+}
+
+func TestLoadEventingKafkaSettings_NoBackoff(t *testing.T) {
+	// Set up a configmap and verify that the sarama settings are loaded properly from it
+	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, constants.KnativeEventingNamespace))
+	configMap := getTestSaramaConfigMap(OldSaramaConfig, TestEKConfigNoBackoff)
+	fakeK8sClient := fake.NewSimpleClientset(configMap)
+
+	ctx := context.WithValue(context.Background(), injectionclient.Key{}, fakeK8sClient)
+
+	_, ekConfig, err := LoadEventingKafkaSettings(ctx)
+	assert.Nil(t, err)
+	// Verify that the "RetryExponentialBackoff" field is set properly (bool pointer)
+	assert.Nil(t, ekConfig.Dispatcher.RetryExponentialBackoff)
 }
 
 // This test is specifically to validate that our default settings (used in 200-eventing-kafka-configmap.yaml)
@@ -232,33 +255,23 @@ func TestLoadDefaultSaramaSettings(t *testing.T) {
 
 	// Make sure all of our default eventing-kafka settings were loaded properly
 	// Specifically checking the type (e.g. int64, int16, int) is important
-	assert.Equal(t, "200m", ekConfig.Channel.CpuLimit)
-	assert.Equal(t, "100m", ekConfig.Channel.CpuRequest)
-	assert.Equal(t, "100Mi", ekConfig.Channel.MemoryLimit)
-	assert.Equal(t, "50Mi", ekConfig.Channel.MemoryRequest)
+	assert.Equal(t, resource.MustParse("200m"), ekConfig.Channel.CpuLimit)
+	assert.Equal(t, resource.MustParse("100m"), ekConfig.Channel.CpuRequest)
+	assert.Equal(t, resource.MustParse("100Mi"), ekConfig.Channel.MemoryLimit)
+	assert.Equal(t, resource.MustParse("50Mi"), ekConfig.Channel.MemoryRequest)
 	assert.Equal(t, 1, ekConfig.Channel.Replicas)
-	assert.Equal(t, 4, ekConfig.Default.NumPartitions)
-	assert.Equal(t, 1, ekConfig.Default.ReplicationFactor)
-	assert.Equal(t, int64(604800000), ekConfig.Default.RetentionMillis)
-	assert.Equal(t, "500m", ekConfig.Dispatcher.CpuLimit)
-	assert.Equal(t, "300m", ekConfig.Dispatcher.CpuRequest)
-	assert.Equal(t, "128Mi", ekConfig.Dispatcher.MemoryLimit)
-	assert.Equal(t, "50Mi", ekConfig.Dispatcher.MemoryRequest)
+	assert.Equal(t, int32(4), ekConfig.Kafka.Topic.DefaultNumPartitions)
+	assert.Equal(t, int16(1), ekConfig.Kafka.Topic.DefaultReplicationFactor)
+	assert.Equal(t, int64(604800000), ekConfig.Kafka.Topic.DefaultRetentionMillis)
+	assert.Equal(t, resource.MustParse("500m"), ekConfig.Dispatcher.CpuLimit)
+	assert.Equal(t, resource.MustParse("300m"), ekConfig.Dispatcher.CpuRequest)
+	assert.Equal(t, resource.MustParse("128Mi"), ekConfig.Dispatcher.MemoryLimit)
+	assert.Equal(t, resource.MustParse("50Mi"), ekConfig.Dispatcher.MemoryRequest)
 	assert.Equal(t, 1, ekConfig.Dispatcher.Replicas)
 	assert.Equal(t, int64(500), ekConfig.Dispatcher.RetryInitialIntervalMillis)
 	assert.Equal(t, int64(300000), ekConfig.Dispatcher.RetryTimeMillis)
-	assert.Equal(t, true, ekConfig.Dispatcher.RetryExponentialBackoff)
-	assert.Equal(t, "", ekConfig.Kafka.Brokers)
-	assert.Equal(t, false, ekConfig.Kafka.Offset.CommitAsync)
-	assert.Equal(t, int64(30000), ekConfig.Kafka.Offset.CommitDurationMillis)
-	assert.Equal(t, int64(50), ekConfig.Kafka.Offset.CommitMessageCount)
-	assert.Equal(t, "", ekConfig.Kafka.Password)
+	assert.Equal(t, true, *ekConfig.Dispatcher.RetryExponentialBackoff)
 	assert.Equal(t, "azure", ekConfig.Kafka.Provider)
-	assert.Equal(t, "", ekConfig.Kafka.Secret)
-	assert.Equal(t, "", ekConfig.Kafka.Username)
-	assert.Equal(t, "eventing-kafka", ekConfig.Metrics.Domain)
-	assert.Equal(t, 8081, ekConfig.Metrics.Port)
-	assert.Equal(t, "eventing-kafka-channel-controller", ekConfig.ServiceAccount)
 }
 
 // Verify that the JSON fragment can be loaded into a sarama.Config struct

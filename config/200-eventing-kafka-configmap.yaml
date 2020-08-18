@@ -2,8 +2,9 @@ apiVersion: v1
 data:
   sarama: |
     Admin:
-      Timeout: 10000000000  # 10 seconds, bumped up from 3 seconds just for some extra margin.
+      Timeout: 10000000000  # 10 seconds
     Net:
+      MaxOpenRequests: 1
       TLS:
         Config:
           ClientAuth: 0
@@ -12,15 +13,15 @@ data:
         Version: 1
       KeepAlive: 30000000000  # 30 seconds
     Metadata:
-      RefreshFrequency: 300000000000  # 5 minutes, reduced from default value of 10 minutes
+      RefreshFrequency: 300000000000  # 5 minutes
     Consumer:
       Offsets:
         AutoCommit:
           Interval: 5000000000  # 5 seconds
-        Retention: 604800000000000  # 1 week, increased from default of 1 day
+        Retention: 604800000000000  # 1 week
     Producer:
-      Idempotent: false  # Desirable but not available in Azure EventHubs yet
-      RequiredAcks: -1  # "WaitForAll" waits for all in-sync replicas to commit before responding.
+      Idempotent: true  # Must be false for Azure EventHubs
+      RequiredAcks: -1  # -1 = WaitForAll, Most stringent option for "at-least-once" delivery.
   eventing-kafka: |
     channel:
       cpuLimit: 200m
@@ -28,29 +29,21 @@ data:
       memoryLimit: 100Mi
       memoryRequest: 50Mi
       replicas: 1
-    default:
-      numPartitions: 4
-      replicationFactor: 1
-      retentionMillis: 604800000
     dispatcher:
       cpuLimit: 500m
       cpuRequest: 300m
       memoryLimit: 128Mi
       memoryRequest: 50Mi
       replicas: 1
-      retryInitialIntervalMillis: 500
-      retryTimeMillis: 300000
+      retryInitialIntervalMillis: 500 # 0.5 seconds
+      retryTimeMillis: 300000  # 5 minutes
       retryExponentialBackoff: true
     kafka:
-      offset:
-        commitAsync: false
-        commitDurationMillis: 30000
-        commitMessageCount: 50
-      provider: azure
-    metrics:
-      domain: eventing-kafka
-      port: 8081
-    serviceAccount: eventing-kafka-channel-controller
+      topic:
+        defaultNumPartitions: 4
+        defaultReplicationFactor: 1
+        defaultRetentionMillis: 604800000  # 1 week
+      provider: local
 kind: ConfigMap
 metadata:
   name: config-eventing-kafka

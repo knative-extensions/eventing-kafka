@@ -3,6 +3,8 @@ package kafkasecret
 import (
 	"context"
 	"fmt"
+	"strconv"
+
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -17,7 +19,6 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
-	"strconv"
 )
 
 // Reconcile The "Channel" Inbound For The Specified Kafka Secret
@@ -149,8 +150,8 @@ func (r *Reconciler) newChannelService(secret *corev1.Secret) *corev1.Service {
 				},
 				{
 					Name:       constants.MetricsPortName,
-					Port:       int32(r.environment.MetricsPort),
-					TargetPort: intstr.FromInt(r.environment.MetricsPort),
+					Port:       int32(r.config.Metrics.Port),
+					TargetPort: intstr.FromInt(r.config.Metrics.Port),
 				},
 			},
 			Selector: map[string]string{
@@ -226,7 +227,7 @@ func (r *Reconciler) newChannelDeployment(secret *corev1.Secret) (*appsv1.Deploy
 	deploymentName := util.ChannelDnsSafeName(secret.Name)
 
 	// Replicas Int Value For De-Referencing
-	replicas := int32(r.environment.ChannelReplicas)
+	replicas := int32(r.config.Channel.Replicas)
 
 	// Create The Channel Container Environment Variables
 	channelEnvVars, err := r.channelDeploymentEnvVars(secret)
@@ -266,14 +267,14 @@ func (r *Reconciler) newChannelDeployment(secret *corev1.Secret) (*appsv1.Deploy
 					},
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName: r.environment.ServiceAccount,
+					ServiceAccountName: r.config.ServiceAccount,
 					Containers: []corev1.Container{
 						{
 							Name: deploymentName,
 							LivenessProbe: &corev1.Probe{
 								Handler: corev1.Handler{
 									HTTPGet: &corev1.HTTPGetAction{
-										Port: intstr.FromInt(constants.HealthPort),
+										Port: intstr.FromInt(r.config.Health.Port),
 										Path: health.LivenessPath,
 									},
 								},
@@ -283,14 +284,14 @@ func (r *Reconciler) newChannelDeployment(secret *corev1.Secret) (*appsv1.Deploy
 							ReadinessProbe: &corev1.Probe{
 								Handler: corev1.Handler{
 									HTTPGet: &corev1.HTTPGetAction{
-										Port: intstr.FromInt(constants.HealthPort),
+										Port: intstr.FromInt(r.config.Health.Port),
 										Path: health.ReadinessPath,
 									},
 								},
 								InitialDelaySeconds: constants.ChannelReadinessDelay,
 								PeriodSeconds:       constants.ChannelReadinessPeriod,
 							},
-							Image: r.environment.ChannelImage,
+							Image: r.config.Channel.Image,
 							Ports: []corev1.ContainerPort{
 								{
 									Name:          "server",
@@ -301,12 +302,12 @@ func (r *Reconciler) newChannelDeployment(secret *corev1.Secret) (*appsv1.Deploy
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Resources: corev1.ResourceRequirements{
 								Requests: corev1.ResourceList{
-									corev1.ResourceCPU:    r.environment.ChannelCpuRequest,
-									corev1.ResourceMemory: r.environment.ChannelMemoryRequest,
+									corev1.ResourceCPU:    r.config.Channel.CpuRequest,
+									corev1.ResourceMemory: r.config.Channel.MemoryRequest,
 								},
 								Limits: corev1.ResourceList{
-									corev1.ResourceCPU:    r.environment.ChannelCpuLimit,
-									corev1.ResourceMemory: r.environment.ChannelMemoryLimit,
+									corev1.ResourceCPU:    r.config.Channel.CpuLimit,
+									corev1.ResourceMemory: r.config.Channel.MemoryLimit,
 								},
 							},
 						},
@@ -339,15 +340,15 @@ func (r *Reconciler) channelDeploymentEnvVars(secret *corev1.Secret) ([]corev1.E
 		},
 		{
 			Name:  commonenv.MetricsPortEnvVarKey,
-			Value: strconv.Itoa(r.environment.MetricsPort),
+			Value: strconv.Itoa(r.config.Metrics.Port),
 		},
 		{
 			Name:  commonenv.MetricsDomainEnvVarKey,
-			Value: r.environment.MetricsDomain,
+			Value: r.config.Metrics.Domain,
 		},
 		{
 			Name:  commonenv.HealthPortEnvVarKey,
-			Value: strconv.Itoa(constants.HealthPort),
+			Value: strconv.Itoa(r.config.Health.Port),
 		},
 	}
 

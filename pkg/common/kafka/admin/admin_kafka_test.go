@@ -280,6 +280,7 @@ func TestKafkaAdminClientCloseInvalidAdminClient(t *testing.T) {
 
 	// Perform The Test
 	err := adminClient.Close()
+	assert.NotNil(t, err)
 
 	// Verify The Results
 	assert.Equal(t, "unable to close invalid ClusterAdmin - check Kafka authorization secrets", err.Error())

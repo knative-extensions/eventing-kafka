@@ -2,6 +2,9 @@ package test
 
 import (
 	"fmt"
+	"strconv"
+	"time"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -10,12 +13,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgotesting "k8s.io/client-go/testing"
 	kafkav1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
+	"knative.dev/eventing-kafka/pkg/common/config"
 	commonenv "knative.dev/eventing-kafka/pkg/common/env"
 	"knative.dev/eventing-kafka/pkg/common/health"
 	commonKafkaConstants "knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	kafkautil "knative.dev/eventing-kafka/pkg/common/kafka/util"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
-	"knative.dev/eventing-kafka/pkg/controller/env"
 	"knative.dev/eventing-kafka/pkg/controller/event"
 	"knative.dev/eventing-kafka/pkg/controller/util"
 	"knative.dev/eventing/pkg/apis/messaging"
@@ -23,8 +26,6 @@ import (
 	"knative.dev/pkg/logging"
 	reconcilertesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/pkg/system"
-	"strconv"
-	"time"
 )
 
 // Constants
@@ -34,11 +35,10 @@ const (
 
 	// Environment Test Data
 	ServiceAccount                         = "TestServiceAccount"
+	ServiceProvider                        = "local"
 	MetricsPort                            = 9876
 	MetricsDomain                          = "eventing-kafka"
 	HealthPort                             = 8082
-	KafkaOffsetCommitMessageCount          = 99
-	KafkaOffsetCommitDurationMillis        = 9999
 	ChannelImage                           = "TestChannelImage"
 	ChannelReplicas                        = 1
 	DispatcherImage                        = "TestDispatcherImage"
@@ -94,32 +94,49 @@ var (
 // ControllerConfig Test Data
 //
 
-// Set The Required Environment Variables
-func NewEnvironment() *env.Environment {
-	return &env.Environment{
-		ServiceAccount:                       ServiceAccount,
-		MetricsPort:                          MetricsPort,
-		MetricsDomain:                        MetricsDomain,
-		KafkaOffsetCommitMessageCount:        KafkaOffsetCommitMessageCount,
-		KafkaOffsetCommitDurationMillis:      KafkaOffsetCommitDurationMillis,
-		DefaultNumPartitions:                 DefaultNumPartitions,
-		DefaultReplicationFactor:             DefaultReplicationFactor,
-		DefaultRetentionMillis:               DefaultRetentionMillis,
-		DispatcherImage:                      DispatcherImage,
-		DispatcherReplicas:                   DispatcherReplicas,
-		DispatcherRetryInitialIntervalMillis: DefaultEventRetryInitialIntervalMillis,
-		DispatcherRetryTimeMillisMax:         DefaultEventRetryTimeMillisMax,
-		DispatcherRetryExponentialBackoff:    DefaultExponentialBackoff,
-		DispatcherCpuLimit:                   resource.MustParse(DispatcherCpuLimit),
-		DispatcherCpuRequest:                 resource.MustParse(DispatcherCpuRequest),
-		DispatcherMemoryLimit:                resource.MustParse(DispatcherMemoryLimit),
-		DispatcherMemoryRequest:              resource.MustParse(DispatcherMemoryRequest),
-		ChannelImage:                         ChannelImage,
-		ChannelReplicas:                      ChannelReplicas,
-		ChannelMemoryRequest:                 resource.MustParse(ChannelMemoryRequest),
-		ChannelMemoryLimit:                   resource.MustParse(ChannelMemoryLimit),
-		ChannelCpuRequest:                    resource.MustParse(ChannelCpuRequest),
-		ChannelCpuLimit:                      resource.MustParse(ChannelCpuLimit),
+// Set The Required Config Fields
+func NewConfig() *config.EventingKafkaConfig {
+	backoff := DefaultExponentialBackoff
+	return &config.EventingKafkaConfig{
+		ServiceAccount: ServiceAccount,
+		Metrics: config.EKMetricsConfig{
+			Port:   MetricsPort,
+			Domain: MetricsDomain,
+		},
+		Health: config.EKHealthConfig{
+			Port: HealthPort,
+		},
+		Dispatcher: config.EKDispatcherConfig{
+			EKKubernetesConfig: config.EKKubernetesConfig{
+				Replicas:      DispatcherReplicas,
+				CpuLimit:      resource.MustParse(DispatcherCpuLimit),
+				CpuRequest:    resource.MustParse(DispatcherCpuRequest),
+				MemoryLimit:   resource.MustParse(DispatcherMemoryLimit),
+				MemoryRequest: resource.MustParse(DispatcherMemoryRequest),
+				Image:         DispatcherImage,
+			},
+			RetryInitialIntervalMillis: DefaultEventRetryInitialIntervalMillis,
+			RetryTimeMillis:            DefaultEventRetryTimeMillisMax,
+			RetryExponentialBackoff:    &backoff,
+		},
+		Channel: config.EKChannelConfig{
+			EKKubernetesConfig: config.EKKubernetesConfig{
+				Replicas:      ChannelReplicas,
+				CpuLimit:      resource.MustParse(ChannelCpuLimit),
+				CpuRequest:    resource.MustParse(ChannelCpuRequest),
+				MemoryLimit:   resource.MustParse(ChannelMemoryLimit),
+				MemoryRequest: resource.MustParse(ChannelMemoryRequest),
+				Image:         ChannelImage,
+			},
+		},
+		Kafka: config.EKKafkaConfig{
+			Topic: config.EKKafkaTopicConfig{
+				DefaultNumPartitions:     DefaultNumPartitions,
+				DefaultReplicationFactor: DefaultReplicationFactor,
+				DefaultRetentionMillis:   DefaultRetentionMillis,
+			},
+			Provider: ServiceProvider,
+		},
 	}
 }
 

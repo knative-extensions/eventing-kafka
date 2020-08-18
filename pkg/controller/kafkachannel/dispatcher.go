@@ -3,6 +3,8 @@ package kafkachannel
 import (
 	"context"
 	"fmt"
+	"strconv"
+
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -18,7 +20,6 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
-	"strconv"
 )
 
 //
@@ -131,8 +132,8 @@ func (r *Reconciler) newDispatcherService(channel *kafkav1beta1.KafkaChannel) *c
 			Ports: []corev1.ServicePort{
 				{
 					Name:       constants.MetricsPortName,
-					Port:       int32(r.environment.MetricsPort),
-					TargetPort: intstr.FromInt(r.environment.MetricsPort),
+					Port:       int32(r.config.Metrics.Port),
+					TargetPort: intstr.FromInt(r.config.Metrics.Port),
 				},
 			},
 			Selector: map[string]string{
@@ -210,7 +211,7 @@ func (r *Reconciler) newDispatcherDeployment(channel *kafkav1beta1.KafkaChannel)
 	deploymentName := util.DispatcherDnsSafeName(channel)
 
 	// Replicas Int Value For De-Referencing
-	replicas := int32(r.environment.DispatcherReplicas)
+	replicas := int32(r.config.Dispatcher.Replicas)
 
 	// Create The Dispatcher Container Environment Variables
 	envVars, err := r.dispatcherDeploymentEnvVars(channel)
@@ -252,14 +253,14 @@ func (r *Reconciler) newDispatcherDeployment(channel *kafkav1beta1.KafkaChannel)
 					},
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName: r.environment.ServiceAccount,
+					ServiceAccountName: r.config.ServiceAccount,
 					Containers: []corev1.Container{
 						{
 							Name: deploymentName,
 							LivenessProbe: &corev1.Probe{
 								Handler: corev1.Handler{
 									HTTPGet: &corev1.HTTPGetAction{
-										Port: intstr.FromInt(constants.HealthPort),
+										Port: intstr.FromInt(r.config.Health.Port),
 										Path: health.LivenessPath,
 									},
 								},
@@ -269,24 +270,24 @@ func (r *Reconciler) newDispatcherDeployment(channel *kafkav1beta1.KafkaChannel)
 							ReadinessProbe: &corev1.Probe{
 								Handler: corev1.Handler{
 									HTTPGet: &corev1.HTTPGetAction{
-										Port: intstr.FromInt(constants.HealthPort),
+										Port: intstr.FromInt(r.config.Health.Port),
 										Path: health.ReadinessPath,
 									},
 								},
 								InitialDelaySeconds: constants.DispatcherReadinessDelay,
 								PeriodSeconds:       constants.DispatcherReadinessPeriod,
 							},
-							Image:           r.environment.DispatcherImage,
+							Image:           r.config.Dispatcher.Image,
 							Env:             envVars,
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
-									corev1.ResourceMemory: r.environment.DispatcherMemoryLimit,
-									corev1.ResourceCPU:    r.environment.DispatcherCpuLimit,
+									corev1.ResourceMemory: r.config.Dispatcher.MemoryLimit,
+									corev1.ResourceCPU:    r.config.Dispatcher.CpuLimit,
 								},
 								Requests: corev1.ResourceList{
-									corev1.ResourceMemory: r.environment.DispatcherMemoryRequest,
-									corev1.ResourceCPU:    r.environment.DispatcherCpuRequest,
+									corev1.ResourceMemory: r.config.Dispatcher.MemoryRequest,
+									corev1.ResourceCPU:    r.config.Dispatcher.CpuRequest,
 								},
 							},
 						},
@@ -318,15 +319,15 @@ func (r *Reconciler) dispatcherDeploymentEnvVars(channel *kafkav1beta1.KafkaChan
 		},
 		{
 			Name:  commonenv.MetricsPortEnvVarKey,
-			Value: strconv.Itoa(r.environment.MetricsPort),
+			Value: strconv.Itoa(r.config.Metrics.Port),
 		},
 		{
 			Name:  commonenv.MetricsDomainEnvVarKey,
-			Value: r.environment.MetricsDomain,
+			Value: r.config.Metrics.Domain,
 		},
 		{
 			Name:  commonenv.HealthPortEnvVarKey,
-			Value: strconv.Itoa(constants.HealthPort),
+			Value: strconv.Itoa(r.config.Health.Port),
 		},
 		{
 			Name:  commonenv.ChannelKeyEnvVarKey,
@@ -342,15 +343,15 @@ func (r *Reconciler) dispatcherDeploymentEnvVars(channel *kafkav1beta1.KafkaChan
 		},
 		{
 			Name:  commonenv.ExponentialBackoffEnvVarKey,
-			Value: strconv.FormatBool(r.environment.DispatcherRetryExponentialBackoff),
+			Value: strconv.FormatBool(*r.config.Dispatcher.RetryExponentialBackoff),
 		},
 		{
 			Name:  commonenv.InitialRetryIntervalEnvVarKey,
-			Value: strconv.FormatInt(r.environment.DispatcherRetryInitialIntervalMillis, 10),
+			Value: strconv.FormatInt(r.config.Dispatcher.RetryInitialIntervalMillis, 10),
 		},
 		{
 			Name:  commonenv.MaxRetryTimeEnvVarKey,
-			Value: strconv.FormatInt(r.environment.DispatcherRetryTimeMillisMax, 10),
+			Value: strconv.FormatInt(r.config.Dispatcher.RetryTimeMillis, 10),
 		},
 	}
 

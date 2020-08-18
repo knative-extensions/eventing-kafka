@@ -14,9 +14,9 @@ import (
 	kafkaclientset "knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned"
 	"knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
 	kafkalisters "knative.dev/eventing-contrib/kafka/channel/pkg/client/listers/messaging/v1beta1"
+	"knative.dev/eventing-kafka/pkg/common/config"
 	kafkaadmin "knative.dev/eventing-kafka/pkg/common/kafka/admin"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
-	"knative.dev/eventing-kafka/pkg/controller/env"
 	"knative.dev/eventing-kafka/pkg/controller/event"
 	"knative.dev/eventing-kafka/pkg/controller/util"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
@@ -30,7 +30,7 @@ type Reconciler struct {
 	kafkaClientSet       kafkaclientset.Interface
 	adminClientType      kafkaadmin.AdminClientType
 	adminClient          kafkaadmin.AdminClientInterface
-	environment          *env.Environment
+	config               *config.EventingKafkaConfig
 	kafkachannelLister   kafkalisters.KafkaChannelLister
 	kafkachannelInformer cache.SharedIndexInformer
 	deploymentLister     appsv1listers.DeploymentLister

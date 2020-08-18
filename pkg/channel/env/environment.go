@@ -83,11 +83,20 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 	return environment, nil
 }
 
-// ApplyOverrides overwrites an EventingKafkaConfig struct with the values from an Environment struct
-// This allows us to remove variables from the required environment list as desired instead of
-// changing everything at once.  As they are removed from the GetEnvironment function (and the Environment
-// struct itself), the values from the configmap will take over.
-func ApplyOverrides(ekConfig *config.EventingKafkaConfig, environment *Environment) {
+// ConfigurationError is the type of error returned from VerifyOverrides
+// when a setting is missing or invalid
+type ChannelConfigurationError string
+
+func (err ChannelConfigurationError) Error() string {
+	return "channel: invalid configuration (" + string(err) + ")"
+}
+
+// VerifyOverrides overwrites an EventingKafkaConfig struct with the values from an Environment struct
+// The fields here are not permitted to be overridden by the values from the config-eventing-kafka configmap
+// VerifyOverrides returns an error if mandatory fields in the EventingKafkaConfig have not been set either
+// via the external configmap or the internal variables.
+func VerifyOverrides(ekConfig *config.EventingKafkaConfig, environment *Environment) error {
+	// Copy environment to ekConfig struct
 	ekConfig.Metrics.Port = environment.MetricsPort
 	ekConfig.Metrics.Domain = environment.MetricsDomain
 	ekConfig.Health.Port = environment.HealthPort
@@ -95,4 +104,15 @@ func ApplyOverrides(ekConfig *config.EventingKafkaConfig, environment *Environme
 	ekConfig.Kafka.ServiceName = environment.ServiceName
 	ekConfig.Kafka.Username = environment.KafkaUsername
 	ekConfig.Kafka.Password = environment.KafkaPassword
+
+	// Verify mandatory ekConfig settings
+	switch {
+	case ekConfig.Health.Port < 1:
+		return ChannelConfigurationError("Health.Port must be > 0")
+	case ekConfig.Metrics.Port < 1:
+		return ChannelConfigurationError("Metrics.Port must be > 0")
+	case ekConfig.Metrics.Domain == "":
+		return ChannelConfigurationError("Metrics.Domain must not be empty")
+	}
+	return nil // no problems found
 }

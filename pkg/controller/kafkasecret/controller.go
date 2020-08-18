@@ -2,6 +2,7 @@ package kafkasecret
 
 import (
 	"context"
+
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -9,6 +10,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	injectionclient "knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/client"
 	"knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/informers/messaging/v1beta1/kafkachannel"
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
 	"knative.dev/eventing-kafka/pkg/controller/env"
 	"knative.dev/eventing-kafka/pkg/controller/kafkasecretinformer"
@@ -39,11 +41,23 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 		logger.Fatal("Failed To Load Environment Variables - Terminating!", zap.Error(err))
 	}
 
+	// Load the Sarama and other eventing-kafka settings from our configmap
+	// (though we don't need the Sarama settings here; the AdminClient loads them from the configmap each time it needs them)
+	_, ekConfig, err := commonconfig.LoadEventingKafkaSettings(ctx)
+	if err != nil {
+		logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Error(err))
+	}
+
+	// Overwrite configmap settings with anything provided by the environment
+	if err = env.VerifyOverrides(ekConfig, environment); err != nil {
+		logger.Fatal("Invalid / Missing Settings - Terminating", zap.Error(err))
+	}
+
 	// Create The KafkaSecret Reconciler
 	r := &Reconciler{
 		logger:             logging.FromContext(ctx),
 		kubeClientset:      kubeclient.Get(ctx),
-		environment:        environment,
+		config:             ekConfig,
 		kafkaChannelClient: injectionclient.Get(ctx),
 		kafkachannelLister: kafkachannelInformer.Lister(),
 		deploymentLister:   deploymentInformer.Lister(),

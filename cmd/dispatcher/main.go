@@ -67,7 +67,9 @@ func main() {
 		logger.Fatal("Failed To Load Sarama Settings", zap.Error(err))
 	}
 	// Overwrite configmap settings with anything provided by the environment
-	env.ApplyOverrides(ekConfig, environment)
+	if err = env.VerifyOverrides(ekConfig, environment); err != nil {
+		logger.Fatal("Invalid / Missing Settings - Terminating", zap.Error(err))
+	}
 
 	// Initialize Tracing (Watches config-tracing ConfigMap, Assumes Context Came From LoggingContext With Embedded K8S Client Key)
 	err = commonconfig.InitializeTracing(logger.Sugar(), ctx, ekConfig.Kafka.ServiceName)
@@ -95,12 +97,12 @@ func main() {
 		Logger:               logger,
 		ClientId:             Component,
 		Brokers:              strings.Split(ekConfig.Kafka.Brokers, ","),
-		Topic:                ekConfig.Kafka.Topic,
+		Topic:                ekConfig.Kafka.Topic.Name,
 		Username:             ekConfig.Kafka.Username,
 		Password:             ekConfig.Kafka.Password,
 		ChannelKey:           ekConfig.Kafka.ChannelKey,
 		StatsReporter:        statsReporter,
-		ExponentialBackoff:   ekConfig.Dispatcher.RetryExponentialBackoff,
+		ExponentialBackoff:   *ekConfig.Dispatcher.RetryExponentialBackoff,
 		InitialRetryInterval: ekConfig.Dispatcher.RetryInitialIntervalMillis,
 		MaxRetryTime:         ekConfig.Dispatcher.RetryTimeMillis,
 		SaramaConfig:         saramaConfig,

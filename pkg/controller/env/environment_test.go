@@ -2,13 +2,16 @@ package env
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
-	commonenv "knative.dev/eventing-kafka/pkg/common/env"
 	"log"
 	"os"
 	"strconv"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/api/resource"
+	"knative.dev/eventing-kafka/pkg/common/config"
+	commonenv "knative.dev/eventing-kafka/pkg/common/env"
 )
 
 // Test Constants
@@ -18,16 +21,10 @@ const (
 	metricsDomain  = "example.com/kafka-eventing"
 	kafkaProvider  = "confluent"
 
-	kafkaOffsetCommitMessageCount   = "500"
-	kafkaOffsetCommitDurationMillis = "2000"
-
-	defaultNumPartitions                   = "7"
-	defaultReplicationFactor               = "2"
-	defaultRetentionMillis                 = "13579"
-	defaultEventRetryInitialIntervalMillis = "246810"
-	defaultEventRetryTimeMillisMax         = "1234567890"
-	defaultExponentialBackoff              = "true"
-	defaultKafkaConsumers                  = "5"
+	defaultNumPartitions     = "7"
+	defaultReplicationFactor = "2"
+	defaultRetentionMillis   = "13579"
+	defaultKafkaConsumers    = "5"
 
 	dispatcherImage         = "TestDispatcherImage"
 	dispatcherReplicas      = "1"
@@ -46,33 +43,18 @@ const (
 
 // Define The TestCase Struct
 type TestCase struct {
-	name                                 string
-	serviceAccount                       string
-	metricsPort                          string
-	metricsDomain                        string
-	kafkaProvider                        string
-	kafkaOffsetCommitMessageCount        string
-	kafkaOffsetCommitDurationMillis      string
-	defaultNumPartitions                 string
-	defaultReplicationFactor             string
-	defaultRetentionMillis               string
-	dispatcherRetryInitialIntervalMillis string
-	dispatcherRetryTimeMillisMax         string
-	dispatcherRetryExponentialBackoff    string
-	defaultKafkaConsumers                string
-	dispatcherImage                      string
-	dispatcherReplicas                   string
-	dispatcherMemoryRequest              string
-	dispatcherMemoryLimit                string
-	dispatcherCpuRequest                 string
-	dispatcherCpuLimit                   string
-	channelImage                         string
-	channelReplicas                      string
-	channelMemoryRequest                 string
-	channelMemoryLimit                   string
-	channelCpuRequest                    string
-	channelCpuLimit                      string
-	expectedError                        error
+	name                     string
+	serviceAccount           string
+	metricsPort              string
+	metricsDomain            string
+	kafkaProvider            string
+	defaultNumPartitions     string
+	defaultReplicationFactor string
+	defaultRetentionMillis   string
+	defaultKafkaConsumers    string
+	dispatcherImage          string
+	channelImage             string
+	expectedError            error
 }
 
 // Test All Permutations Of The GetEnvironment() Functionality
@@ -116,115 +98,9 @@ func TestGetEnvironment(t *testing.T) {
 	testCase.expectedError = fmt.Errorf("invalid (unknown) value 'foo' for environment variable '%s'", commonenv.KafkaProviderEnvVarKey)
 	testCases = append(testCases, testCase)
 
-	testCase = getValidTestCase("Missing Required Config - DefaultNumPartitions")
-	testCase.defaultNumPartitions = ""
-	testCase.expectedError = getMissingRequiredEnvironmentVariableError(DefaultNumPartitionsEnvVarKey)
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Invalid Config - DefaultNumPartitions")
-	testCase.defaultNumPartitions = "NAN"
-	testCase.expectedError = getInvalidInt32EnvironmentVariableError(testCase.defaultNumPartitions, DefaultNumPartitionsEnvVarKey)
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Missing Required Config - DefaultReplicationFactor")
-	testCase.defaultReplicationFactor = ""
-	testCase.expectedError = getMissingRequiredEnvironmentVariableError(DefaultReplicationFactorEnvVarKey)
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Invalid Config - DefaultReplicationFactor")
-	testCase.defaultReplicationFactor = "NAN"
-	testCase.expectedError = getInvalidInt16EnvironmentVariableError(testCase.defaultReplicationFactor, DefaultReplicationFactorEnvVarKey)
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Missing Optional Config - DefaultRetentionMillis")
-	testCase.defaultRetentionMillis = ""
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Invalid Config - DefaultRetentionMillis")
-	testCase.defaultRetentionMillis = "NAN"
-	testCase.expectedError = getInvalidInt64EnvironmentVariableError(testCase.defaultRetentionMillis, DefaultRetentionMillisEnvVarKey)
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Missing Optional Config - DispatcherRetryInitialIntervalMillis")
-	testCase.dispatcherRetryInitialIntervalMillis = ""
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Invalid Config - DispatcherRetryInitialIntervalMillis")
-	testCase.dispatcherRetryInitialIntervalMillis = "NAN"
-	testCase.expectedError = getInvalidInt64EnvironmentVariableError(testCase.dispatcherRetryInitialIntervalMillis, DispatcherRetryInitialIntervalMillisEnvVarKey)
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Missing Optional Config - DispatcherRetryTimeMillisMax")
-	testCase.dispatcherRetryTimeMillisMax = ""
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Invalid Config - DispatcherRetryTimeMillisMax")
-	testCase.dispatcherRetryTimeMillisMax = "NAN"
-	testCase.expectedError = getInvalidInt64EnvironmentVariableError(testCase.dispatcherRetryTimeMillisMax, DispatcherRetryTimeMillisMaxEnvVarKey)
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Missing Optional Config - DispatcherRetryExponentialBackoff")
-	testCase.dispatcherRetryExponentialBackoff = ""
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Invalid Config - DispatcherRetryExponentialBackoff")
-	testCase.dispatcherRetryExponentialBackoff = "NAB"
-	testCase.expectedError = getInvalidBooleanEnvironmentVariableError(testCase.dispatcherRetryExponentialBackoff, DispatcherRetryExponentialBackoffEnvVarKey)
-	testCases = append(testCases, testCase)
-
 	testCase = getValidTestCase("Missing Required Config - DispatcherImage")
 	testCase.dispatcherImage = ""
 	testCase.expectedError = getMissingRequiredEnvironmentVariableError(DispatcherImageEnvVarKey)
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Missing Required Config - DispatcherReplicas")
-	testCase.dispatcherReplicas = ""
-	testCase.expectedError = getMissingRequiredEnvironmentVariableError(DispatcherReplicasEnvVarKey)
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Invalid Config - DispatcherReplicas")
-	testCase.dispatcherReplicas = "NAN"
-	testCase.expectedError = getInvalidIntEnvironmentVariableError(testCase.dispatcherReplicas, DispatcherReplicasEnvVarKey)
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Missing Required Config - DispatcherMemoryRequest")
-	testCase.dispatcherMemoryRequest = ""
-	testCase.expectedError = getMissingRequiredEnvironmentVariableError(DispatcherMemoryRequestEnvVarKey)
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Invalid Config - DispatcherMemoryRequest")
-	testCase.dispatcherMemoryRequest = "NAN"
-	testCase.expectedError = getInvalidQuantityEnvironmentVariableError(testCase.dispatcherMemoryRequest, DispatcherMemoryRequestEnvVarKey)
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Missing Required Config - DispatcherMemoryLimit")
-	testCase.dispatcherMemoryLimit = ""
-	testCase.expectedError = getMissingRequiredEnvironmentVariableError(DispatcherMemoryLimitEnvVarKey)
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Invalid Config - DispatcherMemoryLimit")
-	testCase.dispatcherMemoryLimit = "NAN"
-	testCase.expectedError = getInvalidQuantityEnvironmentVariableError(testCase.dispatcherMemoryLimit, DispatcherMemoryLimitEnvVarKey)
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Missing Required Config - DispatcherCpuRequest")
-	testCase.dispatcherCpuRequest = ""
-	testCase.expectedError = getMissingRequiredEnvironmentVariableError(DispatcherCpuRequestEnvVarKey)
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Invalid Config - DispatcherCpuRequest")
-	testCase.dispatcherCpuRequest = "NAN"
-	testCase.expectedError = getInvalidQuantityEnvironmentVariableError(testCase.dispatcherCpuRequest, DispatcherCpuRequestEnvVarKey)
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Missing Required Config - DispatcherCpuLimit")
-	testCase.dispatcherCpuLimit = ""
-	testCase.expectedError = getMissingRequiredEnvironmentVariableError(DispatcherCpuLimitEnvVarKey)
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Invalid Config - DispatcherCpuLimit")
-	testCase.dispatcherCpuLimit = "NAN"
-	testCase.expectedError = getInvalidQuantityEnvironmentVariableError(testCase.dispatcherCpuLimit, DispatcherCpuLimitEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Required Config - ChannelImage")
@@ -232,96 +108,17 @@ func TestGetEnvironment(t *testing.T) {
 	testCase.expectedError = getMissingRequiredEnvironmentVariableError(ChannelImageEnvVarKey)
 	testCases = append(testCases, testCase)
 
-	testCase = getValidTestCase("Missing Required Config - ChannelReplicas")
-	testCase.channelReplicas = ""
-	testCase.expectedError = getMissingRequiredEnvironmentVariableError(ChannelReplicasEnvVarKey)
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Invalid Config - DispatcherReplicas")
-	testCase.channelReplicas = "NAN"
-	testCase.expectedError = getInvalidIntEnvironmentVariableError(testCase.channelReplicas, ChannelReplicasEnvVarKey)
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Missing Required Config - ChannelMemoryRequest")
-	testCase.channelMemoryRequest = ""
-	testCase.expectedError = getMissingRequiredEnvironmentVariableError(ChannelMemoryRequestEnvVarKey)
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Invalid Config - ChannelMemoryRequest")
-	testCase.channelMemoryRequest = "NAN"
-	testCase.expectedError = getInvalidQuantityEnvironmentVariableError(testCase.channelMemoryRequest, ChannelMemoryRequestEnvVarKey)
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Missing Required Config - ChannelMemoryLimit")
-	testCase.channelMemoryLimit = ""
-	testCase.expectedError = getMissingRequiredEnvironmentVariableError(ChannelMemoryLimitEnvVarKey)
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Invalid Config - ChannelMemoryLimit")
-	testCase.channelMemoryLimit = "NAN"
-	testCase.expectedError = getInvalidQuantityEnvironmentVariableError(testCase.channelMemoryLimit, ChannelMemoryLimitEnvVarKey)
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Missing Required Config - ChannelCpuRequest")
-	testCase.channelCpuRequest = ""
-	testCase.expectedError = getMissingRequiredEnvironmentVariableError(ChannelCpuRequestEnvVarKey)
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Invalid Config - ChannelCpuRequest")
-	testCase.channelCpuRequest = "NAN"
-	testCase.expectedError = getInvalidQuantityEnvironmentVariableError(testCase.channelCpuRequest, ChannelCpuRequestEnvVarKey)
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Missing Required Config - ChannelCpuLimit")
-	testCase.channelCpuLimit = ""
-	testCase.expectedError = getMissingRequiredEnvironmentVariableError(ChannelCpuLimitEnvVarKey)
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Invalid Config - ChannelCpuLimit")
-	testCase.channelCpuLimit = "NAN"
-	testCase.expectedError = getInvalidQuantityEnvironmentVariableError(testCase.channelCpuLimit, ChannelCpuLimitEnvVarKey)
-	testCases = append(testCases, testCase)
-
 	// Loop Over All The TestCases
 	for _, testCase := range testCases {
 
 		// (Re)Setup The Environment Variables From TestCase
 		os.Clearenv()
-		assert.Nil(t, os.Setenv(commonenv.ServiceAccountEnvVarKey, testCase.serviceAccount))
-		assert.Nil(t, os.Setenv(commonenv.MetricsDomainEnvVarKey, testCase.metricsDomain))
-		if len(testCase.metricsPort) > 0 {
-			assert.Nil(t, os.Setenv(commonenv.MetricsPortEnvVarKey, testCase.metricsPort))
-		}
-
-		assert.Nil(t, os.Setenv(commonenv.KafkaProviderEnvVarKey, testCase.kafkaProvider))
-		if len(testCase.defaultNumPartitions) > 0 {
-			assert.Nil(t, os.Setenv(DefaultNumPartitionsEnvVarKey, testCase.defaultNumPartitions))
-		}
-		assert.Nil(t, os.Setenv(DefaultReplicationFactorEnvVarKey, testCase.defaultReplicationFactor))
-		assert.Nil(t, os.Setenv(DefaultRetentionMillisEnvVarKey, testCase.defaultRetentionMillis))
-		assert.Nil(t, os.Setenv(DispatcherRetryInitialIntervalMillisEnvVarKey, testCase.dispatcherRetryInitialIntervalMillis))
-		assert.Nil(t, os.Setenv(DispatcherRetryTimeMillisMaxEnvVarKey, testCase.dispatcherRetryTimeMillisMax))
-		assert.Nil(t, os.Setenv(DispatcherRetryExponentialBackoffEnvVarKey, testCase.dispatcherRetryExponentialBackoff))
-
-		assert.Nil(t, os.Setenv(DispatcherImageEnvVarKey, testCase.dispatcherImage))
-		if len(testCase.dispatcherReplicas) > 0 {
-			assert.Nil(t, os.Setenv(DispatcherReplicasEnvVarKey, testCase.dispatcherReplicas))
-		}
-		assert.Nil(t, os.Setenv(DispatcherCpuLimitEnvVarKey, testCase.dispatcherCpuLimit))
-		assert.Nil(t, os.Setenv(DispatcherCpuRequestEnvVarKey, testCase.dispatcherCpuRequest))
-		assert.Nil(t, os.Setenv(DispatcherMemoryLimitEnvVarKey, testCase.dispatcherMemoryLimit))
-		assert.Nil(t, os.Setenv(DispatcherMemoryRequestEnvVarKey, testCase.dispatcherMemoryRequest))
-
-		assert.Nil(t, os.Setenv(ChannelImageEnvVarKey, testCase.channelImage))
-		if len(testCase.dispatcherReplicas) > 0 {
-			assert.Nil(t, os.Setenv(ChannelReplicasEnvVarKey, testCase.channelReplicas))
-		}
-		if len(testCase.channelMemoryRequest) > 0 {
-			assert.Nil(t, os.Setenv(ChannelMemoryRequestEnvVarKey, testCase.channelMemoryRequest))
-		}
-		assert.Nil(t, os.Setenv(ChannelCpuRequestEnvVarKey, testCase.channelCpuRequest))
-		assert.Nil(t, os.Setenv(ChannelMemoryLimitEnvVarKey, testCase.channelMemoryLimit))
-		assert.Nil(t, os.Setenv(ChannelCpuLimitEnvVarKey, testCase.channelCpuLimit))
+		assertSetenv(t, commonenv.ServiceAccountEnvVarKey, testCase.serviceAccount)
+		assertSetenv(t, commonenv.MetricsDomainEnvVarKey, testCase.metricsDomain)
+		assertSetenvNonempty(t, commonenv.MetricsPortEnvVarKey, testCase.metricsPort)
+		assertSetenv(t, commonenv.KafkaProviderEnvVarKey, testCase.kafkaProvider)
+		assertSetenv(t, DispatcherImageEnvVarKey, testCase.dispatcherImage)
+		assertSetenv(t, ChannelImageEnvVarKey, testCase.channelImage)
 
 		// Perform The Test
 		environment, err := GetEnvironment(logger)
@@ -336,35 +133,6 @@ func TestGetEnvironment(t *testing.T) {
 			assert.Equal(t, testCase.channelImage, environment.ChannelImage)
 			assert.Equal(t, testCase.dispatcherImage, environment.DispatcherImage)
 
-			assert.Equal(t, testCase.defaultNumPartitions, fmt.Sprint(environment.DefaultNumPartitions))
-			assert.Equal(t, testCase.defaultReplicationFactor, fmt.Sprint(environment.DefaultReplicationFactor))
-
-			if len(testCase.defaultRetentionMillis) > 0 {
-				assert.Equal(t, testCase.defaultRetentionMillis, strconv.FormatInt(environment.DefaultRetentionMillis, 10))
-			} else {
-				assert.Equal(t, DefaultRetentionMillis, strconv.FormatInt(environment.DefaultRetentionMillis, 10))
-			}
-
-			if len(testCase.dispatcherRetryInitialIntervalMillis) > 0 {
-				assert.Equal(t, testCase.dispatcherRetryInitialIntervalMillis, strconv.FormatInt(environment.DispatcherRetryInitialIntervalMillis, 10))
-			} else {
-				assert.Equal(t, DefaultEventRetryInitialIntervalMillis, strconv.FormatInt(environment.DispatcherRetryInitialIntervalMillis, 10))
-			}
-
-			if len(testCase.dispatcherRetryTimeMillisMax) > 0 {
-				assert.Equal(t, testCase.dispatcherRetryTimeMillisMax, strconv.FormatInt(environment.DispatcherRetryTimeMillisMax, 10))
-			} else {
-				assert.Equal(t, DefaultEventRetryTimeMillisMax, strconv.FormatInt(environment.DispatcherRetryTimeMillisMax, 10))
-			}
-
-			if len(testCase.dispatcherRetryExponentialBackoff) > 0 {
-				assert.Equal(t, testCase.dispatcherRetryExponentialBackoff, strconv.FormatBool(environment.DispatcherRetryExponentialBackoff))
-			} else {
-				assert.Equal(t, DefaultExponentialBackoff, strconv.FormatBool(environment.DispatcherRetryExponentialBackoff))
-			}
-
-			assert.Equal(t, testCase.dispatcherReplicas, strconv.Itoa(environment.DispatcherReplicas))
-
 		} else {
 			assert.Equal(t, testCase.expectedError, err)
 			assert.Nil(t, environment)
@@ -376,33 +144,15 @@ func TestGetEnvironment(t *testing.T) {
 // Get The Base / Valid Test Case - All Config Specified / No Errors
 func getValidTestCase(name string) TestCase {
 	return TestCase{
-		name:                                 name,
-		serviceAccount:                       serviceAccount,
-		metricsPort:                          metricsPort,
-		metricsDomain:                        metricsDomain,
-		kafkaProvider:                        kafkaProvider,
-		kafkaOffsetCommitMessageCount:        kafkaOffsetCommitMessageCount,
-		kafkaOffsetCommitDurationMillis:      kafkaOffsetCommitDurationMillis,
-		defaultNumPartitions:                 defaultNumPartitions,
-		defaultReplicationFactor:             defaultReplicationFactor,
-		defaultRetentionMillis:               defaultRetentionMillis,
-		dispatcherRetryInitialIntervalMillis: defaultEventRetryInitialIntervalMillis,
-		dispatcherRetryTimeMillisMax:         defaultEventRetryTimeMillisMax,
-		dispatcherRetryExponentialBackoff:    defaultExponentialBackoff,
-		defaultKafkaConsumers:                defaultKafkaConsumers,
-		dispatcherImage:                      dispatcherImage,
-		dispatcherReplicas:                   dispatcherReplicas,
-		dispatcherCpuRequest:                 dispatcherCpuRequest,
-		dispatcherCpuLimit:                   dispatcherCpuLimit,
-		dispatcherMemoryLimit:                dispatcherMemoryLimit,
-		dispatcherMemoryRequest:              dispatcherMemoryRequest,
-		channelImage:                         channelImage,
-		channelReplicas:                      channelReplicas,
-		channelMemoryRequest:                 channelMemoryRequest,
-		channelCpuRequest:                    channelCpuRquest,
-		channelMemoryLimit:                   channelMemoryLimit,
-		channelCpuLimit:                      channelCpuLimit,
-		expectedError:                        nil,
+		name:                  name,
+		serviceAccount:        serviceAccount,
+		metricsPort:           metricsPort,
+		metricsDomain:         metricsDomain,
+		kafkaProvider:         kafkaProvider,
+		defaultKafkaConsumers: defaultKafkaConsumers,
+		dispatcherImage:       dispatcherImage,
+		channelImage:          channelImage,
+		expectedError:         nil,
 	}
 }
 
@@ -416,31 +166,6 @@ func getInvalidIntEnvironmentVariableError(value string, envVarKey string) error
 	return fmt.Errorf("invalid (non int) value '%s' for environment variable '%s'", value, envVarKey)
 }
 
-// Get The Expected Error Message For An Invalid Int64 Environment Variable
-func getInvalidInt64EnvironmentVariableError(value string, envVarKey string) error {
-	return fmt.Errorf("invalid (non int64) value '%s' for environment variable '%s'", value, envVarKey)
-}
-
-// Get The Expected Error Message For An Invalid Int32 Environment Variable
-func getInvalidInt32EnvironmentVariableError(value string, envVarKey string) error {
-	return fmt.Errorf("invalid (non int32) value '%s' for environment variable '%s'", value, envVarKey)
-}
-
-// Get The Expected Error Message For An Invalid Int16 Environment Variable
-func getInvalidInt16EnvironmentVariableError(value string, envVarKey string) error {
-	return fmt.Errorf("invalid (non int16) value '%s' for environment variable '%s'", value, envVarKey)
-}
-
-// Get The Expected Error Message For An Invalid Quantity Environment Variable
-func getInvalidQuantityEnvironmentVariableError(value string, envVarKey string) error {
-	return fmt.Errorf("invalid (non quantity) value '%s' for environment variable '%s'", value, envVarKey)
-}
-
-// Get The Expected Error Message For An Invalid Boolean Environment Variable
-func getInvalidBooleanEnvironmentVariableError(value string, envVarKey string) error {
-	return fmt.Errorf("invalid (non boolean) value '%s' for environment variable '%s'", value, envVarKey)
-}
-
 // Initialize The Logger - Fatal Exit Upon Error
 func getLogger() *zap.Logger {
 	logger, err := zap.NewProduction() // For Now Just Use The Default Zap Production Logger
@@ -448,4 +173,244 @@ func getLogger() *zap.Logger {
 		log.Fatalf("Failed To Create New Zap Production Logger: %+v", err)
 	}
 	return logger
+}
+
+// Define The VerifyTestCase Struct
+type VerifyTestCase struct {
+	name string
+
+	// Environment settings
+	envMetricsPort   int
+	envMetricsDomain string
+
+	// Config settings
+	metricsPort                        int
+	metricsDomain                      string
+	expectedMetricsPort                int
+	expectedMetricsDomain              string
+	kafkaTopicDefaultNumPartitions     int32
+	kafkaTopicDefaultReplicationFactor int16
+	kafkaTopicDefaultRetentionMillis   int64
+	dispatcherCpuLimit                 resource.Quantity
+	dispatcherCpuRequest               resource.Quantity
+	dispatcherMemoryLimit              resource.Quantity
+	dispatcherMemoryRequest            resource.Quantity
+	dispatcherReplicas                 int
+	channelCpuLimit                    resource.Quantity
+	channelCpuRequest                  resource.Quantity
+	channelMemoryLimit                 resource.Quantity
+	channelMemoryRequest               resource.Quantity
+	channelReplicas                    int
+
+	expectedError error
+}
+
+// Convenience function for testing to allow inline string-to-int conversions
+func atoiOrZero(str string) int64 {
+	intOut, err := strconv.ParseInt(str, 10, 64)
+	if err != nil {
+		return 0
+	}
+	return intOut
+}
+
+// Get The Base / Valid Test Case - All Config Specified / No Errors
+func getValidVerifyTestCase(name string) VerifyTestCase {
+	return VerifyTestCase{
+		name:                               name,
+		envMetricsPort:                     int(atoiOrZero(metricsPort)),
+		envMetricsDomain:                   metricsDomain,
+		metricsPort:                        int(atoiOrZero(metricsPort)),
+		metricsDomain:                      metricsDomain,
+		expectedMetricsPort:                int(atoiOrZero(metricsPort)),
+		expectedMetricsDomain:              metricsDomain,
+		kafkaTopicDefaultNumPartitions:     int32(atoiOrZero(defaultNumPartitions)),
+		kafkaTopicDefaultReplicationFactor: int16(atoiOrZero(defaultReplicationFactor)),
+		kafkaTopicDefaultRetentionMillis:   atoiOrZero(defaultRetentionMillis),
+		dispatcherCpuLimit:                 resource.MustParse(dispatcherCpuLimit),
+		dispatcherCpuRequest:               resource.MustParse(dispatcherCpuRequest),
+		dispatcherMemoryLimit:              resource.MustParse(dispatcherMemoryLimit),
+		dispatcherMemoryRequest:            resource.MustParse(dispatcherMemoryRequest),
+		dispatcherReplicas:                 int(atoiOrZero(dispatcherReplicas)),
+		channelCpuLimit:                    resource.MustParse(channelCpuLimit),
+		channelCpuRequest:                  resource.MustParse(channelCpuRquest),
+		channelMemoryLimit:                 resource.MustParse(channelMemoryLimit),
+		channelMemoryRequest:               resource.MustParse(channelMemoryRequest),
+		channelReplicas:                    int(atoiOrZero(channelReplicas)),
+		expectedError:                      nil,
+	}
+}
+
+func assertSetenv(t *testing.T, envKey string, value string) {
+	assert.Nil(t, os.Setenv(envKey, value))
+}
+
+func assertSetenvNonempty(t *testing.T, envKey string, value string) {
+	if len(value) > 0 {
+		assertSetenv(t, envKey, value)
+	}
+}
+
+func getValidEnvironment(t *testing.T) *Environment {
+	assertSetenv(t, commonenv.ServiceAccountEnvVarKey, serviceAccount)
+	assertSetenv(t, commonenv.MetricsDomainEnvVarKey, metricsDomain)
+	assertSetenvNonempty(t, commonenv.MetricsPortEnvVarKey, metricsPort)
+	assertSetenv(t, commonenv.KafkaProviderEnvVarKey, kafkaProvider)
+	assertSetenvNonempty(t, DefaultNumPartitionsEnvVarKey, defaultNumPartitions)
+	assertSetenv(t, DefaultReplicationFactorEnvVarKey, defaultReplicationFactor)
+	assertSetenv(t, DefaultRetentionMillisEnvVarKey, defaultRetentionMillis)
+	assertSetenv(t, DispatcherImageEnvVarKey, dispatcherImage)
+	assertSetenv(t, ChannelImageEnvVarKey, channelImage)
+
+	environment, err := GetEnvironment(getLogger())
+	assert.Nil(t, err)
+	return environment
+}
+
+// Test All Permutations Of The VerifyOverrides() Functionality
+func TestVerifyOverrides_Validation(t *testing.T) {
+
+	// Define The TestCases
+	testCases := make([]VerifyTestCase, 0, 7)
+
+	testCase := getValidVerifyTestCase("Valid Complete Config")
+	testCases = append(testCases, testCase)
+
+	testCase = getValidVerifyTestCase("Invalid Config - MetricsPort")
+	testCase.metricsPort = -1
+	testCase.envMetricsPort = -1
+	testCase.expectedError = ControllerConfigurationError("Metrics.Port must be > 0")
+	testCases = append(testCases, testCase)
+
+	testCase = getValidVerifyTestCase("Invalid Config - MetricsPort - Overridden")
+	testCase.metricsPort = -1
+	testCase.expectedError = nil
+	testCases = append(testCases, testCase)
+
+	testCase = getValidVerifyTestCase("Invalid Config - MetricsDomain")
+	testCase.metricsDomain = ""
+	testCase.envMetricsDomain = ""
+	testCase.expectedError = ControllerConfigurationError("Metrics.Domain must not be empty")
+	testCases = append(testCases, testCase)
+
+	testCase = getValidVerifyTestCase("Invalid Config - MetricsDomain - Overridden")
+	testCase.metricsDomain = ""
+	testCase.expectedError = nil
+	testCases = append(testCases, testCase)
+
+	testCase = getValidVerifyTestCase("Invalid Config - Kafka.Topic.DefaultNumPartitions")
+	testCase.kafkaTopicDefaultNumPartitions = -1
+	testCase.expectedError = ControllerConfigurationError("Kafka.Topic.DefaultNumPartitions must be > 0")
+	testCases = append(testCases, testCase)
+
+	testCase = getValidVerifyTestCase("Invalid Config - Kafka.Topic.DefaultReplicationFactor")
+	testCase.kafkaTopicDefaultReplicationFactor = -1
+	testCase.expectedError = ControllerConfigurationError("Kafka.Topic.DefaultReplicationFactor must be > 0")
+	testCases = append(testCases, testCase)
+
+	testCase = getValidVerifyTestCase("Invalid Config - Kafka.Topic.DefaultRetentionMillis")
+	testCase.kafkaTopicDefaultRetentionMillis = -1
+	testCase.expectedError = ControllerConfigurationError("Kafka.Topic.DefaultRetentionMillis must be > 0")
+	testCases = append(testCases, testCase)
+
+	testCase = getValidVerifyTestCase("Invalid Config - Dispatcher.CpuLimit")
+	testCase.dispatcherCpuLimit = resource.Quantity{}
+	testCase.expectedError = ControllerConfigurationError("Dispatcher.CpuLimit must be nonzero")
+	testCases = append(testCases, testCase)
+
+	testCase = getValidVerifyTestCase("Invalid Config - Dispatcher.CpuRequest")
+	testCase.dispatcherCpuRequest = resource.Quantity{}
+	testCase.expectedError = ControllerConfigurationError("Dispatcher.CpuRequest must be nonzero")
+	testCases = append(testCases, testCase)
+
+	testCase = getValidVerifyTestCase("Invalid Config - Dispatcher.MemoryLimit")
+	testCase.dispatcherMemoryLimit = resource.Quantity{}
+	testCase.expectedError = ControllerConfigurationError("Dispatcher.MemoryLimit must be nonzero")
+	testCases = append(testCases, testCase)
+
+	testCase = getValidVerifyTestCase("Invalid Config - Dispatcher.MemoryRequest")
+	testCase.dispatcherMemoryRequest = resource.Quantity{}
+	testCase.expectedError = ControllerConfigurationError("Dispatcher.MemoryRequest must be nonzero")
+	testCases = append(testCases, testCase)
+
+	testCase = getValidVerifyTestCase("Invalid Config - Dispatcher.Replicas")
+	testCase.dispatcherReplicas = -1
+	testCase.expectedError = ControllerConfigurationError("Dispatcher.Replicas must be > 0")
+	testCases = append(testCases, testCase)
+
+	testCase = getValidVerifyTestCase("Invalid Config - Channel.CpuLimit")
+	testCase.channelCpuLimit = resource.Quantity{}
+	testCase.expectedError = ControllerConfigurationError("Channel.CpuLimit must be nonzero")
+	testCases = append(testCases, testCase)
+
+	testCase = getValidVerifyTestCase("Invalid Config - Channel.CpuRequest")
+	testCase.channelCpuRequest = resource.Quantity{}
+	testCase.expectedError = ControllerConfigurationError("Channel.CpuRequest must be nonzero")
+	testCases = append(testCases, testCase)
+
+	testCase = getValidVerifyTestCase("Invalid Config - Channel.MemoryLimit")
+	testCase.channelMemoryLimit = resource.Quantity{}
+	testCase.expectedError = ControllerConfigurationError("Channel.MemoryLimit must be nonzero")
+	testCases = append(testCases, testCase)
+
+	testCase = getValidVerifyTestCase("Invalid Config - Channel.MemoryRequest")
+	testCase.channelMemoryRequest = resource.Quantity{}
+	testCase.expectedError = ControllerConfigurationError("Channel.MemoryRequest must be nonzero")
+	testCases = append(testCases, testCase)
+
+	testCase = getValidVerifyTestCase("Invalid Config - Channel.Replicas")
+	testCase.channelReplicas = -1
+	testCase.expectedError = ControllerConfigurationError("Channel.Replicas must be > 0")
+	testCases = append(testCases, testCase)
+
+	// Loop Over All The TestCases
+	for _, testCase := range testCases {
+
+		environment := getValidEnvironment(t)
+		environment.MetricsPort = testCase.envMetricsPort
+		environment.MetricsDomain = testCase.envMetricsDomain
+		testConfig := &config.EventingKafkaConfig{}
+		testConfig.Metrics.Port = testCase.metricsPort
+		testConfig.Metrics.Domain = testCase.metricsDomain
+		testConfig.Kafka.Topic.DefaultNumPartitions = testCase.kafkaTopicDefaultNumPartitions
+		testConfig.Kafka.Topic.DefaultReplicationFactor = testCase.kafkaTopicDefaultReplicationFactor
+		testConfig.Kafka.Topic.DefaultRetentionMillis = testCase.kafkaTopicDefaultRetentionMillis
+		testConfig.Dispatcher.CpuLimit = testCase.dispatcherCpuLimit
+		testConfig.Dispatcher.CpuRequest = testCase.dispatcherCpuRequest
+		testConfig.Dispatcher.MemoryLimit = testCase.dispatcherMemoryLimit
+		testConfig.Dispatcher.MemoryRequest = testCase.dispatcherMemoryRequest
+		testConfig.Dispatcher.Replicas = testCase.dispatcherReplicas
+		testConfig.Channel.CpuLimit = testCase.channelCpuLimit
+		testConfig.Channel.CpuRequest = testCase.channelCpuRequest
+		testConfig.Channel.MemoryLimit = testCase.channelMemoryLimit
+		testConfig.Channel.MemoryRequest = testCase.channelMemoryRequest
+		testConfig.Channel.Replicas = testCase.channelReplicas
+
+		// Perform The Test
+		err := VerifyOverrides(testConfig, environment)
+
+		// Verify The Results
+		if testCase.expectedError == nil {
+			assert.Nil(t, err)
+			assert.NotNil(t, environment)
+			assert.Equal(t, testCase.expectedMetricsPort, testConfig.Metrics.Port)
+			assert.Equal(t, testCase.expectedMetricsDomain, testConfig.Metrics.Domain)
+			assert.Equal(t, testCase.kafkaTopicDefaultNumPartitions, testConfig.Kafka.Topic.DefaultNumPartitions)
+			assert.Equal(t, testCase.kafkaTopicDefaultReplicationFactor, testConfig.Kafka.Topic.DefaultReplicationFactor)
+			assert.Equal(t, testCase.kafkaTopicDefaultRetentionMillis, testConfig.Kafka.Topic.DefaultRetentionMillis)
+			assert.Equal(t, testCase.dispatcherCpuLimit, testConfig.Dispatcher.CpuLimit)
+			assert.Equal(t, testCase.dispatcherCpuRequest, testConfig.Dispatcher.CpuRequest)
+			assert.Equal(t, testCase.dispatcherMemoryLimit, testConfig.Dispatcher.MemoryLimit)
+			assert.Equal(t, testCase.dispatcherMemoryRequest, testConfig.Dispatcher.MemoryRequest)
+			assert.Equal(t, testCase.dispatcherReplicas, testConfig.Dispatcher.Replicas)
+			assert.Equal(t, testCase.channelCpuLimit, testConfig.Channel.CpuLimit)
+			assert.Equal(t, testCase.channelCpuRequest, testConfig.Channel.CpuRequest)
+			assert.Equal(t, testCase.channelMemoryLimit, testConfig.Channel.MemoryLimit)
+			assert.Equal(t, testCase.channelMemoryRequest, testConfig.Channel.MemoryRequest)
+			assert.Equal(t, testCase.channelReplicas, testConfig.Channel.Replicas)
+		} else {
+			assert.Equal(t, testCase.expectedError, err)
+		}
+
+	}
 }
