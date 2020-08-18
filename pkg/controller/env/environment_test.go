@@ -88,16 +88,6 @@ func TestGetEnvironment(t *testing.T) {
 	testCase.expectedError = getInvalidIntEnvironmentVariableError(testCase.metricsPort, commonenv.MetricsPortEnvVarKey)
 	testCases = append(testCases, testCase)
 
-	testCase = getValidTestCase("Missing Required Config - KafkaProvider")
-	testCase.kafkaProvider = ""
-	testCase.expectedError = getMissingRequiredEnvironmentVariableError(commonenv.KafkaProviderEnvVarKey)
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Invalid Config - KafkaProvider")
-	testCase.kafkaProvider = "foo"
-	testCase.expectedError = fmt.Errorf("invalid (unknown) value 'foo' for environment variable '%s'", commonenv.KafkaProviderEnvVarKey)
-	testCases = append(testCases, testCase)
-
 	testCase = getValidTestCase("Missing Required Config - DispatcherImage")
 	testCase.dispatcherImage = ""
 	testCase.expectedError = getMissingRequiredEnvironmentVariableError(DispatcherImageEnvVarKey)
@@ -116,7 +106,6 @@ func TestGetEnvironment(t *testing.T) {
 		assertSetenv(t, commonenv.ServiceAccountEnvVarKey, testCase.serviceAccount)
 		assertSetenv(t, commonenv.MetricsDomainEnvVarKey, testCase.metricsDomain)
 		assertSetenvNonempty(t, commonenv.MetricsPortEnvVarKey, testCase.metricsPort)
-		assertSetenv(t, commonenv.KafkaProviderEnvVarKey, testCase.kafkaProvider)
 		assertSetenv(t, DispatcherImageEnvVarKey, testCase.dispatcherImage)
 		assertSetenv(t, ChannelImageEnvVarKey, testCase.channelImage)
 
@@ -191,6 +180,7 @@ type VerifyTestCase struct {
 	kafkaTopicDefaultNumPartitions     int32
 	kafkaTopicDefaultReplicationFactor int16
 	kafkaTopicDefaultRetentionMillis   int64
+	kafkaProvider                      string
 	dispatcherCpuLimit                 resource.Quantity
 	dispatcherCpuRequest               resource.Quantity
 	dispatcherMemoryLimit              resource.Quantity
@@ -227,6 +217,7 @@ func getValidVerifyTestCase(name string) VerifyTestCase {
 		kafkaTopicDefaultNumPartitions:     int32(atoiOrZero(defaultNumPartitions)),
 		kafkaTopicDefaultReplicationFactor: int16(atoiOrZero(defaultReplicationFactor)),
 		kafkaTopicDefaultRetentionMillis:   atoiOrZero(defaultRetentionMillis),
+		kafkaProvider:                      kafkaProvider,
 		dispatcherCpuLimit:                 resource.MustParse(dispatcherCpuLimit),
 		dispatcherCpuRequest:               resource.MustParse(dispatcherCpuRequest),
 		dispatcherMemoryLimit:              resource.MustParse(dispatcherMemoryLimit),
@@ -255,7 +246,6 @@ func getValidEnvironment(t *testing.T) *Environment {
 	assertSetenv(t, commonenv.ServiceAccountEnvVarKey, serviceAccount)
 	assertSetenv(t, commonenv.MetricsDomainEnvVarKey, metricsDomain)
 	assertSetenvNonempty(t, commonenv.MetricsPortEnvVarKey, metricsPort)
-	assertSetenv(t, commonenv.KafkaProviderEnvVarKey, kafkaProvider)
 	assertSetenvNonempty(t, DefaultNumPartitionsEnvVarKey, defaultNumPartitions)
 	assertSetenv(t, DefaultReplicationFactorEnvVarKey, defaultReplicationFactor)
 	assertSetenv(t, DefaultRetentionMillisEnvVarKey, defaultRetentionMillis)
@@ -363,6 +353,11 @@ func TestVerifyOverrides_Validation(t *testing.T) {
 	testCase.expectedError = ControllerConfigurationError("Channel.Replicas must be > 0")
 	testCases = append(testCases, testCase)
 
+	testCase = getValidVerifyTestCase("Invalid Config - Kafka.Provider")
+	testCase.kafkaProvider = "invalidprovider"
+	testCase.expectedError = ControllerConfigurationError("Invalid / Unknown KafkaProvider: invalidprovider")
+	testCases = append(testCases, testCase)
+
 	// Loop Over All The TestCases
 	for _, testCase := range testCases {
 
@@ -375,6 +370,7 @@ func TestVerifyOverrides_Validation(t *testing.T) {
 		testConfig.Kafka.Topic.DefaultNumPartitions = testCase.kafkaTopicDefaultNumPartitions
 		testConfig.Kafka.Topic.DefaultReplicationFactor = testCase.kafkaTopicDefaultReplicationFactor
 		testConfig.Kafka.Topic.DefaultRetentionMillis = testCase.kafkaTopicDefaultRetentionMillis
+		testConfig.Kafka.Provider = testCase.kafkaProvider
 		testConfig.Dispatcher.CpuLimit = testCase.dispatcherCpuLimit
 		testConfig.Dispatcher.CpuRequest = testCase.dispatcherCpuRequest
 		testConfig.Dispatcher.MemoryLimit = testCase.dispatcherMemoryLimit
@@ -398,6 +394,7 @@ func TestVerifyOverrides_Validation(t *testing.T) {
 			assert.Equal(t, testCase.kafkaTopicDefaultNumPartitions, testConfig.Kafka.Topic.DefaultNumPartitions)
 			assert.Equal(t, testCase.kafkaTopicDefaultReplicationFactor, testConfig.Kafka.Topic.DefaultReplicationFactor)
 			assert.Equal(t, testCase.kafkaTopicDefaultRetentionMillis, testConfig.Kafka.Topic.DefaultRetentionMillis)
+			assert.Equal(t, testCase.kafkaProvider, testConfig.Kafka.Provider)
 			assert.Equal(t, testCase.dispatcherCpuLimit, testConfig.Dispatcher.CpuLimit)
 			assert.Equal(t, testCase.dispatcherCpuRequest, testConfig.Dispatcher.CpuRequest)
 			assert.Equal(t, testCase.dispatcherMemoryLimit, testConfig.Dispatcher.MemoryLimit)

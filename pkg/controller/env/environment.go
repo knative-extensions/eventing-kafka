@@ -1,7 +1,6 @@
 package env
 
 import (
-	"fmt"
 	"strings"
 
 	"go.uber.org/zap"
@@ -38,9 +37,6 @@ type Environment struct {
 	ServiceAccount string // Required
 	MetricsPort    int    // Required
 	MetricsDomain  string // Required
-
-	// Kafka Configuration / Authorization
-	KafkaProvider string // Required
 
 	// Default Values To Use If Not Available In Knative Channels Argument
 	DefaultNumPartitions     int32 // Required
@@ -91,24 +87,6 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 		return nil, err
 	}
 
-	// Get The Required Kafka Provider Config Value
-	kafkaProviderString, err := env.GetRequiredConfigValue(logger, env.KafkaProviderEnvVarKey)
-	if err != nil {
-		return nil, err
-	} else {
-		switch strings.ToLower(kafkaProviderString) {
-		case KafkaProviderValueLocal:
-			environment.KafkaProvider = KafkaProviderValueLocal
-		case KafkaProviderValueConfluent:
-			environment.KafkaProvider = KafkaProviderValueConfluent
-		case KafkaProviderValueAzure:
-			environment.KafkaProvider = KafkaProviderValueAzure
-		default:
-			logger.Error("Invalid / Unknown KafkaProvider", zap.String("Value", kafkaProviderString), zap.Error(err))
-			return nil, fmt.Errorf("invalid (unknown) value '%s' for environment variable '%s'", kafkaProviderString, env.KafkaProviderEnvVarKey)
-		}
-	}
-
 	//
 	// Dispatcher Configuration
 	//
@@ -150,12 +128,22 @@ func (err ControllerConfigurationError) Error() string {
 // via the external configmap or the internal variables.
 func VerifyOverrides(configuration *config.EventingKafkaConfig, environment *Environment) error {
 	configuration.ServiceAccount = environment.ServiceAccount
-	configuration.Kafka.Provider = environment.KafkaProvider
 	configuration.Dispatcher.Image = environment.DispatcherImage
 	configuration.Channel.Image = environment.ChannelImage
 	configuration.Metrics.Port = environment.MetricsPort
 	configuration.Metrics.Domain = environment.MetricsDomain
 	configuration.Health.Port = constants.HealthPort
+
+	switch strings.ToLower(configuration.Kafka.Provider) {
+	case KafkaProviderValueLocal:
+		configuration.Kafka.Provider = KafkaProviderValueLocal
+	case KafkaProviderValueConfluent:
+		configuration.Kafka.Provider = KafkaProviderValueConfluent
+	case KafkaProviderValueAzure:
+		configuration.Kafka.Provider = KafkaProviderValueAzure
+	default:
+		return ControllerConfigurationError("Invalid / Unknown KafkaProvider: " + configuration.Kafka.Provider)
+	}
 
 	// Verify mandatory configuration settings
 	switch {

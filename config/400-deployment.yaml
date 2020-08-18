@@ -44,8 +44,6 @@ spec:
           value: "8081"
         - name: METRICS_DOMAIN
           value: "eventing-kafka"
-        - name: KAFKA_PROVIDER
-          value: "local"
         - name: CHANNEL_IMAGE
           value: "ko://knative.dev/eventing-kafka/cmd/channel"
         - name: DISPATCHER_IMAGE

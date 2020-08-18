@@ -55,7 +55,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 
 	// Determine The Kafka AdminClient Type (Assume Kafka Unless Azure EventHubs Are Specified)
 	kafkaAdminClientType := kafkaadmin.Kafka
-	if environment.KafkaProvider == env.KafkaProviderValueAzure {
+	if configuration.Kafka.Provider == env.KafkaProviderValueAzure {
 		kafkaAdminClientType = kafkaadmin.EventHub
 	}
 

@@ -707,18 +707,6 @@ func NewKafkaChannelDispatcherDeployment() *appsv1.Deployment {
 									Value: topicName,
 								},
 								{
-									Name:  commonenv.ExponentialBackoffEnvVarKey,
-									Value: strconv.FormatBool(DefaultExponentialBackoff),
-								},
-								{
-									Name:  commonenv.InitialRetryIntervalEnvVarKey,
-									Value: strconv.Itoa(DefaultEventRetryInitialIntervalMillis),
-								},
-								{
-									Name:  commonenv.MaxRetryTimeEnvVarKey,
-									Value: strconv.Itoa(DefaultEventRetryTimeMillisMax),
-								},
-								{
 									Name: commonenv.KafkaBrokerEnvVarKey,
 									ValueFrom: &corev1.EnvVarSource{
 										SecretKeyRef: &corev1.SecretKeySelector{

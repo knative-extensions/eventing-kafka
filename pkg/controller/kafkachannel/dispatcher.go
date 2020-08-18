@@ -341,18 +341,6 @@ func (r *Reconciler) dispatcherDeploymentEnvVars(channel *kafkav1beta1.KafkaChan
 			Name:  commonenv.KafkaTopicEnvVarKey,
 			Value: topicName,
 		},
-		{
-			Name:  commonenv.ExponentialBackoffEnvVarKey,
-			Value: strconv.FormatBool(*r.config.Dispatcher.RetryExponentialBackoff),
-		},
-		{
-			Name:  commonenv.InitialRetryIntervalEnvVarKey,
-			Value: strconv.FormatInt(r.config.Dispatcher.RetryInitialIntervalMillis, 10),
-		},
-		{
-			Name:  commonenv.MaxRetryTimeEnvVarKey,
-			Value: strconv.FormatInt(r.config.Dispatcher.RetryTimeMillis, 10),
-		},
 	}
 
 	// Get The Kafka Secret From The Kafka Admin Client
