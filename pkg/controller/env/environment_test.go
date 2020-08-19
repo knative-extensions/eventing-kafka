@@ -18,23 +18,27 @@ import (
 const (
 	serviceAccount = "TestServiceAccount"
 	metricsPort    = "9999"
+	metricsPortInt = 9999
 	metricsDomain  = "example.com/kafka-eventing"
 	kafkaProvider  = "confluent"
 
-	defaultNumPartitions     = "7"
-	defaultReplicationFactor = "2"
-	defaultRetentionMillis   = "13579"
-	defaultKafkaConsumers    = "5"
+	defaultNumPartitions        = "7"
+	defaultReplicationFactor    = "2"
+	defaultRetentionMillis      = "13579"
+	defaultKafkaConsumers       = "5"
+	defaultNumPartitionsInt     = 7
+	defaultReplicationFactorInt = 2
+	defaultRetentionMillisInt   = 13579
 
 	dispatcherImage         = "TestDispatcherImage"
-	dispatcherReplicas      = "1"
+	dispatcherReplicasInt   = 1
 	dispatcherMemoryRequest = "20Mi"
 	dispatcherCpuRequest    = "100m"
 	dispatcherMemoryLimit   = "50Mi"
 	dispatcherCpuLimit      = "300m"
 
 	channelImage         = "TestChannelImage"
-	channelReplicas      = "1"
+	channelReplicasInt   = 1
 	channelMemoryRequest = "10Mi"
 	channelCpuRquest     = "10m"
 	channelMemoryLimit   = "20Mi"
@@ -195,39 +199,30 @@ type VerifyTestCase struct {
 	expectedError error
 }
 
-// Convenience function for testing to allow inline string-to-int conversions
-func atoiOrZero(str string) int64 {
-	intOut, err := strconv.ParseInt(str, 10, 64)
-	if err != nil {
-		return 0
-	}
-	return intOut
-}
-
 // Get The Base / Valid Test Case - All Config Specified / No Errors
 func getValidVerifyTestCase(name string) VerifyTestCase {
 	return VerifyTestCase{
 		name:                               name,
-		envMetricsPort:                     int(atoiOrZero(metricsPort)),
+		envMetricsPort:                     metricsPortInt,
 		envMetricsDomain:                   metricsDomain,
-		metricsPort:                        int(atoiOrZero(metricsPort)),
+		metricsPort:                        metricsPortInt,
 		metricsDomain:                      metricsDomain,
-		expectedMetricsPort:                int(atoiOrZero(metricsPort)),
+		expectedMetricsPort:                metricsPortInt,
 		expectedMetricsDomain:              metricsDomain,
-		kafkaTopicDefaultNumPartitions:     int32(atoiOrZero(defaultNumPartitions)),
-		kafkaTopicDefaultReplicationFactor: int16(atoiOrZero(defaultReplicationFactor)),
-		kafkaTopicDefaultRetentionMillis:   atoiOrZero(defaultRetentionMillis),
+		kafkaTopicDefaultNumPartitions:     defaultNumPartitionsInt,
+		kafkaTopicDefaultReplicationFactor: defaultReplicationFactorInt,
+		kafkaTopicDefaultRetentionMillis:   defaultRetentionMillisInt,
 		kafkaProvider:                      kafkaProvider,
 		dispatcherCpuLimit:                 resource.MustParse(dispatcherCpuLimit),
 		dispatcherCpuRequest:               resource.MustParse(dispatcherCpuRequest),
 		dispatcherMemoryLimit:              resource.MustParse(dispatcherMemoryLimit),
 		dispatcherMemoryRequest:            resource.MustParse(dispatcherMemoryRequest),
-		dispatcherReplicas:                 int(atoiOrZero(dispatcherReplicas)),
+		dispatcherReplicas:                 dispatcherReplicasInt,
 		channelCpuLimit:                    resource.MustParse(channelCpuLimit),
 		channelCpuRequest:                  resource.MustParse(channelCpuRquest),
 		channelMemoryLimit:                 resource.MustParse(channelMemoryLimit),
 		channelMemoryRequest:               resource.MustParse(channelMemoryRequest),
-		channelReplicas:                    int(atoiOrZero(channelReplicas)),
+		channelReplicas:                    channelReplicasInt,
 		expectedError:                      nil,
 	}
 }

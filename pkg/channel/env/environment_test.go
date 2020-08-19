@@ -15,13 +15,15 @@ import (
 
 // Test Constants
 const (
-	metricsPort   = "9999"
-	metricsDomain = "kafka-eventing"
-	healthPort    = "1234"
-	kafkaBrokers  = "TestKafkaBrokers"
-	serviceName   = "TestServiceName"
-	kafkaUsername = "TestKafkaUsername"
-	kafkaPassword = "TestKafkaPassword"
+	metricsPort    = "9999"
+	metricsPortInt = 9999
+	metricsDomain  = "kafka-eventing"
+	healthPort     = "1234"
+	healthPortInt  = 1234
+	kafkaBrokers   = "TestKafkaBrokers"
+	serviceName    = "TestServiceName"
+	kafkaUsername  = "TestKafkaUsername"
+	kafkaPassword  = "TestKafkaPassword"
 )
 
 // Define The TestCase Struct
@@ -183,28 +185,19 @@ type VerifyTestCase struct {
 	expectedError error
 }
 
-// Convenience function for testing to allow inline string-to-int conversions
-func atoiOrZero(str string) int64 {
-	intOut, err := strconv.ParseInt(str, 10, 64)
-	if err != nil {
-		return 0
-	}
-	return intOut
-}
-
 // Get The Base / Valid Test Case - All Config Specified / No Errors
 func getValidVerifyTestCase(name string) VerifyTestCase {
 	return VerifyTestCase{
 		name:                  name,
-		envMetricsPort:        int(atoiOrZero(metricsPort)),
+		envMetricsPort:        metricsPortInt,
 		envMetricsDomain:      metricsDomain,
-		envHealthPort:         int(atoiOrZero(healthPort)),
-		metricsPort:           int(atoiOrZero(metricsPort)),
+		envHealthPort:         healthPortInt,
+		metricsPort:           metricsPortInt,
 		metricsDomain:         metricsDomain,
-		healthPort:            int(atoiOrZero(healthPort)),
-		expectedMetricsPort:   int(atoiOrZero(metricsPort)),
+		healthPort:            healthPortInt,
+		expectedMetricsPort:   metricsPortInt,
 		expectedMetricsDomain: metricsDomain,
-		expectedHealthPort:    int(atoiOrZero(healthPort)),
+		expectedHealthPort:    healthPortInt,
 		expectedError:         nil,
 	}
 }

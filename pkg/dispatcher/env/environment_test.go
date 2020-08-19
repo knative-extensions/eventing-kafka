@@ -16,19 +16,23 @@ import (
 
 // Test Constants
 const (
-	metricsPort          = "9999"
-	metricsDomain        = "kafka-eventing"
-	healthPort           = "1234"
-	exponentialBackoff   = "true"
-	expBackoffPresent    = "true"
-	maxRetryTime         = "1234567890"
-	initialRetryInterval = "2345678901"
-	kafkaBrokers         = "TestKafkaBrokers"
-	kafkaTopic           = "TestKafkaTopic"
-	channelKey           = "TestChannelKey"
-	serviceName          = "TestServiceName"
-	kafkaUsername        = "TestKafkaUsername"
-	kafkaPassword        = "TestKafkaPassword"
+	metricsPort             = "9999"
+	metricsPortInt          = 9999
+	metricsDomain           = "kafka-eventing"
+	healthPort              = "1234"
+	healthPortInt           = 1234
+	exponentialBackoff      = "true"
+	expBackoffPresent       = "true"
+	maxRetryTime            = "1234567890"
+	initialRetryInterval    = "2345678901"
+	maxRetryTimeInt         = 1234567890
+	initialRetryIntervalInt = 2345678901
+	kafkaBrokers            = "TestKafkaBrokers"
+	kafkaTopic              = "TestKafkaTopic"
+	channelKey              = "TestChannelKey"
+	serviceName             = "TestServiceName"
+	kafkaUsername           = "TestKafkaUsername"
+	kafkaPassword           = "TestKafkaPassword"
 )
 
 // Define The TestCase Struct
@@ -222,35 +226,26 @@ type VerifyTestCase struct {
 	expectedError error
 }
 
-// Convenience function for testing to allow inline string-to-int conversions
-func atoiOrZero(str string) int64 {
-	intOut, err := strconv.ParseInt(str, 10, 64)
-	if err != nil {
-		return 0
-	}
-	return intOut
-}
-
 // Get The Base / Valid Test Case - All Config Specified / No Errors
 func getValidVerifyTestCase(name string) VerifyTestCase {
 	backoff, _ := strconv.ParseBool(exponentialBackoff)
 	return VerifyTestCase{
 		name:                         name,
-		envMetricsPort:               int(atoiOrZero(metricsPort)),
+		envMetricsPort:               metricsPortInt,
 		envMetricsDomain:             metricsDomain,
-		envHealthPort:                int(atoiOrZero(healthPort)),
-		metricsPort:                  int(atoiOrZero(metricsPort)),
+		envHealthPort:                healthPortInt,
+		metricsPort:                  metricsPortInt,
 		metricsDomain:                metricsDomain,
-		healthPort:                   int(atoiOrZero(healthPort)),
+		healthPort:                   healthPortInt,
 		exponentialBackoff:           &backoff,
-		maxRetryTime:                 atoiOrZero(maxRetryTime),
-		initialRetryInterval:         atoiOrZero(initialRetryInterval),
-		expectedMetricsPort:          int(atoiOrZero(metricsPort)),
+		maxRetryTime:                 maxRetryTimeInt,
+		initialRetryInterval:         initialRetryIntervalInt,
+		expectedMetricsPort:          metricsPortInt,
 		expectedMetricsDomain:        metricsDomain,
-		expectedHealthPort:           int(atoiOrZero(healthPort)),
+		expectedHealthPort:           healthPortInt,
 		expectedExponentialBackoff:   backoff,
-		expectedMaxRetryTime:         atoiOrZero(maxRetryTime),
-		expectedInitialRetryInterval: atoiOrZero(initialRetryInterval),
+		expectedMaxRetryTime:         maxRetryTimeInt,
+		expectedInitialRetryInterval: initialRetryIntervalInt,
 		expectedError:                nil,
 	}
 }
