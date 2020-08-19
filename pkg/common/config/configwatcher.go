@@ -275,13 +275,9 @@ func InitializeConfigWatcher(logger *zap.SugaredLogger, ctx context.Context, han
 	return nil
 }
 
-func LoadEventingKafkaSettings(ctx context.Context) (*sarama.Config, *EventingKafkaConfig, error) {
-	configMap, err := LoadSettingsConfigMap(kubeclient.Get(ctx))
-	if err != nil {
-		return nil, nil, err
-	}
+func LoadConfigFromMap(configMap *corev1.ConfigMap) (*sarama.Config, *EventingKafkaConfig, error) {
 	config := commonutil.NewSaramaConfig()
-	err = MergeSaramaSettings(config, configMap)
+	err := MergeSaramaSettings(config, configMap)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -301,6 +297,14 @@ func LoadEventingKafkaSettings(ctx context.Context) (*sarama.Config, *EventingKa
 	}
 
 	return config, &eventingKafkaConfig, nil
+}
+
+func LoadEventingKafkaSettings(ctx context.Context) (*sarama.Config, *EventingKafkaConfig, error) {
+	configMap, err := LoadSettingsConfigMap(kubeclient.Get(ctx))
+	if err != nil {
+		return nil, nil, err
+	}
+	return LoadConfigFromMap(configMap)
 }
 
 // Convenience function to load our configmap

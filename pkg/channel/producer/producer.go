@@ -165,6 +165,11 @@ func (p *Producer) Close() {
 func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 	p.logger.Debug("New ConfigMap Received", zap.String("configMap.Name", configMap.ObjectMeta.Name))
 
+	// The new configmap could technically have changes to the eventing-kafka section as well as the sarama
+	// section, but none of those matter to a currently-running Producer, so those are ignored here
+	// (which avoids the necessity of calling env.GetEnvironment and env.VerifyOverrides).  If those settings
+	// are needed in the future, the environment will also need to be re-parsed here.
+
 	// If there aren't any producer-specific differences between the current config and the new one,
 	// then just log that and move on; do not restart the Producer unnecessarily.
 

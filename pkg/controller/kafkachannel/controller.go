@@ -2,6 +2,7 @@ package kafkachannel
 
 import (
 	"context"
+	"sync"
 
 	"go.uber.org/zap"
 	"k8s.io/client-go/tools/cache"
@@ -42,8 +43,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	}
 
 	// Load the Sarama and other eventing-kafka settings from our configmap
-	// (though we don't need the Sarama settings here; the AdminClient loads them from the configmap each time it needs them)
-	_, configuration, err := commonconfig.LoadEventingKafkaSettings(ctx)
+	saramaConfig, configuration, err := commonconfig.LoadEventingKafkaSettings(ctx)
 	if err != nil {
 		logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Error(err))
 	}
@@ -64,6 +64,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 		logger:               logging.FromContext(ctx),
 		kubeClientset:        kubeclient.Get(ctx),
 		config:               configuration,
+		saramaConfig:         saramaConfig,
 		kafkaClientSet:       kafkaclientsetinjection.Get(ctx),
 		kafkachannelLister:   kafkachannelInformer.Lister(),
 		kafkachannelInformer: kafkachannelInformer.Informer(),
@@ -71,6 +72,14 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 		serviceLister:        serviceInformer.Lister(),
 		adminClientType:      kafkaAdminClientType,
 		adminClient:          nil,
+		adminMutex:           &sync.Mutex{},
+		configObserver:       rec.configMapObserver, // Maintains a reference so that the ConfigWatcher can call it
+	}
+
+	// Watch The Settings ConfigMap For Changes
+	err = commonconfig.InitializeConfigWatcher(logger.Sugar(), ctx, rec.configMapObserver)
+	if err != nil {
+		logger.Fatal("Failed To Initialize ConfigMap Watcher", zap.Error(err))
 	}
 
 	// Create A New KafkaChannel Controller Impl With The Reconciler

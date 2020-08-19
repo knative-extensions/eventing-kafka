@@ -207,17 +207,32 @@ func TestLoadEventingKafkaSettings(t *testing.T) {
 
 	ctx := context.WithValue(context.Background(), injectionclient.Key{}, fakeK8sClient)
 
-	config, configuration, err := LoadEventingKafkaSettings(ctx)
+	saramaConfig, eventingKafkaConfig, err := LoadEventingKafkaSettings(ctx)
 	assert.Nil(t, err)
+	verifyTestEKConfigSettings(t, saramaConfig, eventingKafkaConfig)
+}
+
+func TestLoadConfigFromMap(t *testing.T) {
+	// Set up a configmap and verify that the sarama settings are loaded properly from it
+	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, constants.KnativeEventingNamespace))
+	configMap := getTestSaramaConfigMap(OldSaramaConfig, TestEKConfig)
+	saramaConfig, eventingKafkaConfig, err := LoadConfigFromMap(configMap)
+	assert.Nil(t, err)
+
+	verifyTestEKConfigSettings(t, saramaConfig, eventingKafkaConfig)
+}
+
+func verifyTestEKConfigSettings(t *testing.T, saramaConfig *sarama.Config, eventingKafkaConfig *EventingKafkaConfig) {
 	// Quick checks to make sure the loaded configs aren't complete junk
-	assert.Equal(t, OldClientId, config.ClientID)
-	assert.Equal(t, OldUsername, config.Net.SASL.User)
-	assert.Equal(t, TestDispatcherReplicas, strconv.Itoa(configuration.Dispatcher.Replicas))
-	assert.Equal(t, TestDispatcherRetryInitial, strconv.FormatInt(configuration.Dispatcher.RetryInitialIntervalMillis, 10))
-	assert.Equal(t, TestDispatcherRetry, strconv.FormatInt(configuration.Dispatcher.RetryTimeMillis, 10))
-	// Verify that the "RetryExponentialBackoff" field is set properly (bool pointer)
-	assert.NotNil(t, configuration.Dispatcher.RetryExponentialBackoff)
-	assert.True(t, *configuration.Dispatcher.RetryExponentialBackoff)
+	assert.Equal(t, OldClientId, saramaConfig.ClientID)
+	assert.Equal(t, OldUsername, saramaConfig.Net.SASL.User)
+	assert.Equal(t, TestDispatcherReplicas, strconv.Itoa(eventingKafkaConfig.Dispatcher.Replicas))
+	assert.Equal(t, TestDispatcherRetryInitial, strconv.FormatInt(eventingKafkaConfig.Dispatcher.RetryInitialIntervalMillis, 10))
+	assert.Equal(t, TestDispatcherRetry, strconv.FormatInt(eventingKafkaConfig.Dispatcher.RetryTimeMillis, 10))
+
+	// Verify in particular that the "RetryExponentialBackoff" field is set properly (bool pointer)
+	assert.NotNil(t, eventingKafkaConfig.Dispatcher.RetryExponentialBackoff)
+	assert.True(t, *eventingKafkaConfig.Dispatcher.RetryExponentialBackoff)
 }
 
 func TestLoadEventingKafkaSettings_NoBackoff(t *testing.T) {

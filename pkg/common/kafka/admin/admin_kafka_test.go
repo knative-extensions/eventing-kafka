@@ -75,7 +75,7 @@ Metadata:
 	}()
 
 	// Perform The Test
-	adminClient, err := NewKafkaAdminClient(ctx, clientId, namespace)
+	adminClient, err := NewKafkaAdminClient(ctx, internaltesting.GetDefaultSaramaConfig(t), clientId, namespace)
 
 	// Verify The Results
 	assert.Nil(t, err)
@@ -94,7 +94,7 @@ func TestNewKafkaAdminClientNoSecrets(t *testing.T) {
 	ctx = context.WithValue(ctx, injectionclient.Key{}, fake.NewSimpleClientset())
 
 	// Perform The Test
-	adminClient, err := NewKafkaAdminClient(ctx, clientId, namespace)
+	adminClient, err := NewKafkaAdminClient(ctx, internaltesting.GetDefaultSaramaConfig(t), clientId, namespace)
 
 	// Verify The Results
 	assert.Nil(t, err)

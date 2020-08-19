@@ -3,7 +3,9 @@ package kafkachannel
 import (
 	"context"
 	"fmt"
+	"sync"
 
+	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -15,6 +17,7 @@ import (
 	"knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
 	kafkalisters "knative.dev/eventing-contrib/kafka/channel/pkg/client/listers/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/common/config"
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	kafkaadmin "knative.dev/eventing-kafka/pkg/common/kafka/admin"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
 	"knative.dev/eventing-kafka/pkg/controller/event"
@@ -31,10 +34,13 @@ type Reconciler struct {
 	adminClientType      kafkaadmin.AdminClientType
 	adminClient          kafkaadmin.AdminClientInterface
 	config               *config.EventingKafkaConfig
+	saramaConfig         *sarama.Config
 	kafkachannelLister   kafkalisters.KafkaChannelLister
 	kafkachannelInformer cache.SharedIndexInformer
 	deploymentLister     appsv1listers.DeploymentLister
 	serviceLister        corev1listers.ServiceLister
+	configObserver       func(configMap *corev1.ConfigMap)
+	adminMutex           *sync.Mutex
 }
 
 var (
@@ -58,7 +64,7 @@ var (
 func (r *Reconciler) SetKafkaAdminClient(ctx context.Context) {
 	r.ClearKafkaAdminClient()
 	var err error
-	r.adminClient, err = kafkaadmin.CreateAdminClient(ctx, constants.ControllerComponentName, r.adminClientType)
+	r.adminClient, err = kafkaadmin.CreateAdminClient(ctx, r.saramaConfig, constants.ControllerComponentName, r.adminClientType)
 	if err != nil {
 		r.logger.Error("Failed To Create Kafka AdminClient", zap.Error(err))
 	}
@@ -82,6 +88,10 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, channel *kafkav1beta1.Ka
 
 	// Add The K8S ClientSet To The Reconcile Context
 	ctx = context.WithValue(ctx, kubeclient.Key{}, r.kubeClientset)
+
+	// Don't let another goroutine clear out the admin client while we're using it in this one
+	r.adminMutex.Lock()
+	defer r.adminMutex.Unlock()
 
 	// Create A New Kafka AdminClient For Each Reconciliation Attempt
 	r.SetKafkaAdminClient(ctx)
@@ -111,6 +121,10 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, channel *kafkav1beta1.Kaf
 
 	// Add The K8S ClientSet To The Reconcile Context
 	ctx = context.WithValue(ctx, kubeclient.Key{}, r.kubeClientset)
+
+	// Don't let another goroutine clear out the admin client while we're using it in this one
+	r.adminMutex.Lock()
+	defer r.adminMutex.Unlock()
 
 	// Create A New Kafka AdminClient For Each Reconciliation Attempt
 	r.SetKafkaAdminClient(ctx)
@@ -149,6 +163,7 @@ func (r *Reconciler) reconcile(ctx context.Context, channel *kafkav1beta1.KafkaC
 	// Kafka configuration from the "Kafka Secrets" and not a ConfigMap.  Therefore, we will
 	// instead check the Kafka Secret associated with the KafkaChannel here.
 	//
+
 	if len(r.adminClient.GetKafkaSecretName(util.TopicName(channel))) > 0 {
 		channel.Status.MarkConfigTrue()
 	} else {
@@ -171,4 +186,33 @@ func (r *Reconciler) reconcile(ctx context.Context, channel *kafkav1beta1.KafkaC
 
 	// Return Success
 	return nil
+}
+
+// configMapObserver is the callback function that handles changes to our ConfigMap
+func (r *Reconciler) configMapObserver(configMap *corev1.ConfigMap) {
+	if configMap == nil {
+		r.logger.Warn("Nil ConfigMap passed to configMapObserver; ignoring")
+		return
+	}
+	if r == nil {
+		// This typically happens during startup
+		r.logger.Debug("Reconciler is nil during call to configMapObserver; ignoring changes")
+		return
+	}
+
+	// Though the new configmap could technically have changes to the eventing-kafka section as well as the sarama
+	// section, we currently do not do anything proactive based on configuration changes to those items.
+	// The only component in the controller that uses any of the fields after startup currently
+	// is the AdminClient, which simply uses the r.saramaConfig set here whenever necessary.
+	// This means that calling env.GetEnvironment and env.VerifyOverrides is not necessary now.  If
+	// those settings are needed in the future, the environment will also need to be re-parsed here.
+
+	// Load the Sarama settings from our configmap, ignoring the eventing-kafka result.
+	saramaConfig, _, err := commonconfig.LoadConfigFromMap(configMap)
+	if err != nil {
+		r.logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Error(err))
+	}
+
+	r.logger.Info("ConfigMap Changed; Updating Sarama Configuration")
+	r.saramaConfig = saramaConfig
 }

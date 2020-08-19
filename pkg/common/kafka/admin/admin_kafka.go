@@ -9,7 +9,6 @@ import (
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
-	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	adminutil "knative.dev/eventing-kafka/pkg/common/kafka/admin/util"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	"knative.dev/eventing-kafka/pkg/common/kafka/util"
@@ -35,7 +34,7 @@ type KafkaAdminClient struct {
 }
 
 // Create A New Kafka AdminClient Based On The Kafka Secret In The Specified K8S Namespace
-func NewKafkaAdminClient(ctx context.Context, clientId string, namespace string) (AdminClientInterface, error) {
+func NewKafkaAdminClient(ctx context.Context, saramaConfig *sarama.Config, clientId string, namespace string) (AdminClientInterface, error) {
 
 	// Get The Logger From The Context
 	logger := logging.FromContext(ctx).Desugar()
@@ -71,20 +70,13 @@ func NewKafkaAdminClient(ctx context.Context, clientId string, namespace string)
 	username := string(kafkaSecret.Data[constants.KafkaSecretKeyUsername])
 	password := string(kafkaSecret.Data[constants.KafkaSecretKeyPassword])
 
-	// Load Sarama Settings From Our ConfigMap
-	config, _, err := commonconfig.LoadEventingKafkaSettings(ctx)
-	if err != nil {
-		logger.Error("Failed To Load Eventing-Kafka ConfigMap", zap.Error(err))
-	}
-	logger.Debug("Loaded settings from ConfigMap", zap.String("SettingsConfigMapName", commonconfig.SettingsConfigMapName))
-
 	// Update The Sarama ClusterAdmin Configuration With Our Values
-	util.UpdateSaramaConfig(config, clientId, username, password)
+	util.UpdateSaramaConfig(saramaConfig, clientId, username, password)
 
 	// Create A New Sarama ClusterAdmin
-	clusterAdmin, err := NewClusterAdminWrapper(brokers, config)
+	clusterAdmin, err := NewClusterAdminWrapper(brokers, saramaConfig)
 	if err != nil {
-		logger.Error("Failed To Create New ClusterAdmin", zap.Any("Config", config), zap.Error(err))
+		logger.Error("Failed To Create New ClusterAdmin", zap.Any("Config", saramaConfig), zap.Error(err))
 		return nil, err
 	}
 
