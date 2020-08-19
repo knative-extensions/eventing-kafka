@@ -123,7 +123,7 @@ that the Data Plane is configured to support the flow of events as defined by
 to a KafkaChannel.  The underlying Kafka infrastructure to be used is defined in
 a specially labeled [K8S Secret](config/README.md#Credentials) in the
 knative-eventing namespace.  Eventing-kafka supports several different Kafka
-(and Kafka-like) [infrastructures](config/README.md#Kafka Providers).
+(and Kafka-like) [infrastructures](config/README.md#Kafka%20Providers).
 
 ### Data Plane
 
