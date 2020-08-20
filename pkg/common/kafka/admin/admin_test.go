@@ -68,23 +68,24 @@ func TestCreateAdminClientEventHub(t *testing.T) {
 	assert.Equal(t, mockAdminClient, adminClient)
 }
 
-// Test The CreateAdminClient() Plugin Functionality
-func TestCreateAdminClientPlugin(t *testing.T) {
+// Test The CreateAdminClient Custom Functionality
+func TestCreateAdminClientCustom(t *testing.T) {
+
 	// Test Data
 	ctx := context.TODO()
 	clientId := "TestClientId"
-	adminClientType := Plugin
+	adminClientType := Custom
 	mockAdminClient = &MockAdminClient{}
 
 	// Replace the NewPluginAdminClientWrapper To Provide Mock AdminClient & Defer Reset
-	NewPluginAdminClientWrapperRef := NewPluginAdminClientWrapper
-	NewPluginAdminClientWrapper = func(ctxArg context.Context, namespaceArg string) (AdminClientInterface, error) {
+	NewCustomAdminClientWrapperRef := NewCustomAdminClientWrapper
+	NewCustomAdminClientWrapper = func(ctxArg context.Context, namespaceArg string) (AdminClientInterface, error) {
 		assert.Equal(t, ctx, ctxArg)
 		assert.Equal(t, constants.KnativeEventingNamespace, namespaceArg)
 		assert.Equal(t, adminClientType, adminClientType)
 		return mockAdminClient, nil
 	}
-	defer func() { NewEventHubAdminClientWrapper = NewPluginAdminClientWrapperRef }()
+	defer func() { NewCustomAdminClientWrapper = NewCustomAdminClientWrapperRef }()
 
 	// Perform The Test
 	adminClient, err := CreateAdminClient(ctx, clientId, adminClientType)

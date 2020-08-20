@@ -22,7 +22,7 @@ type AdminClientType int
 const (
 	Kafka AdminClientType = iota
 	EventHub
-	Plugin
+	Custom
 	Unknown
 )
 
@@ -55,8 +55,8 @@ func CreateAdminClient(ctx context.Context, clientId string, adminClientType Adm
 		return NewKafkaAdminClientWrapper(ctx, clientId, constants.KnativeEventingNamespace)
 	case EventHub:
 		return NewEventHubAdminClientWrapper(ctx, constants.KnativeEventingNamespace)
-	case Plugin:
-		return NewPluginAdminClientWrapper(ctx, constants.KnativeEventingNamespace)
+	case Custom:
+		return NewCustomAdminClientWrapper(ctx, constants.KnativeEventingNamespace)
 	case Unknown:
 		return nil, errors.New("received unknown AdminClientType") // Should Never Happen But...
 	default:
@@ -74,7 +74,7 @@ var NewEventHubAdminClientWrapper = func(ctx context.Context, namespace string) 
 	return NewEventHubAdminClient(ctx, namespace)
 }
 
-// New Plugin AdminClient Wrapper To Facilitate Unit Testing
-var NewPluginAdminClientWrapper = func(ctx context.Context, namespace string) (AdminClientInterface, error) {
-	return NewPluginAdminClient(ctx, namespace)
+// New Custom AdminClient Wrapper To Facilitate Unit Testing
+var NewCustomAdminClientWrapper = func(ctx context.Context, namespace string) (AdminClientInterface, error) {
+	return NewCustomAdminClient(ctx, namespace)
 }
