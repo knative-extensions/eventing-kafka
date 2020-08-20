@@ -10,8 +10,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 	injectionclient "knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/client"
 	"knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/informers/messaging/v1beta1/kafkachannel"
-	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	kafkaconstants "knative.dev/eventing-kafka/pkg/common/kafka/constants"
+	"knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
 	"knative.dev/eventing-kafka/pkg/controller/env"
 	"knative.dev/eventing-kafka/pkg/controller/kafkasecretinformer"
@@ -44,13 +44,12 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 
 	// Load the Sarama and other eventing-kafka settings from our configmap
 	// (though we don't need the Sarama settings here; the AdminClient loads them from the configmap each time it needs them)
-	_, configuration, err := commonconfig.LoadEventingKafkaSettings(ctx)
+	_, configuration, err := sarama.LoadSettings(ctx)
 	if err != nil {
 		logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Error(err))
 	}
 
-	// Overwrite some configmap settings with specific values provided by the environment
-	env.ApplyEnvironmentOverrides(configuration, environment)
+	// Verify that our loaded configuration is valid
 	if err = env.VerifyConfiguration(configuration); err != nil {
 		logger.Fatal("Invalid / Missing Settings - Terminating", zap.Error(err))
 	}
@@ -60,6 +59,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 		logger:             logging.FromContext(ctx),
 		kubeClientset:      kubeclient.Get(ctx),
 		config:             configuration,
+		environment:        environment,
 		kafkaChannelClient: injectionclient.Get(ctx),
 		kafkachannelLister: kafkachannelInformer.Lister(),
 		deploymentLister:   deploymentInformer.Lister(),

@@ -17,7 +17,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/producer"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	commonk8s "knative.dev/eventing-kafka/pkg/common/k8s"
-	"knative.dev/eventing-kafka/pkg/common/kafka/util"
+	"knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 	kafkautil "knative.dev/eventing-kafka/pkg/common/kafka/util"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
 	eventingchannel "knative.dev/eventing/pkg/channel"
@@ -52,7 +52,7 @@ func main() {
 	defer flush(logger)
 
 	// UnComment To Enable Sarama Logging For Local Debug
-	// kafkautil.EnableSaramaLogging()
+	// sarama.EnableSaramaLogging()
 
 	// Load Environment Variables
 	environment, err := env.GetEnvironment(logger)
@@ -60,32 +60,27 @@ func main() {
 		logger.Fatal("Invalid / Missing Environment Variables - Terminating", zap.Error(err))
 	}
 
-	// Load the Sarama SyncProducer and Eventing-Kafka settings from our configmap
-	saramaConfig, configuration, err := commonconfig.LoadEventingKafkaSettings(ctx)
+	// Load the Sarama SyncProducer (and Eventing-Kafka settings, though the channel doesn't use those at the moment)
+	// from our configmap
+	saramaConfig, _, err := sarama.LoadSettings(ctx)
 	if err != nil {
 		logger.Fatal("Failed To Load Sarama Settings", zap.Error(err))
 	}
 
-	// Overwrite some configmap settings with specific values provided by the environment
-	env.ApplyEnvironmentOverrides(configuration, environment)
-	if err = env.VerifyConfiguration(configuration); err != nil {
-		logger.Fatal("Invalid / Missing Settings - Terminating", zap.Error(err))
-	}
-
 	// Initialize Tracing (Watches config-tracing ConfigMap, Assumes Context Came From LoggingContext With Embedded K8S Client Key)
-	err = commonconfig.InitializeTracing(logger.Sugar(), ctx, configuration.Kafka.ServiceName)
+	err = commonconfig.InitializeTracing(logger.Sugar(), ctx, environment.ServiceName)
 	if err != nil {
 		logger.Fatal("Could Not Initialize Tracing - Terminating", zap.Error(err))
 	}
 
 	// Initialize Observability (Watches config-observability ConfigMap And Starts Profiling Server)
-	err = commonconfig.InitializeObservability(logger.Sugar(), ctx, configuration.Metrics.Domain, configuration.Metrics.Port)
+	err = commonconfig.InitializeObservability(logger.Sugar(), ctx, environment.MetricsDomain, environment.MetricsPort)
 	if err != nil {
 		logger.Fatal("Could Not Initialize Observability - Terminating", zap.Error(err))
 	}
 
 	// Start The Liveness And Readiness Servers
-	healthServer := channelhealth.NewChannelHealthServer(strconv.Itoa(configuration.Health.Port))
+	healthServer := channelhealth.NewChannelHealthServer(strconv.Itoa(environment.HealthPort))
 	healthServer.Start(logger)
 
 	// Initialize The KafkaChannel Lister Used To Validate Events
@@ -106,10 +101,10 @@ func main() {
 
 	// Create The Sarama SyncProducer Config
 	// Add username/password/components overrides to the Sarama config (these take precedence over what's in the configmap)
-	util.UpdateSaramaConfig(saramaConfig, Component, configuration.Kafka.Username, configuration.Kafka.Password)
+	sarama.UpdateSaramaConfig(saramaConfig, Component, environment.KafkaUsername, environment.KafkaPassword)
 
 	// Initialize The Kafka Producer In Order To Start Processing Status Events
-	kafkaProducer, err = producer.NewProducer(logger, saramaConfig, strings.Split(configuration.Kafka.Brokers, ","), statsReporter, healthServer)
+	kafkaProducer, err = producer.NewProducer(logger, saramaConfig, strings.Split(environment.KafkaBrokers, ","), statsReporter, healthServer)
 	if err != nil {
 		logger.Fatal("Failed To Initialize Kafka Producer", zap.Error(err))
 	}

@@ -13,6 +13,7 @@ import (
 	kafkalisters "knative.dev/eventing-contrib/kafka/channel/pkg/client/listers/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
+	"knative.dev/eventing-kafka/pkg/controller/env"
 	"knative.dev/eventing-kafka/pkg/controller/event"
 	"knative.dev/eventing-kafka/pkg/controller/kafkasecretinjection"
 	"knative.dev/pkg/reconciler"
@@ -23,6 +24,7 @@ type Reconciler struct {
 	logger             *zap.Logger
 	kubeClientset      kubernetes.Interface
 	config             *config.EventingKafkaConfig
+	environment        *env.Environment
 	kafkaChannelClient versioned.Interface
 	kafkachannelLister kafkalisters.KafkaChannelLister
 	deploymentLister   appsv1listers.DeploymentLister

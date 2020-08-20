@@ -133,8 +133,8 @@ func (r *Reconciler) newDispatcherService(channel *kafkav1beta1.KafkaChannel) *c
 			Ports: []corev1.ServicePort{
 				{
 					Name:       constants.MetricsPortName,
-					Port:       int32(r.config.Metrics.Port),
-					TargetPort: intstr.FromInt(r.config.Metrics.Port),
+					Port:       int32(r.environment.MetricsPort),
+					TargetPort: intstr.FromInt(r.environment.MetricsPort),
 				},
 			},
 			Selector: map[string]string{
@@ -254,14 +254,14 @@ func (r *Reconciler) newDispatcherDeployment(channel *kafkav1beta1.KafkaChannel)
 					},
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName: r.config.ServiceAccount,
+					ServiceAccountName: r.environment.ServiceAccount,
 					Containers: []corev1.Container{
 						{
 							Name: deploymentName,
 							LivenessProbe: &corev1.Probe{
 								Handler: corev1.Handler{
 									HTTPGet: &corev1.HTTPGetAction{
-										Port: intstr.FromInt(r.config.Health.Port),
+										Port: intstr.FromInt(constants.HealthPort),
 										Path: health.LivenessPath,
 									},
 								},
@@ -271,14 +271,14 @@ func (r *Reconciler) newDispatcherDeployment(channel *kafkav1beta1.KafkaChannel)
 							ReadinessProbe: &corev1.Probe{
 								Handler: corev1.Handler{
 									HTTPGet: &corev1.HTTPGetAction{
-										Port: intstr.FromInt(r.config.Health.Port),
+										Port: intstr.FromInt(constants.HealthPort),
 										Path: health.ReadinessPath,
 									},
 								},
 								InitialDelaySeconds: constants.DispatcherReadinessDelay,
 								PeriodSeconds:       constants.DispatcherReadinessPeriod,
 							},
-							Image:           r.config.Dispatcher.Image,
+							Image:           r.environment.DispatcherImage,
 							Env:             envVars,
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Resources: corev1.ResourceRequirements{
@@ -320,15 +320,15 @@ func (r *Reconciler) dispatcherDeploymentEnvVars(channel *kafkav1beta1.KafkaChan
 		},
 		{
 			Name:  commonenv.MetricsPortEnvVarKey,
-			Value: strconv.Itoa(r.config.Metrics.Port),
+			Value: strconv.Itoa(r.environment.MetricsPort),
 		},
 		{
 			Name:  commonenv.MetricsDomainEnvVarKey,
-			Value: r.config.Metrics.Domain,
+			Value: r.environment.MetricsDomain,
 		},
 		{
 			Name:  commonenv.HealthPortEnvVarKey,
-			Value: strconv.Itoa(r.config.Health.Port),
+			Value: strconv.Itoa(constants.HealthPort),
 		},
 		{
 			Name:  commonenv.ChannelKeyEnvVarKey,

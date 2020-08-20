@@ -16,42 +16,33 @@ import (
 
 // Test Constants
 const (
-	metricsPort             = "9999"
-	metricsPortInt          = 9999
-	metricsDomain           = "kafka-eventing"
-	healthPort              = "1234"
-	healthPortInt           = 1234
-	exponentialBackoff      = "true"
-	expBackoffPresent       = "true"
-	maxRetryTime            = "1234567890"
-	initialRetryInterval    = "2345678901"
-	maxRetryTimeInt         = 1234567890
-	initialRetryIntervalInt = 2345678901
-	kafkaBrokers            = "TestKafkaBrokers"
-	kafkaTopic              = "TestKafkaTopic"
-	channelKey              = "TestChannelKey"
-	serviceName             = "TestServiceName"
-	kafkaUsername           = "TestKafkaUsername"
-	kafkaPassword           = "TestKafkaPassword"
+	metricsPort          = "9999"
+	metricsDomain        = "kafka-eventing"
+	healthPort           = "1234"
+	exponentialBackoff   = "true"
+	maxRetryTime         = 1234567890
+	initialRetryInterval = 2345678901
+	kafkaBrokers         = "TestKafkaBrokers"
+	kafkaTopic           = "TestKafkaTopic"
+	channelKey           = "TestChannelKey"
+	serviceName          = "TestServiceName"
+	kafkaUsername        = "TestKafkaUsername"
+	kafkaPassword        = "TestKafkaPassword"
 )
 
 // Define The TestCase Struct
 type TestCase struct {
-	name                 string
-	metricsPort          string
-	metricsDomain        string
-	healthPort           string
-	exponentialBackoff   string
-	expBackoffPresent    string
-	maxRetryTime         string
-	initialRetryInterval string
-	kafkaBrokers         string
-	kafkaTopic           string
-	channelKey           string
-	serviceName          string
-	kafkaUsername        string
-	kafkaPassword        string
-	expectedError        error
+	name          string
+	metricsPort   string
+	metricsDomain string
+	healthPort    string
+	kafkaBrokers  string
+	kafkaTopic    string
+	channelKey    string
+	serviceName   string
+	kafkaUsername string
+	kafkaPassword string
+	expectedError error
 }
 
 // Test All Permutations Of The GetEnvironment() Functionality
@@ -163,21 +154,17 @@ func assertSetenvNonempty(t *testing.T, envKey string, value string) {
 // Get The Base / Valid Test Case - All Config Specified / No Errors
 func getValidTestCase(name string) TestCase {
 	return TestCase{
-		name:                 name,
-		metricsPort:          metricsPort,
-		metricsDomain:        metricsDomain,
-		healthPort:           healthPort,
-		exponentialBackoff:   exponentialBackoff,
-		expBackoffPresent:    expBackoffPresent,
-		maxRetryTime:         maxRetryTime,
-		initialRetryInterval: initialRetryInterval,
-		kafkaBrokers:         kafkaBrokers,
-		kafkaTopic:           kafkaTopic,
-		channelKey:           channelKey,
-		serviceName:          serviceName,
-		kafkaUsername:        kafkaUsername,
-		kafkaPassword:        kafkaPassword,
-		expectedError:        nil,
+		name:          name,
+		metricsPort:   metricsPort,
+		metricsDomain: metricsDomain,
+		healthPort:    healthPort,
+		kafkaBrokers:  kafkaBrokers,
+		kafkaTopic:    kafkaTopic,
+		channelKey:    channelKey,
+		serviceName:   serviceName,
+		kafkaUsername: kafkaUsername,
+		kafkaPassword: kafkaPassword,
+		expectedError: nil,
 	}
 }
 
@@ -204,21 +191,10 @@ func getLogger() *zap.Logger {
 type VerifyTestCase struct {
 	name string
 
-	// Environment settings
-	envMetricsPort   int
-	envMetricsDomain string
-	envHealthPort    int
-
 	// Config settings
-	metricsPort                  int
-	metricsDomain                string
-	healthPort                   int
 	exponentialBackoff           *bool
 	maxRetryTime                 int64
 	initialRetryInterval         int64
-	expectedMetricsPort          int
-	expectedMetricsDomain        string
-	expectedHealthPort           int
 	expectedExponentialBackoff   bool
 	expectedMaxRetryTime         int64
 	expectedInitialRetryInterval int64
@@ -231,83 +207,22 @@ func getValidVerifyTestCase(name string) VerifyTestCase {
 	backoff, _ := strconv.ParseBool(exponentialBackoff)
 	return VerifyTestCase{
 		name:                         name,
-		envMetricsPort:               metricsPortInt,
-		envMetricsDomain:             metricsDomain,
-		envHealthPort:                healthPortInt,
-		metricsPort:                  metricsPortInt,
-		metricsDomain:                metricsDomain,
-		healthPort:                   healthPortInt,
 		exponentialBackoff:           &backoff,
-		maxRetryTime:                 maxRetryTimeInt,
-		initialRetryInterval:         initialRetryIntervalInt,
-		expectedMetricsPort:          metricsPortInt,
-		expectedMetricsDomain:        metricsDomain,
-		expectedHealthPort:           healthPortInt,
+		maxRetryTime:                 maxRetryTime,
+		initialRetryInterval:         initialRetryInterval,
+		expectedMaxRetryTime:         maxRetryTime,
+		expectedInitialRetryInterval: initialRetryInterval,
 		expectedExponentialBackoff:   backoff,
-		expectedMaxRetryTime:         maxRetryTimeInt,
-		expectedInitialRetryInterval: initialRetryIntervalInt,
 		expectedError:                nil,
 	}
 }
 
-func getValidEnvironment(t *testing.T) *Environment {
-	assertSetenv(t, commonenv.MetricsDomainEnvVarKey, metricsDomain)
-	assertSetenvNonempty(t, commonenv.MetricsPortEnvVarKey, metricsPort)
-	assertSetenvNonempty(t, commonenv.HealthPortEnvVarKey, healthPort)
-	assertSetenv(t, commonenv.ExponentialBackoffEnvVarKey, exponentialBackoff)
-	assertSetenvNonempty(t, commonenv.MaxRetryTimeEnvVarKey, maxRetryTime)
-	assertSetenvNonempty(t, commonenv.InitialRetryIntervalEnvVarKey, initialRetryInterval)
-	assertSetenv(t, commonenv.KafkaBrokerEnvVarKey, kafkaBrokers)
-	assertSetenv(t, commonenv.KafkaTopicEnvVarKey, kafkaTopic)
-	assertSetenv(t, commonenv.ChannelKeyEnvVarKey, channelKey)
-	assertSetenv(t, commonenv.ServiceNameEnvVarKey, serviceName)
-	assertSetenv(t, commonenv.KafkaUsernameEnvVarKey, kafkaUsername)
-	assertSetenv(t, commonenv.KafkaPasswordEnvVarKey, kafkaPassword)
-
-	environment, err := GetEnvironment(getLogger())
-	assert.Nil(t, err)
-	return environment
-}
-
-// Test All Permutations Of The ApplyEnvironmentOverrides() (and VerifyConfiguration) Functionality
-func TestApplyEnvironmentOverrides_Validation(t *testing.T) {
+// Test All Permutations Of The VerifyConfiguration Functionality
+func TestVerifyConfiguration(t *testing.T) {
 
 	// Define The TestCases
 	testCases := make([]VerifyTestCase, 0, 7)
 	testCase := getValidVerifyTestCase("Valid Complete Config")
-	testCases = append(testCases, testCase)
-
-	testCase = getValidVerifyTestCase("Invalid Config - MetricsPort")
-	testCase.metricsPort = -1
-	testCase.envMetricsPort = -1
-	testCase.expectedError = DispatcherConfigurationError("Metrics.Port must be > 0")
-	testCases = append(testCases, testCase)
-
-	testCase = getValidVerifyTestCase("Invalid Config - MetricsPort - Overridden")
-	testCase.metricsPort = -1
-	testCase.expectedError = nil
-	testCases = append(testCases, testCase)
-
-	testCase = getValidVerifyTestCase("Invalid Config - MetricsDomain")
-	testCase.metricsDomain = ""
-	testCase.envMetricsDomain = ""
-	testCase.expectedError = DispatcherConfigurationError("Metrics.Domain must not be empty")
-	testCases = append(testCases, testCase)
-
-	testCase = getValidVerifyTestCase("Invalid Config - MetricsDomain - Overridden")
-	testCase.metricsDomain = ""
-	testCase.expectedError = nil
-	testCases = append(testCases, testCase)
-
-	testCase = getValidVerifyTestCase("Invalid Config - HealthPort")
-	testCase.healthPort = -1
-	testCase.envHealthPort = -1
-	testCase.expectedError = DispatcherConfigurationError("Health.Port must be > 0")
-	testCases = append(testCases, testCase)
-
-	testCase = getValidVerifyTestCase("Invalid Config - HealthPort - Overridden")
-	testCase.healthPort = -1
-	testCase.expectedError = nil
 	testCases = append(testCases, testCase)
 
 	testCase = getValidVerifyTestCase("Invalid Config - RetryExponentialBackoff")
@@ -331,29 +246,17 @@ func TestApplyEnvironmentOverrides_Validation(t *testing.T) {
 	// Loop Over All The TestCases
 	for _, testCase := range testCases {
 
-		environment := getValidEnvironment(t)
-		environment.MetricsPort = testCase.envMetricsPort
-		environment.MetricsDomain = testCase.envMetricsDomain
-		environment.HealthPort = testCase.envHealthPort
 		testConfig := &config.EventingKafkaConfig{}
-		testConfig.Metrics.Port = testCase.metricsPort
-		testConfig.Metrics.Domain = testCase.metricsDomain
-		testConfig.Health.Port = testCase.healthPort
 		testConfig.Dispatcher.RetryInitialIntervalMillis = testCase.initialRetryInterval
 		testConfig.Dispatcher.RetryTimeMillis = testCase.maxRetryTime
 		testConfig.Dispatcher.RetryExponentialBackoff = testCase.exponentialBackoff
 
 		// Perform The Test
-		ApplyEnvironmentOverrides(testConfig, environment)
 		err := VerifyConfiguration(testConfig)
 
 		// Verify The Results
 		if testCase.expectedError == nil {
 			assert.Nil(t, err)
-			assert.NotNil(t, environment)
-			assert.Equal(t, testCase.expectedMetricsPort, testConfig.Metrics.Port)
-			assert.Equal(t, testCase.expectedMetricsDomain, testConfig.Metrics.Domain)
-			assert.Equal(t, testCase.expectedHealthPort, testConfig.Health.Port)
 			assert.Equal(t, testCase.expectedInitialRetryInterval, testConfig.Dispatcher.RetryInitialIntervalMillis)
 			assert.Equal(t, testCase.expectedMaxRetryTime, testConfig.Dispatcher.RetryTimeMillis)
 			assert.Equal(t, testCase.expectedExponentialBackoff, *testConfig.Dispatcher.RetryExponentialBackoff)
@@ -362,25 +265,4 @@ func TestApplyEnvironmentOverrides_Validation(t *testing.T) {
 		}
 
 	}
-}
-
-func TestApplyEnvironmentOverrides(t *testing.T) {
-	var configuration config.EventingKafkaConfig
-
-	environment := getValidEnvironment(t)
-
-	ApplyEnvironmentOverrides(&configuration, environment)
-
-	assert.Equal(t, environment.MetricsPort, configuration.Metrics.Port)
-	assert.Equal(t, environment.MetricsDomain, configuration.Metrics.Domain)
-	assert.Equal(t, constants.DefaultExponentialBackoff, *configuration.Dispatcher.RetryExponentialBackoff)
-	assert.Equal(t, environment.HealthPort, configuration.Health.Port)
-	assert.Equal(t, int64(constants.DefaultEventRetryTimeMillisMax), configuration.Dispatcher.RetryTimeMillis)
-	assert.Equal(t, int64(constants.DefaultEventRetryInitialIntervalMillis), configuration.Dispatcher.RetryInitialIntervalMillis)
-	assert.Equal(t, environment.KafkaBrokers, configuration.Kafka.Brokers)
-	assert.Equal(t, environment.KafkaTopic, configuration.Kafka.Topic.Name)
-	assert.Equal(t, environment.ChannelKey, configuration.Kafka.ChannelKey)
-	assert.Equal(t, environment.ServiceName, configuration.Kafka.ServiceName)
-	assert.Equal(t, environment.KafkaUsername, configuration.Kafka.Username)
-	assert.Equal(t, environment.KafkaPassword, configuration.Kafka.Password)
 }

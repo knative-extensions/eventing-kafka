@@ -405,6 +405,7 @@ func TestReconcile(t *testing.T) {
 			kubeClientset:        kubeclient.Get(ctx),
 			adminClientType:      kafkaadmin.Kafka,
 			adminClient:          nil,
+			environment:          test.NewEnvironment(),
 			config:               test.NewConfig(),
 			kafkachannelLister:   listers.GetKafkaChannelLister(),
 			kafkachannelInformer: nil,

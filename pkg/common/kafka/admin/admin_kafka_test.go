@@ -13,6 +13,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/common/config"
 	internaltesting "knative.dev/eventing-kafka/pkg/common/internal/testing"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
+	kafkasarama "knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
@@ -75,7 +76,7 @@ Metadata:
 	}()
 
 	// Perform The Test
-	adminClient, err := NewKafkaAdminClient(ctx, internaltesting.GetDefaultSaramaConfig(t), clientId, namespace)
+	adminClient, err := NewKafkaAdminClient(ctx, internaltesting.GetDefaultSaramaConfig(t, kafkasarama.NewSaramaConfig()), clientId, namespace)
 
 	// Verify The Results
 	assert.Nil(t, err)
@@ -94,7 +95,7 @@ func TestNewKafkaAdminClientNoSecrets(t *testing.T) {
 	ctx = context.WithValue(ctx, injectionclient.Key{}, fake.NewSimpleClientset())
 
 	// Perform The Test
-	adminClient, err := NewKafkaAdminClient(ctx, internaltesting.GetDefaultSaramaConfig(t), clientId, namespace)
+	adminClient, err := NewKafkaAdminClient(ctx, internaltesting.GetDefaultSaramaConfig(t, kafkasarama.NewSaramaConfig()), clientId, namespace)
 
 	// Verify The Results
 	assert.Nil(t, err)

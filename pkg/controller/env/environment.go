@@ -7,16 +7,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/common/env"
-	"knative.dev/eventing-kafka/pkg/controller/constants"
 )
 
 // Package Constants
 const (
-
-	// Default Values To Use If Not Available In Knative Channels Argument
-	DefaultNumPartitionsEnvVarKey     = "DEFAULT_NUM_PARTITIONS"
-	DefaultReplicationFactorEnvVarKey = "DEFAULT_REPLICATION_FACTOR"
-	DefaultRetentionMillisEnvVarKey   = "DEFAULT_RETENTION_MILLIS"
 
 	// Kafka Provider Types
 	KafkaProviderValueLocal     = "local"
@@ -38,26 +32,11 @@ type Environment struct {
 	MetricsPort    int    // Required
 	MetricsDomain  string // Required
 
-	// Default Values To Use If Not Available In Knative Channels Argument
-	DefaultNumPartitions     int32 // Required
-	DefaultReplicationFactor int16 // Required
-	DefaultRetentionMillis   int64 // Optional
-
 	// Resource configuration
-	DispatcherImage         string            // Required
-	DispatcherReplicas      int               // Required
-	DispatcherMemoryRequest resource.Quantity // Required
-	DispatcherMemoryLimit   resource.Quantity // Required
-	DispatcherCpuRequest    resource.Quantity // Required
-	DispatcherCpuLimit      resource.Quantity // Required
+	DispatcherImage string // Required
 
 	// Resource Limits for each Channel Deployment
-	ChannelImage         string            // Required
-	ChannelReplicas      int               // Required
-	ChannelMemoryRequest resource.Quantity // Required
-	ChannelMemoryLimit   resource.Quantity // Required
-	ChannelCpuRequest    resource.Quantity // Required
-	ChannelCpuLimit      resource.Quantity // Required
+	ChannelImage string // Required
 }
 
 // Get The Environment
@@ -122,17 +101,6 @@ func (err ControllerConfigurationError) Error() string {
 	return "controller: invalid configuration (" + string(err) + ")"
 }
 
-// ApplyEnvironmentOverrides overwrites an EventingKafkaConfig struct with the values from an Environment struct
-// The fields here are not permitted to be overridden by the values from the config-eventing-kafka configmap
-func ApplyEnvironmentOverrides(configuration *config.EventingKafkaConfig, environment *Environment) {
-	configuration.ServiceAccount = environment.ServiceAccount
-	configuration.Dispatcher.Image = environment.DispatcherImage
-	configuration.Channel.Image = environment.ChannelImage
-	configuration.Metrics.Port = environment.MetricsPort
-	configuration.Metrics.Domain = environment.MetricsDomain
-	configuration.Health.Port = constants.HealthPort
-}
-
 // VerifyConfiguration returns an error if mandatory fields in the EventingKafkaConfig have not been set either
 // via the external configmap or the internal variables.
 func VerifyConfiguration(configuration *config.EventingKafkaConfig) error {
@@ -175,12 +143,6 @@ func VerifyConfiguration(configuration *config.EventingKafkaConfig) error {
 		return ControllerConfigurationError("Channel.MemoryRequest must be nonzero")
 	case configuration.Channel.Replicas < 1:
 		return ControllerConfigurationError("Channel.Replicas must be > 0")
-	case configuration.Health.Port < 1:
-		return ControllerConfigurationError("Health.Port must be > 0")
-	case configuration.Metrics.Port < 1:
-		return ControllerConfigurationError("Metrics.Port must be > 0")
-	case configuration.Metrics.Domain == "":
-		return ControllerConfigurationError("Metrics.Domain must not be empty")
 	}
 	return nil // no problems found
 }

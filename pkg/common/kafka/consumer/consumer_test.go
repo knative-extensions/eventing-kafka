@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	internaltesting "knative.dev/eventing-kafka/pkg/common/internal/testing"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
+	kafkasarama "knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 	kafkatesting "knative.dev/eventing-kafka/pkg/common/kafka/testing"
-	"knative.dev/eventing-kafka/pkg/common/kafka/util"
 )
 
 // Test Constants
@@ -54,8 +54,8 @@ func TestCreateConsumerGroup(t *testing.T) {
 	}()
 
 	// Perform The Test
-	config := internaltesting.GetDefaultSaramaConfig(t)
-	util.UpdateSaramaConfig(config, ClientId, KafkaUsername, KafkaPassword)
+	config := internaltesting.GetDefaultSaramaConfig(t, kafkasarama.NewSaramaConfig())
+	kafkasarama.UpdateSaramaConfig(config, ClientId, KafkaUsername, KafkaPassword)
 	consumerGroup, registry, err := CreateConsumerGroup(brokers, config, GroupId)
 
 	// Verify The Results
@@ -67,7 +67,7 @@ func TestCreateConsumerGroup(t *testing.T) {
 // Test that the UpdateSaramaConfig sets values as expected
 func TestUpdateConfig(t *testing.T) {
 	config := sarama.NewConfig()
-	util.UpdateSaramaConfig(config, ClientId, KafkaUsername, KafkaPassword)
+	kafkasarama.UpdateSaramaConfig(config, ClientId, KafkaUsername, KafkaPassword)
 	assert.Equal(t, ClientId, config.ClientID)
 	assert.Equal(t, KafkaUsername, config.Net.SASL.User)
 	assert.Equal(t, KafkaPassword, config.Net.SASL.Password)

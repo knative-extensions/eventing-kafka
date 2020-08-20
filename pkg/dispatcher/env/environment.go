@@ -106,18 +106,10 @@ func (err DispatcherConfigurationError) Error() string {
 	return "dispatcher: invalid configuration (" + string(err) + ")"
 }
 
-// ApplyEnvironmentOverrides overwrites an EventingKafkaConfig struct with the values from an Environment struct
-// The fields here are not permitted to be overridden by the values from the config-eventing-kafka configmap
-func ApplyEnvironmentOverrides(configuration *config.EventingKafkaConfig, environment *Environment) {
-	configuration.Metrics.Port = environment.MetricsPort
-	configuration.Metrics.Domain = environment.MetricsDomain
-	configuration.Health.Port = environment.HealthPort
-	configuration.Kafka.Brokers = environment.KafkaBrokers
-	configuration.Kafka.Topic.Name = environment.KafkaTopic
-	configuration.Kafka.ChannelKey = environment.ChannelKey
-	configuration.Kafka.ServiceName = environment.ServiceName
-	configuration.Kafka.Username = environment.KafkaUsername
-	configuration.Kafka.Password = environment.KafkaPassword
+// VerifyConfiguration returns an error if mandatory fields in the EventingKafkaConfig have not been set either
+// via the external configmap or the internal variables.
+func VerifyConfiguration(configuration *config.EventingKafkaConfig) error {
+	// Verify Mandatory configuration Settings
 
 	// Set Default Values For Some Fields If Not Provided
 	if configuration.Dispatcher.RetryExponentialBackoff == nil {
@@ -132,22 +124,10 @@ func ApplyEnvironmentOverrides(configuration *config.EventingKafkaConfig, enviro
 	if configuration.Dispatcher.RetryTimeMillis < 1 {
 		configuration.Dispatcher.RetryTimeMillis = constants.DefaultEventRetryTimeMillisMax
 	}
-}
-
-// VerifyConfiguration returns an error if mandatory fields in the EventingKafkaConfig have not been set either
-// via the external configmap or the internal variables.
-func VerifyConfiguration(configuration *config.EventingKafkaConfig) error {
-	// Verify Mandatory configuration Settings
-	switch {
-	case configuration.Health.Port < 1:
-		return DispatcherConfigurationError("Health.Port must be > 0")
-	case configuration.Metrics.Port < 1:
-		return DispatcherConfigurationError("Metrics.Port must be > 0")
-	case configuration.Metrics.Domain == "":
-		return DispatcherConfigurationError("Metrics.Domain must not be empty")
 
 	// These settings should never be invalid because of the default values above, but verifying them
 	// is cheap insurance against inadvertent changes
+	switch {
 	case configuration.Dispatcher.RetryExponentialBackoff == nil:
 		return DispatcherConfigurationError("Dispatcher.RetryExponentialBackoff must not be nil")
 	case configuration.Dispatcher.RetryTimeMillis < 1:

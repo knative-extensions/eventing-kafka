@@ -17,9 +17,10 @@ import (
 	"knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
 	kafkalisters "knative.dev/eventing-contrib/kafka/channel/pkg/client/listers/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/common/config"
-	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	kafkaadmin "knative.dev/eventing-kafka/pkg/common/kafka/admin"
+	kafkasarama "knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
+	"knative.dev/eventing-kafka/pkg/controller/env"
 	"knative.dev/eventing-kafka/pkg/controller/event"
 	"knative.dev/eventing-kafka/pkg/controller/util"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
@@ -33,6 +34,7 @@ type Reconciler struct {
 	kafkaClientSet       kafkaclientset.Interface
 	adminClientType      kafkaadmin.AdminClientType
 	adminClient          kafkaadmin.AdminClientInterface
+	environment          *env.Environment
 	config               *config.EventingKafkaConfig
 	saramaConfig         *sarama.Config
 	kafkachannelLister   kafkalisters.KafkaChannelLister
@@ -208,7 +210,7 @@ func (r *Reconciler) configMapObserver(configMap *corev1.ConfigMap) {
 	// those settings are needed in the future, the environment will also need to be re-parsed here.
 
 	// Load the Sarama settings from our configmap, ignoring the eventing-kafka result.
-	saramaConfig, _, err := commonconfig.LoadConfigFromMap(configMap)
+	saramaConfig, _, err := kafkasarama.LoadConfigFromMap(configMap)
 	if err != nil {
 		r.logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Error(err))
 	}

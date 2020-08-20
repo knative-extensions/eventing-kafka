@@ -202,7 +202,7 @@ func runConfigChangedTest(t *testing.T, originalProducer *Producer, base *corev1
 	newProducer = originalProducer.ConfigChanged(newConfig)
 
 	// Verify that a new producer was created or not, as expected
-	assert.True(t, expectedNewProducer, newProducer != nil)
+	assert.Equal(t, expectedNewProducer, newProducer != nil)
 
 	// Return either the new or original producer for use by the rest of the TestConfigChanged test
 	if expectedNewProducer {

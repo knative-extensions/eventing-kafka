@@ -2,7 +2,6 @@ package env
 
 import (
 	"go.uber.org/zap"
-	"knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/common/env"
 )
 
@@ -89,32 +88,4 @@ type ChannelConfigurationError string
 
 func (err ChannelConfigurationError) Error() string {
 	return "channel: invalid configuration (" + string(err) + ")"
-}
-
-// ApplyEnvironmentOverrides overwrites an EventingKafkaConfig struct with the values from an Environment struct
-// The fields here are not permitted to be overridden by the values from the config-eventing-kafka configmap
-func ApplyEnvironmentOverrides(configuration *config.EventingKafkaConfig, environment *Environment) {
-	// Copy environment to configuration struct
-	configuration.Metrics.Port = environment.MetricsPort
-	configuration.Metrics.Domain = environment.MetricsDomain
-	configuration.Health.Port = environment.HealthPort
-	configuration.Kafka.Brokers = environment.KafkaBrokers
-	configuration.Kafka.ServiceName = environment.ServiceName
-	configuration.Kafka.Username = environment.KafkaUsername
-	configuration.Kafka.Password = environment.KafkaPassword
-}
-
-// VerifyConfiguration returns an error if mandatory fields in the EventingKafkaConfig have not been set either
-// via the external configmap or the internal variables.
-func VerifyConfiguration(configuration *config.EventingKafkaConfig) error {
-	// Verify mandatory configuration settings
-	switch {
-	case configuration.Health.Port < 1:
-		return ChannelConfigurationError("Health.Port must be > 0")
-	case configuration.Metrics.Port < 1:
-		return ChannelConfigurationError("Metrics.Port must be > 0")
-	case configuration.Metrics.Domain == "":
-		return ChannelConfigurationError("Metrics.Domain must not be empty")
-	}
-	return nil // no problems found
 }

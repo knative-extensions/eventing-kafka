@@ -238,6 +238,7 @@ func TestReconcile(t *testing.T) {
 		r := &Reconciler{
 			logger:             logging.FromContext(ctx),
 			kubeClientset:      kubeclient.Get(ctx),
+			environment:        test.NewEnvironment(),
 			config:             test.NewConfig(),
 			kafkaChannelClient: fakekafkaclient.Get(ctx),
 			kafkachannelLister: listers.GetKafkaChannelLister(),

@@ -11,7 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	adminutil "knative.dev/eventing-kafka/pkg/common/kafka/admin/util"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
-	"knative.dev/eventing-kafka/pkg/common/kafka/util"
+	kafkasarama "knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
 )
@@ -71,7 +71,7 @@ func NewKafkaAdminClient(ctx context.Context, saramaConfig *sarama.Config, clien
 	password := string(kafkaSecret.Data[constants.KafkaSecretKeyPassword])
 
 	// Update The Sarama ClusterAdmin Configuration With Our Values
-	util.UpdateSaramaConfig(saramaConfig, clientId, username, password)
+	kafkasarama.UpdateSaramaConfig(saramaConfig, clientId, username, password)
 
 	// Create A New Sarama ClusterAdmin
 	clusterAdmin, err := NewClusterAdminWrapper(brokers, saramaConfig)

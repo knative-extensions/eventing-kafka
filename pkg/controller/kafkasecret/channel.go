@@ -151,8 +151,8 @@ func (r *Reconciler) newChannelService(secret *corev1.Secret) *corev1.Service {
 				},
 				{
 					Name:       constants.MetricsPortName,
-					Port:       int32(r.config.Metrics.Port),
-					TargetPort: intstr.FromInt(r.config.Metrics.Port),
+					Port:       int32(r.environment.MetricsPort),
+					TargetPort: intstr.FromInt(r.environment.MetricsPort),
 				},
 			},
 			Selector: map[string]string{
@@ -268,14 +268,14 @@ func (r *Reconciler) newChannelDeployment(secret *corev1.Secret) (*appsv1.Deploy
 					},
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName: r.config.ServiceAccount,
+					ServiceAccountName: r.environment.ServiceAccount,
 					Containers: []corev1.Container{
 						{
 							Name: deploymentName,
 							LivenessProbe: &corev1.Probe{
 								Handler: corev1.Handler{
 									HTTPGet: &corev1.HTTPGetAction{
-										Port: intstr.FromInt(r.config.Health.Port),
+										Port: intstr.FromInt(constants.HealthPort),
 										Path: health.LivenessPath,
 									},
 								},
@@ -285,14 +285,14 @@ func (r *Reconciler) newChannelDeployment(secret *corev1.Secret) (*appsv1.Deploy
 							ReadinessProbe: &corev1.Probe{
 								Handler: corev1.Handler{
 									HTTPGet: &corev1.HTTPGetAction{
-										Port: intstr.FromInt(r.config.Health.Port),
+										Port: intstr.FromInt(constants.HealthPort),
 										Path: health.ReadinessPath,
 									},
 								},
 								InitialDelaySeconds: constants.ChannelReadinessDelay,
 								PeriodSeconds:       constants.ChannelReadinessPeriod,
 							},
-							Image: r.config.Channel.Image,
+							Image: r.environment.ChannelImage,
 							Ports: []corev1.ContainerPort{
 								{
 									Name:          "server",
@@ -341,15 +341,15 @@ func (r *Reconciler) channelDeploymentEnvVars(secret *corev1.Secret) ([]corev1.E
 		},
 		{
 			Name:  commonenv.MetricsPortEnvVarKey,
-			Value: strconv.Itoa(r.config.Metrics.Port),
+			Value: strconv.Itoa(r.environment.MetricsPort),
 		},
 		{
 			Name:  commonenv.MetricsDomainEnvVarKey,
-			Value: r.config.Metrics.Domain,
+			Value: r.environment.MetricsDomain,
 		},
 		{
 			Name:  commonenv.HealthPortEnvVarKey,
-			Value: strconv.Itoa(r.config.Health.Port),
+			Value: strconv.Itoa(constants.HealthPort),
 		},
 	}
 

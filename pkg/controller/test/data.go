@@ -19,6 +19,7 @@ import (
 	kafkaconstants "knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	kafkautil "knative.dev/eventing-kafka/pkg/common/kafka/util"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
+	"knative.dev/eventing-kafka/pkg/controller/env"
 	"knative.dev/eventing-kafka/pkg/controller/event"
 	"knative.dev/eventing-kafka/pkg/controller/util"
 	"knative.dev/eventing/pkg/apis/messaging"
@@ -94,18 +95,21 @@ var (
 // ControllerConfig Test Data
 //
 
+// Set The Required Environment Variables
+func NewEnvironment() *env.Environment {
+	return &env.Environment{
+		ServiceAccount:  ServiceAccount,
+		MetricsPort:     MetricsPort,
+		MetricsDomain:   MetricsDomain,
+		DispatcherImage: DispatcherImage,
+		ChannelImage:    ChannelImage,
+	}
+}
+
 // Set The Required Config Fields
 func NewConfig() *config.EventingKafkaConfig {
 	backoff := DefaultExponentialBackoff
 	return &config.EventingKafkaConfig{
-		ServiceAccount: ServiceAccount,
-		Metrics: config.EKMetricsConfig{
-			Port:   MetricsPort,
-			Domain: MetricsDomain,
-		},
-		Health: config.EKHealthConfig{
-			Port: HealthPort,
-		},
 		Dispatcher: config.EKDispatcherConfig{
 			EKKubernetesConfig: config.EKKubernetesConfig{
 				Replicas:      DispatcherReplicas,
@@ -113,7 +117,6 @@ func NewConfig() *config.EventingKafkaConfig {
 				CpuRequest:    resource.MustParse(DispatcherCpuRequest),
 				MemoryLimit:   resource.MustParse(DispatcherMemoryLimit),
 				MemoryRequest: resource.MustParse(DispatcherMemoryRequest),
-				Image:         DispatcherImage,
 			},
 			RetryInitialIntervalMillis: DefaultEventRetryInitialIntervalMillis,
 			RetryTimeMillis:            DefaultEventRetryTimeMillisMax,
@@ -126,7 +129,6 @@ func NewConfig() *config.EventingKafkaConfig {
 				CpuRequest:    resource.MustParse(ChannelCpuRequest),
 				MemoryLimit:   resource.MustParse(ChannelMemoryLimit),
 				MemoryRequest: resource.MustParse(ChannelMemoryRequest),
-				Image:         ChannelImage,
 			},
 		},
 		Kafka: config.EKKafkaConfig{

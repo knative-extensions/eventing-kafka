@@ -14,9 +14,8 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/constants"
 	"knative.dev/eventing-kafka/pkg/channel/health"
 	"knative.dev/eventing-kafka/pkg/channel/util"
-	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	kafkaproducer "knative.dev/eventing-kafka/pkg/common/kafka/producer"
-	commonutil "knative.dev/eventing-kafka/pkg/common/kafka/util"
+	kafkasarama "knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
 	eventingChannel "knative.dev/eventing/pkg/channel"
 )
@@ -171,7 +170,7 @@ func (p *Producer) Close() {
 func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 	p.logger.Debug("New ConfigMap Received", zap.String("configMap.Name", configMap.ObjectMeta.Name))
 
-	newConfig := commonutil.NewSaramaConfig()
+	newConfig := kafkasarama.NewSaramaConfig()
 
 	// In order to compare configs "without the admin or consumer sections" we use a known-base config
 	// and ensure that those sections are always the same.  The reason we can't just use, for example,
@@ -180,7 +179,7 @@ func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 	defaultAdmin := newConfig.Admin
 	defaultConsumer := newConfig.Consumer
 
-	err := commonconfig.MergeSaramaSettings(newConfig, configMap)
+	err := kafkasarama.MergeSaramaSettings(newConfig, configMap)
 	if err != nil {
 		p.logger.Error("Unable to merge sarama settings", zap.Error(err))
 		return nil
@@ -192,7 +191,7 @@ func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 
 	if p.configuration != nil {
 		// Some of the current config settings may not be overridden by the configmap (username, password, etc.)
-		commonutil.UpdateSaramaConfig(newConfig, p.configuration.ClientID, p.configuration.Net.SASL.User, p.configuration.Net.SASL.Password)
+		kafkasarama.UpdateSaramaConfig(newConfig, p.configuration.ClientID, p.configuration.Net.SASL.User, p.configuration.Net.SASL.Password)
 
 		// Create a shallow copy of the current config so that we can empty out the Admin and Consumer before comparing.
 		configCopy := p.configuration
@@ -201,7 +200,7 @@ func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 		// a newConfig with the structs empty, but this is more explicit as to what our goal is and doesn't hurt.
 		configCopy.Admin = defaultAdmin
 		configCopy.Consumer = defaultConsumer
-		if commonconfig.SaramaConfigEqual(newConfig, configCopy) {
+		if kafkasarama.ConfigEqual(newConfig, configCopy) {
 			p.logger.Info("No Producer changes detected in new config; ignoring")
 			return nil
 		}

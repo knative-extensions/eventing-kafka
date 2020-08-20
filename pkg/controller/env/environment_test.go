@@ -22,13 +22,10 @@ const (
 	metricsDomain  = "example.com/kafka-eventing"
 	kafkaProvider  = "confluent"
 
-	defaultNumPartitions        = "7"
-	defaultReplicationFactor    = "2"
-	defaultRetentionMillis      = "13579"
-	defaultKafkaConsumers       = "5"
-	defaultNumPartitionsInt     = 7
-	defaultReplicationFactorInt = 2
-	defaultRetentionMillisInt   = 13579
+	defaultKafkaConsumers    = "5"
+	defaultNumPartitions     = 7
+	defaultReplicationFactor = 2
+	defaultRetentionMillis   = 13579
 
 	dispatcherImage         = "TestDispatcherImage"
 	dispatcherReplicasInt   = 1
@@ -47,18 +44,15 @@ const (
 
 // Define The TestCase Struct
 type TestCase struct {
-	name                     string
-	serviceAccount           string
-	metricsPort              string
-	metricsDomain            string
-	kafkaProvider            string
-	defaultNumPartitions     string
-	defaultReplicationFactor string
-	defaultRetentionMillis   string
-	defaultKafkaConsumers    string
-	dispatcherImage          string
-	channelImage             string
-	expectedError            error
+	name                  string
+	serviceAccount        string
+	metricsPort           string
+	metricsDomain         string
+	kafkaProvider         string
+	defaultKafkaConsumers string
+	dispatcherImage       string
+	channelImage          string
+	expectedError         error
 }
 
 // Test All Permutations Of The GetEnvironment() Functionality
@@ -209,9 +203,9 @@ func getValidVerifyTestCase(name string) VerifyTestCase {
 		metricsDomain:                      metricsDomain,
 		expectedMetricsPort:                metricsPortInt,
 		expectedMetricsDomain:              metricsDomain,
-		kafkaTopicDefaultNumPartitions:     defaultNumPartitionsInt,
-		kafkaTopicDefaultReplicationFactor: defaultReplicationFactorInt,
-		kafkaTopicDefaultRetentionMillis:   defaultRetentionMillisInt,
+		kafkaTopicDefaultNumPartitions:     defaultNumPartitions,
+		kafkaTopicDefaultReplicationFactor: defaultReplicationFactor,
+		kafkaTopicDefaultRetentionMillis:   defaultRetentionMillis,
 		kafkaProvider:                      kafkaProvider,
 		dispatcherCpuLimit:                 resource.MustParse(dispatcherCpuLimit),
 		dispatcherCpuRequest:               resource.MustParse(dispatcherCpuRequest),
@@ -241,9 +235,6 @@ func getValidEnvironment(t *testing.T) *Environment {
 	assertSetenv(t, commonenv.ServiceAccountEnvVarKey, serviceAccount)
 	assertSetenv(t, commonenv.MetricsDomainEnvVarKey, metricsDomain)
 	assertSetenvNonempty(t, commonenv.MetricsPortEnvVarKey, metricsPort)
-	assertSetenvNonempty(t, DefaultNumPartitionsEnvVarKey, defaultNumPartitions)
-	assertSetenv(t, DefaultReplicationFactorEnvVarKey, defaultReplicationFactor)
-	assertSetenv(t, DefaultRetentionMillisEnvVarKey, defaultRetentionMillis)
 	assertSetenv(t, DispatcherImageEnvVarKey, dispatcherImage)
 	assertSetenv(t, ChannelImageEnvVarKey, channelImage)
 
@@ -252,35 +243,13 @@ func getValidEnvironment(t *testing.T) *Environment {
 	return environment
 }
 
-// Test All Permutations Of The ApplyEnvironmentOverrides() (and VerifyConfiguration) Functionality
-func TestApplyEnvironmentOverrides_Validation(t *testing.T) {
+// Test All Permutations Of The VerifyConfiguration Functionality
+func TestVerifyConfiguration(t *testing.T) {
 
 	// Define The TestCases
 	testCases := make([]VerifyTestCase, 0, 7)
 
 	testCase := getValidVerifyTestCase("Valid Complete Config")
-	testCases = append(testCases, testCase)
-
-	testCase = getValidVerifyTestCase("Invalid Config - MetricsPort")
-	testCase.metricsPort = -1
-	testCase.envMetricsPort = -1
-	testCase.expectedError = ControllerConfigurationError("Metrics.Port must be > 0")
-	testCases = append(testCases, testCase)
-
-	testCase = getValidVerifyTestCase("Invalid Config - MetricsPort - Overridden")
-	testCase.metricsPort = -1
-	testCase.expectedError = nil
-	testCases = append(testCases, testCase)
-
-	testCase = getValidVerifyTestCase("Invalid Config - MetricsDomain")
-	testCase.metricsDomain = ""
-	testCase.envMetricsDomain = ""
-	testCase.expectedError = ControllerConfigurationError("Metrics.Domain must not be empty")
-	testCases = append(testCases, testCase)
-
-	testCase = getValidVerifyTestCase("Invalid Config - MetricsDomain - Overridden")
-	testCase.metricsDomain = ""
-	testCase.expectedError = nil
 	testCases = append(testCases, testCase)
 
 	testCase = getValidVerifyTestCase("Invalid Config - Kafka.Topic.DefaultNumPartitions")
@@ -360,8 +329,6 @@ func TestApplyEnvironmentOverrides_Validation(t *testing.T) {
 		environment.MetricsPort = testCase.envMetricsPort
 		environment.MetricsDomain = testCase.envMetricsDomain
 		testConfig := &config.EventingKafkaConfig{}
-		testConfig.Metrics.Port = testCase.metricsPort
-		testConfig.Metrics.Domain = testCase.metricsDomain
 		testConfig.Kafka.Topic.DefaultNumPartitions = testCase.kafkaTopicDefaultNumPartitions
 		testConfig.Kafka.Topic.DefaultReplicationFactor = testCase.kafkaTopicDefaultReplicationFactor
 		testConfig.Kafka.Topic.DefaultRetentionMillis = testCase.kafkaTopicDefaultRetentionMillis
@@ -378,15 +345,12 @@ func TestApplyEnvironmentOverrides_Validation(t *testing.T) {
 		testConfig.Channel.Replicas = testCase.channelReplicas
 
 		// Perform The Test
-		ApplyEnvironmentOverrides(testConfig, environment)
 		err := VerifyConfiguration(testConfig)
 
 		// Verify The Results
 		if testCase.expectedError == nil {
 			assert.Nil(t, err)
 			assert.NotNil(t, environment)
-			assert.Equal(t, testCase.expectedMetricsPort, testConfig.Metrics.Port)
-			assert.Equal(t, testCase.expectedMetricsDomain, testConfig.Metrics.Domain)
 			assert.Equal(t, testCase.kafkaTopicDefaultNumPartitions, testConfig.Kafka.Topic.DefaultNumPartitions)
 			assert.Equal(t, testCase.kafkaTopicDefaultReplicationFactor, testConfig.Kafka.Topic.DefaultReplicationFactor)
 			assert.Equal(t, testCase.kafkaTopicDefaultRetentionMillis, testConfig.Kafka.Topic.DefaultRetentionMillis)

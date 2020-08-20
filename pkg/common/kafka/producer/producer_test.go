@@ -11,7 +11,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/test"
 	internaltesting "knative.dev/eventing-kafka/pkg/common/internal/testing"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
-	"knative.dev/eventing-kafka/pkg/common/kafka/util"
+	kafkasarama "knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 )
 
 // Test Constants
@@ -50,8 +50,8 @@ func performCreateSyncProducerTest(t *testing.T, username string, password strin
 	defer func() { newSyncProducerWrapper = newSyncProducerWrapperPlaceholder }()
 
 	// Perform The Test
-	config := internaltesting.GetDefaultSaramaConfig(t)
-	util.UpdateSaramaConfig(config, ClientId, username, password)
+	config := internaltesting.GetDefaultSaramaConfig(t, kafkasarama.NewSaramaConfig())
+	kafkasarama.UpdateSaramaConfig(config, ClientId, username, password)
 	producer, registry, err := CreateSyncProducer([]string{KafkaBrokers}, config)
 
 	// Verify The Results
@@ -64,7 +64,7 @@ func performCreateSyncProducerTest(t *testing.T, username string, password strin
 // Test that the UpdateSaramaConfig sets values as expected
 func TestUpdateConfig(t *testing.T) {
 	config := sarama.NewConfig()
-	util.UpdateSaramaConfig(config, test.ClientId, KafkaUsername, KafkaPassword)
+	kafkasarama.UpdateSaramaConfig(config, test.ClientId, KafkaUsername, KafkaPassword)
 	assert.Equal(t, ClientId, config.ClientID)
 	assert.Equal(t, KafkaUsername, config.Net.SASL.User)
 	assert.Equal(t, KafkaPassword, config.Net.SASL.Password)

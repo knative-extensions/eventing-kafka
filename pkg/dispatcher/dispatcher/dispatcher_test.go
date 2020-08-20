@@ -388,7 +388,7 @@ func runConfigChangedTest(t *testing.T, originalDispatcher Dispatcher, base *cor
 	newDispatcher = originalDispatcher.ConfigChanged(newConfig)
 
 	// Verify that a new dispatcher was created or not, as expected
-	assert.True(t, expectedNewDispatcher, newDispatcher != nil)
+	assert.Equal(t, expectedNewDispatcher, newDispatcher != nil)
 
 	// Return either the new or original dispatcher for use by the rest of the TestConfigChanged test
 	if expectedNewDispatcher {
