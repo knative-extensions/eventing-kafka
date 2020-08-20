@@ -12,9 +12,9 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
+	kafkaconstants "knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	kafkaconsumer "knative.dev/eventing-kafka/pkg/common/kafka/consumer"
 	kafkatesting "knative.dev/eventing-kafka/pkg/common/kafka/testing"
-	"knative.dev/eventing-kafka/pkg/dispatcher/constants"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/channel"
 	logtesting "knative.dev/pkg/logging/testing"
@@ -346,7 +346,7 @@ func TestConfigChanged(t *testing.T) {
 	logger := logtesting.TestLogger(t).Desugar()
 
 	// Setup Environment
-	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, constants.KnativeEventingNamespace))
+	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, kafkaconstants.KnativeEventingNamespace))
 
 	// Create Mocks
 	var dispatcher Dispatcher
@@ -372,12 +372,12 @@ func TestConfigChanged(t *testing.T) {
 	dispatcher = runConfigChangedTest(t, dispatcher, getBaseConfigMap(), TestConfigProducerChange, false)
 }
 
-func runConfigChangedTest(t *testing.T, component Dispatcher, base *corev1.ConfigMap, changed string, expectedNewDispatcher bool) Dispatcher {
+func runConfigChangedTest(t *testing.T, originalDispatcher Dispatcher, base *corev1.ConfigMap, changed string, expectedNewDispatcher bool) Dispatcher {
 	// Change the Consumer settings to the base config
-	newDispatcher := component.ConfigChanged(base)
+	newDispatcher := originalDispatcher.ConfigChanged(base)
 	if newDispatcher != nil {
 		// Simulate what happens in main() when the dispatcher changes
-		component = newDispatcher
+		originalDispatcher = newDispatcher
 	}
 
 	// Alter the configmap to use the changed settings
@@ -385,15 +385,14 @@ func runConfigChangedTest(t *testing.T, component Dispatcher, base *corev1.Confi
 	newConfig.Data[commonconfig.SaramaSettingsConfigKey] = changed
 
 	// Inform the Dispatcher that the config has changed to the new settings
-	newDispatcher = component.ConfigChanged(newConfig)
+	newDispatcher = originalDispatcher.ConfigChanged(newConfig)
 
 	// Verify that a new dispatcher was created or not, as expected
+	assert.True(t, expectedNewDispatcher, newDispatcher != nil)
+
+	// Return either the new or original dispatcher for use by the rest of the TestConfigChanged test
 	if expectedNewDispatcher {
-		assert.NotNil(t, newDispatcher)
-		// Simulate what happens in main() when the dispatcher changes by returning the new dispatcher
 		return newDispatcher
 	}
-	assert.Nil(t, newDispatcher)
-	// No dispatcher change so return the original component for future tests
-	return component
+	return originalDispatcher
 }

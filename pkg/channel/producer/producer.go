@@ -30,8 +30,8 @@ type Producer struct {
 	metricsRegistry    gometrics.Registry
 	metricsStopChan    chan struct{}
 	metricsStoppedChan chan struct{}
-	currentConfig      *sarama.Config
-	currentBrokers     []string
+	configuration      *sarama.Config
+	brokers            []string
 }
 
 // Initialize The Producer
@@ -59,8 +59,8 @@ func NewProducer(logger *zap.Logger,
 		metricsRegistry:    metricsRegistry,
 		metricsStopChan:    make(chan struct{}),
 		metricsStoppedChan: make(chan struct{}),
-		currentConfig:      config,
-		currentBrokers:     brokers,
+		configuration:      config,
+		brokers:            brokers,
 	}
 
 	// Start Observing Metrics
@@ -162,16 +162,14 @@ func (p *Producer) Close() {
 
 // ConfigChanged is called by the configMapObserver handler function in main() so that
 // settings specific to the producer may be extracted and the producer restarted if necessary.
+// The new configmap could technically have changes to the eventing-kafka section as well as the sarama
+// section, but none of those matter to a currently-running Producer, so those are ignored here
+// (which avoids the necessity of calling env.GetEnvironment and env.VerifyOverrides).  If those settings
+// are needed in the future, the environment will also need to be re-parsed here.
+// If there aren't any producer-specific differences between the current config and the new one,
+// then just log that and move on; do not restart the Producer unnecessarily.
 func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 	p.logger.Debug("New ConfigMap Received", zap.String("configMap.Name", configMap.ObjectMeta.Name))
-
-	// The new configmap could technically have changes to the eventing-kafka section as well as the sarama
-	// section, but none of those matter to a currently-running Producer, so those are ignored here
-	// (which avoids the necessity of calling env.GetEnvironment and env.VerifyOverrides).  If those settings
-	// are needed in the future, the environment will also need to be re-parsed here.
-
-	// If there aren't any producer-specific differences between the current config and the new one,
-	// then just log that and move on; do not restart the Producer unnecessarily.
 
 	newConfig := commonutil.NewSaramaConfig()
 
@@ -179,8 +177,8 @@ func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 	// and ensure that those sections are always the same.  The reason we can't just use, for example,
 	// sarama.Config{}.Admin as the empty struct is that the Sarama calls to create objects like SyncProducer
 	// still verify that certain fields (such as Admin.Timeout) are nonzero and fail otherwise.
-	emptyAdmin := newConfig.Admin
-	emptyConsumer := newConfig.Consumer
+	defaultAdmin := newConfig.Admin
+	defaultConsumer := newConfig.Consumer
 
 	err := commonconfig.MergeSaramaSettings(newConfig, configMap)
 	if err != nil {
@@ -189,38 +187,32 @@ func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 	}
 
 	// Don't care about Admin or Consumer sections; everything else is a change that needs to be implemented.
-	newConfig.Admin = emptyAdmin
-	newConfig.Consumer = emptyConsumer
+	newConfig.Admin = defaultAdmin
+	newConfig.Consumer = defaultConsumer
 
-	if p.currentConfig != nil {
+	if p.configuration != nil {
 		// Some of the current config settings may not be overridden by the configmap (username, password, etc.)
-		commonutil.UpdateSaramaConfig(newConfig, p.currentConfig.ClientID, p.currentConfig.Net.SASL.User, p.currentConfig.Net.SASL.Password)
+		commonutil.UpdateSaramaConfig(newConfig, p.configuration.ClientID, p.configuration.Net.SASL.User, p.configuration.Net.SASL.Password)
 
 		// Create a shallow copy of the current config so that we can empty out the Admin and Consumer before comparing.
-		configCopy := p.currentConfig
+		configCopy := p.configuration
 
 		// The current config should theoretically have these sections zeroed already because Reconfigure should have been passed
 		// a newConfig with the structs empty, but this is more explicit as to what our goal is and doesn't hurt.
-		configCopy.Admin = emptyAdmin
-		configCopy.Consumer = emptyConsumer
+		configCopy.Admin = defaultAdmin
+		configCopy.Consumer = defaultConsumer
 		if commonconfig.SaramaConfigEqual(newConfig, configCopy) {
 			p.logger.Info("No Producer changes detected in new config; ignoring")
 			return nil
 		}
 	}
 
-	return p.reconfigure(newConfig)
-}
-
-// Reconfigure takes a new sarama.Config struct and applies the updated settings, restarting the Producer if required
-// Returns the new Producer if necessary, or nil if the configuration change did not require a new one
-func (p *Producer) reconfigure(config *sarama.Config) *Producer {
 	p.logger.Info("Configuration received; applying new Producer settings")
 
 	// "Reconfiguring" the Producer involves creating a new one, but we can re-use some
 	// of the original components (logger, brokers, statsReporter, and healthServer don't change when reconfiguring)
 	p.Close()
-	reconfiguredKafkaProducer, err := NewProducer(p.logger, config, p.currentBrokers, p.statsReporter, p.healthServer)
+	reconfiguredKafkaProducer, err := NewProducer(p.logger, newConfig, p.brokers, p.statsReporter, p.healthServer)
 	if err != nil {
 		p.logger.Fatal("Failed To Reconfigure Kafka Producer", zap.Error(err))
 		return nil

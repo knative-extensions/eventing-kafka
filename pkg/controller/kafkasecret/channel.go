@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	commonenv "knative.dev/eventing-kafka/pkg/common/env"
 	"knative.dev/eventing-kafka/pkg/common/health"
+	kafkaconstants "knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
 	"knative.dev/eventing-kafka/pkg/controller/event"
 	"knative.dev/eventing-kafka/pkg/controller/util"
@@ -112,7 +113,7 @@ func (r *Reconciler) getChannelService(secret *corev1.Secret) (*corev1.Service, 
 
 	// Get The Service By Namespace / Name
 	service := &corev1.Service{}
-	service, err := r.serviceLister.Services(constants.KnativeEventingNamespace).Get(deploymentName)
+	service, err := r.serviceLister.Services(kafkaconstants.KnativeEventingNamespace).Get(deploymentName)
 
 	// Return The Results
 	return service, err
@@ -132,7 +133,7 @@ func (r *Reconciler) newChannelService(secret *corev1.Secret) *corev1.Service {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deploymentName,
-			Namespace: constants.KnativeEventingNamespace,
+			Namespace: kafkaconstants.KnativeEventingNamespace,
 			Labels: map[string]string{
 				constants.KafkaChannelChannelLabel:   "true",                               // Allows for identification of KafkaChannels
 				constants.K8sAppChannelSelectorLabel: constants.K8sAppChannelSelectorValue, // Prometheus ServiceMonitor
@@ -214,7 +215,7 @@ func (r *Reconciler) getChannelDeployment(secret *corev1.Secret) (*appsv1.Deploy
 
 	// Get The Channel Deployment By Namespace / Name
 	deployment := &appsv1.Deployment{}
-	deployment, err := r.deploymentLister.Deployments(constants.KnativeEventingNamespace).Get(deploymentName)
+	deployment, err := r.deploymentLister.Deployments(kafkaconstants.KnativeEventingNamespace).Get(deploymentName)
 
 	// Return The Results
 	return deployment, err
@@ -244,7 +245,7 @@ func (r *Reconciler) newChannelDeployment(secret *corev1.Secret) (*appsv1.Deploy
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deploymentName,
-			Namespace: constants.KnativeEventingNamespace,
+			Namespace: kafkaconstants.KnativeEventingNamespace,
 			Labels: map[string]string{
 				constants.AppLabel:                 deploymentName, // Matches Service Selector Key/Value Below
 				constants.KafkaChannelChannelLabel: "true",         // Allows for identification of KafkaChannels
@@ -328,7 +329,7 @@ func (r *Reconciler) channelDeploymentEnvVars(secret *corev1.Secret) ([]corev1.E
 	envVars := []corev1.EnvVar{
 		{
 			Name:  system.NamespaceEnvKey,
-			Value: constants.KnativeEventingNamespace,
+			Value: kafkaconstants.KnativeEventingNamespace,
 		},
 		{
 			Name:  commonenv.KnativeLoggingConfigMapNameEnvVarKey,

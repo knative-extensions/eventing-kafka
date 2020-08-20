@@ -3,11 +3,13 @@ package kafkachannel
 import (
 	"context"
 	"fmt"
+
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kafkav1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
+	kafkaconstants "knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	kafkautil "knative.dev/eventing-kafka/pkg/common/kafka/util"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
 	"knative.dev/eventing-kafka/pkg/controller/event"
@@ -107,7 +109,7 @@ func (r *Reconciler) newKafkaChannelService(channel *kafkav1beta1.KafkaChannel) 
 
 	// Get The Dispatcher Service Name For The Channel (One Channel Service Per KafkaChannel Instance)
 	deploymentName := util.ChannelDnsSafeName(r.kafkaSecretName(channel))
-	serviceAddress := fmt.Sprintf("%s.%s.svc.%s", deploymentName, constants.KnativeEventingNamespace, eventingUtils.GetClusterDomainName())
+	serviceAddress := fmt.Sprintf("%s.%s.svc.%s", deploymentName, kafkaconstants.KnativeEventingNamespace, eventingUtils.GetClusterDomainName())
 
 	// Create & Return The Service Model
 	return &corev1.Service{

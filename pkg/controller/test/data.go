@@ -16,7 +16,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/common/config"
 	commonenv "knative.dev/eventing-kafka/pkg/common/env"
 	"knative.dev/eventing-kafka/pkg/common/health"
-	commonKafkaConstants "knative.dev/eventing-kafka/pkg/common/kafka/constants"
+	kafkaconstants "knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	kafkautil "knative.dev/eventing-kafka/pkg/common/kafka/util"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
 	"knative.dev/eventing-kafka/pkg/controller/event"
@@ -54,7 +54,7 @@ const (
 	KafkaChannelNamespace = "kafkachannel-namespace"
 	KafkaChannelName      = "kafkachannel-name"
 	KafkaChannelKey       = KafkaChannelNamespace + "/" + KafkaChannelName
-	KafkaSecretNamespace  = constants.KnativeEventingNamespace // Needs To Match Hardcoded Value In Reconciliation
+	KafkaSecretNamespace  = kafkaconstants.KnativeEventingNamespace // Needs To Match Hardcoded Value In Reconciliation
 	KafkaSecretName       = "kafkasecret-name"
 	KafkaSecretKey        = KafkaSecretNamespace + "/" + KafkaSecretName
 	ChannelDeploymentName = KafkaSecretName + "-channel"
@@ -302,7 +302,7 @@ func WithLabels(kafkachannel *kafkav1beta1.KafkaChannel) {
 func WithAddress(kafkachannel *kafkav1beta1.KafkaChannel) {
 	kafkachannel.Status.SetAddress(&apis.URL{
 		Scheme: "http",
-		Host:   fmt.Sprintf("%s-%s.%s.svc.cluster.local", KafkaChannelName, commonKafkaConstants.KafkaChannelServiceNameSuffix, KafkaChannelNamespace),
+		Host:   fmt.Sprintf("%s-%s.%s.svc.cluster.local", KafkaChannelName, kafkaconstants.KafkaChannelServiceNameSuffix, KafkaChannelNamespace),
 	})
 }
 
@@ -385,7 +385,7 @@ func NewKafkaChannelService() *corev1.Service {
 		},
 		Spec: corev1.ServiceSpec{
 			Type:         corev1.ServiceTypeExternalName,
-			ExternalName: ChannelDeploymentName + "." + constants.KnativeEventingNamespace + ".svc.cluster.local",
+			ExternalName: ChannelDeploymentName + "." + kafkaconstants.KnativeEventingNamespace + ".svc.cluster.local",
 		},
 	}
 }
@@ -399,7 +399,7 @@ func NewKafkaChannelChannelService() *corev1.Service {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ChannelDeploymentName,
-			Namespace: constants.KnativeEventingNamespace,
+			Namespace: kafkaconstants.KnativeEventingNamespace,
 			Labels: map[string]string{
 				"k8s-app":              "eventing-kafka-channels",
 				"kafkachannel-channel": "true",
@@ -438,7 +438,7 @@ func NewKafkaChannelChannelDeployment() *appsv1.Deployment {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ChannelDeploymentName,
-			Namespace: constants.KnativeEventingNamespace,
+			Namespace: kafkaconstants.KnativeEventingNamespace,
 			Labels: map[string]string{
 				"app":                  ChannelDeploymentName,
 				"kafkachannel-channel": "true",
@@ -495,7 +495,7 @@ func NewKafkaChannelChannelDeployment() *appsv1.Deployment {
 							Env: []corev1.EnvVar{
 								{
 									Name:  system.NamespaceEnvKey,
-									Value: constants.KnativeEventingNamespace,
+									Value: kafkaconstants.KnativeEventingNamespace,
 								},
 								{
 									Name:  commonenv.KnativeLoggingConfigMapNameEnvVarKey,
@@ -579,7 +579,7 @@ func NewKafkaChannelDispatcherService() *corev1.Service {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,
-			Namespace: constants.KnativeEventingNamespace,
+			Namespace: kafkaconstants.KnativeEventingNamespace,
 			Labels: map[string]string{
 				constants.KafkaChannelNameLabel:       KafkaChannelName,
 				constants.KafkaChannelNamespaceLabel:  KafkaChannelNamespace,
@@ -623,7 +623,7 @@ func NewKafkaChannelDispatcherDeployment() *appsv1.Deployment {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dispatcherName,
-			Namespace: constants.KnativeEventingNamespace,
+			Namespace: kafkaconstants.KnativeEventingNamespace,
 			Labels: map[string]string{
 				constants.AppLabel:                    dispatcherName,
 				constants.KafkaChannelNameLabel:       KafkaChannelName,
@@ -676,7 +676,7 @@ func NewKafkaChannelDispatcherDeployment() *appsv1.Deployment {
 							Env: []corev1.EnvVar{
 								{
 									Name:  system.NamespaceEnvKey,
-									Value: constants.KnativeEventingNamespace,
+									Value: kafkaconstants.KnativeEventingNamespace,
 								},
 								{
 									Name:  commonenv.KnativeLoggingConfigMapNameEnvVarKey,

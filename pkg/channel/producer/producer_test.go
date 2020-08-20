@@ -16,6 +16,7 @@ import (
 	channelhealth "knative.dev/eventing-kafka/pkg/channel/health"
 	"knative.dev/eventing-kafka/pkg/channel/test"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
+	kafkaconstants "knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/system"
@@ -167,7 +168,7 @@ func TestConfigChanged(t *testing.T) {
 	defer func() { createSyncProducerWrapper = createSyncProducerWrapperPlaceholder }()
 
 	// Setup Environment
-	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, constants.KnativeEventingNamespace))
+	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, kafkaconstants.KnativeEventingNamespace))
 	// Create Mocks
 	mockSyncProducer := test.NewMockSyncProducer()
 	producer := createTestProducer(t, mockSyncProducer)
@@ -184,13 +185,13 @@ func TestConfigChanged(t *testing.T) {
 	producer = runConfigChangedTest(t, producer, getBaseConfigMap(), TestConfigConsumerChange, false)
 }
 
-func runConfigChangedTest(t *testing.T, component *Producer, base *corev1.ConfigMap, changed string, expectedNewProducer bool) *Producer {
+func runConfigChangedTest(t *testing.T, originalProducer *Producer, base *corev1.ConfigMap, changed string, expectedNewProducer bool) *Producer {
 
 	// Change the Producer settings to the base config
-	newProducer := component.ConfigChanged(base)
+	newProducer := originalProducer.ConfigChanged(base)
 	if newProducer != nil {
 		// Simulate what happens in main() when the producer changes
-		component = newProducer
+		originalProducer = newProducer
 	}
 
 	// Alter the configmap to use the changed settings
@@ -198,18 +199,16 @@ func runConfigChangedTest(t *testing.T, component *Producer, base *corev1.Config
 	newConfig.Data[commonconfig.SaramaSettingsConfigKey] = changed
 
 	// Inform the Producer that the config has changed to the new settings
-	newProducer = component.ConfigChanged(newConfig)
+	newProducer = originalProducer.ConfigChanged(newConfig)
 
 	// Verify that a new producer was created or not, as expected
+	assert.True(t, expectedNewProducer, newProducer != nil)
+
+	// Return either the new or original producer for use by the rest of the TestConfigChanged test
 	if expectedNewProducer {
-		assert.NotNil(t, newProducer)
-		// Simulate what happens in main() when the producer changes by returning the new producer
 		return newProducer
-	} else {
-		assert.Nil(t, newProducer)
-		// No producer change so return the original component for future tests
-		return component
 	}
+	return originalProducer
 }
 
 // Test The Producer's Close() Functionality

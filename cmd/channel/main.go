@@ -67,7 +67,8 @@ func main() {
 	}
 
 	// Overwrite some configmap settings with specific values provided by the environment
-	if err = env.VerifyOverrides(configuration, environment); err != nil {
+	env.ApplyEnvironmentOverrides(configuration, environment)
+	if err = env.VerifyConfiguration(configuration); err != nil {
 		logger.Fatal("Invalid / Missing Settings - Terminating", zap.Error(err))
 	}
 

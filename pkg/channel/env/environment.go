@@ -91,11 +91,9 @@ func (err ChannelConfigurationError) Error() string {
 	return "channel: invalid configuration (" + string(err) + ")"
 }
 
-// VerifyOverrides overwrites an EventingKafkaConfig struct with the values from an Environment struct
+// ApplyEnvironmentOverrides overwrites an EventingKafkaConfig struct with the values from an Environment struct
 // The fields here are not permitted to be overridden by the values from the config-eventing-kafka configmap
-// VerifyOverrides returns an error if mandatory fields in the EventingKafkaConfig have not been set either
-// via the external configmap or the internal variables.
-func VerifyOverrides(configuration *config.EventingKafkaConfig, environment *Environment) error {
+func ApplyEnvironmentOverrides(configuration *config.EventingKafkaConfig, environment *Environment) {
 	// Copy environment to configuration struct
 	configuration.Metrics.Port = environment.MetricsPort
 	configuration.Metrics.Domain = environment.MetricsDomain
@@ -104,7 +102,11 @@ func VerifyOverrides(configuration *config.EventingKafkaConfig, environment *Env
 	configuration.Kafka.ServiceName = environment.ServiceName
 	configuration.Kafka.Username = environment.KafkaUsername
 	configuration.Kafka.Password = environment.KafkaPassword
+}
 
+// VerifyConfiguration returns an error if mandatory fields in the EventingKafkaConfig have not been set either
+// via the external configmap or the internal variables.
+func VerifyConfiguration(configuration *config.EventingKafkaConfig) error {
 	// Verify mandatory configuration settings
 	switch {
 	case configuration.Health.Port < 1:

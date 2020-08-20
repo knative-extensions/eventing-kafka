@@ -246,13 +246,14 @@ func (d *DispatcherImpl) closeConsumerGroup(subscriber *SubscriberWrapper) {
 
 // ConfigChanged is called by the configMapObserver handler function in main() so that
 // settings specific to the dispatcher may be extracted and the ConsumerGroups restarted if necessary.
+// The new configmap could technically have changes to the eventing-kafka section as well as the sarama
+// section, but none of those matter to a currently-running Dispatcher, so those are ignored here
+// (which avoids the necessity of calling env.GetEnvironment and env.VerifyOverrides).  If those settings
+// are needed in the future, the environment will also need to be re-parsed here.
+// If there aren't any consumer-specific differences between the current config and the new one,
+// then just log that and move on; do not restart the ConsumerGroups unnecessarily.
 func (d *DispatcherImpl) ConfigChanged(configMap *v1.ConfigMap) Dispatcher {
 	d.Logger.Debug("New ConfigMap Received", zap.String("configMap.Name", configMap.ObjectMeta.Name))
-
-	// The new configmap could technically have changes to the eventing-kafka section as well as the sarama
-	// section, but none of those matter to a currently-running Dispatcher, so those are ignored here
-	// (which avoids the necessity of calling env.GetEnvironment and env.VerifyOverrides).  If those settings
-	// are needed in the future, the environment will also need to be re-parsed here.
 
 	newConfig := util.NewSaramaConfig()
 
@@ -260,10 +261,7 @@ func (d *DispatcherImpl) ConfigChanged(configMap *v1.ConfigMap) Dispatcher {
 	// and ensure that those sections are always the same.  The reason we can't just use, for example,
 	// sarama.Config{}.Producer as the empty struct is that the Sarama calls to create objects like ConsumerGroup
 	// still verify that certain fields (such as Producer.MaxMessageBytes) are nonzero and fail otherwise.
-	emptyProducer := newConfig.Producer
-
-	// If there aren't any consumer-specific differences between the current config and the new one,
-	// then just log that and move on; do not restart the ConsumerGroups unnecessarily.
+	defaultProducer := newConfig.Producer
 
 	err := commonconfig.MergeSaramaSettings(newConfig, configMap)
 	if err != nil {
@@ -272,7 +270,7 @@ func (d *DispatcherImpl) ConfigChanged(configMap *v1.ConfigMap) Dispatcher {
 	}
 
 	// Don't care about Producer section; everything else is a change that needs to be implemented.
-	newConfig.Producer = emptyProducer
+	newConfig.Producer = defaultProducer
 
 	if d.SaramaConfig != nil {
 		// Some of the current config settings may not be overridden by the configmap (username, password, etc.)
@@ -283,25 +281,19 @@ func (d *DispatcherImpl) ConfigChanged(configMap *v1.ConfigMap) Dispatcher {
 
 		// The current config should theoretically have these sections zeroed already because Reconfigure should have been passed
 		// a newConfig with the structs empty, but this is more explicit as to what our goal is and doesn't hurt.
-		configCopy.Producer = emptyProducer
+		configCopy.Producer = defaultProducer
 		if commonconfig.SaramaConfigEqual(newConfig, configCopy) {
 			d.Logger.Info("No Consumer changes detected in new config; ignoring")
 			return nil
 		}
 	}
 
-	return d.reconfigure(newConfig)
-}
-
-// Reconfigure takes a new sarama.Config struct and applies the updated settings,
-// restarting the Dispatcher/ConsumerGroups if required
-func (d *DispatcherImpl) reconfigure(config *sarama.Config) Dispatcher {
 	d.Logger.Info("Configuration received; applying new Consumer settings")
 
 	// "Reconfiguring" the Dispatcher involves creating a new one, but we can re-use some
 	// of the original components, such as the list of current subscribers
 	d.Shutdown()
-	d.DispatcherConfig.SaramaConfig = config
+	d.DispatcherConfig.SaramaConfig = newConfig
 	newDispatcher := NewDispatcher(d.DispatcherConfig)
 	newDispatcher.UpdateSubscriptions(d.currentSubscriberSpecs)
 	d.Logger.Info("Dispatcher Reconfigured; Switching to New Dispatcher")

@@ -11,6 +11,7 @@ import (
 	injectionclient "knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/client"
 	"knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/informers/messaging/v1beta1/kafkachannel"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
+	kafkaconstants "knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
 	"knative.dev/eventing-kafka/pkg/controller/env"
 	"knative.dev/eventing-kafka/pkg/controller/kafkasecretinformer"
@@ -49,7 +50,8 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	}
 
 	// Overwrite some configmap settings with specific values provided by the environment
-	if err = env.VerifyOverrides(configuration, environment); err != nil {
+	env.ApplyEnvironmentOverrides(configuration, environment)
+	if err = env.VerifyConfiguration(configuration); err != nil {
 		logger.Fatal("Invalid / Missing Settings - Terminating", zap.Error(err))
 	}
 
@@ -102,7 +104,7 @@ func enqueueSecretOfKafkaChannel(controller *controller.Impl) func(obj interface
 				secretName := labels[constants.KafkaSecretLabel]
 				if len(secretName) > 0 {
 					controller.EnqueueKey(types.NamespacedName{
-						Namespace: constants.KnativeEventingNamespace,
+						Namespace: kafkaconstants.KnativeEventingNamespace,
 						Name:      secretName,
 					})
 				}

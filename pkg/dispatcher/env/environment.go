@@ -106,11 +106,9 @@ func (err DispatcherConfigurationError) Error() string {
 	return "dispatcher: invalid configuration (" + string(err) + ")"
 }
 
-// VerifyOverrides overwrites an EventingKafkaConfig struct with the values from an Environment struct
+// ApplyEnvironmentOverrides overwrites an EventingKafkaConfig struct with the values from an Environment struct
 // The fields here are not permitted to be overridden by the values from the config-eventing-kafka configmap
-// VerifyOverrides returns an error if mandatory fields in the EventingKafkaConfig have not been set either
-// via the external configmap or the internal variables.
-func VerifyOverrides(configuration *config.EventingKafkaConfig, environment *Environment) error {
+func ApplyEnvironmentOverrides(configuration *config.EventingKafkaConfig, environment *Environment) {
 	configuration.Metrics.Port = environment.MetricsPort
 	configuration.Metrics.Domain = environment.MetricsDomain
 	configuration.Health.Port = environment.HealthPort
@@ -134,7 +132,11 @@ func VerifyOverrides(configuration *config.EventingKafkaConfig, environment *Env
 	if configuration.Dispatcher.RetryTimeMillis < 1 {
 		configuration.Dispatcher.RetryTimeMillis = constants.DefaultEventRetryTimeMillisMax
 	}
+}
 
+// VerifyConfiguration returns an error if mandatory fields in the EventingKafkaConfig have not been set either
+// via the external configmap or the internal variables.
+func VerifyConfiguration(configuration *config.EventingKafkaConfig) error {
 	// Verify Mandatory configuration Settings
 	switch {
 	case configuration.Health.Port < 1:

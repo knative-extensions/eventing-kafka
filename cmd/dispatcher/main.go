@@ -68,20 +68,21 @@ func main() {
 	}
 
 	// Overwrite some configmap settings with specific values provided by the environment
-	if err = env.VerifyOverrides(configuration, environment); err != nil {
+	env.ApplyEnvironmentOverrides(configuration, environment)
+	if err = env.VerifyConfiguration(configuration); err != nil {
 		logger.Fatal("Invalid / Missing Settings - Terminating", zap.Error(err))
 	}
 
 	// Initialize Tracing (Watches config-tracing ConfigMap, Assumes Context Came From LoggingContext With Embedded K8S Client Key)
 	err = commonconfig.InitializeTracing(logger.Sugar(), ctx, configuration.Kafka.ServiceName)
 	if err != nil {
-		logger.Fatal("Could Not Initialize Tracing - Terminating", zap.Error(err))
+		logger.Fatal("Failed To Initialize Tracing - Terminating", zap.Error(err))
 	}
 
 	// Initialize Observability (Watches config-observability ConfigMap And Starts Profiling Server)
 	err = commonconfig.InitializeObservability(logger.Sugar(), ctx, configuration.Metrics.Domain, configuration.Metrics.Port)
 	if err != nil {
-		logger.Fatal("Could Not Initialize Observability - Terminating", zap.Error(err))
+		logger.Fatal("Failed To Initialize Observability - Terminating", zap.Error(err))
 	}
 
 	// Start The Liveness And Readiness Servers

@@ -269,8 +269,8 @@ func getValidEnvironment(t *testing.T) *Environment {
 	return environment
 }
 
-// Test All Permutations Of The VerifyOverrides() Functionality
-func TestVerifyOverrides_Validation(t *testing.T) {
+// Test All Permutations Of The ApplyEnvironmentOverrides() (and VerifyConfiguration) Functionality
+func TestApplyEnvironmentOverrides_Validation(t *testing.T) {
 
 	// Define The TestCases
 	testCases := make([]VerifyTestCase, 0, 7)
@@ -344,7 +344,8 @@ func TestVerifyOverrides_Validation(t *testing.T) {
 		testConfig.Dispatcher.RetryExponentialBackoff = testCase.exponentialBackoff
 
 		// Perform The Test
-		err := VerifyOverrides(testConfig, environment)
+		ApplyEnvironmentOverrides(testConfig, environment)
+		err := VerifyConfiguration(testConfig)
 
 		// Verify The Results
 		if testCase.expectedError == nil {
@@ -363,13 +364,12 @@ func TestVerifyOverrides_Validation(t *testing.T) {
 	}
 }
 
-func TestApplyOverrides_EnvironmentSettings(t *testing.T) {
+func TestApplyEnvironmentOverrides(t *testing.T) {
 	var configuration config.EventingKafkaConfig
 
 	environment := getValidEnvironment(t)
 
-	err := VerifyOverrides(&configuration, environment)
-	assert.Nil(t, err)
+	ApplyEnvironmentOverrides(&configuration, environment)
 
 	assert.Equal(t, environment.MetricsPort, configuration.Metrics.Port)
 	assert.Equal(t, environment.MetricsDomain, configuration.Metrics.Domain)

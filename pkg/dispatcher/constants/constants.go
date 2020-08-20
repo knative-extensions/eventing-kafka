@@ -6,6 +6,4 @@ const (
 	DefaultEventRetryInitialIntervalMillis = 500    // 0.5 seconds
 	DefaultEventRetryTimeMillisMax         = 300000 // 5 minutes
 	DefaultExponentialBackoff              = true   // Enabled
-
-	KnativeEventingNamespace = "knative-eventing"
 )
