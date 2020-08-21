@@ -12,7 +12,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
-	kafkaconstants "knative.dev/eventing-kafka/pkg/common/kafka/constants"
+	"knative.dev/eventing-kafka/pkg/common/constants"
 	kafkaconsumer "knative.dev/eventing-kafka/pkg/common/kafka/consumer"
 	kafkatesting "knative.dev/eventing-kafka/pkg/common/kafka/testing"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
@@ -346,7 +346,7 @@ func TestConfigChanged(t *testing.T) {
 	logger := logtesting.TestLogger(t).Desugar()
 
 	// Setup Environment
-	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, kafkaconstants.KnativeEventingNamespace))
+	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, constants.KnativeEventingNamespace))
 
 	// Create Mocks
 	var dispatcher Dispatcher

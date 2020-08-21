@@ -63,7 +63,7 @@ func ChannelHostName(channelName, channelNamespace string) string {
 	return fmt.Sprintf("%s.%s.channels.%s", channelName, channelNamespace, utils.GetClusterDomainName())
 }
 
-// Utility Function To Get The NumPartitions - First From Channel Spec And Then From Environment
+// Utility Function To Get The NumPartitions - First From Channel Spec And Then From ConfigMap-Provided Settings
 func NumPartitions(channel *kafkav1beta1.KafkaChannel, configuration *config.EventingKafkaConfig, logger *zap.Logger) int32 {
 	value := channel.Spec.NumPartitions
 	if value <= 0 {
@@ -73,7 +73,7 @@ func NumPartitions(channel *kafkav1beta1.KafkaChannel, configuration *config.Eve
 	return value
 }
 
-// Utility Function To Get The ReplicationFactor - First From Channel Spec And Then From Environment
+// Utility Function To Get The ReplicationFactor - First From Channel Spec And Then From ConfigMap-Provided Settings
 func ReplicationFactor(channel *kafkav1beta1.KafkaChannel, configuration *config.EventingKafkaConfig, logger *zap.Logger) int16 {
 	value := channel.Spec.ReplicationFactor
 	if value <= 0 {
@@ -83,7 +83,7 @@ func ReplicationFactor(channel *kafkav1beta1.KafkaChannel, configuration *config
 	return value
 }
 
-// Utility Function To Get The RetentionMillis - First From Channel Spec And Then From Environment
+// Utility Function To Get The RetentionMillis - First From Channel Spec And Then From ConfigMap-Provided Settings
 func RetentionMillis(channel *kafkav1beta1.KafkaChannel, configuration *config.EventingKafkaConfig, logger *zap.Logger) int64 {
 	//
 	// TODO - The eventing-contrib KafkaChannel CRD does not include RetentionMillis so we're

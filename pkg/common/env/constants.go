@@ -20,9 +20,6 @@ const (
 	KnativeLoggingConfigMapNameEnvVarKey = "CONFIG_LOGGING_NAME" // Note - Matches value of configMapNameEnv constant in Knative.dev/eventing/pkg/logging !
 
 	// Dispatcher Configuration
-	ChannelKeyEnvVarKey           = "CHANNEL_KEY"
-	ServiceNameEnvVarKey          = "SERVICE_NAME"
-	ExponentialBackoffEnvVarKey   = "EXPONENTIAL_BACKOFF"
-	InitialRetryIntervalEnvVarKey = "INITIAL_RETRY_INTERVAL"
-	MaxRetryTimeEnvVarKey         = "MAX_RETRY_TIME"
+	ChannelKeyEnvVarKey  = "CHANNEL_KEY"
+	ServiceNameEnvVarKey = "SERVICE_NAME"
 )

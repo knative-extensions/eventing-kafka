@@ -11,9 +11,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+	"knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/eventing-kafka/pkg/common/env"
-	internaltesting "knative.dev/eventing-kafka/pkg/common/internal/testing"
-	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
+	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/metrics"
@@ -68,7 +68,7 @@ func TestInitializeObservability(t *testing.T) {
 }
 
 func assertGet(t *testing.T, url string, expected int) {
-	resp, err := internaltesting.RetryGet(url, 100*time.Millisecond, 20)
+	resp, err := commontesting.RetryGet(url, 100*time.Millisecond, 20)
 	assert.Nil(t, err)
 	assert.Equal(t, expected, resp.StatusCode)
 	err = resp.Body.Close()

@@ -81,11 +81,3 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 	// Return The Populated Channel Configuration Environment Structure
 	return environment, nil
 }
-
-// ConfigurationError is the type of error returned from VerifyOverrides
-// when a setting is missing or invalid
-type ChannelConfigurationError string
-
-func (err ChannelConfigurationError) Error() string {
-	return "channel: invalid configuration (" + string(err) + ")"
-}

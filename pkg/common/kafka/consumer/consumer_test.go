@@ -7,10 +7,10 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
-	internaltesting "knative.dev/eventing-kafka/pkg/common/internal/testing"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	kafkasarama "knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 	kafkatesting "knative.dev/eventing-kafka/pkg/common/kafka/testing"
+	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 )
 
 // Test Constants
@@ -37,16 +37,16 @@ func TestCreateConsumerGroup(t *testing.T) {
 		assert.Equal(t, KafkaUsername, configArg.Net.SASL.User)
 		assert.Equal(t, KafkaPassword, configArg.Net.SASL.Password)
 		assert.Equal(t, constants.ConfigKafkaVersion, configArg.Version)
-		assert.Equal(t, internaltesting.ConfigNetKeepAlive, strconv.FormatInt(int64(configArg.Net.KeepAlive), 10))
+		assert.Equal(t, commontesting.ConfigNetKeepAlive, strconv.FormatInt(int64(configArg.Net.KeepAlive), 10))
 		assert.True(t, configArg.Consumer.Return.Errors)
 		assert.True(t, configArg.Net.SASL.Enable)
 		assert.Equal(t, sarama.SASLMechanism(sarama.SASLTypePlaintext), configArg.Net.SASL.Mechanism)
 		assert.True(t, configArg.Net.TLS.Enable)
 		assert.False(t, configArg.Net.TLS.Config.InsecureSkipVerify)
 		assert.Equal(t, tls.NoClientCert, configArg.Net.TLS.Config.ClientAuth)
-		assert.Equal(t, internaltesting.ConfigMetadataRefreshFrequency, strconv.FormatInt(int64(configArg.Metadata.RefreshFrequency), 10))
-		assert.Equal(t, internaltesting.ConfigConsumerOffsetsAutoCommitInterval, strconv.FormatInt(int64(configArg.Consumer.Offsets.AutoCommit.Interval), 10))
-		assert.Equal(t, internaltesting.ConfigConsumerOffsetsRetention, strconv.FormatInt(int64(configArg.Consumer.Offsets.Retention), 10))
+		assert.Equal(t, commontesting.ConfigMetadataRefreshFrequency, strconv.FormatInt(int64(configArg.Metadata.RefreshFrequency), 10))
+		assert.Equal(t, commontesting.ConfigConsumerOffsetsAutoCommitInterval, strconv.FormatInt(int64(configArg.Consumer.Offsets.AutoCommit.Interval), 10))
+		assert.Equal(t, commontesting.ConfigConsumerOffsetsRetention, strconv.FormatInt(int64(configArg.Consumer.Offsets.Retention), 10))
 		return kafkatesting.NewMockConsumerGroup(t), nil
 	}
 	defer func() {
@@ -54,7 +54,7 @@ func TestCreateConsumerGroup(t *testing.T) {
 	}()
 
 	// Perform The Test
-	config := internaltesting.GetDefaultSaramaConfig(t, kafkasarama.NewSaramaConfig())
+	config := commontesting.GetDefaultSaramaConfig(t, kafkasarama.NewSaramaConfig())
 	kafkasarama.UpdateSaramaConfig(config, ClientId, KafkaUsername, KafkaPassword)
 	consumerGroup, registry, err := CreateConsumerGroup(brokers, config, GroupId)
 

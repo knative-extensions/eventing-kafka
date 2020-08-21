@@ -6,9 +6,9 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
-	internaltesting "knative.dev/eventing-kafka/pkg/common/internal/testing"
-	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
+	"knative.dev/eventing-kafka/pkg/common/constants"
 	kafkasarama "knative.dev/eventing-kafka/pkg/common/kafka/sarama"
+	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 )
 
 // Mock AdminClient Reference
@@ -35,7 +35,7 @@ func TestCreateAdminClientKafka(t *testing.T) {
 	defer func() { NewKafkaAdminClientWrapper = NewKafkaAdminClientWrapperRef }()
 
 	// Perform The Test
-	adminClient, err := CreateAdminClient(ctx, internaltesting.GetDefaultSaramaConfig(t, kafkasarama.NewSaramaConfig()), clientId, adminClientType)
+	adminClient, err := CreateAdminClient(ctx, commontesting.GetDefaultSaramaConfig(t, kafkasarama.NewSaramaConfig()), clientId, adminClientType)
 
 	// Verify The Results
 	assert.Nil(t, err)
@@ -63,7 +63,7 @@ func TestCreateAdminClientEventHub(t *testing.T) {
 	defer func() { NewEventHubAdminClientWrapper = NewEventHubAdminClientWrapperRef }()
 
 	// Perform The Test
-	adminClient, err := CreateAdminClient(ctx, internaltesting.GetDefaultSaramaConfig(t, kafkasarama.NewSaramaConfig()), clientId, adminClientType)
+	adminClient, err := CreateAdminClient(ctx, commontesting.GetDefaultSaramaConfig(t, kafkasarama.NewSaramaConfig()), clientId, adminClientType)
 
 	// Verify The Results
 	assert.Nil(t, err)

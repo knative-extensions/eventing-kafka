@@ -16,7 +16,7 @@ import (
 	channelhealth "knative.dev/eventing-kafka/pkg/channel/health"
 	"knative.dev/eventing-kafka/pkg/channel/test"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
-	kafkaconstants "knative.dev/eventing-kafka/pkg/common/kafka/constants"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/system"
@@ -168,7 +168,7 @@ func TestConfigChanged(t *testing.T) {
 	defer func() { createSyncProducerWrapper = createSyncProducerWrapperPlaceholder }()
 
 	// Setup Environment
-	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, kafkaconstants.KnativeEventingNamespace))
+	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, commonconstants.KnativeEventingNamespace))
 	// Create Mocks
 	mockSyncProducer := test.NewMockSyncProducer()
 	producer := createTestProducer(t, mockSyncProducer)

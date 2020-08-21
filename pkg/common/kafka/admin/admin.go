@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/Shopify/sarama"
-	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
+	"knative.dev/eventing-kafka/pkg/common/constants"
 )
 
 // Sarama ClusterAdmin Wrapping Interface To Facilitate Other Implementations (e.g. Azure EventHubs)

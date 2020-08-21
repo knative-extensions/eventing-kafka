@@ -10,8 +10,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
-	internaltesting "knative.dev/eventing-kafka/pkg/common/internal/testing"
-	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
+	"knative.dev/eventing-kafka/pkg/common/constants"
+	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/system"
@@ -33,7 +33,7 @@ func TestInitializeConfigWatcher(t *testing.T) {
 	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, constants.KnativeEventingNamespace))
 
 	// Create A Test Observability ConfigMap For The InitializeObservability() Call To Watch
-	configMap := internaltesting.GetTestSaramaConfigMap(internaltesting.OldSaramaConfig, internaltesting.TestEKConfig)
+	configMap := commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, commontesting.TestEKConfig)
 
 	// Create The Fake K8S Client And Add It To The ConfigMap
 	fakeK8sClient := fake.NewSimpleClientset(configMap)
@@ -47,24 +47,24 @@ func TestInitializeConfigWatcher(t *testing.T) {
 
 	testConfigMap, err := fakeK8sClient.CoreV1().ConfigMaps(system.Namespace()).Get(SettingsConfigMapName, v1.GetOptions{})
 	assert.Nil(t, err)
-	assert.Equal(t, testConfigMap.Data["sarama"], internaltesting.OldSaramaConfig)
+	assert.Equal(t, testConfigMap.Data["sarama"], commontesting.OldSaramaConfig)
 
 	// Change the config map and verify the handler is called
-	testConfigMap.Data["sarama"] = internaltesting.NewSaramaConfig
+	testConfigMap.Data["sarama"] = commontesting.NewSaramaConfig
 
 	// The configWatcherHandler should change this to a valid ConfigMap
 	watchedConfigMap = nil
 
 	testConfigMap, err = fakeK8sClient.CoreV1().ConfigMaps(system.Namespace()).Update(testConfigMap)
 	assert.Nil(t, err)
-	assert.Equal(t, testConfigMap.Data["sarama"], internaltesting.NewSaramaConfig)
+	assert.Equal(t, testConfigMap.Data["sarama"], commontesting.NewSaramaConfig)
 
 	// Wait for the configWatcherHandler to be called (happens pretty quickly; loop usually only runs once)
 	for try := 0; watchedConfigMap == nil && try < 100; try++ {
 		time.Sleep(5 * time.Millisecond)
 	}
 	assert.NotNil(t, watchedConfigMap)
-	assert.Equal(t, watchedConfigMap.Data["sarama"], internaltesting.NewSaramaConfig)
+	assert.Equal(t, watchedConfigMap.Data["sarama"], commontesting.NewSaramaConfig)
 }
 
 // Handler function for the ConfigMap watcher
@@ -76,7 +76,7 @@ func configWatcherHandler(configMap *corev1.ConfigMap) {
 func TestLoadSettingsConfigMap(t *testing.T) {
 	// Not much to this function; just set up a configmap and make sure it gets loaded
 	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, constants.KnativeEventingNamespace))
-	configMap := internaltesting.GetTestSaramaConfigMap(internaltesting.OldSaramaConfig, internaltesting.TestEKConfig)
+	configMap := commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, commontesting.TestEKConfig)
 	fakeK8sClient := fake.NewSimpleClientset(configMap)
 
 	getConfigMap, err := LoadSettingsConfigMap(fakeK8sClient)

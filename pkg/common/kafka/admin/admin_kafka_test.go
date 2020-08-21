@@ -11,9 +11,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	"knative.dev/eventing-kafka/pkg/common/config"
-	internaltesting "knative.dev/eventing-kafka/pkg/common/internal/testing"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	kafkasarama "knative.dev/eventing-kafka/pkg/common/kafka/sarama"
+	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
@@ -46,7 +47,7 @@ Metadata:
 `
 
 	// Setup Environment
-	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, constants.KnativeEventingNamespace))
+	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, commonconstants.KnativeEventingNamespace))
 
 	// Create Test Kafka Secret And ConfigMap
 	kafkaSecret := createKafkaSecret(kafkaSecretName, namespace, kafkaSecretBrokers, kafkaSecretUsername, kafkaSecretPassword)
@@ -76,7 +77,7 @@ Metadata:
 	}()
 
 	// Perform The Test
-	adminClient, err := NewKafkaAdminClient(ctx, internaltesting.GetDefaultSaramaConfig(t, kafkasarama.NewSaramaConfig()), clientId, namespace)
+	adminClient, err := NewKafkaAdminClient(ctx, commontesting.GetDefaultSaramaConfig(t, kafkasarama.NewSaramaConfig()), clientId, namespace)
 
 	// Verify The Results
 	assert.Nil(t, err)
@@ -95,7 +96,7 @@ func TestNewKafkaAdminClientNoSecrets(t *testing.T) {
 	ctx = context.WithValue(ctx, injectionclient.Key{}, fake.NewSimpleClientset())
 
 	// Perform The Test
-	adminClient, err := NewKafkaAdminClient(ctx, internaltesting.GetDefaultSaramaConfig(t, kafkasarama.NewSaramaConfig()), clientId, namespace)
+	adminClient, err := NewKafkaAdminClient(ctx, commontesting.GetDefaultSaramaConfig(t, kafkasarama.NewSaramaConfig()), clientId, namespace)
 
 	// Verify The Results
 	assert.Nil(t, err)
@@ -335,7 +336,7 @@ func createKafkaSecret(name string, namespace string, brokers string, username s
 
 // Create K8S Kafka ConfigMap With Specified Config
 func createKafkaConfig(name string, namespace string, saramaConfig string) *corev1.ConfigMap {
-	return internaltesting.GetTestSaramaConfigMapNamespaced(name, namespace, saramaConfig, "")
+	return commontesting.GetTestSaramaConfigMapNamespaced(name, namespace, saramaConfig, "")
 }
 
 //
