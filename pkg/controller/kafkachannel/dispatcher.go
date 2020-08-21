@@ -12,9 +12,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	kafkav1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	commonenv "knative.dev/eventing-kafka/pkg/common/env"
 	"knative.dev/eventing-kafka/pkg/common/health"
-	kafkaconstants "knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
 	"knative.dev/eventing-kafka/pkg/controller/event"
 	"knative.dev/eventing-kafka/pkg/controller/util"
@@ -98,7 +98,7 @@ func (r *Reconciler) getDispatcherService(channel *kafkav1beta1.KafkaChannel) (*
 
 	// Get The Service By Namespace / Name
 	service := &corev1.Service{}
-	service, err := r.serviceLister.Services(kafkaconstants.KnativeEventingNamespace).Get(serviceName)
+	service, err := r.serviceLister.Services(commonconstants.KnativeEventingNamespace).Get(serviceName)
 
 	// Return The Results
 	return service, err
@@ -118,7 +118,7 @@ func (r *Reconciler) newDispatcherService(channel *kafkav1beta1.KafkaChannel) *c
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,
-			Namespace: kafkaconstants.KnativeEventingNamespace,
+			Namespace: commonconstants.KnativeEventingNamespace,
 			Labels: map[string]string{
 				constants.KafkaChannelDispatcherLabel:   "true",                                  // Identifies the Service as being a KafkaChannel "Dispatcher"
 				constants.KafkaChannelNameLabel:         channel.Name,                            // Identifies the Service's Owning KafkaChannel's Name
@@ -199,7 +199,7 @@ func (r *Reconciler) getDispatcherDeployment(channel *kafkav1beta1.KafkaChannel)
 
 	// Get The Dispatcher Deployment By Namespace / Name
 	deployment := &appsv1.Deployment{}
-	deployment, err := r.deploymentLister.Deployments(kafkaconstants.KnativeEventingNamespace).Get(deploymentName)
+	deployment, err := r.deploymentLister.Deployments(commonconstants.KnativeEventingNamespace).Get(deploymentName)
 
 	// Return The Results
 	return deployment, err
@@ -229,7 +229,7 @@ func (r *Reconciler) newDispatcherDeployment(channel *kafkav1beta1.KafkaChannel)
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deploymentName,
-			Namespace: kafkaconstants.KnativeEventingNamespace,
+			Namespace: commonconstants.KnativeEventingNamespace,
 			Labels: map[string]string{
 				constants.AppLabel:                    deploymentName,    // Matches K8S Service Selector Key/Value Below
 				constants.KafkaChannelDispatcherLabel: "true",            // Identifies the Deployment as being a KafkaChannel "Dispatcher"
@@ -312,7 +312,7 @@ func (r *Reconciler) dispatcherDeploymentEnvVars(channel *kafkav1beta1.KafkaChan
 	envVars := []corev1.EnvVar{
 		{
 			Name:  system.NamespaceEnvKey,
-			Value: kafkaconstants.KnativeEventingNamespace,
+			Value: commonconstants.KnativeEventingNamespace,
 		},
 		{
 			Name:  commonenv.KnativeLoggingConfigMapNameEnvVarKey,

@@ -14,8 +14,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/kubernetes/fake"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
-	internaltesting "knative.dev/eventing-kafka/pkg/common/internal/testing"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
+	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/system"
 )
@@ -71,9 +72,9 @@ dispatcher:
   cpuRequest: 300m
   memoryLimit: 128Mi
   memoryRequest: 50Mi
-  replicas: ` + internaltesting.DispatcherReplicas + `
-  retryInitialIntervalMillis: ` + internaltesting.DispatcherRetryInitial + `
-  retryTimeMillis: ` + internaltesting.DispatcherRetry + `
+  replicas: ` + commontesting.DispatcherReplicas + `
+  retryInitialIntervalMillis: ` + commontesting.DispatcherRetryInitial + `
+  retryTimeMillis: ` + commontesting.DispatcherRetry + `
 `
 )
 
@@ -126,8 +127,8 @@ func TestUpdateSaramaConfig(t *testing.T) {
 // This test is specifically to validate that our default settings (used in 200-eventing-kafka-configmap.yaml)
 // are valid.  If the defaults in the file change, change this test to match for verification purposes.
 func TestLoadDefaultSaramaSettings(t *testing.T) {
-	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, constants.KnativeEventingNamespace))
-	configMap := internaltesting.GetTestSaramaConfigMap(EKDefaultSaramaConfig, EKDefaultConfigYaml)
+	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, commonconstants.KnativeEventingNamespace))
+	configMap := commontesting.GetTestSaramaConfigMap(EKDefaultSaramaConfig, EKDefaultConfigYaml)
 	fakeK8sClient := fake.NewSimpleClientset(configMap)
 	ctx := context.WithValue(context.Background(), injectionclient.Key{}, fakeK8sClient)
 
@@ -166,7 +167,7 @@ func TestLoadDefaultSaramaSettings(t *testing.T) {
 // Verify that the JSON fragment can be loaded into a sarama.Config struct
 func TestMergeSaramaSettings(t *testing.T) {
 	// Setup Environment
-	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, constants.KnativeEventingNamespace))
+	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, commonconstants.KnativeEventingNamespace))
 
 	// Get a default Sarama config for verification that we don't overwrite settings when we merge
 	defaultConfig := sarama.NewConfig()
@@ -174,24 +175,24 @@ func TestMergeSaramaSettings(t *testing.T) {
 	config := sarama.NewConfig()
 	// Verify a few settings in different parts of two separate sarama.Config structures
 	// Since it's a simple JSON merge we don't need to test every possible value.
-	err := MergeSaramaSettings(config, internaltesting.GetTestSaramaConfigMap(internaltesting.OldSaramaConfig, internaltesting.TestEKConfig))
+	err := MergeSaramaSettings(config, commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, commontesting.TestEKConfig))
 	assert.Nil(t, err)
 	assert.NotNil(t, config)
-	assert.Equal(t, internaltesting.OldClientId, config.ClientID)
-	assert.Equal(t, internaltesting.OldUsername, config.Net.SASL.User)
+	assert.Equal(t, commontesting.OldClientId, config.ClientID)
+	assert.Equal(t, commontesting.OldUsername, config.Net.SASL.User)
 	assert.Equal(t, defaultConfig.Producer.Timeout, config.Producer.Timeout)
 	assert.Equal(t, defaultConfig.Consumer.MaxProcessingTime, config.Consumer.MaxProcessingTime)
 
-	err = MergeSaramaSettings(config, internaltesting.GetTestSaramaConfigMap(internaltesting.NewSaramaConfig, internaltesting.TestEKConfig))
+	err = MergeSaramaSettings(config, commontesting.GetTestSaramaConfigMap(commontesting.NewSaramaConfig, commontesting.TestEKConfig))
 	assert.Nil(t, err)
 	assert.NotNil(t, config)
-	assert.Equal(t, internaltesting.NewClientId, config.ClientID)
-	assert.Equal(t, internaltesting.NewUsername, config.Net.SASL.User)
+	assert.Equal(t, commontesting.NewClientId, config.ClientID)
+	assert.Equal(t, commontesting.NewUsername, config.Net.SASL.User)
 	assert.Equal(t, defaultConfig.Producer.Timeout, config.Producer.Timeout)
 	assert.Equal(t, defaultConfig.Consumer.MaxProcessingTime, config.Consumer.MaxProcessingTime)
 
 	// Verify error when no Data section is provided
-	configEmpty := internaltesting.GetTestSaramaConfigMap(internaltesting.NewSaramaConfig, internaltesting.TestEKConfig)
+	configEmpty := commontesting.GetTestSaramaConfigMap(commontesting.NewSaramaConfig, commontesting.TestEKConfig)
 	configEmpty.Data = nil
 	err = MergeSaramaSettings(config, configEmpty)
 	assert.NotNil(t, err)
@@ -260,8 +261,8 @@ func TestSaramaConfigEqual(t *testing.T) {
 
 func TestLoadEventingKafkaSettings(t *testing.T) {
 	// Set up a configmap and verify that the sarama settings are loaded properly from it
-	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, constants.KnativeEventingNamespace))
-	configMap := internaltesting.GetTestSaramaConfigMap(internaltesting.OldSaramaConfig, internaltesting.TestEKConfig)
+	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, commonconstants.KnativeEventingNamespace))
+	configMap := commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, commontesting.TestEKConfig)
 	fakeK8sClient := fake.NewSimpleClientset(configMap)
 
 	ctx := context.WithValue(context.Background(), injectionclient.Key{}, fakeK8sClient)
@@ -273,8 +274,8 @@ func TestLoadEventingKafkaSettings(t *testing.T) {
 
 func TestLoadConfigFromMap(t *testing.T) {
 	// Set up a configmap and verify that the sarama settings are loaded properly from it
-	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, constants.KnativeEventingNamespace))
-	configMap := internaltesting.GetTestSaramaConfigMap(internaltesting.OldSaramaConfig, internaltesting.TestEKConfig)
+	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, commonconstants.KnativeEventingNamespace))
+	configMap := commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, commontesting.TestEKConfig)
 	saramaConfig, eventingKafkaConfig, err := LoadConfigFromMap(configMap)
 	assert.Nil(t, err)
 
@@ -283,11 +284,11 @@ func TestLoadConfigFromMap(t *testing.T) {
 
 func verifyTestEKConfigSettings(t *testing.T, saramaConfig *sarama.Config, eventingKafkaConfig *commonconfig.EventingKafkaConfig) {
 	// Quick checks to make sure the loaded configs aren't complete junk
-	assert.Equal(t, internaltesting.OldClientId, saramaConfig.ClientID)
-	assert.Equal(t, internaltesting.OldUsername, saramaConfig.Net.SASL.User)
-	assert.Equal(t, internaltesting.DispatcherReplicas, strconv.Itoa(eventingKafkaConfig.Dispatcher.Replicas))
-	assert.Equal(t, internaltesting.DispatcherRetryInitial, strconv.FormatInt(eventingKafkaConfig.Dispatcher.RetryInitialIntervalMillis, 10))
-	assert.Equal(t, internaltesting.DispatcherRetry, strconv.FormatInt(eventingKafkaConfig.Dispatcher.RetryTimeMillis, 10))
+	assert.Equal(t, commontesting.OldClientId, saramaConfig.ClientID)
+	assert.Equal(t, commontesting.OldUsername, saramaConfig.Net.SASL.User)
+	assert.Equal(t, commontesting.DispatcherReplicas, strconv.Itoa(eventingKafkaConfig.Dispatcher.Replicas))
+	assert.Equal(t, commontesting.DispatcherRetryInitial, strconv.FormatInt(eventingKafkaConfig.Dispatcher.RetryInitialIntervalMillis, 10))
+	assert.Equal(t, commontesting.DispatcherRetry, strconv.FormatInt(eventingKafkaConfig.Dispatcher.RetryTimeMillis, 10))
 
 	// Verify in particular that the "RetryExponentialBackoff" field is set properly (bool pointer)
 	assert.NotNil(t, eventingKafkaConfig.Dispatcher.RetryExponentialBackoff)
@@ -296,8 +297,8 @@ func verifyTestEKConfigSettings(t *testing.T, saramaConfig *sarama.Config, event
 
 func TestLoadEventingKafkaSettings_NoBackoff(t *testing.T) {
 	// Set up a configmap and verify that the sarama settings are loaded properly from it
-	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, constants.KnativeEventingNamespace))
-	configMap := internaltesting.GetTestSaramaConfigMap(internaltesting.OldSaramaConfig, TestEKConfigNoBackoff)
+	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, commonconstants.KnativeEventingNamespace))
+	configMap := commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, TestEKConfigNoBackoff)
 	fakeK8sClient := fake.NewSimpleClientset(configMap)
 
 	ctx := context.WithValue(context.Background(), injectionclient.Key{}, fakeK8sClient)

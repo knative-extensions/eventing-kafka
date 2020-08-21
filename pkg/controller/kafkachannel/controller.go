@@ -15,6 +15,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
 	"knative.dev/eventing-kafka/pkg/controller/env"
+	"knative.dev/eventing-kafka/pkg/dispatcher/config"
 	"knative.dev/eventing/pkg/logging"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
@@ -50,13 +51,13 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	}
 
 	// Verify that our loaded configuration is valid
-	if err = env.VerifyConfiguration(configuration); err != nil {
+	if err = config.VerifyConfiguration(configuration); err != nil {
 		logger.Fatal("Invalid / Missing Settings - Terminating", zap.Error(err))
 	}
 
 	// Determine The Kafka AdminClient Type (Assume Kafka Unless Azure EventHubs Are Specified)
 	kafkaAdminClientType := kafkaadmin.Kafka
-	if configuration.Kafka.Provider == env.KafkaProviderValueAzure {
+	if configuration.Kafka.Provider == constants.KafkaProviderValueAzure {
 		kafkaAdminClientType = kafkaadmin.EventHub
 	}
 

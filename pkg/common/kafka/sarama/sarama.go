@@ -17,8 +17,8 @@ import (
 	"golang.org/x/net/proxy"
 	corev1 "k8s.io/api/core/v1"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
-	internaltesting "knative.dev/eventing-kafka/pkg/common/internal/testing"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
+	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 )
 
@@ -237,7 +237,7 @@ func MergeSaramaSettings(config *sarama.Config, configMap *corev1.ConfigMap) err
 		return errors.New("attempted to merge sarama settings with empty configmap")
 	}
 	// Merge The ConfigMap Settings Into The Provided Config
-	saramaSettings := configMap.Data[internaltesting.SaramaSettingsConfigKey]
+	saramaSettings := configMap.Data[commontesting.SaramaSettingsConfigKey]
 	jsonSettings, err := yaml.YAMLToJSON([]byte(saramaSettings))
 	if err != nil {
 		return fmt.Errorf("ConfigMap's value could not be converted to JSON: %s : %v", err, saramaSettings)

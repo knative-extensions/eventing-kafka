@@ -6,10 +6,6 @@ import (
 
 // Constants
 const (
-
-	// Knative Eventing Namespace
-	KnativeEventingNamespace = "knative-eventing"
-
 	// Duration Convenience
 	MillisPerDay = 24 * 60 * 60 * 1000 // 86400000
 

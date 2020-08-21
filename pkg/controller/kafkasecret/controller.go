@@ -10,8 +10,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 	injectionclient "knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/client"
 	"knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/informers/messaging/v1beta1/kafkachannel"
-	kafkaconstants "knative.dev/eventing-kafka/pkg/common/kafka/constants"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/eventing-kafka/pkg/common/kafka/sarama"
+	"knative.dev/eventing-kafka/pkg/controller/config"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
 	"knative.dev/eventing-kafka/pkg/controller/env"
 	"knative.dev/eventing-kafka/pkg/controller/kafkasecretinformer"
@@ -50,7 +51,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	}
 
 	// Verify that our loaded configuration is valid
-	if err = env.VerifyConfiguration(configuration); err != nil {
+	if err = config.VerifyConfiguration(configuration); err != nil {
 		logger.Fatal("Invalid / Missing Settings - Terminating", zap.Error(err))
 	}
 
@@ -104,7 +105,7 @@ func enqueueSecretOfKafkaChannel(controller *controller.Impl) func(obj interface
 				secretName := labels[constants.KafkaSecretLabel]
 				if len(secretName) > 0 {
 					controller.EnqueueKey(types.NamespacedName{
-						Namespace: kafkaconstants.KnativeEventingNamespace,
+						Namespace: commonconstants.KnativeEventingNamespace,
 						Name:      secretName,
 					})
 				}

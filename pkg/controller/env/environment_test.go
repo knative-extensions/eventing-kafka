@@ -9,8 +9,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/api/resource"
-	"knative.dev/eventing-kafka/pkg/common/config"
 	commonenv "knative.dev/eventing-kafka/pkg/common/env"
 )
 
@@ -18,28 +16,14 @@ import (
 const (
 	serviceAccount = "TestServiceAccount"
 	metricsPort    = "9999"
-	metricsPortInt = 9999
 	metricsDomain  = "example.com/kafka-eventing"
 	kafkaProvider  = "confluent"
 
-	defaultKafkaConsumers    = "5"
-	defaultNumPartitions     = 7
-	defaultReplicationFactor = 2
-	defaultRetentionMillis   = 13579
+	defaultKafkaConsumers = "5"
 
-	dispatcherImage         = "TestDispatcherImage"
-	dispatcherReplicasInt   = 1
-	dispatcherMemoryRequest = "20Mi"
-	dispatcherCpuRequest    = "100m"
-	dispatcherMemoryLimit   = "50Mi"
-	dispatcherCpuLimit      = "300m"
+	dispatcherImage = "TestDispatcherImage"
 
-	channelImage         = "TestChannelImage"
-	channelReplicasInt   = 1
-	channelMemoryRequest = "10Mi"
-	channelCpuRquest     = "10m"
-	channelMemoryLimit   = "20Mi"
-	channelCpuLimit      = "100m"
+	channelImage = "TestChannelImage"
 )
 
 // Define The TestCase Struct
@@ -162,65 +146,6 @@ func getLogger() *zap.Logger {
 	return logger
 }
 
-// Define The VerifyTestCase Struct
-type VerifyTestCase struct {
-	name string
-
-	// Environment settings
-	envMetricsPort   int
-	envMetricsDomain string
-
-	// Config settings
-	metricsPort                        int
-	metricsDomain                      string
-	expectedMetricsPort                int
-	expectedMetricsDomain              string
-	kafkaTopicDefaultNumPartitions     int32
-	kafkaTopicDefaultReplicationFactor int16
-	kafkaTopicDefaultRetentionMillis   int64
-	kafkaProvider                      string
-	dispatcherCpuLimit                 resource.Quantity
-	dispatcherCpuRequest               resource.Quantity
-	dispatcherMemoryLimit              resource.Quantity
-	dispatcherMemoryRequest            resource.Quantity
-	dispatcherReplicas                 int
-	channelCpuLimit                    resource.Quantity
-	channelCpuRequest                  resource.Quantity
-	channelMemoryLimit                 resource.Quantity
-	channelMemoryRequest               resource.Quantity
-	channelReplicas                    int
-
-	expectedError error
-}
-
-// Get The Base / Valid Test Case - All Config Specified / No Errors
-func getValidVerifyTestCase(name string) VerifyTestCase {
-	return VerifyTestCase{
-		name:                               name,
-		envMetricsPort:                     metricsPortInt,
-		envMetricsDomain:                   metricsDomain,
-		metricsPort:                        metricsPortInt,
-		metricsDomain:                      metricsDomain,
-		expectedMetricsPort:                metricsPortInt,
-		expectedMetricsDomain:              metricsDomain,
-		kafkaTopicDefaultNumPartitions:     defaultNumPartitions,
-		kafkaTopicDefaultReplicationFactor: defaultReplicationFactor,
-		kafkaTopicDefaultRetentionMillis:   defaultRetentionMillis,
-		kafkaProvider:                      kafkaProvider,
-		dispatcherCpuLimit:                 resource.MustParse(dispatcherCpuLimit),
-		dispatcherCpuRequest:               resource.MustParse(dispatcherCpuRequest),
-		dispatcherMemoryLimit:              resource.MustParse(dispatcherMemoryLimit),
-		dispatcherMemoryRequest:            resource.MustParse(dispatcherMemoryRequest),
-		dispatcherReplicas:                 dispatcherReplicasInt,
-		channelCpuLimit:                    resource.MustParse(channelCpuLimit),
-		channelCpuRequest:                  resource.MustParse(channelCpuRquest),
-		channelMemoryLimit:                 resource.MustParse(channelMemoryLimit),
-		channelMemoryRequest:               resource.MustParse(channelMemoryRequest),
-		channelReplicas:                    channelReplicasInt,
-		expectedError:                      nil,
-	}
-}
-
 func assertSetenv(t *testing.T, envKey string, value string) {
 	assert.Nil(t, os.Setenv(envKey, value))
 }
@@ -228,146 +153,5 @@ func assertSetenv(t *testing.T, envKey string, value string) {
 func assertSetenvNonempty(t *testing.T, envKey string, value string) {
 	if len(value) > 0 {
 		assertSetenv(t, envKey, value)
-	}
-}
-
-func getValidEnvironment(t *testing.T) *Environment {
-	assertSetenv(t, commonenv.ServiceAccountEnvVarKey, serviceAccount)
-	assertSetenv(t, commonenv.MetricsDomainEnvVarKey, metricsDomain)
-	assertSetenvNonempty(t, commonenv.MetricsPortEnvVarKey, metricsPort)
-	assertSetenv(t, DispatcherImageEnvVarKey, dispatcherImage)
-	assertSetenv(t, ChannelImageEnvVarKey, channelImage)
-
-	environment, err := GetEnvironment(getLogger())
-	assert.Nil(t, err)
-	return environment
-}
-
-// Test All Permutations Of The VerifyConfiguration Functionality
-func TestVerifyConfiguration(t *testing.T) {
-
-	// Define The TestCases
-	testCases := make([]VerifyTestCase, 0, 7)
-
-	testCase := getValidVerifyTestCase("Valid Complete Config")
-	testCases = append(testCases, testCase)
-
-	testCase = getValidVerifyTestCase("Invalid Config - Kafka.Topic.DefaultNumPartitions")
-	testCase.kafkaTopicDefaultNumPartitions = -1
-	testCase.expectedError = ControllerConfigurationError("Kafka.Topic.DefaultNumPartitions must be > 0")
-	testCases = append(testCases, testCase)
-
-	testCase = getValidVerifyTestCase("Invalid Config - Kafka.Topic.DefaultReplicationFactor")
-	testCase.kafkaTopicDefaultReplicationFactor = -1
-	testCase.expectedError = ControllerConfigurationError("Kafka.Topic.DefaultReplicationFactor must be > 0")
-	testCases = append(testCases, testCase)
-
-	testCase = getValidVerifyTestCase("Invalid Config - Kafka.Topic.DefaultRetentionMillis")
-	testCase.kafkaTopicDefaultRetentionMillis = -1
-	testCase.expectedError = ControllerConfigurationError("Kafka.Topic.DefaultRetentionMillis must be > 0")
-	testCases = append(testCases, testCase)
-
-	testCase = getValidVerifyTestCase("Invalid Config - Dispatcher.CpuLimit")
-	testCase.dispatcherCpuLimit = resource.Quantity{}
-	testCase.expectedError = ControllerConfigurationError("Dispatcher.CpuLimit must be nonzero")
-	testCases = append(testCases, testCase)
-
-	testCase = getValidVerifyTestCase("Invalid Config - Dispatcher.CpuRequest")
-	testCase.dispatcherCpuRequest = resource.Quantity{}
-	testCase.expectedError = ControllerConfigurationError("Dispatcher.CpuRequest must be nonzero")
-	testCases = append(testCases, testCase)
-
-	testCase = getValidVerifyTestCase("Invalid Config - Dispatcher.MemoryLimit")
-	testCase.dispatcherMemoryLimit = resource.Quantity{}
-	testCase.expectedError = ControllerConfigurationError("Dispatcher.MemoryLimit must be nonzero")
-	testCases = append(testCases, testCase)
-
-	testCase = getValidVerifyTestCase("Invalid Config - Dispatcher.MemoryRequest")
-	testCase.dispatcherMemoryRequest = resource.Quantity{}
-	testCase.expectedError = ControllerConfigurationError("Dispatcher.MemoryRequest must be nonzero")
-	testCases = append(testCases, testCase)
-
-	testCase = getValidVerifyTestCase("Invalid Config - Dispatcher.Replicas")
-	testCase.dispatcherReplicas = -1
-	testCase.expectedError = ControllerConfigurationError("Dispatcher.Replicas must be > 0")
-	testCases = append(testCases, testCase)
-
-	testCase = getValidVerifyTestCase("Invalid Config - Channel.CpuLimit")
-	testCase.channelCpuLimit = resource.Quantity{}
-	testCase.expectedError = ControllerConfigurationError("Channel.CpuLimit must be nonzero")
-	testCases = append(testCases, testCase)
-
-	testCase = getValidVerifyTestCase("Invalid Config - Channel.CpuRequest")
-	testCase.channelCpuRequest = resource.Quantity{}
-	testCase.expectedError = ControllerConfigurationError("Channel.CpuRequest must be nonzero")
-	testCases = append(testCases, testCase)
-
-	testCase = getValidVerifyTestCase("Invalid Config - Channel.MemoryLimit")
-	testCase.channelMemoryLimit = resource.Quantity{}
-	testCase.expectedError = ControllerConfigurationError("Channel.MemoryLimit must be nonzero")
-	testCases = append(testCases, testCase)
-
-	testCase = getValidVerifyTestCase("Invalid Config - Channel.MemoryRequest")
-	testCase.channelMemoryRequest = resource.Quantity{}
-	testCase.expectedError = ControllerConfigurationError("Channel.MemoryRequest must be nonzero")
-	testCases = append(testCases, testCase)
-
-	testCase = getValidVerifyTestCase("Invalid Config - Channel.Replicas")
-	testCase.channelReplicas = -1
-	testCase.expectedError = ControllerConfigurationError("Channel.Replicas must be > 0")
-	testCases = append(testCases, testCase)
-
-	testCase = getValidVerifyTestCase("Invalid Config - Kafka.Provider")
-	testCase.kafkaProvider = "invalidprovider"
-	testCase.expectedError = ControllerConfigurationError("Invalid / Unknown KafkaProvider: invalidprovider")
-	testCases = append(testCases, testCase)
-
-	// Loop Over All The TestCases
-	for _, testCase := range testCases {
-
-		environment := getValidEnvironment(t)
-		environment.MetricsPort = testCase.envMetricsPort
-		environment.MetricsDomain = testCase.envMetricsDomain
-		testConfig := &config.EventingKafkaConfig{}
-		testConfig.Kafka.Topic.DefaultNumPartitions = testCase.kafkaTopicDefaultNumPartitions
-		testConfig.Kafka.Topic.DefaultReplicationFactor = testCase.kafkaTopicDefaultReplicationFactor
-		testConfig.Kafka.Topic.DefaultRetentionMillis = testCase.kafkaTopicDefaultRetentionMillis
-		testConfig.Kafka.Provider = testCase.kafkaProvider
-		testConfig.Dispatcher.CpuLimit = testCase.dispatcherCpuLimit
-		testConfig.Dispatcher.CpuRequest = testCase.dispatcherCpuRequest
-		testConfig.Dispatcher.MemoryLimit = testCase.dispatcherMemoryLimit
-		testConfig.Dispatcher.MemoryRequest = testCase.dispatcherMemoryRequest
-		testConfig.Dispatcher.Replicas = testCase.dispatcherReplicas
-		testConfig.Channel.CpuLimit = testCase.channelCpuLimit
-		testConfig.Channel.CpuRequest = testCase.channelCpuRequest
-		testConfig.Channel.MemoryLimit = testCase.channelMemoryLimit
-		testConfig.Channel.MemoryRequest = testCase.channelMemoryRequest
-		testConfig.Channel.Replicas = testCase.channelReplicas
-
-		// Perform The Test
-		err := VerifyConfiguration(testConfig)
-
-		// Verify The Results
-		if testCase.expectedError == nil {
-			assert.Nil(t, err)
-			assert.NotNil(t, environment)
-			assert.Equal(t, testCase.kafkaTopicDefaultNumPartitions, testConfig.Kafka.Topic.DefaultNumPartitions)
-			assert.Equal(t, testCase.kafkaTopicDefaultReplicationFactor, testConfig.Kafka.Topic.DefaultReplicationFactor)
-			assert.Equal(t, testCase.kafkaTopicDefaultRetentionMillis, testConfig.Kafka.Topic.DefaultRetentionMillis)
-			assert.Equal(t, testCase.kafkaProvider, testConfig.Kafka.Provider)
-			assert.Equal(t, testCase.dispatcherCpuLimit, testConfig.Dispatcher.CpuLimit)
-			assert.Equal(t, testCase.dispatcherCpuRequest, testConfig.Dispatcher.CpuRequest)
-			assert.Equal(t, testCase.dispatcherMemoryLimit, testConfig.Dispatcher.MemoryLimit)
-			assert.Equal(t, testCase.dispatcherMemoryRequest, testConfig.Dispatcher.MemoryRequest)
-			assert.Equal(t, testCase.dispatcherReplicas, testConfig.Dispatcher.Replicas)
-			assert.Equal(t, testCase.channelCpuLimit, testConfig.Channel.CpuLimit)
-			assert.Equal(t, testCase.channelCpuRequest, testConfig.Channel.CpuRequest)
-			assert.Equal(t, testCase.channelMemoryLimit, testConfig.Channel.MemoryLimit)
-			assert.Equal(t, testCase.channelMemoryRequest, testConfig.Channel.MemoryRequest)
-			assert.Equal(t, testCase.channelReplicas, testConfig.Channel.Replicas)
-		} else {
-			assert.Equal(t, testCase.expectedError, err)
-		}
-
 	}
 }

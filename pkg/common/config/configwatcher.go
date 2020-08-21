@@ -18,8 +18,6 @@ import (
 // The EventingKafkaConfig and these EK sub-structs contain our custom configuration settings,
 // stored in the config-eventing-kafka configmap.  The sub-structs are explicitly declared so that they
 // can have their own JSON tags in the overall EventingKafkaConfig
-// The Image is currently loaded from the environment, not the configmap.  If that changes, add the
-// Image to this EKKubernetesConfig struct.
 type EKKubernetesConfig struct {
 	CpuLimit      resource.Quantity `json:"cpuLimit,omitempty"`
 	CpuRequest    resource.Quantity `json:"cpuRequest,omitempty"`
@@ -41,24 +39,20 @@ type EKDispatcherConfig struct {
 	RetryExponentialBackoff    *bool `json:"retryExponentialBackoff,omitempty"`
 }
 
-// The topic name itself is currently loaded from the environment, not the configmap
+// EKKafkaTopicConfig contains some defaults that are only used if not provided by the channel spec
 type EKKafkaTopicConfig struct {
 	DefaultNumPartitions     int32 `json:"defaultNumPartitions,omitempty"`
 	DefaultReplicationFactor int16 `json:"defaultReplicationFactor,omitempty"`
 	DefaultRetentionMillis   int64 `json:"defaultRetentionMillis,omitempty"`
 }
 
-// Many of the Kafka values are loaded from the environment rather than the configmap.
-// (Such as Brokers, Secret, Username, Password, ChannelKey and ServiceName).  If they
-// are moved from the environment, add them to the struct here and they will be loaded
-// from the config-eventing-kafka configmap instead.  Metrics and Health server configuration
-// are also likely candidates for moving to the configmap.
+// EKKafkaConfig contains items relevant to Kafka specifically
 type EKKafkaConfig struct {
 	Topic    EKKafkaTopicConfig `json:"topic,omitempty"`
 	Provider string             `json:"provider,omitempty"`
 }
 
-// The ServiceAccount is currently loaded from the environment, not the configmap.
+// EventingKafkaConfig is the main struct that holds the Channel, Dispatcher, and Kafka sub-items
 type EventingKafkaConfig struct {
 	Channel    EKChannelConfig    `json:"channel,omitempty"`
 	Dispatcher EKDispatcherConfig `json:"dispatcher,omitempty"`

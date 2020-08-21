@@ -16,6 +16,7 @@ import (
 	commonk8s "knative.dev/eventing-kafka/pkg/common/k8s"
 	"knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
+	dispatcherconfig "knative.dev/eventing-kafka/pkg/dispatcher/config"
 	"knative.dev/eventing-kafka/pkg/dispatcher/controller"
 	dispatch "knative.dev/eventing-kafka/pkg/dispatcher/dispatcher"
 	"knative.dev/eventing-kafka/pkg/dispatcher/env"
@@ -68,7 +69,7 @@ func main() {
 	}
 
 	// Verify that our loaded configuration is valid
-	if err = env.VerifyConfiguration(configuration); err != nil {
+	if err = dispatcherconfig.VerifyConfiguration(configuration); err != nil {
 		logger.Fatal("Invalid / Missing Settings - Terminating", zap.Error(err))
 	}
 
