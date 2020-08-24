@@ -3,6 +3,7 @@ package config
 import (
 	"context"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -18,7 +19,10 @@ import (
 )
 
 // The watcher handler sets this variable to indicate that it was called
-var watchedConfigMap *corev1.ConfigMap
+var (
+	watchedConfigMap *corev1.ConfigMap
+	configMapMutex   = sync.Mutex{} // Don't trip up the data race examiner during tests
+)
 
 // Test The InitializeObservability() Functionality
 func TestInitializeConfigWatcher(t *testing.T) {
@@ -41,36 +45,57 @@ func TestInitializeConfigWatcher(t *testing.T) {
 	// Add The Fake K8S Client To The Context (Required By InitializeObservability)
 	ctx = context.WithValue(ctx, injectionclient.Key{}, fakeK8sClient)
 
-	// Perform The Test (Initialize The Observability Watcher)
-	err := InitializeConfigWatcher(logger, ctx, configWatcherHandler)
-	assert.Nil(t, err)
+	// The configWatcherHandler should change the nil "watchedConfigMap" to a valid ConfigMap when the watcher triggers
 
 	testConfigMap, err := fakeK8sClient.CoreV1().ConfigMaps(system.Namespace()).Get(SettingsConfigMapName, v1.GetOptions{})
 	assert.Nil(t, err)
 	assert.Equal(t, testConfigMap.Data["sarama"], commontesting.OldSaramaConfig)
 
+	// Perform The Test (Initialize The Observability Watcher)
+	err = InitializeConfigWatcher(logger, ctx, configWatcherHandler)
+	assert.Nil(t, err)
+
+	// Wait for the configWatcherHandler to be called (happens pretty quickly; loop usually only runs once)
+	for try := 0; getWatchedMap() == nil && try < 100; try++ {
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	assert.Equal(t, getWatchedMap().Data["sarama"], commontesting.OldSaramaConfig)
+
 	// Change the config map and verify the handler is called
 	testConfigMap.Data["sarama"] = commontesting.NewSaramaConfig
 
-	// The configWatcherHandler should change this to a valid ConfigMap
-	watchedConfigMap = nil
+	// The configWatcherHandler should change this back to a valid ConfigMap
+	setWatchedMap(nil)
 
 	testConfigMap, err = fakeK8sClient.CoreV1().ConfigMaps(system.Namespace()).Update(testConfigMap)
 	assert.Nil(t, err)
 	assert.Equal(t, testConfigMap.Data["sarama"], commontesting.NewSaramaConfig)
 
 	// Wait for the configWatcherHandler to be called (happens pretty quickly; loop usually only runs once)
-	for try := 0; watchedConfigMap == nil && try < 100; try++ {
+	for try := 0; getWatchedMap() == nil && try < 100; try++ {
 		time.Sleep(5 * time.Millisecond)
 	}
-	assert.NotNil(t, watchedConfigMap)
-	assert.Equal(t, watchedConfigMap.Data["sarama"], commontesting.NewSaramaConfig)
+	assert.NotNil(t, getWatchedMap())
+	assert.Equal(t, getWatchedMap().Data["sarama"], commontesting.NewSaramaConfig)
+}
+
+func getWatchedMap() *corev1.ConfigMap {
+	configMapMutex.Lock()
+	defer configMapMutex.Unlock()
+	return watchedConfigMap
+}
+
+func setWatchedMap(configMap *corev1.ConfigMap) {
+	configMapMutex.Lock()
+	watchedConfigMap = configMap
+	defer configMapMutex.Unlock()
 }
 
 // Handler function for the ConfigMap watcher
 func configWatcherHandler(configMap *corev1.ConfigMap) {
-	// Set this package variable to indicate that the test watcher was called
-	watchedConfigMap = configMap
+	// Set the package variable to indicate that the test watcher was called
+	setWatchedMap(configMap)
 }
 
 func TestLoadSettingsConfigMap(t *testing.T) {

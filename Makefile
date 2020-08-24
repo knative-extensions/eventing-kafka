@@ -45,25 +45,25 @@ lint:
 test-channel:
 	@echo 'Testing Channel'
 	mkdir -p $(CHANNEL_BUILD_DIR)
-	cd $(BUILD_ROOT); go test -v ./pkg/channel/... -coverprofile ${CHANNEL_BUILD_DIR}/coverage.out
+	cd $(BUILD_ROOT); go test -race -v ./pkg/channel/... -coverprofile ${CHANNEL_BUILD_DIR}/coverage.out
 	cd $(BUILD_ROOT); go tool cover -func=${CHANNEL_BUILD_DIR}/coverage.out
 
 test-common:
 	@echo 'Testing Common'
 	mkdir -p $(COMMON_BUILD_DIR)
-	cd $(BUILD_ROOT); go test -v ./pkg/common/... -coverprofile ${COMMON_BUILD_DIR}/coverage.out
+	cd $(BUILD_ROOT); go test -race -v ./pkg/common/... -coverprofile ${COMMON_BUILD_DIR}/coverage.out
 	cd $(BUILD_ROOT); go tool cover -func=${COMMON_BUILD_DIR}/coverage.out
 
 test-controller:
 	@echo 'Testing Controller'
 	mkdir -p $(CONTROLLER_BUILD_DIR)
-	cd $(BUILD_ROOT); go test -v ./pkg/controller/... -coverprofile ${CONTROLLER_BUILD_DIR}/coverage.out
+	cd $(BUILD_ROOT); go test -race -v ./pkg/controller/... -coverprofile ${CONTROLLER_BUILD_DIR}/coverage.out
 	cd $(BUILD_ROOT); go tool cover -func=${CONTROLLER_BUILD_DIR}/coverage.out
 
 test-dispatcher:
 	@echo 'Testing Dispatcher'
 	mkdir -p $(DISPATCHER_BUILD_DIR)
-	cd $(BUILD_ROOT); go test -v ./pkg/dispatcher/... -coverprofile ${DISPATCHER_BUILD_DIR}/coverage.out
+	cd $(BUILD_ROOT); go test -race -v ./pkg/dispatcher/... -coverprofile ${DISPATCHER_BUILD_DIR}/coverage.out
 	cd $(BUILD_ROOT); go tool cover -func=${DISPATCHER_BUILD_DIR}/coverage.out
 
 test-all: test-channel test-common test-controller test-dispatcher
