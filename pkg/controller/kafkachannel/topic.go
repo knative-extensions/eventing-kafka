@@ -3,16 +3,16 @@ package kafkachannel
 import (
 	"context"
 	"fmt"
+	"strconv"
+
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	kafkav1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
-	"knative.dev/eventing-kafka/pkg/common/kafka/admin"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
 	"knative.dev/eventing-kafka/pkg/controller/event"
 	"knative.dev/eventing-kafka/pkg/controller/util"
 	"knative.dev/pkg/controller"
-	"strconv"
 )
 
 // Reconcile The Kafka Topic Associated With The Specified Channel & Return The Kafka Secret
@@ -25,9 +25,9 @@ func (r *Reconciler) reconcileTopic(ctx context.Context, channel *kafkav1beta1.K
 	logger := util.ChannelLogger(r.logger, channel).With(zap.String("TopicName", topicName))
 
 	// Get The Topic Configuration (First From Channel With Failover To Environment)
-	numPartitions := util.NumPartitions(channel, r.environment, r.logger)
-	replicationFactor := util.ReplicationFactor(channel, r.environment, r.logger)
-	retentionMillis := util.RetentionMillis(channel, r.environment, r.logger)
+	numPartitions := util.NumPartitions(channel, r.config, r.logger)
+	replicationFactor := util.ReplicationFactor(channel, r.config, r.logger)
+	retentionMillis := util.RetentionMillis(channel, r.config, r.logger)
 
 	// Create The Topic (Handles Case Where Already Exists)
 	err := r.createTopic(ctx, topicName, numPartitions, replicationFactor, retentionMillis)
@@ -98,7 +98,7 @@ func (r *Reconciler) deleteTopic(ctx context.Context, topicName string) error {
 			logger.Info("Kafka Topic or Partition Not Found - No Deletion Required")
 			return nil
 		case sarama.ErrInvalidConfig:
-			if r.environment.KafkaAdminType == admin.EventHub {
+			if r.config.Kafka.AdminType == constants.KafkaAdminTypeValueAzure {
 				// While this could be a valid Kafka error, this most likely is coming from our custom EventHub AdminClient
 				// implementation and represents the fact that the EventHub Cache does not contain this topic.  This can
 				// happen when an EventHub could not be created due to exceeding the number of allowable EventHubs.  The

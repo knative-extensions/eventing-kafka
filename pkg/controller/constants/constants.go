@@ -1,11 +1,14 @@
 package constants
 
 const (
+
+	// Kafka Admin Type Types
+	KafkaAdminTypeValueKafka  = "kafka"
+	KafkaAdminTypeValueAzure  = "azure"
+	KafkaAdminTypeValueCustom = "custom"
+
 	// The Controller's Component Name (Needs To Be DNS Safe!)
 	ControllerComponentName = "eventingkafka-controller"
-
-	// Knative Eventing Namespace
-	KnativeEventingNamespace = "knative-eventing"
 
 	// Knative Duck Versions
 	SubscribableDuckVersionAnnotationV1 = "v1"

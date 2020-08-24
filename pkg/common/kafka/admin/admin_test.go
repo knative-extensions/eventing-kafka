@@ -2,10 +2,13 @@ package admin
 
 import (
 	"context"
+	"testing"
+
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
-	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
-	"testing"
+	"knative.dev/eventing-kafka/pkg/common/constants"
+	kafkasarama "knative.dev/eventing-kafka/pkg/common/kafka/sarama"
+	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 )
 
 // Mock AdminClient Reference
@@ -22,7 +25,7 @@ func TestCreateAdminClientKafka(t *testing.T) {
 
 	// Replace the NewKafkaAdminClientWrapper To Provide Mock AdminClient & Defer Reset
 	NewKafkaAdminClientWrapperRef := NewKafkaAdminClientWrapper
-	NewKafkaAdminClientWrapper = func(ctxArg context.Context, clientIdArg string, namespaceArg string) (AdminClientInterface, error) {
+	NewKafkaAdminClientWrapper = func(ctxArg context.Context, saramaConfig *sarama.Config, clientIdArg string, namespaceArg string) (AdminClientInterface, error) {
 		assert.Equal(t, ctx, ctxArg)
 		assert.Equal(t, clientId, clientIdArg)
 		assert.Equal(t, constants.KnativeEventingNamespace, namespaceArg)
@@ -32,7 +35,7 @@ func TestCreateAdminClientKafka(t *testing.T) {
 	defer func() { NewKafkaAdminClientWrapper = NewKafkaAdminClientWrapperRef }()
 
 	// Perform The Test
-	adminClient, err := CreateAdminClient(ctx, clientId, adminClientType)
+	adminClient, err := CreateAdminClient(ctx, commontesting.GetDefaultSaramaConfig(t, kafkasarama.NewSaramaConfig()), clientId, adminClientType)
 
 	// Verify The Results
 	assert.Nil(t, err)
@@ -60,7 +63,7 @@ func TestCreateAdminClientEventHub(t *testing.T) {
 	defer func() { NewEventHubAdminClientWrapper = NewEventHubAdminClientWrapperRef }()
 
 	// Perform The Test
-	adminClient, err := CreateAdminClient(ctx, clientId, adminClientType)
+	adminClient, err := CreateAdminClient(ctx, commontesting.GetDefaultSaramaConfig(t, kafkasarama.NewSaramaConfig()), clientId, adminClientType)
 
 	// Verify The Results
 	assert.Nil(t, err)
@@ -88,7 +91,7 @@ func TestCreateAdminClientCustom(t *testing.T) {
 	defer func() { NewCustomAdminClientWrapper = NewCustomAdminClientWrapperRef }()
 
 	// Perform The Test
-	adminClient, err := CreateAdminClient(ctx, clientId, adminClientType)
+	adminClient, err := CreateAdminClient(ctx, commontesting.GetDefaultSaramaConfig(t, kafkasarama.NewSaramaConfig()), clientId, adminClientType)
 
 	// Verify The Results
 	assert.Nil(t, err)

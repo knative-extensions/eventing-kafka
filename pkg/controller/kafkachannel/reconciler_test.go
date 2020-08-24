@@ -2,6 +2,10 @@ package kafkachannel
 
 import (
 	"context"
+	"sync"
+	"testing"
+
+	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -20,7 +24,6 @@ import (
 	"knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
 	. "knative.dev/pkg/reconciler/testing"
-	"testing"
 )
 
 // Initialization - Add types to scheme
@@ -44,7 +47,7 @@ func TestSetKafkaAdminClient(t *testing.T) {
 
 	// Mock The Creation Of Kafka ClusterAdmin
 	newKafkaAdminClientWrapperPlaceholder := kafkaadmin.NewKafkaAdminClientWrapper
-	kafkaadmin.NewKafkaAdminClientWrapper = func(ctx context.Context, clientId string, namespace string) (kafkaadmin.AdminClientInterface, error) {
+	kafkaadmin.NewKafkaAdminClientWrapper = func(ctx context.Context, saramaConfig *sarama.Config, clientId string, namespace string) (kafkaadmin.AdminClientInterface, error) {
 		return mockAdminClient2, nil
 	}
 	defer func() {
@@ -387,7 +390,7 @@ func TestReconcile(t *testing.T) {
 
 	// Mock The Common Kafka AdminClient Creation For Test
 	newKafkaAdminClientWrapperPlaceholder := kafkaadmin.NewKafkaAdminClientWrapper
-	kafkaadmin.NewKafkaAdminClientWrapper = func(ctx context.Context, clientId string, namespace string) (kafkaadmin.AdminClientInterface, error) {
+	kafkaadmin.NewKafkaAdminClientWrapper = func(ctx context.Context, saramaConfig *sarama.Config, clientId string, namespace string) (kafkaadmin.AdminClientInterface, error) {
 		return &test.MockAdminClient{}, nil
 	}
 	defer func() {
@@ -403,11 +406,13 @@ func TestReconcile(t *testing.T) {
 			adminClientType:      kafkaadmin.Kafka,
 			adminClient:          nil,
 			environment:          test.NewEnvironment(),
+			config:               test.NewConfig(),
 			kafkachannelLister:   listers.GetKafkaChannelLister(),
 			kafkachannelInformer: nil,
 			deploymentLister:     listers.GetDeploymentLister(),
 			serviceLister:        listers.GetServiceLister(),
 			kafkaClientSet:       fakekafkaclient.Get(ctx),
+			adminMutex:           &sync.Mutex{},
 		}
 		return kafkachannelreconciler.NewReconciler(ctx, r.logger.Sugar(), r.kafkaClientSet, listers.GetKafkaChannelLister(), controller.GetEventRecorder(ctx), r)
 	}, logger.Desugar()))

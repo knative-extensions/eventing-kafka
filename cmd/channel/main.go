@@ -3,22 +3,26 @@ package main
 import (
 	"context"
 	"flag"
+	nethttp "net/http"
+	"strconv"
+	"strings"
+
 	"github.com/cloudevents/sdk-go/v2/binding"
 	"go.uber.org/zap"
+	v1 "k8s.io/api/core/v1"
 	"knative.dev/eventing-kafka/pkg/channel/channel"
 	"knative.dev/eventing-kafka/pkg/channel/constants"
 	"knative.dev/eventing-kafka/pkg/channel/env"
 	channelhealth "knative.dev/eventing-kafka/pkg/channel/health"
 	"knative.dev/eventing-kafka/pkg/channel/producer"
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	commonk8s "knative.dev/eventing-kafka/pkg/common/k8s"
+	"knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 	kafkautil "knative.dev/eventing-kafka/pkg/common/kafka/util"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
 	eventingchannel "knative.dev/eventing/pkg/channel"
 	"knative.dev/pkg/logging"
 	eventingmetrics "knative.dev/pkg/metrics"
-	nethttp "net/http"
-	"strconv"
-	"strings"
 )
 
 // Constants
@@ -48,7 +52,7 @@ func main() {
 	defer flush(logger)
 
 	// UnComment To Enable Sarama Logging For Local Debug
-	// kafkautil.EnableSaramaLogging()
+	// sarama.EnableSaramaLogging()
 
 	// Load Environment Variables
 	environment, err := env.GetEnvironment(logger)
@@ -56,11 +60,24 @@ func main() {
 		logger.Fatal("Invalid / Missing Environment Variables - Terminating", zap.Error(err))
 	}
 
+	// Load the Sarama SyncProducer (and Eventing-Kafka settings, though the channel doesn't use those at the moment)
+	// from our configmap
+	saramaConfig, _, err := sarama.LoadSettings(ctx)
+	if err != nil {
+		logger.Fatal("Failed To Load Sarama Settings", zap.Error(err))
+	}
+
 	// Initialize Tracing (Watches config-tracing ConfigMap, Assumes Context Came From LoggingContext With Embedded K8S Client Key)
-	commonk8s.InitializeTracing(logger.Sugar(), ctx, environment.ServiceName)
+	err = commonconfig.InitializeTracing(logger.Sugar(), ctx, environment.ServiceName)
+	if err != nil {
+		logger.Fatal("Could Not Initialize Tracing - Terminating", zap.Error(err))
+	}
 
 	// Initialize Observability (Watches config-observability ConfigMap And Starts Profiling Server)
-	commonk8s.InitializeObservability(logger.Sugar(), ctx, environment.MetricsDomain, environment.MetricsPort)
+	err = commonconfig.InitializeObservability(logger.Sugar(), ctx, environment.MetricsDomain, environment.MetricsPort)
+	if err != nil {
+		logger.Fatal("Could Not Initialize Observability - Terminating", zap.Error(err))
+	}
 
 	// Start The Liveness And Readiness Servers
 	healthServer := channelhealth.NewChannelHealthServer(strconv.Itoa(environment.HealthPort))
@@ -76,8 +93,18 @@ func main() {
 	// Create A New Stats StatsReporter
 	statsReporter := metrics.NewStatsReporter(logger)
 
+	// Watch The Settings ConfigMap For Changes
+	err = commonconfig.InitializeConfigWatcher(logger.Sugar(), ctx, configMapObserver)
+	if err != nil {
+		logger.Fatal("Failed To Initialize ConfigMap Watcher", zap.Error(err))
+	}
+
+	// Create The Sarama SyncProducer Config
+	// Add username/password/components overrides to the Sarama config (these take precedence over what's in the configmap)
+	sarama.UpdateSaramaConfig(saramaConfig, Component, environment.KafkaUsername, environment.KafkaPassword)
+
 	// Initialize The Kafka Producer In Order To Start Processing Status Events
-	kafkaProducer, err = producer.NewProducer(logger, Component, strings.Split(environment.KafkaBrokers, ","), environment.KafkaUsername, environment.KafkaPassword, statsReporter, healthServer)
+	kafkaProducer, err = producer.NewProducer(logger, saramaConfig, strings.Split(environment.KafkaBrokers, ","), statsReporter, healthServer)
 	if err != nil {
 		logger.Fatal("Failed To Initialize Kafka Producer", zap.Error(err))
 	}
@@ -116,7 +143,7 @@ func handleMessage(ctx context.Context, channelReference eventingchannel.Channel
 
 	// Note - The context provided here is a different context from the one created in main() and does not have our logger instance.
 	logger.Debug("~~~~~~~~~~~~~~~~~~~~  Processing Request  ~~~~~~~~~~~~~~~~~~~~")
-	logger.Debug("Received Message", zap.Any("Message", message), zap.Any("ChannelReference", channelReference))
+	logger.Debug("Received Message", zap.Any("ChannelReference", channelReference))
 
 	// Trim The "-kn-channel" Suffix From The Service Name
 	channelReference.Name = kafkautil.TrimKafkaChannelServiceNameSuffix(channelReference.Name)
@@ -137,4 +164,25 @@ func handleMessage(ctx context.Context, channelReference eventingchannel.Channel
 
 	// Return Success
 	return nil
+}
+
+// configMapObserver is the callback function that handles changes to our ConfigMap
+func configMapObserver(configMap *v1.ConfigMap) {
+	if configMap == nil {
+		logger.Warn("Nil ConfigMap passed to configMapObserver; ignoring")
+		return
+	}
+	if kafkaProducer == nil {
+		// This typically happens during startup
+		logger.Debug("Producer is nil during call to configMapObserver; ignoring changes")
+		return
+	}
+
+	// Toss the new config map to the producer for inspection and action
+	newProducer := kafkaProducer.ConfigChanged(configMap)
+	if newProducer != nil {
+		// The configuration change caused a new producer to be created, so switch to that one
+		logger.Info("Producer Reconfigured; Switching To New Producer")
+		kafkaProducer = newProducer
+	}
 }

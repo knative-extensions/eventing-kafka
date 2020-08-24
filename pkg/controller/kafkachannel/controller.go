@@ -2,14 +2,20 @@ package kafkachannel
 
 import (
 	"context"
+	"sync"
+
 	"go.uber.org/zap"
 	"k8s.io/client-go/tools/cache"
 	kafkachannelv1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
 	kafkaclientsetinjection "knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/client"
 	"knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/informers/messaging/v1beta1/kafkachannel"
 	kafkachannelreconciler "knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
+	kafkaadmin "knative.dev/eventing-kafka/pkg/common/kafka/admin"
+	"knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
 	"knative.dev/eventing-kafka/pkg/controller/env"
+	"knative.dev/eventing-kafka/pkg/dispatcher/config"
 	"knative.dev/eventing/pkg/logging"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
@@ -38,18 +44,51 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 		logger.Fatal("Failed To Load Environment Variables - Terminating!", zap.Error(err))
 	}
 
+	// Load the Sarama and other eventing-kafka settings from our configmap
+	saramaConfig, configuration, err := sarama.LoadSettings(ctx)
+	if err != nil {
+		logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Error(err))
+	}
+
+	// Verify that our loaded configuration is valid
+	if err = config.VerifyConfiguration(configuration); err != nil {
+		logger.Fatal("Invalid / Missing Settings - Terminating", zap.Error(err))
+	}
+
+	// Determine The Kafka AdminClient Type (Assume Kafka Unless Otherwise Specified)
+	var kafkaAdminClientType kafkaadmin.AdminClientType
+	switch configuration.Kafka.AdminType {
+	case constants.KafkaAdminTypeValueAzure:
+		kafkaAdminClientType = kafkaadmin.EventHub
+	case constants.KafkaAdminTypeValueCustom:
+		kafkaAdminClientType = kafkaadmin.Custom
+	default:
+		logger.Warn("Encountered Unexpected Kafka AdminType - Defaulting To 'kafka'", zap.String("AdminType", configuration.Kafka.AdminType))
+		kafkaAdminClientType = kafkaadmin.Kafka
+	}
+
 	// Create A KafkaChannel Reconciler & Track As Package Variable
 	rec = &Reconciler{
 		logger:               logging.FromContext(ctx),
 		kubeClientset:        kubeclient.Get(ctx),
 		environment:          environment,
+		config:               configuration,
+		saramaConfig:         saramaConfig,
 		kafkaClientSet:       kafkaclientsetinjection.Get(ctx),
 		kafkachannelLister:   kafkachannelInformer.Lister(),
 		kafkachannelInformer: kafkachannelInformer.Informer(),
 		deploymentLister:     deploymentInformer.Lister(),
 		serviceLister:        serviceInformer.Lister(),
-		adminClientType:      environment.KafkaAdminType,
+		adminClientType:      kafkaAdminClientType,
 		adminClient:          nil,
+		adminMutex:           &sync.Mutex{},
+		configObserver:       rec.configMapObserver, // Maintains a reference so that the ConfigWatcher can call it
+	}
+
+	// Watch The Settings ConfigMap For Changes
+	err = commonconfig.InitializeConfigWatcher(logger.Sugar(), ctx, rec.configMapObserver)
+	if err != nil {
+		logger.Fatal("Failed To Initialize ConfigMap Watcher", zap.Error(err))
 	}
 
 	// Create A New KafkaChannel Controller Impl With The Reconciler

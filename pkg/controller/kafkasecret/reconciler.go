@@ -3,6 +3,7 @@ package kafkasecret
 import (
 	"context"
 	"fmt"
+
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -10,6 +11,7 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned"
 	kafkalisters "knative.dev/eventing-contrib/kafka/channel/pkg/client/listers/messaging/v1beta1"
+	"knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
 	"knative.dev/eventing-kafka/pkg/controller/env"
 	"knative.dev/eventing-kafka/pkg/controller/event"
@@ -21,6 +23,7 @@ import (
 type Reconciler struct {
 	logger             *zap.Logger
 	kubeClientset      kubernetes.Interface
+	config             *config.EventingKafkaConfig
 	environment        *env.Environment
 	kafkaChannelClient versioned.Interface
 	kafkachannelLister kafkalisters.KafkaChannelLister

@@ -4,15 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	adminutil "knative.dev/eventing-kafka/pkg/common/kafka/admin/util"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
-	"knative.dev/eventing-kafka/pkg/common/kafka/util"
+	kafkasarama "knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
-	"strings"
 )
 
 //
@@ -33,7 +34,7 @@ type KafkaAdminClient struct {
 }
 
 // Create A New Kafka AdminClient Based On The Kafka Secret In The Specified K8S Namespace
-func NewKafkaAdminClient(ctx context.Context, clientId string, namespace string) (AdminClientInterface, error) {
+func NewKafkaAdminClient(ctx context.Context, saramaConfig *sarama.Config, clientId string, namespace string) (AdminClientInterface, error) {
 
 	// Get The Logger From The Context
 	logger := logging.FromContext(ctx).Desugar()
@@ -69,13 +70,13 @@ func NewKafkaAdminClient(ctx context.Context, clientId string, namespace string)
 	username := string(kafkaSecret.Data[constants.KafkaSecretKeyUsername])
 	password := string(kafkaSecret.Data[constants.KafkaSecretKeyPassword])
 
-	// Create The Sarama ClusterAdmin Configuration
-	config := getConfig(clientId, username, password)
+	// Update The Sarama ClusterAdmin Configuration With Our Values
+	kafkasarama.UpdateSaramaConfig(saramaConfig, clientId, username, password)
 
 	// Create A New Sarama ClusterAdmin
-	clusterAdmin, err := NewClusterAdminWrapper(brokers, config)
+	clusterAdmin, err := NewClusterAdminWrapper(brokers, saramaConfig)
 	if err != nil {
-		logger.Error("Failed To Create New ClusterAdmin", zap.Any("Config", config), zap.Error(err))
+		logger.Error("Failed To Create New ClusterAdmin", zap.Any("Config", saramaConfig), zap.Error(err))
 		return nil, err
 	}
 
@@ -132,17 +133,4 @@ func (k KafkaAdminClient) Close() error {
 // Get The K8S Secret With Kafka Credentials For The Specified Topic Name
 func (k KafkaAdminClient) GetKafkaSecretName(_ string) string {
 	return k.kafkaSecret
-}
-
-// Get The Default Sarama ClusterAdmin Config
-func getConfig(clientId string, username string, password string) *sarama.Config {
-
-	// Create A New Base Sarama Config
-	config := util.NewSaramaConfig(clientId, username, password)
-
-	// Increase Default Admin Timeout Of 3 Seconds For Topic Creation/Deletion
-	config.Admin.Timeout = constants.ConfigAdminTimeout
-
-	// Return The Sarama Config
-	return config
 }

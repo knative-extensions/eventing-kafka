@@ -22,8 +22,7 @@ spec:
       containers:
       - name: eventing-kafka
         image: ko://knative.dev/eventing-kafka/cmd/controller
-        # must be never for ko.local
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: IfNotPresent # Must be IfNotPresent or Never if used with ko.local
         ports:
         - containerPort: 8081
           name: metrics
@@ -44,52 +43,10 @@ spec:
           value: "8081"
         - name: METRICS_DOMAIN
           value: "eventing-kafka"
-        - name: KAFKA_ADMIN_TYPE # Valid Values Include... "kafka" (default), "eventhub", "plugin"
-          value: "kafka"
-        - name: KAFKA_OFFSET_COMMIT_MESSAGE_COUNT
-          value: "50"
-        - name: KAFKA_OFFSET_COMMIT_DURATION_MILLIS
-          value: "5000"
-        - name: KAFKA_OFFSET_COMMIT_ASYNC
-          value: "false"
         - name: CHANNEL_IMAGE
           value: "ko://knative.dev/eventing-kafka/cmd/channel"
-        - name: CHANNEL_REPLICAS
-          value: "1"
         - name: DISPATCHER_IMAGE
           value: "ko://knative.dev/eventing-kafka/cmd/dispatcher"
-        - name: DEFAULT_NUM_PARTITIONS
-          value: "4"
-        - name: DEFAULT_REPLICATION_FACTOR
-          value: "1"
-        - name: DEFAULT_RETENTION_MILLIS
-          value: "604800000"
-        - name: DEFAULT_KAFKA_CONSUMERS
-          value: "4"
-        - name: "DISPATCHER_REPLICAS"
-          value: "1"
-        - name: DISPATCHER_RETRY_INITIAL_INTERVAL_MILLIS
-          value: "500"
-        - name: DISPATCHER_RETRY_TIME_MILLIS
-          value: "300000"
-        - name: DISPATCHER_RETRY_EXPONENTIAL_BACKOFF
-          value: "true"
-        - name: DISPATCHER_CPU_REQUEST
-          value: "300m"
-        - name: DISPATCHER_CPU_LIMIT
-          value: "500m"
-        - name: DISPATCHER_MEMORY_REQUEST
-          value: "50Mi"
-        - name: DISPATCHER_MEMORY_LIMIT
-          value: "128Mi"
-        - name: CHANNEL_MEMORY_REQUEST
-          value: "50Mi"
-        - name: CHANNEL_MEMORY_LIMIT
-          value: "100Mi"
-        - name: CHANNEL_CPU_REQUEST
-          value: "100m"
-        - name: CHANNEL_CPU_LIMIT
-          value: "200m"
         resources:
           requests:
             cpu: 20m
@@ -97,3 +54,47 @@ spec:
           limits:
             cpu: 100m
             memory: 50Mi
+      # TODO - this is specific to our CP sidecar - so if we're including a template here we need to clean this up to just be an "example"
+#      - name: custom-kafka-admin-sidecar
+#        # TODO - need to use --strict
+#        image: konduit.docker.repositories.sapcdn.io/com.sap.c4konduit/cp-kafka-admin-proxy/dev:tdm
+#        imagePullPolicy: Always # Must be IfNotPresent or Never if used with ko.local
+#        # TODO - do we need to specify ports here? (since it's internal sidecar?) don't think we do
+#        env:
+#        - name: SYSTEM_NAMESPACE
+#          valueFrom:
+#            fieldRef:
+#              fieldPath: metadata.namespace
+#        - name: CP_API_URL
+#          valueFrom:
+#            secretKeyRef:
+#              name: cloudplatform-api
+#              key: url
+#        - name: CP_API_USERNAME
+#          valueFrom:
+#            secretKeyRef:
+#              name: cloudplatform-api
+#              key: username
+#        - name: CP_API_PASSWORD
+#          valueFrom:
+#            secretKeyRef:
+#              name: cloudplatform-api
+#              key: password
+#        volumeMounts:
+#        - mountPath: /etc/konduit
+#          name: logging-config
+#          readOnly: true
+#        # TODO - no idea what these should be for us - but "as small as possible" is the intent ; )
+#        resources:
+#          requests:
+#            cpu: 5m
+#            memory: 10Mi
+#          limits:
+#            cpu: 10m
+#            memory: 20Mi
+#      # TODO - this is under spec.containers (not our sidecar container)
+#      volumes:
+#      - name: logging-config
+#        configMap:
+#          defaultMode: 420
+#          name: konduit-logging

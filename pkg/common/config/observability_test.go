@@ -1,9 +1,8 @@
-package k8s
+package config
 
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"os"
 	"testing"
 	"time"
@@ -12,8 +11,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+	"knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/eventing-kafka/pkg/common/env"
-	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
+	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/metrics"
@@ -58,11 +58,9 @@ func TestInitializeObservability(t *testing.T) {
 	ctx = context.WithValue(ctx, injectionclient.Key{}, fakeK8sClient)
 
 	// Perform The Test (Initialize The Observability Watcher)
-	InitializeObservability(logger, ctx, metricsDomain, metricsPort)
+	err := InitializeObservability(logger, ctx, metricsDomain, metricsPort)
+	assert.Nil(t, err)
 
-	// Wait For Observability To Initialize?
-	time.Sleep(2 * time.Second)
-	
 	// Verify that the profiling endpoint exists and responds to requests
 	assertGet(t, "http://localhost:8008/debug/pprof", 200)
 	// Verify that the metrics endpoint exists and responds to requests
@@ -70,9 +68,8 @@ func TestInitializeObservability(t *testing.T) {
 }
 
 func assertGet(t *testing.T, url string, expected int) {
-	resp, err := http.Get(url)
+	resp, err := commontesting.RetryGet(url, 100*time.Millisecond, 20)
 	assert.Nil(t, err)
-	assert.NotNil(t, resp)
 	assert.Equal(t, expected, resp.StatusCode)
 	err = resp.Body.Close()
 	assert.Nil(t, err)

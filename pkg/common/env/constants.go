@@ -19,16 +19,12 @@ const (
 	KafkaPasswordEnvVarKey = "KAFKA_PASSWORD"
 
 	// Kafka Configuration
-	KafkaAdminTypeEnvVarKey = "KAFKA_ADMIN_TYPE"
-	KafkaTopicEnvVarKey     = "KAFKA_TOPIC"
+	KafkaTopicEnvVarKey = "KAFKA_TOPIC"
 
 	// Knative Logging Configuration
 	KnativeLoggingConfigMapNameEnvVarKey = "CONFIG_LOGGING_NAME" // Note - Matches value of configMapNameEnv constant in Knative.dev/eventing/pkg/logging !
 
 	// Dispatcher Configuration
-	ChannelKeyEnvVarKey           = "CHANNEL_KEY"
-	ServiceNameEnvVarKey          = "SERVICE_NAME"
-	ExponentialBackoffEnvVarKey   = "EXPONENTIAL_BACKOFF"
-	InitialRetryIntervalEnvVarKey = "INITIAL_RETRY_INTERVAL"
-	MaxRetryTimeEnvVarKey         = "MAX_RETRY_TIME"
+	ChannelKeyEnvVarKey  = "CHANNEL_KEY"
+	ServiceNameEnvVarKey = "SERVICE_NAME"
 )

@@ -2,14 +2,15 @@ package util
 
 import (
 	"fmt"
+	"strings"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kafkav1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
+	"knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
-	"knative.dev/eventing-kafka/pkg/controller/env"
 	logtesting "knative.dev/pkg/logging/testing"
-	"strings"
-	"testing"
 )
 
 // Test Data
@@ -103,16 +104,16 @@ func TestNumPartitions(t *testing.T) {
 	logger := logtesting.TestLogger(t).Desugar()
 
 	// Test Data
-	environment := &env.Environment{DefaultNumPartitions: defaultNumPartitions}
+	configuration := &config.EventingKafkaConfig{Kafka: config.EKKafkaConfig{Topic: config.EKKafkaTopicConfig{DefaultNumPartitions: defaultNumPartitions}}}
 
 	// Test The Default Failover Use Case
 	channel := &kafkav1beta1.KafkaChannel{}
-	actualNumPartitions := NumPartitions(channel, environment, logger)
+	actualNumPartitions := NumPartitions(channel, configuration, logger)
 	assert.Equal(t, defaultNumPartitions, actualNumPartitions)
 
 	// Test The Valid NumPartitions Use Case
 	channel = &kafkav1beta1.KafkaChannel{Spec: kafkav1beta1.KafkaChannelSpec{NumPartitions: numPartitions}}
-	actualNumPartitions = NumPartitions(channel, environment, logger)
+	actualNumPartitions = NumPartitions(channel, configuration, logger)
 	assert.Equal(t, numPartitions, actualNumPartitions)
 }
 
@@ -123,16 +124,16 @@ func TestReplicationFactor(t *testing.T) {
 	logger := logtesting.TestLogger(t).Desugar()
 
 	// Test Data
-	environment := &env.Environment{DefaultReplicationFactor: defaultReplicationFactor}
+	configuration := &config.EventingKafkaConfig{Kafka: config.EKKafkaConfig{Topic: config.EKKafkaTopicConfig{DefaultReplicationFactor: defaultReplicationFactor}}}
 
 	// Test The Default Failover Use Case
 	channel := &kafkav1beta1.KafkaChannel{}
-	actualReplicationFactor := ReplicationFactor(channel, environment, logger)
+	actualReplicationFactor := ReplicationFactor(channel, configuration, logger)
 	assert.Equal(t, defaultReplicationFactor, actualReplicationFactor)
 
 	// Test The Valid ReplicationFactor Use Case
 	channel = &kafkav1beta1.KafkaChannel{Spec: kafkav1beta1.KafkaChannelSpec{ReplicationFactor: replicationFactor}}
-	actualReplicationFactor = ReplicationFactor(channel, environment, logger)
+	actualReplicationFactor = ReplicationFactor(channel, configuration, logger)
 	assert.Equal(t, replicationFactor, actualReplicationFactor)
 }
 
@@ -143,11 +144,11 @@ func TestRetentionMillis(t *testing.T) {
 	logger := logtesting.TestLogger(t).Desugar()
 
 	// Test Data
-	environment := &env.Environment{DefaultRetentionMillis: defaultRetentionMillis}
+	configuration := &config.EventingKafkaConfig{Kafka: config.EKKafkaConfig{Topic: config.EKKafkaTopicConfig{DefaultRetentionMillis: defaultRetentionMillis}}}
 
 	// Test The Default Failover Use Case
 	channel := &kafkav1beta1.KafkaChannel{}
-	actualRetentionMillis := RetentionMillis(channel, environment, logger)
+	actualRetentionMillis := RetentionMillis(channel, configuration, logger)
 	assert.Equal(t, defaultRetentionMillis, actualRetentionMillis)
 
 	// TODO - No RetentionMillis In eventing-contrib KafkaChannel
