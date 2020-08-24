@@ -55,3 +55,18 @@ func TestInitializeTracing(t *testing.T) {
 	// (Not the best test of failure conditions but it does run through the SetupDynamicPublishing() call at least
 	//  and verify that the happy-path doesn't error out)
 }
+
+func TestInitializeTracing_Failure(t *testing.T) {
+	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, constants.KnativeEventingNamespace))
+	ctx := context.TODO()
+
+	// If there is no Kubernetes client in the context, the server will not start
+	err := InitializeTracing(logtesting.TestLogger(t), ctx, "TestService")
+	assert.NotNil(t, err)
+
+	// If there is no "config-tracing" configmap, the server will not start
+	fakeK8sClient := fake.NewSimpleClientset()
+	ctx = context.WithValue(ctx, injectionclient.Key{}, fakeK8sClient)
+	err = InitializeTracing(logtesting.TestLogger(t), ctx, "TestService")
+	assert.NotNil(t, err)
+}
