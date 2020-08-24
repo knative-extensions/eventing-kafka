@@ -1,6 +1,9 @@
 package controller
 
 import (
+	"testing"
+	"time"
+
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -21,8 +24,6 @@ import (
 	logtesting "knative.dev/pkg/logging/testing"
 	. "knative.dev/pkg/reconciler/testing"
 	reconcilertesting "knative.dev/pkg/reconciler/testing"
-	"testing"
-	"time"
 )
 
 const (
@@ -178,5 +179,9 @@ func (m MockDispatcher) Shutdown() {
 }
 
 func (m MockDispatcher) UpdateSubscriptions(_ []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error {
+	return nil
+}
+
+func (m MockDispatcher) ConfigChanged(*corev1.ConfigMap) dispatcher.Dispatcher {
 	return nil
 }

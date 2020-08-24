@@ -15,19 +15,11 @@ type Environment struct {
 	// Health Configuration
 	HealthPort int // Required
 
-	// Dispatcher Retry Settings
-	ExponentialBackoff   bool  // Required
-	ExpBackoffPresent    bool  // Derived
-	MaxRetryTime         int64 // Required
-	InitialRetryInterval int64 // Required
-
 	// Kafka Configuration
-	KafkaBrokers                    string // Required
-	KafkaTopic                      string // Required
-	ChannelKey                      string // Required
-	ServiceName                     string // Required
-	KafkaOffsetCommitMessageCount   int64  // Required
-	KafkaOffsetCommitDurationMillis int64  // Required
+	KafkaBrokers string // Required
+	KafkaTopic   string // Required
+	ChannelKey   string // Required
+	ServiceName  string // Required
 
 	// Kafka Authorization
 	KafkaUsername string // Optional
@@ -61,24 +53,6 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 		return nil, err
 	}
 
-	// Get The Required MaxRetryTime Config Value
-	environment.ExponentialBackoff, environment.ExpBackoffPresent, err = env.GetRequiredConfigBool(logger, env.ExponentialBackoffEnvVarKey, "ExponentialBackoff")
-	if err != nil {
-		return nil, err
-	}
-
-	// Get The Required MaxRetryTime Config Value
-	environment.MaxRetryTime, err = env.GetRequiredConfigInt64(logger, env.MaxRetryTimeEnvVarKey, "MaxRetryTime")
-	if err != nil {
-		return nil, err
-	}
-
-	// Get The Required InitialRetryInterval Config Value
-	environment.InitialRetryInterval, err = env.GetRequiredConfigInt64(logger, env.InitialRetryIntervalEnvVarKey, "InitialRetryInterval")
-	if err != nil {
-		return nil, err
-	}
-
 	// Get The Required K8S KafkaBrokers Config Value
 	environment.KafkaBrokers, err = env.GetRequiredConfigValue(logger, env.KafkaBrokerEnvVarKey)
 	if err != nil {
@@ -105,15 +79,9 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 
 	// Get The Optional KafkaUsername Config Value
 	environment.KafkaUsername = env.GetOptionalConfigValue(logger, env.KafkaUsernameEnvVarKey, "")
-	if err != nil {
-		return nil, err
-	}
 
 	// Get The Optional KafkaPassword Config Value
 	environment.KafkaPassword = env.GetOptionalConfigValue(logger, env.KafkaPasswordEnvVarKey, "")
-	if err != nil {
-		return nil, err
-	}
 
 	// Clone The Environment & Mask The Password For Safe Logging
 	safeEnvironment := *environment

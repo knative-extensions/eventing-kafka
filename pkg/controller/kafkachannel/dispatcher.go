@@ -3,6 +3,8 @@ package kafkachannel
 import (
 	"context"
 	"fmt"
+	"strconv"
+
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -10,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	kafkav1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	commonenv "knative.dev/eventing-kafka/pkg/common/env"
 	"knative.dev/eventing-kafka/pkg/common/health"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
@@ -18,7 +21,6 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
-	"strconv"
 )
 
 //
@@ -96,7 +98,7 @@ func (r *Reconciler) getDispatcherService(channel *kafkav1beta1.KafkaChannel) (*
 
 	// Get The Service By Namespace / Name
 	service := &corev1.Service{}
-	service, err := r.serviceLister.Services(constants.KnativeEventingNamespace).Get(serviceName)
+	service, err := r.serviceLister.Services(commonconstants.KnativeEventingNamespace).Get(serviceName)
 
 	// Return The Results
 	return service, err
@@ -116,7 +118,7 @@ func (r *Reconciler) newDispatcherService(channel *kafkav1beta1.KafkaChannel) *c
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,
-			Namespace: constants.KnativeEventingNamespace,
+			Namespace: commonconstants.KnativeEventingNamespace,
 			Labels: map[string]string{
 				constants.KafkaChannelDispatcherLabel:   "true",                                  // Identifies the Service as being a KafkaChannel "Dispatcher"
 				constants.KafkaChannelNameLabel:         channel.Name,                            // Identifies the Service's Owning KafkaChannel's Name
@@ -197,7 +199,7 @@ func (r *Reconciler) getDispatcherDeployment(channel *kafkav1beta1.KafkaChannel)
 
 	// Get The Dispatcher Deployment By Namespace / Name
 	deployment := &appsv1.Deployment{}
-	deployment, err := r.deploymentLister.Deployments(constants.KnativeEventingNamespace).Get(deploymentName)
+	deployment, err := r.deploymentLister.Deployments(commonconstants.KnativeEventingNamespace).Get(deploymentName)
 
 	// Return The Results
 	return deployment, err
@@ -210,7 +212,7 @@ func (r *Reconciler) newDispatcherDeployment(channel *kafkav1beta1.KafkaChannel)
 	deploymentName := util.DispatcherDnsSafeName(channel)
 
 	// Replicas Int Value For De-Referencing
-	replicas := int32(r.environment.DispatcherReplicas)
+	replicas := int32(r.config.Dispatcher.Replicas)
 
 	// Create The Dispatcher Container Environment Variables
 	envVars, err := r.dispatcherDeploymentEnvVars(channel)
@@ -227,7 +229,7 @@ func (r *Reconciler) newDispatcherDeployment(channel *kafkav1beta1.KafkaChannel)
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deploymentName,
-			Namespace: constants.KnativeEventingNamespace,
+			Namespace: commonconstants.KnativeEventingNamespace,
 			Labels: map[string]string{
 				constants.AppLabel:                    deploymentName,    // Matches K8S Service Selector Key/Value Below
 				constants.KafkaChannelDispatcherLabel: "true",            // Identifies the Deployment as being a KafkaChannel "Dispatcher"
@@ -281,12 +283,12 @@ func (r *Reconciler) newDispatcherDeployment(channel *kafkav1beta1.KafkaChannel)
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
-									corev1.ResourceMemory: r.environment.DispatcherMemoryLimit,
-									corev1.ResourceCPU:    r.environment.DispatcherCpuLimit,
+									corev1.ResourceMemory: r.config.Dispatcher.MemoryLimit,
+									corev1.ResourceCPU:    r.config.Dispatcher.CpuLimit,
 								},
 								Requests: corev1.ResourceList{
-									corev1.ResourceMemory: r.environment.DispatcherMemoryRequest,
-									corev1.ResourceCPU:    r.environment.DispatcherCpuRequest,
+									corev1.ResourceMemory: r.config.Dispatcher.MemoryRequest,
+									corev1.ResourceCPU:    r.config.Dispatcher.CpuRequest,
 								},
 							},
 						},
@@ -310,7 +312,7 @@ func (r *Reconciler) dispatcherDeploymentEnvVars(channel *kafkav1beta1.KafkaChan
 	envVars := []corev1.EnvVar{
 		{
 			Name:  system.NamespaceEnvKey,
-			Value: constants.KnativeEventingNamespace,
+			Value: commonconstants.KnativeEventingNamespace,
 		},
 		{
 			Name:  commonenv.KnativeLoggingConfigMapNameEnvVarKey,
@@ -339,18 +341,6 @@ func (r *Reconciler) dispatcherDeploymentEnvVars(channel *kafkav1beta1.KafkaChan
 		{
 			Name:  commonenv.KafkaTopicEnvVarKey,
 			Value: topicName,
-		},
-		{
-			Name:  commonenv.ExponentialBackoffEnvVarKey,
-			Value: strconv.FormatBool(r.environment.DispatcherRetryExponentialBackoff),
-		},
-		{
-			Name:  commonenv.InitialRetryIntervalEnvVarKey,
-			Value: strconv.FormatInt(r.environment.DispatcherRetryInitialIntervalMillis, 10),
-		},
-		{
-			Name:  commonenv.MaxRetryTimeEnvVarKey,
-			Value: strconv.FormatInt(r.environment.DispatcherRetryTimeMillisMax, 10),
 		},
 	}
 

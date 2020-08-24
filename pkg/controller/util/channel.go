@@ -2,12 +2,13 @@ package util
 
 import (
 	"fmt"
+
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kafkav1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
+	"knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
-	"knative.dev/eventing-kafka/pkg/controller/env"
 	"knative.dev/eventing/pkg/utils"
 )
 
@@ -62,28 +63,28 @@ func ChannelHostName(channelName, channelNamespace string) string {
 	return fmt.Sprintf("%s.%s.channels.%s", channelName, channelNamespace, utils.GetClusterDomainName())
 }
 
-// Utility Function To Get The NumPartitions - First From Channel Spec And Then From Environment
-func NumPartitions(channel *kafkav1beta1.KafkaChannel, environment *env.Environment, logger *zap.Logger) int32 {
+// Utility Function To Get The NumPartitions - First From Channel Spec And Then From ConfigMap-Provided Settings
+func NumPartitions(channel *kafkav1beta1.KafkaChannel, configuration *config.EventingKafkaConfig, logger *zap.Logger) int32 {
 	value := channel.Spec.NumPartitions
 	if value <= 0 {
-		logger.Debug("Kafka Channel Spec 'NumPartitions' Not Specified - Using Default", zap.Int32("Value", environment.DefaultNumPartitions))
-		value = environment.DefaultNumPartitions
+		logger.Debug("Kafka Channel Spec 'NumPartitions' Not Specified - Using Default", zap.Int32("Value", configuration.Kafka.Topic.DefaultNumPartitions))
+		value = configuration.Kafka.Topic.DefaultNumPartitions
 	}
 	return value
 }
 
-// Utility Function To Get The ReplicationFactor - First From Channel Spec And Then From Environment
-func ReplicationFactor(channel *kafkav1beta1.KafkaChannel, environment *env.Environment, logger *zap.Logger) int16 {
+// Utility Function To Get The ReplicationFactor - First From Channel Spec And Then From ConfigMap-Provided Settings
+func ReplicationFactor(channel *kafkav1beta1.KafkaChannel, configuration *config.EventingKafkaConfig, logger *zap.Logger) int16 {
 	value := channel.Spec.ReplicationFactor
 	if value <= 0 {
-		logger.Debug("Kafka Channel Spec 'ReplicationFactor' Not Specified - Using Default", zap.Int16("Value", environment.DefaultReplicationFactor))
-		value = environment.DefaultReplicationFactor
+		logger.Debug("Kafka Channel Spec 'ReplicationFactor' Not Specified - Using Default", zap.Int16("Value", configuration.Kafka.Topic.DefaultReplicationFactor))
+		value = configuration.Kafka.Topic.DefaultReplicationFactor
 	}
 	return value
 }
 
-// Utility Function To Get The RetentionMillis - First From Channel Spec And Then From Environment
-func RetentionMillis(channel *kafkav1beta1.KafkaChannel, environment *env.Environment, logger *zap.Logger) int64 {
+// Utility Function To Get The RetentionMillis - First From Channel Spec And Then From ConfigMap-Provided Settings
+func RetentionMillis(channel *kafkav1beta1.KafkaChannel, configuration *config.EventingKafkaConfig, logger *zap.Logger) int64 {
 	//
 	// TODO - The eventing-contrib KafkaChannel CRD does not include RetentionMillis so we're
 	//        currently just using the default value specified in Controller Environment Variables.
@@ -94,5 +95,5 @@ func RetentionMillis(channel *kafkav1beta1.KafkaChannel, environment *env.Enviro
 	//	value = environment.DefaultRetentionMillis
 	//}
 	//return value
-	return environment.DefaultRetentionMillis
+	return configuration.Kafka.Topic.DefaultRetentionMillis
 }

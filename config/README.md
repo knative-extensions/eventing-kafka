@@ -7,8 +7,8 @@ project.
 
 ## Kafka Providers
 
-Knative Kafka supports a number of kafka providers to configure a particular provider to be used. Set the environment
-variable `KAFKA_PROVIDER` for the [controller deployment](400-deployment.yaml) to specify which to use
+Eventing-Kafka supports either a standard Kafka deployment or Azure EventHubs. In order to configure the desired provider,
+set the eventing-kafka.kafka.provider field in the [config-eventing-kafka configmap](200-eventing-kafka-configmap.yaml)
 
 The current allowed values are:
 

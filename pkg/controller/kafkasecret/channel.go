@@ -3,12 +3,15 @@ package kafkasecret
 import (
 	"context"
 	"fmt"
+	"strconv"
+
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	commonenv "knative.dev/eventing-kafka/pkg/common/env"
 	"knative.dev/eventing-kafka/pkg/common/health"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
@@ -17,7 +20,6 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
-	"strconv"
 )
 
 // Reconcile The "Channel" Inbound For The Specified Kafka Secret
@@ -111,7 +113,7 @@ func (r *Reconciler) getChannelService(secret *corev1.Secret) (*corev1.Service, 
 
 	// Get The Service By Namespace / Name
 	service := &corev1.Service{}
-	service, err := r.serviceLister.Services(constants.KnativeEventingNamespace).Get(deploymentName)
+	service, err := r.serviceLister.Services(commonconstants.KnativeEventingNamespace).Get(deploymentName)
 
 	// Return The Results
 	return service, err
@@ -131,7 +133,7 @@ func (r *Reconciler) newChannelService(secret *corev1.Secret) *corev1.Service {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deploymentName,
-			Namespace: constants.KnativeEventingNamespace,
+			Namespace: commonconstants.KnativeEventingNamespace,
 			Labels: map[string]string{
 				constants.KafkaChannelChannelLabel:   "true",                               // Allows for identification of KafkaChannels
 				constants.K8sAppChannelSelectorLabel: constants.K8sAppChannelSelectorValue, // Prometheus ServiceMonitor
@@ -213,7 +215,7 @@ func (r *Reconciler) getChannelDeployment(secret *corev1.Secret) (*appsv1.Deploy
 
 	// Get The Channel Deployment By Namespace / Name
 	deployment := &appsv1.Deployment{}
-	deployment, err := r.deploymentLister.Deployments(constants.KnativeEventingNamespace).Get(deploymentName)
+	deployment, err := r.deploymentLister.Deployments(commonconstants.KnativeEventingNamespace).Get(deploymentName)
 
 	// Return The Results
 	return deployment, err
@@ -226,7 +228,7 @@ func (r *Reconciler) newChannelDeployment(secret *corev1.Secret) (*appsv1.Deploy
 	deploymentName := util.ChannelDnsSafeName(secret.Name)
 
 	// Replicas Int Value For De-Referencing
-	replicas := int32(r.environment.ChannelReplicas)
+	replicas := int32(r.config.Channel.Replicas)
 
 	// Create The Channel Container Environment Variables
 	channelEnvVars, err := r.channelDeploymentEnvVars(secret)
@@ -243,7 +245,7 @@ func (r *Reconciler) newChannelDeployment(secret *corev1.Secret) (*appsv1.Deploy
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deploymentName,
-			Namespace: constants.KnativeEventingNamespace,
+			Namespace: commonconstants.KnativeEventingNamespace,
 			Labels: map[string]string{
 				constants.AppLabel:                 deploymentName, // Matches Service Selector Key/Value Below
 				constants.KafkaChannelChannelLabel: "true",         // Allows for identification of KafkaChannels
@@ -301,12 +303,12 @@ func (r *Reconciler) newChannelDeployment(secret *corev1.Secret) (*appsv1.Deploy
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Resources: corev1.ResourceRequirements{
 								Requests: corev1.ResourceList{
-									corev1.ResourceCPU:    r.environment.ChannelCpuRequest,
-									corev1.ResourceMemory: r.environment.ChannelMemoryRequest,
+									corev1.ResourceCPU:    r.config.Channel.CpuRequest,
+									corev1.ResourceMemory: r.config.Channel.MemoryRequest,
 								},
 								Limits: corev1.ResourceList{
-									corev1.ResourceCPU:    r.environment.ChannelCpuLimit,
-									corev1.ResourceMemory: r.environment.ChannelMemoryLimit,
+									corev1.ResourceCPU:    r.config.Channel.CpuLimit,
+									corev1.ResourceMemory: r.config.Channel.MemoryLimit,
 								},
 							},
 						},
@@ -327,7 +329,7 @@ func (r *Reconciler) channelDeploymentEnvVars(secret *corev1.Secret) ([]corev1.E
 	envVars := []corev1.EnvVar{
 		{
 			Name:  system.NamespaceEnvKey,
-			Value: constants.KnativeEventingNamespace,
+			Value: commonconstants.KnativeEventingNamespace,
 		},
 		{
 			Name:  commonenv.KnativeLoggingConfigMapNameEnvVarKey,

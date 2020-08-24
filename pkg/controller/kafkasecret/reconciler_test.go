@@ -2,6 +2,8 @@ package kafkasecret
 
 import (
 	"context"
+	"testing"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -18,7 +20,6 @@ import (
 	"knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
 	. "knative.dev/pkg/reconciler/testing"
-	"testing"
 )
 
 // Initialization - Add types to scheme
@@ -238,6 +239,7 @@ func TestReconcile(t *testing.T) {
 			logger:             logging.FromContext(ctx),
 			kubeClientset:      kubeclient.Get(ctx),
 			environment:        test.NewEnvironment(),
+			config:             test.NewConfig(),
 			kafkaChannelClient: fakekafkaclient.Get(ctx),
 			kafkachannelLister: listers.GetKafkaChannelLister(),
 			deploymentLister:   listers.GetDeploymentLister(),

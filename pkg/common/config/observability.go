@@ -1,4 +1,4 @@
-package k8s
+package config
 
 import (
 	"context"
@@ -21,7 +21,7 @@ import (
 // Initialize The Specified Context With A Profiling Server (ConfigMap Watcher And HTTP Endpoint)
 // Much Of This Function Is Taken From The knative.dev sharedmain Package
 //
-func InitializeObservability(logger *zap.SugaredLogger, ctx context.Context, metricsDomain string, metricsPort int) {
+func InitializeObservability(logger *zap.SugaredLogger, ctx context.Context, metricsDomain string, metricsPort int) error {
 
 	// Initialize the profiling server
 	// Taken from knative.dev/pkg/injection/sharedmain/main.go::MainWithConfig
@@ -42,6 +42,9 @@ func InitializeObservability(logger *zap.SugaredLogger, ctx context.Context, met
 			logger.Error("Error while running server", zap.Error(err))
 		}
 	}()
+
+	// Since these functions are designed to be called by the main() function, the default KNative package
+	// behavior here is a fatal exit if the stats or watch cannot be set up.
 
 	// Initialize the memory stats, which will be added to the eventing metrics exporter every 30 seconds
 	sharedmain.MemStatsOrDie(ctx)
@@ -69,10 +72,14 @@ func InitializeObservability(logger *zap.SugaredLogger, ctx context.Context, met
 			},
 			profilingHandler.UpdateFromConfigMap)
 	} else if !apierrors.IsNotFound(err) {
-		logger.Fatalw("Error reading ConfigMap "+metrics.ConfigMapName(), zap.Error(err))
+		logger.Error("Error reading ConfigMap "+metrics.ConfigMapName(), zap.Error(err))
+		return err
 	}
 
 	if err := cmw.Start(ctx.Done()); err != nil {
-		logger.Fatalw("Failed to start observability configuration manager", zap.Error(err))
+		logger.Error("Failed to start observability configuration manager", zap.Error(err))
+		return err
 	}
+
+	return nil
 }

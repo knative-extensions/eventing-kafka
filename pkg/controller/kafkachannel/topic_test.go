@@ -2,6 +2,8 @@ package kafkachannel
 
 import (
 	"context"
+	"testing"
+
 	"github.com/Shopify/sarama"
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
@@ -12,7 +14,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/controller/test"
 	"knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
-	"testing"
 )
 
 // Define The Topic TestCase Type
@@ -180,7 +181,7 @@ func topicTestCaseFactory(tc TopicTestCase) func(t *testing.T) {
 		r := &Reconciler{
 			logger:      logtesting.TestLogger(t).Desugar(),
 			adminClient: mockAdminClient,
-			environment: test.NewEnvironment(),
+			config:      test.NewConfig(),
 		}
 
 		// Track Any Error Responses

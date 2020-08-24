@@ -65,15 +65,9 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 
 	// Get The Optional KafkaUsername Config Value
 	environment.KafkaUsername = env.GetOptionalConfigValue(logger, env.KafkaUsernameEnvVarKey, "")
-	if err != nil {
-		return nil, err
-	}
 
 	// Get The Optional KafkaPassword Config Value
 	environment.KafkaPassword = env.GetOptionalConfigValue(logger, env.KafkaPasswordEnvVarKey, "")
-	if err != nil {
-		return nil, err
-	}
 
 	// Clone The Environment & Mask The Password For Safe Logging
 	safeEnvironment := *environment

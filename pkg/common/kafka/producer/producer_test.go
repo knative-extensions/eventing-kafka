@@ -2,10 +2,16 @@ package producer
 
 import (
 	"crypto/tls"
+	"strconv"
+
+	"testing"
+
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
+	"knative.dev/eventing-kafka/pkg/channel/test"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
-	"testing"
+	kafkasarama "knative.dev/eventing-kafka/pkg/common/kafka/sarama"
+	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 )
 
 // Test Constants
@@ -44,7 +50,9 @@ func performCreateSyncProducerTest(t *testing.T, username string, password strin
 	defer func() { newSyncProducerWrapper = newSyncProducerWrapperPlaceholder }()
 
 	// Perform The Test
-	producer, registry, err := CreateSyncProducer(ClientId, []string{KafkaBrokers}, username, password)
+	config := commontesting.GetDefaultSaramaConfig(t, kafkasarama.NewSaramaConfig())
+	kafkasarama.UpdateSaramaConfig(config, ClientId, username, password)
+	producer, registry, err := CreateSyncProducer([]string{KafkaBrokers}, config)
 
 	// Verify The Results
 	assert.Nil(t, err)
@@ -53,14 +61,23 @@ func performCreateSyncProducerTest(t *testing.T, username string, password strin
 	assert.NotNil(t, registry)
 }
 
+// Test that the UpdateSaramaConfig sets values as expected
+func TestUpdateConfig(t *testing.T) {
+	config := sarama.NewConfig()
+	kafkasarama.UpdateSaramaConfig(config, test.ClientId, KafkaUsername, KafkaPassword)
+	assert.Equal(t, ClientId, config.ClientID)
+	assert.Equal(t, KafkaUsername, config.Net.SASL.User)
+	assert.Equal(t, KafkaPassword, config.Net.SASL.Password)
+}
+
 // Verify The Sarama Config Is As Expected
 func verifySaramaConfig(t *testing.T, config *sarama.Config, clientId string, username string, password string) {
 	assert.NotNil(t, config)
 	assert.Equal(t, clientId, config.ClientID)
 	assert.Equal(t, constants.ConfigKafkaVersion, config.Version)
-	assert.Equal(t, constants.ConfigNetKeepAlive, config.Net.KeepAlive)
-	assert.Equal(t, constants.ConfigProducerIdempotent, config.Producer.Idempotent)
-	assert.Equal(t, constants.ConfigProducerRequiredAcks, config.Producer.RequiredAcks)
+	assert.Equal(t, commontesting.ConfigNetKeepAlive, strconv.FormatInt(int64(config.Net.KeepAlive), 10))
+	assert.Equal(t, commontesting.ConfigProducerIdempotent, strconv.FormatBool(config.Producer.Idempotent))
+	assert.Equal(t, commontesting.ConfigProducerRequiredAcks, strconv.FormatInt(int64(config.Producer.RequiredAcks), 10))
 	assert.True(t, config.Producer.Return.Successes)
 
 	if len(username) > 0 && len(password) > 0 {
@@ -84,7 +101,7 @@ func verifySaramaConfig(t *testing.T, config *sarama.Config, clientId string, us
 		assert.Equal(t, "", config.Net.SASL.User)
 		assert.Equal(t, "", config.Net.SASL.Password)
 	}
-	assert.Equal(t, constants.ConfigMetadataRefreshFrequency, config.Metadata.RefreshFrequency)
+	assert.Equal(t, commontesting.ConfigMetadataRefreshFrequency, strconv.FormatInt(int64(config.Metadata.RefreshFrequency), 10))
 }
 
 //

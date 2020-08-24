@@ -2,15 +2,10 @@ package constants
 
 import (
 	"github.com/Shopify/sarama"
-	"time"
 )
 
 // Constants
 const (
-
-	// Knative Eventing Namespace
-	KnativeEventingNamespace = "knative-eventing"
-
 	// Duration Convenience
 	MillisPerDay = 24 * 60 * 60 * 1000 // 86400000
 
@@ -24,14 +19,7 @@ const (
 	KafkaSecretKeyPassword  = "password"
 
 	// Kafka Admin/Consumer/Producer Config Values
-	ConfigAdminTimeout                      = 10 * time.Second       // Bumped up from 3 seconds just for some extra margin.
-	ConfigNetSaslVersion                    = sarama.SASLHandshakeV1 // Latest version, seems to work with EventHubs as well.
-	ConfigNetKeepAlive                      = 30 * time.Second       // Pretty sure Sarama documentation is incorrect and 0 means default of 15 seconds but we'll forcibly set that anyway. (see Golang Net.Dialer.KeepAlive)
-	ConfigMetadataRefreshFrequency          = 5 * time.Minute        // How often to refresh metadata, reduced from default value of 10 minutes.
-	ConfigConsumerOffsetsAutoCommitInterval = 5 * time.Second        // Auto offset commit interval for message Marked as consumed.
-	ConfigConsumerOffsetsRetention          = 7 * 24 * time.Hour     // Increase default offset retention from 1 day to 1 week.
-	ConfigProducerIdempotent                = false                  // Desirable but not available in Azure EventHubs yet, so disabled for now.
-	ConfigProducerRequiredAcks              = sarama.WaitForAll      // Most stringent option for "at-least-once" delivery.
+	ConfigNetSaslVersion = sarama.SASLHandshakeV1 // Latest version, seems to work with EventHubs as well.
 
 	// Kafka Topic Config Keys
 	TopicDetailConfigRetentionMs = "retention.ms"

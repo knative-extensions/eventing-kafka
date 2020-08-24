@@ -2,6 +2,9 @@ package test
 
 import (
 	"fmt"
+	"strconv"
+	"time"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -10,9 +13,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgotesting "k8s.io/client-go/testing"
 	kafkav1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
+	"knative.dev/eventing-kafka/pkg/common/config"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	commonenv "knative.dev/eventing-kafka/pkg/common/env"
 	"knative.dev/eventing-kafka/pkg/common/health"
-	commonKafkaConstants "knative.dev/eventing-kafka/pkg/common/kafka/constants"
+	kafkaconstants "knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	kafkautil "knative.dev/eventing-kafka/pkg/common/kafka/util"
 	"knative.dev/eventing-kafka/pkg/controller/constants"
 	"knative.dev/eventing-kafka/pkg/controller/env"
@@ -23,8 +28,6 @@ import (
 	"knative.dev/pkg/logging"
 	reconcilertesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/pkg/system"
-	"strconv"
-	"time"
 )
 
 // Constants
@@ -34,11 +37,10 @@ const (
 
 	// Environment Test Data
 	ServiceAccount                         = "TestServiceAccount"
+	ServiceProvider                        = "local"
 	MetricsPort                            = 9876
 	MetricsDomain                          = "eventing-kafka"
 	HealthPort                             = 8082
-	KafkaOffsetCommitMessageCount          = 99
-	KafkaOffsetCommitDurationMillis        = 9999
 	ChannelImage                           = "TestChannelImage"
 	ChannelReplicas                        = 1
 	DispatcherImage                        = "TestDispatcherImage"
@@ -54,7 +56,7 @@ const (
 	KafkaChannelNamespace = "kafkachannel-namespace"
 	KafkaChannelName      = "kafkachannel-name"
 	KafkaChannelKey       = KafkaChannelNamespace + "/" + KafkaChannelName
-	KafkaSecretNamespace  = constants.KnativeEventingNamespace // Needs To Match Hardcoded Value In Reconciliation
+	KafkaSecretNamespace  = commonconstants.KnativeEventingNamespace // Needs To Match Hardcoded Value In Reconciliation
 	KafkaSecretName       = "kafkasecret-name"
 	KafkaSecretKey        = KafkaSecretNamespace + "/" + KafkaSecretName
 	ChannelDeploymentName = KafkaSecretName + "-channel"
@@ -97,29 +99,47 @@ var (
 // Set The Required Environment Variables
 func NewEnvironment() *env.Environment {
 	return &env.Environment{
-		ServiceAccount:                       ServiceAccount,
-		MetricsPort:                          MetricsPort,
-		MetricsDomain:                        MetricsDomain,
-		KafkaOffsetCommitMessageCount:        KafkaOffsetCommitMessageCount,
-		KafkaOffsetCommitDurationMillis:      KafkaOffsetCommitDurationMillis,
-		DefaultNumPartitions:                 DefaultNumPartitions,
-		DefaultReplicationFactor:             DefaultReplicationFactor,
-		DefaultRetentionMillis:               DefaultRetentionMillis,
-		DispatcherImage:                      DispatcherImage,
-		DispatcherReplicas:                   DispatcherReplicas,
-		DispatcherRetryInitialIntervalMillis: DefaultEventRetryInitialIntervalMillis,
-		DispatcherRetryTimeMillisMax:         DefaultEventRetryTimeMillisMax,
-		DispatcherRetryExponentialBackoff:    DefaultExponentialBackoff,
-		DispatcherCpuLimit:                   resource.MustParse(DispatcherCpuLimit),
-		DispatcherCpuRequest:                 resource.MustParse(DispatcherCpuRequest),
-		DispatcherMemoryLimit:                resource.MustParse(DispatcherMemoryLimit),
-		DispatcherMemoryRequest:              resource.MustParse(DispatcherMemoryRequest),
-		ChannelImage:                         ChannelImage,
-		ChannelReplicas:                      ChannelReplicas,
-		ChannelMemoryRequest:                 resource.MustParse(ChannelMemoryRequest),
-		ChannelMemoryLimit:                   resource.MustParse(ChannelMemoryLimit),
-		ChannelCpuRequest:                    resource.MustParse(ChannelCpuRequest),
-		ChannelCpuLimit:                      resource.MustParse(ChannelCpuLimit),
+		ServiceAccount:  ServiceAccount,
+		MetricsPort:     MetricsPort,
+		MetricsDomain:   MetricsDomain,
+		DispatcherImage: DispatcherImage,
+		ChannelImage:    ChannelImage,
+	}
+}
+
+// Set The Required Config Fields
+func NewConfig() *config.EventingKafkaConfig {
+	backoff := DefaultExponentialBackoff
+	return &config.EventingKafkaConfig{
+		Dispatcher: config.EKDispatcherConfig{
+			EKKubernetesConfig: config.EKKubernetesConfig{
+				Replicas:      DispatcherReplicas,
+				CpuLimit:      resource.MustParse(DispatcherCpuLimit),
+				CpuRequest:    resource.MustParse(DispatcherCpuRequest),
+				MemoryLimit:   resource.MustParse(DispatcherMemoryLimit),
+				MemoryRequest: resource.MustParse(DispatcherMemoryRequest),
+			},
+			RetryInitialIntervalMillis: DefaultEventRetryInitialIntervalMillis,
+			RetryTimeMillis:            DefaultEventRetryTimeMillisMax,
+			RetryExponentialBackoff:    &backoff,
+		},
+		Channel: config.EKChannelConfig{
+			EKKubernetesConfig: config.EKKubernetesConfig{
+				Replicas:      ChannelReplicas,
+				CpuLimit:      resource.MustParse(ChannelCpuLimit),
+				CpuRequest:    resource.MustParse(ChannelCpuRequest),
+				MemoryLimit:   resource.MustParse(ChannelMemoryLimit),
+				MemoryRequest: resource.MustParse(ChannelMemoryRequest),
+			},
+		},
+		Kafka: config.EKKafkaConfig{
+			Topic: config.EKKafkaTopicConfig{
+				DefaultNumPartitions:     DefaultNumPartitions,
+				DefaultReplicationFactor: DefaultReplicationFactor,
+				DefaultRetentionMillis:   DefaultRetentionMillis,
+			},
+			Provider: ServiceProvider,
+		},
 	}
 }
 
@@ -285,7 +305,7 @@ func WithLabels(kafkachannel *kafkav1beta1.KafkaChannel) {
 func WithAddress(kafkachannel *kafkav1beta1.KafkaChannel) {
 	kafkachannel.Status.SetAddress(&apis.URL{
 		Scheme: "http",
-		Host:   fmt.Sprintf("%s-%s.%s.svc.cluster.local", KafkaChannelName, commonKafkaConstants.KafkaChannelServiceNameSuffix, KafkaChannelNamespace),
+		Host:   fmt.Sprintf("%s-%s.%s.svc.cluster.local", KafkaChannelName, kafkaconstants.KafkaChannelServiceNameSuffix, KafkaChannelNamespace),
 	})
 }
 
@@ -368,7 +388,7 @@ func NewKafkaChannelService() *corev1.Service {
 		},
 		Spec: corev1.ServiceSpec{
 			Type:         corev1.ServiceTypeExternalName,
-			ExternalName: ChannelDeploymentName + "." + constants.KnativeEventingNamespace + ".svc.cluster.local",
+			ExternalName: ChannelDeploymentName + "." + commonconstants.KnativeEventingNamespace + ".svc.cluster.local",
 		},
 	}
 }
@@ -382,7 +402,7 @@ func NewKafkaChannelChannelService() *corev1.Service {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ChannelDeploymentName,
-			Namespace: constants.KnativeEventingNamespace,
+			Namespace: commonconstants.KnativeEventingNamespace,
 			Labels: map[string]string{
 				"k8s-app":              "eventing-kafka-channels",
 				"kafkachannel-channel": "true",
@@ -421,7 +441,7 @@ func NewKafkaChannelChannelDeployment() *appsv1.Deployment {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ChannelDeploymentName,
-			Namespace: constants.KnativeEventingNamespace,
+			Namespace: commonconstants.KnativeEventingNamespace,
 			Labels: map[string]string{
 				"app":                  ChannelDeploymentName,
 				"kafkachannel-channel": "true",
@@ -478,7 +498,7 @@ func NewKafkaChannelChannelDeployment() *appsv1.Deployment {
 							Env: []corev1.EnvVar{
 								{
 									Name:  system.NamespaceEnvKey,
-									Value: constants.KnativeEventingNamespace,
+									Value: commonconstants.KnativeEventingNamespace,
 								},
 								{
 									Name:  commonenv.KnativeLoggingConfigMapNameEnvVarKey,
@@ -562,7 +582,7 @@ func NewKafkaChannelDispatcherService() *corev1.Service {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,
-			Namespace: constants.KnativeEventingNamespace,
+			Namespace: commonconstants.KnativeEventingNamespace,
 			Labels: map[string]string{
 				constants.KafkaChannelNameLabel:       KafkaChannelName,
 				constants.KafkaChannelNamespaceLabel:  KafkaChannelNamespace,
@@ -606,7 +626,7 @@ func NewKafkaChannelDispatcherDeployment() *appsv1.Deployment {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dispatcherName,
-			Namespace: constants.KnativeEventingNamespace,
+			Namespace: commonconstants.KnativeEventingNamespace,
 			Labels: map[string]string{
 				constants.AppLabel:                    dispatcherName,
 				constants.KafkaChannelNameLabel:       KafkaChannelName,
@@ -659,7 +679,7 @@ func NewKafkaChannelDispatcherDeployment() *appsv1.Deployment {
 							Env: []corev1.EnvVar{
 								{
 									Name:  system.NamespaceEnvKey,
-									Value: constants.KnativeEventingNamespace,
+									Value: commonconstants.KnativeEventingNamespace,
 								},
 								{
 									Name:  commonenv.KnativeLoggingConfigMapNameEnvVarKey,
@@ -688,18 +708,6 @@ func NewKafkaChannelDispatcherDeployment() *appsv1.Deployment {
 								{
 									Name:  commonenv.KafkaTopicEnvVarKey,
 									Value: topicName,
-								},
-								{
-									Name:  commonenv.ExponentialBackoffEnvVarKey,
-									Value: strconv.FormatBool(DefaultExponentialBackoff),
-								},
-								{
-									Name:  commonenv.InitialRetryIntervalEnvVarKey,
-									Value: strconv.Itoa(DefaultEventRetryInitialIntervalMillis),
-								},
-								{
-									Name:  commonenv.MaxRetryTimeEnvVarKey,
-									Value: strconv.Itoa(DefaultEventRetryTimeMillisMax),
 								},
 								{
 									Name: commonenv.KafkaBrokerEnvVarKey,
