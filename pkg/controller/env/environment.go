@@ -31,7 +31,7 @@ const (
 	// Kafka Admin Types
 	KafkaAdminTypeValueKafka    = "kafka"
 	KafkaAdminTypeValueEventHub = "eventhub"
-	KafkaAdminTypeValuePlugin   = "plugin"
+	KafkaAdminTypeValueCustom   = "custom"
 
 	// Dispatcher Resources
 	DispatcherImageEnvVarKey         = "DISPATCHER_IMAGE"
@@ -124,8 +124,8 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 		environment.KafkaAdminType = admin.Kafka
 	case KafkaAdminTypeValueEventHub:
 		environment.KafkaAdminType = admin.EventHub
-	case KafkaAdminTypeValuePlugin:
-		environment.KafkaAdminType = admin.Plugin
+	case KafkaAdminTypeValueCustom:
+		environment.KafkaAdminType = admin.Custom
 	default:
 		logger.Error("Invalid / Unknown KafkaAdminType", zap.String("Value", kafkaAdminType), zap.Error(err))
 		environment.KafkaAdminType = admin.Unknown
