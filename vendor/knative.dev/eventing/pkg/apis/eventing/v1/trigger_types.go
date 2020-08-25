@@ -28,9 +28,6 @@ const (
 	// DependencyAnnotation is the annotation key used to mark the sources that the Trigger depends on.
 	// This will be used when the kn client creates a source and trigger pair for the user such that the trigger only receives events produced by the paired source.
 	DependencyAnnotation = "knative.dev/dependency"
-	// DeprecatedInjectionAnnotation
-	// Deprecated: v0.16, please use InjectionAnnotation.
-	DeprecatedInjectionAnnotation = "knative-eventing-injection"
 
 	// InjectionAnnotation is the annotation key used to enable knative eventing
 	// injection for a namespace to automatically create a broker.
@@ -41,7 +38,7 @@ const (
 // +genreconciler
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// Trigger represents a request to have events delivered to a consumer from a
+// Trigger represents a request to have events delivered to a subscriber from a
 // Broker's event pool.
 type Trigger struct {
 	metav1.TypeMeta `json:",inline"`
@@ -75,8 +72,7 @@ var (
 )
 
 type TriggerSpec struct {
-	// Broker is the broker that this trigger receives events from. If not specified, will default
-	// to 'default'.
+	// Broker is the broker that this trigger receives events from.
 	Broker string `json:"broker,omitempty"`
 
 	// Filter is the filter to apply against all events from the Broker. Only events that pass this
