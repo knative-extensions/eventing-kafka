@@ -215,6 +215,9 @@ func (r *Reconciler) configMapObserver(configMap *corev1.ConfigMap) {
 		r.logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Error(err))
 	}
 
+	// Note - We're not calling UpdateSaramaConfig() here because we load the Kafka Secret
+	//        from inside the AdminClient, which is currently done for every reconciliation.
+
 	r.logger.Info("ConfigMap Changed; Updating Sarama Configuration")
 	r.saramaConfig = saramaConfig
 }

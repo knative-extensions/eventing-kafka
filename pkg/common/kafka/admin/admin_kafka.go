@@ -90,6 +90,7 @@ func NewKafkaAdminClient(ctx context.Context, saramaConfig *sarama.Config, clien
 	}
 
 	// Return The KafkaAdminClient - Success
+	logger.Debug("Successfully Created New Kafka AdminClient")
 	return kafkaAdminClient, nil
 }
 

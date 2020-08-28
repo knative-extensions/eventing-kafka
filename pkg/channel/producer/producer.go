@@ -168,8 +168,9 @@ func (p *Producer) Close() {
 // If there aren't any producer-specific differences between the current config and the new one,
 // then just log that and move on; do not restart the Producer unnecessarily.
 func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
-	p.logger.Debug("New ConfigMap Received", zap.String("configMap.Name", configMap.ObjectMeta.Name))
 
+	// Create A New Sarama Config (Carrying Forward The Kafka Secret Auth)
+	p.logger.Debug("New ConfigMap Received", zap.String("configMap.Name", configMap.ObjectMeta.Name))
 	newConfig := kafkasarama.NewSaramaConfig()
 
 	// In order to compare configs "without the admin or consumer sections" we use a known-base config
@@ -179,6 +180,7 @@ func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 	defaultAdmin := newConfig.Admin
 	defaultConsumer := newConfig.Consumer
 
+	// Merge The Sarama Config From ConfigMap Into New Sarama Config
 	err := kafkasarama.MergeSaramaSettings(newConfig, configMap)
 	if err != nil {
 		p.logger.Error("Unable to merge sarama settings", zap.Error(err))
@@ -189,7 +191,9 @@ func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 	newConfig.Admin = defaultAdmin
 	newConfig.Consumer = defaultConsumer
 
+	// Validate Configuration (Should Always Be Present)
 	if p.configuration != nil {
+
 		// Some of the current config settings may not be overridden by the configmap (username, password, etc.)
 		kafkasarama.UpdateSaramaConfig(newConfig, p.configuration.ClientID, p.configuration.Net.SASL.User, p.configuration.Net.SASL.Password)
 
@@ -201,20 +205,21 @@ func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 		configCopy.Admin = defaultAdmin
 		configCopy.Consumer = defaultConsumer
 		if kafkasarama.ConfigEqual(newConfig, configCopy) {
-			p.logger.Info("No Producer changes detected in new config; ignoring")
+			p.logger.Info("No Producer Changes Detected In New Configuration - Ignoring")
 			return nil
 		}
 	}
 
-	p.logger.Info("Configuration received; applying new Producer settings")
-
-	// "Reconfiguring" the Producer involves creating a new one, but we can re-use some
-	// of the original components (logger, brokers, statsReporter, and healthServer don't change when reconfiguring)
+	// Create A New Producer With The New Configuration (Reusing All Other Existing Config)
+	p.logger.Info("Producer Changes Detected In New Configuration - Closing & Recreating Producer")
 	p.Close()
 	reconfiguredKafkaProducer, err := NewProducer(p.logger, newConfig, p.brokers, p.statsReporter, p.healthServer)
 	if err != nil {
-		p.logger.Fatal("Failed To Reconfigure Kafka Producer", zap.Error(err))
+		p.logger.Fatal("Failed To Create Kafka Producer With New Configuration", zap.Error(err))
 		return nil
 	}
+
+	// Successfully Created New Producer - Close Old One And Return New One
+	p.logger.Info("Successfully Created New Producer")
 	return reconfiguredKafkaProducer
 }

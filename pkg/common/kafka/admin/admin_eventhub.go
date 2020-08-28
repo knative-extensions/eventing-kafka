@@ -59,6 +59,7 @@ func NewEventHubAdminClient(ctx context.Context, namespace string) (AdminClientI
 	}
 
 	// Create And Return A New EventHub AdminClient With Namespace Cache
+	logger.Debug("Successfully Created New Azure EventHub AdminClient")
 	return &EventHubAdminClient{
 		logger:    logger,
 		namespace: namespace,

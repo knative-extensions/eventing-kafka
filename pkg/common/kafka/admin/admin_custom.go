@@ -83,6 +83,7 @@ func NewCustomAdminClient(ctx context.Context, namespace string) (AdminClientInt
 	}
 
 	// Return The Custom AdminClient
+	logger.Debug("Successfully Created New Custom (Sidecar) AdminClient")
 	return customAdminClient, nil
 }
 
@@ -191,7 +192,7 @@ func (c *CustomAdminClient) safeCloseHTTPResponseBody(response *http.Response) {
 
 // Get The Expected Topics URL For The Custom Sidecar Implementation
 func (c *CustomAdminClient) sidecarTopicsUrl(topicName string) string {
-	topicsUrl := "http://" + custom.SidecarHost + ":" + custom.SidecarPort
+	topicsUrl := "http://" + custom.SidecarHost + ":" + custom.SidecarPort + custom.TopicsPath
 	if len(topicName) > 0 {
 		topicsUrl = topicsUrl + "/" + topicName
 	}
@@ -222,12 +223,18 @@ func (c *CustomAdminClient) mapHttpResponse(operation string, response *http.Res
 		}
 		responseBodyString := string(responseBodyBytes)
 
-		// Separate Success & Error Response Codes (2XX vs Everything Else)
-		if statusCode >= 200 && statusCode <= 299 {
+		// Separate Success & Error Response Codes
+		switch {
+		case statusCode >= 200 && statusCode <= 299:
 			return adminutil.NewTopicError(sarama.ErrNoError, fmt.Sprintf("custom sidecar topic '%s' operation succeeded with status code '%d' and body '%s'", operation, statusCode, responseBodyString))
-		} else {
+		case statusCode == 404 && operation == "delete": // 404 Not Found Indicates Topic Does Not Exist In Delete Operation
+			return adminutil.NewTopicError(sarama.ErrUnknownTopicOrPartition, fmt.Sprintf("custom sidecar topic '%s' operation returned status code '%d' and body '%s'", operation, statusCode, responseBodyString))
+		case statusCode == 409 && operation == "create": // 409 Conflict Indicates Topic Already Exists In Create Operation
+			return adminutil.NewTopicError(sarama.ErrTopicAlreadyExists, fmt.Sprintf("custom sidecar topic '%s' operation returned status code '%d' and body '%s'", operation, statusCode, responseBodyString))
+		default:
 			return adminutil.NewTopicError(sarama.ErrInvalidRequest, fmt.Sprintf("custom sidecar topic '%s' operation failed with status code '%d' and body '%s'", operation, statusCode, responseBodyString))
 		}
+
 	} else {
 
 		// No Response - Return Error
