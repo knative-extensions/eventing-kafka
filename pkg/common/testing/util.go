@@ -1,16 +1,14 @@
 package testing
 
 import (
-	"encoding/json"
-	"net/http"
-	"testing"
-	"time"
-
 	"github.com/Shopify/sarama"
 	"github.com/ghodss/yaml"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"net/http"
+	"testing"
+	"time"
 )
 
 // Returns A ConfigMap Containing The Desired Sarama Config YAML
@@ -38,9 +36,7 @@ func GetTestSaramaConfigMapNamespaced(name, namespace, saramaConfig, configurati
 
 func GetDefaultSaramaConfig(t *testing.T, initialConfig *sarama.Config) *sarama.Config {
 	assert.NotNil(t, initialConfig)
-	jsonSettings, err := yaml.YAMLToJSON([]byte(SaramaDefaultConfigYaml))
-	assert.Nil(t, err)
-	assert.Nil(t, json.Unmarshal(jsonSettings, &initialConfig))
+	assert.Nil(t, yaml.Unmarshal([]byte(SaramaDefaultConfigYaml), initialConfig))
 	return initialConfig
 }
 

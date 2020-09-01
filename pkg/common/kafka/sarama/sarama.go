@@ -45,7 +45,7 @@ type CompareSaramaConfig struct {
 		WriteTimeout    time.Duration
 		TLS             struct {
 			Enable bool
-			Config *tls.Config `json:"-"` // Not Parse-able Into tls.Config Struct - See Custom Extraction Fn Below
+			Config *tls.Config `json:"-"`
 		}
 		SASL struct {
 			Enable                   bool
@@ -53,8 +53,8 @@ type CompareSaramaConfig struct {
 			Version                  int16
 			Handshake                bool
 			AuthIdentity             string
-			User                     string `json:"-"` // Not Loaded From ConfigMap YAML/JSON - Expected From Secret Instead!
-			Password                 string `json:"-"` // Not Loaded From ConfigMap YAML/JSON - Expected From Secret Instead!
+			User                     string
+			Password                 string
 			SCRAMAuthzID             string
 			SCRAMClientGeneratorFunc func() sarama.SCRAMClient `json:"-"`
 			TokenProvider            sarama.AccessTokenProvider
@@ -152,8 +152,8 @@ type CompareSaramaConfig struct {
 	ClientID          string
 	RackID            string
 	ChannelBufferSize int
-	Version           sarama.KafkaVersion `json:"-"` // Not Parse-able Into KafkaVersion Struct With Private Data - See Custom Extraction Fn Below
-	MetricRegistry    metrics.Registry    `json:"-"`
+	Version           sarama.KafkaVersion
+	MetricRegistry    metrics.Registry `json:"-"`
 }
 
 // Utility Function For Enabling Sarama Logging (Debugging)

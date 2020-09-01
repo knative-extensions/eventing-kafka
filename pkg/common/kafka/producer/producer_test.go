@@ -1,7 +1,6 @@
 package producer
 
 import (
-	"crypto/tls"
 	"strconv"
 
 	"testing"
@@ -74,33 +73,15 @@ func TestUpdateConfig(t *testing.T) {
 func verifySaramaConfig(t *testing.T, config *sarama.Config, clientId string, username string, password string) {
 	assert.NotNil(t, config)
 	assert.Equal(t, clientId, config.ClientID)
-	assert.Equal(t, constants.ConfigKafkaVersion, config.Version)
+	assert.NotNil(t, config.Net)
+	assert.NotNil(t, config.Net.SASL)
+	assert.Equal(t, username, config.Net.SASL.User)
+	assert.Equal(t, password, config.Net.SASL.Password)
+	assert.Equal(t, constants.ConfigKafkaVersionDefault, config.Version)
 	assert.Equal(t, commontesting.ConfigNetKeepAlive, strconv.FormatInt(int64(config.Net.KeepAlive), 10))
 	assert.Equal(t, commontesting.ConfigProducerIdempotent, strconv.FormatBool(config.Producer.Idempotent))
 	assert.Equal(t, commontesting.ConfigProducerRequiredAcks, strconv.FormatInt(int64(config.Producer.RequiredAcks), 10))
 	assert.True(t, config.Producer.Return.Successes)
-
-	if len(username) > 0 && len(password) > 0 {
-		assert.Equal(t, constants.ConfigNetSaslVersion, config.Net.SASL.Version)
-		assert.True(t, config.Net.SASL.Enable)
-		assert.Equal(t, sarama.SASLMechanism(sarama.SASLTypePlaintext), config.Net.SASL.Mechanism)
-		assert.Equal(t, username, config.Net.SASL.User)
-		assert.Equal(t, password, config.Net.SASL.Password)
-		assert.True(t, config.Net.TLS.Enable)
-		assert.NotNil(t, config.Net.TLS.Config)
-		assert.False(t, config.Net.TLS.Config.InsecureSkipVerify)
-		assert.Equal(t, tls.NoClientCert, config.Net.TLS.Config.ClientAuth)
-	} else {
-		assert.NotNil(t, config.Net)
-		assert.False(t, config.Net.TLS.Enable)
-		assert.Nil(t, config.Net.TLS.Config)
-		assert.Equal(t, sarama.SASLHandshakeV0, config.Net.SASL.Version)
-		assert.NotNil(t, config.Net.SASL)
-		assert.False(t, config.Net.SASL.Enable)
-		assert.Equal(t, sarama.SASLMechanism(""), config.Net.SASL.Mechanism)
-		assert.Equal(t, "", config.Net.SASL.User)
-		assert.Equal(t, "", config.Net.SASL.Password)
-	}
 	assert.Equal(t, commontesting.ConfigMetadataRefreshFrequency, strconv.FormatInt(int64(config.Metadata.RefreshFrequency), 10))
 }
 
