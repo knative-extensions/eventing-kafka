@@ -11,7 +11,7 @@ functionality via a simple sidecar Container.
 
 ## AdminClient & K8S Secrets
 
-The AdminClient expects there to be a single K8S Secret (or one Secret per EventHub Namespace when using Azure) in 
+The AdminClient expects there to be a single K8S Secret (or one Secret per EventHub Namespace when using Azure) in
 the `knative-eventing` namespace.  The Secret MUST be labelled with the `eventing-kafka.knative.dev/kafka-secret`
 label and contain the following fields...
 
@@ -24,13 +24,13 @@ data:
 ```
 
 > Note - The username and password fields from the Kubernetes Secret will override any similar values
-> provided in the `sarama` section of the [ConfigMap](../../../config/200-eventing-kafka-configmap.yaml). 
+> provided in the `sarama` section of the [ConfigMap](../../../config/200-eventing-kafka-configmap.yaml).
 
 
 ## Producer / Consumer
 
-The Kafka Producer and Consumer are simpler and expect to be provided the specific Broker string and SASL Username 
-and Password (if used).  It is expected that the utilities exposed by the custom AdminClient in this implementation 
+The Kafka Producer and Consumer are simpler and expect to be provided the specific Broker string and SASL Username
+and Password (if used).  It is expected that the utilities exposed by the custom AdminClient in this implementation
 can be used to get the name of the Kafka Secret for a specific Topic / EventHub which can then be used to acquire
 the needed information.
 
@@ -61,22 +61,22 @@ implementation requirements in order for this proxying of requests to work succe
 
     The following changes to the default config/ YAML will be required in order to deploy a custom sidecar
     as part of the eventing-kafka Controller Deployment...
- 
+
     - **ConfigMap:** The `data.eventing-kafka.kafka.adminType` field in the [ConfigMap](../../../config/200-eventing-kafka-configmap.yaml)
       must be set to `custom`.  This tells eventing-kafka that it should proxy Topic creation and deletion requests
       to the expected sidecar endpoints as defined below.
-    
+
     - **Deployment:** The sidecar Container will need to be added to the [Controller Deployment](../../../config/400-deployment.yaml)
       along with any other supporting infrastructure (VolumeMounts, etc.).
-      
+
     - **Service Account:** The default [ServiceAccount](../../../config/100-controller-serviceaccount.yaml) is used by
       the [Controller Deployment](../../../config/400-deployment.yaml) to pull images.  This ServiceAccount
       will need to be updated to include any `imagePullSecrets` required to pull the custom sidecar Container image.
-      
+
     - **Miscellaneous:** It is the responsibility of the sidecar implementer to include any additional Kubernetes resources that
       might be needed by their sidecar.  They have complete control and responsibility for any supporting
       components such as Secrets, ConfigMaps, etc.
-    
+
 2. Sidecar Interface
 
     These instructions define the expected interface with the custom sidecar container and are required for it
@@ -87,10 +87,10 @@ implementation requirements in order for this proxying of requests to work succe
     constants reduces the implementation effort, and is an easy way to stay current with updates to the
     eventing-kafka implementation.   Also included is the `TopicDetail` struct which can be used when Unmarshalling
     the JSON body of the POST request.
-    
-    Specifically the sidecar is expected to expose the following endpoints to be called by the eventing-kafka 
+
+    Specifically the sidecar is expected to expose the following endpoints to be called by the eventing-kafka
     AdminClient implementation...
-    
+
       - **Create** ( POST http://localhost:8888/topics )
         - Endpoint
           - Protocol: HTTP
@@ -100,7 +100,7 @@ implementation requirements in order for this proxying of requests to work succe
           - Path: /topics (*TopicsPath Constant*)
           - Param: n/a
         - Request
-          - Header: "Slug" (*TopicNameHeader Constant*) will contain the Topic Name. 
+          - Header: "Slug" (*TopicNameHeader Constant*) will contain the Topic Name.
           - Body: application/json TopicDetail (*TopicDetail Struct*)
             - numPartitions: int32
             - replicationFactor: int16
@@ -122,16 +122,16 @@ implementation requirements in order for this proxying of requests to work succe
           - Path: / (*TopicsPath Constant*)
           - Param: <topic-name>
         - Request
-          - Header: n/a 
+          - Header: n/a
           - Body: n/a
         - Response
-          - 2XX: Treated as success by eventing-kafka and mapped to Sarama.ErrNoError.          
+          - 2XX: Treated as success by eventing-kafka and mapped to Sarama.ErrNoError.
           - 3XX: Treated as error by eventing-kafka and mapped to Sarama.ErrInvalidRequest.
           - 4XX: Treated as error by eventing-kafka and mapped to Sarama.ErrInvalidRequest.
           - 404: Treated as "*not found*" by eventing-kafka and mapped to Sarama.ErrUnknownTopicOrPartition.
           - 5XX: Treated as error by eventing-kafka and mapped to Sarama.ErrInvalidRequest.
 
-> Note - The 409 and 404 HTTP StatusCodes, and their corresponding Sarama Types, are an expected part of the 
+> Note - The 409 and 404 HTTP StatusCodes, and their corresponding Sarama Types, are an expected part of the
 >        normal operation of eventing-kafka, and your side-car should return them when encountering those
 >        scenarios (already exists, and already deleted).
 
