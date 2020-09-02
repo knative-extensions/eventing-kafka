@@ -63,18 +63,21 @@ func TestFromSaramaTopicDetail(t *testing.T) {
 
 // Test The Custom TopicDetail's FromSaramaTopicDetail() Functionality - Nil Use Case
 func TestFromSaramaTopicDetailNil(t *testing.T) {
-	
+
+	// Test Data
+	var nilReplicaAssignment map[int32][]int32
+	var nilConfigEntries map[string]*string
+
 	// Create The Custom TopicDetail To Test (Empty)
 	customTopicDetail := &TopicDetail{}
 
 	// Perform The Test
 	customTopicDetail.FromSaramaTopicDetail(nil)
-
 	// Verify The Results
-	assert.Equal(t, 0, customTopicDetail.NumPartitions)
-	assert.Equal(t, 0, customTopicDetail.ReplicationFactor)
-	assert.Equal(t, nil, customTopicDetail.ReplicaAssignment)
-	assert.Equal(t, nil, customTopicDetail.ConfigEntries)
+	assert.Equal(t, int32(0), customTopicDetail.NumPartitions)
+	assert.Equal(t, int16(0), customTopicDetail.ReplicationFactor)
+	assert.Equal(t, nilReplicaAssignment, customTopicDetail.ReplicaAssignment)
+	assert.Equal(t, nilConfigEntries, customTopicDetail.ConfigEntries)
 }
 
 // Test The JSON Advice Marshal/Unmarshal Of The TopicDetail Struct
