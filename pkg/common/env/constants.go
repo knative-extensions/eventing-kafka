@@ -3,10 +3,6 @@ package env
 // Package Constants
 const (
 
-	// KO Configuration
-	KoDataPathEnvVarKey    = "KO_DATA_PATH"
-	KoDataPathDefaultValue = "/var/run/ko"
-
 	// Eventing-Kafka Configuration
 	ServiceAccountEnvVarKey = "SERVICE_ACCOUNT"
 	MetricsPortEnvVarKey    = "METRICS_PORT"

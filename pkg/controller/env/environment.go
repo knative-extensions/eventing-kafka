@@ -56,7 +56,7 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	//
 	// Dispatcher Configuration
 	//
