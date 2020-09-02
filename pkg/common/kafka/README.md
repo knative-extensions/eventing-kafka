@@ -87,45 +87,44 @@ implementation requirements in order for this proxying of requests to work succe
     Specifically the sidecar is expected to expose the following endpoints to be called by the eventing-kafka
     AdminClient implementation...
 
-      - **Create** ( `POST http://localhost:8888/topics` )
-        - Endpoint
-          - Protocol: HTTP
-          - Method: POST
-          - Host: localhost (*SidecarHost Constant*)
-          - Port: 8888 (*SidecarPort Constant*)
-          - Path: /topics (*TopicsPath Constant*)
-          - Param: n/a
-        - Request
-          - Header: "Slug" (*TopicNameHeader Constant*) will contain the Topic Name.
-          - Body: application/json TopicDetail (*TopicDetail Struct*)
-            - numPartitions: int32
-            - replicationFactor: int16
-            - replicaAssignment: map[int32][]int32
-            - configEntries: map[string]*string
-        - Response
-          - 2XX: Treated as success by eventing-kafka and mapped to Sarama.ErrNoError.
-          - 3XX: Treated as error by eventing-kafka and mapped to Sarama.ErrInvalidRequest.
-          - 4XX: Treated as error by eventing-kafka and mapped to Sarama.ErrInvalidRequest.
-          - 409: Treated as "*already exists*" by eventing-kafka and mapped to Sarama.ErrTopicAlreadyExists.
-          - 5XX: Treated as error by eventing-kafka and mapped to Sarama.ErrInvalidRequest.
-
-      - **Delete** ( `DELETE http://localhost:8888/topics/<topic-name>` )
-        - Endpoint
-          - Protocol: HTTP
-          - Method: DELETE
-          - Host: localhost (*SidecarHost Constant*)
-          - Port: 8888 (*SidecarPort Constant*)
-          - Path: / (*TopicsPath Constant*)
-          - Param: *<topic-name>*
-        - Request
-          - Header: n/a
-          - Body: n/a
-        - Response
-          - 2XX: Treated as success by eventing-kafka and mapped to Sarama.ErrNoError.
-          - 3XX: Treated as error by eventing-kafka and mapped to Sarama.ErrInvalidRequest.
-          - 4XX: Treated as error by eventing-kafka and mapped to Sarama.ErrInvalidRequest.
-          - 404: Treated as "*not found*" by eventing-kafka and mapped to Sarama.ErrUnknownTopicOrPartition.
-          - 5XX: Treated as error by eventing-kafka and mapped to Sarama.ErrInvalidRequest.
+    - **Create** ( `POST http://localhost:8888/topics` )
+      - Endpoint
+        - Protocol: HTTP
+        - Method: POST
+        - Host: localhost (*SidecarHost Constant*)
+        - Port: 8888 (*SidecarPort Constant*)
+        - Path: /topics (*TopicsPath Constant*)
+        - Param: n/a
+      - Request
+        - Header: "Slug" (*TopicNameHeader Constant*) will contain the Topic Name.
+        - Body: application/json TopicDetail (*TopicDetail Struct*)
+          - numPartitions: int32
+          - replicationFactor: int16
+          - replicaAssignment: map[int32][]int32
+          - configEntries: map[string]*string
+      - Response
+        - 2XX: Treated as success by eventing-kafka and mapped to Sarama.ErrNoError.
+        - 3XX: Treated as error by eventing-kafka and mapped to Sarama.ErrInvalidRequest.
+        - 4XX: Treated as error by eventing-kafka and mapped to Sarama.ErrInvalidRequest.
+        - 409: Treated as "*already exists*" by eventing-kafka and mapped to Sarama.ErrTopicAlreadyExists.
+        - 5XX: Treated as error by eventing-kafka and mapped to Sarama.ErrInvalidRequest.
+    - **Delete** ( `DELETE http://localhost:8888/topics/<topic-name>` )
+      - Endpoint
+        - Protocol: HTTP
+        - Method: DELETE
+        - Host: localhost (*SidecarHost Constant*)
+        - Port: 8888 (*SidecarPort Constant*)
+        - Path: **/** (*TopicsPath Constant*)
+        - Param: *<topic-name>*
+      - Request
+        - Header: n/a
+        - Body: n/a
+      - Response
+        - 2XX: Treated as success by eventing-kafka and mapped to Sarama.ErrNoError.
+        - 3XX: Treated as error by eventing-kafka and mapped to Sarama.ErrInvalidRequest.
+        - 4XX: Treated as error by eventing-kafka and mapped to Sarama.ErrInvalidRequest.
+        - 404: Treated as "*not found*" by eventing-kafka and mapped to Sarama.ErrUnknownTopicOrPartition.
+        - 5XX: Treated as error by eventing-kafka and mapped to Sarama.ErrInvalidRequest.
 
 > Note - The 409 and 404 HTTP StatusCodes, and their corresponding Sarama Types, are an expected part of the
 > normal operation of eventing-kafka, and your side-car should return them when encountering those scenarios

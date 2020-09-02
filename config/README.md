@@ -27,18 +27,9 @@ user provided Kafka cluster.  The desired mechanism is specified via the `eventi
 field in [eventing-kafka-configmap.yaml](200-eventing-kafka-configmap.yaml) and must be one of `kafka`,
 `azure`, or `custom` as follows...
 
-- **kafka:** This is the normal / default use case that most users will want.  It uses the standard 
-Kafka API (via the Sarama ClusterAdmin) for managing Kafka Topics in the cluster.
-
-- **azure:** Users of Azure EventHubs will know that Microsoft does not support the standard Kafka
-Topic administration and are required instead to use their API.  This option provides for such
-support via the Microsoft Azure EventHub Go client.
-
-- **custom:** This option provides an external hook for users who need to manage Topics themselves.
-This could be to support a proprietary Kafka implementation with a custom interface / API.  The user
-is responsible for implementing a sidecar Container with the expected HTTP endpoints.  They will need
-to add their sidecar Container to the [deployment.yaml](400-deployment.yaml).  Details for
-implementing such a solution can be found in the [Kafka README](../pkg/common/kafka/README.md).
+- **kafka:** This is the normal / default use case that most users will want.  It uses the standard Kafka API (via the Sarama ClusterAdmin) for managing Kafka Topics in the cluster.
+- **azure:** Users of Azure EventHubs will know that Microsoft does not support the standard Kafka Topic administration and are required instead to use their API.  This option provides for such support via the Microsoft Azure EventHub Go client.
+- **custom:** This option provides an external hook for users who need to manage Topics themselves. This could be to support a proprietary Kafka implementation with a custom interface / API.  The user is responsible for implementing a sidecar Container with the expected HTTP endpoints.  They will need to add their sidecar Container to the [deployment.yaml](400-deployment.yaml).  Details for implementing such a solution can be found in the [Kafka README](../pkg/common/kafka/README.md).
 
 > Note: This setting only alters the mechanism by which Kafka Topics are managed (Create & Delete).
 > In all cases the same Sarama SyncProducer and ConsumerGroup implementation is used to

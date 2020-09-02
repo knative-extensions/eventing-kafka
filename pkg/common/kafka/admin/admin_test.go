@@ -99,6 +99,23 @@ func TestCreateAdminClientCustom(t *testing.T) {
 	assert.Equal(t, mockAdminClient, adminClient)
 }
 
+// Test The CreateAdminClient Custom Functionality
+func TestCreateAdminClientUnknown(t *testing.T) {
+
+	// Test Data
+	ctx := context.TODO()
+	clientId := "TestClientId"
+	adminClientType := Unknown
+
+	// Perform The Test
+	adminClient, err := CreateAdminClient(ctx, commontesting.GetDefaultSaramaConfig(t, kafkasarama.NewSaramaConfig()), clientId, adminClientType)
+	
+	// Verify The Results
+	assert.NotNil(t, err)
+	assert.Nil(t, adminClient)
+
+}
+
 //
 // Mock AdminClient
 //
