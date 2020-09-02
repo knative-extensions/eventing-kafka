@@ -26,7 +26,7 @@ func VerifyConfiguration(configuration *config.EventingKafkaConfig) error {
 	case constants.KafkaAdminTypeValueKafka, constants.KafkaAdminTypeValueAzure, constants.KafkaAdminTypeValueCustom:
 		configuration.Kafka.AdminType = lowercaseKafkaAdminType
 	default:
-		return ControllerConfigurationError("Invalid / Unknown KafkaProvider: " + configuration.Kafka.AdminType)
+		return ControllerConfigurationError("Invalid / Unknown Kafka Admin Type: " + configuration.Kafka.AdminType)
 	}
 
 	// Verify mandatory configuration settings

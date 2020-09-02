@@ -153,8 +153,8 @@ func TestVerifyConfiguration(t *testing.T) {
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Invalid Config - Kafka.Provider")
-	testCase.kafkaAdminType = "invalidprovider"
-	testCase.expectedError = ControllerConfigurationError("Invalid / Unknown KafkaProvider: invalidprovider")
+	testCase.kafkaAdminType = "invalidadmintype"
+	testCase.expectedError = ControllerConfigurationError("Invalid / Unknown Kafka Admin Type: invalidadmintype")
 	testCases = append(testCases, testCase)
 
 	// Loop Over All The TestCases
