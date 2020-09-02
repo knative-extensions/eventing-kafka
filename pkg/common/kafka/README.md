@@ -115,7 +115,7 @@ implementation requirements in order for this proxying of requests to work succe
         - Host: localhost (*SidecarHost Constant*)
         - Port: 8888 (*SidecarPort Constant*)
         - Path: **/** (*TopicsPath Constant*)
-        - Param: *<topic-name>*
+        - Param: *topic-name*
       - Request
         - Header: n/a
         - Body: n/a

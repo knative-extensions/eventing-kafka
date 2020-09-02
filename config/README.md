@@ -87,9 +87,7 @@ are presented as inline YAML for convenience so mind the indentation.  Further i
 default configuration that you will be performing PLAIN SASL / TLS authentication with your Kafka
 cluster.
 
-- **sarama:**  This is a direct exposure of the [Sarama.Config Golang Struct](https://github.com/Shopify/sarama/blob/master/config.go)
-which allows for significant customization of the Sarama client (ClusterAdmin, Producer, Consumer).
-There are, however, several caveats as the entire structure is not supported...
+- **sarama:**  This is a direct exposure of the [Sarama.Config Golang Struct](https://github.com/Shopify/sarama/blob/master/config.go) which allows for significant customization of the Sarama client (ClusterAdmin, Producer, Consumer). There are, however, several caveats as the entire structure is not supported...
 
   - **Version:** The Sarama.Config.Version field is implemented as a Struct with private storage of the
     version numbers and cannot be easily parsed.  Therefore, we have implemented custom parsing which
@@ -123,17 +121,12 @@ There are, however, several caveats as the entire structure is not supported...
                 -----END CERTIFICATE-----
   ```
 
-  - **Net.MaxOpenRequests:**  While you are free to change this value it is paired with the Idempotent
-  value below to provide in-order guarantees.
-  - **Producer.Idempotent:** This value it is expected to be `true` in order to help provide the
-  in-order guarantees of eventing-kafka.  The exception is when using `azure`, in which case it must
-  be `false`.
+  - **Net.MaxOpenRequests:**  While you are free to change this value it is paired with the Idempotent value below to provide in-order guarantees.
+  - **Producer.Idempotent:** This value it is expected to be `true` in order to help provide the in-order guarantees of eventing-kafka.  The exception is when using `azure`, in which case it must be `false`.
   - **Producer.RequiredAcks:** Same `in-order` concerns as above ; )
 
-- **eventing-kafka:** This section provides customization of runtime behavior of the eventing-kafka
-implementation as follows...
+- **eventing-kafka:** This section provides customization of runtime behavior of the eventing-kafka implementation as follows...
 
   - **Channel:** Controls the Deployment runtime characteristics of the Channel (one Deployment per Kafka Secret).
   - **Dispatcher:** Controls the Deployment runtime characterstics of the Dispatcher (one Deployment per KafkaChannel CR).
-  - **kafka.adminType:** As described above this value must be set to one of `kafka`, `azure`, or
-  `custom`.  The default is `kakfa` and will be used by most users.
+  - **kafka.adminType:** As described above this value must be set to one of `kafka`, `azure`, or `custom`.  The default is `kakfa` and will be used by most users.
