@@ -5,21 +5,21 @@ providing utilities for creating the basic connections (i.e. AdminClient, Produc
 solution.  The solution provides support for various Kafka implementations / deployments both with and without
 authentication.  Further, the implementation provides support for administering Azure EventHubs (Topics) via the
 standard Sarama ClusterAdmin interface so that the users of this logic do not have to concern themselves with the
-underlying implementation.  Finally, support is provided for users to implement their own "custom" AdminClient 
+underlying implementation.  Finally, support is provided for users to implement their own "custom" AdminClient
 functionality via a simple sidecar Container.
 
 
 ## AdminClient & K8S Secrets
 
 The AdminClient expects there to be a single K8S Secret (or one Secret per EventHub Namespace when using Azure) in 
-the `knative-eventing` namespace.  The Secret MUST be labelled with the `eventing-kafka.knative.dev/kafka-secret` 
+the `knative-eventing` namespace.  The Secret MUST be labelled with the `eventing-kafka.knative.dev/kafka-secret`
 label and contain the following fields...
 
 ```
 data:
     brokers:   Kafka Brokers String (comma separated)
     password:  SASL Password or Azure Connection String of Azure Namespace
-    username:  SASL Username or '$ConnectionString' for Azure Namespace    
+    username:  SASL Username or '$ConnectionString' for Azure Namespace
     namespace: Only required for Azure AdminClient usage - specifies the Azure EventHub Namespace
 ```
 
@@ -31,7 +31,7 @@ data:
 
 The Kafka Producer and Consumer are simpler and expect to be provided the specific Broker string and SASL Username 
 and Password (if used).  It is expected that the utilities exposed by the custom AdminClient in this implementation 
-can be used to get the name of the Kafka Secret for a specific Topic / EventHub which can then be used to acquire 
+can be used to get the name of the Kafka Secret for a specific Topic / EventHub which can then be used to acquire
 the needed information.
 
 
@@ -54,7 +54,7 @@ Azure REST API).
 If the standard Kafka administration of Topics via the Sarama ClusterAdmin is not sufficient, it is possible for
 a user to provide their own custom implementation via a Kubernetes "sidecar" Container.  The eventing-kafka
 implementation will then proxy all Topic Create/Delete requests to the sidecar and convert responses for normal
-processing.  The implementation of this sidecar is expected to explicitly adhere to the following design and 
+processing.  The implementation of this sidecar is expected to explicitly adhere to the following design and
 implementation requirements in order for this proxying of requests to work successfully.
 
 1. Eventing-Kafka Configuration
@@ -84,7 +84,7 @@ implementation requirements in order for this proxying of requests to work succe
     choice, Golang is the obvious go-to.  To aid in that implementation the user can make use of the code in
     the [custom package](admin/custom).  Specifically there are constants defining the expected `Host`, `Port`, 
     `Path` and `Header` values used in creating the sidecar's REST endpoints.  Coding directly against these
-    constants reduces the implementation effort, and is an easy way to stay current with updates to the 
+    constants reduces the implementation effort, and is an easy way to stay current with updates to the
     eventing-kafka implementation.   Also included is the `TopicDetail` struct which can be used when Unmarshalling
     the JSON body of the POST request.
     
@@ -112,7 +112,7 @@ implementation requirements in order for this proxying of requests to work succe
           - 4XX: Treated as error by eventing-kafka and mapped to Sarama.ErrInvalidRequest.
           - 409: Treated as "*already exists*" by eventing-kafka and mapped to Sarama.ErrTopicAlreadyExists.
           - 5XX: Treated as error by eventing-kafka and mapped to Sarama.ErrInvalidRequest.
-        
+
       - **Delete** ( DELETE http://localhost:8888/topics/<topic-name> )
         - Endpoint
           - Protocol: HTTP
@@ -120,7 +120,7 @@ implementation requirements in order for this proxying of requests to work succe
           - Host: localhost (*SidecarHost Constant*)
           - Port: 8888 (*SidecarPort Constant*)
           - Path: / (*TopicsPath Constant*)
-          - Param: <topic-name> 
+          - Param: <topic-name>
         - Request
           - Header: n/a 
           - Body: n/a
