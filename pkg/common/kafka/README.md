@@ -73,7 +73,7 @@ implementation requirements in order for this proxying of requests to work succe
       might be needed by their sidecar.  They have complete control and responsibility for any supporting
       components such as Secrets, ConfigMaps, etc.
 
-2. Sidecar Interface
+1. Sidecar Interface
 
     These instructions define the expected interface with the custom sidecar container and are required for it
     to function properly.  While it is possible for the user to implement the sidecar in the language of their
@@ -116,7 +116,7 @@ implementation requirements in order for this proxying of requests to work succe
           - Host: localhost (*SidecarHost Constant*)
           - Port: 8888 (*SidecarPort Constant*)
           - Path: / (*TopicsPath Constant*)
-          - Param: <topic-name>
+          - Param: *<topic-name>*
         - Request
           - Header: n/a
           - Body: n/a
@@ -130,5 +130,5 @@ implementation requirements in order for this proxying of requests to work succe
 > Note - The 409 and 404 HTTP StatusCodes, and their corresponding Sarama Types, are an expected part of the
 > normal operation of eventing-kafka, and your side-car should return them when encountering those scenarios
 > (already exists, and already deleted).
-
+>
 > Note - There is no authentication / security between the endpoints as all communication is entirely intra-Pod.

@@ -27,7 +27,7 @@ user provided Kafka cluster.  The desired mechanism is specified via the `eventi
 field in [eventing-kafka-configmap.yaml](200-eventing-kafka-configmap.yaml) and must be one of `kafka`,
 `azure`, or `custom` as follows...
 
-- **kafka:** This is the normal / default use case that most users will want.  It uses the standard
+- **kafka:** This is the normal / default use case that most users will want.  It uses the standard 
 Kafka API (via the Sarama ClusterAdmin) for managing Kafka Topics in the cluster.
 
 - **azure:** Users of Azure EventHubs will know that Microsoft does not support the standard Kafka
@@ -116,21 +116,21 @@ There are, however, several caveats as the entire structure is not supported...
   authentication.  The format and white-spacing is VERY important for this nested YAML string to be
   parsed correctly.  It must look like this...
 
-      ```yaml
-        data:
-          sarama: |
-            Net:
-              TLS:
-                Config:
-                  RootPEMs:
-                  - |-
-                    -----BEGIN CERTIFICATE-----
-                    MIIGBDCCA+ygAwIBAgIJAKi1aEV58cQ1MA0GCSqGSIb3DQEBCwUAMIGOMQswCQYD
-                    ...
-                    2wk9rLRZaQnhspt6MhlmU0qkaEZpYND3emR2XZ07m51jXqDUgTjXYCSggImUsARs
-                    NAehp9bMeco=
-                    -----END CERTIFICATE-----
-      ```
+  ```yaml
+    data:
+      sarama: |
+        Net:
+          TLS:
+            Config:
+              RootPEMs:
+              - |-
+                -----BEGIN CERTIFICATE-----
+                MIIGBDCCA+ygAwIBAgIJAKi1aEV58cQ1MA0GCSqGSIb3DQEBCwUAMIGOMQswCQYD
+                ...
+                2wk9rLRZaQnhspt6MhlmU0qkaEZpYND3emR2XZ07m51jXqDUgTjXYCSggImUsARs
+                NAehp9bMeco=
+                -----END CERTIFICATE-----
+  ```
 
   - **Net.MaxOpenRequests:**  While you are free to change this value it is paired with the Idempotent
   value below to provide in-order guarantees.
