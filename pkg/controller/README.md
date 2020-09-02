@@ -23,11 +23,6 @@ to "drain" the topic or complete incoming CloudEvents.
 The current implementation supports the following mechanisms for handling Topic
 creation / deletion as specified by the `KAFKA_ADMIN_TYPE` environment variable...
 
-- **"kafka"** - The default value if not specified is to use the standard Sarama Kafka
-ClusterAdmin implementation.
-
-- **"eventhub"** - If you wish to use the implementation with Azure EventHubs you
-will need to specify this as a custom client/api must be used for such.
-
-- **"custom"** - If you need to implement your own custom AdminClient you
-will use this value (see the [common/kafka/README.md](../common/kafka/README.md)).
+- **"kafka"** - The default value if not specified is to use the standard Sarama Kafka ClusterAdmin implementation.
+- **"eventhub"** - If you wish to use the implementation with Azure EventHubs you will need to specify this as a custom client/api must be used for such.
+- **"custom"** - If you need to implement your own custom AdminClient you will use this value (see the [common/kafka/README.md](../common/kafka/README.md)).

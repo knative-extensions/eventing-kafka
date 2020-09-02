@@ -8,7 +8,6 @@ standard Sarama ClusterAdmin interface so that the users of this logic do not ha
 underlying implementation.  Finally, support is provided for users to implement their own "custom" AdminClient
 functionality via a simple sidecar Container.
 
-
 ## AdminClient & K8S Secrets
 
 The AdminClient expects there to be a single K8S Secret (or one Secret per EventHub Namespace when using Azure) in
@@ -26,14 +25,12 @@ data:
 > Note - The username and password fields from the Kubernetes Secret will override any similar values
 > provided in the `sarama` section of the [ConfigMap](../../../config/200-eventing-kafka-configmap.yaml).
 
-
 ## Producer / Consumer
 
 The Kafka Producer and Consumer are simpler and expect to be provided the specific Broker string and SASL Username
 and Password (if used).  It is expected that the utilities exposed by the custom AdminClient in this implementation
 can be used to get the name of the Kafka Secret for a specific Topic / EventHub which can then be used to acquire
 the needed information.
-
 
 ## EventHubs (Azure)
 
@@ -47,7 +44,6 @@ implementation does, however, abstract away these Azure Namespaces so that a use
 one big allocation of possible EventHubs.  The creation of new Topics / EventHubs will be load-balanced across
 the available Azure EventHub Namespaces as identified by their K8S Secret (instead of dynamic lookup via the
 Azure REST API).
-
 
 ## Custom (REST Sidecar)
 
@@ -82,7 +78,7 @@ implementation requirements in order for this proxying of requests to work succe
     These instructions define the expected interface with the custom sidecar container and are required for it
     to function properly.  While it is possible for the user to implement the sidecar in the language of their
     choice, Golang is the obvious go-to.  To aid in that implementation the user can make use of the code in
-    the [custom package](admin/custom).  Specifically there are constants defining the expected `Host`, `Port`, 
+    the [custom package](admin/custom).  Specifically there are constants defining the expected `Host`, `Port`,
     `Path` and `Header` values used in creating the sidecar's REST endpoints.  Coding directly against these
     constants reduces the implementation effort, and is an easy way to stay current with updates to the
     eventing-kafka implementation.   Also included is the `TopicDetail` struct which can be used when Unmarshalling
@@ -91,7 +87,7 @@ implementation requirements in order for this proxying of requests to work succe
     Specifically the sidecar is expected to expose the following endpoints to be called by the eventing-kafka
     AdminClient implementation...
 
-      - **Create** ( POST http://localhost:8888/topics )
+      - **Create** ( `POST http://localhost:8888/topics` )
         - Endpoint
           - Protocol: HTTP
           - Method: POST
@@ -113,7 +109,7 @@ implementation requirements in order for this proxying of requests to work succe
           - 409: Treated as "*already exists*" by eventing-kafka and mapped to Sarama.ErrTopicAlreadyExists.
           - 5XX: Treated as error by eventing-kafka and mapped to Sarama.ErrInvalidRequest.
 
-      - **Delete** ( DELETE http://localhost:8888/topics/<topic-name> )
+      - **Delete** ( `DELETE http://localhost:8888/topics/<topic-name>` )
         - Endpoint
           - Protocol: HTTP
           - Method: DELETE
@@ -132,7 +128,7 @@ implementation requirements in order for this proxying of requests to work succe
           - 5XX: Treated as error by eventing-kafka and mapped to Sarama.ErrInvalidRequest.
 
 > Note - The 409 and 404 HTTP StatusCodes, and their corresponding Sarama Types, are an expected part of the
->        normal operation of eventing-kafka, and your side-car should return them when encountering those
->        scenarios (already exists, and already deleted).
+> normal operation of eventing-kafka, and your side-car should return them when encountering those scenarios
+> (already exists, and already deleted).
 
 > Note - There is no authentication / security between the endpoints as all communication is entirely intra-Pod.

@@ -41,8 +41,8 @@ to add their sidecar Container to the [deployment.yaml](400-deployment.yaml).  D
 implementing such a solution can be found in the [Kafka README](../pkg/common/kafka/README.md).
 
 > Note: This setting only alters the mechanism by which Kafka Topics are managed (Create & Delete).
->       In all cases the same Sarama SyncProducer and ConsumerGroup implementation is used to
->       actually produce and consume to/from Kafka.
+> In all cases the same Sarama SyncProducer and ConsumerGroup implementation is used to
+> actually produce and consume to/from Kafka.
 
 ## Credentials
 
@@ -107,7 +107,7 @@ There are, however, several caveats as the entire structure is not supported...
   - **Net.SASL.Enable** Enable / disable according to your authentication needs.
   - **Net.SASL.User:** If you specify the username in the ConfigMap it will be overridden by the
   values from the [kafka-secret.yaml](300-kafka-secret.yaml) file!
-  - **Net.SASL.Password:** If you specify the password in the ConfigMap it will be overridden by 
+  - **Net.SASL.Password:** If you specify the password in the ConfigMap it will be overridden by
   the values from the [kafka-secret.yaml](300-kafka-secret.yaml) file!
   - **Net.TLS.Enable** Enable / disable according to your authentication needs.
   - **Net.TLS.Config:** The Golang [tls.Config struct](https://golang.org/pkg/crypto/tls/#Config) is not
@@ -115,6 +115,7 @@ There are, however, several caveats as the entire structure is not supported...
   contain an inline PEM file to be used for validating RootCerts from the Kafka cluster during TLS
   authentication.  The format and white-spacing is VERY important for this nested YAML string to be
   parsed correctly.  It must look like this...
+
       ```yaml
         data:
           sarama: |
@@ -130,6 +131,7 @@ There are, however, several caveats as the entire structure is not supported...
                     NAehp9bMeco=
                     -----END CERTIFICATE-----
       ```
+
   - **Net.MaxOpenRequests:**  While you are free to change this value it is paired with the Idempotent
   value below to provide in-order guarantees.
   - **Producer.Idempotent:** This value it is expected to be `true` in order to help provide the
