@@ -6,17 +6,18 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"strconv"
+	"testing"
+
 	"k8s.io/client-go/kubernetes/fake"
 	"knative.dev/eventing-kafka/pkg/common/kafka/admin/custom"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
-	"net"
-	"net/http"
-	"net/http/httptest"
-	"strconv"
-	"testing"
 )
 
 // Test The NewCustomAdminClient() Functionality - Success Path

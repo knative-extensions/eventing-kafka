@@ -1,14 +1,15 @@
 package testing
 
 import (
+	"net/http"
+	"testing"
+	"time"
+
 	"github.com/Shopify/sarama"
 	"github.com/ghodss/yaml"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"net/http"
-	"testing"
-	"time"
 )
 
 // Returns A ConfigMap Containing The Desired Sarama Config YAML

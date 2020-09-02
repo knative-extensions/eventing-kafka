@@ -63,7 +63,7 @@ Net:
     Mechanism: PLAIN
     Version: 1
     User: ` + NewUsername + `
-    Password: ` + NewPassword + ` 
+    Password: ` + NewPassword + `
 Metadata:
   RefreshFrequency: 300000000000
 ClientID: ` + NewClientId + `

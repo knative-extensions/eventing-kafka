@@ -3,9 +3,10 @@ package custom
 import (
 	"encoding/json"
 	"fmt"
+	"testing"
+	
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 // Test The Custom TopicDetail's ToSaramaTopicDetail() Functionality

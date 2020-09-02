@@ -109,7 +109,7 @@ func TestCreateAdminClientUnknown(t *testing.T) {
 
 	// Perform The Test
 	adminClient, err := CreateAdminClient(ctx, commontesting.GetDefaultSaramaConfig(t, kafkasarama.NewSaramaConfig()), clientId, adminClientType)
-	
+
 	// Verify The Results
 	assert.NotNil(t, err)
 	assert.Nil(t, adminClient)

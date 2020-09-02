@@ -6,15 +6,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
-	"io/ioutil"
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/eventing-kafka/pkg/common/kafka/admin/custom"
 	adminutil "knative.dev/eventing-kafka/pkg/common/kafka/admin/util"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
-	"net/http"
 )
 
 //

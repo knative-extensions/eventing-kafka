@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	testing2 "knative.dev/eventing-kafka/pkg/common/testing"
 	"log"
 	"net"
 	"os"
@@ -20,6 +19,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
+	"knative.dev/eventing-kafka/pkg/common/testing"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 )
 
@@ -378,7 +378,7 @@ func MergeSaramaSettings(config *sarama.Config, configMap *corev1.ConfigMap) err
 	}
 
 	// Merge The ConfigMap Settings Into The Provided Config
-	saramaSettingsYamlString := configMap.Data[testing2.SaramaSettingsConfigKey]
+	saramaSettingsYamlString := configMap.Data[testing.SaramaSettingsConfigKey]
 
 	// Extract (Remove) The KafkaVersion From The Sarama Config YAML
 	saramaSettingsYamlString, kafkaVersion, err := extractKafkaVersion(saramaSettingsYamlString)

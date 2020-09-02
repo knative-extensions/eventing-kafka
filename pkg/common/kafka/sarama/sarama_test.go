@@ -81,7 +81,7 @@ dispatcher:
 Net:
   TLS:
     Enable: true
-    Config: 
+    Config:
       RootPEMs: # Array of Root Certificate PEM Files As Strings (Mind indentation and use '|-' Syntax To Avoid Terminating \n)
       - |-
         -----BEGIN CERTIFICATE-----
