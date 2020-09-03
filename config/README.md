@@ -40,7 +40,7 @@ field in [eventing-kafka-configmap.yaml](200-eventing-kafka-configmap.yaml) and 
 ### Install & Label Kafka Credentials In Knative-Eventing Namespace
 
 The Kafka brokers and associated auth are specified in a Kubernetes Secret in the `knative-eventing`
-namespaces which has been labelled as `eventing-kafka.knative.dev/kafka-secret="true"`.  For the
+namespace which has been labelled as `eventing-kafka.knative.dev/kafka-secret="true"`.  For the
 `kafka` and `custom` Admin Types (see above) there should be exactly 1 such Secret. For the `azure`
 Admin Type (see above) multiple such Secrets are possible, each representing a different EventHub
 Namespace.  In that case Topics will be load balanced across all EventHub Namespaces. The
@@ -93,17 +93,17 @@ cluster.
     version numbers and cannot be easily parsed.  Therefore, we have implemented custom parsing which
     requires you to enter `2.3.0` instead of the Sarama value of `V2_3_0_0`.  Further it should be
     noted that when using with `azure` it should be set to `1.0.0`.
-  - **Net.SASL.Enable** Enable / disable according to your authentication needs.
+  - **Net.SASL.Enable** Enable (true) / disable (false) according to your authentication needs.
   - **Net.SASL.User:** If you specify the username in the ConfigMap it will be overridden by the
   values from the [kafka-secret.yaml](300-kafka-secret.yaml) file!
   - **Net.SASL.Password:** If you specify the password in the ConfigMap it will be overridden by
   the values from the [kafka-secret.yaml](300-kafka-secret.yaml) file!
-  - **Net.TLS.Enable** Enable / disable according to your authentication needs.
+  - **Net.TLS.Enable** Enable (true) / disable (false) according to your authentication needs.
   - **Net.TLS.Config:** The Golang [tls.Config struct](https://golang.org/pkg/crypto/tls/#Config) is not
-  completely supported.  Specifically, though we have added a Custom field called `RootPEMs` which can
-  contain an inline PEM file to be used for validating RootCerts from the Kafka cluster during TLS
-  authentication.  The format and white-spacing is VERY important for this nested YAML string to be
-  parsed correctly.  It must look like this...
+  completely supported.  We have though added a Custom field called `RootPEMs` which can contain an inline
+  PEM file to be used for validating RootCerts from the Kafka cluster during TLS authentication.  The
+  format and white-spacing is VERY important for this nested YAML string to be parsed correctly.  It
+  must look like this...
 
   ```yaml
     data:
@@ -122,11 +122,11 @@ cluster.
   ```
 
   - **Net.MaxOpenRequests:**  While you are free to change this value it is paired with the Idempotent value below to provide in-order guarantees.
-  - **Producer.Idempotent:** This value it is expected to be `true` in order to help provide the in-order guarantees of eventing-kafka.  The exception is when using `azure`, in which case it must be `false`.
+  - **Producer.Idempotent:** This value is expected to be `true` in order to help provide the in-order guarantees of eventing-kafka.  The exception is when using `azure`, in which case it must be `false`.
   - **Producer.RequiredAcks:** Same `in-order` concerns as above ; )
 
 - **eventing-kafka:** This section provides customization of runtime behavior of the eventing-kafka implementation as follows...
 
-  - **Channel:** Controls the Deployment runtime characteristics of the Channel (one Deployment per Kafka Secret).
-  - **Dispatcher:** Controls the Deployment runtime characterstics of the Dispatcher (one Deployment per KafkaChannel CR).
+  - **channel:** Controls the Deployment runtime characteristics of the Channel (one Deployment per Kafka Secret).
+  - **dispatcher:** Controls the Deployment runtime characterstics of the Dispatcher (one Deployment per KafkaChannel CR).
   - **kafka.adminType:** As described above this value must be set to one of `kafka`, `azure`, or `custom`.  The default is `kakfa` and will be used by most users.

@@ -222,52 +222,50 @@ func extractKafkaVersion(saramaConfigYamlString string) (string, sarama.KafkaVer
 	}
 }
 
-//
-// Extract (Parse & Remove) TLS.Config Level RootPEMs From Specified Sarama Confirm YAML String
-//
-// The Sarama.Config struct contains Net.TLS.Config which is a *tls.Config which cannot be parsed.
-// due to it being from another package and containing lots of func()s.  We do need the ability
-// however to provide Root Certificates in order to avoid having to disable verification via the
-// InsecureSkipVerify field.  Therefore, we support a custom 'RootPEMs' field which is an array
-// of strings containing the PEM file content.  This function will "extract" that content out
-// of the YAML string and return as a populated *x509.CertPool which can be assigned to the
-// Sarama.Config.Net.TLS.Config.RootCAs field.  In the case where the user has NOT specified
-// any PEM files we will return nil.
-//
-// In order for the PEM file content to pass cleanly from the YAML string, which is itself
-// already a YAML string inside the K8S ConfigMap, it must be formatted and spaced correctly.
-// The following shows an example of the expected usage...
-//
-// apiVersion: v1
-// kind: ConfigMap
-// metadata:
-//   name: config-eventing-kafka
-//   namespace: knative-eventing
-// data:
-//   sarama: |
-//     Admin:
-//       Timeout: 10000000000
-//     Net:
-//       KeepAlive: 30000000000
-//       TLS:
-//         Enable: true
-//         Config:
-//           RootCaPems:
-//           - |-
-//             -----BEGIN CERTIFICATE-----
-//             MIIGBDCCA+ygAwIBAgIJAKi1aEV58cQ1MA0GCSqGSIb3DQEBCwUAMIGOMQswCQYD
-//             ...
-//             2wk9rLRZaQnhspt6MhlmU0qkaEZpYND3emR2XZ07m51jXqDUgTjXYCSggImUsARs
-//             NAehp9bMeco=
-//             -----END CERTIFICATE-----
-//       SASL:
-//         Enable: true
-//
-// ...where you should make sure to use the YAML string syntax of "|-" in order to
-// prevent trailing linefeed.  Also, if copying from above, make sure to remove the
-// three leading characters ("//<space>").  The indentation of the PEM content is
-// also important and must be aligned as shown.
-//
+/* Extract (Parse & Remove) TLS.Config Level RootPEMs From Specified Sarama Confirm YAML String
+
+The Sarama.Config struct contains Net.TLS.Config which is a *tls.Config which cannot be parsed.
+due to it being from another package and containing lots of func()s.  We do need the ability
+however to provide Root Certificates in order to avoid having to disable verification via the
+InsecureSkipVerify field.  Therefore, we support a custom 'RootPEMs' field which is an array
+of strings containing the PEM file content.  This function will "extract" that content out
+of the YAML string and return as a populated *x509.CertPool which can be assigned to the
+Sarama.Config.Net.TLS.Config.RootCAs field.  In the case where the user has NOT specified
+any PEM files we will return nil.
+
+In order for the PEM file content to pass cleanly from the YAML string, which is itself
+already a YAML string inside the K8S ConfigMap, it must be formatted and spaced correctly.
+The following shows an example of the expected usage...
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-eventing-kafka
+  namespace: knative-eventing
+data:
+  sarama: |
+    Admin:
+      Timeout: 10000000000
+    Net:
+      KeepAlive: 30000000000
+      TLS:
+        Enable: true
+        Config:
+          RootCaPems:
+          - |-
+            -----BEGIN CERTIFICATE-----
+            MIIGBDCCA+ygAwIBAgIJAKi1aEV58cQ1MA0GCSqGSIb3DQEBCwUAMIGOMQswCQYD
+            ...
+            2wk9rLRZaQnhspt6MhlmU0qkaEZpYND3emR2XZ07m51jXqDUgTjXYCSggImUsARs
+            NAehp9bMeco=
+            -----END CERTIFICATE-----
+      SASL:
+        Enable: true
+
+...where you should make sure to use the YAML string syntax of "|-" in order to
+prevent trailing linefeed. The indentation of the PEM content is also important
+and must be aligned as shown.
+*/
 func extractRootCerts(saramaConfigYamlString string) (string, *x509.CertPool, error) {
 
 	// Define Inline Struct To Marshall The TLS Config 'RootPEMs' Into

@@ -256,7 +256,7 @@ func (d *DispatcherImpl) closeConsumerGroup(subscriber *SubscriberWrapper) {
 // then just log that and move on; do not restart the ConsumerGroups unnecessarily.
 func (d *DispatcherImpl) ConfigChanged(configMap *v1.ConfigMap) Dispatcher {
 
-	// Create A New Sarama Config (Carrying Forward The Kafka Secret Auth)
+	// Create A New Sarama Config
 	d.Logger.Debug("New ConfigMap Received", zap.String("configMap.Name", configMap.ObjectMeta.Name))
 	newConfig := kafkasarama.NewSaramaConfig()
 

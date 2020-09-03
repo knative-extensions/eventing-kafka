@@ -145,7 +145,7 @@ func (c *CustomAdminClient) DeleteTopic(_ context.Context, topicName string) *sa
 
 	// Validate The Topic
 	if len(topicName) <= 0 {
-		logger.Warn("Received Empty/Nil Topi Configuration")
+		logger.Warn("Received Empty/Nil Topic Configuration")
 		return adminutil.NewTopicError(sarama.ErrInvalidRequest, "received empty/nil topic name")
 	}
 
