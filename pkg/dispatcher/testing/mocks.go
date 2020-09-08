@@ -112,6 +112,10 @@ func (m MockConsumerGroupSession) Context() context.Context {
 	panic("implement me")
 }
 
+func (m MockConsumerGroupSession) Commit() {
+	panic("implement me")
+}
+
 //
 // Mock ConsumerGroupClaim Implementation
 //

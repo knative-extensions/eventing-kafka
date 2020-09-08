@@ -31,9 +31,6 @@ func init() {
 // Test The Reconcile Functionality
 func TestReconcile(t *testing.T) {
 
-	// Clear Logs After Testing
-	defer logtesting.ClearAll()
-
 	//
 	// Define The KafkaChannel Reconciler Test Cases
 	//
