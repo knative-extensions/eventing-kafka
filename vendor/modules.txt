@@ -55,7 +55,7 @@ github.com/BurntSushi/toml
 github.com/PuerkitoBio/purell
 # github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578
 github.com/PuerkitoBio/urlesc
-# github.com/Shopify/sarama v1.26.4
+# github.com/Shopify/sarama v1.27.0
 ## explicit
 github.com/Shopify/sarama
 # github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751
@@ -225,7 +225,7 @@ github.com/jpillora/backoff
 github.com/json-iterator/go
 # github.com/kelseyhightower/envconfig v1.4.0
 github.com/kelseyhightower/envconfig
-# github.com/klauspost/compress v1.10.2
+# github.com/klauspost/compress v1.10.10
 github.com/klauspost/compress/fse
 github.com/klauspost/compress/huff0
 github.com/klauspost/compress/snappy
@@ -301,7 +301,7 @@ github.com/slok/goresilience/retry
 github.com/spf13/pflag
 # github.com/stretchr/objx v0.2.0
 github.com/stretchr/objx
-# github.com/stretchr/testify v1.5.1
+# github.com/stretchr/testify v1.6.0
 ## explicit
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/mock
@@ -620,6 +620,8 @@ gopkg.in/jcmturner/rpc.v1/mstypes
 gopkg.in/jcmturner/rpc.v1/ndr
 # gopkg.in/yaml.v2 v2.3.0
 gopkg.in/yaml.v2
+# gopkg.in/yaml.v3 v3.0.0-20200601152816-913338de1bd2
+gopkg.in/yaml.v3
 # honnef.co/go/tools v0.0.1-2020.1.4
 honnef.co/go/tools/arg
 honnef.co/go/tools/cmd/staticcheck
@@ -650,6 +652,8 @@ honnef.co/go/tools/staticcheck
 honnef.co/go/tools/stylecheck
 honnef.co/go/tools/unused
 honnef.co/go/tools/version
+# istio.io/gogo-genproto v0.0.0-20191029161641-f7d19ec0141d
+## explicit
 # k8s.io/api v0.18.7-rc.0 => k8s.io/api v0.17.6
 ## explicit
 k8s.io/api/admission/v1
@@ -1017,7 +1021,7 @@ k8s.io/utils/buffer
 k8s.io/utils/integer
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# knative.dev/eventing v0.17.1-0.20200824071547-ae90af3d14b8
+# knative.dev/eventing v0.17.3
 ## explicit
 knative.dev/eventing/pkg/apis/config
 knative.dev/eventing/pkg/apis/configs
@@ -1072,7 +1076,7 @@ knative.dev/eventing/pkg/logging
 knative.dev/eventing/pkg/reconciler/names
 knative.dev/eventing/pkg/tracing
 knative.dev/eventing/pkg/utils
-# knative.dev/eventing-contrib v0.17.1-0.20200825083348-25239425a3bb
+# knative.dev/eventing-contrib v0.17.1-0.20200907043632-edd3889e77fd
 ## explicit
 knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging
 knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1
@@ -1097,7 +1101,7 @@ knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/reconciler/messa
 knative.dev/eventing-contrib/kafka/channel/pkg/client/listers/messaging/v1alpha1
 knative.dev/eventing-contrib/kafka/channel/pkg/client/listers/messaging/v1beta1
 knative.dev/eventing-contrib/kafka/channel/pkg/utils
-# knative.dev/pkg v0.0.0-20200822174146-f0f096d81292
+# knative.dev/pkg v0.0.0-20200904035731-2fee224e95fb
 ## explicit
 knative.dev/pkg/apis
 knative.dev/pkg/apis/duck
@@ -1148,7 +1152,7 @@ knative.dev/pkg/tracker
 knative.dev/pkg/version
 knative.dev/pkg/webhook
 knative.dev/pkg/webhook/certificates/resources
-# knative.dev/test-infra v0.0.0-20200820231346-543fe3e80c03
+# knative.dev/test-infra v0.0.0-20200903224831-db6c5b50714c
 ## explicit
 knative.dev/test-infra/scripts
 # pack.ag/amqp v0.12.4

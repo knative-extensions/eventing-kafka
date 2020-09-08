@@ -100,6 +100,7 @@ type CompareSaramaConfig struct {
 			Backoff     time.Duration
 			BackoffFunc func(retries, maxRetries int) time.Duration `json:"-"`
 		}
+		Interceptors []sarama.ProducerInterceptor
 	}
 	Consumer struct {
 		Group struct {
@@ -148,6 +149,7 @@ type CompareSaramaConfig struct {
 			}
 		}
 		IsolationLevel sarama.IsolationLevel
+		Interceptors   []sarama.ConsumerInterceptor
 	}
 	ClientID          string
 	RackID            string
