@@ -23,6 +23,8 @@ type AdminClientType int
 const (
 	Kafka AdminClientType = iota
 	EventHub
+	Custom
+	Unknown
 )
 
 //
@@ -54,6 +56,10 @@ func CreateAdminClient(ctx context.Context, saramaConfig *sarama.Config, clientI
 		return NewKafkaAdminClientWrapper(ctx, saramaConfig, clientId, constants.KnativeEventingNamespace)
 	case EventHub:
 		return NewEventHubAdminClientWrapper(ctx, constants.KnativeEventingNamespace)
+	case Custom:
+		return NewCustomAdminClientWrapper(ctx, constants.KnativeEventingNamespace)
+	case Unknown:
+		return nil, errors.New("received unknown AdminClientType") // Should Never Happen But...
 	default:
 		return nil, errors.New(fmt.Sprintf("received unsupported AdminClientType of %d", adminClientType))
 	}
@@ -67,4 +73,9 @@ var NewKafkaAdminClientWrapper = func(ctx context.Context, saramaConfig *sarama.
 // New EventHub AdminClient Wrapper To Facilitate Unit Testing
 var NewEventHubAdminClientWrapper = func(ctx context.Context, namespace string) (AdminClientInterface, error) {
 	return NewEventHubAdminClient(ctx, namespace)
+}
+
+// New Custom AdminClient Wrapper To Facilitate Unit Testing
+var NewCustomAdminClientWrapper = func(ctx context.Context, namespace string) (AdminClientInterface, error) {
+	return NewCustomAdminClient(ctx, namespace)
 }

@@ -2,6 +2,7 @@ package env
 
 // Package Constants
 const (
+
 	// Eventing-Kafka Configuration
 	ServiceAccountEnvVarKey = "SERVICE_ACCOUNT"
 	MetricsPortEnvVarKey    = "METRICS_PORT"

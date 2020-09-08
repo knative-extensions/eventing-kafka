@@ -39,14 +39,14 @@ const (
 
 // Non-Constant Constants ;)
 var (
-
 	//
-	// Kafka Version
+	// Default Kafka Version
 	//
-	// As with all the Sarama / Kafka config above this should be exposed for customization.
-	// Until then the value is hard-coded to the lowest common denominator version to provide
-	// the most compatible solution.  Specifically, Sarama's ConsumerGroups repeatedly close
-	// due to EOF failures when working against Azure EventHubs.
+	// This is the default value which will be used when creating Sarama.Config if not
+	// otherwise specified in the ConfigMap.  It is set to the lowest common denominator
+	// version to provide the most compatible and likely to succeed solution.  Specifically,
+	// Sarama's ConsumerGroups repeatedly close due to EOF failures when working against
+	// Azure EventHubs if this is set any higher than V1_0_0_0.
 	//
-	ConfigKafkaVersion = sarama.V1_0_0_0
+	ConfigKafkaVersionDefault = sarama.V1_0_0_0
 )

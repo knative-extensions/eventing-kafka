@@ -60,8 +60,7 @@ func main() {
 		logger.Fatal("Invalid / Missing Environment Variables - Terminating", zap.Error(err))
 	}
 
-	// Load the Sarama SyncProducer (and Eventing-Kafka settings, though the channel doesn't use those at the moment)
-	// from our configmap
+	// Load The Sarama (& Eventing-Kafka) Configuration From The ConfigMap
 	saramaConfig, _, err := sarama.LoadSettings(ctx)
 	if err != nil {
 		logger.Fatal("Failed To Load Sarama Settings", zap.Error(err))
@@ -99,8 +98,7 @@ func main() {
 		logger.Fatal("Failed To Initialize ConfigMap Watcher", zap.Error(err))
 	}
 
-	// Create The Sarama SyncProducer Config
-	// Add username/password/components overrides to the Sarama config (these take precedence over what's in the configmap)
+	// Update The Sarama Config - Username/Password Overrides (EnvVars From Secret Take Precedence Over ConfigMap)
 	sarama.UpdateSaramaConfig(saramaConfig, Component, environment.KafkaUsername, environment.KafkaPassword)
 
 	// Initialize The Kafka Producer In Order To Start Processing Status Events

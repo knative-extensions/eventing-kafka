@@ -48,8 +48,8 @@ type EKKafkaTopicConfig struct {
 
 // EKKafkaConfig contains items relevant to Kafka specifically
 type EKKafkaConfig struct {
-	Topic    EKKafkaTopicConfig `json:"topic,omitempty"`
-	Provider string             `json:"provider,omitempty"`
+	Topic     EKKafkaTopicConfig `json:"topic,omitempty"`
+	AdminType string             `json:"adminType,omitempty"`
 }
 
 // EventingKafkaConfig is the main struct that holds the Channel, Dispatcher, and Kafka sub-items
@@ -72,8 +72,7 @@ func InitializeConfigWatcher(logger *zap.SugaredLogger, ctx context.Context, han
 
 	// Start The ConfigMap Watcher
 	// Taken from knative.dev/pkg/injection/sharedmain/main.go::WatchObservabilityConfigOrDie
-	if _, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(SettingsConfigMapName,
-		metav1.GetOptions{}); err == nil {
+	if _, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(SettingsConfigMapName, metav1.GetOptions{}); err == nil {
 		watcher.Watch(SettingsConfigMapName, handler)
 	} else if !apierrors.IsNotFound(err) {
 		logger.Error("Error reading ConfigMap "+SettingsConfigMapName, zap.Error(err))

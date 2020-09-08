@@ -2,10 +2,10 @@ package constants
 
 const (
 
-	// Kafka Provider Types
-	KafkaProviderValueLocal     = "local"
-	KafkaProviderValueConfluent = "confluent"
-	KafkaProviderValueAzure     = "azure"
+	// Kafka Admin Type Types
+	KafkaAdminTypeValueKafka  = "kafka"
+	KafkaAdminTypeValueAzure  = "azure"
+	KafkaAdminTypeValueCustom = "custom"
 
 	// The Controller's Component Name (Needs To Be DNS Safe!)
 	ControllerComponentName = "eventingkafka-controller"

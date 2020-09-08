@@ -37,7 +37,7 @@ const (
 
 	// Environment Test Data
 	ServiceAccount                         = "TestServiceAccount"
-	ServiceProvider                        = "local"
+	KafkaAdminType                         = "kafka"
 	MetricsPort                            = 9876
 	MetricsDomain                          = "eventing-kafka"
 	HealthPort                             = 8082
@@ -138,7 +138,7 @@ func NewConfig() *config.EventingKafkaConfig {
 				DefaultReplicationFactor: DefaultReplicationFactor,
 				DefaultRetentionMillis:   DefaultRetentionMillis,
 			},
-			Provider: ServiceProvider,
+			AdminType: KafkaAdminType,
 		},
 	}
 }

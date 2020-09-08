@@ -19,15 +19,14 @@ func (err ControllerConfigurationError) Error() string {
 // VerifyConfiguration returns an error if mandatory fields in the EventingKafkaConfig have not been set either
 // via the external configmap or the internal variables.
 func VerifyConfiguration(configuration *config.EventingKafkaConfig) error {
-	switch strings.ToLower(configuration.Kafka.Provider) {
-	case constants.KafkaProviderValueLocal:
-		configuration.Kafka.Provider = constants.KafkaProviderValueLocal
-	case constants.KafkaProviderValueConfluent:
-		configuration.Kafka.Provider = constants.KafkaProviderValueConfluent
-	case constants.KafkaProviderValueAzure:
-		configuration.Kafka.Provider = constants.KafkaProviderValueAzure
+
+	// Verify & Lowercase The Kafka AdminType
+	lowercaseKafkaAdminType := strings.ToLower(configuration.Kafka.AdminType)
+	switch lowercaseKafkaAdminType {
+	case constants.KafkaAdminTypeValueKafka, constants.KafkaAdminTypeValueAzure, constants.KafkaAdminTypeValueCustom:
+		configuration.Kafka.AdminType = lowercaseKafkaAdminType
 	default:
-		return ControllerConfigurationError("Invalid / Unknown KafkaProvider: " + configuration.Kafka.Provider)
+		return ControllerConfigurationError("Invalid / Unknown Kafka Admin Type: " + configuration.Kafka.AdminType)
 	}
 
 	// Verify mandatory configuration settings

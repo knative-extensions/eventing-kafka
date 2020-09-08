@@ -255,8 +255,9 @@ func (d *DispatcherImpl) closeConsumerGroup(subscriber *SubscriberWrapper) {
 // If there aren't any consumer-specific differences between the current config and the new one,
 // then just log that and move on; do not restart the ConsumerGroups unnecessarily.
 func (d *DispatcherImpl) ConfigChanged(configMap *v1.ConfigMap) Dispatcher {
-	d.Logger.Debug("New ConfigMap Received", zap.String("configMap.Name", configMap.ObjectMeta.Name))
 
+	// Create A New Sarama Config
+	d.Logger.Debug("New ConfigMap Received", zap.String("configMap.Name", configMap.ObjectMeta.Name))
 	newConfig := kafkasarama.NewSaramaConfig()
 
 	// In order to compare configs "without the producer section" we use a known-base config
@@ -274,7 +275,9 @@ func (d *DispatcherImpl) ConfigChanged(configMap *v1.ConfigMap) Dispatcher {
 	// Don't care about Producer section; everything else is a change that needs to be implemented.
 	newConfig.Producer = defaultProducer
 
+	// Validate Configuration (Should Always Be Present)
 	if d.SaramaConfig != nil {
+
 		// Some of the current config settings may not be overridden by the configmap (username, password, etc.)
 		kafkasarama.UpdateSaramaConfig(newConfig, d.SaramaConfig.ClientID, d.SaramaConfig.Net.SASL.User, d.SaramaConfig.Net.SASL.Password)
 
@@ -285,19 +288,20 @@ func (d *DispatcherImpl) ConfigChanged(configMap *v1.ConfigMap) Dispatcher {
 		// a newConfig with the structs empty, but this is more explicit as to what our goal is and doesn't hurt.
 		configCopy.Producer = defaultProducer
 		if kafkasarama.ConfigEqual(newConfig, configCopy) {
-			d.Logger.Info("No Consumer changes detected in new config; ignoring")
+			d.Logger.Info("No Consumer Changes Detected In New Configuration - Ignoring")
 			return nil
 		}
 	}
 
-	d.Logger.Info("Configuration received; applying new Consumer settings")
-
-	// "Reconfiguring" the Dispatcher involves creating a new one, but we can re-use some
-	// of the original components, such as the list of current subscribers
+	// Create A New Dispatcher With The New Configuration (Reusing All Other Existing Config)
+	d.Logger.Info("Consumer Changes Detected In New Configuration - Recreating Dispatcher")
 	d.Shutdown()
 	d.DispatcherConfig.SaramaConfig = newConfig
 	newDispatcher := NewDispatcher(d.DispatcherConfig)
-	newDispatcher.UpdateSubscriptions(d.SubscriberSpecs)
-	d.Logger.Info("Dispatcher Reconfigured; Switching to New Dispatcher")
+	failedSubscriptions := newDispatcher.UpdateSubscriptions(d.SubscriberSpecs)
+	if len(failedSubscriptions) > 0 {
+		d.Logger.Fatal("Failed To Subscribe Kafka Subscriptions For New Dispatcher", zap.Int("Count", len(failedSubscriptions)))
+		return nil
+	}
 	return newDispatcher
 }

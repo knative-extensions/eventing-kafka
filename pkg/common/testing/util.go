@@ -1,7 +1,6 @@
 package testing
 
 import (
-	"encoding/json"
 	"net/http"
 	"testing"
 	"time"
@@ -38,9 +37,7 @@ func GetTestSaramaConfigMapNamespaced(name, namespace, saramaConfig, configurati
 
 func GetDefaultSaramaConfig(t *testing.T, initialConfig *sarama.Config) *sarama.Config {
 	assert.NotNil(t, initialConfig)
-	jsonSettings, err := yaml.YAMLToJSON([]byte(SaramaDefaultConfigYaml))
-	assert.Nil(t, err)
-	assert.Nil(t, json.Unmarshal(jsonSettings, &initialConfig))
+	assert.Nil(t, yaml.Unmarshal([]byte(SaramaDefaultConfigYaml), initialConfig))
 	return initialConfig
 }
 

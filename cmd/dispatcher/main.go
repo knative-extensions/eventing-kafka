@@ -62,7 +62,7 @@ func main() {
 		logger.Fatal("Failed To Load Environment Variables - Terminating!", zap.Error(err))
 	}
 
-	// Load the sarama and eventing-kafka settings from our settings configmap
+	// Load The Sarama & Eventing-Kafka Configuration From The ConfigMap
 	saramaConfig, configuration, err := sarama.LoadSettings(ctx)
 	if err != nil {
 		logger.Fatal("Failed To Load Sarama Settings", zap.Error(err))
@@ -91,7 +91,7 @@ func main() {
 
 	statsReporter := metrics.NewStatsReporter(logger)
 
-	// Add username/password/components overrides to the Sarama config (these take precedence over what's in the configmap)
+	// Update The Sarama Config - Username/Password Overrides (EnvVars From Secret Take Precedence Over ConfigMap)
 	sarama.UpdateSaramaConfig(saramaConfig, Component, environment.KafkaUsername, environment.KafkaPassword)
 
 	// Create The Dispatcher With Specified Configuration

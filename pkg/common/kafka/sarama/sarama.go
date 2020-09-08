@@ -3,12 +3,13 @@ package sarama
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"net"
 	"os"
+	"regexp"
 	"time"
 
 	"github.com/Shopify/sarama"
@@ -18,7 +19,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
-	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
+	"knative.dev/eventing-kafka/pkg/common/testing"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 )
 
@@ -162,21 +163,165 @@ func EnableSaramaLogging() {
 
 // Creates A sarama.Config With Some Default Settings
 func NewSaramaConfig() *sarama.Config {
+
+	// Start With Base Sarama Defaults
 	config := sarama.NewConfig()
+
+	// Use Our Default Minimum Version
+	config.Version = constants.ConfigKafkaVersionDefault
+
+	// Enforce eventing-kafka Required Config
 	enforceSaramaConfig(config)
+
+	// Return Base Sarama Config
 	return config
+}
+
+//
+// Extract (Parse & Remove) Top Level Kafka Version From Specified Sarama Confirm YAML String
+//
+// The Sarama.Config struct contains a top-level 'Version' field of type sarama.KafkaVersion.
+// This type contains a package scoped [4]uint field called 'version' which we cannot unmarshal
+// the yaml into.  Therefore, we instead support the user providing a 'Version' string of the
+// format "major.minor.patch" (e.g. "2.3.0") which we will "extract" out of the YAML string
+// and return as an actual sarama.KafkaVersion.  In the case where the user has NOT specified
+// a Version string we will return a default version.
+//
+func extractKafkaVersion(saramaConfigYamlString string) (string, sarama.KafkaVersion, error) {
+
+	// Define Inline Struct To Marshall The Top Level Sarama Config "Kafka" Version Into
+	type saramaConfigShell struct {
+		Version string
+	}
+
+	// Unmarshal The Sarama Config Into The Shell
+	shell := &saramaConfigShell{}
+	err := yaml.Unmarshal([]byte(saramaConfigYamlString), shell)
+	if err != nil {
+		return saramaConfigYamlString, constants.ConfigKafkaVersionDefault, err
+	}
+
+	// Return Default Kafka Version If Not Specified
+	if len(shell.Version) <= 0 {
+		return saramaConfigYamlString, constants.ConfigKafkaVersionDefault, nil
+	}
+
+	// Attempt To Parse The Version String Into A Sarama.KafkaVersion
+	kafkaVersion, err := sarama.ParseKafkaVersion(shell.Version)
+	if err != nil {
+		return saramaConfigYamlString, constants.ConfigKafkaVersionDefault, err
+	}
+
+	// Remove The Version From The Sarama Config YAML String
+	regex, err := regexp.Compile("\\s*Version:\\s*" + shell.Version + "\\s*")
+	if err != nil {
+		return saramaConfigYamlString, constants.ConfigKafkaVersionDefault, err
+	} else {
+		updatedSaramaConfigYamlBytes := regex.ReplaceAll([]byte(saramaConfigYamlString), []byte{})
+		return string(updatedSaramaConfigYamlBytes), kafkaVersion, nil
+	}
+}
+
+/* Extract (Parse & Remove) TLS.Config Level RootPEMs From Specified Sarama Confirm YAML String
+
+The Sarama.Config struct contains Net.TLS.Config which is a *tls.Config which cannot be parsed.
+due to it being from another package and containing lots of func()s.  We do need the ability
+however to provide Root Certificates in order to avoid having to disable verification via the
+InsecureSkipVerify field.  Therefore, we support a custom 'RootPEMs' field which is an array
+of strings containing the PEM file content.  This function will "extract" that content out
+of the YAML string and return as a populated *x509.CertPool which can be assigned to the
+Sarama.Config.Net.TLS.Config.RootCAs field.  In the case where the user has NOT specified
+any PEM files we will return nil.
+
+In order for the PEM file content to pass cleanly from the YAML string, which is itself
+already a YAML string inside the K8S ConfigMap, it must be formatted and spaced correctly.
+The following shows an example of the expected usage...
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-eventing-kafka
+  namespace: knative-eventing
+data:
+  sarama: |
+    Admin:
+      Timeout: 10000000000
+    Net:
+      KeepAlive: 30000000000
+      TLS:
+        Enable: true
+        Config:
+          RootCaPems:
+          - |-
+            -----BEGIN CERTIFICATE-----
+            MIIGBDCCA+ygAwIBAgIJAKi1aEV58cQ1MA0GCSqGSIb3DQEBCwUAMIGOMQswCQYD
+            ...
+            2wk9rLRZaQnhspt6MhlmU0qkaEZpYND3emR2XZ07m51jXqDUgTjXYCSggImUsARs
+            NAehp9bMeco=
+            -----END CERTIFICATE-----
+      SASL:
+        Enable: true
+
+...where you should make sure to use the YAML string syntax of "|-" in order to
+prevent trailing linefeed. The indentation of the PEM content is also important
+and must be aligned as shown.
+*/
+func extractRootCerts(saramaConfigYamlString string) (string, *x509.CertPool, error) {
+
+	// Define Inline Struct To Marshall The TLS Config 'RootPEMs' Into
+	type tlsConfigShell struct {
+		Net struct {
+			TLS struct {
+				Config struct {
+					RootPEMs []string
+				}
+			}
+		}
+	}
+
+	// Unmarshal The TLS Config Into The Shell
+	shell := &tlsConfigShell{}
+	err := yaml.Unmarshal([]byte(saramaConfigYamlString), shell)
+	if err != nil {
+		return saramaConfigYamlString, nil, err
+	}
+
+	// Convenience Variable For The RootPEMs
+	rootPEMs := shell.Net.TLS.Config.RootPEMs
+
+	// Exit Early If No RootCert PEMs
+	if rootPEMs == nil || len(rootPEMs) < 1 {
+		return saramaConfigYamlString, nil, nil
+	}
+
+	// Create A New CertPool To Contain The Root PEMs
+	certPool := x509.NewCertPool()
+
+	// Populate The CertPool With The PEMs
+	for _, rootPEM := range rootPEMs {
+		ok := certPool.AppendCertsFromPEM([]byte(rootPEM))
+		if !ok {
+			return saramaConfigYamlString, nil, fmt.Errorf("failed to parse root certificate PEM: %s", rootPEM)
+		}
+	}
+
+	// Remove The RootPEMs From The Sarama YAML String (Multi-Line / Greedy To Collect All PEMs)
+	regex, err := regexp.Compile("(?s)\\s*RootPEMs:.*-----END CERTIFICATE-----")
+	if err != nil {
+		return saramaConfigYamlString, nil, err
+	} else {
+		updatedSaramaConfigYamlBytes := regex.ReplaceAll([]byte(saramaConfigYamlString), []byte{})
+		return string(updatedSaramaConfigYamlBytes), certPool, nil
+	}
 }
 
 // Forces Some Sarama Settings To Have Mandatory Values
 func enforceSaramaConfig(config *sarama.Config) {
 
-	// Latest version, seems to work with EventHubs as well.
-	config.Version = constants.ConfigKafkaVersion
-
-	// We Want To Know About Consumer Errors
+	// We Always Want To Know About Consumer Errors
 	config.Consumer.Return.Errors = true
 
-	// We Want "Message Produced" Success Messages For Use With SyncProducer
+	// We Always Want Success Messages From Producer
 	config.Producer.Return.Successes = true
 }
 
@@ -186,20 +331,11 @@ func UpdateSaramaConfig(config *sarama.Config, clientId string, username string,
 	// Set The ClientID For Logging
 	config.ClientID = clientId
 
-	// Update Config With With Additional SASL Auth If Specified
-	if len(username) > 0 && len(password) > 0 {
-		config.Net.SASL.Version = constants.ConfigNetSaslVersion
-		config.Net.SASL.Enable = true
-		config.Net.SASL.Mechanism = sarama.SASLTypePlaintext
-		config.Net.SASL.User = username
-		config.Net.SASL.Password = password
-		config.Net.TLS.Enable = true
-		config.Net.TLS.Config = &tls.Config{
-			ClientAuth: tls.NoClientCert,
-		}
-	}
+	// Set The SASL Username / Password
+	config.Net.SASL.User = username
+	config.Net.SASL.Password = password
 
-	// Do not permit changing of some particular settings
+	// Force Required Configuration
 	enforceSaramaConfig(config)
 }
 
@@ -233,47 +369,74 @@ func ConfigEqual(config1, config2 *sarama.Config) bool {
 
 // Extract The Sarama-Specific Settings From A ConfigMap And Merge Them With Existing Settings
 func MergeSaramaSettings(config *sarama.Config, configMap *corev1.ConfigMap) error {
+
+	// Validate The ConfigMap Data
 	if configMap.Data == nil {
-		return errors.New("attempted to merge sarama settings with empty configmap")
-	}
-	// Merge The ConfigMap Settings Into The Provided Config
-	saramaSettings := configMap.Data[commontesting.SaramaSettingsConfigKey]
-	jsonSettings, err := yaml.YAMLToJSON([]byte(saramaSettings))
-	if err != nil {
-		return fmt.Errorf("ConfigMap's value could not be converted to JSON: %s : %v", err, saramaSettings)
-	}
-	err = json.Unmarshal(jsonSettings, &config)
-	if err != nil {
-		return err
+		return fmt.Errorf("attempted to merge sarama settings with empty configmap")
 	}
 
+	// Merge The ConfigMap Settings Into The Provided Config
+	saramaSettingsYamlString := configMap.Data[testing.SaramaSettingsConfigKey]
+
+	// Extract (Remove) The KafkaVersion From The Sarama Config YAML
+	saramaSettingsYamlString, kafkaVersion, err := extractKafkaVersion(saramaSettingsYamlString)
+	if err != nil {
+		return fmt.Errorf("failed to extract KafkaVersion from Sarama Config YAML: err=%s : config=%+v", err, saramaSettingsYamlString)
+	}
+
+	// Extract (Remove) Any TLS.Config RootCAs & Set In Sarama.Config
+	saramaSettingsYamlString, certPool, err := extractRootCerts(saramaSettingsYamlString)
+	if err != nil {
+		return fmt.Errorf("failed to extract RootPEMs from Sarama Config YAML: err=%s : config=%+v", err, saramaSettingsYamlString)
+	}
+
+	// Unmarshall The Sarama Config Yaml Into The Provided Sarama.Config Object
+	err = yaml.Unmarshal([]byte(saramaSettingsYamlString), &config)
+	if err != nil {
+		return fmt.Errorf("ConfigMap's sarama value could not be converted to a Sarama.Config struct: %s : %v", err, saramaSettingsYamlString)
+	}
+
+	// Override The Custom Parsed KafkaVersion
+	config.Version = kafkaVersion
+
+	// Override Any Custom Parsed TLS.Config.RootCAs
+	if certPool != nil && len(certPool.Subjects()) > 0 {
+		config.Net.TLS.Config = &tls.Config{RootCAs: certPool}
+	}
+
+	// Return Success
 	return nil
 }
 
+// Load The Sarama & EventingKafka Configuration From The ConfigMap
 func LoadConfigFromMap(configMap *corev1.ConfigMap) (*sarama.Config, *commonconfig.EventingKafkaConfig, error) {
-	config := NewSaramaConfig()
-	err := MergeSaramaSettings(config, configMap)
-	if err != nil {
-		return nil, nil, err
-	}
 
+	// Validate The ConfigMap Data
 	if configMap.Data == nil {
-		return nil, nil, errors.New("attempted to load eventing-kafka settings with empty configmap")
+		return nil, nil, fmt.Errorf("attempted to load configuration from empty configmap")
 	}
-	var eventingKafkaConfig commonconfig.EventingKafkaConfig
-	eventingKafkaSettings := configMap.Data[commonconfig.EventingKafkaSettingsConfigKey]
-	jsonSettings, err := yaml.YAMLToJSON([]byte(eventingKafkaSettings))
-	if err != nil {
-		return nil, nil, fmt.Errorf("ConfigMap's value could not be converted to JSON: %s : %v", err, eventingKafkaSettings)
-	}
-	err = json.Unmarshal(jsonSettings, &eventingKafkaConfig)
+
+	// Create A New Base Sarama Config To Start From
+	saramaConfig := NewSaramaConfig()
+
+	// Merge The Sarama Settings In The ConfigMap Into the New/Base Sarama Config
+	err := MergeSaramaSettings(saramaConfig, configMap)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return config, &eventingKafkaConfig, nil
+	// Unmarshal The Eventing-Kafka ConfigMap YAML Into A EventingKafkaSettings Struct
+	eventingKafkaSettings := configMap.Data[commonconfig.EventingKafkaSettingsConfigKey]
+	eventingKafkaConfig := &commonconfig.EventingKafkaConfig{}
+	err = yaml.Unmarshal([]byte(eventingKafkaSettings), &eventingKafkaConfig)
+	if err != nil {
+		return nil, nil, fmt.Errorf("ConfigMap's eventing-kafka value could not be converted to an EventingKafkaConfig struct: %s : %v", err, eventingKafkaSettings)
+	}
+
+	return saramaConfig, eventingKafkaConfig, nil
 }
 
+// Load The Sarama & EventingKafka Configuration From The ConfigMap
 func LoadSettings(ctx context.Context) (*sarama.Config, *commonconfig.EventingKafkaConfig, error) {
 	configMap, err := commonconfig.LoadSettingsConfigMap(kubeclient.Get(ctx))
 	if err != nil {

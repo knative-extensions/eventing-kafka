@@ -30,7 +30,7 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 	// Error Reference
 	var err error
 
-	// The ControllerConfig Reference
+	// The Environment Struct To Be Populated
 	environment := &Environment{}
 
 	// Get The Required Metrics Port Config Value & Convert To Int

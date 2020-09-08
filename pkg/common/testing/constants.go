@@ -5,6 +5,8 @@ const (
 	NewClientId = "TestNewClientId"
 	OldUsername = "TestOldUsername"
 	NewUsername = "TestNewUsername"
+	OldPassword = "TestOldPassword"
+	NewPassword = "TestNewPassword"
 
 	KnativeEventingNamespace       = "knative-eventing"
 	SettingsConfigMapName          = "config-eventing-kafka"
@@ -46,12 +48,13 @@ Net:
     Mechanism: PLAIN
     Version: 1
     User: ` + OldUsername + `
-    Password: TestPassword
+    Password: ` + OldPassword + `
 Metadata:
   RefreshFrequency: 300000000000
-ClientID: ` + OldClientId + `
 `
+
 	NewSaramaConfig = `
+Version: 2.3.0
 Net:
   TLS:
     Enable: true
@@ -60,11 +63,12 @@ Net:
     Mechanism: PLAIN
     Version: 1
     User: ` + NewUsername + `
-    Password: TestPassword
+    Password: ` + NewPassword + `
 Metadata:
   RefreshFrequency: 300000000000
 ClientID: ` + NewClientId + `
 `
+
 	SaramaDefaultConfigYaml = `
 Admin:
   Timeout: ` + ConfigAdminTimeout + `

@@ -10,7 +10,7 @@ import (
 
 // Test Constants
 const (
-	kafkaProvider = "confluent"
+	kafkaAdminType = "custom"
 
 	defaultNumPartitions     = 7
 	defaultReplicationFactor = 2
@@ -41,7 +41,7 @@ type TestCase struct {
 	kafkaTopicDefaultNumPartitions     int32
 	kafkaTopicDefaultReplicationFactor int16
 	kafkaTopicDefaultRetentionMillis   int64
-	kafkaProvider                      string
+	kafkaAdminType                     string
 	dispatcherCpuLimit                 resource.Quantity
 	dispatcherCpuRequest               resource.Quantity
 	dispatcherMemoryLimit              resource.Quantity
@@ -63,7 +63,7 @@ func getValidTestCase(name string) TestCase {
 		kafkaTopicDefaultNumPartitions:     defaultNumPartitions,
 		kafkaTopicDefaultReplicationFactor: defaultReplicationFactor,
 		kafkaTopicDefaultRetentionMillis:   defaultRetentionMillis,
-		kafkaProvider:                      kafkaProvider,
+		kafkaAdminType:                     kafkaAdminType,
 		dispatcherCpuLimit:                 resource.MustParse(dispatcherCpuLimit),
 		dispatcherCpuRequest:               resource.MustParse(dispatcherCpuRequest),
 		dispatcherMemoryLimit:              resource.MustParse(dispatcherMemoryLimit),
@@ -153,8 +153,8 @@ func TestVerifyConfiguration(t *testing.T) {
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Invalid Config - Kafka.Provider")
-	testCase.kafkaProvider = "invalidprovider"
-	testCase.expectedError = ControllerConfigurationError("Invalid / Unknown KafkaProvider: invalidprovider")
+	testCase.kafkaAdminType = "invalidadmintype"
+	testCase.expectedError = ControllerConfigurationError("Invalid / Unknown Kafka Admin Type: invalidadmintype")
 	testCases = append(testCases, testCase)
 
 	// Loop Over All The TestCases
@@ -164,7 +164,7 @@ func TestVerifyConfiguration(t *testing.T) {
 		testConfig.Kafka.Topic.DefaultNumPartitions = testCase.kafkaTopicDefaultNumPartitions
 		testConfig.Kafka.Topic.DefaultReplicationFactor = testCase.kafkaTopicDefaultReplicationFactor
 		testConfig.Kafka.Topic.DefaultRetentionMillis = testCase.kafkaTopicDefaultRetentionMillis
-		testConfig.Kafka.Provider = testCase.kafkaProvider
+		testConfig.Kafka.AdminType = testCase.kafkaAdminType
 		testConfig.Dispatcher.CpuLimit = testCase.dispatcherCpuLimit
 		testConfig.Dispatcher.CpuRequest = testCase.dispatcherCpuRequest
 		testConfig.Dispatcher.MemoryLimit = testCase.dispatcherMemoryLimit
@@ -185,7 +185,7 @@ func TestVerifyConfiguration(t *testing.T) {
 			assert.Equal(t, testCase.kafkaTopicDefaultNumPartitions, testConfig.Kafka.Topic.DefaultNumPartitions)
 			assert.Equal(t, testCase.kafkaTopicDefaultReplicationFactor, testConfig.Kafka.Topic.DefaultReplicationFactor)
 			assert.Equal(t, testCase.kafkaTopicDefaultRetentionMillis, testConfig.Kafka.Topic.DefaultRetentionMillis)
-			assert.Equal(t, testCase.kafkaProvider, testConfig.Kafka.Provider)
+			assert.Equal(t, testCase.kafkaAdminType, testConfig.Kafka.AdminType)
 			assert.Equal(t, testCase.dispatcherCpuLimit, testConfig.Dispatcher.CpuLimit)
 			assert.Equal(t, testCase.dispatcherCpuRequest, testConfig.Dispatcher.CpuRequest)
 			assert.Equal(t, testCase.dispatcherMemoryLimit, testConfig.Dispatcher.MemoryLimit)

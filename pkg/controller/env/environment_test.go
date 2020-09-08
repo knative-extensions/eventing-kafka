@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
-	commonenv "knative.dev/eventing-kafka/pkg/common/env"
+	"knative.dev/eventing-kafka/pkg/common/env"
 )
 
 // Test Constants
@@ -17,7 +17,6 @@ const (
 	serviceAccount = "TestServiceAccount"
 	metricsPort    = "9999"
 	metricsDomain  = "example.com/kafka-eventing"
-	kafkaProvider  = "confluent"
 
 	defaultKafkaConsumers = "5"
 
@@ -52,22 +51,22 @@ func TestGetEnvironment(t *testing.T) {
 
 	testCase = getValidTestCase("Missing Required Config - ServiceAccount")
 	testCase.serviceAccount = ""
-	testCase.expectedError = getMissingRequiredEnvironmentVariableError(commonenv.ServiceAccountEnvVarKey)
+	testCase.expectedError = getMissingRequiredEnvironmentVariableError(env.ServiceAccountEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Required Config - MetricsDomain")
 	testCase.metricsDomain = ""
-	testCase.expectedError = getMissingRequiredEnvironmentVariableError(commonenv.MetricsDomainEnvVarKey)
+	testCase.expectedError = getMissingRequiredEnvironmentVariableError(env.MetricsDomainEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Required Config - MetricsPort")
 	testCase.metricsPort = ""
-	testCase.expectedError = getMissingRequiredEnvironmentVariableError(commonenv.MetricsPortEnvVarKey)
+	testCase.expectedError = getMissingRequiredEnvironmentVariableError(env.MetricsPortEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Invalid Config - MetricsPort")
 	testCase.metricsPort = "NAN"
-	testCase.expectedError = getInvalidIntEnvironmentVariableError(testCase.metricsPort, commonenv.MetricsPortEnvVarKey)
+	testCase.expectedError = getInvalidIntEnvironmentVariableError(testCase.metricsPort, env.MetricsPortEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Required Config - DispatcherImage")
@@ -85,9 +84,9 @@ func TestGetEnvironment(t *testing.T) {
 
 		// (Re)Setup The Environment Variables From TestCase
 		os.Clearenv()
-		assertSetenv(t, commonenv.ServiceAccountEnvVarKey, testCase.serviceAccount)
-		assertSetenv(t, commonenv.MetricsDomainEnvVarKey, testCase.metricsDomain)
-		assertSetenvNonempty(t, commonenv.MetricsPortEnvVarKey, testCase.metricsPort)
+		assertSetenv(t, env.ServiceAccountEnvVarKey, testCase.serviceAccount)
+		assertSetenv(t, env.MetricsDomainEnvVarKey, testCase.metricsDomain)
+		assertSetenvNonempty(t, env.MetricsPortEnvVarKey, testCase.metricsPort)
 		assertSetenv(t, DispatcherImageEnvVarKey, testCase.dispatcherImage)
 		assertSetenv(t, ChannelImageEnvVarKey, testCase.channelImage)
 
@@ -119,7 +118,6 @@ func getValidTestCase(name string) TestCase {
 		serviceAccount:        serviceAccount,
 		metricsPort:           metricsPort,
 		metricsDomain:         metricsDomain,
-		kafkaProvider:         kafkaProvider,
 		defaultKafkaConsumers: defaultKafkaConsumers,
 		dispatcherImage:       dispatcherImage,
 		channelImage:          channelImage,

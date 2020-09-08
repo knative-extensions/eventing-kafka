@@ -55,10 +55,18 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 		logger.Fatal("Invalid / Missing Settings - Terminating", zap.Error(err))
 	}
 
-	// Determine The Kafka AdminClient Type (Assume Kafka Unless Azure EventHubs Are Specified)
-	kafkaAdminClientType := kafkaadmin.Kafka
-	if configuration.Kafka.Provider == constants.KafkaProviderValueAzure {
+	// Determine The Kafka AdminClient Type (Assume Kafka Unless Otherwise Specified)
+	var kafkaAdminClientType kafkaadmin.AdminClientType
+	switch configuration.Kafka.AdminType {
+	case constants.KafkaAdminTypeValueKafka:
+		kafkaAdminClientType = kafkaadmin.Kafka
+	case constants.KafkaAdminTypeValueAzure:
 		kafkaAdminClientType = kafkaadmin.EventHub
+	case constants.KafkaAdminTypeValueCustom:
+		kafkaAdminClientType = kafkaadmin.Custom
+	default:
+		logger.Warn("Encountered Unexpected Kafka AdminType - Defaulting To 'kafka'", zap.String("AdminType", configuration.Kafka.AdminType))
+		kafkaAdminClientType = kafkaadmin.Kafka
 	}
 
 	// Create A KafkaChannel Reconciler & Track As Package Variable
