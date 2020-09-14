@@ -1,7 +1,7 @@
 # Distributed KafkaChannel Config
 
 The YAML files in this directory represent the [ko](https://github.com/google/ko) development
-level configuration use to work on the distributed kafka channel source.  They will install 
+level configuration use to work on the distributed kafka channel source.  They will install
 into the existing Kubernetes cluster which should have Knative Eventing installed.   It is also
 expected that the user will provide a viable Kafka cluster and associated configuration.
 
@@ -16,8 +16,8 @@ populated for the user provided Kafka cluster.  Similarly the **data** values of
 [eventing-kafka-configmap.yaml](200-eventing-kafka-configmap.yaml) file should be configured
 for your particular use case.
 
-Install via `ko apply --strict -f ./config/channel/distributed` from the repository root 
-directory in order to build and deploy the project.  The `--strict` option is really only 
+Install via `ko apply --strict -f ./config/channel/distributed` from the repository root
+directory in order to build and deploy the project.  The `--strict` option is really only
 needed when using the `custom` AdminType, but shouldn't hurt in other cases.
 
 ## Kafka Admin Types
