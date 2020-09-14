@@ -21,7 +21,7 @@ spec:
       serviceAccountName: eventing-kafka-channel-controller
       containers:
       - name: eventing-kafka
-        image: ko://knative.dev/eventing-kafka/cmd/controller
+        image: ko://knative.dev/eventing-kafka/cmd/channel/distributed/controller
         imagePullPolicy: IfNotPresent # Must be IfNotPresent or Never if used with ko.local
         ports:
         - containerPort: 8081
@@ -44,9 +44,9 @@ spec:
         - name: METRICS_DOMAIN
           value: "eventing-kafka"
         - name: CHANNEL_IMAGE
-          value: "ko://knative.dev/eventing-kafka/cmd/channel"
+          value: "ko://knative.dev/eventing-kafka/cmd/channel/distributed/receiver"
         - name: DISPATCHER_IMAGE
-          value: "ko://knative.dev/eventing-kafka/cmd/dispatcher"
+          value: "ko://knative.dev/eventing-kafka/cmd/channel/distributed/dispatcher"
         resources:
           requests:
             cpu: 20m

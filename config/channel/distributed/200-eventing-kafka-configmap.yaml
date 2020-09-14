@@ -45,7 +45,7 @@ data:
         defaultNumPartitions: 4
         defaultReplicationFactor: 1
         defaultRetentionMillis: 604800000  # 1 week
-      adminType: kafka
+      adminType: kafka # One of "kafka", "azure", "custom"
 kind: ConfigMap
 metadata:
   name: config-eventing-kafka
