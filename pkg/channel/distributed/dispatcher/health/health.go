@@ -1,8 +1,9 @@
 package health
 
 import (
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/health"
 	"sync"
+
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/health"
 )
 
 // Start The HTTP Server Listening For Requests

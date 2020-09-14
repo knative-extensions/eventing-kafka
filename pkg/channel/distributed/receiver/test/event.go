@@ -2,6 +2,7 @@ package test
 
 import (
 	"encoding/json"
+	
 	"github.com/cloudevents/sdk-go/v2/event"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/constants"
 )

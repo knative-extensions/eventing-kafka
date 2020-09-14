@@ -1,25 +1,25 @@
 package kafkasecretinjection
 
 import (
-	context "context"
-	fmt "fmt"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/kafkasecretinformer"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
-	reflect "reflect"
-	strings "strings"
+	"context"
+	"fmt"
+	"reflect"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	scheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/kubernetes/scheme"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	record "k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/record"
 	versionedscheme "knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned/scheme"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/kafkasecretinformer"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	controller "knative.dev/pkg/controller"
-	logging "knative.dev/pkg/logging"
-	reconciler "knative.dev/pkg/reconciler"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/reconciler"
 )
 
 // Code manually created based on generated implementation in eventing-contrib/kafka - SEE README !!!

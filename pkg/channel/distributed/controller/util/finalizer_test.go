@@ -1,9 +1,10 @@
 package util
 
 import (
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
-	"testing"
 )
 
 // Test The KubernetesResourceFinalizerName() Functionality

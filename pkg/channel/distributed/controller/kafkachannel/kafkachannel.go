@@ -3,6 +3,7 @@ package kafkachannel
 import (
 	"context"
 	"fmt"
+
 	"go.uber.org/zap"
 	kafkav1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
 	commonk8s "knative.dev/eventing-kafka/pkg/channel/distributed/common/k8s"

@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+
 	"github.com/Shopify/sarama"
 	kafkaadmin "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin"
 )
