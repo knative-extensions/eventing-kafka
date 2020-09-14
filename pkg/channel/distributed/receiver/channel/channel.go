@@ -23,10 +23,10 @@ var (
 )
 
 // Wrapper Around Kafka Client Creation To Facilitate Unit Testing
-var getKafkaClient = func(ctx context.Context, masterUrl string, kubeconfigPath string) (kafkaclientset.Interface, error) {
+var getKafkaClient = func(ctx context.Context, serverUrl string, kubeconfigPath string) (kafkaclientset.Interface, error) {
 
 	// Create The K8S Configuration (In-Cluster With Cmd Line Flags For Out-Of-Cluster Usage)
-	k8sConfig, err := k8sclientcmd.BuildConfigFromFlags(masterUrl, kubeconfigPath)
+	k8sConfig, err := k8sclientcmd.BuildConfigFromFlags(serverUrl, kubeconfigPath)
 	if err != nil {
 		logging.FromContext(ctx).Error("Failed To Build Kubernetes Config", zap.Error(err))
 		return nil, err
@@ -37,13 +37,13 @@ var getKafkaClient = func(ctx context.Context, masterUrl string, kubeconfigPath 
 }
 
 // Initialize The KafkaChannel Lister Singleton
-func InitializeKafkaChannelLister(ctx context.Context, masterUrl string, kubeconfigPath string, healthServer *health.Server) error {
+func InitializeKafkaChannelLister(ctx context.Context, serverUrl string, kubeconfigPath string, healthServer *health.Server) error {
 
 	// Get The Logger From The Provided Context
 	logger = logging.FromContext(ctx).Desugar()
 
 	// Get The K8S Kafka Client For KafkaChannels
-	client, err := getKafkaClient(ctx, masterUrl, kubeconfigPath)
+	client, err := getKafkaClient(ctx, serverUrl, kubeconfigPath)
 	if err != nil {
 		logger.Error("Failed To Create Kafka Client", zap.Error(err))
 		return err

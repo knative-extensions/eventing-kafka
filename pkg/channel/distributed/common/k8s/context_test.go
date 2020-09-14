@@ -46,8 +46,8 @@ func TestLoggingContext(t *testing.T) {
 
 	// Temporarily Swap The K8S Client Wrapper For Testing
 	k8sClientWrapperRef := K8sClientWrapper
-	K8sClientWrapper = func(masterUrlArg string, kubeconfigPathArg string) kubernetes.Interface {
-		assert.Empty(t, masterUrlArg)
+	K8sClientWrapper = func(serverUrlArg string, kubeconfigPathArg string) kubernetes.Interface {
+		assert.Empty(t, serverUrlArg)
 		assert.Empty(t, kubeconfigPathArg)
 		return fakeK8sClient
 	}
