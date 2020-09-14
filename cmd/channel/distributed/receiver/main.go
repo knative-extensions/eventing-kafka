@@ -33,7 +33,7 @@ const (
 // Variables
 var (
 	logger        *zap.Logger
-	masterURL     = flag.String("masterurl", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
+	serverURL     = flag.String("server", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 	kubeconfig    = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	kafkaProducer *producer.Producer
 )
@@ -45,7 +45,7 @@ func main() {
 	flag.Parse()
 
 	// Initialize A Knative Injection Lite Context (K8S Client & Logger)
-	ctx := commonk8s.LoggingContext(context.Background(), constants.Component, *masterURL, *kubeconfig)
+	ctx := commonk8s.LoggingContext(context.Background(), constants.Component, *serverURL, *kubeconfig)
 
 	// Get The Logger From The Context & Defer Flushing Any Buffered Log Entries On Exit
 	logger = logging.FromContext(ctx).Desugar()
@@ -83,7 +83,7 @@ func main() {
 	healthServer.Start(logger)
 
 	// Initialize The KafkaChannel Lister Used To Validate Events
-	err = channel.InitializeKafkaChannelLister(ctx, *masterURL, *kubeconfig, healthServer)
+	err = channel.InitializeKafkaChannelLister(ctx, *serverURL, *kubeconfig, healthServer)
 	if err != nil {
 		logger.Fatal("Failed To Initialize KafkaChannel Lister", zap.Error(err))
 	}

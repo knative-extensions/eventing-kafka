@@ -36,7 +36,7 @@ const (
 var (
 	logger     *zap.Logger
 	dispatcher dispatch.Dispatcher
-	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
+	serverURL  = flag.String("server", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 )
 
@@ -47,7 +47,7 @@ func main() {
 	flag.Parse()
 
 	// Initialize A Knative Injection Lite Context (K8S Client & Logger)
-	ctx := commonk8s.LoggingContext(signals.NewContext(), Component, *masterURL, *kubeconfig)
+	ctx := commonk8s.LoggingContext(signals.NewContext(), Component, *serverURL, *kubeconfig)
 
 	// Get The Logger From The Context & Defer Flushing Any Buffered Log Entries On Exit
 	logger = logging.FromContext(ctx).Desugar()
@@ -117,7 +117,7 @@ func main() {
 		logger.Fatal("Failed To Initialize ConfigMap Watcher", zap.Error(err))
 	}
 
-	config, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
+	config, err := clientcmd.BuildConfigFromFlags(*serverURL, *kubeconfig)
 	if err != nil {
 		logger.Fatal("Error building kubeconfig", zap.Error(err))
 	}
