@@ -1,12 +1,13 @@
 package util
 
 import (
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	messagingv1 "knative.dev/eventing/pkg/apis/messaging/v1"
 	logtesting "knative.dev/pkg/logging/testing"
-	"testing"
 )
 
 // Test The SubscriptionLogger Functionality

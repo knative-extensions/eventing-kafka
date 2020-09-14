@@ -2,9 +2,10 @@ package eventhubcache
 
 import (
 	"context"
+	"testing"
+
 	eventhub "github.com/Azure/azure-event-hubs-go"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 //
