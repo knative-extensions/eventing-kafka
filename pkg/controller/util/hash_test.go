@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"crypto/md5"
+
 	"github.com/stretchr/testify/assert"
 )
 
