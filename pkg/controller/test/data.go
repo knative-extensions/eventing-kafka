@@ -59,7 +59,7 @@ const (
 	KafkaSecretNamespace  = commonconstants.KnativeEventingNamespace // Needs To Match Hardcoded Value In Reconciliation
 	KafkaSecretName       = "kafkasecret-name"
 	KafkaSecretKey        = KafkaSecretNamespace + "/" + KafkaSecretName
-	ChannelDeploymentName = KafkaSecretName + "-channel"
+	ChannelDeploymentName = KafkaSecretName + "-b9176d5f-channel"	// Truncated MD5 Hash Of KafkaSecretName
 	ChannelServiceName    = ChannelDeploymentName
 	TopicName             = KafkaChannelNamespace + "." + KafkaChannelName
 
