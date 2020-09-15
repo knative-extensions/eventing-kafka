@@ -52,8 +52,8 @@ func NewChannelOwnerReference(channel *kafkav1beta1.KafkaChannel) metav1.OwnerRe
 func ChannelDnsSafeName(kafkaSecretName string) string {
 
 	// In order for the resulting name to be a valid DNS component it's length must be no more than 63 characters.
-	// We are consuming 10 chars for the component separators, 8 for the hash, and the Channel suffix, which reduces the
-	// available length to 45. We will allocate 41 characters to the kafka secret name leaving an extra buffer.
+	// We are consuming 17 chars for the component separators, hash, and Channel suffix, which reduces the
+	// available length to 46. We will allocate 41 characters to the kafka secret name leaving an extra buffer.
 	safeSecretName := GenerateValidDnsName(kafkaSecretName, 41, true, false)
 
 	return fmt.Sprintf("%s-%s-channel", safeSecretName, GenerateHash(kafkaSecretName, 8))
