@@ -15,7 +15,7 @@ func DispatcherDnsSafeName(channel *kafkav1beta1.KafkaChannel) string {
 	// We will allocate 26 characters to the channel and 16 to the namespace, leaving some extra buffer.
 	safeChannelName := GenerateValidDnsName(channel.Name, 26, true, false)
 	safeChannelNamespace := GenerateValidDnsName(channel.Namespace, 16, false, false)
-	hash := GenerateHash(channel.Name, 4) + GenerateHash(channel.Namespace, 4)
+	hash := GenerateHash(channel.Name + channel.Namespace, 8)
 	return fmt.Sprintf("%s-%s-%s-dispatcher", safeChannelName, safeChannelNamespace, hash)
 }
 
