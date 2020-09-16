@@ -2,13 +2,12 @@ package kafkachannel
 
 import (
 	"context"
-	"k8s.io/client-go/rest"
-	"knative.dev/pkg/injection"
 	"os"
 	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"k8s.io/client-go/rest"
 	fakeKafkaClient "knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/client/fake"
 	_ "knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/informers/messaging/v1beta1/kafkachannel/fake" // Knative Fake Informer Injection
 	commonconstants "knative.dev/eventing-kafka/pkg/channel/distributed/common/constants"
@@ -21,6 +20,7 @@ import (
 	"knative.dev/pkg/client/injection/kube/client/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment/fake" // Knative Fake Informer Injection
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"    // Knative Fake Informer Injection
+	"knative.dev/pkg/injection"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/system"
 )

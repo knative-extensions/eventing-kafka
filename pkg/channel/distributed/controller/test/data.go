@@ -132,7 +132,7 @@ Consumer:
     Retention: 604800000000000
 Producer:
   Idempotent: true
-  RequiredAcks: -1 
+  RequiredAcks: -1
 `
 )
 
