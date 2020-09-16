@@ -13,7 +13,6 @@ data:
         Enable: true
         Mechanism: PLAIN
         Version: 1
-      KeepAlive: 30000000000  # 30 seconds
     Metadata:
       RefreshFrequency: 300000000000  # 5 minutes
     Consumer:

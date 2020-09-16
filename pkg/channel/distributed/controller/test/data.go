@@ -86,6 +86,54 @@ const (
 	ChannelMemoryLimit   = "20Mi"
 	ChannelCpuRequest    = "10m"
 	ChannelCpuLimit      = "100m"
+
+	ControllerConfigYaml = `
+channel:
+  cpuLimit: 200m
+  cpuRequest: 100m
+  memoryLimit: 100Mi
+  memoryRequest: 50Mi
+  replicas: 1
+dispatcher:
+  cpuLimit: 500m
+  cpuRequest: 300m
+  memoryLimit: 128Mi
+  memoryRequest: 50Mi
+  replicas: 1
+  retryInitialIntervalMillis: 500
+  retryTimeMillis: 300000
+  retryExponentialBackoff: true
+kafka:
+  topic:
+    defaultNumPartitions: 4
+    defaultReplicationFactor: 1
+    defaultRetentionMillis: 604800000
+  adminType: kafka
+`
+	SaramaConfigYaml = `
+Version: 2.0.0
+Admin:
+  Timeout: 10000000000  # 10 seconds
+Net:
+  KeepAlive: 30000000000  # 30 seconds
+  MaxOpenRequests: 1 # Set to 1 for use with Idempotent Producer
+  TLS:
+    Enable: false
+  SASL:
+    Enable: false
+    Mechanism: PLAIN
+    Version: 1
+Metadata:
+  RefreshFrequency: 300000000000
+Consumer:
+  Offsets:
+    AutoCommit:
+        Interval: 5000000000
+    Retention: 604800000000000
+Producer:
+  Idempotent: true
+  RequiredAcks: -1 
+`
 )
 
 var (

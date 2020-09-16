@@ -57,7 +57,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 
 	// Create The KafkaSecret Reconciler
 	r := &Reconciler{
-		logger:             logging.FromContext(ctx),
+		logger:             logger,
 		kubeClientset:      kubeclient.Get(ctx),
 		config:             configuration,
 		environment:        environment,

@@ -652,8 +652,6 @@ honnef.co/go/tools/staticcheck
 honnef.co/go/tools/stylecheck
 honnef.co/go/tools/unused
 honnef.co/go/tools/version
-# istio.io/gogo-genproto v0.0.0-20191029161641-f7d19ec0141d
-## explicit
 # k8s.io/api v0.18.7-rc.0 => k8s.io/api v0.17.6
 ## explicit
 k8s.io/api/admission/v1
@@ -1096,7 +1094,9 @@ knative.dev/eventing-contrib/kafka/channel/pkg/client/informers/externalversions
 knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/client
 knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/client/fake
 knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/informers/factory
+knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/informers/factory/fake
 knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/informers/messaging/v1beta1/kafkachannel
+knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/informers/messaging/v1beta1/kafkachannel/fake
 knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel
 knative.dev/eventing-contrib/kafka/channel/pkg/client/listers/messaging/v1alpha1
 knative.dev/eventing-contrib/kafka/channel/pkg/client/listers/messaging/v1beta1
@@ -1114,8 +1114,13 @@ knative.dev/pkg/changeset
 knative.dev/pkg/client/injection/kube/client
 knative.dev/pkg/client/injection/kube/client/fake
 knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment
+knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment/fake
+knative.dev/pkg/client/injection/kube/informers/core/v1/secret
+knative.dev/pkg/client/injection/kube/informers/core/v1/secret/fake
 knative.dev/pkg/client/injection/kube/informers/core/v1/service
+knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake
 knative.dev/pkg/client/injection/kube/informers/factory
+knative.dev/pkg/client/injection/kube/informers/factory/fake
 knative.dev/pkg/codegen/cmd/injection-gen
 knative.dev/pkg/codegen/cmd/injection-gen/args
 knative.dev/pkg/codegen/cmd/injection-gen/generators
