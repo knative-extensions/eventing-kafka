@@ -84,7 +84,7 @@ func TestChannelDeploymentDnsSafeName(t *testing.T) {
 	actualResult := ChannelDnsSafeName(kafkaSecret)
 
 	// Verify The Results
-	expectedResult := fmt.Sprintf("%s-channel", strings.ToLower(kafkaSecret))
+	expectedResult := fmt.Sprintf("%s-%s-channel", strings.ToLower(kafkaSecret), GenerateHash(kafkaSecret, 8))
 	assert.Equal(t, expectedResult, actualResult)
 }
 
