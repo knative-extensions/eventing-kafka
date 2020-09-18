@@ -62,7 +62,7 @@ func NewCache(ctx context.Context, k8sNamespace string) CacheInterface {
 func (c *Cache) Update(ctx context.Context) error {
 
 	// Get A List Of The Kafka Secrets From The K8S Namespace
-	kafkaSecrets, err := util.GetKafkaSecrets(c.k8sClient, c.k8sNamespace)
+	kafkaSecrets, err := util.GetKafkaSecrets(ctx, c.k8sClient, c.k8sNamespace)
 	if err != nil {
 		c.logger.Error("Failed To Get Kafka Secrets", zap.String("Namespace", c.k8sNamespace), zap.Error(err))
 		return err

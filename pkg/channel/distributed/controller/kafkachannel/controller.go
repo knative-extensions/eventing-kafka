@@ -16,12 +16,12 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/config"
-	"knative.dev/eventing/pkg/logging"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
 	"knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 )
 
 // Track The Reconciler For Shutdown() Usage
@@ -31,7 +31,7 @@ var rec *Reconciler
 func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 
 	// Get A Logger
-	logger := logging.FromContext(ctx)
+	logger := logging.FromContext(ctx).Desugar()
 
 	// Get The Needed Informers
 	kafkachannelInformer := kafkachannel.Get(ctx)
@@ -88,7 +88,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	}
 
 	// Watch The Settings ConfigMap For Changes
-	err = commonconfig.InitializeConfigWatcher(logger.Sugar(), ctx, rec.configMapObserver)
+	err = commonconfig.InitializeConfigWatcher(ctx, logger.Sugar(), rec.configMapObserver)
 	if err != nil {
 		logger.Fatal("Failed To Initialize ConfigMap Watcher", zap.Error(err))
 	}

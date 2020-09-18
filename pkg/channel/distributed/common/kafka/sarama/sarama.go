@@ -440,7 +440,7 @@ func LoadConfigFromMap(configMap *corev1.ConfigMap) (*sarama.Config, *commonconf
 
 // Load The Sarama & EventingKafka Configuration From The ConfigMap
 func LoadSettings(ctx context.Context) (*sarama.Config, *commonconfig.EventingKafkaConfig, error) {
-	configMap, err := commonconfig.LoadSettingsConfigMap(kubeclient.Get(ctx))
+	configMap, err := commonconfig.LoadSettingsConfigMap(ctx, kubeclient.Get(ctx))
 	if err != nil {
 		return nil, nil, err
 	}

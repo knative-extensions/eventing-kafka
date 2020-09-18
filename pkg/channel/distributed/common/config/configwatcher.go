@@ -63,7 +63,7 @@ type EventingKafkaConfig struct {
 // Initialize The Specified Context With A ConfigMap Watcher
 // Much Of This Function Is Taken From The knative.dev sharedmain Package
 //
-func InitializeConfigWatcher(logger *zap.SugaredLogger, ctx context.Context, handler configmap.Observer) error {
+func InitializeConfigWatcher(ctx context.Context, logger *zap.SugaredLogger, handler configmap.Observer) error {
 
 	// Create A Watcher On The Configuration Settings ConfigMap & Dynamically Update Configuration
 	// Since this is designed to be called by the main() function, the default KNative package behavior here
@@ -72,7 +72,7 @@ func InitializeConfigWatcher(logger *zap.SugaredLogger, ctx context.Context, han
 
 	// Start The ConfigMap Watcher
 	// Taken from knative.dev/pkg/injection/sharedmain/main.go::WatchObservabilityConfigOrDie
-	if _, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(SettingsConfigMapName, metav1.GetOptions{}); err == nil {
+	if _, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, SettingsConfigMapName, metav1.GetOptions{}); err == nil {
 		watcher.Watch(SettingsConfigMapName, handler)
 	} else if !apierrors.IsNotFound(err) {
 		logger.Error("Error reading ConfigMap "+SettingsConfigMapName, zap.Error(err))
@@ -88,6 +88,6 @@ func InitializeConfigWatcher(logger *zap.SugaredLogger, ctx context.Context, han
 }
 
 // Convenience function to load our configmap
-func LoadSettingsConfigMap(k8sClient kubernetes.Interface) (*corev1.ConfigMap, error) {
-	return k8sClient.CoreV1().ConfigMaps(system.Namespace()).Get(SettingsConfigMapName, metav1.GetOptions{})
+func LoadSettingsConfigMap(ctx context.Context, k8sClient kubernetes.Interface) (*corev1.ConfigMap, error) {
+	return k8sClient.CoreV1().ConfigMaps(system.Namespace()).Get(ctx, SettingsConfigMapName, metav1.GetOptions{})
 }

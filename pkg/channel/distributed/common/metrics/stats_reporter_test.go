@@ -63,7 +63,7 @@ func TestMetricsServer_Report(t *testing.T) {
 	logger := logtesting.TestLogger(t).Desugar()
 
 	// Initialize The Observability Watcher
-	err := config.InitializeObservability(logger.Sugar(), ctx, metricsDomain, metricsPort)
+	err := config.InitializeObservability(ctx, logger.Sugar(), metricsDomain, metricsPort)
 	assert.Nil(t, err)
 
 	// Create A New StatsReporter To Test

@@ -73,7 +73,7 @@ func main() {
 	}
 
 	// Initialize Observability (Watches config-observability ConfigMap And Starts Profiling Server)
-	err = commonconfig.InitializeObservability(logger.Sugar(), ctx, environment.MetricsDomain, environment.MetricsPort)
+	err = commonconfig.InitializeObservability(ctx, logger.Sugar(), environment.MetricsDomain, environment.MetricsPort)
 	if err != nil {
 		logger.Fatal("Could Not Initialize Observability - Terminating", zap.Error(err))
 	}
@@ -93,7 +93,7 @@ func main() {
 	statsReporter := metrics.NewStatsReporter(logger)
 
 	// Watch The Settings ConfigMap For Changes
-	err = commonconfig.InitializeConfigWatcher(logger.Sugar(), ctx, configMapObserver)
+	err = commonconfig.InitializeConfigWatcher(ctx, logger.Sugar(), configMapObserver)
 	if err != nil {
 		logger.Fatal("Failed To Initialize ConfigMap Watcher", zap.Error(err))
 	}

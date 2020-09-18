@@ -32,7 +32,7 @@ func (r *Reconciler) reconcileDispatcher(ctx context.Context, channel *kafkav1be
 	logger := util.ChannelLogger(r.logger, channel)
 
 	// Reconcile The Dispatcher's Service (For Prometheus Only)
-	serviceErr := r.reconcileDispatcherService(channel)
+	serviceErr := r.reconcileDispatcherService(ctx, channel)
 	if serviceErr != nil {
 		controller.GetEventRecorder(ctx).Eventf(channel, corev1.EventTypeWarning, event.DispatcherServiceReconciliationFailed.String(), "Failed To Reconcile Dispatcher Service: %v", serviceErr)
 		logger.Error("Failed To Reconcile Dispatcher Service", zap.Error(serviceErr))
@@ -41,7 +41,7 @@ func (r *Reconciler) reconcileDispatcher(ctx context.Context, channel *kafkav1be
 	}
 
 	// Reconcile The Dispatcher's Deployment
-	deploymentErr := r.reconcileDispatcherDeployment(channel)
+	deploymentErr := r.reconcileDispatcherDeployment(ctx, channel)
 	if deploymentErr != nil {
 		controller.GetEventRecorder(ctx).Eventf(channel, corev1.EventTypeWarning, event.DispatcherDeploymentReconciliationFailed.String(), "Failed To Reconcile Dispatcher Deployment: %v", deploymentErr)
 		logger.Error("Failed To Reconcile Dispatcher Deployment", zap.Error(deploymentErr))
@@ -62,7 +62,7 @@ func (r *Reconciler) reconcileDispatcher(ctx context.Context, channel *kafkav1be
 //
 
 // Reconcile The Dispatcher Service
-func (r *Reconciler) reconcileDispatcherService(channel *kafkav1beta1.KafkaChannel) error {
+func (r *Reconciler) reconcileDispatcherService(ctx context.Context, channel *kafkav1beta1.KafkaChannel) error {
 
 	// Attempt To Get The Dispatcher Service Associated With The Specified Channel
 	service, err := r.getDispatcherService(channel)
@@ -72,7 +72,7 @@ func (r *Reconciler) reconcileDispatcherService(channel *kafkav1beta1.KafkaChann
 		if errors.IsNotFound(err) {
 			r.logger.Info("Dispatcher Service Not Found - Creating New One")
 			service = r.newDispatcherService(channel)
-			service, err = r.kubeClientset.CoreV1().Services(service.Namespace).Create(service)
+			service, err = r.kubeClientset.CoreV1().Services(service.Namespace).Create(ctx, service, metav1.CreateOptions{})
 			if err != nil {
 				r.logger.Error("Failed To Create Dispatcher Service", zap.Error(err))
 				return err
@@ -149,7 +149,7 @@ func (r *Reconciler) newDispatcherService(channel *kafkav1beta1.KafkaChannel) *c
 //
 
 // Reconcile The Dispatcher Deployment
-func (r *Reconciler) reconcileDispatcherDeployment(channel *kafkav1beta1.KafkaChannel) error {
+func (r *Reconciler) reconcileDispatcherDeployment(ctx context.Context, channel *kafkav1beta1.KafkaChannel) error {
 
 	// Attempt To Get The Dispatcher Deployment Associated With The Specified Channel
 	deployment, err := r.getDispatcherDeployment(channel)
@@ -166,7 +166,7 @@ func (r *Reconciler) reconcileDispatcherDeployment(channel *kafkav1beta1.KafkaCh
 				channel.Status.MarkDispatcherFailed(event.DispatcherDeploymentReconciliationFailed.String(), "Failed To Generate Dispatcher Deployment: %v", err)
 				return err
 			} else {
-				deployment, err = r.kubeClientset.AppsV1().Deployments(deployment.Namespace).Create(deployment)
+				deployment, err = r.kubeClientset.AppsV1().Deployments(deployment.Namespace).Create(ctx, deployment, metav1.CreateOptions{})
 				if err != nil {
 					r.logger.Error("Failed To Create Dispatcher Deployment", zap.Error(err))
 					channel.Status.MarkDispatcherFailed(event.DispatcherDeploymentReconciliationFailed.String(), "Failed To Create Dispatcher Deployment: %v", err)

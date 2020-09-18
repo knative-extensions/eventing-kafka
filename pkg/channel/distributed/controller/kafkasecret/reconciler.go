@@ -57,14 +57,15 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, secret *corev1.Secret) r
 }
 
 // ReconcileKind Implements The Finalizer Interface & Is Responsible For Performing The Finalization (KafkaChannel Status)
-func (r *Reconciler) FinalizeKind(_ context.Context, secret *corev1.Secret) reconciler.Event {
+func (r *Reconciler) FinalizeKind(ctx context.Context, secret *corev1.Secret) reconciler.Event {
 
 	// Setup Logger & Debug Log Separator
 	r.logger.Debug("<==========  START KAFKA-SECRET FINALIZATION  ==========>")
 	logger := r.logger.With(zap.String("Secret", secret.Name))
 
 	// Reconcile The Affected KafkaChannel Status To Indicate The Channel Service/Deployment Are Not Longer Available
-	err := r.reconcileKafkaChannelStatus(secret,
+	err := r.reconcileKafkaChannelStatus(ctx,
+		secret,
 		false, "ChannelServiceUnavailable", "Kafka Auth Secret Finalized",
 		false, "ChannelDeploymentUnavailable", "Kafka Auth Secret Finalized")
 	if err != nil {

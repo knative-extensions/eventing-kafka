@@ -1,6 +1,8 @@
 package util
 
 import (
+	"context"
+	
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -10,8 +12,8 @@ import (
 )
 
 // Utility Function For Getting All (Limit 100) The Kafka Secrets In A K8S Namespace
-func GetKafkaSecrets(k8sClient kubernetes.Interface, k8sNamespace string) (*corev1.SecretList, error) {
-	return k8sClient.CoreV1().Secrets(k8sNamespace).List(metav1.ListOptions{
+func GetKafkaSecrets(ctx context.Context, k8sClient kubernetes.Interface, k8sNamespace string) (*corev1.SecretList, error) {
+	return k8sClient.CoreV1().Secrets(k8sNamespace).List(ctx, metav1.ListOptions{
 		LabelSelector: constants.KafkaSecretLabel + "=" + "true",
 		Limit:         constants.MaxEventHubNamespaces,
 	})

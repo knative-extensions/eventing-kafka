@@ -2,6 +2,8 @@ package k8s
 
 import (
 	"context"
+	"log"
+
 	"go.uber.org/zap"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,7 +14,6 @@ import (
 	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
-	"log"
 )
 
 // K8sClientWrapper Used To Facilitate Unit Testing
@@ -57,7 +58,7 @@ func LoggingContext(ctx context.Context, component string, serverUrl string, kub
 
 	// Create A Watcher On The Logging ConfigMap & Dynamically Update Log Levels
 	cmw := configmap.NewInformedWatcher(k8sClient, system.Namespace()) // Note - Have removed cmLabelReqs filtering here.
-	if _, err := k8sClient.CoreV1().ConfigMaps(system.Namespace()).Get(logging.ConfigMapName(), metav1.GetOptions{}); err == nil {
+	if _, err := k8sClient.CoreV1().ConfigMaps(system.Namespace()).Get(ctx, logging.ConfigMapName(), metav1.GetOptions{}); err == nil {
 		logger.Info("Setting Logging ConfigMap Watcher")
 		cmw.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	} else if !apierrors.IsNotFound(err) {

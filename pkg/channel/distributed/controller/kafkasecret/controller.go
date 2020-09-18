@@ -17,19 +17,19 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/kafkasecretinformer"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/kafkasecretinjection"
-	"knative.dev/eventing/pkg/logging"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
 	"knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 )
 
 // Create A New KafkaSecret Controller
 func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 
 	// Get A Logger
-	logger := logging.FromContext(ctx)
+	logger := logging.FromContext(ctx).Desugar()
 
 	// Get The Needed Informers
 	kafkaSecretInformer := kafkasecretinformer.Get(ctx)

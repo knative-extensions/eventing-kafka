@@ -50,7 +50,7 @@ func NewCustomAdminClient(ctx context.Context, namespace string) (AdminClientInt
 	k8sClient := kubeclient.Get(ctx)
 
 	// Get A List Of The Kafka Secrets
-	kafkaSecrets, err := adminutil.GetKafkaSecrets(k8sClient, namespace)
+	kafkaSecrets, err := adminutil.GetKafkaSecrets(ctx, k8sClient, namespace)
 	if err != nil {
 		logger.Error("Failed To Get Kafka Authentication Secrets", zap.Error(err))
 		return nil, err
