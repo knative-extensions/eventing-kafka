@@ -16,11 +16,11 @@ import (
 	controllerenv "knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/test"
 	controllertest "knative.dev/eventing-kafka/pkg/channel/distributed/controller/test"
-	"knative.dev/eventing/pkg/logging"
 	"knative.dev/pkg/client/injection/kube/client/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment/fake" // Knative Fake Informer Injection
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"    // Knative Fake Informer Injection
 	"knative.dev/pkg/injection"
+	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/system"
 )
@@ -32,7 +32,7 @@ func TestNewController(t *testing.T) {
 	populateEnvironmentVariables(t)
 
 	// Create A Context With Test Logger
-	ctx := logging.WithLogger(context.Background(), logtesting.TestLogger(t).Desugar())
+	ctx := logging.WithLogger(context.Background(), logtesting.TestLogger(t))
 
 	// Register Fake Informers (See Injection "_" Imports Above!)
 	ctx, fakeInformers := injection.Fake.SetupInformers(ctx, &rest.Config{})

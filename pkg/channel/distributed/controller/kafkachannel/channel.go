@@ -27,7 +27,7 @@ func (r *Reconciler) reconcileChannel(ctx context.Context, channel *kafkav1beta1
 	logger := util.ChannelLogger(r.logger, channel)
 
 	// Reconcile The KafkaChannel's Service
-	err := r.reconcileKafkaChannelService(channel)
+	err := r.reconcileKafkaChannelService(ctx, channel)
 	if err != nil {
 		controller.GetEventRecorder(ctx).Eventf(channel, corev1.EventTypeWarning, event.KafkaChannelServiceReconciliationFailed.String(), "Failed To Reconcile KafkaChannel Service: %v", err)
 		logger.Error("Failed To Reconcile KafkaChannel Service", zap.Error(err))
@@ -47,7 +47,7 @@ func (r *Reconciler) reconcileChannel(ctx context.Context, channel *kafkav1beta1
 //
 
 // Reconcile The KafkaChannel Service
-func (r *Reconciler) reconcileKafkaChannelService(channel *kafkav1beta1.KafkaChannel) error {
+func (r *Reconciler) reconcileKafkaChannelService(ctx context.Context, channel *kafkav1beta1.KafkaChannel) error {
 
 	// Attempt To Get The Service Associated With The Specified Channel
 	service, err := r.getKafkaChannelService(channel)
@@ -57,7 +57,7 @@ func (r *Reconciler) reconcileKafkaChannelService(channel *kafkav1beta1.KafkaCha
 		if errors.IsNotFound(err) {
 			r.logger.Info("KafkaChannel Service Not Found - Creating New One")
 			service = r.newKafkaChannelService(channel)
-			service, err = r.kubeClientset.CoreV1().Services(service.Namespace).Create(service)
+			service, err = r.kubeClientset.CoreV1().Services(service.Namespace).Create(ctx, service, metav1.CreateOptions{})
 			if err != nil {
 				r.logger.Error("Failed To Create KafkaChannel Service", zap.Error(err))
 				channel.Status.MarkChannelServiceFailed(event.KafkaChannelServiceReconciliationFailed.String(), "Failed To Create KafkaChannel Service: %v", err)

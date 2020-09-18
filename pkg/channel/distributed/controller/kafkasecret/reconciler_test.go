@@ -13,11 +13,11 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/kafkasecretinjection"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/test"
-	"knative.dev/eventing/pkg/logging"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
 	. "knative.dev/pkg/reconciler/testing"
 )
@@ -233,7 +233,7 @@ func TestReconcile(t *testing.T) {
 	logger := logtesting.TestLogger(t)
 	tableTest.Test(t, test.MakeFactory(func(ctx context.Context, listers *test.Listers, cmw configmap.Watcher) controller.Reconciler {
 		r := &Reconciler{
-			logger:             logging.FromContext(ctx),
+			logger:             logging.FromContext(ctx).Desugar(),
 			kubeClientset:      kubeclient.Get(ctx),
 			environment:        test.NewEnvironment(),
 			config:             test.NewConfig(),

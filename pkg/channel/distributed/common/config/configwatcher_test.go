@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/constants"
 	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
@@ -47,12 +47,12 @@ func TestInitializeConfigWatcher(t *testing.T) {
 
 	// The configWatcherHandler should change the nil "watchedConfigMap" to a valid ConfigMap when the watcher triggers
 
-	testConfigMap, err := fakeK8sClient.CoreV1().ConfigMaps(system.Namespace()).Get(SettingsConfigMapName, v1.GetOptions{})
+	testConfigMap, err := fakeK8sClient.CoreV1().ConfigMaps(system.Namespace()).Get(ctx, SettingsConfigMapName, metav1.GetOptions{})
 	assert.Nil(t, err)
 	assert.Equal(t, testConfigMap.Data["sarama"], commontesting.OldSaramaConfig)
 
 	// Perform The Test (Initialize The Observability Watcher)
-	err = InitializeConfigWatcher(logger, ctx, configWatcherHandler)
+	err = InitializeConfigWatcher(ctx, logger, configWatcherHandler)
 	assert.Nil(t, err)
 
 	// Wait for the configWatcherHandler to be called (happens pretty quickly; loop usually only runs once)
@@ -68,7 +68,7 @@ func TestInitializeConfigWatcher(t *testing.T) {
 	// The configWatcherHandler should change this back to a valid ConfigMap
 	setWatchedMap(nil)
 
-	testConfigMap, err = fakeK8sClient.CoreV1().ConfigMaps(system.Namespace()).Update(testConfigMap)
+	testConfigMap, err = fakeK8sClient.CoreV1().ConfigMaps(system.Namespace()).Update(ctx, testConfigMap, metav1.UpdateOptions{})
 	assert.Nil(t, err)
 	assert.Equal(t, testConfigMap.Data["sarama"], commontesting.NewSaramaConfig)
 
@@ -104,7 +104,7 @@ func TestLoadSettingsConfigMap(t *testing.T) {
 	configMap := commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, commontesting.TestEKConfig)
 	fakeK8sClient := fake.NewSimpleClientset(configMap)
 
-	getConfigMap, err := LoadSettingsConfigMap(fakeK8sClient)
+	getConfigMap, err := LoadSettingsConfigMap(context.Background(), fakeK8sClient)
 	assert.Nil(t, err)
 	assert.Equal(t, configMap.Data[SaramaSettingsConfigKey], getConfigMap.Data[SaramaSettingsConfigKey])
 }

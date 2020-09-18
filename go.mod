@@ -14,15 +14,15 @@ require (
 	github.com/stretchr/testify v1.6.0
 	go.opencensus.io v0.22.5-0.20200716030834-3456e1d174b2
 	go.uber.org/zap v1.15.0
-	golang.org/x/net v0.0.0-20200707034311-ab3426394381
+	golang.org/x/net v0.0.0-20200822124328-c89045814202
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
-	k8s.io/api v0.18.7-rc.0
-	k8s.io/apimachinery v0.18.7-rc.0
-	k8s.io/client-go v12.0.0+incompatible
-	knative.dev/eventing v0.17.3
-	knative.dev/eventing-contrib v0.17.1-0.20200907043632-edd3889e77fd
-	knative.dev/pkg v0.0.0-20200904035731-2fee224e95fb
-	knative.dev/test-infra v0.0.0-20200903224831-db6c5b50714c
+	k8s.io/api v0.18.8
+	k8s.io/apimachinery v0.18.8
+	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
+	knative.dev/eventing v0.17.1-0.20200917130042-886594db5d01
+	knative.dev/eventing-contrib v0.17.1-0.20200918150945-976d3638b6f2
+	knative.dev/pkg v0.0.0-20200916171541-6e0430fd94db
+	knative.dev/test-infra v0.0.0-20200916223841-d362984af929
 	pack.ag/amqp v0.12.4 // indirect
 )
 
@@ -30,9 +30,9 @@ replace (
 	github.com/Azure/go-autorest => github.com/Azure/go-autorest v12.3.0+incompatible
 	github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 => github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.0.1-0.20200608152019-2ab697c8fc0b
 	github.com/cloudevents/sdk-go/v2 => github.com/cloudevents/sdk-go/v2 v2.0.1-0.20200608152019-2ab697c8fc0b
-	k8s.io/api => k8s.io/api v0.17.6
-	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.17.6
-	k8s.io/apimachinery => k8s.io/apimachinery v0.17.6
-	k8s.io/client-go => k8s.io/client-go v0.17.6
-	k8s.io/code-generator => k8s.io/code-generator v0.17.6
+	k8s.io/api => k8s.io/api v0.18.8
+	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.18.8
+	k8s.io/apimachinery => k8s.io/apimachinery v0.18.8
+	k8s.io/client-go => k8s.io/client-go v0.18.8
+	k8s.io/code-generator => k8s.io/code-generator v0.18.8
 )

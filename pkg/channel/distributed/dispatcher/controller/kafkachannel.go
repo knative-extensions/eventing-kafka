@@ -3,9 +3,12 @@ package controller
 import (
 	"context"
 	"fmt"
+	"reflect"
+
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -20,7 +23,6 @@ import (
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
-	"reflect"
 )
 
 const (
@@ -135,7 +137,7 @@ func (r Reconciler) Reconcile(ctx context.Context, key string) error {
 		r.recorder.Event(channel, corev1.EventTypeNormal, channelReconciled, "KafkaChannel Reconciled")
 	}
 
-	_, updateStatusErr := r.updateStatus(channel)
+	_, updateStatusErr := r.updateStatus(ctx, channel)
 	if updateStatusErr != nil {
 		r.logger.Error("Failed To Update KafkaChannel Status", zap.Error(updateStatusErr))
 		r.recorder.Eventf(channel, corev1.EventTypeWarning, channelUpdateStatusFailed, "Failed to update KafkaChannel's status: %v", updateStatusErr)
@@ -202,7 +204,7 @@ func (r *Reconciler) createSubscribableStatus(subscribers []eventingduck.Subscri
 	}
 }
 
-func (r *Reconciler) updateStatus(desired *kafkav1beta1.KafkaChannel) (*kafkav1beta1.KafkaChannel, error) {
+func (r *Reconciler) updateStatus(ctx context.Context, desired *kafkav1beta1.KafkaChannel) (*kafkav1beta1.KafkaChannel, error) {
 	kc, err := r.kafkachannelLister.KafkaChannels(desired.Namespace).Get(desired.Name)
 	if err != nil {
 		return nil, err
@@ -216,6 +218,6 @@ func (r *Reconciler) updateStatus(desired *kafkav1beta1.KafkaChannel) (*kafkav1b
 	// Don't modify the informers copy.
 	existing := kc.DeepCopy()
 	existing.Status = desired.Status
-	updated, err := r.kafkaClientSet.MessagingV1beta1().KafkaChannels(desired.Namespace).UpdateStatus(existing)
+	updated, err := r.kafkaClientSet.MessagingV1beta1().KafkaChannels(desired.Namespace).UpdateStatus(ctx, existing, metav1.UpdateOptions{})
 	return updated, err
 }

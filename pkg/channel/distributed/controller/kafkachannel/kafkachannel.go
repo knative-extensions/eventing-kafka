@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"go.uber.org/zap"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kafkav1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
 	commonk8s "knative.dev/eventing-kafka/pkg/channel/distributed/common/k8s"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
@@ -13,13 +14,13 @@ import (
 )
 
 // Reconcile The KafkaChannel Itself - After Channel Reconciliation (Add MetaData)
-func (r *Reconciler) reconcileKafkaChannel(_ context.Context, channel *kafkav1beta1.KafkaChannel) error {
+func (r *Reconciler) reconcileKafkaChannel(ctx context.Context, channel *kafkav1beta1.KafkaChannel) error {
 
 	// Get Channel Specific Logger
 	logger := util.ChannelLogger(r.logger, channel)
 
 	// Reconcile The KafkaChannel's MetaData
-	err := r.reconcileMetaData(channel)
+	err := r.reconcileMetaData(ctx, channel)
 	if err != nil {
 		logger.Error("Failed To Reconcile KafkaChannel MetaData", zap.Error(err))
 		return fmt.Errorf("failed to reconcile kafkachannel metadata")
@@ -30,7 +31,7 @@ func (r *Reconciler) reconcileKafkaChannel(_ context.Context, channel *kafkav1be
 }
 
 // Reconcile The KafkaChannels MetaData (Annotations, Labels, etc...)
-func (r *Reconciler) reconcileMetaData(channel *kafkav1beta1.KafkaChannel) error {
+func (r *Reconciler) reconcileMetaData(ctx context.Context, channel *kafkav1beta1.KafkaChannel) error {
 
 	// Update The MetaData (Annotations, Labels, etc...)
 	annotationsModified := r.reconcileAnnotations(channel)
@@ -40,7 +41,7 @@ func (r *Reconciler) reconcileMetaData(channel *kafkav1beta1.KafkaChannel) error
 	if annotationsModified || labelsModified {
 
 		// Then Persist Changes To Kubernetes
-		_, err := r.kafkaClientSet.MessagingV1beta1().KafkaChannels(channel.Namespace).Update(channel)
+		_, err := r.kafkaClientSet.MessagingV1beta1().KafkaChannels(channel.Namespace).Update(ctx, channel, metav1.UpdateOptions{})
 		if err != nil {
 			r.logger.Error("Failed To Update KafkaChannel MetaData", zap.Error(err))
 			return err

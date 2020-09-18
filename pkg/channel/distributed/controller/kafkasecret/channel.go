@@ -29,7 +29,7 @@ func (r *Reconciler) reconcileChannel(ctx context.Context, secret *corev1.Secret
 	logger := util.SecretLogger(r.logger, secret)
 
 	// Reconcile The Channel's Service
-	serviceErr := r.reconcileChannelService(secret)
+	serviceErr := r.reconcileChannelService(ctx, secret)
 	if serviceErr != nil {
 		controller.GetEventRecorder(ctx).Eventf(secret, corev1.EventTypeWarning, event.ChannelServiceReconciliationFailed.String(), "Failed To Reconcile Channel Service: %v", serviceErr)
 		logger.Error("Failed To Reconcile Channel Service", zap.Error(serviceErr))
@@ -38,7 +38,7 @@ func (r *Reconciler) reconcileChannel(ctx context.Context, secret *corev1.Secret
 	}
 
 	// Reconcile The Channel's Deployment
-	deploymentErr := r.reconcileChannelDeployment(secret)
+	deploymentErr := r.reconcileChannelDeployment(ctx, secret)
 	if deploymentErr != nil {
 		controller.GetEventRecorder(ctx).Eventf(secret, corev1.EventTypeWarning, event.ChannelDeploymentReconciliationFailed.String(), "Failed To Reconcile Channel Deployment: %v", deploymentErr)
 		logger.Error("Failed To Reconcile Channel Deployment", zap.Error(deploymentErr))
@@ -47,7 +47,8 @@ func (r *Reconciler) reconcileChannel(ctx context.Context, secret *corev1.Secret
 	}
 
 	// Reconcile Channel's KafkaChannel Status
-	statusErr := r.reconcileKafkaChannelStatus(secret,
+	statusErr := r.reconcileKafkaChannelStatus(ctx,
+		secret,
 		serviceErr == nil, event.ChannelServiceReconciliationFailed.String(), fmt.Sprintf("Channel Service Failed: %v", serviceErr),
 		deploymentErr == nil, event.ChannelDeploymentReconciliationFailed.String(), fmt.Sprintf("Channel Deployment Failed: %v", deploymentErr))
 	if statusErr != nil {
@@ -70,7 +71,7 @@ func (r *Reconciler) reconcileChannel(ctx context.Context, secret *corev1.Secret
 //
 
 // Reconcile The Kafka Channel Service
-func (r *Reconciler) reconcileChannelService(secret *corev1.Secret) error {
+func (r *Reconciler) reconcileChannelService(ctx context.Context, secret *corev1.Secret) error {
 
 	// Attempt To Get The Service Associated With The Specified Secret
 	service, err := r.getChannelService(secret)
@@ -82,7 +83,7 @@ func (r *Reconciler) reconcileChannelService(secret *corev1.Secret) error {
 			// Then Create The New Kafka Channel Service
 			r.logger.Info("Channel Service Not Found - Creating New One")
 			service = r.newChannelService(secret)
-			service, err = r.kubeClientset.CoreV1().Services(service.Namespace).Create(service)
+			service, err = r.kubeClientset.CoreV1().Services(service.Namespace).Create(ctx, service, metav1.CreateOptions{})
 			if err != nil {
 				r.logger.Error("Failed To Create Channel Service", zap.Error(err))
 				return err
@@ -167,7 +168,7 @@ func (r *Reconciler) newChannelService(secret *corev1.Secret) *corev1.Service {
 //
 
 // Reconcile The Kafka Channel Deployment
-func (r *Reconciler) reconcileChannelDeployment(secret *corev1.Secret) error {
+func (r *Reconciler) reconcileChannelDeployment(ctx context.Context, secret *corev1.Secret) error {
 
 	// Attempt To Get The KafkaChannel Deployment Associated With The Specified Channel
 	deployment, err := r.getChannelDeployment(secret)
@@ -183,7 +184,7 @@ func (r *Reconciler) reconcileChannelDeployment(secret *corev1.Secret) error {
 				r.logger.Error("Failed To Create KafkaChannel Deployment YAML", zap.Error(err))
 				return err
 			} else {
-				deployment, err = r.kubeClientset.AppsV1().Deployments(deployment.Namespace).Create(deployment)
+				deployment, err = r.kubeClientset.AppsV1().Deployments(deployment.Namespace).Create(ctx, deployment, metav1.CreateOptions{})
 				if err != nil {
 					r.logger.Error("Failed To Create KafkaChannel Deployment", zap.Error(err))
 					return err

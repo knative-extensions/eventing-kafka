@@ -1,7 +1,10 @@
 package util
 
 import (
+	"context"
 	"errors"
+	"testing"
+
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -9,7 +12,6 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 	logtesting "knative.dev/pkg/logging/testing"
-	"testing"
 )
 
 // Test The GetKafkaSecrets() Functionality
@@ -31,7 +33,7 @@ func TestGetKafkaSecrets(t *testing.T) {
 	k8sClient := fake.NewSimpleClientset(kafkaSecret1, kafkaSecret2, kafkaSecret3)
 
 	// Perform The Test
-	kafkaSecretList, err := GetKafkaSecrets(k8sClient, k8sNamespace1)
+	kafkaSecretList, err := GetKafkaSecrets(context.Background(), k8sClient, k8sNamespace1)
 
 	// Verify The Results
 	assert.Nil(t, err)
