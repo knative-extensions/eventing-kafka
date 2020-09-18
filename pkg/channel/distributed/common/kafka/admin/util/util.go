@@ -2,7 +2,7 @@ package util
 
 import (
 	"context"
-	
+
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"

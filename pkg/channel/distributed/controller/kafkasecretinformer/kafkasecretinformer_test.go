@@ -2,6 +2,7 @@ package kafkasecretinformer
 
 import (
 	"context"
+	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"k8s.io/client-go/kubernetes/fake"
@@ -10,7 +11,6 @@ import (
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
 	_ "knative.dev/pkg/system/testing"
-	"testing"
 )
 
 // Test The Get() Functionality
