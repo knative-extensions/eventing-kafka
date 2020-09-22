@@ -18,11 +18,12 @@ limitations under the License.
 package e2e
 
 import (
-"context"
-	"knative.dev/eventing/pkg/apis/eventing"
+	"context"
 	"testing"
 
-"knative.dev/eventing/test/e2e/helpers"
+	"knative.dev/eventing/pkg/apis/eventing"
+
+	"knative.dev/eventing/test/e2e/helpers"
 )
 
 func TestBrokerChannelFlowTriggerV1BrokerV1(t *testing.T) {
