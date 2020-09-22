@@ -69,7 +69,7 @@ e2e-tests.sh directly.
 ./test/e2e-tests.sh --run-tests
 
 # Skip Cluster Creation & Knative Eventing Setup - Use Existing K8S Cluster With Eventing Pre-Installed
-kubectl apply --filename https://github.com/knative/eventing/releases/download/v0.15.1/eventing.yaml
+kubectl apply --filename https://github.com/knative/eventing/releases/download/v0.17.3/eventing.yaml
 ./test/e2e-tests.sh --run-tests --skip-knative-setup
 
 # Prevent TearDown Of Tests In Order To Debug Failures
