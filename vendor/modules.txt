@@ -1302,6 +1302,8 @@ knative.dev/test-infra/scripts
 ## explicit
 pack.ag/amqp
 pack.ag/amqp/internal/testconn
+# sigs.k8s.io/kubetest2 v0.0.0-20200918022045-e91d3276a9e4
+## explicit
 # sigs.k8s.io/structured-merge-diff/v3 v3.0.1-0.20200706213357-43c19bbb7fba
 sigs.k8s.io/structured-merge-diff/v3/value
 # sigs.k8s.io/yaml v1.2.0
