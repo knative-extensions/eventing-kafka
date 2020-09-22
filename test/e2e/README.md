@@ -12,8 +12,8 @@ To run these tests manually against a local valid e2e test cluster...
 # Run All E2E Tests Against KafkaChannels
 go test -v -tags=e2e -count=1 ./test/e2e/... -channels=messaging.knative.dev/v1beta1:KafkaChannel
 
-# Run A Specific E2E Test Against KafkaChannels
-go test -v -tags e2e -count=1 ./test/e2e/... -channels=messaging.knative.dev/v1beta1:KafkaChannel -run TestSingleBinaryEventForChannel
+# Run A Specific E2E Test Against KafkaChannels, e.g. TestSingleBinaryEventForChannelV1
+go test -v -tags e2e -count=1 ./test/e2e/... -channels=messaging.knative.dev/v1beta1:KafkaChannel -run TestSingleBinaryEventForChannelV1
 ```
 
 > NOTE: Make sure you have built the [test_images](../README.md#test-images)!

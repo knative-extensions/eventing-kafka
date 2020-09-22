@@ -22,7 +22,7 @@
 # and run the tests.
 # Note that local clusters often do not have the resources to run 12 parallel
 # tests (the default) as the tests each tend to create their own namespaces and
-# dispatchers.  For example, a local Docker cluster with 4 CPUs and 8 GB will
+# dispatchers.  For example, a local Docker cluster with 4 CPUs and 8 GB RAM will
 # probably be able to handle 6 at maximum.  Be sure to adequately set the
 # MAX_PARALLEL_TESTS variable before running this script.
 
@@ -33,7 +33,6 @@
 # Variables supported by this script:
 # PROJECT_ID:  the GKR project in which to create the new cluster (unless using "--run-tests")
 # MAX_PARALLEL_TESTS:  The maximum number of go tests to run in parallel (via "-test.parallel", default 12)
-# DOCKER_CONFIG_JSON:  The value to use for the .dockerconfigjson field of the kn-eventing-test-pull-secret secret
 
 TEST_PARALLEL=${MAX_PARALLEL_TESTS:-12}
 
@@ -152,12 +151,6 @@ function knative_setup() {
     ko apply -f ${EVENTING_MT_CHANNEL_BROKER_CONFIG}
     popd
   fi
-
-  # Install The Multi-Tenant Channel Broker (Required For Broker Tests)
-  # TODO:  No longer required?
-  #  KNATIVE_EVENTING_RELEASE_BROKER="$(get_latest_knative_yaml_source "eventing" "mt-channel-broker")"
-  #  echo ">> Install MT-Channel-Broker from ${KNATIVE_EVENTING_RELEASE_BROKER}"
-  #  kubectl apply -f "${KNATIVE_EVENTING_RELEASE_BROKER}"
 
   # Add The kn-eventing-test-pull-secret (If Present) To ServiceAccounts & Restart Deployments
   for name in eventing-controller eventing-webhook mt-broker-filter mt-broker-ingress pingsource-mt-adapter; do

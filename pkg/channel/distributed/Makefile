@@ -67,6 +67,16 @@ test-receiver:
 	cd $(BUILD_ROOT); go test -race -v ./receiver/... -coverprofile ${RECEIVER_BUILD_DIR}/coverage.out
 	cd $(BUILD_ROOT); go tool cover -func=${RECEIVER_BUILD_DIR}/coverage.out
 
-test-all: test-common test-controller test-dispatcher test-receiver
+test-conformance:
+	@echo 'Testing Conformance'
+	cd $(BUILD_ROOT); go test -v -tags=e2e ./test/conformance/... -channels=messaging.knative.dev/vbeta1:KafkaChannel -tag=e2e
 
-.PHONY: test-common test-controller test-dispatcher test-receiver test-all
+test-e2e:
+	@echo 'Testing E2E'
+	cd $(BUILD_ROOT); go test -v -tags=e2e ./test/e2e/... -channels=messaging.knative.dev/v1beta1:KafkaChannel -tag=e2e
+
+test-unit: test-common test-receiver test-controller test-dispatcher
+
+test-integration: test-conformance test-e2e
+
+.PHONY: test-common test-controller test-dispatcher test-receiver test-conformance test-e2e test-unit test-integration

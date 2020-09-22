@@ -16,24 +16,12 @@ Knative testing documentation such as...
 
 ## Unit Tests
 
-The Unit Tests are run by Prow for all Pull Requests.  They are executed by Prow via the [
-pre-submit-tests.sh](./presubmit-tests.sh) script with the `--unit-tests` argument.
-
-The project [Makefile](../Makefile) contains convenience targets for executing the unit-tests
-for various portions of the project with a code coverage summary...
+The Unit Tests are run by Prow for all Pull Requests.  They are executed by Prow via the
+[pre-submit-tests.sh](./presubmit-tests.sh) script with the `--unit-tests` argument.
+Or you can always run them manually via the `go test` cmd line...
 
 ```
-make test-unit        # All Unit Tests        ( ../pkg/           )
-make test-channel     # Channel Unit Tests    ( ../pkg/channel    )
-make test-common      # Common Unit Tests     ( ../pkg/common     )
-make test-controller  # Controller Unit Tests ( ../pkg/controller )
-make test-dispatcher  # Dispatcher Unit Tests ( ../pkg/dispatcher )
-```
-
-...or you can always run them manually via the `go test` cmd line...
-
-```
-go test -v pkg/channel/...
+go test -v pkg/channel/distributed/...
 ```
 
 ## Integration Tests
@@ -45,11 +33,6 @@ script will cause them to be run in that use case.
 
 For local development / maintenance of the tests however, it is convenient to be able to run them
 in various manners which are described here.
-
->Note - The eventing-kafka project currently has a dependency on the librdkafka C library which
->requires it to be built in a Docker Container matching the target environment.  Therefore, when
->developing locally (on MacOS for instance) you will need to use the [local-dev.sh](../hack/local-dev.sh)
->hack script to start a compliant Docker container / shell when running these commands.
 
 ### Pre-Submit Script
 
@@ -74,7 +57,9 @@ The [`e2e-tests.sh`](./e2e-tests.sh) script is the entry point for running all t
 
 By default, it will create a new GKE cluster in project `$PROJECT_ID`, start Knative Eventing,
 upload test images to `$KO_DOCKER_REPO`, and run the `conformance` and `e2e` tests. After the
-tests finishes, it will delete the cluster.
+tests finishes, it will delete the cluster.  To skip cluster teardown for diagnostic purposes,
+"--skip-teardowns" can be added to the script arguments or to the initialize command in
+e2e-tests.sh directly.
 
 ```
 # Complete Tests (Create & Initialize K8S Cluster)
@@ -91,6 +76,11 @@ kubectl apply --filename https://github.com/knative/eventing/releases/download/v
 ./test/e2e-tests.sh --run-tests --skip-teardowns
 ```
 
+Note that local clusters often do not have the resources to run 12 parallel tests (the default) as the
+tests each tend to create their own namespaces and dispatchers which require a number of cluster resources.
+For example, a local Docker cluster with 4 CPUs and 8 GB of RAM will probably be able to handle 6 at maximum.
+Be sure to adequately set the MAX_PARALLEL_TESTS variable before running this script on a local cluster.
+
 >Remember to provide the `kn-eventing-test-pull-secret` K8S Secret as described
 >in [Private Docker Repositories](#private-docker-repositories) when using an existing cluster.
 
@@ -102,7 +92,7 @@ Optionally you can set the following environment variable to force a specific Kn
 release...
 
 ```
-export KNATIVE_EVENTING_RELEASE_OVERRIDE="v0.15.1"
+export KNATIVE_EVENTING_RELEASE_OVERRIDE="v0.17.3"
 ```
 
 ### GO Test Cmd
@@ -113,10 +103,6 @@ includes Knative-Eventing, a Kafka Cluster, and the KafkaChannel CR implementati
 current `kubeconfig` should refer to the cluster.  Further, you are responsible for providing
 the Knative Eventing [Test Images](#test-images) which are normally built for you when running
 the [e2e-tests.sh](./e2e-tests.sh) script.
-
-Unlike the test scripts described above you don't need to run these tests from within the custom
-Docker container / shell setup by [local-dev.sh](../hack/local-dev.sh), but can run them directly
-from the root of the project.
 
 ```
 # Run All The Conformance Tests Against The KafkaChannel
@@ -171,9 +157,8 @@ file as well. When uploading test images, `ko` will build an image from this fol
 If you are using a private Docker repository, then you will have to ensure that you are locally
 authenticated, and that your local docker is configured to use that repository.
 
-You will need to set the `$KO_DOCKER_REPO` environment variable to refer to your private Docker Repo, and
-to pass that value as `--korepo=$KO_DOCKER_REPO` when using the [local-dev.sh](../hack/local-dev.sh) script.
-The script and Docker container currently only supports GCR authentication, but others can be added as needed.
+You will need to set the `$KO_DOCKER_REPO` environment variable to refer to your private Docker Repo when
+running the [e2e-tests.sh](./e2e-tests.sh) script manually.
 
 The K8S cluster used in the integration and performance tests will need to have proper credentials in order
 to pull the `test_images` and other artifacts.  As discussed in the Knative Eventing
