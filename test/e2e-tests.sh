@@ -298,31 +298,13 @@ function test_teardown() {
   channel_teardown
 }
 
-# If the Docker config JSON was provided via variable, create the secret in the default namespace first
-if [[ ! -z "${DOCKER_CONFIG_JSON}" ]]; then
-  kubectl create -f - <<EOF
-apiVersion: v1
-data:
-  .dockerconfigjson: ${DOCKER_CONFIG_JSON}
-kind: Secret
-metadata:
-  name: kn-eventing-test-pull-secret
-  namespace: default
-type: kubernetes.io/dockerconfigjson
-EOF
-fi
-
 if [[ "$@" =~ "--run-tests" ]]; then
   # If the local test-created clusterrolebinding is still in place, it needs to be removed or the initialize call will fail.
-  # This may be a bug in the acquire_cluster_admin_role() function in test-infra/scripts/infra-library.sh as it only
-  # checks the "cluster-admin-binding" role and not the per-user role that is created for a local test.
+  # See https://github.com/knative/test-infra/issues/2446
   kubectl delete clusterrolebindings.rbac.authorization.k8s.io "cluster-admin-binding-${USER}" 2> /dev/null
-fi
-
-# If trying to create a remote cluster, the "kubetest2" utility must be installed.  The create_gke_test_cluster_with_retries()
-# function in test-infra/scripts/infra-library.sh attempts to use "go get" to install it, but with an invalid path (bug?), so
-# we install it here pre-emptively if necessary
-if [[ ! -x "$(command -v kubetest2)" ]]; then
+elif [[ ! -x "$(command -v kubetest2)" ]]; then
+  # If creating a remote cluster, the "kubetest2" utility must be installed.
+  # If it is not already available we attempt to install it here
   GO111MODULE=on go get sigs.k8s.io/kubetest2/kubetest2-gke@latest
   GO111MODULE=on go get sigs.k8s.io/kubetest2/kubetest2-tester-exec@latest
 fi
