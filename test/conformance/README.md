@@ -1,6 +1,7 @@
 # Conformance Tests
 
-Conformance tests verify the eventing-kafka / KafkaChannel implementation follows the
+Conformance tests verify the eventing-kafka / KafkaChannel implementation
+follows the
 [Knative Eventing API Specifications](https://github.com/knative/eventing/tree/master/docs/spec).
 
 ## Running Conformance Tests

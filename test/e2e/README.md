@@ -1,8 +1,7 @@
-
 # E2E Tests
 
-E2E tests verify the eventing-kafka / KafkaChannel implementation sends
-events as expected in various scenarios (chained, backing brokers, etc).
+E2E tests verify the eventing-kafka / KafkaChannel implementation sends events
+as expected in various scenarios (chained, backing brokers, etc).
 
 ## Running E2E Tests
 
