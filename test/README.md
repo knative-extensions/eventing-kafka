@@ -161,9 +161,9 @@ sed -i 's@knative.dev/eventing-kafka/vendor/knative.dev/eventing/test/test_image
 > You cannot use `ko.local` for the Knative Eventing `test_images` because they
 > will be deployed with an `ImagePullPolicy` of `Always` which will bypass the
 > local docker repo.
+>
 > See [Private Docker Repositories](#private-docker-repositories) for further
-> information.
-> Note - See [MacOS Utils](#macos-utils) when running on Mac and
+> information. Note - See [MacOS Utils](#macos-utils) when running on Mac and
 > replace `sed` in above commands with `gsed`.
 
 New test images should be placed in `./test/test_images`. For each image create
