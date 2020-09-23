@@ -25,7 +25,6 @@ require (
 	knative.dev/pkg v0.0.0-20200916171541-6e0430fd94db
 	knative.dev/test-infra v0.0.0-20200916223841-d362984af929
 	pack.ag/amqp v0.12.4 // indirect
-	sigs.k8s.io/kubetest2 v0.0.0-20200918022045-e91d3276a9e4 // indirect
 )
 
 replace (

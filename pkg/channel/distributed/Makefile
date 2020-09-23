@@ -69,11 +69,11 @@ test-receiver:
 
 test-conformance:
 	@echo 'Testing Conformance'
-	cd $(BUILD_ROOT); go test -v -tags=e2e ./test/conformance/... -channels=messaging.knative.dev/vbeta1:KafkaChannel -tag=e2e
+	cd $(BUILD_ROOT); go test -tags e2e -test.v -test.parallel=6 ../../../test/conformance -channels=messaging.knative.dev/v1beta1:KafkaChannel
 
 test-e2e:
 	@echo 'Testing E2E'
-	cd $(BUILD_ROOT); go test -v -tags=e2e ./test/e2e/... -channels=messaging.knative.dev/v1beta1:KafkaChannel -tag=e2e
+	cd $(BUILD_ROOT); go test -tags e2e -test.v -test.parallel=6 ../../../test/e2e -channels=messaging.knative.dev/v1beta1:KafkaChannel
 
 test-unit: test-common test-receiver test-controller test-dispatcher
 

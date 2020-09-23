@@ -112,19 +112,6 @@ as follows...
 
 - [config](../../../config/channel/distributed/README.md) - Eventing-kafka **ko** installable YAML files for installation.
 
-### Makefile
- 
-The project [Makefile](../Makefile) contains convenience targets for executing the unit-tests
-for various portions of the project with a code coverage summary...
-
-```
-make test-unit        # All Unit Tests        ( ../pkg/channel/distributed            )
-make test-receiver    # Receiver Unit Tests   ( ../pkg/channel/distributed/receiver   )
-make test-common      # Common Unit Tests     ( ../pkg/channel/distributed/common     )
-make test-controller  # Controller Unit Tests ( ../pkg/channel/distributed/controller )
-make test-dispatcher  # Dispatcher Unit Tests ( ../pkg/channel/distributed/dispatcher )
-```
-
 ### Control Plane
 
 The control plane for the Kafka Channels is managed by the

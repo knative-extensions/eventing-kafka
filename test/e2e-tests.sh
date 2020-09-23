@@ -293,7 +293,7 @@ function test_teardown() {
 
 if [[ "$@" =~ "--run-tests" ]]; then
   # If the local test-created clusterrolebinding is still in place, it needs to be removed or the initialize call will fail.
-  # See https://github.com/knative/test-infra/issues/2446
+  # See https://github.com/knative/test-infra/issues/2446 (remove this kubectl delete command when fix is merged)
   kubectl delete clusterrolebindings.rbac.authorization.k8s.io "cluster-admin-binding-${USER}" 2> /dev/null
 elif [[ ! -x "$(command -v kubetest2)" ]]; then
   # If creating a remote cluster, the "kubetest2" utility must be installed.
