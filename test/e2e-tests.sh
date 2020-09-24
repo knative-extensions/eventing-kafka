@@ -51,7 +51,6 @@ fi
 # Eventing main config path from HEAD.
 readonly EVENTING_CONFIG="./config/"
 readonly EVENTING_MT_CHANNEL_BROKER_CONFIG="./config/brokers/mt-channel-broker"
-readonly EVENTING_IN_MEMORY_CHANNEL_CONFIG="./config/channels/in-memory-channel"
 
 # Config tracing config.
 readonly CONFIG_TRACING_CONFIG="test/config/config-tracing.yaml"
@@ -232,9 +231,6 @@ function channel_setup() {
 
   # Update The Kafka Secret With Strimzi Kafka Cluster Brokers (No Authentication)
   sed -i "s/brokers: RU1QVFk=/brokers: ${STRIMZI_KAFKA_CLUSTER_BROKERS_ENCODED}/" "${EVENTING_KAFKA_CONFIG_TEMP_DIR}/${EVENTING_KAFKA_SECRET_TEMPLATE}"
-  sed -i "s/namespace: RU1QVFk=/namespace: \"\"/" "${EVENTING_KAFKA_CONFIG_TEMP_DIR}/${EVENTING_KAFKA_SECRET_TEMPLATE}"
-  sed -i "s/password: RU1QVFk=/password: \"\"/" "${EVENTING_KAFKA_CONFIG_TEMP_DIR}/${EVENTING_KAFKA_SECRET_TEMPLATE}"
-  sed -i "s/username: RU1QVFk=/username: \"\"/" "${EVENTING_KAFKA_CONFIG_TEMP_DIR}/${EVENTING_KAFKA_SECRET_TEMPLATE}"
 
   # Install The eventing-kafka KafkaChannel Implementation
   ko apply -f "${EVENTING_KAFKA_CONFIG_TEMP_DIR}" || return 1
@@ -291,15 +287,10 @@ function test_teardown() {
   channel_teardown
 }
 
-if [[ "$@" =~ "--run-tests" ]]; then
-  # If the local test-created clusterrolebinding is still in place, it needs to be removed or the initialize call will fail.
-  # See https://github.com/knative/test-infra/issues/2446 (remove this kubectl delete command when fix is merged)
-  kubectl delete clusterrolebindings.rbac.authorization.k8s.io "cluster-admin-binding-${USER}" 2> /dev/null
-elif [[ ! -x "$(command -v kubetest2)" ]]; then
+if [[ ! "$@" =~ "--run-tests" ]] && [[ ! -x "$(command -v kubetest2)" ]]; then
   # If creating a remote cluster, the "kubetest2" utility must be installed.
   # If it is not already available we attempt to install it here
-  GO111MODULE=on go get sigs.k8s.io/kubetest2/kubetest2-gke@latest
-  GO111MODULE=on go get sigs.k8s.io/kubetest2/kubetest2-tester-exec@latest
+  GO111MODULE=on go get sigs.k8s.io/kubetest2/...@latest
 fi
 
 # Initialize The Test Lifecycle (Without Istio)

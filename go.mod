@@ -23,7 +23,7 @@ require (
 	knative.dev/eventing v0.17.1-0.20200917130042-886594db5d01
 	knative.dev/eventing-contrib v0.17.1-0.20200918150945-976d3638b6f2
 	knative.dev/pkg v0.0.0-20200916171541-6e0430fd94db
-	knative.dev/test-infra v0.0.0-20200916223841-d362984af929
+	knative.dev/test-infra v0.0.0-20200924055440-7e083bb00cf9
 	pack.ag/amqp v0.12.4 // indirect
 )
 
