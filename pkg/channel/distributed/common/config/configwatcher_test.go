@@ -97,14 +97,3 @@ func configWatcherHandler(configMap *corev1.ConfigMap) {
 	// Set the package variable to indicate that the test watcher was called
 	setWatchedMap(configMap)
 }
-
-func TestLoadSettingsConfigMap(t *testing.T) {
-	// Not much to this function; just set up a configmap and make sure it gets loaded
-	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, constants.KnativeEventingNamespace))
-	configMap := commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, commontesting.TestEKConfig)
-	fakeK8sClient := fake.NewSimpleClientset(configMap)
-
-	getConfigMap, err := LoadSettingsConfigMap(context.Background(), fakeK8sClient)
-	assert.Nil(t, err)
-	assert.Equal(t, configMap.Data[SaramaSettingsConfigKey], getConfigMap.Data[SaramaSettingsConfigKey])
-}

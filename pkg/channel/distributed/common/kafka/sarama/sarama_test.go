@@ -3,8 +3,8 @@ package sarama
 import (
 	"context"
 	"crypto/tls"
-	"encoding/json"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -226,17 +226,16 @@ func TestMergeSaramaSettings(t *testing.T) {
 	// Get a default Sarama config for verification that we don't overwrite settings when we merge
 	defaultConfig := sarama.NewConfig()
 
-	config := sarama.NewConfig()
 	// Verify a few settings in different parts of two separate sarama.Config structures
 	// Since it's a simple JSON merge we don't need to test every possible value.
-	err := MergeSaramaSettings(config, commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, commontesting.TestEKConfig))
+	config, err := MergeSaramaSettings(nil, commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, commontesting.TestEKConfig))
 	assert.Nil(t, err)
 	assert.NotNil(t, config)
 	assert.Equal(t, commontesting.OldUsername, config.Net.SASL.User)
 	assert.Equal(t, defaultConfig.Producer.Timeout, config.Producer.Timeout)
 	assert.Equal(t, defaultConfig.Consumer.MaxProcessingTime, config.Consumer.MaxProcessingTime)
 
-	err = MergeSaramaSettings(config, commontesting.GetTestSaramaConfigMap(commontesting.NewSaramaConfig, commontesting.TestEKConfig))
+	config, err = MergeSaramaSettings(config, commontesting.GetTestSaramaConfigMap(commontesting.NewSaramaConfig, commontesting.TestEKConfig))
 	assert.Nil(t, err)
 	assert.NotNil(t, config)
 	assert.Equal(t, sarama.V2_3_0_0, config.Version)
@@ -247,30 +246,30 @@ func TestMergeSaramaSettings(t *testing.T) {
 	// Verify error when no Data section is provided
 	configEmpty := commontesting.GetTestSaramaConfigMap(commontesting.NewSaramaConfig, commontesting.TestEKConfig)
 	configEmpty.Data = nil
-	err = MergeSaramaSettings(config, configEmpty)
+	config, err = MergeSaramaSettings(config, configEmpty)
 	assert.NotNil(t, err)
-}
 
-// Verify that a sarama.Config struct can be serialized into a string without causing JSON errors
-func TestMarshalSaramaJSON(t *testing.T) {
-	config := sarama.NewConfig()
-	jsonResult, err := MarshalSaramaJSON(config)
+	// Verify error when an invalid Version is provided
+	configMap := commontesting.GetTestSaramaConfigMap(commontesting.NewSaramaConfig, commontesting.TestEKConfig)
+	regexVersion := regexp.MustCompile(`Version:\s*\d*\.[\d\.]*`)	// Must have at least one period or it will match the "Version: 1" in Net.SASL
+	configMap.Data[commontesting.SaramaSettingsConfigKey] =
+		regexVersion.ReplaceAllString(configMap.Data[commontesting.SaramaSettingsConfigKey], "Version: INVALID")
+	config, err = MergeSaramaSettings(config, configMap)
+	assert.NotNil(t, err)
+
+	// Verify error when an invalid RootPEMs is provided
+	configMap = commontesting.GetTestSaramaConfigMap(EKDefaultSaramaConfigWithRootCert, commontesting.TestEKConfig)
+	regexPEMs := regexp.MustCompile(`-----BEGIN CERTIFICATE-----`)
+	configMap.Data[commontesting.SaramaSettingsConfigKey] =
+		regexPEMs.ReplaceAllString(configMap.Data[commontesting.SaramaSettingsConfigKey], "INVALID CERT DATA")
+	config, err = MergeSaramaSettings(config, configMap)
+	assert.NotNil(t, err)
+
+	// Verify that the RootPEMs section is merged properly
+	configMap = commontesting.GetTestSaramaConfigMap(EKDefaultSaramaConfigWithRootCert, commontesting.TestEKConfig)
+	config, err = MergeSaramaSettings(config, configMap)
 	assert.Nil(t, err)
-	assert.NotEqual(t, "", jsonResult)
-
-	// Verify that we can pull the JSON string back into a sarama.Config struct
-	var newConfig sarama.Config
-	err = json.Unmarshal([]byte(jsonResult), &newConfig)
-	assert.Nil(t, err)
-
-	// Check a few settings and make sure they're the same after the process
-	assert.Equal(t, config.Admin, newConfig.Admin)
-	assert.Equal(t, config.Net.TLS, newConfig.Net.TLS)
-	assert.Equal(t, config.Net.SASL.User, newConfig.Net.SASL.User)
-	assert.Equal(t, config.Net.SASL.Enable, newConfig.Net.SASL.Enable)
-	assert.Equal(t, config.Metadata.RefreshFrequency, newConfig.Metadata.RefreshFrequency)
-	assert.Equal(t, config.Producer.Compression, newConfig.Producer.Compression)
-	assert.Equal(t, config.Consumer.Fetch, newConfig.Consumer.Fetch)
+	assert.NotNil(t, config.Net.TLS.Config.RootCAs)
 }
 
 // Verify that comparisons of sarama config structs function as expected
@@ -310,6 +309,13 @@ func TestSaramaConfigEqual(t *testing.T) {
 
 	config2.RackID = "New Rack ID"
 	assert.True(t, ConfigEqual(config1, config2))
+
+	// Test config with TLS struct
+	config1, err := MergeSaramaSettings(nil, commontesting.GetTestSaramaConfigMap(EKDefaultSaramaConfigWithRootCert, commontesting.TestEKConfig))
+	assert.Nil(t, err)
+	config2, err = MergeSaramaSettings(nil, commontesting.GetTestSaramaConfigMap(EKDefaultSaramaConfigWithRootCert, commontesting.TestEKConfig))
+	assert.Nil(t, err)
+	assert.True(t, ConfigEqual(config1, config2))
 }
 
 func TestLoadEventingKafkaSettings(t *testing.T) {
@@ -325,13 +331,44 @@ func TestLoadEventingKafkaSettings(t *testing.T) {
 	verifyTestEKConfigSettings(t, saramaConfig, eventingKafkaConfig)
 }
 
-func TestLoadConfigFromMap(t *testing.T) {
-	// Set up a configmap and verify that the sarama settings are loaded properly from it
-	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, commonconstants.KnativeEventingNamespace))
-	configMap := commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, commontesting.TestEKConfig)
-	saramaConfig, eventingKafkaConfig, err := LoadConfigFromMap(configMap)
+func TestLoadSettings(t *testing.T) {
+	// Set up a configmap and verify that the sarama and eventing-kafka settings are loaded properly from it
+	ctx := getTestSaramaContext(t, commontesting.OldSaramaConfig, commontesting.TestEKConfig)
+	saramaConfig, eventingKafkaConfig, err := LoadSettings(ctx)
 	assert.Nil(t, err)
 	verifyTestEKConfigSettings(t, saramaConfig, eventingKafkaConfig)
+
+	// Verify that a nil context returns an error
+	saramaConfig, eventingKafkaConfig, err = LoadSettings(nil)
+	assert.NotNil(t, err)
+
+	// Verify that a context with no configmap returns an error
+	ctx = context.WithValue(context.Background(), injectionclient.Key{}, fake.NewSimpleClientset())
+	saramaConfig, eventingKafkaConfig, err = LoadSettings(ctx)
+	assert.NotNil(t, err)
+
+	// Verify that a configmap with no data section returns an error
+	configMap := commontesting.GetTestSaramaConfigMap("", "")
+	configMap.Data = nil
+	ctx = context.WithValue(context.Background(), injectionclient.Key{}, fake.NewSimpleClientset(configMap))
+	saramaConfig, eventingKafkaConfig, err = LoadSettings(ctx)
+	assert.NotNil(t, err)
+
+	// Verify that a configmap with invalid YAML returns an error
+	configMap = commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, "")
+	configMap.Data[commontesting.EventingKafkaSettingsConfigKey] = "\tinvalidYaml"
+	ctx = context.WithValue(context.Background(), injectionclient.Key{}, fake.NewSimpleClientset(configMap))
+	saramaConfig, eventingKafkaConfig, err = LoadSettings(ctx)
+	assert.NotNil(t, err)
+}
+
+func TestLoadEventingKafkaSettings_NoBackoff(t *testing.T) {
+	// Set up a configmap and verify that the eventing-kafka settings are loaded properly from it
+	ctx := getTestSaramaContext(t, commontesting.OldSaramaConfig, TestEKConfigNoBackoff)
+	_, configuration, err := LoadSettings(ctx)
+	assert.Nil(t, err)
+	// Verify that the "RetryExponentialBackoff" field is set properly (bool pointer)
+	assert.Nil(t, configuration.Dispatcher.RetryExponentialBackoff)
 }
 
 func verifyTestEKConfigSettings(t *testing.T, saramaConfig *sarama.Config, eventingKafkaConfig *commonconfig.EventingKafkaConfig) {
@@ -347,18 +384,14 @@ func verifyTestEKConfigSettings(t *testing.T, saramaConfig *sarama.Config, event
 	assert.True(t, *eventingKafkaConfig.Dispatcher.RetryExponentialBackoff)
 }
 
-func TestLoadEventingKafkaSettings_NoBackoff(t *testing.T) {
-	// Set up a configmap and verify that the sarama settings are loaded properly from it
+func getTestSaramaContext(t *testing.T, saramaConfig string, eventingKafkaConfig string) context.Context {
+	// Set up a configmap and return a context containing that configmap (for tests)
 	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, commonconstants.KnativeEventingNamespace))
-	configMap := commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, TestEKConfigNoBackoff)
+	configMap := commontesting.GetTestSaramaConfigMap(saramaConfig, eventingKafkaConfig)
 	fakeK8sClient := fake.NewSimpleClientset(configMap)
-
 	ctx := context.WithValue(context.Background(), injectionclient.Key{}, fakeK8sClient)
-
-	_, configuration, err := LoadSettings(ctx)
-	assert.Nil(t, err)
-	// Verify that the "RetryExponentialBackoff" field is set properly (bool pointer)
-	assert.Nil(t, configuration.Dispatcher.RetryExponentialBackoff)
+	assert.NotNil(t, ctx)
+	return ctx
 }
 
 // Test The ExtractRoots() Functionality

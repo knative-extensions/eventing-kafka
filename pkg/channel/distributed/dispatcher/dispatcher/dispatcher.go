@@ -258,22 +258,12 @@ func (d *DispatcherImpl) ConfigChanged(configMap *v1.ConfigMap) Dispatcher {
 
 	// Create A New Sarama Config
 	d.Logger.Debug("New ConfigMap Received", zap.String("configMap.Name", configMap.ObjectMeta.Name))
-	newConfig := kafkasarama.NewSaramaConfig()
 
-	// In order to compare configs "without the producer section" we use a known-base config
-	// and ensure that those sections are always the same.  The reason we can't just use, for example,
-	// sarama.Config{}.Producer as the empty struct is that the Sarama calls to create objects like ConsumerGroup
-	// still verify that certain fields (such as Producer.MaxMessageBytes) are nonzero and fail otherwise.
-	defaultProducer := newConfig.Producer
-
-	err := kafkasarama.MergeSaramaSettings(newConfig, configMap)
+	newConfig, err := kafkasarama.MergeSaramaSettings(kafkasarama.NewSaramaConfig(), configMap)
 	if err != nil {
 		d.Logger.Error("Unable to merge sarama settings", zap.Error(err))
 		return nil
 	}
-
-	// Don't care about Producer section; everything else is a change that needs to be implemented.
-	newConfig.Producer = defaultProducer
 
 	// Validate Configuration (Should Always Be Present)
 	if d.SaramaConfig != nil {
@@ -281,13 +271,8 @@ func (d *DispatcherImpl) ConfigChanged(configMap *v1.ConfigMap) Dispatcher {
 		// Some of the current config settings may not be overridden by the configmap (username, password, etc.)
 		kafkasarama.UpdateSaramaConfig(newConfig, d.SaramaConfig.ClientID, d.SaramaConfig.Net.SASL.User, d.SaramaConfig.Net.SASL.Password)
 
-		// Create a shallow copy of the current config so that we can empty out the Producer before comparing.
-		configCopy := d.SaramaConfig
-
-		// The current config should theoretically have these sections zeroed already because Reconfigure should have been passed
-		// a newConfig with the structs empty, but this is more explicit as to what our goal is and doesn't hurt.
-		configCopy.Producer = defaultProducer
-		if kafkasarama.ConfigEqual(newConfig, configCopy) {
+		// Ignore the "Producer" section as changes to that do not require recreating the Dispatcher
+		if kafkasarama.ConfigEqual(newConfig, d.SaramaConfig, newConfig.Producer) {
 			d.Logger.Info("No Consumer Changes Detected In New Configuration - Ignoring")
 			return nil
 		}
