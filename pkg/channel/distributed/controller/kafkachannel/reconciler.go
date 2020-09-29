@@ -160,7 +160,7 @@ func (r *Reconciler) reconcile(ctx context.Context, channel *kafkav1beta1.KafkaC
 	}
 
 	//
-	// This implementation is based on the eventing-contrib KafkaChannel, and thus we're using
+	// This implementation is based on the "consolidated" KafkaChannel, and thus we're using
 	// their Status tracking even though it does not align with our architecture.  We get our
 	// Kafka configuration from the "Kafka Secrets" and not a ConfigMap.  Therefore, we will
 	// instead check the Kafka Secret associated with the KafkaChannel here.
