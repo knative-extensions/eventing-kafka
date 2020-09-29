@@ -242,7 +242,7 @@ func TestMergeSaramaSettings(t *testing.T) {
 
 	// Verify error when an invalid Version is provided
 	configMap := commontesting.GetTestSaramaConfigMap(commontesting.NewSaramaConfig, commontesting.TestEKConfig)
-	regexVersion := regexp.MustCompile(`Version:\s*\d*\.[\d\.]*`)	// Must have at least one period or it will match the "Version: 1" in Net.SASL
+	regexVersion := regexp.MustCompile(`Version:\s*\d*\.[\d\.]*`) // Must have at least one period or it will match the "Version: 1" in Net.SASL
 	configMap.Data[commontesting.SaramaSettingsConfigKey] =
 		regexVersion.ReplaceAllString(configMap.Data[commontesting.SaramaSettingsConfigKey], "Version: INVALID")
 	config, err = MergeSaramaSettings(config, configMap)

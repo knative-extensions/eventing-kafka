@@ -5,6 +5,10 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"log"
+	"os"
+	"regexp"
+
 	"github.com/Shopify/sarama"
 	"github.com/ghodss/yaml"
 	"github.com/google/go-cmp/cmp"
@@ -16,9 +20,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/system"
-	"log"
-	"os"
-	"regexp"
 )
 
 // Utility Function For Enabling Sarama Logging (Debugging)

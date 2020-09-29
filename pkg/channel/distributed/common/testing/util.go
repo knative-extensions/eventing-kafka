@@ -1,10 +1,11 @@
 package testing
 
 import (
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 	"net/http"
 	"testing"
 	"time"
+
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 
 	"github.com/Shopify/sarama"
 	"github.com/ghodss/yaml"
