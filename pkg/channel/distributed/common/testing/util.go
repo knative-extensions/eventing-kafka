@@ -1,6 +1,7 @@
 package testing
 
 import (
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 	"net/http"
 	"testing"
 	"time"
@@ -35,10 +36,15 @@ func GetTestSaramaConfigMapNamespaced(name, namespace, saramaConfig, configurati
 	}
 }
 
-func GetDefaultSaramaConfig(t *testing.T, initialConfig *sarama.Config) *sarama.Config {
-	assert.NotNil(t, initialConfig)
-	assert.Nil(t, yaml.Unmarshal([]byte(SaramaDefaultConfigYaml), initialConfig))
-	return initialConfig
+// Obtain A Default Sarama Config With Custom Values For Testing
+func GetDefaultSaramaConfig(t *testing.T) *sarama.Config {
+	config := sarama.NewConfig()
+	config.Version = constants.ConfigKafkaVersionDefault
+	config.Consumer.Return.Errors = true
+	config.Producer.Return.Successes = true
+	assert.NotNil(t, config)
+	assert.Nil(t, yaml.Unmarshal([]byte(SaramaDefaultConfigYaml), config))
+	return config
 }
 
 // Retries an HTTP GET request a specified number of times before giving up

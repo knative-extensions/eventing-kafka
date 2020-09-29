@@ -7,7 +7,6 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/constants"
-	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
 )
 
@@ -35,7 +34,7 @@ func TestCreateAdminClientKafka(t *testing.T) {
 	defer func() { NewKafkaAdminClientWrapper = NewKafkaAdminClientWrapperRef }()
 
 	// Perform The Test
-	adminClient, err := CreateAdminClient(ctx, commontesting.GetDefaultSaramaConfig(t, kafkasarama.NewSaramaConfig()), clientId, adminClientType)
+	adminClient, err := CreateAdminClient(ctx, commontesting.GetDefaultSaramaConfig(t), clientId, adminClientType)
 
 	// Verify The Results
 	assert.Nil(t, err)
@@ -63,7 +62,7 @@ func TestCreateAdminClientEventHub(t *testing.T) {
 	defer func() { NewEventHubAdminClientWrapper = NewEventHubAdminClientWrapperRef }()
 
 	// Perform The Test
-	adminClient, err := CreateAdminClient(ctx, commontesting.GetDefaultSaramaConfig(t, kafkasarama.NewSaramaConfig()), clientId, adminClientType)
+	adminClient, err := CreateAdminClient(ctx, commontesting.GetDefaultSaramaConfig(t), clientId, adminClientType)
 
 	// Verify The Results
 	assert.Nil(t, err)
@@ -91,7 +90,7 @@ func TestCreateAdminClientCustom(t *testing.T) {
 	defer func() { NewCustomAdminClientWrapper = NewCustomAdminClientWrapperRef }()
 
 	// Perform The Test
-	adminClient, err := CreateAdminClient(ctx, commontesting.GetDefaultSaramaConfig(t, kafkasarama.NewSaramaConfig()), clientId, adminClientType)
+	adminClient, err := CreateAdminClient(ctx, commontesting.GetDefaultSaramaConfig(t), clientId, adminClientType)
 
 	// Verify The Results
 	assert.Nil(t, err)
@@ -108,7 +107,7 @@ func TestCreateAdminClientUnknown(t *testing.T) {
 	adminClientType := Unknown
 
 	// Perform The Test
-	adminClient, err := CreateAdminClient(ctx, commontesting.GetDefaultSaramaConfig(t, kafkasarama.NewSaramaConfig()), clientId, adminClientType)
+	adminClient, err := CreateAdminClient(ctx, commontesting.GetDefaultSaramaConfig(t), clientId, adminClientType)
 
 	// Verify The Results
 	assert.NotNil(t, err)

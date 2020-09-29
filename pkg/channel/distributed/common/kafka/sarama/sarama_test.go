@@ -16,7 +16,6 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	commonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	commonconstants "knative.dev/eventing-kafka/pkg/channel/distributed/common/constants"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/system"
@@ -148,14 +147,6 @@ func TestEnableSaramaLogging(t *testing.T) {
 
 	// Verify Results (Not Much Is Possible)
 	sarama.Logger.Print("TestMessage")
-}
-
-// Test The NewSaramaConfig() Functionality
-func TestNewSaramaConfig(t *testing.T) {
-	config := NewSaramaConfig()
-	assert.Equal(t, constants.ConfigKafkaVersionDefault, config.Version)
-	assert.True(t, config.Consumer.Return.Errors)
-	assert.True(t, config.Producer.Return.Successes)
 }
 
 // Test The UpdateSaramaConfig() Functionality

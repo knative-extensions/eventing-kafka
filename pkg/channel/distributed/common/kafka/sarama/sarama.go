@@ -26,22 +26,6 @@ func EnableSaramaLogging() {
 	sarama.Logger = log.New(os.Stdout, "[sarama] ", log.LstdFlags)
 }
 
-// Creates A sarama.Config With Some Default Settings
-func NewSaramaConfig() *sarama.Config {
-
-	// Start With Base Sarama Defaults
-	config := sarama.NewConfig()
-
-	// Use Our Default Minimum Version
-	config.Version = constants.ConfigKafkaVersionDefault
-
-	// Add Any Required Settings
-	UpdateSaramaConfig(config, "", "", "")
-
-	// Return Sarama Config, Updated With Our Defaults
-	return config
-}
-
 // Utility Function For Configuring Common Settings For Admin/Producer/Consumer
 func UpdateSaramaConfig(config *sarama.Config, clientId string, username string, password string) {
 
@@ -199,6 +183,14 @@ func extractRootCerts(saramaConfigYamlString string) (string, *x509.CertPool, er
 func ConfigEqual(config1, config2 *sarama.Config, ignore ...interface{}) bool {
 	// If some of the types in the sarama.Config struct are not ignored, these kinds of errors will appear:
 	// panic: cannot handle unexported field at {*sarama.Config}.Consumer.Group.Rebalance.Strategy.(*sarama.balanceStrategy).name
+
+	// Note that using the types directly from config1 is convenient (it allows us to call IgnoreTypes instead of the
+	// more complicated IgnoreInterfaces), but it will fail if, for example, config1.Consumer.Group.Rebalance is nil
+
+	// However, the sarama.NewConfig() function sets all of these values to a non-nil default, so the risk
+	// is minimal and should be caught by one of the several unit tests for this function if the sarama vendor
+	// code is updated and these defaults become something invalid at that time)
+
 	ignoreTypeList := append([]interface{}{
 		config1.Consumer.Group.Rebalance.Strategy,
 		config1.MetricRegistry,
@@ -208,9 +200,11 @@ func ConfigEqual(config1, config2 *sarama.Config, ignore ...interface{}) bool {
 
 	// If some interfaces are not included in the "IgnoreUnexported" list, these kinds of errors will appear:
 	// panic: cannot handle unexported field at {*sarama.Config}.Net.TLS.Config.mutex: "crypto/tls".Config
+
 	// Note that x509.CertPool and tls.Config are created here explicitly because config1/config2 may not
 	// have those fields, and results in a nil pointer panic if used in the IgnoreUnexported list indirectly
 	// like config1.Version is (Version is required to be present in a sarama.Config struct).
+
 	ignoredUnexported := cmpopts.IgnoreUnexported(config1.Version, x509.CertPool{}, tls.Config{})
 
 	// Compare the two sarama config structs, ignoring types and unexported fields as specified
@@ -218,7 +212,7 @@ func ConfigEqual(config1, config2 *sarama.Config, ignore ...interface{}) bool {
 }
 
 // Extract The Sarama-Specific Settings From A ConfigMap And Merge Them With Existing Settings
-// If config Is nil, A New sarama.Config Struct Will Be Created
+// If config Is nil, A New sarama.Config Struct Will Be Created With Default Values
 func MergeSaramaSettings(config *sarama.Config, configMap *corev1.ConfigMap) (*sarama.Config, error) {
 
 	// Validate The ConfigMap Data
@@ -226,9 +220,16 @@ func MergeSaramaSettings(config *sarama.Config, configMap *corev1.ConfigMap) (*s
 		return nil, fmt.Errorf("attempted to merge sarama settings with empty configmap")
 	}
 
-	// Merging To A Nil Config Requires Creating An Empty One First
+	// Merging To A Nil Config Requires Creating An Default One First
 	if config == nil {
+		// Start With Base Sarama Defaults
 		config = sarama.NewConfig()
+
+		// Use Our Default Minimum Version
+		config.Version = constants.ConfigKafkaVersionDefault
+
+		// Add Any Required Settings
+		UpdateSaramaConfig(config, config.ClientID, "", "")
 	}
 
 	// Merge The ConfigMap Settings Into The Provided Config

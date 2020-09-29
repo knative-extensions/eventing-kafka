@@ -259,7 +259,7 @@ func (d *DispatcherImpl) ConfigChanged(configMap *v1.ConfigMap) Dispatcher {
 	// Create A New Sarama Config
 	d.Logger.Debug("New ConfigMap Received", zap.String("configMap.Name", configMap.ObjectMeta.Name))
 
-	newConfig, err := kafkasarama.MergeSaramaSettings(kafkasarama.NewSaramaConfig(), configMap)
+	newConfig, err := kafkasarama.MergeSaramaSettings(nil, configMap)
 	if err != nil {
 		d.Logger.Error("Unable to merge sarama settings", zap.Error(err))
 		return nil
