@@ -70,7 +70,7 @@ func (hs *Server) initializeServer(httpPort string) {
 
 // Start The HTTP Server (Blocking Call)
 func (hs *Server) Start(logger *zap.Logger) {
-	listener, err := net.Listen("tcp", ":" + hs.HttpPort)
+	listener, err := net.Listen("tcp", ":"+hs.HttpPort)
 	if err != nil {
 		logger.Error("Server HTTP Listen Returned Error", zap.Error(err))
 	}

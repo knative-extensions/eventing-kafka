@@ -218,7 +218,6 @@ func TestReconcile(t *testing.T) {
 					Object: test.NewKafkaChannel(
 						test.WithChannelServiceReady,
 						test.WithChannelDeploymentFailed,
-
 					),
 				},
 			},

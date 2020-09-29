@@ -44,7 +44,6 @@ func TestReadinessFlagWrites(t *testing.T) {
 
 }
 
-
 // Test The Channel Health Server Via The HTTP Handlers
 func TestChannelHealthHandler(t *testing.T) {
 
