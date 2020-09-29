@@ -23,7 +23,7 @@ import (
 
 	types "k8s.io/apimachinery/pkg/types"
 	cache "k8s.io/client-go/tools/cache"
-	v1beta1 "knative.dev/eventing-contrib/kafka/source/pkg/apis/bindings/v1beta1"
+	v1beta1 "knative.dev/eventing-kafka/contrib/kafka/source/pkg/apis/bindings/v1beta1"
 	reconciler "knative.dev/pkg/reconciler"
 )
 

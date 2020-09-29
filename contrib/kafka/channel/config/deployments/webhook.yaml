@@ -35,27 +35,27 @@ spec:
       containers:
       - name: kafka-webhook
         terminationMessagePolicy: FallbackToLogsOnError
-        image: ko://knative.dev/eventing-contrib/kafka/channel/cmd/webhook
+        image: ko://knative.dev/eventing-kafka/contrib/kafka/channel/cmd/webhook
         env:
-          - name: SYSTEM_NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
-          - name: CONFIG_LOGGING_NAME
-            value: config-logging
-          - name: METRICS_DOMAIN
-            value: knative.dev/eventing
-          - name: WEBHOOK_NAME
-            value: kafka-webhook
-          - name: WEBHOOK_PORT
-            value: "8443"
+        - name: SYSTEM_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: CONFIG_LOGGING_NAME
+          value: config-logging
+        - name: METRICS_DOMAIN
+          value: knative.dev/eventing
+        - name: WEBHOOK_NAME
+          value: kafka-webhook
+        - name: WEBHOOK_PORT
+          value: "8443"
         ports:
-          - name: https-webhook
-            containerPort: 8443
-          - name: metrics
-            containerPort: 9090
-          - name: profiling
-            containerPort: 8008
+        - name: https-webhook
+          containerPort: 8443
+        - name: metrics
+          containerPort: 9090
+        - name: profiling
+          containerPort: 8008
         # TODO set proper resource limits.
 
         readinessProbe: &probe

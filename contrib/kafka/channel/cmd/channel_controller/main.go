@@ -19,7 +19,7 @@ package main
 import (
 	"knative.dev/pkg/injection/sharedmain"
 
-	"knative.dev/eventing-contrib/kafka/channel/pkg/reconciler/controller"
+	"knative.dev/eventing-kafka/contrib/kafka/channel/pkg/reconciler/controller"
 )
 
 const component = "kafkachannel-controller"

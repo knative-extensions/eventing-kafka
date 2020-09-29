@@ -28,7 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"knative.dev/eventing-contrib/kafka/source/pkg/apis/bindings"
+	"knative.dev/eventing-kafka/contrib/kafka/source/pkg/apis/bindings"
 )
 
 // SchemeGroupVersion is group version used to register these objects

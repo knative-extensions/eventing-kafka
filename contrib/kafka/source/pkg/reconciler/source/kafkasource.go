@@ -33,8 +33,8 @@ import (
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 
-	"knative.dev/eventing-contrib/kafka/source/pkg/apis/sources/v1beta1"
-	"knative.dev/eventing-contrib/kafka/source/pkg/reconciler/source/resources"
+	"knative.dev/eventing-kafka/contrib/kafka/source/pkg/apis/sources/v1beta1"
+	"knative.dev/eventing-kafka/contrib/kafka/source/pkg/reconciler/source/resources"
 
 	"k8s.io/client-go/kubernetes"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
@@ -42,9 +42,9 @@ import (
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/resolver"
 
-	"knative.dev/eventing-contrib/kafka/source/pkg/client/clientset/versioned"
-	reconcilerkafkasource "knative.dev/eventing-contrib/kafka/source/pkg/client/injection/reconciler/sources/v1beta1/kafkasource"
-	listers "knative.dev/eventing-contrib/kafka/source/pkg/client/listers/sources/v1beta1"
+	"knative.dev/eventing-kafka/contrib/kafka/source/pkg/client/clientset/versioned"
+	reconcilerkafkasource "knative.dev/eventing-kafka/contrib/kafka/source/pkg/client/injection/reconciler/sources/v1beta1/kafkasource"
+	listers "knative.dev/eventing-kafka/contrib/kafka/source/pkg/client/listers/sources/v1beta1"
 )
 
 const (

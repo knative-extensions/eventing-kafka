@@ -32,7 +32,7 @@ spec:
       serviceAccountName: kafka-controller-manager
       containers:
       - name: manager
-        image: ko://knative.dev/eventing-contrib/kafka/source/cmd/controller
+        image: ko://knative.dev/eventing-kafka/contrib/kafka/source/cmd/controller
         env:
         - name: SYSTEM_NAMESPACE
           valueFrom:
@@ -45,7 +45,7 @@ spec:
         - name: CONFIG_LEADERELECTION_NAME
           value: config-leader-election-kafka
         - name: KAFKA_RA_IMAGE
-          value: ko://knative.dev/eventing-contrib/kafka/source/cmd/receive_adapter
+          value: ko://knative.dev/eventing-kafka/contrib/kafka/source/cmd/receive_adapter
         volumeMounts:
         resources:
           requests:
@@ -76,8 +76,8 @@ metadata:
   namespace: knative-sources
 spec:
   ports:
-    - name: https-webhook
-      port: 443
-      targetPort: 8443
+  - name: https-webhook
+    port: 443
+    targetPort: 8443
   selector:
     control-plane: kafka-controller-manager

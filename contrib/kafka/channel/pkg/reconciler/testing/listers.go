@@ -28,9 +28,9 @@ import (
 	fakeeventsclientset "knative.dev/eventing/pkg/client/clientset/versioned/fake"
 	"knative.dev/pkg/reconciler/testing"
 
-	messagingv1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
-	fakemessagingclientset "knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned/fake"
-	messaginglisters "knative.dev/eventing-contrib/kafka/channel/pkg/client/listers/messaging/v1beta1"
+	messagingv1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
+	fakemessagingclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned/fake"
+	messaginglisters "knative.dev/eventing-kafka/pkg/client/listers/messaging/v1beta1"
 )
 
 var clientSetSchemes = []func(*runtime.Scheme) error{
