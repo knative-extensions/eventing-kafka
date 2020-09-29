@@ -86,8 +86,7 @@ kubectl -n knative-sources logs \
     )
 ```
 
-_See [camel/source/samples/README.md](./camel/source/samples/README.md),
-[kafka/source/README.md](./kafka/source/README.md) for instructions on
+_See [kafka/source/README.md](./kafka/source/README.md) for instructions on
 installing the Camel Source and Kafka Source._
 
 ## Iterating
@@ -110,7 +109,7 @@ need GNU `diff` version 3.7 that you can install from `brew` with
 
 To check that the build and tests passes please see the test
 [documentation](#tests) or simply run
-[`./test/presubmit-tests.sh`](./test/presubmit-tests.sh).
+`./test/presubmit-tests.sh`.
 
 Once the codegen and dependency information is correct, redeploy using the same
 `ko apply` command you used [Installing a Source](#installing-a-source).
