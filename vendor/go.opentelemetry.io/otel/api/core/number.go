@@ -1,4 +1,4 @@
-// Copyright The OpenTelemetry Authors
+// Copyright 2019, OpenTelemetry Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,20 +33,6 @@ const (
 	// Uint64NumberKind means that the Number stores uint64.
 	Uint64NumberKind
 )
-
-// Zero returns a zero value for a given NumberKind
-func (k NumberKind) Zero() Number {
-	switch k {
-	case Int64NumberKind:
-		return NewInt64Number(0)
-	case Float64NumberKind:
-		return NewFloat64Number(0.)
-	case Uint64NumberKind:
-		return NewUint64Number(0)
-	default:
-		return Number(0)
-	}
-}
 
 // Minimum returns the minimum representable value
 // for a given NumberKind

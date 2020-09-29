@@ -1,4 +1,4 @@
-// Copyright The OpenTelemetry Authors
+// Copyright 2019, OpenTelemetry Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,37 +19,34 @@ import (
 )
 
 const (
-	alwaysOnSamplerDescription = "AlwaysOnSampler"
+	neverSamplerDescription = "NeverSampleSampler"
 )
 
-var alwaysOnSamplerDecision = Decision{Sampled: true}
+var neverSampledecision = Decision{Sampled: false}
 
-type alwaysOnSampler struct{}
+type neverSampleSampler struct{}
 
 // ShouldSample implements Sampler interface.
-// It always returns a Decision with Sampled value set to true
+// It always returns a Decision with Sampled value set to false
 // and with Attributes set to an empty slice.
-func (as alwaysOnSampler) ShouldSample(
+func (ns neverSampleSampler) ShouldSample(
 	_ core.SpanContext,
 	_ bool,
 	_ core.TraceID,
-	_ core.SpanID,
+	_ uint64,
 	_ string,
-	_ SpanKind,
-	_ []core.KeyValue,
-	_ []Link,
 ) Decision {
-	return alwaysOnSamplerDecision
+	return neverSampledecision
 }
 
 // Description implements Sampler interface.
 // It returns the description of this sampler.
-func (as alwaysOnSampler) Description() string {
-	return alwaysOnSamplerDescription
+func (ns neverSampleSampler) Description() string {
+	return neverSamplerDescription
 }
 
-var _ Sampler = alwaysOnSampler{}
+var _ Sampler = neverSampleSampler{}
 
-func AlwaysOnSampler() Sampler {
-	return alwaysOnSampler{}
+func NeverSampleSampler() Sampler {
+	return neverSampleSampler{}
 }

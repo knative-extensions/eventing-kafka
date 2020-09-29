@@ -28,7 +28,6 @@ require (
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/utils v0.0.0-20200603063816-c1c6865ac451
 	knative.dev/eventing v0.17.1-0.20200917130042-886594db5d01
-	knative.dev/eventing-contrib v0.17.1-0.20200918150945-976d3638b6f2
 	knative.dev/pkg v0.0.0-20200916171541-6e0430fd94db
 	knative.dev/test-infra v0.0.0-20200916223841-d362984af929
 	pack.ag/amqp v0.12.4 // indirect
