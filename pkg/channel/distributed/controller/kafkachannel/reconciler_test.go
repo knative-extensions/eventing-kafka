@@ -299,9 +299,9 @@ func TestReconcile(t *testing.T) {
 				test.NewKafkaChannelChannelDeployment(),
 				test.NewKafkaChannelDispatcherDeployment(),
 			},
-			WithReactors: []clientgotesting.ReactionFunc{InduceFailure("create", "services")},
-			WantErr:      true,
-			WantCreates:  []runtime.Object{test.NewKafkaChannelDispatcherService()},
+			WithReactors:      []clientgotesting.ReactionFunc{InduceFailure("create", "services")},
+			WantErr:           true,
+			WantCreates:       []runtime.Object{test.NewKafkaChannelDispatcherService()},
 			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
 				// Note - Not currently tracking status for the Dispatcher Service since it is only for Prometheus
 			},
