@@ -74,7 +74,7 @@ func (r *Reconciler) reconcileChannel(ctx context.Context, secret *corev1.Secret
 func (r *Reconciler) reconcileChannelService(ctx context.Context, secret *corev1.Secret) error {
 
 	// Attempt To Get The Service Associated With The Specified Secret
-	service, err := r.getChannelService(secret)
+	_, err := r.getChannelService(secret)
 	if err != nil {
 
 		// If The Service Was Not Found - Then Create A New One For The Secret
@@ -82,8 +82,8 @@ func (r *Reconciler) reconcileChannelService(ctx context.Context, secret *corev1
 
 			// Then Create The New Kafka Channel Service
 			r.logger.Info("Channel Service Not Found - Creating New One")
-			service = r.newChannelService(secret)
-			service, err = r.kubeClientset.CoreV1().Services(service.Namespace).Create(ctx, service, metav1.CreateOptions{})
+			service := r.newChannelService(secret)
+			_, err = r.kubeClientset.CoreV1().Services(service.Namespace).Create(ctx, service, metav1.CreateOptions{})
 			if err != nil {
 				r.logger.Error("Failed To Create Channel Service", zap.Error(err))
 				return err
@@ -113,7 +113,6 @@ func (r *Reconciler) getChannelService(secret *corev1.Secret) (*corev1.Service, 
 	deploymentName := util.ChannelDnsSafeName(secret.Name)
 
 	// Get The Service By Namespace / Name
-	service := &corev1.Service{}
 	service, err := r.serviceLister.Services(commonconstants.KnativeEventingNamespace).Get(deploymentName)
 
 	// Return The Results
@@ -171,7 +170,7 @@ func (r *Reconciler) newChannelService(secret *corev1.Secret) *corev1.Service {
 func (r *Reconciler) reconcileChannelDeployment(ctx context.Context, secret *corev1.Secret) error {
 
 	// Attempt To Get The KafkaChannel Deployment Associated With The Specified Channel
-	deployment, err := r.getChannelDeployment(secret)
+	_, err := r.getChannelDeployment(secret)
 	if err != nil {
 
 		// If The KafkaChannel Deployment Was Not Found - Then Create A New Deployment For The Channel
@@ -179,12 +178,12 @@ func (r *Reconciler) reconcileChannelDeployment(ctx context.Context, secret *cor
 
 			// Then Create The New Deployment
 			r.logger.Info("KafkaChannel Deployment Not Found - Creating New One")
-			deployment, err = r.newChannelDeployment(secret)
+			deployment, err := r.newChannelDeployment(secret)
 			if err != nil {
 				r.logger.Error("Failed To Create KafkaChannel Deployment YAML", zap.Error(err))
 				return err
 			} else {
-				deployment, err = r.kubeClientset.AppsV1().Deployments(deployment.Namespace).Create(ctx, deployment, metav1.CreateOptions{})
+				_, err = r.kubeClientset.AppsV1().Deployments(deployment.Namespace).Create(ctx, deployment, metav1.CreateOptions{})
 				if err != nil {
 					r.logger.Error("Failed To Create KafkaChannel Deployment", zap.Error(err))
 					return err
@@ -215,7 +214,6 @@ func (r *Reconciler) getChannelDeployment(secret *corev1.Secret) (*appsv1.Deploy
 	deploymentName := util.ChannelDnsSafeName(secret.Name)
 
 	// Get The Channel Deployment By Namespace / Name
-	deployment := &appsv1.Deployment{}
 	deployment, err := r.deploymentLister.Deployments(commonconstants.KnativeEventingNamespace).Get(deploymentName)
 
 	// Return The Results

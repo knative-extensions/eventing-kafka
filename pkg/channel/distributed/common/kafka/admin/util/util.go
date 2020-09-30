@@ -63,9 +63,9 @@ func PromoteErrorToTopicError(err error) *sarama.TopicError {
 	if err == nil {
 		return nil
 	} else {
-		switch err.(type) {
+		switch err := err.(type) {
 		case *sarama.TopicError:
-			return err.(*sarama.TopicError)
+			return err
 		default:
 			return NewUnknownTopicError(err.Error())
 		}

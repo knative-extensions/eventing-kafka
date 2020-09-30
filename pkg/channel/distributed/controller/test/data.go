@@ -364,7 +364,7 @@ func WithKafkaChannelServiceReady(kafkachannel *kafkav1beta1.KafkaChannel) {
 
 // Set The KafkaChannel's Services As Failed
 func WithKafkaChannelServiceFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
-	kafkachannel.Status.MarkChannelServiceFailed(event.KafkaChannelServiceReconciliationFailed.String(), fmt.Sprintf("Failed To Create KafkaChannel Service: inducing failure for create services"))
+	kafkachannel.Status.MarkChannelServiceFailed(event.KafkaChannelServiceReconciliationFailed.String(), "Failed To Create KafkaChannel Service: inducing failure for create services")
 }
 
 // Set The KafkaChannel's Channel Service As READY

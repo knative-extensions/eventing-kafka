@@ -12,16 +12,14 @@ require (
 	github.com/golang/protobuf v1.4.2
 	github.com/google/go-cmp v0.5.1
 	github.com/google/uuid v1.1.1
-	github.com/hashicorp/go-retryablehttp v0.6.6
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0
-	github.com/rickb777/date v1.13.0
 	github.com/slinkydeveloper/loadastic v0.0.0-20191203132749-9afe5a010a57
 	github.com/slok/goresilience v0.2.0
 	github.com/stretchr/testify v1.6.0
 	go.opencensus.io v0.22.5-0.20200716030834-3456e1d174b2
 	go.uber.org/zap v1.15.0
-	golang.org/x/net v0.0.0-20200822124328-c89045814202
+	golang.org/x/net v0.0.0-20200822124328-c89045814202 // indirect
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
 	k8s.io/api v0.18.8
 	k8s.io/apimachinery v0.18.8

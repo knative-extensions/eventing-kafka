@@ -184,19 +184,17 @@ func (r *Reconciler) createSubscribableStatus(subscribers []eventingduck.Subscri
 
 	subscriberStatus := make([]eventingduck.SubscriberStatus, 0)
 
-	if subscribers != nil {
-		for _, subscriber := range subscribers {
-			status := eventingduck.SubscriberStatus{
-				UID:                subscriber.UID,
-				ObservedGeneration: subscriber.Generation,
-				Ready:              corev1.ConditionTrue,
-			}
-			if err, ok := failedSubscriptions[subscriber]; ok {
-				status.Ready = corev1.ConditionFalse
-				status.Message = err.Error()
-			}
-			subscriberStatus = append(subscriberStatus, status)
+	for _, subscriber := range subscribers {
+		status := eventingduck.SubscriberStatus{
+			UID:                subscriber.UID,
+			ObservedGeneration: subscriber.Generation,
+			Ready:              corev1.ConditionTrue,
 		}
+		if err, ok := failedSubscriptions[subscriber]; ok {
+			status.Ready = corev1.ConditionFalse
+			status.Message = err.Error()
+		}
+		subscriberStatus = append(subscriberStatus, status)
 	}
 
 	return eventingduck.SubscribableStatus{

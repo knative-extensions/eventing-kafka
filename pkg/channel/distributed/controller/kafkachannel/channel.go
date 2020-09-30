@@ -94,7 +94,6 @@ func (r *Reconciler) getKafkaChannelService(channel *kafkav1beta1.KafkaChannel) 
 	serviceName := kafkautil.AppendKafkaChannelServiceNameSuffix(channel.Name)
 
 	// Get The Service By Namespace / Name
-	service := &corev1.Service{}
 	service, err := r.serviceLister.Services(channel.Namespace).Get(serviceName)
 
 	// Return The Results

@@ -4,179 +4,47 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/json"
 	"fmt"
 	"log"
-	"net"
 	"os"
 	"regexp"
-	"time"
 
 	"github.com/Shopify/sarama"
 	"github.com/ghodss/yaml"
-	"github.com/rcrowley/go-metrics"
-	"golang.org/x/net/proxy"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	commonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
+	"knative.dev/pkg/system"
 )
 
-// This is a copy of the sarama.Config struct with tags that remove function pointers and any
-// other problematic fields, in order to make comparisons to new settings easier.  The downside
-// to this mechanism is that this does require that this structure be updated whenever we update to
-// a new sarama.Config object, or the custom MarshalJSON() call will fail.
-// On the brighter side, a change to the sarama.Config struct will cause this to fail at compile-time
-// with "cannot convert *config (type sarama.Config) to type CompareSaramaConfig" so the chances of
-// causing unintended runtime issues are very low.
-type CompareSaramaConfig struct {
-	Admin struct {
-		Retry struct {
-			Max     int
-			Backoff time.Duration
-		}
-		Timeout time.Duration
-	}
-	Net struct {
-		MaxOpenRequests int
-		DialTimeout     time.Duration
-		ReadTimeout     time.Duration
-		WriteTimeout    time.Duration
-		TLS             struct {
-			Enable bool
-			Config *tls.Config `json:"-"`
-		}
-		SASL struct {
-			Enable                   bool
-			Mechanism                sarama.SASLMechanism
-			Version                  int16
-			Handshake                bool
-			AuthIdentity             string
-			User                     string
-			Password                 string
-			SCRAMAuthzID             string
-			SCRAMClientGeneratorFunc func() sarama.SCRAMClient `json:"-"`
-			TokenProvider            sarama.AccessTokenProvider
-			GSSAPI                   sarama.GSSAPIConfig
-		}
-		KeepAlive time.Duration
-		LocalAddr net.Addr
-		Proxy     struct {
-			Enable bool
-			Dialer proxy.Dialer
-		}
-	}
-	Metadata struct {
-		Retry struct {
-			Max         int
-			Backoff     time.Duration
-			BackoffFunc func(retries, maxRetries int) time.Duration `json:"-"`
-		}
-		RefreshFrequency time.Duration
-		Full             bool
-		Timeout          time.Duration
-	}
-	Producer struct {
-		MaxMessageBytes  int
-		RequiredAcks     sarama.RequiredAcks
-		Timeout          time.Duration
-		Compression      sarama.CompressionCodec
-		CompressionLevel int
-		Partitioner      sarama.PartitionerConstructor `json:"-"`
-		Idempotent       bool
-		Return           struct {
-			Successes bool
-			Errors    bool
-		}
-		Flush struct {
-			Bytes       int
-			Messages    int
-			Frequency   time.Duration
-			MaxMessages int
-		}
-		Retry struct {
-			Max         int
-			Backoff     time.Duration
-			BackoffFunc func(retries, maxRetries int) time.Duration `json:"-"`
-		}
-		Interceptors []sarama.ProducerInterceptor
-	}
-	Consumer struct {
-		Group struct {
-			Session struct {
-				Timeout time.Duration
-			}
-			Heartbeat struct {
-				Interval time.Duration
-			}
-			Rebalance struct {
-				Strategy sarama.BalanceStrategy `json:"-"`
-				Timeout  time.Duration
-				Retry    struct {
-					Max     int
-					Backoff time.Duration
-				}
-			}
-			Member struct {
-				UserData []byte
-			}
-		}
-		Retry struct {
-			Backoff     time.Duration
-			BackoffFunc func(retries int) time.Duration `json:"-"`
-		}
-		Fetch struct {
-			Min     int32
-			Default int32
-			Max     int32
-		}
-		MaxWaitTime       time.Duration
-		MaxProcessingTime time.Duration
-		Return            struct {
-			Errors bool
-		}
-		Offsets struct {
-			CommitInterval time.Duration
-			AutoCommit     struct {
-				Enable   bool
-				Interval time.Duration
-			}
-			Initial   int64
-			Retention time.Duration
-			Retry     struct {
-				Max int
-			}
-		}
-		IsolationLevel sarama.IsolationLevel
-		Interceptors   []sarama.ConsumerInterceptor
-	}
-	ClientID          string
-	RackID            string
-	ChannelBufferSize int
-	Version           sarama.KafkaVersion
-	MetricRegistry    metrics.Registry `json:"-"`
-}
+// Regular Expression To Find All Certificates In Net.TLS.Config.RootPEMs Field
+var regexRootPEMs = regexp.MustCompile(`(?s)\s*RootPEMs:.*-----END CERTIFICATE-----`)
 
 // Utility Function For Enabling Sarama Logging (Debugging)
 func EnableSaramaLogging() {
 	sarama.Logger = log.New(os.Stdout, "[sarama] ", log.LstdFlags)
 }
 
-// Creates A sarama.Config With Some Default Settings
-func NewSaramaConfig() *sarama.Config {
+// Utility Function For Configuring Common Settings For Admin/Producer/Consumer
+func UpdateSaramaConfig(config *sarama.Config, clientId string, username string, password string) {
 
-	// Start With Base Sarama Defaults
-	config := sarama.NewConfig()
+	// Set The ClientID For Logging
+	config.ClientID = clientId
 
-	// Use Our Default Minimum Version
-	config.Version = constants.ConfigKafkaVersionDefault
+	// Set The SASL Username / Password
+	config.Net.SASL.User = username
+	config.Net.SASL.Password = password
 
-	// Enforce eventing-kafka Required Config
-	enforceSaramaConfig(config)
+	// We Always Want To Know About Consumer Errors
+	config.Consumer.Return.Errors = true
 
-	// Return Base Sarama Config
-	return config
+	// We Always Want Success Messages From Producer
+	config.Producer.Return.Successes = true
 }
 
 //
@@ -308,73 +176,63 @@ func extractRootCerts(saramaConfigYamlString string) (string, *x509.CertPool, er
 	}
 
 	// Remove The RootPEMs From The Sarama YAML String (Multi-Line / Greedy To Collect All PEMs)
-	regex, err := regexp.Compile("(?s)\\s*RootPEMs:.*-----END CERTIFICATE-----")
-	if err != nil {
-		return saramaConfigYamlString, nil, err
-	} else {
-		updatedSaramaConfigYamlBytes := regex.ReplaceAll([]byte(saramaConfigYamlString), []byte{})
-		return string(updatedSaramaConfigYamlBytes), certPool, nil
-	}
-}
-
-// Forces Some Sarama Settings To Have Mandatory Values
-func enforceSaramaConfig(config *sarama.Config) {
-
-	// We Always Want To Know About Consumer Errors
-	config.Consumer.Return.Errors = true
-
-	// We Always Want Success Messages From Producer
-	config.Producer.Return.Successes = true
-}
-
-// Utility Function For Configuring Common Settings For Admin/Producer/Consumer
-func UpdateSaramaConfig(config *sarama.Config, clientId string, username string, password string) {
-
-	// Set The ClientID For Logging
-	config.ClientID = clientId
-
-	// Set The SASL Username / Password
-	config.Net.SASL.User = username
-	config.Net.SASL.Password = password
-
-	// Force Required Configuration
-	enforceSaramaConfig(config)
-}
-
-// This custom marshaller converts a sarama.Config struct to our CompareSaramaConfig using the ability of go
-// to initialize one struct with another identical one (aside from field tags).  It then uses the CompareSaramaConfig
-// field tags to skip the fields that cause problematic JSON output (such as function pointers).
-// An error of "cannot convert *config (type sarama.Config) to type CompareSaramaConfig" indicates that the
-// CompareSaramaConfig structure above needs to be brought in sync with the current config.Sarama struct.
-func MarshalSaramaJSON(config *sarama.Config) (string, error) {
-	bytes, err := json.Marshal(CompareSaramaConfig(*config))
-	if err != nil {
-		return "", err
-	}
-	return string(bytes), nil
+	updatedSaramaConfigYamlBytes := regexRootPEMs.ReplaceAll([]byte(saramaConfigYamlString), []byte{})
+	return string(updatedSaramaConfigYamlBytes), certPool, nil
 }
 
 // ConfigEqual is a convenience function to determine if two given sarama.Config structs are identical aside
-// from unserializable fields (e.g. function pointers).  This function treats any marshalling errors as
-// "the structs are not equal"
-func ConfigEqual(config1, config2 *sarama.Config) bool {
-	configString1, err := MarshalSaramaJSON(config1)
-	if err != nil {
-		return false
-	}
-	configString2, err := MarshalSaramaJSON(config2)
-	if err != nil {
-		return false
-	}
-	return configString1 == configString2
+// from unserializable fields (e.g. function pointers).  To ignore parts of the sarama.Config struct, pass
+// them in as the "ignore" parameter.
+func ConfigEqual(config1, config2 *sarama.Config, ignore ...interface{}) bool {
+	// If some of the types in the sarama.Config struct are not ignored, these kinds of errors will appear:
+	// panic: cannot handle unexported field at {*sarama.Config}.Consumer.Group.Rebalance.Strategy.(*sarama.balanceStrategy).name
+
+	// Note that using the types directly from config1 is convenient (it allows us to call IgnoreTypes instead of the
+	// more complicated IgnoreInterfaces), but it will fail if, for example, config1.Consumer.Group.Rebalance is nil
+
+	// However, the sarama.NewConfig() function sets all of these values to a non-nil default, so the risk
+	// is minimal and should be caught by one of the several unit tests for this function if the sarama vendor
+	// code is updated and these defaults become something invalid at that time)
+
+	ignoreTypeList := append([]interface{}{
+		config1.Consumer.Group.Rebalance.Strategy,
+		config1.MetricRegistry,
+		config1.Producer.Partitioner},
+		ignore...)
+	ignoredTypes := cmpopts.IgnoreTypes(ignoreTypeList...)
+
+	// If some interfaces are not included in the "IgnoreUnexported" list, these kinds of errors will appear:
+	// panic: cannot handle unexported field at {*sarama.Config}.Net.TLS.Config.mutex: "crypto/tls".Config
+
+	// Note that x509.CertPool and tls.Config are created here explicitly because config1/config2 may not
+	// have those fields, and results in a nil pointer panic if used in the IgnoreUnexported list indirectly
+	// like config1.Version is (Version is required to be present in a sarama.Config struct).
+
+	ignoredUnexported := cmpopts.IgnoreUnexported(config1.Version, x509.CertPool{}, tls.Config{})
+
+	// Compare the two sarama config structs, ignoring types and unexported fields as specified
+	return cmp.Equal(config1, config2, ignoredTypes, ignoredUnexported)
 }
 
 // Extract The Sarama-Specific Settings From A ConfigMap And Merge Them With Existing Settings
-func MergeSaramaSettings(config *sarama.Config, configMap *corev1.ConfigMap) error {
+// If config Is nil, A New sarama.Config Struct Will Be Created With Default Values
+func MergeSaramaSettings(config *sarama.Config, configMap *corev1.ConfigMap) (*sarama.Config, error) {
 
 	// Validate The ConfigMap Data
 	if configMap.Data == nil {
-		return fmt.Errorf("attempted to merge sarama settings with empty configmap")
+		return nil, fmt.Errorf("attempted to merge sarama settings with empty configmap")
+	}
+
+	// Merging To A Nil Config Requires Creating An Default One First
+	if config == nil {
+		// Start With Base Sarama Defaults
+		config = sarama.NewConfig()
+
+		// Use Our Default Minimum Version
+		config.Version = constants.ConfigKafkaVersionDefault
+
+		// Add Any Required Settings
+		UpdateSaramaConfig(config, config.ClientID, "", "")
 	}
 
 	// Merge The ConfigMap Settings Into The Provided Config
@@ -383,19 +241,19 @@ func MergeSaramaSettings(config *sarama.Config, configMap *corev1.ConfigMap) err
 	// Extract (Remove) The KafkaVersion From The Sarama Config YAML
 	saramaSettingsYamlString, kafkaVersion, err := extractKafkaVersion(saramaSettingsYamlString)
 	if err != nil {
-		return fmt.Errorf("failed to extract KafkaVersion from Sarama Config YAML: err=%s : config=%+v", err, saramaSettingsYamlString)
+		return nil, fmt.Errorf("failed to extract KafkaVersion from Sarama Config YAML: err=%s : config=%+v", err, saramaSettingsYamlString)
 	}
 
 	// Extract (Remove) Any TLS.Config RootCAs & Set In Sarama.Config
 	saramaSettingsYamlString, certPool, err := extractRootCerts(saramaSettingsYamlString)
 	if err != nil {
-		return fmt.Errorf("failed to extract RootPEMs from Sarama Config YAML: err=%s : config=%+v", err, saramaSettingsYamlString)
+		return nil, fmt.Errorf("failed to extract RootPEMs from Sarama Config YAML: err=%s : config=%+v", err, saramaSettingsYamlString)
 	}
 
 	// Unmarshall The Sarama Config Yaml Into The Provided Sarama.Config Object
 	err = yaml.Unmarshal([]byte(saramaSettingsYamlString), &config)
 	if err != nil {
-		return fmt.Errorf("ConfigMap's sarama value could not be converted to a Sarama.Config struct: %s : %v", err, saramaSettingsYamlString)
+		return nil, fmt.Errorf("ConfigMap's sarama value could not be converted to a Sarama.Config struct: %s : %v", err, saramaSettingsYamlString)
 	}
 
 	// Override The Custom Parsed KafkaVersion
@@ -407,42 +265,36 @@ func MergeSaramaSettings(config *sarama.Config, configMap *corev1.ConfigMap) err
 	}
 
 	// Return Success
-	return nil
+	return config, nil
 }
 
 // Load The Sarama & EventingKafka Configuration From The ConfigMap
-func LoadConfigFromMap(configMap *corev1.ConfigMap) (*sarama.Config, *commonconfig.EventingKafkaConfig, error) {
+// The Provided Context Must Have A Kubernetes Client Associated With It
+func LoadSettings(ctx context.Context) (*sarama.Config, *commonconfig.EventingKafkaConfig, error) {
+	if ctx == nil {
+		return nil, nil, fmt.Errorf("attempted to load settings from a nil context")
+	}
+
+	configMap, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, commonconfig.SettingsConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		return nil, nil, err
+	}
 
 	// Validate The ConfigMap Data
 	if configMap.Data == nil {
 		return nil, nil, fmt.Errorf("attempted to load configuration from empty configmap")
 	}
 
-	// Create A New Base Sarama Config To Start From
-	saramaConfig := NewSaramaConfig()
-
-	// Merge The Sarama Settings In The ConfigMap Into the New/Base Sarama Config
-	err := MergeSaramaSettings(saramaConfig, configMap)
-	if err != nil {
-		return nil, nil, err
-	}
-
 	// Unmarshal The Eventing-Kafka ConfigMap YAML Into A EventingKafkaSettings Struct
-	eventingKafkaSettings := configMap.Data[commonconfig.EventingKafkaSettingsConfigKey]
+	eventingKafkaConfigString := configMap.Data[commonconfig.EventingKafkaSettingsConfigKey]
 	eventingKafkaConfig := &commonconfig.EventingKafkaConfig{}
-	err = yaml.Unmarshal([]byte(eventingKafkaSettings), &eventingKafkaConfig)
+	err = yaml.Unmarshal([]byte(eventingKafkaConfigString), &eventingKafkaConfig)
 	if err != nil {
-		return nil, nil, fmt.Errorf("ConfigMap's eventing-kafka value could not be converted to an EventingKafkaConfig struct: %s : %v", err, eventingKafkaSettings)
+		return nil, nil, fmt.Errorf("ConfigMap's eventing-kafka value could not be converted to an EventingKafkaConfig struct: %s : %v", err, eventingKafkaConfigString)
 	}
 
-	return saramaConfig, eventingKafkaConfig, nil
-}
+	// Merge The Sarama Settings In The ConfigMap Into A New Base Sarama Config
+	saramaConfig, err := MergeSaramaSettings(nil, configMap)
 
-// Load The Sarama & EventingKafka Configuration From The ConfigMap
-func LoadSettings(ctx context.Context) (*sarama.Config, *commonconfig.EventingKafkaConfig, error) {
-	configMap, err := commonconfig.LoadSettingsConfigMap(ctx, kubeclient.Get(ctx))
-	if err != nil {
-		return nil, nil, err
-	}
-	return LoadConfigFromMap(configMap)
+	return saramaConfig, eventingKafkaConfig, err
 }

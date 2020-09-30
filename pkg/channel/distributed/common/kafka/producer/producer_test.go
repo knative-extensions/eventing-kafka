@@ -49,7 +49,7 @@ func performCreateSyncProducerTest(t *testing.T, username string, password strin
 	defer func() { newSyncProducerWrapper = newSyncProducerWrapperPlaceholder }()
 
 	// Perform The Test
-	config := commontesting.GetDefaultSaramaConfig(t, kafkasarama.NewSaramaConfig())
+	config := commontesting.GetDefaultSaramaConfig(t)
 	kafkasarama.UpdateSaramaConfig(config, ClientId, username, password)
 	producer, registry, err := CreateSyncProducer([]string{KafkaBrokers}, config)
 

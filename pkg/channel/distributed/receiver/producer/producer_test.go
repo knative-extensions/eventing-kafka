@@ -183,6 +183,7 @@ func TestConfigChanged(t *testing.T) {
 	producer = runConfigChangedTest(t, producer, getBaseConfigMap(), TestConfigAdminChange, false)
 	// Verify that Consumer changes do not cause Reconfigure to be called
 	producer = runConfigChangedTest(t, producer, getBaseConfigMap(), TestConfigConsumerChange, false)
+	assert.NotNil(t, producer)
 }
 
 func runConfigChangedTest(t *testing.T, originalProducer *Producer, base *corev1.ConfigMap, changed string, expectedNewProducer bool) *Producer {
