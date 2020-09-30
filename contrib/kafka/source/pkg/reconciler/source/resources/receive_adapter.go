@@ -24,7 +24,7 @@ import (
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/eventing-contrib/kafka/source/pkg/apis/sources/v1beta1"
+	"knative.dev/eventing-kafka/contrib/kafka/source/pkg/apis/sources/v1beta1"
 	"knative.dev/eventing/pkg/utils"
 	"knative.dev/pkg/kmeta"
 )

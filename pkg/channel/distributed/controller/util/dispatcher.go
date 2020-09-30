@@ -3,7 +3,7 @@ package util
 import (
 	"fmt"
 
-	kafkav1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
+	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 )
 
 // Create A DNS Safe Name For The Specified KafkaChannel Suitable For Use With K8S Services

@@ -8,10 +8,10 @@ import (
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-	"knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
-	fakemessagingclientset "knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned/fake"
-	versionedscheme "knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned/scheme"
-	messaginglisters "knative.dev/eventing-contrib/kafka/channel/pkg/client/listers/messaging/v1beta1"
+	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
+	fakemessagingclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned/fake"
+	versionedscheme "knative.dev/eventing-kafka/pkg/client/clientset/versioned/scheme"
+	messaginglisters "knative.dev/eventing-kafka/pkg/client/listers/messaging/v1beta1"
 	"knative.dev/pkg/reconciler/testing"
 )
 

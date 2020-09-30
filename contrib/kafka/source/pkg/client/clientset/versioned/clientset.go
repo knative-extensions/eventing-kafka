@@ -24,10 +24,10 @@ import (
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
-	bindingsv1alpha1 "knative.dev/eventing-contrib/kafka/source/pkg/client/clientset/versioned/typed/bindings/v1alpha1"
-	bindingsv1beta1 "knative.dev/eventing-contrib/kafka/source/pkg/client/clientset/versioned/typed/bindings/v1beta1"
-	sourcesv1alpha1 "knative.dev/eventing-contrib/kafka/source/pkg/client/clientset/versioned/typed/sources/v1alpha1"
-	sourcesv1beta1 "knative.dev/eventing-contrib/kafka/source/pkg/client/clientset/versioned/typed/sources/v1beta1"
+	bindingsv1alpha1 "knative.dev/eventing-kafka/contrib/kafka/source/pkg/client/clientset/versioned/typed/bindings/v1alpha1"
+	bindingsv1beta1 "knative.dev/eventing-kafka/contrib/kafka/source/pkg/client/clientset/versioned/typed/bindings/v1beta1"
+	sourcesv1alpha1 "knative.dev/eventing-kafka/contrib/kafka/source/pkg/client/clientset/versioned/typed/sources/v1alpha1"
+	sourcesv1beta1 "knative.dev/eventing-kafka/contrib/kafka/source/pkg/client/clientset/versioned/typed/sources/v1beta1"
 )
 
 type Interface interface {

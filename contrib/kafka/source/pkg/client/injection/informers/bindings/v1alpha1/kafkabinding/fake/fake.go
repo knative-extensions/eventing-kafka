@@ -21,8 +21,8 @@ package fake
 import (
 	context "context"
 
-	kafkabinding "knative.dev/eventing-contrib/kafka/source/pkg/client/injection/informers/bindings/v1alpha1/kafkabinding"
-	fake "knative.dev/eventing-contrib/kafka/source/pkg/client/injection/informers/factory/fake"
+	kafkabinding "knative.dev/eventing-kafka/contrib/kafka/source/pkg/client/injection/informers/bindings/v1alpha1/kafkabinding"
+	fake "knative.dev/eventing-kafka/contrib/kafka/source/pkg/client/injection/informers/factory/fake"
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
 )

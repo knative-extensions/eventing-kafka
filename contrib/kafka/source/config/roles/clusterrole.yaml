@@ -107,33 +107,33 @@ rules:
 
 # For actually registering our webhook.
 - apiGroups:
-    - "admissionregistration.k8s.io"
+  - "admissionregistration.k8s.io"
   resources:
-    - "mutatingwebhookconfigurations"
-    - "validatingwebhookconfigurations"
+  - "mutatingwebhookconfigurations"
+  - "validatingwebhookconfigurations"
   verbs: &everything
-    - "get"
-    - "list"
-    - "create"
-    - "update"
-    - "delete"
-    - "patch"
-    - "watch"
+  - "get"
+  - "list"
+  - "create"
+  - "update"
+  - "delete"
+  - "patch"
+  - "watch"
 
 # Necessary for conversion webhook. These are copied from the serving
 # TODO: Do we really need all these permissions?
 - apiGroups:
-    - "apiextensions.k8s.io"
+  - "apiextensions.k8s.io"
   resources:
-    - "customresourcedefinitions"
+  - "customresourcedefinitions"
   verbs:
-    - "get"
-    - "list"
-    - "create"
-    - "update"
-    - "delete"
-    - "patch"
-    - "watch"
+  - "get"
+  - "list"
+  - "create"
+  - "update"
+  - "delete"
+  - "patch"
+  - "watch"
 
 ---
 # The role is needed for the aggregated role source-observer in knative-eventing to provide readonly access to "Sources".
@@ -141,16 +141,16 @@ rules:
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: eventing-contrib-kafka-source-observer
+  name: eventing-kafka-source-observer
   labels:
     eventing.knative.dev/release: devel
     duck.knative.dev/source: "true"
 rules:
-  - apiGroups:
-      - "sources.knative.dev"
-    resources:
-      - "kafkasources"
-    verbs:
-      - get
-      - list
-      - watch
+- apiGroups:
+  - "sources.knative.dev"
+  resources:
+  - "kafkasources"
+  verbs:
+  - get
+  - list
+  - watch

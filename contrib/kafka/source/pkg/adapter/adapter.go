@@ -28,8 +28,8 @@ import (
 
 	"context"
 
-	kafkabinding "knative.dev/eventing-contrib/kafka"
-	"knative.dev/eventing-contrib/kafka/common/pkg/kafka"
+	kafkabinding "knative.dev/eventing-kafka/contrib/kafka"
+	"knative.dev/eventing-kafka/contrib/kafka/common/pkg/kafka"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"

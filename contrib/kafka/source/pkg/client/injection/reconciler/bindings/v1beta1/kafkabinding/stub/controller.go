@@ -21,8 +21,8 @@ package kafkabinding
 import (
 	context "context"
 
-	kafkabinding "knative.dev/eventing-contrib/kafka/source/pkg/client/injection/informers/bindings/v1beta1/kafkabinding"
-	v1beta1kafkabinding "knative.dev/eventing-contrib/kafka/source/pkg/client/injection/reconciler/bindings/v1beta1/kafkabinding"
+	kafkabinding "knative.dev/eventing-kafka/contrib/kafka/source/pkg/client/injection/informers/bindings/v1beta1/kafkabinding"
+	v1beta1kafkabinding "knative.dev/eventing-kafka/contrib/kafka/source/pkg/client/injection/reconciler/bindings/v1beta1/kafkabinding"
 	configmap "knative.dev/pkg/configmap"
 	controller "knative.dev/pkg/controller"
 	logging "knative.dev/pkg/logging"

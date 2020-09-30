@@ -26,10 +26,10 @@ import (
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
 	cache "k8s.io/client-go/tools/cache"
-	bindingsv1alpha1 "knative.dev/eventing-contrib/kafka/source/pkg/apis/bindings/v1alpha1"
-	versioned "knative.dev/eventing-contrib/kafka/source/pkg/client/clientset/versioned"
-	internalinterfaces "knative.dev/eventing-contrib/kafka/source/pkg/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "knative.dev/eventing-contrib/kafka/source/pkg/client/listers/bindings/v1alpha1"
+	bindingsv1alpha1 "knative.dev/eventing-kafka/contrib/kafka/source/pkg/apis/bindings/v1alpha1"
+	versioned "knative.dev/eventing-kafka/contrib/kafka/source/pkg/client/clientset/versioned"
+	internalinterfaces "knative.dev/eventing-kafka/contrib/kafka/source/pkg/client/informers/externalversions/internalinterfaces"
+	v1alpha1 "knative.dev/eventing-kafka/contrib/kafka/source/pkg/client/listers/bindings/v1alpha1"
 )
 
 // KafkaBindingInformer provides access to a shared informer and lister for

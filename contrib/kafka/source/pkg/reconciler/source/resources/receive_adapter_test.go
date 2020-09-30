@@ -24,8 +24,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	bindingsv1beta1 "knative.dev/eventing-contrib/kafka/source/pkg/apis/bindings/v1beta1"
-	"knative.dev/eventing-contrib/kafka/source/pkg/apis/sources/v1beta1"
+	bindingsv1beta1 "knative.dev/eventing-kafka/contrib/kafka/source/pkg/apis/bindings/v1beta1"
+	"knative.dev/eventing-kafka/contrib/kafka/source/pkg/apis/sources/v1beta1"
 	"knative.dev/pkg/kmp"
 )
 

@@ -26,8 +26,8 @@ import (
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	rest "k8s.io/client-go/rest"
-	v1beta1 "knative.dev/eventing-contrib/kafka/source/pkg/apis/bindings/v1beta1"
-	scheme "knative.dev/eventing-contrib/kafka/source/pkg/client/clientset/versioned/scheme"
+	v1beta1 "knative.dev/eventing-kafka/contrib/kafka/source/pkg/apis/bindings/v1beta1"
+	scheme "knative.dev/eventing-kafka/contrib/kafka/source/pkg/client/clientset/versioned/scheme"
 )
 
 // KafkaBindingsGetter has a method to return a KafkaBindingInterface.

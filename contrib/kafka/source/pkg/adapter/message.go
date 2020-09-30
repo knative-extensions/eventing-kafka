@@ -33,7 +33,7 @@ import (
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
 
-	sourcesv1beta1 "knative.dev/eventing-contrib/kafka/source/pkg/apis/sources/v1beta1"
+	sourcesv1beta1 "knative.dev/eventing-kafka/contrib/kafka/source/pkg/apis/sources/v1beta1"
 )
 
 func (a *Adapter) ConsumerMessageToHttpRequest(ctx context.Context, span *trace.Span, cm *sarama.ConsumerMessage, req *nethttp.Request) error {

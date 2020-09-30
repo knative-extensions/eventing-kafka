@@ -23,7 +23,7 @@ import (
 	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/signals"
 
-	controller "knative.dev/eventing-contrib/kafka/channel/pkg/reconciler/dispatcher"
+	controller "knative.dev/eventing-kafka/contrib/kafka/channel/pkg/reconciler/dispatcher"
 )
 
 const component = "kafkachannel-dispatcher"

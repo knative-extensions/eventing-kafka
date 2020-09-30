@@ -34,7 +34,7 @@ import (
 	"knative.dev/pkg/reconciler"
 	. "knative.dev/pkg/reconciler/testing"
 
-	fakekafkaclient "knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/client/fake"
+	fakekafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client/fake"
 )
 
 const (

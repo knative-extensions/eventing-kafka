@@ -27,7 +27,7 @@ import (
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
-	v1beta1 "knative.dev/eventing-contrib/kafka/source/pkg/apis/sources/v1beta1"
+	v1beta1 "knative.dev/eventing-kafka/contrib/kafka/source/pkg/apis/sources/v1beta1"
 )
 
 // FakeKafkaSources implements KafkaSourceInterface

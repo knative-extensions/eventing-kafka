@@ -35,32 +35,32 @@ spec:
         eventing.knative.dev/release: devel
     spec:
       containers:
-        - name: dispatcher
-          image: ko://knative.dev/eventing-contrib/kafka/channel/cmd/channel_dispatcher
-          env:
-            - name: SYSTEM_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.namespace
-            - name: METRICS_DOMAIN
-              value: "knative.dev/eventing"
-            - name: CONFIG_LOGGING_NAME
-              value: "config-logging"
-            - name: CONFIG_LEADERELECTION_NAME
-              value: "config-leader-election-kafka"
-          ports:
-            - containerPort: 9090
-              name: metrics
-              protocol: TCP
-          volumeMounts:
-            - name: config-kafka
-              mountPath: /etc/config-kafka
+      - name: dispatcher
+        image: ko://knative.dev/eventing-kafka/contrib/kafka/channel/cmd/channel_dispatcher
+        env:
+        - name: SYSTEM_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: METRICS_DOMAIN
+          value: "knative.dev/eventing"
+        - name: CONFIG_LOGGING_NAME
+          value: "config-logging"
+        - name: CONFIG_LEADERELECTION_NAME
+          value: "config-leader-election-kafka"
+        ports:
+        - containerPort: 9090
+          name: metrics
+          protocol: TCP
+        volumeMounts:
+        - name: config-kafka
+          mountPath: /etc/config-kafka
       serviceAccountName: kafka-ch-dispatcher
       volumes:
-        - name: config-kafka
-          configMap:
-            name: config-kafka
+      - name: config-kafka
+        configMap:
+          name: config-kafka
 
 ---
 

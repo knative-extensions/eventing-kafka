@@ -20,8 +20,8 @@ package v1beta1
 
 import (
 	rest "k8s.io/client-go/rest"
-	v1beta1 "knative.dev/eventing-contrib/kafka/source/pkg/apis/sources/v1beta1"
-	"knative.dev/eventing-contrib/kafka/source/pkg/client/clientset/versioned/scheme"
+	v1beta1 "knative.dev/eventing-kafka/contrib/kafka/source/pkg/apis/sources/v1beta1"
+	"knative.dev/eventing-kafka/contrib/kafka/source/pkg/client/clientset/versioned/scheme"
 )
 
 type SourcesV1beta1Interface interface {

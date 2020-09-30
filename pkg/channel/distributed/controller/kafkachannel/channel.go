@@ -8,7 +8,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kafkav1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
+	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	commonconstants "knative.dev/eventing-kafka/pkg/channel/distributed/common/constants"
 	kafkautil "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/util"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
