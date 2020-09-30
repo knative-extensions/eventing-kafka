@@ -30,12 +30,11 @@ import (
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/eventing-kafka/contrib/kafka/channel/pkg/utils"
+	"knative.dev/eventing-kafka/pkg/common/consumer"
 	eventingchannels "knative.dev/eventing/pkg/channel"
 	"knative.dev/eventing/pkg/channel/fanout"
 	"knative.dev/eventing/pkg/kncloudevents"
-
-	"knative.dev/eventing-kafka/contrib/kafka/channel/pkg/utils"
-	"knative.dev/eventing-kafka/contrib/kafka/common/pkg/kafka"
 )
 
 type KafkaDispatcher struct {
@@ -52,7 +51,7 @@ type KafkaDispatcher struct {
 	subscriptions        map[types.UID]Subscription
 	// consumerUpdateLock must be used to update kafkaConsumers
 	consumerUpdateLock   sync.Mutex
-	kafkaConsumerFactory kafka.KafkaConsumerGroupFactory
+	kafkaConsumerFactory consumer.KafkaConsumerGroupFactory
 
 	topicFunc TopicFunc
 	logger    *zap.SugaredLogger
@@ -95,7 +94,7 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 
 	dispatcher := &KafkaDispatcher{
 		dispatcher:           eventingchannels.NewMessageDispatcher(args.Logger.Desugar()),
-		kafkaConsumerFactory: kafka.NewConsumerGroupFactory(args.Brokers, conf),
+		kafkaConsumerFactory: consumer.NewConsumerGroupFactory(args.Brokers, conf),
 		channelSubscriptions: make(map[eventingchannels.ChannelReference][]types.UID),
 		subsConsumerGroups:   make(map[types.UID]sarama.ConsumerGroup),
 		subscriptions:        make(map[types.UID]Subscription),
@@ -183,7 +182,7 @@ func (c consumerMessageHandler) Handle(ctx context.Context, consumerMessage *sar
 	return err == nil, err
 }
 
-var _ kafka.KafkaConsumerHandler = (*consumerMessageHandler)(nil)
+var _ consumer.KafkaConsumerHandler = (*consumerMessageHandler)(nil)
 
 type Config struct {
 	// The configuration of each channel in this handler.

@@ -28,11 +28,10 @@ import (
 
 	"context"
 
-	kafkabinding "knative.dev/eventing-kafka/contrib/kafka"
-	"knative.dev/eventing-kafka/contrib/kafka/common/pkg/kafka"
-
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
+	kafkabinding "knative.dev/eventing-kafka/contrib/kafka"
+	"knative.dev/eventing-kafka/pkg/common/consumer"
 	"knative.dev/pkg/logging"
 )
 
@@ -97,7 +96,7 @@ func (a *Adapter) start(stopCh <-chan struct{}) error {
 	}
 	config.Consumer.Offsets.AutoCommit.Enable = false
 
-	consumerGroupFactory := kafka.NewConsumerGroupFactory(addrs, config)
+	consumerGroupFactory := consumer.NewConsumerGroupFactory(addrs, config)
 	group, err := consumerGroupFactory.StartConsumerGroup(a.config.ConsumerGroup, a.config.Topics, a.logger, a)
 	if err != nil {
 		panic(err)
