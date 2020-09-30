@@ -131,6 +131,25 @@ Consumer:
   Return:
     Errors: true
 `
+	EKDefaultSaramaConfigWithInsecureSkipVerify = `
+Net:
+  TLS:
+    Enable: true
+    Config:
+      InsecureSkipVerify: true
+  SASL:
+    Mechanism: PLAIN
+    Version: 1
+Metadata:
+  RefreshFrequency: 300000000000
+Consumer:
+  Offsets:
+    AutoCommit:
+        Interval: 5000000000
+    Retention: 604800000000000
+  Return:
+    Errors: true
+`
 )
 
 // Test Enabling Sarama Logging
@@ -261,6 +280,12 @@ func TestMergeSaramaSettings(t *testing.T) {
 	config, err = MergeSaramaSettings(config, configMap)
 	assert.Nil(t, err)
 	assert.NotNil(t, config.Net.TLS.Config.RootCAs)
+
+	// Verify that the InsecureSkipVerify flag can be set properly
+	configMap = commontesting.GetTestSaramaConfigMap(EKDefaultSaramaConfigWithInsecureSkipVerify, commontesting.TestEKConfig)
+	config, err = MergeSaramaSettings(config, configMap)
+	assert.Nil(t, err)
+	assert.True(t, config.Net.TLS.Config.InsecureSkipVerify)
 }
 
 // Verify that comparisons of sarama config structs function as expected
@@ -299,6 +324,21 @@ func TestSaramaConfigEqual(t *testing.T) {
 	assert.False(t, ConfigEqual(config1, config2))
 
 	config2.RackID = "New Rack ID"
+	assert.True(t, ConfigEqual(config1, config2))
+
+	// Change a boolean flag in the TLS.Config struct (which is not Sarama-specific) and make sure the compare function
+	// works with those sub-structs as well.
+	config1.Net.TLS.Config = &tls.Config{}
+	config2.Net.TLS.Config = &tls.Config{}
+
+	config1.Net.TLS.Config.InsecureSkipVerify = true
+	config2.Net.TLS.Config.InsecureSkipVerify = false
+	assert.False(t, ConfigEqual(config1, config2))
+	config2.Net.TLS.Config.InsecureSkipVerify = true
+	assert.True(t, ConfigEqual(config1, config2))
+	config1.Net.TLS.Config.InsecureSkipVerify = false
+	assert.False(t, ConfigEqual(config1, config2))
+	config2.Net.TLS.Config.InsecureSkipVerify = false
 	assert.True(t, ConfigEqual(config1, config2))
 
 	// Test config with TLS struct

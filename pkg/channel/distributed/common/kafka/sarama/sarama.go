@@ -22,6 +22,9 @@ import (
 	"knative.dev/pkg/system"
 )
 
+// Regular Expression To Find All Certificates In Net.TLS.Config.RootPEMs Field
+var regexRootPEMs = regexp.MustCompile(`(?s)\s*RootPEMs:.*-----END CERTIFICATE-----`)
+
 // Utility Function For Enabling Sarama Logging (Debugging)
 func EnableSaramaLogging() {
 	sarama.Logger = log.New(os.Stdout, "[sarama] ", log.LstdFlags)
@@ -173,8 +176,7 @@ func extractRootCerts(saramaConfigYamlString string) (string, *x509.CertPool, er
 	}
 
 	// Remove The RootPEMs From The Sarama YAML String (Multi-Line / Greedy To Collect All PEMs)
-	regex := regexp.MustCompile(`(?s)\s*RootPEMs:.*-----END CERTIFICATE-----`)
-	updatedSaramaConfigYamlBytes := regex.ReplaceAll([]byte(saramaConfigYamlString), []byte{})
+	updatedSaramaConfigYamlBytes := regexRootPEMs.ReplaceAll([]byte(saramaConfigYamlString), []byte{})
 	return string(updatedSaramaConfigYamlBytes), certPool, nil
 }
 
@@ -273,8 +275,7 @@ func LoadSettings(ctx context.Context) (*sarama.Config, *commonconfig.EventingKa
 		return nil, nil, fmt.Errorf("attempted to load settings from a nil context")
 	}
 
-	configMaps := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace())
-	configMap, err := configMaps.Get(ctx, commonconfig.SettingsConfigMapName, metav1.GetOptions{})
+	configMap, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, commonconfig.SettingsConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return nil, nil, err
 	}
