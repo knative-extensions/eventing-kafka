@@ -3,13 +3,14 @@ package channel
 import (
 	"context"
 	"errors"
+
 	"go.uber.org/zap"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	k8sclientcmd "k8s.io/client-go/tools/clientcmd"
-	kafkaclientset "knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned"
-	kafkainformers "knative.dev/eventing-contrib/kafka/channel/pkg/client/informers/externalversions"
-	kafkalisters "knative.dev/eventing-contrib/kafka/channel/pkg/client/listers/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/health"
+	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
+	kafkainformers "knative.dev/eventing-kafka/pkg/client/informers/externalversions"
+	kafkalisters "knative.dev/eventing-kafka/pkg/client/listers/messaging/v1beta1"
 	eventingChannel "knative.dev/eventing/pkg/channel"
 	knativecontroller "knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"

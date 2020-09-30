@@ -34,8 +34,8 @@ import (
 	"knative.dev/eventing/pkg/channel/fanout"
 	"knative.dev/eventing/pkg/kncloudevents"
 
-	"knative.dev/eventing-contrib/kafka/channel/pkg/utils"
-	"knative.dev/eventing-contrib/kafka/common/pkg/kafka"
+	"knative.dev/eventing-kafka/contrib/kafka/channel/pkg/utils"
+	"knative.dev/eventing-kafka/contrib/kafka/common/pkg/kafka"
 )
 
 type KafkaDispatcher struct {

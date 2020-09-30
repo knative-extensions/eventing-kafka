@@ -19,9 +19,9 @@ limitations under the License.
 package bindings
 
 import (
-	v1alpha1 "knative.dev/eventing-contrib/kafka/source/pkg/client/informers/externalversions/bindings/v1alpha1"
-	v1beta1 "knative.dev/eventing-contrib/kafka/source/pkg/client/informers/externalversions/bindings/v1beta1"
-	internalinterfaces "knative.dev/eventing-contrib/kafka/source/pkg/client/informers/externalversions/internalinterfaces"
+	v1alpha1 "knative.dev/eventing-kafka/contrib/kafka/source/pkg/client/informers/externalversions/bindings/v1alpha1"
+	v1beta1 "knative.dev/eventing-kafka/contrib/kafka/source/pkg/client/informers/externalversions/bindings/v1beta1"
+	internalinterfaces "knative.dev/eventing-kafka/contrib/kafka/source/pkg/client/informers/externalversions/internalinterfaces"
 )
 
 // Interface provides access to each of this group's versions.

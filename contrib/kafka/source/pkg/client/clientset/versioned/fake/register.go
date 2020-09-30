@@ -24,10 +24,10 @@ import (
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	bindingsv1alpha1 "knative.dev/eventing-contrib/kafka/source/pkg/apis/bindings/v1alpha1"
-	bindingsv1beta1 "knative.dev/eventing-contrib/kafka/source/pkg/apis/bindings/v1beta1"
-	sourcesv1alpha1 "knative.dev/eventing-contrib/kafka/source/pkg/apis/sources/v1alpha1"
-	sourcesv1beta1 "knative.dev/eventing-contrib/kafka/source/pkg/apis/sources/v1beta1"
+	bindingsv1alpha1 "knative.dev/eventing-kafka/contrib/kafka/source/pkg/apis/bindings/v1alpha1"
+	bindingsv1beta1 "knative.dev/eventing-kafka/contrib/kafka/source/pkg/apis/bindings/v1beta1"
+	sourcesv1alpha1 "knative.dev/eventing-kafka/contrib/kafka/source/pkg/apis/sources/v1alpha1"
+	sourcesv1beta1 "knative.dev/eventing-kafka/contrib/kafka/source/pkg/apis/sources/v1beta1"
 )
 
 var scheme = runtime.NewScheme()

@@ -35,7 +35,7 @@ import (
 
 	"knative.dev/eventing/pkg/kncloudevents"
 
-	sourcesv1beta1 "knative.dev/eventing-contrib/kafka/source/pkg/apis/sources/v1beta1"
+	sourcesv1beta1 "knative.dev/eventing-kafka/contrib/kafka/source/pkg/apis/sources/v1beta1"
 )
 
 func TestPostMessage_ServeHTTP_binary_mode(t *testing.T) {

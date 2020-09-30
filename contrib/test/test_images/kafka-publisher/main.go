@@ -21,7 +21,7 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/kelseyhightower/envconfig"
-	"knative.dev/eventing-contrib/kafka"
+	"knative.dev/eventing-kafka/contrib/kafka"
 	"knative.dev/pkg/signals"
 )
 

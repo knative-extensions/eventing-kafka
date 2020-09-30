@@ -29,7 +29,7 @@ You must have [ko](https://github.com/google/ko) installed.
 ### Checkout your fork
 
 The Go tools require that you clone the repository to the
-`src/knative.dev/eventing-contrib` directory in your
+`src/knative.dev/eventing-kafka` directory in your
 [`GOPATH`](https://github.com/golang/go/wiki/SettingGOPATH).
 
 To check out this repository:
@@ -41,9 +41,9 @@ To check out this repository:
 ```shell
 mkdir -p ${GOPATH}/src/knative.dev
 cd ${GOPATH}/src/knative.dev
-git clone git@github.com:${YOUR_GITHUB_USERNAME}/eventing-contrib.git
-cd eventing-contrib
-git remote add upstream git@github.com:knative/eventing-contrib.git
+git clone git@github.com:${YOUR_GITHUB_USERNAME}/eventing-kafka.git
+cd eventing-kafka
+git remote add upstream git@github.com:knative-sandbox/eventing-kafka.git
 git remote set-url --push upstream no_push
 ```
 
@@ -86,8 +86,7 @@ kubectl -n knative-sources logs \
     )
 ```
 
-_See [camel/source/samples/README.md](./camel/source/samples/README.md),
-[kafka/source/README.md](./kafka/source/README.md) for instructions on
+_See [kafka/source/README.md](./kafka/source/README.md) for instructions on
 installing the Camel Source and Kafka Source._
 
 ## Iterating
@@ -109,8 +108,7 @@ need GNU `diff` version 3.7 that you can install from `brew` with
 `brew install diffutils`.
 
 To check that the build and tests passes please see the test
-[documentation](#tests) or simply run
-[`./test/presubmit-tests.sh`](./test/presubmit-tests.sh).
+[documentation](#tests) or simply run `./test/presubmit-tests.sh`.
 
 Once the codegen and dependency information is correct, redeploy using the same
 `ko apply` command you used [Installing a Source](#installing-a-source).

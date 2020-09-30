@@ -38,15 +38,15 @@ import (
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
 
-	"knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
-	kafkaclientset "knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned"
-	kafkaScheme "knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned/scheme"
-	kafkaclientsetinjection "knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/client"
-	"knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/informers/messaging/v1beta1/kafkachannel"
-	kafkachannelreconciler "knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
-	listers "knative.dev/eventing-contrib/kafka/channel/pkg/client/listers/messaging/v1beta1"
-	"knative.dev/eventing-contrib/kafka/channel/pkg/dispatcher"
-	"knative.dev/eventing-contrib/kafka/channel/pkg/utils"
+	"knative.dev/eventing-kafka/contrib/kafka/channel/pkg/dispatcher"
+	"knative.dev/eventing-kafka/contrib/kafka/channel/pkg/utils"
+	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
+	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
+	kafkaScheme "knative.dev/eventing-kafka/pkg/client/clientset/versioned/scheme"
+	kafkaclientsetinjection "knative.dev/eventing-kafka/pkg/client/injection/client"
+	"knative.dev/eventing-kafka/pkg/client/injection/informers/messaging/v1beta1/kafkachannel"
+	kafkachannelreconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
+	listers "knative.dev/eventing-kafka/pkg/client/listers/messaging/v1beta1"
 )
 
 func init() {

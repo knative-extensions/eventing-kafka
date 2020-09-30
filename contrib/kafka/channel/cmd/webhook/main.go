@@ -20,7 +20,7 @@ import (
 
 	"knative.dev/pkg/webhook/resourcesemantics/conversion"
 
-	"knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging"
+	"knative.dev/eventing-kafka/pkg/apis/messaging"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/eventing/pkg/logconfig"
@@ -34,8 +34,8 @@ import (
 	"knative.dev/pkg/webhook/resourcesemantics/defaulting"
 	"knative.dev/pkg/webhook/resourcesemantics/validation"
 
-	messagingv1alpha1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1alpha1"
-	messagingv1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
+	messagingv1alpha1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1alpha1"
+	messagingv1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 )
 
 var types = map[schema.GroupVersionKind]resourcesemantics.GenericCRD{
@@ -134,6 +134,6 @@ func main() {
 		NewDefaultingAdmissionController,
 		NewValidationAdmissionController,
 		NewConversionController,
-		// TODO(mattmoor): Support config validation in eventing-contrib.
+		// TODO(mattmoor): Support config validation in eventing-kafka.
 	)
 }

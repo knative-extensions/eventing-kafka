@@ -21,9 +21,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"knative.dev/eventing-contrib/test/e2e/helpers"
-	contribtestlib "knative.dev/eventing-contrib/test/lib"
-	contribresources "knative.dev/eventing-contrib/test/lib/resources"
+	"knative.dev/eventing-kafka/contrib/test/e2e/helpers"
+	contribtestlib "knative.dev/eventing-kafka/contrib/test/lib"
+	contribresources "knative.dev/eventing-kafka/contrib/test/lib/resources"
 
 	testlib "knative.dev/eventing/test/lib"
 	"knative.dev/eventing/test/lib/recordevents"

@@ -19,19 +19,19 @@ package main
 import (
 	"context"
 
-	"knative.dev/eventing-contrib/kafka/source/pkg/apis/bindings"
-	"knative.dev/eventing-contrib/kafka/source/pkg/apis/sources"
+	"knative.dev/eventing-kafka/contrib/kafka/source/pkg/apis/bindings"
+	"knative.dev/eventing-kafka/contrib/kafka/source/pkg/apis/sources"
 	"knative.dev/pkg/webhook/resourcesemantics/conversion"
 
 	"os"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	bindingsv1alpha1 "knative.dev/eventing-contrib/kafka/source/pkg/apis/bindings/v1alpha1"
-	bindingsv1beta1 "knative.dev/eventing-contrib/kafka/source/pkg/apis/bindings/v1beta1"
-	sourcesv1alpha1 "knative.dev/eventing-contrib/kafka/source/pkg/apis/sources/v1alpha1"
-	sourcesv1beta1 "knative.dev/eventing-contrib/kafka/source/pkg/apis/sources/v1beta1"
-	"knative.dev/eventing-contrib/kafka/source/pkg/reconciler/binding"
-	"knative.dev/eventing-contrib/kafka/source/pkg/reconciler/source"
+	bindingsv1alpha1 "knative.dev/eventing-kafka/contrib/kafka/source/pkg/apis/bindings/v1alpha1"
+	bindingsv1beta1 "knative.dev/eventing-kafka/contrib/kafka/source/pkg/apis/bindings/v1beta1"
+	sourcesv1alpha1 "knative.dev/eventing-kafka/contrib/kafka/source/pkg/apis/sources/v1alpha1"
+	sourcesv1beta1 "knative.dev/eventing-kafka/contrib/kafka/source/pkg/apis/sources/v1beta1"
+	"knative.dev/eventing-kafka/contrib/kafka/source/pkg/reconciler/binding"
+	"knative.dev/eventing-kafka/contrib/kafka/source/pkg/reconciler/source"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection"

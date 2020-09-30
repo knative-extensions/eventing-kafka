@@ -2,15 +2,16 @@ package channel
 
 import (
 	"context"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
-	kafkaclientset "knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned"
-	fakeclientset "knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned/fake"
 	channelhealth "knative.dev/eventing-kafka/pkg/channel/distributed/receiver/health"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/test"
+	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
+	fakeclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned/fake"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
-	"testing"
 )
 
 // Test The InitializeKafkaChannelLister() Functionality

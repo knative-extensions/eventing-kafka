@@ -21,8 +21,8 @@ package kafkasource
 import (
 	context "context"
 
-	kafkasource "knative.dev/eventing-contrib/kafka/source/pkg/client/injection/informers/sources/v1beta1/kafkasource"
-	v1beta1kafkasource "knative.dev/eventing-contrib/kafka/source/pkg/client/injection/reconciler/sources/v1beta1/kafkasource"
+	kafkasource "knative.dev/eventing-kafka/contrib/kafka/source/pkg/client/injection/informers/sources/v1beta1/kafkasource"
+	v1beta1kafkasource "knative.dev/eventing-kafka/contrib/kafka/source/pkg/client/injection/reconciler/sources/v1beta1/kafkasource"
 	configmap "knative.dev/pkg/configmap"
 	controller "knative.dev/pkg/controller"
 	logging "knative.dev/pkg/logging"

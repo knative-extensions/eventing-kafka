@@ -22,8 +22,8 @@ import (
 	context "context"
 
 	v1 "k8s.io/api/core/v1"
-	v1alpha1 "knative.dev/eventing-contrib/kafka/source/pkg/apis/sources/v1alpha1"
-	kafkasource "knative.dev/eventing-contrib/kafka/source/pkg/client/injection/reconciler/sources/v1alpha1/kafkasource"
+	v1alpha1 "knative.dev/eventing-kafka/contrib/kafka/source/pkg/apis/sources/v1alpha1"
+	kafkasource "knative.dev/eventing-kafka/contrib/kafka/source/pkg/client/injection/reconciler/sources/v1alpha1/kafkasource"
 	reconciler "knative.dev/pkg/reconciler"
 )
 

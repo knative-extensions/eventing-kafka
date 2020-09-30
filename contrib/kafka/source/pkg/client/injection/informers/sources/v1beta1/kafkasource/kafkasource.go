@@ -21,8 +21,8 @@ package kafkasource
 import (
 	context "context"
 
-	v1beta1 "knative.dev/eventing-contrib/kafka/source/pkg/client/informers/externalversions/sources/v1beta1"
-	factory "knative.dev/eventing-contrib/kafka/source/pkg/client/injection/informers/factory"
+	v1beta1 "knative.dev/eventing-kafka/contrib/kafka/source/pkg/client/informers/externalversions/sources/v1beta1"
+	factory "knative.dev/eventing-kafka/contrib/kafka/source/pkg/client/injection/informers/factory"
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
 	logging "knative.dev/pkg/logging"
@@ -46,7 +46,7 @@ func Get(ctx context.Context) v1beta1.KafkaSourceInformer {
 	untyped := ctx.Value(Key{})
 	if untyped == nil {
 		logging.FromContext(ctx).Panic(
-			"Unable to fetch knative.dev/eventing-contrib/kafka/source/pkg/client/informers/externalversions/sources/v1beta1.KafkaSourceInformer from context.")
+			"Unable to fetch knative.dev/eventing-kafka/contrib/kafka/source/pkg/client/informers/externalversions/sources/v1beta1.KafkaSourceInformer from context.")
 	}
 	return untyped.(v1beta1.KafkaSourceInformer)
 }
