@@ -238,7 +238,6 @@ github.com/grpc-ecosystem/grpc-gateway/utilities
 # github.com/hashicorp/go-cleanhttp v0.5.1
 github.com/hashicorp/go-cleanhttp
 # github.com/hashicorp/go-retryablehttp v0.6.6
-## explicit
 github.com/hashicorp/go-retryablehttp
 # github.com/hashicorp/go-uuid v1.0.2
 github.com/hashicorp/go-uuid
@@ -328,7 +327,6 @@ github.com/prometheus/statsd_exporter/pkg/mapper/fsm
 ## explicit
 github.com/rcrowley/go-metrics
 # github.com/rickb777/date v1.13.0
-## explicit
 github.com/rickb777/date/period
 # github.com/rickb777/plural v1.2.1
 github.com/rickb777/plural

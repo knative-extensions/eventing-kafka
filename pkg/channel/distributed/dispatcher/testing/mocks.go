@@ -35,7 +35,7 @@ func NewMockMessageDispatcher(t *testing.T, errorResponses map[url.URL]error) Mo
 	return MockMessageDispatcher{
 		t:                  t,
 		errorResponses:     errorResponses,
-		DispatchedMessages: make(map[url.URL][]cloudevents.Message, 0),
+		DispatchedMessages: make(map[url.URL][]cloudevents.Message),
 	}
 }
 

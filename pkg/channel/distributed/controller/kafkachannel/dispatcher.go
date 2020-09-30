@@ -65,14 +65,14 @@ func (r *Reconciler) reconcileDispatcher(ctx context.Context, channel *kafkav1be
 func (r *Reconciler) reconcileDispatcherService(ctx context.Context, channel *kafkav1beta1.KafkaChannel) error {
 
 	// Attempt To Get The Dispatcher Service Associated With The Specified Channel
-	service, err := r.getDispatcherService(channel)
+	_, err := r.getDispatcherService(channel)
 	if err != nil {
 
 		// If The Service Was Not Found - Then Create A New One For The Channel
 		if errors.IsNotFound(err) {
 			r.logger.Info("Dispatcher Service Not Found - Creating New One")
-			service = r.newDispatcherService(channel)
-			service, err = r.kubeClientset.CoreV1().Services(service.Namespace).Create(ctx, service, metav1.CreateOptions{})
+			service := r.newDispatcherService(channel)
+			_, err = r.kubeClientset.CoreV1().Services(service.Namespace).Create(ctx, service, metav1.CreateOptions{})
 			if err != nil {
 				r.logger.Error("Failed To Create Dispatcher Service", zap.Error(err))
 				return err
@@ -97,7 +97,6 @@ func (r *Reconciler) getDispatcherService(channel *kafkav1beta1.KafkaChannel) (*
 	serviceName := util.DispatcherDnsSafeName(channel)
 
 	// Get The Service By Namespace / Name
-	service := &corev1.Service{}
 	service, err := r.serviceLister.Services(commonconstants.KnativeEventingNamespace).Get(serviceName)
 
 	// Return The Results
@@ -198,7 +197,6 @@ func (r *Reconciler) getDispatcherDeployment(channel *kafkav1beta1.KafkaChannel)
 	deploymentName := util.DispatcherDnsSafeName(channel)
 
 	// Get The Dispatcher Deployment By Namespace / Name
-	deployment := &appsv1.Deployment{}
 	deployment, err := r.deploymentLister.Deployments(commonconstants.KnativeEventingNamespace).Get(deploymentName)
 
 	// Return The Results

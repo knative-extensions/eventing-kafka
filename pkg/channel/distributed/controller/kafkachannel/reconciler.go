@@ -210,7 +210,7 @@ func (r *Reconciler) configMapObserver(configMap *corev1.ConfigMap) {
 	// those settings are needed in the future, the environment will also need to be re-parsed here.
 
 	// Load the Sarama settings from our configmap, ignoring the eventing-kafka result.
-	saramaConfig, _, err := kafkasarama.LoadConfigFromMap(configMap)
+	saramaConfig, err := kafkasarama.MergeSaramaSettings(nil, configMap)
 	if err != nil {
 		r.logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Error(err))
 	}

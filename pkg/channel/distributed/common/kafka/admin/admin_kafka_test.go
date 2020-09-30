@@ -13,7 +13,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	commonconstants "knative.dev/eventing-kafka/pkg/channel/distributed/common/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
-	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
@@ -77,7 +76,7 @@ Metadata:
 	}()
 
 	// Perform The Test
-	adminClient, err := NewKafkaAdminClient(ctx, commontesting.GetDefaultSaramaConfig(t, kafkasarama.NewSaramaConfig()), clientId, namespace)
+	adminClient, err := NewKafkaAdminClient(ctx, commontesting.GetDefaultSaramaConfig(t), clientId, namespace)
 
 	// Verify The Results
 	assert.Nil(t, err)
@@ -96,7 +95,7 @@ func TestNewKafkaAdminClientNoSecrets(t *testing.T) {
 	ctx = context.WithValue(ctx, injectionclient.Key{}, fake.NewSimpleClientset())
 
 	// Perform The Test
-	adminClient, err := NewKafkaAdminClient(ctx, commontesting.GetDefaultSaramaConfig(t, kafkasarama.NewSaramaConfig()), clientId, namespace)
+	adminClient, err := NewKafkaAdminClient(ctx, commontesting.GetDefaultSaramaConfig(t), clientId, namespace)
 
 	// Verify The Results
 	assert.Nil(t, err)
