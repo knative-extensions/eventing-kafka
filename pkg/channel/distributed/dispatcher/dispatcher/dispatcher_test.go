@@ -370,6 +370,7 @@ func TestConfigChanged(t *testing.T) {
 
 	// Verify that Producer changes do not cause Reconfigure to be called
 	dispatcher = runConfigChangedTest(t, dispatcher, getBaseConfigMap(), TestConfigProducerChange, false)
+	assert.NotNil(t, dispatcher)
 }
 
 func runConfigChangedTest(t *testing.T, originalDispatcher Dispatcher, base *corev1.ConfigMap, changed string, expectedNewDispatcher bool) Dispatcher {

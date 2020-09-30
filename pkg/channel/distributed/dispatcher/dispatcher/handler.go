@@ -18,7 +18,7 @@ import (
 )
 
 // 3 Digit Word Boundary HTTP Status Code Regular Expression
-var HttpStatusCodeRegExp = regexp.MustCompile("(^|\\s)([12345]\\d{2})(\\s|$)")
+var HttpStatusCodeRegExp = regexp.MustCompile(`(^|\s)([12345]\d{2})(\s|$)`)
 
 // Verify The Handler Implements The Sarama ConsumerGroupHandler
 var _ sarama.ConsumerGroupHandler = &Handler{}

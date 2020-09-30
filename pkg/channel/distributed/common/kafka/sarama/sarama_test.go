@@ -242,7 +242,7 @@ func TestMergeSaramaSettings(t *testing.T) {
 
 	// Verify error when an invalid Version is provided
 	configMap := commontesting.GetTestSaramaConfigMap(commontesting.NewSaramaConfig, commontesting.TestEKConfig)
-	regexVersion := regexp.MustCompile(`Version:\s*\d*\.[\d\.]*`) // Must have at least one period or it will match the "Version: 1" in Net.SASL
+	regexVersion := regexp.MustCompile(`Version:\s*\d*\.[\d.]*`) // Must have at least one period or it will match the "Version: 1" in Net.SASL
 	configMap.Data[commontesting.SaramaSettingsConfigKey] =
 		regexVersion.ReplaceAllString(configMap.Data[commontesting.SaramaSettingsConfigKey], "Version: INVALID")
 	config, err = MergeSaramaSettings(config, configMap)
@@ -329,13 +329,11 @@ func TestLoadSettings(t *testing.T) {
 	assert.Nil(t, err)
 	verifyTestEKConfigSettings(t, saramaConfig, eventingKafkaConfig)
 
-	// Verify that a nil context returns an error
-	saramaConfig, eventingKafkaConfig, err = LoadSettings(nil)
-	assert.NotNil(t, err)
-
 	// Verify that a context with no configmap returns an error
 	ctx = context.WithValue(context.Background(), injectionclient.Key{}, fake.NewSimpleClientset())
 	saramaConfig, eventingKafkaConfig, err = LoadSettings(ctx)
+	assert.Nil(t, saramaConfig)
+	assert.Nil(t, eventingKafkaConfig)
 	assert.NotNil(t, err)
 
 	// Verify that a configmap with no data section returns an error
@@ -343,6 +341,8 @@ func TestLoadSettings(t *testing.T) {
 	configMap.Data = nil
 	ctx = context.WithValue(context.Background(), injectionclient.Key{}, fake.NewSimpleClientset(configMap))
 	saramaConfig, eventingKafkaConfig, err = LoadSettings(ctx)
+	assert.Nil(t, saramaConfig)
+	assert.Nil(t, eventingKafkaConfig)
 	assert.NotNil(t, err)
 
 	// Verify that a configmap with invalid YAML returns an error
@@ -350,6 +350,8 @@ func TestLoadSettings(t *testing.T) {
 	configMap.Data[commontesting.EventingKafkaSettingsConfigKey] = "\tinvalidYaml"
 	ctx = context.WithValue(context.Background(), injectionclient.Key{}, fake.NewSimpleClientset(configMap))
 	saramaConfig, eventingKafkaConfig, err = LoadSettings(ctx)
+	assert.Nil(t, saramaConfig)
+	assert.Nil(t, eventingKafkaConfig)
 	assert.NotNil(t, err)
 }
 

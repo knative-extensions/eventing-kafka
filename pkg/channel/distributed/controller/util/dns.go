@@ -6,9 +6,9 @@ import (
 )
 
 // Compiled RegExps
-var startsWithLowercaseAlphaCharRegExp = regexp.MustCompile("^[a-z].*$")
-var endsWithLowercaseAlphaCharRegExp = regexp.MustCompile("^.*[a-z]$")
-var invalidK8sServiceCharactersRegExp = regexp.MustCompile("[^a-z0-9\\-]+")
+var startsWithLowercaseAlphaCharRegExp = regexp.MustCompile(`^[a-z].*$`)
+var endsWithLowercaseAlphaCharRegExp = regexp.MustCompile(`^.*[a-z]$`)
+var invalidK8sServiceCharactersRegExp = regexp.MustCompile(`[^a-z0-9\-]+`)
 
 // Return A Valid DNS Name Which Is As Close To The Specified Name As Possible & Truncated To The Smaller Of Specified Length / 63
 func GenerateValidDnsName(name string, length int, prefix bool, suffix bool) string {

@@ -70,6 +70,7 @@ func TestGetOptionalConfigBool(t *testing.T) {
 	// Should return an error for an invalid value
 	_ = os.Setenv(TestBoolEnvKey, TestBoolInvalidValue)
 	result, err = GetOptionalConfigBool(logger, TestBoolEnvKey, TestBoolDefaultValue, TestBoolEnvName)
+	assert.False(t, result)
 	assertErr(t, fmt.Sprintf("invalid (non boolean) value '%v' for environment variable '%v'", TestBoolInvalidValue, TestBoolEnvKey), err)
 }
 
@@ -81,6 +82,7 @@ func TestGetConfigBool(t *testing.T) {
 	result, exists, err := GetRequiredConfigBool(logger, TestBoolEnvKey, TestBoolEnvName)
 	assertErr(t, fmt.Sprintf("missing required environment variable '%s'", TestBoolEnvKey), err)
 	assert.False(t, exists)
+	assert.False(t, result)
 
 	// Should obtain the value from the environment
 	_ = os.Setenv(TestBoolEnvKey, TestBoolNewValue)
@@ -92,6 +94,7 @@ func TestGetConfigBool(t *testing.T) {
 	_ = os.Setenv(TestBoolEnvKey, TestBoolInvalidValue)
 	result, exists, err = GetRequiredConfigBool(logger, TestBoolEnvKey, TestBoolEnvName)
 	assertErr(t, fmt.Sprintf("invalid (non boolean) value '%v' for environment variable '%v'", TestBoolInvalidValue, TestBoolEnvKey), err)
+	assert.False(t, result)
 	assert.False(t, exists)
 }
 
@@ -102,6 +105,7 @@ func TestGetConfigInt(t *testing.T) {
 	os.Clearenv()
 	result, err := GetRequiredConfigInt(logger, TestIntEnvKey, TestIntEnvName)
 	assertErr(t, fmt.Sprintf("missing required environment variable '%s'", TestIntEnvKey), err)
+	assert.Equal(t, 0, result)
 
 	// Should obtain the value from the environment
 	_ = os.Setenv(TestIntEnvKey, TestIntNewValue)
@@ -112,6 +116,7 @@ func TestGetConfigInt(t *testing.T) {
 	_ = os.Setenv(TestIntEnvKey, TestIntInvalidValue)
 	result, err = GetRequiredConfigInt(logger, TestIntEnvKey, TestIntEnvName)
 	assertErr(t, fmt.Sprintf("invalid (non int) value '%v' for environment variable '%v'", TestIntInvalidValue, TestIntEnvKey), err)
+	assert.Equal(t, 0, result)
 }
 
 func TestGetConfigInt64(t *testing.T) {
@@ -121,6 +126,7 @@ func TestGetConfigInt64(t *testing.T) {
 	os.Clearenv()
 	result, err := GetRequiredConfigInt64(logger, TestInt64EnvKey, TestInt64EnvName)
 	assertErr(t, fmt.Sprintf("missing required environment variable '%s'", TestInt64EnvKey), err)
+	assert.Equal(t, int64(0), result)
 
 	// Should obtain the value from the environment
 	_ = os.Setenv(TestInt64EnvKey, TestInt64NewValue)
@@ -131,6 +137,7 @@ func TestGetConfigInt64(t *testing.T) {
 	_ = os.Setenv(TestInt64EnvKey, TestInt64InvalidValue)
 	result, err = GetRequiredConfigInt64(logger, TestInt64EnvKey, TestInt64EnvName)
 	assertErr(t, fmt.Sprintf("invalid (non int64) value '%v' for environment variable '%v'", TestInt64InvalidValue, TestInt64EnvKey), err)
+	assert.Equal(t, int64(0), result)
 }
 
 func TestGetConfigInt32(t *testing.T) {
@@ -140,6 +147,7 @@ func TestGetConfigInt32(t *testing.T) {
 	os.Clearenv()
 	result, err := GetRequiredConfigInt32(logger, TestInt32EnvKey, TestInt32EnvName)
 	assertErr(t, fmt.Sprintf("missing required environment variable '%s'", TestInt32EnvKey), err)
+	assert.Equal(t, int32(0), result)
 
 	// Should obtain the value from the environment
 	_ = os.Setenv(TestInt32EnvKey, TestInt32NewValue)
@@ -150,6 +158,7 @@ func TestGetConfigInt32(t *testing.T) {
 	_ = os.Setenv(TestInt32EnvKey, TestInt32InvalidValue)
 	result, err = GetRequiredConfigInt32(logger, TestInt32EnvKey, TestInt32EnvName)
 	assertErr(t, fmt.Sprintf("invalid (non int32) value '%v' for environment variable '%v'", TestInt32InvalidValue, TestInt32EnvKey), err)
+	assert.Equal(t, int32(0), result)
 }
 
 func TestGetConfigInt16(t *testing.T) {
@@ -159,6 +168,7 @@ func TestGetConfigInt16(t *testing.T) {
 	os.Clearenv()
 	result, err := GetRequiredConfigInt16(logger, TestInt16EnvKey, TestInt16EnvName)
 	assertErr(t, fmt.Sprintf("missing required environment variable '%s'", TestInt16EnvKey), err)
+	assert.Equal(t, int16(0), result)
 
 	// Should obtain the value from the environment
 	_ = os.Setenv(TestInt16EnvKey, TestInt16NewValue)
@@ -169,6 +179,7 @@ func TestGetConfigInt16(t *testing.T) {
 	_ = os.Setenv(TestInt16EnvKey, TestInt16InvalidValue)
 	result, err = GetRequiredConfigInt16(logger, TestInt16EnvKey, TestInt16EnvName)
 	assertErr(t, fmt.Sprintf("invalid (non int16) value '%v' for environment variable '%v'", TestInt16InvalidValue, TestInt16EnvKey), err)
+	assert.Equal(t, int16(0), result)
 }
 
 func TestGetOptionalConfigInt64(t *testing.T) {
@@ -188,6 +199,7 @@ func TestGetOptionalConfigInt64(t *testing.T) {
 	_ = os.Setenv(TestInt64EnvKey, TestInt64InvalidValue)
 	result, err = GetOptionalConfigInt64(logger, TestInt64EnvKey, TestInt64DefaultValue, TestInt64EnvName)
 	assertErr(t, fmt.Sprintf("invalid (non int64) value '%v' for environment variable '%v'", TestInt64InvalidValue, TestInt64EnvKey), err)
+	assert.Equal(t, int64(0), result)
 }
 
 func TestGetRequiredQuantityConfigValue(t *testing.T) {
@@ -197,6 +209,7 @@ func TestGetRequiredQuantityConfigValue(t *testing.T) {
 	os.Clearenv()
 	result, err := GetRequiredQuantityConfigValue(logger, TestQuantityEnvKey)
 	assertErr(t, fmt.Sprintf("missing required environment variable '%s'", TestQuantityEnvKey), err)
+	assert.Nil(t, result)
 
 	// Should obtain the value from the environment
 	_ = os.Setenv(TestQuantityEnvKey, TestQuantityNewValue)
@@ -208,4 +221,5 @@ func TestGetRequiredQuantityConfigValue(t *testing.T) {
 	_ = os.Setenv(TestQuantityEnvKey, TestQuantityInvalidValue)
 	result, err = GetRequiredQuantityConfigValue(logger, TestQuantityEnvKey)
 	assertErr(t, fmt.Sprintf("invalid (non quantity) value '%v' for environment variable '%v'", TestQuantityInvalidValue, TestQuantityEnvKey), err)
+	assert.Nil(t, result)
 }

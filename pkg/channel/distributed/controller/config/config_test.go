@@ -33,10 +33,6 @@ const (
 type TestCase struct {
 	name string
 
-	// Environment settings
-	envMetricsPort   int
-	envMetricsDomain string
-
 	// Config settings
 	kafkaTopicDefaultNumPartitions     int32
 	kafkaTopicDefaultReplicationFactor int16
