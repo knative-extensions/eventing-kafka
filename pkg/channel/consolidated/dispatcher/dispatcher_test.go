@@ -31,7 +31,7 @@ import (
 	"go.uber.org/zap/zaptest"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"knative.dev/eventing-kafka/contrib/kafka/channel/pkg/utils"
+	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
 	"knative.dev/eventing-kafka/pkg/common/consumer"
 	eventingchannels "knative.dev/eventing/pkg/channel"
 	"knative.dev/eventing/pkg/channel/fanout"
