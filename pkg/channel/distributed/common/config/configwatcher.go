@@ -32,9 +32,6 @@ type EKChannelConfig struct {
 // The Dispatcher config has the base Kubernetes fields and some retry settings
 type EKDispatcherConfig struct {
 	EKKubernetesConfig
-	RetryInitialIntervalMillis int64 `json:"retryInitialIntervalMillis,omitempty"`
-	RetryTimeMillis            int64 `json:"retryTimeMillis,omitempty"`
-	RetryExponentialBackoff    *bool `json:"retryExponentialBackoff,omitempty"`
 }
 
 // EKKafkaTopicConfig contains some defaults that are only used if not provided by the channel spec

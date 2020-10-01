@@ -12,7 +12,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/config"
 	kafkaclientsetinjection "knative.dev/eventing-kafka/pkg/client/injection/client"
 	"knative.dev/eventing-kafka/pkg/client/injection/informers/messaging/v1beta1/kafkachannel"
 	kafkachannelreconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
@@ -49,12 +48,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	if err != nil {
 		logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Error(err))
 	}
-
-	// Verify that our loaded configuration is valid
-	if err = config.VerifyConfiguration(configuration); err != nil {
-		logger.Fatal("Invalid / Missing Settings - Terminating", zap.Error(err))
-	}
-
+	
 	// Determine The Kafka AdminClient Type (Assume Kafka Unless Otherwise Specified)
 	var kafkaAdminClientType kafkaadmin.AdminClientType
 	switch configuration.Kafka.AdminType {

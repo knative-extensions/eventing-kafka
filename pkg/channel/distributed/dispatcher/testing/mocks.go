@@ -14,7 +14,7 @@ import (
 )
 
 //
-// Mock ConsumerGroupClaim Implementation
+// Mock MessageDispatcher Implementation
 //
 
 // Verify The Mock MessageDispatcher Implements The Interface
@@ -22,49 +22,61 @@ var _ channel.MessageDispatcher = &MockMessageDispatcher{}
 
 // Define The Mock MessageDispatcher
 type MockMessageDispatcher struct {
-	t                  *testing.T
-	errorResponses     map[url.URL]error
-	DispatchedMessages map[url.URL][]cloudevents.Message
+	t                      *testing.T
+	expectedHeaders        http.Header
+	expectedDestinationUrl *url.URL
+	expectedReplyUrl       *url.URL
+	expectedDeadLetterUrl  *url.URL
+	expectedRetryConfig    *kncloudevents.RetryConfig
+	message                cloudevents.Message
+	response               error
 }
 
 // Mock MessageDispatcher Constructor
-func NewMockMessageDispatcher(t *testing.T, errorResponses map[url.URL]error) MockMessageDispatcher {
-	if errorResponses == nil {
-		errorResponses = make(map[url.URL]error)
-	}
-	return MockMessageDispatcher{
-		t:                  t,
-		errorResponses:     errorResponses,
-		DispatchedMessages: make(map[url.URL][]cloudevents.Message),
+func NewMockMessageDispatcher(t *testing.T,
+	headers http.Header,
+	destinationUrl *url.URL,
+	replyUrl *url.URL,
+	deadLetterUrl *url.URL,
+	retryConfig *kncloudevents.RetryConfig,
+	response error) *MockMessageDispatcher {
+
+	// Create & Return The Specified Mock MessageDispatcher Instance
+	return &MockMessageDispatcher{
+		t:                      t,
+		expectedHeaders:        headers,
+		expectedDestinationUrl: destinationUrl,
+		expectedReplyUrl:       replyUrl,
+		expectedDeadLetterUrl:  deadLetterUrl,
+		expectedRetryConfig:    retryConfig,
+		response:               response,
 	}
 }
 
-func (m MockMessageDispatcher) DispatchMessage(ctx context.Context, message cloudevents.Message, additionalHeaders http.Header, destination *url.URL, reply *url.URL, deadLetter *url.URL) error {
-	return m.DispatchMessageWithRetries(ctx, message, additionalHeaders, destination, reply, deadLetter, nil)
+func (m *MockMessageDispatcher) DispatchMessage(ctx context.Context, message cloudevents.Message, additionalHeaders http.Header, destination *url.URL, reply *url.URL, deadLetter *url.URL) error {
+	panic("implement me")
 }
 
-func (m MockMessageDispatcher) DispatchMessageWithRetries(ctx context.Context, message cloudevents.Message, additionalHeaders http.Header, destination *url.URL, reply *url.URL, deadLetter *url.URL, config *kncloudevents.RetryConfig) error {
+func (m *MockMessageDispatcher) DispatchMessageWithRetries(ctx context.Context, message cloudevents.Message, headers http.Header, destinationUrl *url.URL, replyUrl *url.URL, deadLetterUrl *url.URL, retryConfig *kncloudevents.RetryConfig) error {
+
+	// Validate The Expected Args
 	assert.NotNil(m.t, ctx)
 	assert.NotNil(m.t, message)
-	assert.NotNil(m.t, destination)
-	// TODO assert.NotNil(m.t, config)
+	assert.Equal(m.t, m.expectedHeaders, headers)
+	assert.Equal(m.t, m.expectedDestinationUrl, destinationUrl)
+	assert.Equal(m.t, m.expectedReplyUrl, replyUrl)
+	assert.Equal(m.t, m.expectedDeadLetterUrl, deadLetterUrl)
+	assert.Equal(m.t, m.expectedRetryConfig.RetryMax, retryConfig.RetryMax)
 
-	if deadLetter != nil {
-		m.trackMessage(deadLetter, message)
-		return m.errorResponses[*deadLetter]
-	} else {
-		m.trackMessage(destination, message)
-		return m.errorResponses[*destination]
-	}
+	// Track The Received Message
+	m.message = message
+
+	// Return The Desired Error Response
+	return m.response
 }
 
-// Utility Function For Tracking Messages Against Their URLs
-func (m MockMessageDispatcher) trackMessage(url *url.URL, message cloudevents.Message) {
-	messages := m.DispatchedMessages[*url]
-	if messages == nil {
-		messages = make([]cloudevents.Message, 0)
-	}
-	m.DispatchedMessages[*url] = append(messages, message)
+func (m *MockMessageDispatcher) Message() cloudevents.Message {
+	return m.message
 }
 
 //
