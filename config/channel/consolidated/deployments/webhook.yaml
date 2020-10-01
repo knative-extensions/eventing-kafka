@@ -35,7 +35,7 @@ spec:
       containers:
       - name: kafka-webhook
         terminationMessagePolicy: FallbackToLogsOnError
-        image: ko://knative.dev/eventing-kafka/contrib/kafka/channel/cmd/webhook
+        image: ko://knative.dev/eventing-kafka/cmd/webhook
         env:
         - name: SYSTEM_NAMESPACE
           valueFrom:

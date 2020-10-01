@@ -17,13 +17,23 @@ limitations under the License.
 package main
 
 import (
-	"knative.dev/pkg/injection/sharedmain"
+	"os"
 
-	"knative.dev/eventing-kafka/contrib/kafka/channel/pkg/reconciler/controller"
+	"knative.dev/pkg/injection"
+	"knative.dev/pkg/injection/sharedmain"
+	"knative.dev/pkg/signals"
+
+	controller "knative.dev/eventing-kafka/pkg/channel/consolidated/reconciler/dispatcher"
 )
 
-const component = "kafkachannel-controller"
+const component = "kafkachannel-dispatcher"
 
 func main() {
-	sharedmain.Main(component, controller.NewController)
+	ctx := signals.NewContext()
+	ns := os.Getenv("NAMESPACE")
+	if ns != "" {
+		ctx = injection.WithNamespaceScope(ctx, ns)
+	}
+
+	sharedmain.MainWithContext(ctx, component, controller.NewController)
 }

@@ -21,7 +21,7 @@ import (
 
 	"knative.dev/eventing/pkg/apis/messaging"
 
-	"knative.dev/eventing-kafka/contrib/kafka/channel/pkg/utils"
+	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
 )
 
 func (c *KafkaChannel) SetDefaults(ctx context.Context) {

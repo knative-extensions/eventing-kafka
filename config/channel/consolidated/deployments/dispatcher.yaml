@@ -36,7 +36,7 @@ spec:
     spec:
       containers:
       - name: dispatcher
-        image: ko://knative.dev/eventing-kafka/contrib/kafka/channel/cmd/channel_dispatcher
+        image: ko://knative.dev/eventing-kafka/cmd/channel/consolidated/dispatcher
         env:
         - name: SYSTEM_NAMESPACE
           valueFrom:
