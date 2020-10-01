@@ -127,6 +127,7 @@ github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2
 ## explicit
 github.com/cloudevents/sdk-go/v2
 github.com/cloudevents/sdk-go/v2/binding
+github.com/cloudevents/sdk-go/v2/binding/buffering
 github.com/cloudevents/sdk-go/v2/binding/format
 github.com/cloudevents/sdk-go/v2/binding/spec
 github.com/cloudevents/sdk-go/v2/binding/transformer
@@ -144,6 +145,7 @@ github.com/cloudevents/sdk-go/v2/protocol/http
 github.com/cloudevents/sdk-go/v2/test
 github.com/cloudevents/sdk-go/v2/types
 # github.com/davecgh/go-spew v1.1.1
+## explicit
 github.com/davecgh/go-spew/spew
 # github.com/dgrijalva/jwt-go v3.2.0+incompatible
 github.com/dgrijalva/jwt-go
@@ -171,6 +173,8 @@ github.com/go-openapi/jsonreference
 github.com/go-openapi/spec
 # github.com/go-openapi/swag v0.19.7
 github.com/go-openapi/swag
+# github.com/gobuffalo/envy v1.7.1
+github.com/gobuffalo/envy
 # github.com/gogo/protobuf v1.3.1
 github.com/gogo/protobuf/proto
 github.com/gogo/protobuf/sortkeys
@@ -179,6 +183,7 @@ github.com/golang/glog
 # github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e
 github.com/golang/groupcache/lru
 # github.com/golang/protobuf v1.4.2
+## explicit
 github.com/golang/protobuf/descriptor
 github.com/golang/protobuf/internal/gengogrpc
 github.com/golang/protobuf/jsonpb
@@ -218,6 +223,7 @@ github.com/google/mako/internal/quickstore_microservice/proto/quickstore_go_prot
 github.com/google/mako/proto/quickstore/quickstore_go_proto
 github.com/google/mako/spec/proto/mako_go_proto
 # github.com/google/uuid v1.1.1
+## explicit
 github.com/google/uuid
 # github.com/googleapis/gax-go/v2 v2.0.5
 github.com/googleapis/gax-go/v2
@@ -247,6 +253,8 @@ github.com/jcmturner/gofork/encoding/asn1
 github.com/jcmturner/gofork/x/crypto/pbkdf2
 # github.com/jmespath/go-jmespath v0.3.0
 github.com/jmespath/go-jmespath
+# github.com/joho/godotenv v1.3.0
+github.com/joho/godotenv
 # github.com/jpillora/backoff v0.0.0-20180909062703-3050d21c67d7
 github.com/jpillora/backoff
 # github.com/json-iterator/go v1.1.10
@@ -256,6 +264,7 @@ github.com/jstemmer/go-junit-report
 github.com/jstemmer/go-junit-report/formatter
 github.com/jstemmer/go-junit-report/parser
 # github.com/kelseyhightower/envconfig v1.4.0
+## explicit
 github.com/kelseyhightower/envconfig
 # github.com/klauspost/compress v1.10.10
 github.com/klauspost/compress/fse
@@ -272,6 +281,8 @@ github.com/lightstep/tracecontext.go/tracestate
 github.com/mailru/easyjson/buffer
 github.com/mailru/easyjson/jlexer
 github.com/mailru/easyjson/jwriter
+# github.com/markbates/inflect v1.0.4
+github.com/markbates/inflect
 # github.com/matttproud/golang_protobuf_extensions v1.0.1
 github.com/matttproud/golang_protobuf_extensions/pbutil
 # github.com/mitchellh/mapstructure v1.3.1
@@ -323,8 +334,16 @@ github.com/rickb777/plural
 github.com/robfig/cron/v3
 # github.com/rogpeppe/fastuuid v1.2.0
 github.com/rogpeppe/fastuuid
+# github.com/rogpeppe/go-internal v1.5.2
+github.com/rogpeppe/go-internal/modfile
+github.com/rogpeppe/go-internal/module
+github.com/rogpeppe/go-internal/semver
 # github.com/sirupsen/logrus v1.6.0
 github.com/sirupsen/logrus
+# github.com/slinkydeveloper/loadastic v0.0.0-20191203132749-9afe5a010a57
+## explicit
+github.com/slinkydeveloper/loadastic/common
+github.com/slinkydeveloper/loadastic/kafka
 # github.com/slok/goresilience v0.2.0
 ## explicit
 github.com/slok/goresilience
@@ -342,6 +361,8 @@ github.com/stretchr/testify/mock
 github.com/stretchr/testify/require
 # github.com/tsenart/vegeta v12.7.1-0.20190725001342-b5f4fca92137+incompatible
 github.com/tsenart/vegeta/lib
+# github.com/valyala/bytebufferpool v1.0.0
+github.com/valyala/bytebufferpool
 # go.opencensus.io v0.22.5-0.20200716030834-3456e1d174b2
 ## explicit
 go.opencensus.io
@@ -746,6 +767,12 @@ k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextension
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1/fake
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1/fake
+k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions
+k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions
+k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1
+k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1beta1
+k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/internalinterfaces
+k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1
 k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1beta1
 # k8s.io/apimachinery v0.18.8 => k8s.io/apimachinery v0.18.8
 ## explicit
@@ -1078,6 +1105,8 @@ k8s.io/utils/pointer
 k8s.io/utils/trace
 # knative.dev/eventing v0.17.1-0.20200917130042-886594db5d01
 ## explicit
+knative.dev/eventing/pkg/adapter/v2
+knative.dev/eventing/pkg/adapter/v2/util/crstatusevent
 knative.dev/eventing/pkg/apis/config
 knative.dev/eventing/pkg/apis/configs
 knative.dev/eventing/pkg/apis/configs/v1alpha1
@@ -1100,6 +1129,7 @@ knative.dev/eventing/pkg/apis/sources/v1alpha1
 knative.dev/eventing/pkg/apis/sources/v1alpha2
 knative.dev/eventing/pkg/apis/sources/v1beta1
 knative.dev/eventing/pkg/channel
+knative.dev/eventing/pkg/channel/fanout
 knative.dev/eventing/pkg/client/clientset/versioned
 knative.dev/eventing/pkg/client/clientset/versioned/fake
 knative.dev/eventing/pkg/client/clientset/versioned/scheme
@@ -1159,14 +1189,19 @@ knative.dev/eventing/pkg/client/listers/sources/v1alpha2
 knative.dev/eventing/pkg/client/listers/sources/v1beta1
 knative.dev/eventing/pkg/configmap
 knative.dev/eventing/pkg/kncloudevents
+knative.dev/eventing/pkg/leaderelection
+knative.dev/eventing/pkg/logconfig
 knative.dev/eventing/pkg/reconciler/names
+knative.dev/eventing/pkg/reconciler/source
 knative.dev/eventing/pkg/reconciler/sugar
 knative.dev/eventing/pkg/reconciler/testing/v1
 knative.dev/eventing/pkg/reconciler/testing/v1beta1
 knative.dev/eventing/pkg/tracing
 knative.dev/eventing/pkg/utils
+knative.dev/eventing/pkg/utils/cache
 knative.dev/eventing/test
 knative.dev/eventing/test/conformance/helpers
+knative.dev/eventing/test/conformance/helpers/sources
 knative.dev/eventing/test/conformance/helpers/tracing
 knative.dev/eventing/test/e2e/helpers
 knative.dev/eventing/test/flags
@@ -1230,18 +1265,30 @@ knative.dev/pkg/apis/duck/ducktypes
 knative.dev/pkg/apis/duck/v1
 knative.dev/pkg/apis/duck/v1alpha1
 knative.dev/pkg/apis/duck/v1beta1
+knative.dev/pkg/apis/testing
 knative.dev/pkg/apis/testing/fuzzer
 knative.dev/pkg/changeset
+knative.dev/pkg/client/injection/apiextensions/client
+knative.dev/pkg/client/injection/apiextensions/informers/apiextensions/v1/customresourcedefinition
+knative.dev/pkg/client/injection/apiextensions/informers/factory
+knative.dev/pkg/client/injection/ducks/duck/v1/addressable
+knative.dev/pkg/client/injection/ducks/duck/v1/podspecable
 knative.dev/pkg/client/injection/kube/client
 knative.dev/pkg/client/injection/kube/client/fake
+knative.dev/pkg/client/injection/kube/informers/admissionregistration/v1/mutatingwebhookconfiguration
+knative.dev/pkg/client/injection/kube/informers/admissionregistration/v1/validatingwebhookconfiguration
 knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment
 knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment/fake
+knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints
+knative.dev/pkg/client/injection/kube/informers/core/v1/namespace
 knative.dev/pkg/client/injection/kube/informers/core/v1/secret
 knative.dev/pkg/client/injection/kube/informers/core/v1/secret/fake
 knative.dev/pkg/client/injection/kube/informers/core/v1/service
 knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake
+knative.dev/pkg/client/injection/kube/informers/core/v1/serviceaccount
 knative.dev/pkg/client/injection/kube/informers/factory
 knative.dev/pkg/client/injection/kube/informers/factory/fake
+knative.dev/pkg/client/injection/kube/informers/rbac/v1/rolebinding
 knative.dev/pkg/codegen/cmd/injection-gen
 knative.dev/pkg/codegen/cmd/injection-gen/args
 knative.dev/pkg/codegen/cmd/injection-gen/generators
@@ -1252,6 +1299,7 @@ knative.dev/pkg/hash
 knative.dev/pkg/injection
 knative.dev/pkg/injection/clients/dynamicclient
 knative.dev/pkg/injection/clients/dynamicclient/fake
+knative.dev/pkg/injection/clients/namespacedkube/informers/core/v1/secret
 knative.dev/pkg/injection/clients/namespacedkube/informers/factory
 knative.dev/pkg/injection/sharedmain
 knative.dev/pkg/kmeta
@@ -1268,7 +1316,9 @@ knative.dev/pkg/profiling
 knative.dev/pkg/ptr
 knative.dev/pkg/reconciler
 knative.dev/pkg/reconciler/testing
+knative.dev/pkg/resolver
 knative.dev/pkg/signals
+knative.dev/pkg/source
 knative.dev/pkg/system
 knative.dev/pkg/system/testing
 knative.dev/pkg/test
@@ -1294,7 +1344,13 @@ knative.dev/pkg/tracing/propagation/tracecontextb3
 knative.dev/pkg/tracker
 knative.dev/pkg/version
 knative.dev/pkg/webhook
+knative.dev/pkg/webhook/certificates
 knative.dev/pkg/webhook/certificates/resources
+knative.dev/pkg/webhook/psbinding
+knative.dev/pkg/webhook/resourcesemantics
+knative.dev/pkg/webhook/resourcesemantics/conversion
+knative.dev/pkg/webhook/resourcesemantics/defaulting
+knative.dev/pkg/webhook/resourcesemantics/validation
 # knative.dev/test-infra v0.0.0-20200924055440-7e083bb00cf9
 ## explicit
 knative.dev/test-infra/scripts
@@ -1302,8 +1358,6 @@ knative.dev/test-infra/scripts
 ## explicit
 pack.ag/amqp
 pack.ag/amqp/internal/testconn
-# sigs.k8s.io/kubetest2 v0.0.0-20200924001806-6e6ad4b7653a
-## explicit
 # sigs.k8s.io/structured-merge-diff/v3 v3.0.1-0.20200706213357-43c19bbb7fba
 sigs.k8s.io/structured-merge-diff/v3/value
 # sigs.k8s.io/yaml v1.2.0
