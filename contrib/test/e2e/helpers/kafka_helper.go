@@ -36,8 +36,8 @@ import (
 	testlib "knative.dev/eventing/test/lib"
 	pkgtest "knative.dev/pkg/test"
 
-	sourcesv1beta1 "knative.dev/eventing-kafka/contrib/kafka/source/pkg/apis/sources/v1beta1"
-	kafkaclientset "knative.dev/eventing-kafka/contrib/kafka/source/pkg/client/clientset/versioned"
+	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
+	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 )
 
 const (

@@ -23,8 +23,12 @@ import (
 
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
-	v1alpha1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1alpha1"
-	v1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
+	v1alpha1 "knative.dev/eventing-kafka/pkg/apis/bindings/v1alpha1"
+	v1beta1 "knative.dev/eventing-kafka/pkg/apis/bindings/v1beta1"
+	messagingv1alpha1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1alpha1"
+	messagingv1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
+	sourcesv1alpha1 "knative.dev/eventing-kafka/pkg/apis/sources/v1alpha1"
+	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 )
 
 // GenericInformer is type of SharedIndexInformer which will locate and delegate to other
@@ -53,13 +57,29 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
-	// Group=messaging.knative.dev, Version=v1alpha1
-	case v1alpha1.SchemeGroupVersion.WithResource("kafkachannels"):
+	// Group=bindings.knative.dev, Version=v1alpha1
+	case v1alpha1.SchemeGroupVersion.WithResource("kafkabindings"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Bindings().V1alpha1().KafkaBindings().Informer()}, nil
+
+		// Group=bindings.knative.dev, Version=v1beta1
+	case v1beta1.SchemeGroupVersion.WithResource("kafkabindings"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Bindings().V1beta1().KafkaBindings().Informer()}, nil
+
+		// Group=messaging.knative.dev, Version=v1alpha1
+	case messagingv1alpha1.SchemeGroupVersion.WithResource("kafkachannels"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Messaging().V1alpha1().KafkaChannels().Informer()}, nil
 
 		// Group=messaging.knative.dev, Version=v1beta1
-	case v1beta1.SchemeGroupVersion.WithResource("kafkachannels"):
+	case messagingv1beta1.SchemeGroupVersion.WithResource("kafkachannels"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Messaging().V1beta1().KafkaChannels().Informer()}, nil
+
+		// Group=sources.knative.dev, Version=v1alpha1
+	case sourcesv1alpha1.SchemeGroupVersion.WithResource("kafkasources"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Sources().V1alpha1().KafkaSources().Informer()}, nil
+
+		// Group=sources.knative.dev, Version=v1beta1
+	case sourcesv1beta1.SchemeGroupVersion.WithResource("kafkasources"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Sources().V1beta1().KafkaSources().Informer()}, nil
 
 	}
 
