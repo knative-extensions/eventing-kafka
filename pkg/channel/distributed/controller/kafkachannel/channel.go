@@ -8,7 +8,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kafkav1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
+	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	commonconstants "knative.dev/eventing-kafka/pkg/channel/distributed/common/constants"
 	kafkautil "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/util"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
@@ -94,7 +94,6 @@ func (r *Reconciler) getKafkaChannelService(channel *kafkav1beta1.KafkaChannel) 
 	serviceName := kafkautil.AppendKafkaChannelServiceNameSuffix(channel.Name)
 
 	// Get The Service By Namespace / Name
-	service := &corev1.Service{}
 	service, err := r.serviceLister.Services(channel.Namespace).Get(serviceName)
 
 	// Return The Results

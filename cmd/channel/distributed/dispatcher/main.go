@@ -10,8 +10,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned"
-	"knative.dev/eventing-contrib/kafka/channel/pkg/client/informers/externalversions"
 	commonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	commonk8s "knative.dev/eventing-kafka/pkg/channel/distributed/common/k8s"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
@@ -21,6 +19,8 @@ import (
 	dispatch "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/dispatcher"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/env"
 	dispatcherhealth "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/health"
+	"knative.dev/eventing-kafka/pkg/client/clientset/versioned"
+	"knative.dev/eventing-kafka/pkg/client/informers/externalversions"
 	kncontroller "knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	eventingmetrics "knative.dev/pkg/metrics"
@@ -68,6 +68,9 @@ func main() {
 		logger.Fatal("Failed To Load Sarama Settings", zap.Error(err))
 	}
 
+	// Update The Sarama Config - Username/Password Overrides (EnvVars From Secret Take Precedence Over ConfigMap)
+	sarama.UpdateSaramaConfig(saramaConfig, Component, environment.KafkaUsername, environment.KafkaPassword)
+
 	// Verify that our loaded configuration is valid
 	if err = dispatcherconfig.VerifyConfiguration(configuration); err != nil {
 		logger.Fatal("Invalid / Missing Settings - Terminating", zap.Error(err))
@@ -90,9 +93,6 @@ func main() {
 	healthServer.Start(logger)
 
 	statsReporter := metrics.NewStatsReporter(logger)
-
-	// Update The Sarama Config - Username/Password Overrides (EnvVars From Secret Take Precedence Over ConfigMap)
-	sarama.UpdateSaramaConfig(saramaConfig, Component, environment.KafkaUsername, environment.KafkaPassword)
 
 	// Create The Dispatcher With Specified Configuration
 	dispatcherConfig := dispatch.DispatcherConfig{

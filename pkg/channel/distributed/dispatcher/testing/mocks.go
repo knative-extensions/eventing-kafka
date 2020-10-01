@@ -2,14 +2,15 @@ package testing
 
 import (
 	"context"
+	"net/http"
+	"net/url"
+	"testing"
+
 	"github.com/Shopify/sarama"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/stretchr/testify/assert"
 	"knative.dev/eventing/pkg/channel"
 	"knative.dev/eventing/pkg/kncloudevents"
-	"net/http"
-	"net/url"
-	"testing"
 )
 
 //
@@ -34,18 +35,19 @@ func NewMockMessageDispatcher(t *testing.T, errorResponses map[url.URL]error) Mo
 	return MockMessageDispatcher{
 		t:                  t,
 		errorResponses:     errorResponses,
-		DispatchedMessages: make(map[url.URL][]cloudevents.Message, 0),
+		DispatchedMessages: make(map[url.URL][]cloudevents.Message),
 	}
 }
 
-func (m MockMessageDispatcher) DispatchMessageWithRetries(ctx context.Context, message cloudevents.Message, additionalHeaders http.Header, destination *url.URL, reply *url.URL, deadLetter *url.URL, config *kncloudevents.RetryConfig) error {
-	panic("implement me")
+func (m MockMessageDispatcher) DispatchMessage(ctx context.Context, message cloudevents.Message, additionalHeaders http.Header, destination *url.URL, reply *url.URL, deadLetter *url.URL) error {
+	return m.DispatchMessageWithRetries(ctx, message, additionalHeaders, destination, reply, deadLetter, nil)
 }
 
-func (m MockMessageDispatcher) DispatchMessage(ctx context.Context, message cloudevents.Message, additionalHeaders http.Header, destination *url.URL, reply *url.URL, deadLetter *url.URL) error {
+func (m MockMessageDispatcher) DispatchMessageWithRetries(ctx context.Context, message cloudevents.Message, additionalHeaders http.Header, destination *url.URL, reply *url.URL, deadLetter *url.URL, config *kncloudevents.RetryConfig) error {
 	assert.NotNil(m.t, ctx)
 	assert.NotNil(m.t, message)
 	assert.NotNil(m.t, destination)
+	// TODO assert.NotNil(m.t, config)
 
 	if deadLetter != nil {
 		m.trackMessage(deadLetter, message)

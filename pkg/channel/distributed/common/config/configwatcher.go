@@ -4,11 +4,9 @@ import (
 	"context"
 
 	"go.uber.org/zap"
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/injection/sharedmain"
@@ -85,9 +83,4 @@ func InitializeConfigWatcher(ctx context.Context, logger *zap.SugaredLogger, han
 	}
 
 	return nil
-}
-
-// Convenience function to load our configmap
-func LoadSettingsConfigMap(ctx context.Context, k8sClient kubernetes.Interface) (*corev1.ConfigMap, error) {
-	return k8sClient.CoreV1().ConfigMaps(system.Namespace()).Get(ctx, SettingsConfigMapName, metav1.GetOptions{})
 }

@@ -3,7 +3,7 @@ package test
 import (
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kafkav1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
+	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	eventingChannel "knative.dev/eventing/pkg/channel"
 	knativeapis "knative.dev/pkg/apis"

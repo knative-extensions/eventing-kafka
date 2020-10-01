@@ -14,12 +14,12 @@ import (
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
-	kafkav1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
-	"knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned"
-	"knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned/scheme"
-	informers "knative.dev/eventing-contrib/kafka/channel/pkg/client/informers/externalversions/messaging/v1beta1"
-	listers "knative.dev/eventing-contrib/kafka/channel/pkg/client/listers/messaging/v1beta1"
+	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/dispatcher"
+	"knative.dev/eventing-kafka/pkg/client/clientset/versioned"
+	"knative.dev/eventing-kafka/pkg/client/clientset/versioned/scheme"
+	informers "knative.dev/eventing-kafka/pkg/client/informers/externalversions/messaging/v1beta1"
+	listers "knative.dev/eventing-kafka/pkg/client/listers/messaging/v1beta1"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -184,19 +184,17 @@ func (r *Reconciler) createSubscribableStatus(subscribers []eventingduck.Subscri
 
 	subscriberStatus := make([]eventingduck.SubscriberStatus, 0)
 
-	if subscribers != nil {
-		for _, subscriber := range subscribers {
-			status := eventingduck.SubscriberStatus{
-				UID:                subscriber.UID,
-				ObservedGeneration: subscriber.Generation,
-				Ready:              corev1.ConditionTrue,
-			}
-			if err, ok := failedSubscriptions[subscriber]; ok {
-				status.Ready = corev1.ConditionFalse
-				status.Message = err.Error()
-			}
-			subscriberStatus = append(subscriberStatus, status)
+	for _, subscriber := range subscribers {
+		status := eventingduck.SubscriberStatus{
+			UID:                subscriber.UID,
+			ObservedGeneration: subscriber.Generation,
+			Ready:              corev1.ConditionTrue,
 		}
+		if err, ok := failedSubscriptions[subscriber]; ok {
+			status.Ready = corev1.ConditionFalse
+			status.Message = err.Error()
+		}
+		subscriberStatus = append(subscriberStatus, status)
 	}
 
 	return eventingduck.SubscribableStatus{

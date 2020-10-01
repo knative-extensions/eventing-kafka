@@ -48,7 +48,7 @@ func TestCreateConsumerGroup(t *testing.T) {
 	}()
 
 	// Perform The Test
-	config := commontesting.GetDefaultSaramaConfig(t, kafkasarama.NewSaramaConfig())
+	config := commontesting.GetDefaultSaramaConfig(t)
 	kafkasarama.UpdateSaramaConfig(config, ClientId, KafkaUsername, KafkaPassword)
 	consumerGroup, registry, err := CreateConsumerGroup(brokers, config, GroupId)
 

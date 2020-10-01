@@ -171,25 +171,13 @@ func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 
 	// Create A New Sarama Config (Carrying Forward The Kafka Secret Auth)
 	p.logger.Debug("New ConfigMap Received", zap.String("configMap.Name", configMap.ObjectMeta.Name))
-	newConfig := kafkasarama.NewSaramaConfig()
-
-	// In order to compare configs "without the admin or consumer sections" we use a known-base config
-	// and ensure that those sections are always the same.  The reason we can't just use, for example,
-	// sarama.Config{}.Admin as the empty struct is that the Sarama calls to create objects like SyncProducer
-	// still verify that certain fields (such as Admin.Timeout) are nonzero and fail otherwise.
-	defaultAdmin := newConfig.Admin
-	defaultConsumer := newConfig.Consumer
 
 	// Merge The Sarama Config From ConfigMap Into New Sarama Config
-	err := kafkasarama.MergeSaramaSettings(newConfig, configMap)
+	newConfig, err := kafkasarama.MergeSaramaSettings(nil, configMap)
 	if err != nil {
 		p.logger.Error("Unable to merge sarama settings", zap.Error(err))
 		return nil
 	}
-
-	// Don't care about Admin or Consumer sections; everything else is a change that needs to be implemented.
-	newConfig.Admin = defaultAdmin
-	newConfig.Consumer = defaultConsumer
 
 	// Validate Configuration (Should Always Be Present)
 	if p.configuration != nil {
@@ -197,14 +185,8 @@ func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 		// Some of the current config settings may not be overridden by the configmap (username, password, etc.)
 		kafkasarama.UpdateSaramaConfig(newConfig, p.configuration.ClientID, p.configuration.Net.SASL.User, p.configuration.Net.SASL.Password)
 
-		// Create a shallow copy of the current config so that we can empty out the Admin and Consumer before comparing.
-		configCopy := p.configuration
-
-		// The current config should theoretically have these sections zeroed already because Reconfigure should have been passed
-		// a newConfig with the structs empty, but this is more explicit as to what our goal is and doesn't hurt.
-		configCopy.Admin = defaultAdmin
-		configCopy.Consumer = defaultConsumer
-		if kafkasarama.ConfigEqual(newConfig, configCopy) {
+		// Ignore the "Admin" and "Consumer" sections when comparing, as changes to those do not require restarting the Producer
+		if kafkasarama.ConfigEqual(newConfig, p.configuration, newConfig.Admin, newConfig.Consumer) {
 			p.logger.Info("No Producer Changes Detected In New Configuration - Ignoring")
 			return nil
 		}

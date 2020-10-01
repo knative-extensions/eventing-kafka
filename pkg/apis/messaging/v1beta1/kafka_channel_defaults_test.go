@@ -19,7 +19,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"knative.dev/eventing-kafka/contrib/kafka/channel/pkg/utils"
+	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
 
 	"github.com/google/go-cmp/cmp"
 )

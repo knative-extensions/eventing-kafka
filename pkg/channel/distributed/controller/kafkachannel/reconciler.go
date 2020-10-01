@@ -12,10 +12,7 @@ import (
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-	kafkav1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
-	kafkaclientset "knative.dev/eventing-contrib/kafka/channel/pkg/client/clientset/versioned"
-	"knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
-	kafkalisters "knative.dev/eventing-contrib/kafka/channel/pkg/client/listers/messaging/v1beta1"
+	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	kafkaadmin "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin"
 	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
@@ -23,6 +20,9 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
+	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
+	"knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
+	kafkalisters "knative.dev/eventing-kafka/pkg/client/listers/messaging/v1beta1"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/reconciler"
 )
@@ -160,7 +160,7 @@ func (r *Reconciler) reconcile(ctx context.Context, channel *kafkav1beta1.KafkaC
 	}
 
 	//
-	// This implementation is based on the eventing-contrib KafkaChannel, and thus we're using
+	// This implementation is based on the "consolidated" KafkaChannel, and thus we're using
 	// their Status tracking even though it does not align with our architecture.  We get our
 	// Kafka configuration from the "Kafka Secrets" and not a ConfigMap.  Therefore, we will
 	// instead check the Kafka Secret associated with the KafkaChannel here.
@@ -210,7 +210,7 @@ func (r *Reconciler) configMapObserver(configMap *corev1.ConfigMap) {
 	// those settings are needed in the future, the environment will also need to be re-parsed here.
 
 	// Load the Sarama settings from our configmap, ignoring the eventing-kafka result.
-	saramaConfig, _, err := kafkasarama.LoadConfigFromMap(configMap)
+	saramaConfig, err := kafkasarama.MergeSaramaSettings(nil, configMap)
 	if err != nil {
 		r.logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Error(err))
 	}

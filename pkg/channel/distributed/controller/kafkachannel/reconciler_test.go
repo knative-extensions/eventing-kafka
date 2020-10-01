@@ -11,12 +11,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	clientgotesting "k8s.io/client-go/testing"
-	kafkav1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
-	fakekafkaclient "knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/client/fake"
-	kafkachannelreconciler "knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
+	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	kafkaadmin "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/test"
+	fakekafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client/fake"
+	kafkachannelreconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/configmap"
@@ -299,9 +299,9 @@ func TestReconcile(t *testing.T) {
 				test.NewKafkaChannelChannelDeployment(),
 				test.NewKafkaChannelDispatcherDeployment(),
 			},
-			WithReactors: []clientgotesting.ReactionFunc{InduceFailure("create", "services")},
-			WantErr:      true,
-			WantCreates:  []runtime.Object{test.NewKafkaChannelDispatcherService()},
+			WithReactors:      []clientgotesting.ReactionFunc{InduceFailure("create", "services")},
+			WantErr:           true,
+			WantCreates:       []runtime.Object{test.NewKafkaChannelDispatcherService()},
 			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
 				// Note - Not currently tracking status for the Dispatcher Service since it is only for Prometheus
 			},

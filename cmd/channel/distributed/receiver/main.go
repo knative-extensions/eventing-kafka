@@ -66,6 +66,9 @@ func main() {
 		logger.Fatal("Failed To Load Sarama Settings", zap.Error(err))
 	}
 
+	// Update The Sarama Config - Username/Password Overrides (EnvVars From Secret Take Precedence Over ConfigMap)
+	sarama.UpdateSaramaConfig(saramaConfig, Component, environment.KafkaUsername, environment.KafkaPassword)
+
 	// Initialize Tracing (Watches config-tracing ConfigMap, Assumes Context Came From LoggingContext With Embedded K8S Client Key)
 	err = commonconfig.InitializeTracing(logger.Sugar(), ctx, environment.ServiceName)
 	if err != nil {
@@ -97,9 +100,6 @@ func main() {
 	if err != nil {
 		logger.Fatal("Failed To Initialize ConfigMap Watcher", zap.Error(err))
 	}
-
-	// Update The Sarama Config - Username/Password Overrides (EnvVars From Secret Take Precedence Over ConfigMap)
-	sarama.UpdateSaramaConfig(saramaConfig, Component, environment.KafkaUsername, environment.KafkaPassword)
 
 	// Initialize The Kafka Producer In Order To Start Processing Status Events
 	kafkaProducer, err = producer.NewProducer(logger, saramaConfig, strings.Split(environment.KafkaBrokers, ","), statsReporter, healthServer)

@@ -31,7 +31,6 @@ type TestCase struct {
 	serviceAccount        string
 	metricsPort           string
 	metricsDomain         string
-	kafkaProvider         string
 	defaultKafkaConsumers string
 	dispatcherImage       string
 	channelImage          string

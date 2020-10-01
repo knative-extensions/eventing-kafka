@@ -2,12 +2,14 @@ package test
 
 import (
 	"context"
+	"testing"
+
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	clientgotesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/record"
-	fakekafkaclient "knative.dev/eventing-contrib/kafka/channel/pkg/client/injection/client/fake"
+	fakekafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client/fake"
 	fakeeventingclient "knative.dev/eventing/pkg/client/injection/client/fake"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	"knative.dev/pkg/configmap"
@@ -16,7 +18,6 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/reconciler"
 	. "knative.dev/pkg/reconciler/testing"
-	"testing"
 )
 
 const (

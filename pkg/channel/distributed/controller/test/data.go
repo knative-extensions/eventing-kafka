@@ -12,7 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgotesting "k8s.io/client-go/testing"
-	kafkav1beta1 "knative.dev/eventing-contrib/kafka/channel/pkg/apis/messaging/v1beta1"
+	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	commonconstants "knative.dev/eventing-kafka/pkg/channel/distributed/common/constants"
 	commonenv "knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
@@ -364,7 +364,7 @@ func WithKafkaChannelServiceReady(kafkachannel *kafkav1beta1.KafkaChannel) {
 
 // Set The KafkaChannel's Services As Failed
 func WithKafkaChannelServiceFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
-	kafkachannel.Status.MarkChannelServiceFailed(event.KafkaChannelServiceReconciliationFailed.String(), fmt.Sprintf("Failed To Create KafkaChannel Service: inducing failure for create services"))
+	kafkachannel.Status.MarkChannelServiceFailed(event.KafkaChannelServiceReconciliationFailed.String(), "Failed To Create KafkaChannel Service: inducing failure for create services")
 }
 
 // Set The KafkaChannel's Channel Service As READY

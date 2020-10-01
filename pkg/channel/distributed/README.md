@@ -9,24 +9,20 @@ This repo falls under the [Knative Code of Conduct](https://github.com/knative/c
 
 This project is a Knative Eventing implementation of a Kafka backed channel
 which provides advanced functionality and production grade qualities as an alternative
-to what the [eventing-contrib/kafka](https://github.com/knative/eventing-contrib/tree/master/kafka)
-implementation offers.
-
-The goal is to merge the eventing-contrib implementation with this one to provide
-a consolidated location where all kafka based knative development efforts can take occur.
+to the "[consolidated](../consolidated)" implementation offers.
 
 ## Rationale
 
-The Knative eventing-contrib repository already contains a Kafka implementation,
-so why invest the time in building another one?  At the time this project was
-begun, and still today, the reference Kafka implementation does not provide the
-scaling characteristics required by a large and varied use case with many
-different Topics and Consumers.  That implementation is based on a single
-choke point that could easily allow one Topic's traffic to impact the
-throughput of another Topic.  It is also not horizontally scalable as it only
-supports a single instance of the dispatcher/consumer.  Further, no ordering
-guarantees on the consumption side are provided which is required in certain
-use cases.
+The Knative consolidated implementation (originally from the eventing-contrib
+repository) already contains a Kafka implementation, so why invest the time
+in building another one?  At the time this project was begun, and still today,
+the reference Kafka implementation does not provide the scaling characteristics
+required by a large and varied use case with many different Topics and Consumers.
+That implementation is based on a single choke point that could easily allow one
+Topic's traffic to impact the throughput of another Topic.  It is also not
+horizontally scalable as it only supports a single instance of the
+dispatcher/consumer.  Further, no ordering guarantees on the consumption side
+are provided which is required in certain use cases.
 
 We also had the need to support a variety of Kafka providers, including Azure
 EventHubs in Kafka compatibility mode.  Finally, the ability to expose Kafka
@@ -56,9 +52,9 @@ CI/CD constraints imposed some of the structure of the current project.
 
 Recently, however, the commitment to this effort was renewed, and the
 implementation is now current with knative-eventing **/master**.  Work is
-in progress to align with the implementation structure in eventing-contrib in
-the hopes that this project can merge with the default "kafka" implementation.
-The project which previously existed in the open source [kyma-incubator](https://github.com/kyma-incubator/),
+in progress to align further in the hopes that this project can merge
+with the default "kafka" implementation. The project which previously
+existed in the open source [kyma-incubator](https://github.com/kyma-incubator/),
 but was moved into it's current home here in the [knative-sandbox](https://github.com/knative-sandbox)
 The focus is now on bringing the implementation into alignment with the other
 knative channel implementations.
@@ -99,9 +95,8 @@ as follows...
 - [controller](controller/README.md) - This component implements
   the `KafkaChannel` Controller. It is using the current knative-eventing
   "Shared Main" approach based directly on K8S informers / listers.  The
-  controller is using the `KafkaChannel` CRD, api, and client from the current
-  Knative eventing-contrib/kafka implementation in order to align as closely as
-  possible with the existing implementation.
+  controller is using the shared `KafkaChannel` CRD, [apis/](../../../pkg/apis),
+  and [client](../../../pkg/client) implementations in this repository.
 
 - [dispatcher](dispatcher/README.md) - This component runs the
   Kafka ConsumerGroups responsible for processing messages from the corresponding

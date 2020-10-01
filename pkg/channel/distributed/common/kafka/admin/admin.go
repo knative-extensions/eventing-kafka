@@ -61,7 +61,7 @@ func CreateAdminClient(ctx context.Context, saramaConfig *sarama.Config, clientI
 	case Unknown:
 		return nil, errors.New("received unknown AdminClientType") // Should Never Happen But...
 	default:
-		return nil, errors.New(fmt.Sprintf("received unsupported AdminClientType of %d", adminClientType))
+		return nil, fmt.Errorf("received unsupported AdminClientType of %d", adminClientType)
 	}
 }
 
