@@ -1,4 +1,4 @@
-// Copyright 2019, OpenTelemetry Authors
+// Copyright The OpenTelemetry Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,11 +14,17 @@
 
 package trace
 
-type NoopProvider struct{}
+type noopTracerProvider struct{}
 
-var _ Provider = NoopProvider{}
+var _ TracerProvider = noopTracerProvider{}
 
 // Tracer returns noop implementation of Tracer.
-func (p NoopProvider) Tracer(name string) Tracer {
-	return NoopTracer{}
+func (p noopTracerProvider) Tracer(_ string, _ ...TracerOption) Tracer {
+	return noopTracer{}
+}
+
+// NoopTracerProvider returns a noop implementation of TracerProvider. The
+// Tracer and Spans created from the noop provider will also be noop.
+func NoopTracerProvider() TracerProvider {
+	return noopTracerProvider{}
 }

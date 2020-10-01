@@ -1,4 +1,4 @@
-// Copyright 2019, OpenTelemetry Authors
+// Copyright The OpenTelemetry Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,8 +16,6 @@ package trace
 
 import (
 	"context"
-
-	"go.opentelemetry.io/otel/api/core"
 )
 
 type traceContextKeyType int
@@ -38,20 +36,20 @@ func SpanFromContext(ctx context.Context) Span {
 	if span, has := ctx.Value(currentSpanKey).(Span); has {
 		return span
 	}
-	return NoopSpan{}
+	return noopSpan{}
 }
 
 // ContextWithRemoteSpanContext creates a new context with a remote
 // span context set to the passed span context.
-func ContextWithRemoteSpanContext(ctx context.Context, sc core.SpanContext) context.Context {
+func ContextWithRemoteSpanContext(ctx context.Context, sc SpanContext) context.Context {
 	return context.WithValue(ctx, remoteContextKey, sc)
 }
 
 // RemoteSpanContextFromContext returns the remote span context stored
 // in the context.
-func RemoteSpanContextFromContext(ctx context.Context) core.SpanContext {
-	if sc, ok := ctx.Value(remoteContextKey).(core.SpanContext); ok {
+func RemoteSpanContextFromContext(ctx context.Context) SpanContext {
+	if sc, ok := ctx.Value(remoteContextKey).(SpanContext); ok {
 		return sc
 	}
-	return core.EmptySpanContext()
+	return EmptySpanContext()
 }
