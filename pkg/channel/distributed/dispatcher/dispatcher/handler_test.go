@@ -3,7 +3,6 @@ package dispatcher
 import (
 	"context"
 	"errors"
-	"knative.dev/eventing/pkg/kncloudevents"
 	"net/http"
 	"net/url"
 	"testing"
@@ -18,6 +17,7 @@ import (
 	dispatchertesting "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/testing"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/channel"
+	"knative.dev/eventing/pkg/kncloudevents"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	logtesting "knative.dev/pkg/logging/testing"
