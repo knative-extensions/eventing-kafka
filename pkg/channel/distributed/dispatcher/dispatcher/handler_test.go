@@ -327,10 +327,13 @@ func TestCheckRetry(t *testing.T) {
 	handler := createTestHandler(t, testSubscriberURI, testReplyURI, nil)
 	assert.Nil(t, handler.Cleanup(nil))
 
+	// Create A Test Context (Pacify Linter Nil Context Check ;)
+	ctx := context.TODO()
+
 	// Execute The Individual Test Cases
 	for _, testCase := range filteredTestCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			result, err := handler.checkRetry(nil, testCase.response, testCase.err)
+			result, err := handler.checkRetry(ctx, testCase.response, testCase.err)
 			assert.Equal(t, testCase.result, result)
 			assert.Nil(t, err)
 		})
