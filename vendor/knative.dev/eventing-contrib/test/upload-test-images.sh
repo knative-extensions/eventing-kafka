@@ -16,8 +16,6 @@
 
 set -o errexit
 
-export GO111MODULE=on
-
 function upload_test_images() {
   echo ">> Publishing test images"
   # Script needs to be executed from the root directory

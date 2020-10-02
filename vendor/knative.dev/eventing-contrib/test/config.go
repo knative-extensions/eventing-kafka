@@ -14,28 +14,27 @@ package test
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	testlib "knative.dev/eventing/test/lib"
+	"knative.dev/eventing/test/lib"
 	"knative.dev/eventing/test/lib/resources"
 )
 
 // ChannelFeatureMap saves the channel-features mapping.
 // Each pair means the channel support the list of features.
-var ChannelFeatureMap = map[metav1.TypeMeta][]testlib.Feature{
+var ChannelFeatureMap = map[metav1.TypeMeta][]lib.Feature{
 	{
 		APIVersion: resources.MessagingAPIVersion,
 		Kind:       KafkaChannelKind,
 	}: {
-		testlib.FeatureBasic,
-		testlib.FeatureRedelivery,
-		testlib.FeaturePersistence,
+		lib.FeatureBasic,
+		lib.FeatureRedelivery,
+		lib.FeaturePersistence,
 	},
-}
-
-var KafkaSourceTypeMeta = metav1.TypeMeta{
-	APIVersion: resources.SourcesV1B1APIVersion,
-	Kind:       KafkaSourceKind,
-}
-
-var SourcesFeatureMap = map[metav1.TypeMeta][]testlib.Feature{
-	KafkaSourceTypeMeta: {testlib.FeatureBasic, testlib.FeatureLongLiving},
+	{
+		APIVersion: resources.MessagingAPIVersion,
+		Kind:       NatssChannelKind,
+	}: {
+		lib.FeatureBasic,
+		lib.FeatureRedelivery,
+		lib.FeaturePersistence,
+	},
 }
