@@ -85,7 +85,7 @@ func (h *Handler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama
 		if err != nil {
 			h.Logger.Error("Failed To Parse RetryConfig From DeliverySpec - No Retries Will Occur", zap.Error(err))
 		} else {
-			h.Logger.Info("Successfully Parsed RetryConfig From DeliverySpec", zap.Any("RetryMax", retryConfig.RetryMax))
+			h.Logger.Info("Successfully Parsed RetryConfig From DeliverySpec", zap.Int("RetryMax", retryConfig.RetryMax))
 			retryConfig.CheckRetry = h.checkRetry // Specify Custom CheckRetry Function
 		}
 	}
