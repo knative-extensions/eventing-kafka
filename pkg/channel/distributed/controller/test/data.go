@@ -157,7 +157,6 @@ func NewEnvironment() *env.Environment {
 
 // Set The Required Config Fields
 func NewConfig() *config.EventingKafkaConfig {
-	backoff := DefaultExponentialBackoff
 	return &config.EventingKafkaConfig{
 		Dispatcher: config.EKDispatcherConfig{
 			EKKubernetesConfig: config.EKKubernetesConfig{
@@ -167,9 +166,6 @@ func NewConfig() *config.EventingKafkaConfig {
 				MemoryLimit:   resource.MustParse(DispatcherMemoryLimit),
 				MemoryRequest: resource.MustParse(DispatcherMemoryRequest),
 			},
-			RetryInitialIntervalMillis: DefaultEventRetryInitialIntervalMillis,
-			RetryTimeMillis:            DefaultEventRetryTimeMillisMax,
-			RetryExponentialBackoff:    &backoff,
 		},
 		Channel: config.EKChannelConfig{
 			EKKubernetesConfig: config.EKKubernetesConfig{

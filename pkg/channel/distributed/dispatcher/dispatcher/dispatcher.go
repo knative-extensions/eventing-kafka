@@ -18,19 +18,16 @@ import (
 
 // Define A Dispatcher Config Struct To Hold Configuration
 type DispatcherConfig struct {
-	Logger               *zap.Logger
-	ClientId             string
-	Brokers              []string
-	Topic                string
-	Username             string
-	Password             string
-	ChannelKey           string
-	StatsReporter        metrics.StatsReporter
-	ExponentialBackoff   bool
-	InitialRetryInterval int64
-	MaxRetryTime         int64
-	SaramaConfig         *sarama.Config
-	SubscriberSpecs      []eventingduck.SubscriberSpec
+	Logger          *zap.Logger
+	ClientId        string
+	Brokers         []string
+	Topic           string
+	Username        string
+	Password        string
+	ChannelKey      string
+	StatsReporter   metrics.StatsReporter
+	SaramaConfig    *sarama.Config
+	SubscriberSpecs []eventingduck.SubscriberSpec
 }
 
 // Knative Eventing SubscriberSpec Wrapper Enhanced With Sarama ConsumerGroup
@@ -181,7 +178,7 @@ func (d *DispatcherImpl) startConsuming(subscriber *SubscriberWrapper) {
 		}()
 
 		// Create A New ConsumerGroupHandler To Consume Messages With
-		handler := NewHandler(logger, &subscriber.SubscriberSpec, d.ExponentialBackoff, d.InitialRetryInterval, d.MaxRetryTime)
+		handler := NewHandler(logger, &subscriber.SubscriberSpec)
 
 		// Consume Messages Asynchronously
 		go func() {

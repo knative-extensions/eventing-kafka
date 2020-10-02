@@ -3,6 +3,11 @@ package dispatcher
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/url"
+	"testing"
+	"time"
+
 	"github.com/Shopify/sarama"
 	kafkasaramaprotocol "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"github.com/cloudevents/sdk-go/v2/binding"
@@ -12,21 +17,17 @@ import (
 	dispatchertesting "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/testing"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/channel"
+	"knative.dev/eventing/pkg/kncloudevents"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	logtesting "knative.dev/pkg/logging/testing"
-	"net/url"
-	"testing"
-	"time"
 )
 
 // Test Data
 const (
 	testSubscriberUID        = types.UID("123")
-	testExponentialBackoff   = true
-	testInitialRetryInterval = int64(111)
-	testMaxRetryTime         = int64(22)
 	testSubscriberURIString  = "https://www.foo.bar/test/path"
+	testReplyURIString       = "https://www.something.com/"
 	testDeadLetterURIString  = "https://www.made.up/url"
 	testTopic                = "TestTopic"
 	testPartition            = 0
@@ -43,7 +44,10 @@ const (
 
 var (
 	testSubscriberURI, _ = apis.ParseURL(testSubscriberURIString)
-	testSubscriberURL    = testSubscriberURI.URL()
+	testReplyURI, _      = apis.ParseURL(testReplyURIString)
+	testRetryCount       = int32(4)
+	testBackoffPolicy    = eventingduck.BackoffPolicyExponential
+	testBackoffDelay     = "PT1S"
 	testDeadLetterURI, _ = apis.ParseURL(testDeadLetterURIString)
 	testMsgTime          = time.Now().UTC().Format(time.RFC3339)
 )
@@ -55,45 +59,125 @@ func TestNewHandler(t *testing.T) {
 
 // Test The Handler's Setup() Functionality
 func TestHandlerSetup(t *testing.T) {
-	handler := createTestHandler(t, testSubscriberURI, nil)
+	handler := createTestHandler(t, testSubscriberURI, testReplyURI, nil)
 	assert.Nil(t, handler.Setup(nil))
 }
 
 // Test The Handler's Cleanup() Functionality
 func TestHandlerCleanup(t *testing.T) {
-	handler := createTestHandler(t, testSubscriberURI, nil)
+	handler := createTestHandler(t, testSubscriberURI, testReplyURI, nil)
 	assert.Nil(t, handler.Cleanup(nil))
 }
 
 // Test The Handler's ConsumeClaim() Functionality
 func TestHandlerConsumeClaim(t *testing.T) {
-	performHandlerConsumeClaimTest(t, nil, nil, false)                                                         // Vanilla Success
-	performHandlerConsumeClaimTest(t, nil, errors.New("test error 300"), false)                                // 300 StatusCode No Retry
-	performHandlerConsumeClaimTest(t, nil, errors.New("test error 400"), true)                                 // 400 StatusCode Retry
-	performHandlerConsumeClaimTest(t, nil, errors.New("test error 404"), true)                                 // 404 StatusCode Retry
-	performHandlerConsumeClaimTest(t, nil, errors.New("test error 429"), true)                                 // 429 StatusCode Retry
-	performHandlerConsumeClaimTest(t, nil, errors.New("test error 500"), true)                                 // 500 StatusCode Retry
-	performHandlerConsumeClaimTest(t, nil, errors.New("test error without status code"), true)                 // No StatusCode Retry
-	performHandlerConsumeClaimTest(t, nil, errors.New("test error 300 with multiple status codes 200"), false) // Multiple StatusCode Retry
-	performHandlerConsumeClaimTest(t, testDeadLetterURI, errors.New("test error 400"), true)                   // DeadLetterQueue Success After Retry
+
+	// Define The TestCase Type
+	type TestCase struct {
+		only           bool
+		name           string
+		destinationUri *apis.URL
+		replyUri       *apis.URL
+		deadLetterUri  *apis.URL
+		retry          bool
+	}
+
+	// Define The TestCases
+	testCases := []TestCase{
+		{
+			name:           "Complete Subscriber Configuration",
+			destinationUri: testSubscriberURI,
+			replyUri:       testReplyURI,
+			deadLetterUri:  testDeadLetterURI,
+			retry:          true,
+		},
+		{
+			name:          "No Subscriber URL",
+			replyUri:      testReplyURI,
+			deadLetterUri: testDeadLetterURI,
+			retry:         true,
+		},
+		{
+			name:           "No Reply URL",
+			destinationUri: testSubscriberURI,
+			deadLetterUri:  testDeadLetterURI,
+			retry:          true,
+		},
+		{
+			name:           "No DeadLetter URL",
+			destinationUri: testSubscriberURI,
+			replyUri:       testReplyURI,
+			retry:          true,
+		},
+		{
+			name:           "No Retry",
+			destinationUri: testSubscriberURI,
+			replyUri:       testReplyURI,
+			deadLetterUri:  testDeadLetterURI,
+			retry:          false,
+		},
+		{
+			name:  "Empty Subscriber Configuration",
+			retry: false,
+		},
+	}
+
+	// Filter To Those With "only" Flag (If Any Specified)
+	filteredTestCases := make([]TestCase, 0)
+	for _, testCase := range testCases {
+		if testCase.only {
+			filteredTestCases = append(filteredTestCases, testCase)
+		}
+	}
+	if len(filteredTestCases) == 0 {
+		filteredTestCases = testCases
+	}
+
+	// Execute The Individual Test Cases
+	for _, testCase := range filteredTestCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			performHandlerConsumeClaimTest(t, testCase.destinationUri, testCase.replyUri, testCase.deadLetterUri, testCase.retry)
+		})
+	}
 }
 
 // Test One Permutation Of The Handler's ConsumeClaim() Functionality
-func performHandlerConsumeClaimTest(t *testing.T, deadLetterURL *apis.URL, err error, retryExpected bool) {
+func performHandlerConsumeClaimTest(t *testing.T, destinationUri, replyUri, deadLetterUri *apis.URL, retry bool) {
 
-	// Create The ConsumerMessage To Test
-	consumerMessage := createConsumerMessage(t)
+	// Initialize Destination As Specified
+	var destinationUrl *url.URL
+	if destinationUri != nil {
+		destinationUrl = destinationUri.URL()
+	}
 
-	// Setup Any Error Responses
-	errorResponses := make(map[url.URL]error)
-	if err != nil {
-		errorResponses[*testSubscriberURL] = err
+	// Initialize Reply As Specified
+	var replyUrl *url.URL
+	if replyUri != nil {
+		replyUrl = replyUri.URL()
+	}
+
+	// Initialize DeadLetter As Specified
+	var deadLetterUrl *url.URL
+	if deadLetterUri != nil {
+		deadLetterUrl = deadLetterUri.URL()
+	}
+
+	// Create The Specified DeliverySpec
+	deliverySpec := createDeliverySpec(deadLetterUri, retry)
+
+	// Create The Expected RetryConfig
+	var retryConfig kncloudevents.RetryConfig
+	if retry {
+		var err error
+		retryConfig, err = kncloudevents.RetryConfigFromDeliverySpec(deliverySpec)
+		assert.NotNil(t, retryConfig)
+		assert.Nil(t, err)
 	}
 
 	// Create Mocks For Testing
 	mockConsumerGroupSession := dispatchertesting.NewMockConsumerGroupSession(t)
 	mockConsumerGroupClaim := dispatchertesting.NewMockConsumerGroupClaim(t)
-	mockMessageDispatcher := dispatchertesting.NewMockMessageDispatcher(t, errorResponses)
+	mockMessageDispatcher := dispatchertesting.NewMockMessageDispatcher(t, nil, destinationUrl, replyUrl, deadLetterUrl, &retryConfig, nil)
 
 	// Mock The newMessageDispatcherWrapper Function (And Restore Post-Test)
 	newMessageDispatcherWrapperPlaceholder := newMessageDispatcherWrapper
@@ -103,7 +187,7 @@ func performHandlerConsumeClaimTest(t *testing.T, deadLetterURL *apis.URL, err e
 	defer func() { newMessageDispatcherWrapper = newMessageDispatcherWrapperPlaceholder }()
 
 	// Create The Handler To Test
-	handler := createTestHandler(t, testSubscriberURI, deadLetterURL)
+	handler := createTestHandler(t, destinationUri, replyUri, &deliverySpec)
 
 	// Background Start Consuming Claims
 	go func() {
@@ -112,6 +196,7 @@ func performHandlerConsumeClaimTest(t *testing.T, deadLetterURL *apis.URL, err e
 	}()
 
 	// Perform The Test (Add ConsumerMessages To Claims)
+	consumerMessage := createConsumerMessage(t)
 	mockConsumerGroupClaim.MessageChan <- consumerMessage
 
 	// Wait For Message To Be Marked As Complete
@@ -122,28 +207,136 @@ func performHandlerConsumeClaimTest(t *testing.T, deadLetterURL *apis.URL, err e
 
 	// Verify The Results (CloudEvent Was Dispatched & ConsumerMessage Was Marked)
 	assert.Equal(t, consumerMessage, markedMessage)
-	if deadLetterURL != nil {
-		assert.Len(t, mockMessageDispatcher.DispatchedMessages, 2)
-	} else {
-		assert.Len(t, mockMessageDispatcher.DispatchedMessages, 1)
+	assert.NotNil(t, mockMessageDispatcher.Message())
+	verifyDispatchedMessage(t, mockMessageDispatcher.Message())
+}
+
+// Test The Custom CheckRetry() Implementation
+func TestCheckRetry(t *testing.T) {
+
+	// Define The TestCase Type
+	type TestCase struct {
+		only     bool
+		name     string
+		response *http.Response
+		err      error
+		result   bool
 	}
 
-	// Verify Normal Message Processing (Including Retry)
-	dispatchedMessages := mockMessageDispatcher.DispatchedMessages[*testSubscriberURL]
-	if retryExpected {
-		assert.Len(t, dispatchedMessages, 4)
-	} else {
-		assert.Len(t, dispatchedMessages, 1)
-	}
-	for _, dispatchedMessage := range dispatchedMessages {
-		verifyDispatchedMessage(t, dispatchedMessage)
+	// Define The TestCases
+	testCases := []TestCase{
+		{
+			name:   "Nil Response",
+			result: true,
+		},
+		{
+			name:     "Http Error",
+			response: &http.Response{StatusCode: http.StatusOK},
+			err:      errors.New("test error"),
+			result:   true,
+		},
+		{
+			name:     "Http StatusCode -1",
+			response: &http.Response{StatusCode: -1},
+			result:   true,
+		},
+		{
+			name:     "Http StatusCode 100",
+			response: &http.Response{StatusCode: http.StatusContinue},
+			result:   false,
+		},
+		{
+			name:     "Http StatusCode 102",
+			response: &http.Response{StatusCode: http.StatusProcessing},
+			result:   false,
+		},
+		{
+			name:     "Http StatusCode 200",
+			response: &http.Response{StatusCode: http.StatusOK},
+			result:   false,
+		},
+		{
+			name:     "Http StatusCode 201",
+			response: &http.Response{StatusCode: http.StatusCreated},
+			result:   false,
+		},
+		{
+			name:     "Http StatusCode 202",
+			response: &http.Response{StatusCode: http.StatusAccepted},
+			result:   false,
+		},
+		{
+			name:     "Http StatusCode 300",
+			response: &http.Response{StatusCode: http.StatusMultipleChoices},
+			result:   false,
+		},
+		{
+			name:     "Http StatusCode 301",
+			response: &http.Response{StatusCode: http.StatusMovedPermanently},
+			result:   false,
+		},
+		{
+			name:     "Http StatusCode 400",
+			response: &http.Response{StatusCode: http.StatusBadRequest},
+			result:   true,
+		},
+		{
+			name:     "Http StatusCode 401",
+			response: &http.Response{StatusCode: http.StatusUnauthorized},
+			result:   false,
+		},
+		{
+			name:     "Http StatusCode 403",
+			response: &http.Response{StatusCode: http.StatusForbidden},
+			result:   false,
+		},
+		{
+			name:     "Http StatusCode 404",
+			response: &http.Response{StatusCode: http.StatusNotFound},
+			result:   true,
+		},
+		{
+			name:     "Http StatusCode 429",
+			response: &http.Response{StatusCode: http.StatusTooManyRequests},
+			result:   true,
+		},
+		{
+			name:     "Http StatusCode 500",
+			response: &http.Response{StatusCode: http.StatusInternalServerError},
+			result:   true,
+		},
+		{
+			name:     "Http StatusCode 501",
+			response: &http.Response{StatusCode: http.StatusNotImplemented},
+			result:   true,
+		},
 	}
 
-	// Verify Any DeadLetter Processing
-	if deadLetterURL != nil {
-		deadLetterMessages := mockMessageDispatcher.DispatchedMessages[*deadLetterURL.URL()]
-		assert.Len(t, deadLetterMessages, 1)
-		verifyDispatchedMessage(t, deadLetterMessages[0])
+	// Filter To Those With "only" Flag (If Any Specified)
+	filteredTestCases := make([]TestCase, 0)
+	for _, testCase := range testCases {
+		if testCase.only {
+			filteredTestCases = append(filteredTestCases, testCase)
+		}
+	}
+	if len(filteredTestCases) == 0 {
+		filteredTestCases = testCases
+	}
+
+	// Create A Handler To Test
+	handler := createTestHandler(t, testSubscriberURI, testReplyURI, nil)
+	assert.Nil(t, handler.Cleanup(nil))
+
+	// Create A Test Context (Pacify Linter Nil Context Check ;)
+	ctx := context.TODO()
+
+	// Execute The Individual Test Cases
+	for _, testCase := range filteredTestCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			result, err := handler.checkRetry(ctx, testCase.response, testCase.err)
+			assert.Equal(t, testCase.result, result)
+			assert.Nil(t, err)
+		})
 	}
 }
 
@@ -166,8 +359,32 @@ func verifyDispatchedMessage(t *testing.T, message binding.MessageReader) {
 	assert.Equal(t, testMsgJsonContentString, string(dispatchedEvent.DataEncoded))
 }
 
+// Utility Function Fro Creating A Test DeliverySpec
+func createDeliverySpec(deadLetterUri *apis.URL, retry bool) eventingduck.DeliverySpec {
+
+	// Create An Empty DeliverySpec
+	deliverySpec := eventingduck.DeliverySpec{}
+
+	// Populate DeadLetter URL If Specified
+	if deadLetterUri != nil {
+		deliverySpec.DeadLetterSink = &duckv1.Destination{
+			URI: deadLetterUri,
+		}
+	}
+
+	// Populate Retry Config If Specified
+	if retry {
+		deliverySpec.Retry = &testRetryCount
+		deliverySpec.BackoffPolicy = &testBackoffPolicy
+		deliverySpec.BackoffDelay = &testBackoffDelay
+	}
+
+	// Return The Configured DeliverySpec
+	return deliverySpec
+}
+
 // Utility Function For Creating New Handler
-func createTestHandler(t *testing.T, subscriberURL *apis.URL, deadLetterURL *apis.URL) *Handler {
+func createTestHandler(t *testing.T, subscriberURL *apis.URL, replyUrl *apis.URL, delivery *eventingduck.DeliverySpec) *Handler {
 
 	// Test Data
 	logger := logtesting.TestLogger(t).Desugar()
@@ -175,25 +392,18 @@ func createTestHandler(t *testing.T, subscriberURL *apis.URL, deadLetterURL *api
 		UID:           testSubscriberUID,
 		Generation:    0,
 		SubscriberURI: subscriberURL,
-		ReplyURI:      nil,
-		Delivery: &eventingduck.DeliverySpec{
-			DeadLetterSink: &duckv1.Destination{
-				URI: deadLetterURL,
-			},
-		},
+		ReplyURI:      replyUrl,
+		Delivery:      delivery,
 	}
 
 	// Perform The Test Create The Test Handler
-	handler := NewHandler(logger, testSubscriber, testExponentialBackoff, testInitialRetryInterval, testMaxRetryTime)
+	handler := NewHandler(logger, testSubscriber)
 
 	// Verify The Results
 	assert.NotNil(t, handler)
 	assert.Equal(t, logger, handler.Logger)
 	assert.Equal(t, testSubscriber, handler.Subscriber)
 	assert.NotNil(t, handler.MessageDispatcher)
-	assert.Equal(t, true, handler.ExponentialBackoff)
-	assert.Equal(t, testInitialRetryInterval, handler.InitialRetryInterval)
-	assert.Equal(t, testMaxRetryTime, handler.MaxRetryTime)
 
 	// Return The Handler
 	return handler
