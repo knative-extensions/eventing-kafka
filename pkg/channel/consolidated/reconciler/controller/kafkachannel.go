@@ -49,9 +49,9 @@ import (
 	"knative.dev/pkg/controller"
 	pkgreconciler "knative.dev/pkg/reconciler"
 
-	"knative.dev/eventing-kafka/contrib/kafka/channel/pkg/reconciler/controller/resources"
-	"knative.dev/eventing-kafka/contrib/kafka/channel/pkg/utils"
 	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
+	"knative.dev/eventing-kafka/pkg/channel/consolidated/reconciler/controller/resources"
+	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
 	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	kafkaScheme "knative.dev/eventing-kafka/pkg/client/clientset/versioned/scheme"
 	kafkaChannelReconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"

@@ -14,6 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package config is a placeholder that allows us to pull in config files
+// This package is a placeholder that allows us to pull in config files
 // via go mod vendor.
-package config
+package consolidated

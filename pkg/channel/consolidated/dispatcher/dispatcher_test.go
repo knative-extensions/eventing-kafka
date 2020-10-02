@@ -23,8 +23,6 @@ import (
 	"net/url"
 	"testing"
 
-	"knative.dev/eventing/pkg/channel/fanout"
-
 	"github.com/Shopify/sarama"
 	"github.com/cloudevents/sdk-go/v2/binding"
 	"github.com/google/go-cmp/cmp"
@@ -33,12 +31,11 @@ import (
 	"go.uber.org/zap/zaptest"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-
+	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
+	"knative.dev/eventing-kafka/pkg/common/consumer"
 	eventingchannels "knative.dev/eventing/pkg/channel"
+	"knative.dev/eventing/pkg/channel/fanout"
 	_ "knative.dev/pkg/system/testing"
-
-	"knative.dev/eventing-kafka/contrib/kafka/channel/pkg/utils"
-	"knative.dev/eventing-kafka/contrib/kafka/common/pkg/kafka"
 )
 
 // ----- Mocks
@@ -48,7 +45,7 @@ type mockKafkaConsumerFactory struct {
 	createErr bool
 }
 
-func (c mockKafkaConsumerFactory) StartConsumerGroup(groupID string, topics []string, logger *zap.SugaredLogger, handler kafka.KafkaConsumerHandler) (sarama.ConsumerGroup, error) {
+func (c mockKafkaConsumerFactory) StartConsumerGroup(groupID string, topics []string, logger *zap.SugaredLogger, handler consumer.KafkaConsumerHandler) (sarama.ConsumerGroup, error) {
 	if c.createErr {
 		return nil, errors.New("error creating consumer")
 	}
@@ -56,7 +53,7 @@ func (c mockKafkaConsumerFactory) StartConsumerGroup(groupID string, topics []st
 	return mockConsumerGroup{}, nil
 }
 
-var _ kafka.KafkaConsumerGroupFactory = (*mockKafkaConsumerFactory)(nil)
+var _ consumer.KafkaConsumerGroupFactory = (*mockKafkaConsumerFactory)(nil)
 
 type mockConsumerGroup struct{}
 
