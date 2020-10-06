@@ -9,7 +9,7 @@ import (
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
-	"knative.dev/eventing/pkg/utils"
+	"knative.dev/pkg/network"
 )
 
 // Get A Logger With Channel Info
@@ -61,7 +61,7 @@ func ChannelDnsSafeName(kafkaSecretName string) string {
 
 // Channel Host Naming Utility
 func ChannelHostName(channelName, channelNamespace string) string {
-	return fmt.Sprintf("%s.%s.channels.%s", channelName, channelNamespace, utils.GetClusterDomainName())
+	return fmt.Sprintf("%s.%s.channels.%s", channelName, channelNamespace, network.GetClusterDomainName())
 }
 
 // Utility Function To Get The NumPartitions - First From Channel Spec And Then From ConfigMap-Provided Settings

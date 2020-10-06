@@ -33,11 +33,11 @@ import (
 	"knative.dev/eventing/test/lib/recordevents"
 	"knative.dev/eventing/test/lib/resources"
 
-	sourcesv1alpha1 "knative.dev/eventing-kafka/contrib/kafka/source/pkg/apis/sources/v1alpha1"
-	sourcesv1beta1 "knative.dev/eventing-kafka/contrib/kafka/source/pkg/apis/sources/v1beta1"
 	"knative.dev/eventing-kafka/contrib/test/e2e/helpers"
 	contribtestlib "knative.dev/eventing-kafka/contrib/test/lib"
 	contribresources "knative.dev/eventing-kafka/contrib/test/lib/resources"
+	sourcesv1alpha1 "knative.dev/eventing-kafka/pkg/apis/sources/v1alpha1"
+	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 )
 
 const (
