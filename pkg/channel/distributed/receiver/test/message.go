@@ -1,10 +1,11 @@
 package test
 
 import (
+	"testing"
+
 	"github.com/Shopify/sarama"
 	"github.com/cloudevents/sdk-go/v2/binding"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 // Utility Function For Creating A CloudEvents sdk-go BindingMessage

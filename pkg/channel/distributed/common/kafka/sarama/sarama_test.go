@@ -36,9 +36,6 @@ dispatcher:
   memoryLimit: 128Mi
   memoryRequest: 50Mi
   replicas: 1
-  retryInitialIntervalMillis: 500
-  retryTimeMillis: 300000
-  retryExponentialBackoff: true
 kafka:
   topic:
     defaultNumPartitions: 4
@@ -63,17 +60,6 @@ Consumer:
     Retention: 604800000000000
   Return:
     Errors: true
-`
-
-	TestEKConfigNoBackoff = `
-dispatcher:
-  cpuLimit: 500m
-  cpuRequest: 300m
-  memoryLimit: 128Mi
-  memoryRequest: 50Mi
-  replicas: ` + commontesting.DispatcherReplicas + `
-  retryInitialIntervalMillis: ` + commontesting.DispatcherRetryInitial + `
-  retryTimeMillis: ` + commontesting.DispatcherRetry + `
 `
 
 	EKDefaultSaramaConfigWithRootCert = `
@@ -222,9 +208,6 @@ func TestLoadDefaultSaramaSettings(t *testing.T) {
 	assert.Equal(t, resource.MustParse("128Mi"), configuration.Dispatcher.MemoryLimit)
 	assert.Equal(t, resource.MustParse("50Mi"), configuration.Dispatcher.MemoryRequest)
 	assert.Equal(t, 1, configuration.Dispatcher.Replicas)
-	assert.Equal(t, int64(500), configuration.Dispatcher.RetryInitialIntervalMillis)
-	assert.Equal(t, int64(300000), configuration.Dispatcher.RetryTimeMillis)
-	assert.Equal(t, true, *configuration.Dispatcher.RetryExponentialBackoff)
 	assert.Equal(t, "azure", configuration.Kafka.AdminType)
 }
 
@@ -395,26 +378,11 @@ func TestLoadSettings(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-func TestLoadEventingKafkaSettings_NoBackoff(t *testing.T) {
-	// Set up a configmap and verify that the eventing-kafka settings are loaded properly from it
-	ctx := getTestSaramaContext(t, commontesting.OldSaramaConfig, TestEKConfigNoBackoff)
-	_, configuration, err := LoadSettings(ctx)
-	assert.Nil(t, err)
-	// Verify that the "RetryExponentialBackoff" field is set properly (bool pointer)
-	assert.Nil(t, configuration.Dispatcher.RetryExponentialBackoff)
-}
-
 func verifyTestEKConfigSettings(t *testing.T, saramaConfig *sarama.Config, eventingKafkaConfig *commonconfig.EventingKafkaConfig) {
 	// Quick checks to make sure the loaded configs aren't complete junk
 	assert.Equal(t, commontesting.OldUsername, saramaConfig.Net.SASL.User)
 	assert.Equal(t, commontesting.OldPassword, saramaConfig.Net.SASL.Password)
 	assert.Equal(t, commontesting.DispatcherReplicas, strconv.Itoa(eventingKafkaConfig.Dispatcher.Replicas))
-	assert.Equal(t, commontesting.DispatcherRetryInitial, strconv.FormatInt(eventingKafkaConfig.Dispatcher.RetryInitialIntervalMillis, 10))
-	assert.Equal(t, commontesting.DispatcherRetry, strconv.FormatInt(eventingKafkaConfig.Dispatcher.RetryTimeMillis, 10))
-
-	// Verify in particular that the "RetryExponentialBackoff" field is set properly (bool pointer)
-	assert.NotNil(t, eventingKafkaConfig.Dispatcher.RetryExponentialBackoff)
-	assert.True(t, *eventingKafkaConfig.Dispatcher.RetryExponentialBackoff)
 }
 
 func getTestSaramaContext(t *testing.T, saramaConfig string, eventingKafkaConfig string) context.Context {

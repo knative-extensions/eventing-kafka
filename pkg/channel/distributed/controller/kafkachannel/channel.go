@@ -15,9 +15,9 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
 	eventingNames "knative.dev/eventing/pkg/reconciler/names"
-	eventingUtils "knative.dev/eventing/pkg/utils"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/network"
 )
 
 // Reconcile The "Channel" Inbound For The Specified Channel
@@ -108,7 +108,7 @@ func (r *Reconciler) newKafkaChannelService(channel *kafkav1beta1.KafkaChannel) 
 
 	// Get The Dispatcher Service Name For The Channel (One Channel Service Per KafkaChannel Instance)
 	deploymentName := util.ChannelDnsSafeName(r.kafkaSecretName(channel))
-	serviceAddress := fmt.Sprintf("%s.%s.svc.%s", deploymentName, commonconstants.KnativeEventingNamespace, eventingUtils.GetClusterDomainName())
+	serviceAddress := fmt.Sprintf("%s.%s.svc.%s", deploymentName, commonconstants.KnativeEventingNamespace, network.GetClusterDomainName())
 
 	// Create & Return The Service Model
 	return &corev1.Service{

@@ -14,7 +14,6 @@ import (
 	commonk8s "knative.dev/eventing-kafka/pkg/channel/distributed/common/k8s"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/metrics"
-	dispatcherconfig "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/config"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/controller"
 	dispatch "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/dispatcher"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/env"
@@ -63,18 +62,13 @@ func main() {
 	}
 
 	// Load The Sarama & Eventing-Kafka Configuration From The ConfigMap
-	saramaConfig, configuration, err := sarama.LoadSettings(ctx)
+	saramaConfig, _, err := sarama.LoadSettings(ctx)
 	if err != nil {
 		logger.Fatal("Failed To Load Sarama Settings", zap.Error(err))
 	}
 
 	// Update The Sarama Config - Username/Password Overrides (EnvVars From Secret Take Precedence Over ConfigMap)
 	sarama.UpdateSaramaConfig(saramaConfig, Component, environment.KafkaUsername, environment.KafkaPassword)
-
-	// Verify that our loaded configuration is valid
-	if err = dispatcherconfig.VerifyConfiguration(configuration); err != nil {
-		logger.Fatal("Invalid / Missing Settings - Terminating", zap.Error(err))
-	}
 
 	// Initialize Tracing (Watches config-tracing ConfigMap, Assumes Context Came From LoggingContext With Embedded K8S Client Key)
 	err = commonconfig.InitializeTracing(logger.Sugar(), ctx, environment.ServiceName)
@@ -96,18 +90,15 @@ func main() {
 
 	// Create The Dispatcher With Specified Configuration
 	dispatcherConfig := dispatch.DispatcherConfig{
-		Logger:               logger,
-		ClientId:             Component,
-		Brokers:              strings.Split(environment.KafkaBrokers, ","),
-		Topic:                environment.KafkaTopic,
-		Username:             environment.KafkaUsername,
-		Password:             environment.KafkaPassword,
-		ChannelKey:           environment.ChannelKey,
-		StatsReporter:        statsReporter,
-		ExponentialBackoff:   *configuration.Dispatcher.RetryExponentialBackoff,
-		InitialRetryInterval: configuration.Dispatcher.RetryInitialIntervalMillis,
-		MaxRetryTime:         configuration.Dispatcher.RetryTimeMillis,
-		SaramaConfig:         saramaConfig,
+		Logger:        logger,
+		ClientId:      Component,
+		Brokers:       strings.Split(environment.KafkaBrokers, ","),
+		Topic:         environment.KafkaTopic,
+		Username:      environment.KafkaUsername,
+		Password:      environment.KafkaPassword,
+		ChannelKey:    environment.ChannelKey,
+		StatsReporter: statsReporter,
+		SaramaConfig:  saramaConfig,
 	}
 	dispatcher = dispatch.NewDispatcher(dispatcherConfig)
 

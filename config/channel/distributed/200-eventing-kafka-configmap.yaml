@@ -36,9 +36,6 @@ data:
       memoryLimit: 128Mi
       memoryRequest: 50Mi
       replicas: 1
-      retryInitialIntervalMillis: 500 # 0.5 seconds
-      retryTimeMillis: 300000  # 5 minutes
-      retryExponentialBackoff: true
     kafka:
       topic:
         defaultNumPartitions: 4

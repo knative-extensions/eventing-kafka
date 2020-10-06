@@ -2,8 +2,9 @@ package testing
 
 import (
 	"context"
-	"github.com/Shopify/sarama"
 	"testing"
+
+	"github.com/Shopify/sarama"
 )
 
 //

@@ -31,10 +31,10 @@ import (
 	"knative.dev/pkg/apis"
 	pkgTest "knative.dev/pkg/test"
 
-	sourcesv1beta1 "knative.dev/eventing-kafka/contrib/kafka/source/pkg/apis/sources/v1beta1"
 	"knative.dev/eventing-kafka/contrib/test/e2e/helpers"
 	contribtestlib "knative.dev/eventing-kafka/contrib/test/lib"
 	contribresources "knative.dev/eventing-kafka/contrib/test/lib/resources"
+	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 )
 
 const (

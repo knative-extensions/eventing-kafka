@@ -3,6 +3,10 @@ package admin
 import (
 	"context"
 	"fmt"
+	"math"
+	"regexp"
+	"strconv"
+
 	eventhub "github.com/Azure/azure-event-hubs-go"
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
@@ -10,9 +14,6 @@ import (
 	adminutil "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/util"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 	"knative.dev/pkg/logging"
-	"math"
-	"regexp"
-	"strconv"
 )
 
 //

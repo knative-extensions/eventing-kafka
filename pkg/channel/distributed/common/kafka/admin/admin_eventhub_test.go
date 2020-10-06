@@ -3,6 +3,9 @@ package admin
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"testing"
+
 	eventhub "github.com/Azure/azure-event-hubs-go"
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
@@ -10,8 +13,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/eventhubcache"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 	logtesting "knative.dev/pkg/logging/testing"
-	"strconv"
-	"testing"
 )
 
 // Test The NewEventHubAdminClient() Constructor - Success Path
@@ -554,20 +555,20 @@ type MockCache struct {
 	mock.Mock
 }
 
-func (m MockCache) Update(ctx context.Context) error {
+func (m *MockCache) Update(ctx context.Context) error {
 	args := m.Called(ctx)
 	return args.Error(0)
 }
 
-func (m MockCache) AddEventHub(ctx context.Context, eventhub string, namespace *eventhubcache.Namespace) {
+func (m *MockCache) AddEventHub(ctx context.Context, eventhub string, namespace *eventhubcache.Namespace) {
 	m.Called(ctx, eventhub, namespace)
 }
 
-func (m MockCache) RemoveEventHub(ctx context.Context, eventhub string) {
+func (m *MockCache) RemoveEventHub(ctx context.Context, eventhub string) {
 	m.Called(ctx, eventhub)
 }
 
-func (m MockCache) GetNamespace(eventhub string) *eventhubcache.Namespace {
+func (m *MockCache) GetNamespace(eventhub string) *eventhubcache.Namespace {
 	args := m.Called(eventhub)
 	response := args.Get(0)
 	if response == nil {
@@ -577,7 +578,7 @@ func (m MockCache) GetNamespace(eventhub string) *eventhubcache.Namespace {
 	}
 }
 
-func (m MockCache) GetLeastPopulatedNamespace() *eventhubcache.Namespace {
+func (m *MockCache) GetLeastPopulatedNamespace() *eventhubcache.Namespace {
 	args := m.Called()
 	response := args.Get(0)
 	if response == nil {
@@ -599,17 +600,17 @@ type MockHubManager struct {
 	mock.Mock
 }
 
-func (m MockHubManager) Delete(ctx context.Context, name string) error {
+func (m *MockHubManager) Delete(ctx context.Context, name string) error {
 	args := m.Called(ctx, name)
 	return args.Error(0)
 }
 
-func (m MockHubManager) List(ctx context.Context) ([]*eventhub.HubEntity, error) {
+func (m *MockHubManager) List(ctx context.Context) ([]*eventhub.HubEntity, error) {
 	args := m.Called(ctx)
 	return args.Get(0).([]*eventhub.HubEntity), args.Error(1)
 }
 
-func (m MockHubManager) Put(ctx context.Context, name string, opts ...eventhub.HubManagementOption) (*eventhub.HubEntity, error) {
+func (m *MockHubManager) Put(ctx context.Context, name string, opts ...eventhub.HubManagementOption) (*eventhub.HubEntity, error) {
 	args := m.Called(ctx, name, opts)
 	response := args.Get(0)
 	if response == nil {

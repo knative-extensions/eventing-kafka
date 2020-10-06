@@ -39,17 +39,17 @@ func BrokerRedelivery(ctx context.Context, t *testing.T, creator BrokerCreatorWi
 
 	numRetries := int32(5)
 
-	//t.Run(dropevents.Fibonacci, func(t *testing.T) {
-	//	brokerRedelivery(ctx, t, creator, numRetries, func(pod *corev1.Pod, client *testlib.Client) error {
-	//		pod.Spec.Containers[0].Env = append(pod.Spec.Containers[0].Env,
-	//			corev1.EnvVar{
-	//				Name:  dropevents.SkipAlgorithmKey,
-	//				Value: dropevents.Fibonacci,
-	//			},
-	//		)
-	//		return nil
-	//	})
-	//})
+	t.Run(dropevents.Fibonacci, func(t *testing.T) {
+		brokerRedelivery(ctx, t, creator, numRetries, func(pod *corev1.Pod, client *testlib.Client) error {
+			pod.Spec.Containers[0].Env = append(pod.Spec.Containers[0].Env,
+				corev1.EnvVar{
+					Name:  dropevents.SkipAlgorithmKey,
+					Value: dropevents.Fibonacci,
+				},
+			)
+			return nil
+		})
+	})
 
 	t.Run(dropevents.Sequence, func(t *testing.T) {
 		brokerRedelivery(ctx, t, creator, numRetries, func(pod *corev1.Pod, client *testlib.Client) error {
@@ -109,7 +109,7 @@ func brokerRedelivery(ctx context.Context, t *testing.T, creator BrokerCreatorWi
 	eventToSend.SetType(eventType)
 	eventToSend.SetSource(eventSource)
 	if err := eventToSend.SetData(cloudevents.ApplicationJSON, []byte(eventBody)); err != nil {
-		t.Fatalf("Cannot set the payload of the event: %s", err.Error())
+		t.Fatal("Cannot set the payload of the event:", err.Error())
 	}
 
 	client.SendEventToAddressable(ctx, senderName, brokerName, testlib.BrokerTypeMeta, eventToSend)

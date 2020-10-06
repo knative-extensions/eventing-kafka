@@ -2,6 +2,7 @@ package eventhubcache
 
 import (
 	"context"
+
 	eventhub "github.com/Azure/azure-event-hubs-go"
 )
 
