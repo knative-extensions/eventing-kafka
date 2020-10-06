@@ -24,7 +24,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/network"
-
 )
 
 const (

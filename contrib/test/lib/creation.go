@@ -23,11 +23,11 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	bindingsv1alpha1 "knative.dev/eventing-kafka/pkg/apis/bindings/v1alpha1"
 	bindingsv1beta1 "knative.dev/eventing-kafka/pkg/apis/bindings/v1beta1"
 	sourcesv1alpha1 "knative.dev/eventing-kafka/pkg/apis/sources/v1alpha1"
 	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
+	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 )
 
 func CreateKafkaSourceV1Alpha1OrFail(c *testlib.Client, kafkaSource *sourcesv1alpha1.KafkaSource) {

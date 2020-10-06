@@ -2,14 +2,15 @@ package health
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"io"
-	logtesting "knative.dev/pkg/logging/testing"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	logtesting "knative.dev/pkg/logging/testing"
 )
 
 // Test Constants

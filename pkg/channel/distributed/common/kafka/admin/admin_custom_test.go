@@ -3,14 +3,15 @@ package admin
 import (
 	"context"
 	"encoding/json"
-	"github.com/Shopify/sarama"
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"testing"
+
+	"github.com/Shopify/sarama"
+	"github.com/stretchr/testify/assert"
 
 	"k8s.io/client-go/kubernetes/fake"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/custom"

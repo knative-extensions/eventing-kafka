@@ -3,6 +3,9 @@ package admin
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"testing"
+
 	eventhub "github.com/Azure/azure-event-hubs-go"
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
@@ -10,8 +13,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/eventhubcache"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 	logtesting "knative.dev/pkg/logging/testing"
-	"strconv"
-	"testing"
 )
 
 // Test The NewEventHubAdminClient() Constructor - Success Path
