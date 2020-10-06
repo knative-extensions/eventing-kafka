@@ -768,12 +768,8 @@ func (state *golistState) getGoVersion() (string, error) {
 	return state.goVersion, state.goVersionError
 }
 
-<<<<<<< HEAD
-// getPkgPath finds the package path of a directory if it's relative to a root directory.
-=======
 // getPkgPath finds the package path of a directory if it's relative to a root
 // directory.
->>>>>>> 2621135fe... Updated code gen and deps
 func (state *golistState) getPkgPath(dir string) (string, bool, error) {
 	absDir, err := filepath.Abs(dir)
 	if err != nil {

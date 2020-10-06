@@ -193,11 +193,7 @@ func newStackdriverExporter(config *metricsConfig, logger *zap.SugaredLogger) (v
 		GetMetricPrefix:         mpf,
 		ReportingInterval:       config.reportingPeriod,
 		DefaultMonitoringLabels: &sd.Labels{},
-<<<<<<< HEAD
-		Timeout:                 stackdriverApiTimeout,
-=======
 		Timeout:                 stackdriverAPITimeout,
->>>>>>> 2621135fe... Updated code gen and deps
 		BundleCountThreshold:    TestOverrideBundleCount,
 	})
 	if err != nil {
