@@ -3,6 +3,10 @@ package dispatcher
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/url"
+	"regexp"
+
 	"github.com/Shopify/sarama"
 	kafkasaramaprotocol "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"github.com/cloudevents/sdk-go/v2/binding"
@@ -10,9 +14,6 @@ import (
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/channel"
 	"knative.dev/eventing/pkg/kncloudevents"
-	"net/http"
-	"net/url"
-	"regexp"
 )
 
 // 3 Digit Word Boundary HTTP Status Code Regular Expression

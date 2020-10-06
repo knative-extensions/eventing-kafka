@@ -1,9 +1,10 @@
 package util
 
 import (
-	"go.uber.org/zap"
 	"os"
 	"os/signal"
+
+	"go.uber.org/zap"
 )
 
 // Block Waiting For Any Of The Specified Signals

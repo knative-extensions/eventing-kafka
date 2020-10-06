@@ -1,8 +1,9 @@
 package k8s
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 // Test The TruncateLabelValue() Functionality

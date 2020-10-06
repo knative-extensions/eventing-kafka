@@ -2,11 +2,12 @@ package health
 
 import (
 	"context"
-	"go.uber.org/zap"
 	"net"
 	"net/http"
 	"strconv"
 	"sync"
+
+	"go.uber.org/zap"
 )
 
 // Interface For Providing Overrides For Liveness And Readiness Information

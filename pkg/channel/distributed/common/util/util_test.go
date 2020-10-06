@@ -1,11 +1,12 @@
 package util
 
 import (
-	"github.com/stretchr/testify/assert"
-	logtesting "knative.dev/pkg/logging/testing"
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	logtesting "knative.dev/pkg/logging/testing"
 )
 
 // Test The WaitForSignal Functionality

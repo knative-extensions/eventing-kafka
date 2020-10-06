@@ -3,6 +3,9 @@ package eventhubcache
 import (
 	"context"
 	"fmt"
+	"strings"
+	"testing"
+
 	eventhub "github.com/Azure/azure-event-hubs-go"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
@@ -13,8 +16,6 @@ import (
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
-	"strings"
-	"testing"
 )
 
 // Test The Cache's NewCache() Constructor

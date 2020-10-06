@@ -1,9 +1,10 @@
 package util
 
 import (
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"knative.dev/eventing/pkg/channel"
-	"testing"
 )
 
 // Test The TopicName() Functionality
