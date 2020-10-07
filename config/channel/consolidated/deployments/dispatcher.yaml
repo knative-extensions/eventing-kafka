@@ -43,6 +43,10 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
         - name: METRICS_DOMAIN
           value: "knative.dev/eventing"
         - name: CONFIG_LOGGING_NAME
