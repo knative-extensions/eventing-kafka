@@ -27,7 +27,7 @@ import (
 	testlib "knative.dev/eventing/test/lib"
 	"knative.dev/eventing/test/lib/resources"
 
-	contribtest "knative.dev/eventing-kafka/contrib/test"
+	contribtest "knative.dev/eventing-kafka/test"
 )
 
 func TestChannelTracingWithReply(t *testing.T) {

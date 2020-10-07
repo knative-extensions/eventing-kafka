@@ -23,8 +23,8 @@ import (
 	"os"
 	"testing"
 
-	"knative.dev/eventing-kafka/contrib/test"
-	"knative.dev/eventing-kafka/contrib/test/lib/setupclientoptions"
+	"knative.dev/eventing-kafka/test"
+	"knative.dev/eventing-kafka/test/lib/setupclientoptions"
 	eventingTest "knative.dev/eventing/test"
 	testlib "knative.dev/eventing/test/lib"
 	"knative.dev/eventing/test/lib/resources"

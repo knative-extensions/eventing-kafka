@@ -32,7 +32,7 @@ spec:
       restartPolicy: Never
       containers:
       - name: sender-receiver
-        image: ko://knative.dev/eventing-kafka/contrib/test/test_images/kafka_performance
+        image: ko://knative.dev/eventing-kafka/test/test_images/kafka_performance
         args:
         - "--roles=sender,receiver"
         - "--bootstrap-url=my-cluster-kafka-bootstrap.kafka.svc:9092"
@@ -73,7 +73,7 @@ spec:
   restartPolicy: Never
   containers:
   - name: aggregator
-    image: ko://knative.dev/eventing-kafka/contrib/test/test_images/kafka_performance
+    image: ko://knative.dev/eventing-kafka/test/test_images/kafka_performance
     args:
     - "--roles=aggregator"
     # set to the number of sender-receiver

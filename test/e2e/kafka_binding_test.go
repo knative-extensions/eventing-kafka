@@ -25,14 +25,14 @@ import (
 	"github.com/cloudevents/sdk-go/v2/test"
 	"github.com/google/uuid"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/eventing-kafka/contrib/test/e2e/helpers"
+	"knative.dev/eventing-kafka/test/e2e/helpers"
 	testlib "knative.dev/eventing/test/lib"
 	"knative.dev/eventing/test/lib/recordevents"
 	"knative.dev/eventing/test/lib/resources"
 	"knative.dev/pkg/tracker"
 
-	contribtestlib "knative.dev/eventing-kafka/contrib/test/lib"
-	contribresources "knative.dev/eventing-kafka/contrib/test/lib/resources"
+	contribtestlib "knative.dev/eventing-kafka/test/lib"
+	contribresources "knative.dev/eventing-kafka/test/lib/resources"
 )
 
 func testKafkaBinding(t *testing.T, version string, messageKey string, messageHeaders map[string]string, messagePayload string, expectedData string) {

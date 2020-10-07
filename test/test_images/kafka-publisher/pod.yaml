@@ -7,4 +7,4 @@ metadata:
 spec:
   containers:
   - name: kafka-publisher
-    image: ko://knative.dev/eventing-kafka/contrib/test/test_images/kafka-publisher
+    image: ko://knative.dev/eventing-kafka/test/test_images/kafka-publisher

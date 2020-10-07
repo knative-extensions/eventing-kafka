@@ -4,7 +4,7 @@ This directory contains tests and testing docs for `Knative Eventing Contrib`.
 
 - [Unit tests](#running-unit-tests) reside in the codebase alongside the code
   they test
-- [End-to-end tests](#running-end-to-end-tests) reside in [`/test/e2e`](./e2e)
+- [End-to-end tests](#running-end-to-end-tests) reside in [`/test/e2e`](e2e)
 
 ## Running tests with scripts
 
@@ -37,7 +37,7 @@ delete the cluster._
 
 ### E2E tests
 
-[`e2e-tests.sh`](./e2e-tests.sh) is the entry point for running all e2e tests.
+[`e2e-tests.sh`](e2e-tests.sh) is the entry point for running all e2e tests.
 
 You can run it simply with:
 
@@ -72,7 +72,7 @@ which needs [`-tags=e2e`](#running-end-to-end-tests) to be enabled._
 
 ### Running end-to-end tests
 
-To run [the e2e tests](./e2e) with `go test` command, you need to have a running
+To run [the e2e tests](e2e) with `go test` command, you need to have a running
 environment that meets
 [the e2e test environment requirements](#environment-requirements), and you need
 to specify the build tag `e2e`.
@@ -131,8 +131,8 @@ _Note: this is only required when you run e2e tests locally with `go test`
 commands. Running tests through e2e-tests.sh will publish the images
 automatically._
 
-The [`upload-test-images.sh`](./upload-test-images.sh) script can be used to
-build and push the test images used by the e2e tests. It requires:
+The [`upload-test-images.sh`](upload-test-images.sh) script can be used to build
+and push the test images used by the e2e tests. It requires:
 
 - [`KO_DOCKER_REPO`](https://github.com/knative/serving/blob/master/DEVELOPMENT.md#environment-setup)
   to be set
