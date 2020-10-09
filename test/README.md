@@ -1,203 +1,170 @@
 # Test
 
-This directory contains tests and testing docs for the knative-sandbox
-`eventing-kafka` project.
+This directory contains tests and testing docs for `Knative Eventing Contrib`.
 
-- [Unit Tests](#unit-tests) reside in the codebase alongside the code under
-  test.
-- [Integration Tests](#integration-tests) consist of the `conformance` and `e2e`
-  tests also in this directory.
-- [Performance Tests](#performance-tests) have yet to be completed but will
-  reside here as well.
+- [Unit tests](#running-unit-tests) reside in the codebase alongside the code
+  they test
+- [End-to-end tests](#running-end-to-end-tests) reside in [`/test/e2e`](e2e)
 
-While some information has been repeated here, it is useful to be familiar with
-the other Knative testing documentation such as...
+## Running tests with scripts
 
-- [Serving](https://github.com/knative/serving/blob/master/test/README.md)
-- [Eventing](https://github.com/knative/eventing/tree/master/test/README.md)
-- [Eventing-Contrib](https://github.com/knative/eventing-contrib/blob/master/test/README.md)
+### Presubmit tests
 
-## Unit Tests
+[`presubmit-tests.sh`](./presubmit-tests.sh) is the entry point for the tests
+before code submission.
 
-The Unit Tests are run by Prow for all Pull Requests. They are executed by Prow
-via the [pre-submit-tests.sh](./presubmit-tests.sh) script with the
-`--unit-tests` argument. Or you can always run them manually via the `go test`
-cmd line...
+You can run it simply with:
 
-```
-go test -v pkg/channel/distributed/...
+```shell
+test/presubmit-tests.sh
 ```
 
-## Integration Tests
+_By default, this script will run `build tests`, `unit tests` and
+`integration tests`._ If you only want to run one type of tests, you can run
+this script with corresponding flags like below:
 
-The `End-To-End` and `Conformance` tests are Knative "integration-tests" meant
-to be run by Prow for all Pull Requests. They are executed by Prow via the
-[pre-submit-tests.sh](./presubmit-tests.sh) script with the
-`--integration-tests` argument. The existence of the
-[e2e-tests.sh](./e2e-tests.sh) script will cause them to be run in that use
-case.
-
-For local development / maintenance of the tests however, it is convenient to be
-able to run them in various manners which are described here.
-
-### Pre-Submit Script
-
-The [`presubmit-tests.sh`](./presubmit-tests.sh) script is the entry point for
-the tests run from Prow when a PR is created.
-
-By default, the script will run `build tests`, `unit tests` and
-`integration tests`. If you only want to run one type of tests, you can run this
-script with corresponding flags such as...
-
-```
-./test/presubmit-tests.sh
-./test/presubmit-tests.sh --build-tests
-./test/presubmit-tests.sh --unit-tests
-./test/presubmit-tests.sh --integration-tests
+```shell
+test/presubmit-tests.sh --build-tests
+test/presubmit-tests.sh --unit-tests
+test/presubmit-tests.sh --integration-tests
 ```
 
-The script will call the [`e2e-tests.sh`](./e2e-tests.sh) script if it exists.
+_Note that if the tests you are running include `integration tests`, it will
+create a new GKE cluster in project `$PROJECT_ID`, start Knative Serving and
+Eventing system, upload test images to `$KO_DOCKER_REPO`, and run all
+`e2e-*tests.sh` scripts under [`test`](.). After the tests finish, it will
+delete the cluster._
 
-### E2E-Tests Script
+### E2E tests
 
-The [`e2e-tests.sh`](./e2e-tests.sh) script is the entry point for running all
-the e2e tests.
+[`e2e-tests.sh`](e2e-tests.sh) is the entry point for running all e2e tests.
 
-By default, it will create a new GKE cluster in project `$PROJECT_ID`, start
-Knative Eventing, upload test images to `$KO_DOCKER_REPO`, and run the
-`conformance` and `e2e` tests. After the tests finishes, it will delete the
-cluster. To skip cluster teardown for diagnostic purposes, "--skip-teardowns"
-can be added to the script arguments or to the initialize command in
-e2e-tests.sh directly.
+You can run it simply with:
 
-```
-# Complete Tests (Create & Initialize K8S Cluster)
-./test/e2e-tests.sh
-
-# Skip Cluster Creation & Install Knative Eventing Into Existing Empty K8S Cluster (kubeconfig)
-./test/e2e-tests.sh --run-tests
-
-# Skip Cluster Creation & Knative Eventing Setup - Use Existing K8S Cluster With Eventing Pre-Installed
-kubectl apply --filename https://github.com/knative/eventing/releases/download/v0.17.3/eventing.yaml
-./test/e2e-tests.sh --run-tests --skip-knative-setup
-
-# Prevent TearDown Of Tests In Order To Debug Failures
-./test/e2e-tests.sh --run-tests --skip-teardowns
+```shell
+test/e2e-tests.sh
 ```
 
-Note that local clusters often do not have the resources to run 12 parallel
-tests (the default) as the tests each tend to create their own namespaces and
-dispatchers which require a number of cluster resources. For example, a local
-Docker cluster with 4 CPUs and 8 GB of RAM will probably be able to handle 6 at
-maximum. Be sure to adequately set the MAX_PARALLEL_TESTS variable before
-running this script on a local cluster.
+_By default, it will create a new GKE cluster in project `$PROJECT_ID`, start
+Knative Serving and Eventing system, upload test images to `$KO_DOCKER_REPO`,
+and run the end-to-end tests. After the tests finishes, it will delete the
+cluster._
 
-> Remember to provide the `kn-eventing-test-pull-secret` K8S Secret as described
-> in [Private Docker Repositories](#private-docker-repositories) when using an
-> existing cluster.
+If you have already created your own Kubernetes cluster but haven't installed
+Knative, you can run with `test/e2e-tests.sh --run-tests`.
 
-The script will base the version of Knative Eventing installed in the K8S
-Cluster on the current git branch. If the current git branch is based off of a
-release branch, it will use the latest version of the corresponding Knative
-Eventing release branch. If it is based off of /master then the latest /master
-Knative Eventing will be cloned/built/installed. Optionally you can set the
-following environment variable to force a specific Knative Eventing release...
+If you have set up a running environment that meets
+[the e2e test environment requirements](#environment-requirements), you can run
+with `test/e2e-tests.sh --run-tests --skip-knative-setup`.
 
-```
-export KNATIVE_EVENTING_RELEASE_OVERRIDE="v0.17.3"
-```
+## Running tests with `go test` command
 
-### GO Test Cmd
+### Running unit tests
 
-This is the fastest way to iterate when developing integration tests. It does
-require, though, that you provide the K8S Cluster pre-configured with everything
-needed to run the tests. This includes Knative-Eventing, a Kafka Cluster, and
-the KafkaChannel CR implementation. Your current `kubeconfig` should refer to
-the cluster. Further, you are responsible for providing the Knative Eventing
-[Test Images](#test-images) which are normally built for you when running the
-[e2e-tests.sh](./e2e-tests.sh) script.
+You can also use `go test` command to run unit tests:
 
-```
-# Run All The Conformance Tests Against The KafkaChannel
-go test -v -tags=e2e -count=1 ./test/conformance/... -channels=messaging.knative.dev/v1beta1:KafkaChannel
-
-# Run All The E2E Tests Against The KafkaChannel
-go test -v -tags=e2e -count=1 ./test/e2e/... -channels=messaging.knative.dev/v1beta1:KafkaChannel
-
-# Run Only The 'TestChannelChain' E2E Test Against The KafkaChannel
-go test -v -tags=e2e -count=1 ./test/e2e/... -channels=messaging.knative.dev/v1beta1:KafkaChannel -run TestChannelChain
+```shell
+go test -v ./...
 ```
 
-> Note - The `-tags=e2e` argument is required to run the integration tests with
-> `go test`!
+_By default `go test` will not run [the e2e tests](#running-end-to-end-tests),
+which needs [`-tags=e2e`](#running-end-to-end-tests) to be enabled._
 
-## Performance Tests
+### Running end-to-end tests
 
-> TODO - Implement Performance Tests ; )
+To run [the e2e tests](e2e) with `go test` command, you need to have a running
+environment that meets
+[the e2e test environment requirements](#environment-requirements), and you need
+to specify the build tag `e2e`.
 
-## Test Images
-
-The integration tests primarily delegate to the Knative Eventing generic test
-implementations. These implementations use various
-[test_images](../vendor/knative.dev/eventing/test/test_images) in order to
-verify the desired behavior. Therefore, these `test_images` need to have been
-built and be available for downloading in the cluster. The
-[e2e-tests.sh](./e2e-tests.sh) script will build and publish these for you, but
-you are responsible for providing them when running the tests directly via
-`go test` commands.
-
-To manually build and publish the test_images to `$KO_DOCKER_REPO` from the
-project root...
-
-```
-export KO_DOCKER_REPO=<my-docker-repo>
-export VENDOR_EVENTING_TEST_IMAGES="vendor/knative.dev/eventing/test/test_images/"
-sed -i 's@knative.dev/eventing/test/test_images@knative.dev/eventing-kafka/vendor/knative.dev/eventing/test/test_images@g' "${VENDOR_EVENTING_TEST_IMAGES}"*/*.yaml
-./test/upload-test-images.sh vendor/knative.dev/eventing/test/test_images/ e2e
-sed -i 's@knative.dev/eventing-kafka/vendor/knative.dev/eventing/test/test_images@knative.dev/eventing/test/test_images@g' "${VENDOR_EVENTING_TEST_IMAGES}"*/*.yaml
+```bash
+go test -v -tags=e2e -count=1 ./test/e2e
 ```
 
-> Note - Set `$KO_DOCKER_REPO` to whatever Docker Repository you intend to use.
-> You cannot use `ko.local` for the Knative Eventing `test_images` because they
-> will be deployed with an `ImagePullPolicy` of `Always` which will bypass the
-> local docker repo.
->
-> See [Private Docker Repositories](#private-docker-repositories) for further
-> information. Note - See [MacOS Utils](#macos-utils) when running on Mac and
-> replace `sed` in above commands with `gsed`.
+By default, it will run all applicable tests against the cluster's default
+`channel`.
+
+If you want to run tests against other `channels`, you can specify them through
+`-channels`.
+
+```bash
+go test -v -tags=e2e -count=1 ./test/e2e -channels=InMemoryChannel,KafkaChannel
+```
+
+By default, tests run against images with the `latest` tag. To override this
+bevavior you can specify a different tag through `-tag`:
+
+```bash
+go test -v -tags=e2e -count=1 ./test/e2e -tag e2e
+```
+
+#### One test case
+
+To run one e2e test case, e.g. `TestSingleBinaryEventForChannel`, use
+[the `-run` flag with `go test`](https://golang.org/cmd/go/#hdr-Testing_flags):
+
+```bash
+go test -v -tags=e2e -count=1 ./test/e2e -run ^TestSingleBinaryEventForChannel$
+```
+
+By default, it will run the test against the default `channel`.
+
+If you want to run it against another `channel`, you can specify it through
+`-channels`.
+
+```bash
+go test -v -tags=e2e -count=1 ./test/e2e -run ^TestSingleBinaryEventForChannel$ -channels=InMemoryChannel
+```
+
+## Environment requirements
+
+There's couple of things you need to install before running e2e tests locally.
+
+1. A running [Knative](https://www.knative.dev/docs/install/) cluster
+1. A docker repo containing [the test images](#test-images)
+
+## Test images
+
+### Building the test images
+
+_Note: this is only required when you run e2e tests locally with `go test`
+commands. Running tests through e2e-tests.sh will publish the images
+automatically._
+
+The [`upload-test-images.sh`](upload-test-images.sh) script can be used to build
+and push the test images used by the e2e tests. It requires:
+
+- [`KO_DOCKER_REPO`](https://github.com/knative/serving/blob/master/DEVELOPMENT.md#environment-setup)
+  to be set
+- You to be
+  [authenticated with your `KO_DOCKER_REPO`](https://github.com/knative/serving/blob/master/DEVELOPMENT.md#environment-setup)
+- [`docker`](https://docs.docker.com/install/) to be installed
+
+To run the script for all end to end test images:
+
+```bash
+./test/upload-test-images.sh
+```
+
+For images deployed in GCR, a docker tag is mandatory to avoid issues with using
+`latest` tag:
+
+```bash
+./test/upload-test-images.sh e2e
+```
+
+### Adding new test images
 
 New test images should be placed in `./test/test_images`. For each image create
 a new sub-folder and include a Go file that will be an entry point to the
 application. This Go file should use the package `main` and include the function
-`main()`. It is a good practice to include a `README` file as well. When
+`main()`. It is a good practice to include a `readme` file as well. When
 uploading test images, `ko` will build an image from this folder.
 
-## Private Docker Repositories
+If you need to add a new test image imported from eventing, import it in
+`hack/tools.go`
 
-If you are using a private Docker repository, then you will have to ensure that
-you are locally authenticated, and that your local docker is configured to use
-that repository.
+## Flags
 
-You will need to set the `$KO_DOCKER_REPO` environment variable to refer to your
-private Docker Repo when running the [e2e-tests.sh](./e2e-tests.sh) script
-manually.
-
-The K8S cluster used in the integration and performance tests will need to have
-proper credentials in order to pull the `test_images` and other artifacts. As
-discussed in the Knative Eventing
-[documentation](https://github.com/knative/eventing/tree/master/test#running-end-to-end-tests)
-you can provide a K8S Secret with `type: kubernetes.io/dockerconfigjson` named
-`kn-eventing-test-pull-secret` in the `default` namespace for the scripts/tests
-to use.
-
-## MacOS Utils
-
-The [e2e-tests.sh](./e2e-tests.sh) script relies on a couple GNU utilities that
-are not native on MacOS (Darwin). These can be installed as follows...
-
-```
-brew install grep
-brew install gnu-sed
-```
-
-...and are available as `ggrep` and `gsed` respectively.
+Flags are similar to those in
+[`Knative Serving`](https://github.com/knative/serving/blob/master/test/README.md#flags-1).

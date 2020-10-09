@@ -1,4 +1,4 @@
-// +build e2e
+//+build e2e
 
 /*
 Copyright 2020 The Knative Authors
@@ -23,9 +23,9 @@ import (
 	"testing"
 
 	eventingconformancehelpers "knative.dev/eventing/test/conformance/helpers"
-	"knative.dev/eventing/test/lib"
+	testlib "knative.dev/eventing/test/lib"
 )
 
 func TestChannelChannelableManipulatorClusterRoleTest(t *testing.T) {
-	eventingconformancehelpers.TestChannelChannelableManipulatorClusterRoleTestRunner(context.Background(), t, channelTestRunner, lib.SetupClientOptionNoop)
+	eventingconformancehelpers.TestChannelChannelableManipulatorClusterRoleTestRunner(context.Background(), t, channelTestRunner, testlib.SetupClientOptionNoop)
 }

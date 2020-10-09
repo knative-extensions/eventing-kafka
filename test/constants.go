@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors
+Copyright 2020 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,4 +19,5 @@ package test
 // Kind for messaging resources.
 const (
 	KafkaChannelKind string = "KafkaChannel"
+	KafkaSourceKind  string = "KafkaSource"
 )

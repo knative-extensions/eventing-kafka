@@ -37,4 +37,4 @@ function upload_test_images() {
 
 : ${KO_DOCKER_REPO:?"You must set 'KO_DOCKER_REPO', see DEVELOPMENT.md"}
 
-upload_test_images "$@"
+upload_test_images $@

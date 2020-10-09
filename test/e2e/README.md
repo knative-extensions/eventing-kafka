@@ -1,18 +1,16 @@
-# E2E Tests
+# End to end tests
 
-E2E tests verify the eventing-kafka / KafkaChannel implementation sends events
-as expected in various scenarios (chained, backing brokers, etc).
+- [Running e2e tests](../README.md#running-e2e-tests)
 
-## Running E2E Tests
+## Adding end to end tests
 
-To run these tests manually against a local valid e2e test cluster...
+Knative Eventing Contrib e2e tests test the end to end functionality of the
+[Knative Eventing Contrib](#requirements) to verify they work as expected.
 
-```bash
-# Run All E2E Tests Against KafkaChannels
-go test -v -tags=e2e -count=1 ./test/e2e/... -channels=messaging.knative.dev/v1beta1:KafkaChannel
+### Requirements
 
-# Run A Specific E2E Test Against KafkaChannels, e.g. TestSingleBinaryEventForChannelV1
-go test -v -tags e2e -count=1 ./test/e2e/... -channels=messaging.knative.dev/v1beta1:KafkaChannel -run TestSingleBinaryEventForChannelV1
-```
+The e2e tests **MUST**:
 
-> NOTE: Make sure you have built the [test_images](../README.md#test-images)!
+1. Provide frequent output describing what actions they are undertaking,
+   especially before performing long running operations.
+1. Follow Golang best practices.

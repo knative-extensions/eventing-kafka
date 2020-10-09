@@ -1,19 +1,18 @@
-# Conformance Tests
+# Conformance tests
 
-Conformance tests verify the eventing-kafka / KafkaChannel implementation
-follows the
-[Knative Eventing API Specifications](https://github.com/knative/eventing/tree/master/docs/spec).
+Conformance tests verifies kantive eventing implementation for expected behavior
+described in
+[specification](https://github.com/knative/eventing/tree/master/docs/spec).
 
-## Running Conformance Tests
+## Running conformance tests
 
-To run these tests manually against a local valid e2e test cluster...
+Run test with e2e tag and optionally select conformance test
+
+> NOTE: Make sure you have built the
+> [test images](https://github.com/knative/eventing/tree/master/test#building-the-test-images)!
 
 ```bash
-# Run All Conformance Tests Against KafkaChannels
-go test -v -tags=e2e -count=1 ./test/conformance/... -channels=messaging.knative.dev/v1beta1:KafkaChannel
+go test -v -tags=e2e -count=1 ./test/conformance/...
 
-# Run A Specific Conformance Test Against KafkaChannels
-go test -v -tags e2e -count=1 ./test/conformance/... -channels=messaging.knative.dev/v1beta1:KafkaChannel -run TestChannelStatus
+go test -v -timeout 30s -tags e2e knative.dev/eventing/test/conformance -run ^TestChannelStatus$ -channels=messaging.knative.dev/v1alpha1:NatssChannel,messaging.knative.dev/v1alpha1:KafkaChannel,messaging.knative.dev/v1beta1:KafkaChannel
 ```
-
-> NOTE: Make sure you have built the [test_images](../README.md#test-images)!

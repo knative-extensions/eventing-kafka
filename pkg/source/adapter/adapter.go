@@ -21,16 +21,17 @@ import (
 	"net/http"
 	"strings"
 
+	kafkasource "knative.dev/eventing-kafka/pkg/source"
+
 	"go.opencensus.io/trace"
 	"knative.dev/eventing/pkg/adapter/v2"
 	"knative.dev/eventing/pkg/kncloudevents"
-	"knative.dev/pkg/source"
+	pkgsource "knative.dev/pkg/source"
 
 	"context"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
-	kafkabinding "knative.dev/eventing-kafka/contrib/kafka"
 	"knative.dev/eventing-kafka/pkg/common/consumer"
 	"knative.dev/pkg/logging"
 )
@@ -54,8 +55,8 @@ func NewEnvConfig() adapter.EnvConfigAccessor {
 
 type Adapter struct {
 	config            *adapterConfig
-	httpMessageSender *kncloudevents.HttpMessageSender
-	reporter          source.StatsReporter
+	httpMessageSender *kncloudevents.HTTPMessageSender
+	reporter          pkgsource.StatsReporter
 	logger            *zap.SugaredLogger
 	keyTypeMapper     func([]byte) interface{}
 }
@@ -63,7 +64,7 @@ type Adapter struct {
 var _ adapter.MessageAdapter = (*Adapter)(nil)
 var _ adapter.MessageAdapterConstructor = NewAdapter
 
-func NewAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, httpMessageSender *kncloudevents.HttpMessageSender, reporter source.StatsReporter) adapter.MessageAdapter {
+func NewAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, httpMessageSender *kncloudevents.HTTPMessageSender, reporter pkgsource.StatsReporter) adapter.MessageAdapter {
 	logger := logging.FromContext(ctx)
 	config := processed.(*adapterConfig)
 
@@ -90,7 +91,7 @@ func (a *Adapter) start(stopCh <-chan struct{}) error {
 	)
 
 	// init consumer group
-	addrs, config, err := kafkabinding.NewConfig(context.Background())
+	addrs, config, err := kafkasource.NewConfig(context.Background())
 	if err != nil {
 		return fmt.Errorf("failed to create the config: %w", err)
 	}
@@ -142,7 +143,7 @@ func (a *Adapter) Handle(ctx context.Context, msg *sarama.ConsumerMessage) (bool
 		return false, fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode))
 	}
 
-	reportArgs := &source.ReportArgs{
+	reportArgs := &pkgsource.ReportArgs{
 		Namespace:     a.config.Namespace,
 		Name:          a.config.Name,
 		ResourceGroup: resourceGroup,
