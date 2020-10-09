@@ -11,7 +11,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/test"
+	controllertesting "knative.dev/eventing-kafka/pkg/channel/distributed/controller/testing"
 	"knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
 )
@@ -40,103 +40,103 @@ func TestReconcileTopic(t *testing.T) {
 	topicTestCases := []TopicTestCase{
 		{
 			Name: "Skip Deleted Topic",
-			Channel: test.NewKafkaChannel(
-				test.WithFinalizer,
-				test.WithDeletionTimestamp,
-				test.WithAddress,
-				test.WithInitializedConditions,
-				test.WithKafkaChannelServiceReady,
-				test.WithChannelServiceReady,
-				test.WithChannelDeploymentReady,
-				test.WithDispatcherDeploymentReady,
+			Channel: controllertesting.NewKafkaChannel(
+				controllertesting.WithFinalizer,
+				controllertesting.WithDeletionTimestamp,
+				controllertesting.WithAddress,
+				controllertesting.WithInitializedConditions,
+				controllertesting.WithKafkaChannelServiceReady,
+				controllertesting.WithChannelServiceReady,
+				controllertesting.WithChannelDeploymentReady,
+				controllertesting.WithDispatcherDeploymentReady,
 			),
 			WantCreate: false,
 			WantDelete: false,
 		},
 		{
 			Name: "Create New Topic",
-			Channel: test.NewKafkaChannel(
-				test.WithFinalizer,
-				test.WithAddress,
-				test.WithInitializedConditions,
-				test.WithKafkaChannelServiceReady,
-				test.WithChannelServiceReady,
-				test.WithChannelDeploymentReady,
-				test.WithDispatcherDeploymentReady,
+			Channel: controllertesting.NewKafkaChannel(
+				controllertesting.WithFinalizer,
+				controllertesting.WithAddress,
+				controllertesting.WithInitializedConditions,
+				controllertesting.WithKafkaChannelServiceReady,
+				controllertesting.WithChannelServiceReady,
+				controllertesting.WithChannelDeploymentReady,
+				controllertesting.WithDispatcherDeploymentReady,
 			),
 			WantCreate: true,
 			WantDelete: false,
 			WantTopicDetail: &sarama.TopicDetail{
-				NumPartitions:     test.NumPartitions,
-				ReplicationFactor: test.ReplicationFactor,
-				ConfigEntries:     map[string]*string{constants.KafkaTopicConfigRetentionMs: &test.DefaultRetentionMillisString},
+				NumPartitions:     controllertesting.NumPartitions,
+				ReplicationFactor: controllertesting.ReplicationFactor,
+				ConfigEntries:     map[string]*string{constants.KafkaTopicConfigRetentionMs: &controllertesting.DefaultRetentionMillisString},
 			},
 		},
 		{
 			Name: "Create Preexisting Topic",
-			Channel: test.NewKafkaChannel(
-				test.WithFinalizer,
-				test.WithAddress,
-				test.WithInitializedConditions,
-				test.WithKafkaChannelServiceReady,
-				test.WithChannelServiceReady,
-				test.WithChannelDeploymentReady,
-				test.WithDispatcherDeploymentReady,
+			Channel: controllertesting.NewKafkaChannel(
+				controllertesting.WithFinalizer,
+				controllertesting.WithAddress,
+				controllertesting.WithInitializedConditions,
+				controllertesting.WithKafkaChannelServiceReady,
+				controllertesting.WithChannelServiceReady,
+				controllertesting.WithChannelDeploymentReady,
+				controllertesting.WithDispatcherDeploymentReady,
 			),
 			WantCreate: true,
 			WantDelete: false,
 			WantTopicDetail: &sarama.TopicDetail{
-				NumPartitions:     test.NumPartitions,
-				ReplicationFactor: test.ReplicationFactor,
-				ConfigEntries:     map[string]*string{constants.KafkaTopicConfigRetentionMs: &test.DefaultRetentionMillisString},
+				NumPartitions:     controllertesting.NumPartitions,
+				ReplicationFactor: controllertesting.ReplicationFactor,
+				ConfigEntries:     map[string]*string{constants.KafkaTopicConfigRetentionMs: &controllertesting.DefaultRetentionMillisString},
 			},
 			MockErrorCode: sarama.ErrTopicAlreadyExists,
 		},
 		{
 			Name: "Error Creating Topic",
-			Channel: test.NewKafkaChannel(
-				test.WithFinalizer,
-				test.WithAddress,
-				test.WithInitializedConditions,
-				test.WithKafkaChannelServiceReady,
-				test.WithChannelServiceReady,
-				test.WithChannelDeploymentReady,
-				test.WithDispatcherDeploymentReady,
+			Channel: controllertesting.NewKafkaChannel(
+				controllertesting.WithFinalizer,
+				controllertesting.WithAddress,
+				controllertesting.WithInitializedConditions,
+				controllertesting.WithKafkaChannelServiceReady,
+				controllertesting.WithChannelServiceReady,
+				controllertesting.WithChannelDeploymentReady,
+				controllertesting.WithDispatcherDeploymentReady,
 			),
 			WantCreate: true,
 			WantDelete: false,
 			WantTopicDetail: &sarama.TopicDetail{
-				NumPartitions:     test.NumPartitions,
-				ReplicationFactor: test.ReplicationFactor,
-				ConfigEntries:     map[string]*string{constants.KafkaTopicConfigRetentionMs: &test.DefaultRetentionMillisString},
+				NumPartitions:     controllertesting.NumPartitions,
+				ReplicationFactor: controllertesting.ReplicationFactor,
+				ConfigEntries:     map[string]*string{constants.KafkaTopicConfigRetentionMs: &controllertesting.DefaultRetentionMillisString},
 			},
 			MockErrorCode: sarama.ErrBrokerNotAvailable,
-			WantError:     sarama.ErrBrokerNotAvailable.Error() + " - " + test.ErrorString,
+			WantError:     sarama.ErrBrokerNotAvailable.Error() + " - " + controllertesting.ErrorString,
 		},
 		{
 			Name: "Delete Existing Topic",
-			Channel: test.NewKafkaChannel(
-				test.WithFinalizer,
-				test.WithAddress,
-				test.WithInitializedConditions,
-				test.WithKafkaChannelServiceReady,
-				test.WithChannelServiceReady,
-				test.WithChannelDeploymentReady,
-				test.WithDispatcherDeploymentReady,
+			Channel: controllertesting.NewKafkaChannel(
+				controllertesting.WithFinalizer,
+				controllertesting.WithAddress,
+				controllertesting.WithInitializedConditions,
+				controllertesting.WithKafkaChannelServiceReady,
+				controllertesting.WithChannelServiceReady,
+				controllertesting.WithChannelDeploymentReady,
+				controllertesting.WithDispatcherDeploymentReady,
 			),
 			WantCreate: false,
 			WantDelete: true,
 		},
 		{
 			Name: "Delete Nonexistent Topic",
-			Channel: test.NewKafkaChannel(
-				test.WithFinalizer,
-				test.WithAddress,
-				test.WithInitializedConditions,
-				test.WithKafkaChannelServiceReady,
-				test.WithChannelServiceReady,
-				test.WithChannelDeploymentReady,
-				test.WithDispatcherDeploymentReady,
+			Channel: controllertesting.NewKafkaChannel(
+				controllertesting.WithFinalizer,
+				controllertesting.WithAddress,
+				controllertesting.WithInitializedConditions,
+				controllertesting.WithKafkaChannelServiceReady,
+				controllertesting.WithChannelServiceReady,
+				controllertesting.WithChannelDeploymentReady,
+				controllertesting.WithDispatcherDeploymentReady,
 			),
 			WantCreate:    false,
 			WantDelete:    true,
@@ -144,19 +144,19 @@ func TestReconcileTopic(t *testing.T) {
 		},
 		{
 			Name: "Error Deleting Topic",
-			Channel: test.NewKafkaChannel(
-				test.WithFinalizer,
-				test.WithAddress,
-				test.WithInitializedConditions,
-				test.WithKafkaChannelServiceReady,
-				test.WithChannelServiceReady,
-				test.WithChannelDeploymentReady,
-				test.WithDispatcherDeploymentReady,
+			Channel: controllertesting.NewKafkaChannel(
+				controllertesting.WithFinalizer,
+				controllertesting.WithAddress,
+				controllertesting.WithInitializedConditions,
+				controllertesting.WithKafkaChannelServiceReady,
+				controllertesting.WithChannelServiceReady,
+				controllertesting.WithChannelDeploymentReady,
+				controllertesting.WithDispatcherDeploymentReady,
 			),
 			WantCreate:    false,
 			WantDelete:    true,
 			MockErrorCode: sarama.ErrBrokerNotAvailable,
-			WantError:     sarama.ErrBrokerNotAvailable.Error() + " - " + test.ErrorString,
+			WantError:     sarama.ErrBrokerNotAvailable.Error() + " - " + controllertesting.ErrorString,
 		},
 	}
 
@@ -181,7 +181,7 @@ func topicTestCaseFactory(tc TopicTestCase) func(t *testing.T) {
 		r := &Reconciler{
 			logger:      logtesting.TestLogger(t).Desugar(),
 			adminClient: mockAdminClient,
-			config:      test.NewConfig(),
+			config:      controllertesting.NewConfig(),
 		}
 
 		// Track Any Error Responses
@@ -197,7 +197,7 @@ func topicTestCaseFactory(tc TopicTestCase) func(t *testing.T) {
 
 		// Perform The Test (Delete) - Called By Knative FinalizeKind() Directly
 		if tc.WantDelete {
-			err = r.deleteTopic(ctx, test.TopicName)
+			err = r.deleteTopic(ctx, controllertesting.TopicName)
 			if !mockAdminClient.DeleteTopicsCalled() {
 				t.Errorf("expected DeleteTopics() called to be %t", tc.WantCreate)
 			}
@@ -215,10 +215,10 @@ func topicTestCaseFactory(tc TopicTestCase) func(t *testing.T) {
 }
 
 // Create A Mock Kafka AdminClient For The Specified TopicTestCase
-func createMockAdminClientForTestCase(t *testing.T, tc TopicTestCase) *test.MockAdminClient {
+func createMockAdminClientForTestCase(t *testing.T, tc TopicTestCase) *controllertesting.MockAdminClient {
 
 	// Setup Desired Mock ClusterAdmin Behavior From TopicTestCase
-	return &test.MockAdminClient{
+	return &controllertesting.MockAdminClient{
 
 		// Mock CreateTopic Behavior - Validate Parameters & Return MockError
 		MockCreateTopicFunc: func(ctx context.Context, topicName string, topicDetail *sarama.TopicDetail) *sarama.TopicError {
@@ -228,15 +228,15 @@ func createMockAdminClientForTestCase(t *testing.T, tc TopicTestCase) *test.Mock
 			if ctx == nil {
 				t.Error("expected non nil context")
 			}
-			if topicName != test.TopicName {
+			if topicName != controllertesting.TopicName {
 				t.Errorf("unexpected topic name '%s'", topicName)
 			}
 			if diff := cmp.Diff(tc.WantTopicDetail, topicDetail); diff != "" {
 				t.Errorf("expected TopicDetail: %+v", diff)
 			}
-			errMsg := test.SuccessString
+			errMsg := controllertesting.SuccessString
 			if tc.MockErrorCode != sarama.ErrNoError {
-				errMsg = test.ErrorString
+				errMsg = controllertesting.ErrorString
 			}
 			topicError := &sarama.TopicError{
 				Err:    tc.MockErrorCode,
@@ -253,12 +253,12 @@ func createMockAdminClientForTestCase(t *testing.T, tc TopicTestCase) *test.Mock
 			if ctx == nil {
 				t.Error("expected non nil context")
 			}
-			if topicName != test.TopicName {
+			if topicName != controllertesting.TopicName {
 				t.Errorf("unexpected topic name '%s'", topicName)
 			}
-			errMsg := test.SuccessString
+			errMsg := controllertesting.SuccessString
 			if tc.MockErrorCode != sarama.ErrNoError {
-				errMsg = test.ErrorString
+				errMsg = controllertesting.ErrorString
 			}
 			topicError := &sarama.TopicError{
 				Err:    tc.MockErrorCode,

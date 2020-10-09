@@ -129,4 +129,5 @@ cluster.
 
   - **channel:** Controls the Deployment runtime characteristics of the Channel (one Deployment per Kafka Secret).
   - **dispatcher:** Controls the Deployment runtime characterstics of the Dispatcher (one Deployment per KafkaChannel CR).
+  - **kafka.defaultReplicationFactor:** Cannot exceed the number of Kafka Brokers configured in your system.
   - **kafka.adminType:** As described above this value must be set to one of `kafka`, `azure`, or `custom`.  The default is `kakfa` and will be used by most users.

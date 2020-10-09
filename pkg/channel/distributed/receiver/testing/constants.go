@@ -1,4 +1,4 @@
-package test
+package testing
 
 // Test Data
 const (

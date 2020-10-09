@@ -2,7 +2,6 @@ package producer
 
 import (
 	"strconv"
-
 	"testing"
 
 	"github.com/Shopify/sarama"
@@ -10,7 +9,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/test"
 )
 
 // Test Constants
@@ -63,7 +61,7 @@ func performCreateSyncProducerTest(t *testing.T, username string, password strin
 // Test that the UpdateSaramaConfig sets values as expected
 func TestUpdateConfig(t *testing.T) {
 	config := sarama.NewConfig()
-	kafkasarama.UpdateSaramaConfig(config, test.ClientId, KafkaUsername, KafkaPassword)
+	kafkasarama.UpdateSaramaConfig(config, ClientId, KafkaUsername, KafkaPassword)
 	assert.Equal(t, ClientId, config.ClientID)
 	assert.Equal(t, KafkaUsername, config.Net.SASL.User)
 	assert.Equal(t, KafkaPassword, config.Net.SASL.Password)
