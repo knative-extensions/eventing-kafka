@@ -18,11 +18,11 @@ const (
 
 	// Channel Updates (Finalizers, Status)
 	ChannelUpdateFailed
-
-	// Channel (Kafka Producer) Reconciliation
-	ChannelServiceReconciliationFailed
-	ChannelDeploymentReconciliationFailed
 	ChannelStatusReconciliationFailed
+
+	// Receiver (Kafka Producer) Reconciliation
+	ReceiverServiceReconciliationFailed
+	ReceiverDeploymentReconciliationFailed
 
 	// Kafka Topic Reconciliation
 	KafkaTopicReconciliationFailed
@@ -56,10 +56,10 @@ func (et CoreV1EventType) String() string {
 		eventTypeString = "KafkaChannelServiceReconciliationFailed"
 	case ChannelUpdateFailed:
 		eventTypeString = "ChannelUpdateFailed"
-	case ChannelServiceReconciliationFailed:
-		eventTypeString = "ChannelServiceReconciliationFailed"
-	case ChannelDeploymentReconciliationFailed:
-		eventTypeString = "ChannelDeploymentReconciliationFailed"
+	case ReceiverServiceReconciliationFailed:
+		eventTypeString = "ReceiverServiceReconciliationFailed"
+	case ReceiverDeploymentReconciliationFailed:
+		eventTypeString = "ReceiverDeploymentReconciliationFailed"
 	case ChannelStatusReconciliationFailed:
 		eventTypeString = "ChannelStatusReconciliationFailed"
 	case KafkaTopicReconciliationFailed:

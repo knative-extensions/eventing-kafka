@@ -25,11 +25,6 @@ import (
 	eventingmetrics "knative.dev/pkg/metrics"
 )
 
-// Constants
-const (
-	Component = "KafkaChannel"
-)
-
 // Variables
 var (
 	logger        *zap.Logger
@@ -67,7 +62,7 @@ func main() {
 	}
 
 	// Update The Sarama Config - Username/Password Overrides (EnvVars From Secret Take Precedence Over ConfigMap)
-	sarama.UpdateSaramaConfig(saramaConfig, Component, environment.KafkaUsername, environment.KafkaPassword)
+	sarama.UpdateSaramaConfig(saramaConfig, constants.Component, environment.KafkaUsername, environment.KafkaPassword)
 
 	// Initialize Tracing (Watches config-tracing ConfigMap, Assumes Context Came From LoggingContext With Embedded K8S Client Key)
 	err = commonconfig.InitializeTracing(logger.Sugar(), ctx, environment.ServiceName)

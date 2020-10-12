@@ -36,32 +36,29 @@ const (
 	MetricsPortName = "metrics"
 
 	// Environment Test Data
-	ServiceAccount                         = "TestServiceAccount"
-	KafkaAdminType                         = "kafka"
-	MetricsPort                            = 9876
-	MetricsDomain                          = "eventing-kafka"
-	HealthPort                             = 8082
-	ChannelImage                           = "TestChannelImage"
-	ChannelReplicas                        = 1
-	DispatcherImage                        = "TestDispatcherImage"
-	DispatcherReplicas                     = 1
-	DefaultNumPartitions                   = 4
-	DefaultReplicationFactor               = 1
-	DefaultRetentionMillis                 = 99999
-	DefaultEventRetryInitialIntervalMillis = 88888
-	DefaultEventRetryTimeMillisMax         = 11111111
-	DefaultExponentialBackoff              = true
+	ServiceAccount           = "TestServiceAccount"
+	KafkaAdminType           = "kafka"
+	MetricsPort              = 9876
+	MetricsDomain            = "eventing-kafka"
+	HealthPort               = 8082
+	ChannelImage             = "TestChannelImage"
+	ChannelReplicas          = 1
+	DispatcherImage          = "TestDispatcherImage"
+	DispatcherReplicas       = 1
+	DefaultNumPartitions     = 4
+	DefaultReplicationFactor = 1
+	DefaultRetentionMillis   = 99999
 
 	// Channel Test Data
-	KafkaChannelNamespace = "kafkachannel-namespace"
-	KafkaChannelName      = "kafkachannel-name"
-	KafkaChannelKey       = KafkaChannelNamespace + "/" + KafkaChannelName
-	KafkaSecretNamespace  = commonconstants.KnativeEventingNamespace // Needs To Match Hardcoded Value In Reconciliation
-	KafkaSecretName       = "kafkasecret-name"
-	KafkaSecretKey        = KafkaSecretNamespace + "/" + KafkaSecretName
-	ChannelDeploymentName = KafkaSecretName + "-b9176d5f-channel" // Truncated MD5 Hash Of KafkaSecretName
-	ChannelServiceName    = ChannelDeploymentName
-	TopicName             = KafkaChannelNamespace + "." + KafkaChannelName
+	KafkaChannelNamespace  = "kafkachannel-namespace"
+	KafkaChannelName       = "kafkachannel-name"
+	KafkaChannelKey        = KafkaChannelNamespace + "/" + KafkaChannelName
+	KafkaSecretNamespace   = commonconstants.KnativeEventingNamespace // Needs To Match Hardcoded Value In Reconciliation
+	KafkaSecretName        = "kafkasecret-name"
+	KafkaSecretKey         = KafkaSecretNamespace + "/" + KafkaSecretName
+	ReceiverDeploymentName = KafkaSecretName + "-b9176d5f-receiver" // Truncated MD5 Hash Of KafkaSecretName
+	ReceiverServiceName    = ReceiverDeploymentName
+	TopicName              = KafkaChannelNamespace + "." + KafkaChannelName
 
 	KafkaSecretDataValueBrokers  = "TestKafkaSecretDataBrokers"
 	KafkaSecretDataValueUsername = "TestKafkaSecretDataUsername"
@@ -370,7 +367,7 @@ func WithChannelServiceReady(kafkachannel *kafkav1beta1.KafkaChannel) {
 
 // Set The KafkaChannel's Channel Service As Failed
 func WithChannelServiceFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
-	kafkachannel.Status.MarkServiceFailed(event.ChannelServiceReconciliationFailed.String(), "Channel Service Failed: inducing failure for create services")
+	kafkachannel.Status.MarkServiceFailed(event.ReceiverServiceReconciliationFailed.String(), "Receiver Service Failed: inducing failure for create services")
 }
 
 // Set The KafkaChannel's Channel Service As Finalized
@@ -385,7 +382,7 @@ func WithChannelDeploymentReady(kafkachannel *kafkav1beta1.KafkaChannel) {
 
 // Set The KafkaChannel's Channel Deployment As Failed
 func WithChannelDeploymentFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
-	kafkachannel.Status.MarkEndpointsFailed(event.ChannelDeploymentReconciliationFailed.String(), "Channel Deployment Failed: inducing failure for create deployments")
+	kafkachannel.Status.MarkEndpointsFailed(event.ReceiverDeploymentReconciliationFailed.String(), "Receiver Deployment Failed: inducing failure for create deployments")
 }
 
 // Set The KafkaChannel's Channel Deployment As Finalized
@@ -423,7 +420,7 @@ func NewKafkaChannelService() *corev1.Service {
 			Labels: map[string]string{
 				constants.KafkaChannelNameLabel:      KafkaChannelName,
 				constants.KafkaChannelNamespaceLabel: KafkaChannelNamespace,
-				constants.KafkaChannelChannelLabel:   "true",
+				constants.KafkaChannelReceiverLabel:  "true",
 				constants.K8sAppChannelSelectorLabel: constants.K8sAppChannelSelectorValue,
 			},
 			OwnerReferences: []metav1.OwnerReference{
@@ -432,24 +429,24 @@ func NewKafkaChannelService() *corev1.Service {
 		},
 		Spec: corev1.ServiceSpec{
 			Type:         corev1.ServiceTypeExternalName,
-			ExternalName: ChannelDeploymentName + "." + commonconstants.KnativeEventingNamespace + ".svc.cluster.local",
+			ExternalName: ReceiverDeploymentName + "." + commonconstants.KnativeEventingNamespace + ".svc.cluster.local",
 		},
 	}
 }
 
-// Utility Function For Creating A Custom KafkaChannel "Deployment" Service For Testing
-func NewKafkaChannelChannelService() *corev1.Service {
+// Utility Function For Creating A Custom Receiver Service For Testing
+func NewKafkaChannelReceiverService() *corev1.Service {
 	return &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: corev1.SchemeGroupVersion.String(),
 			Kind:       constants.ServiceKind,
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ChannelDeploymentName,
+			Name:      ReceiverDeploymentName,
 			Namespace: commonconstants.KnativeEventingNamespace,
 			Labels: map[string]string{
-				"k8s-app":              "eventing-kafka-channels",
-				"kafkachannel-channel": "true",
+				"k8s-app":               "eventing-kafka-channels",
+				"kafkachannel-receiver": "true",
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				NewSecretOwnerRef(),
@@ -469,14 +466,14 @@ func NewKafkaChannelChannelService() *corev1.Service {
 				},
 			},
 			Selector: map[string]string{
-				"app": ChannelDeploymentName,
+				"app": ReceiverDeploymentName,
 			},
 		},
 	}
 }
 
-// Utility Function For Creating A K8S Channel Deployment For The Test Channel
-func NewKafkaChannelChannelDeployment() *appsv1.Deployment {
+// Utility Function For Creating A Receiver Deployment For The Test Channel
+func NewKafkaChannelReceiverDeployment() *appsv1.Deployment {
 	replicas := int32(ChannelReplicas)
 	return &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
@@ -484,11 +481,11 @@ func NewKafkaChannelChannelDeployment() *appsv1.Deployment {
 			Kind:       constants.DeploymentKind,
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ChannelDeploymentName,
+			Name:      ReceiverDeploymentName,
 			Namespace: commonconstants.KnativeEventingNamespace,
 			Labels: map[string]string{
-				"app":                  ChannelDeploymentName,
-				"kafkachannel-channel": "true",
+				"app":                   ReceiverDeploymentName,
+				"kafkachannel-receiver": "true",
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				NewSecretOwnerRef(),
@@ -498,20 +495,20 @@ func NewKafkaChannelChannelDeployment() *appsv1.Deployment {
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app": ChannelDeploymentName,
+					"app": ReceiverDeploymentName,
 				},
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app": ChannelDeploymentName,
+						"app": ReceiverDeploymentName,
 					},
 				},
 				Spec: corev1.PodSpec{
 					ServiceAccountName: ServiceAccount,
 					Containers: []corev1.Container{
 						{
-							Name: ChannelDeploymentName,
+							Name: ReceiverDeploymentName,
 							LivenessProbe: &corev1.Probe{
 								Handler: corev1.Handler{
 									HTTPGet: &corev1.HTTPGetAction{
@@ -550,7 +547,7 @@ func NewKafkaChannelChannelDeployment() *appsv1.Deployment {
 								},
 								{
 									Name:  commonenv.ServiceNameEnvVarKey,
-									Value: ChannelServiceName,
+									Value: ReceiverServiceName,
 								},
 								{
 									Name:  commonenv.MetricsPortEnvVarKey,

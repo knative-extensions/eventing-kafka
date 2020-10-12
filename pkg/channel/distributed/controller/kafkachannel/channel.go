@@ -106,8 +106,8 @@ func (r *Reconciler) newKafkaChannelService(channel *kafkav1beta1.KafkaChannel) 
 	// Get The KafkaChannel Service Name
 	serviceName := kafkautil.AppendKafkaChannelServiceNameSuffix(channel.Name)
 
-	// Get The Dispatcher Service Name For The Channel (One Channel Service Per KafkaChannel Instance)
-	deploymentName := util.ChannelDnsSafeName(r.kafkaSecretName(channel))
+	// Get The Receiver Service Name For The Kafka Secret (One Receiver Service Per Kafka Secret)
+	deploymentName := util.ReceiverDnsSafeName(r.kafkaSecretName(channel))
 	serviceAddress := fmt.Sprintf("%s.%s.svc.%s", deploymentName, commonconstants.KnativeEventingNamespace, network.GetClusterDomainName())
 
 	// Create & Return The Service Model
@@ -120,7 +120,7 @@ func (r *Reconciler) newKafkaChannelService(channel *kafkav1beta1.KafkaChannel) 
 			Name:      serviceName,       // Must Match KafkaChannel For HOST Parsing In Channel Implementation!
 			Namespace: channel.Namespace, // Must Match KafkaChannel For HOST Parsing In Channel Implementation!
 			Labels: map[string]string{
-				constants.KafkaChannelChannelLabel:   "true",                               // Identifies the Service as being a KafkaChannel "Channel"
+				constants.KafkaChannelReceiverLabel:  "true",                               // Identifies the Service as being a KafkaChannel "Channel"
 				constants.KafkaChannelNameLabel:      channel.Name,                         // Identifies the Service's Owning KafkaChannel's Name
 				constants.KafkaChannelNamespaceLabel: channel.Namespace,                    // Identifies the Service's Owning KafkaChannel's Namespace
 				constants.K8sAppChannelSelectorLabel: constants.K8sAppChannelSelectorValue, // Prometheus ServiceMonitor

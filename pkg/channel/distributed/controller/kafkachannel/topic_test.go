@@ -171,7 +171,7 @@ func topicTestCaseFactory(tc TopicTestCase) func(t *testing.T) {
 	return func(t *testing.T) {
 
 		// Setup Context With New Recorder For Testing
-		recorder := record.NewBroadcaster().NewRecorder(scheme.Scheme, corev1.EventSource{Component: constants.KafkaChannelControllerAgentName})
+		recorder := record.NewBroadcaster().NewRecorder(scheme.Scheme, corev1.EventSource{Component: "TestEventSource"})
 		ctx := controller.WithEventRecorder(context.TODO(), recorder)
 
 		// Create A Mock Kafka AdminClient For Current TopicTestCase
