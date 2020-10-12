@@ -41,8 +41,8 @@ const (
 	MetricsPort              = 9876
 	MetricsDomain            = "eventing-kafka"
 	HealthPort               = 8082
-	ChannelImage             = "TestChannelImage"
-	ChannelReplicas          = 1
+	ReceiverImage            = "TestReceiverImage"
+	ReceiverReplicas         = 1
 	DispatcherImage          = "TestDispatcherImage"
 	DispatcherReplicas       = 1
 	DefaultNumPartitions     = 4
@@ -148,7 +148,7 @@ func NewEnvironment() *env.Environment {
 		MetricsPort:     MetricsPort,
 		MetricsDomain:   MetricsDomain,
 		DispatcherImage: DispatcherImage,
-		ChannelImage:    ChannelImage,
+		ReceiverImage:   ReceiverImage,
 	}
 }
 
@@ -166,7 +166,7 @@ func NewConfig() *config.EventingKafkaConfig {
 		},
 		Channel: config.EKChannelConfig{
 			EKKubernetesConfig: config.EKKubernetesConfig{
-				Replicas:      ChannelReplicas,
+				Replicas:      ReceiverReplicas,
 				CpuLimit:      resource.MustParse(ChannelCpuLimit),
 				CpuRequest:    resource.MustParse(ChannelCpuRequest),
 				MemoryLimit:   resource.MustParse(ChannelMemoryLimit),
@@ -474,7 +474,7 @@ func NewKafkaChannelReceiverService() *corev1.Service {
 
 // Utility Function For Creating A Receiver Deployment For The Test Channel
 func NewKafkaChannelReceiverDeployment() *appsv1.Deployment {
-	replicas := int32(ChannelReplicas)
+	replicas := int32(ReceiverReplicas)
 	return &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: appsv1.SchemeGroupVersion.String(),
@@ -529,7 +529,7 @@ func NewKafkaChannelReceiverDeployment() *appsv1.Deployment {
 								InitialDelaySeconds: constants.ChannelReadinessDelay,
 								PeriodSeconds:       constants.ChannelReadinessPeriod,
 							},
-							Image: ChannelImage,
+							Image: ReceiverImage,
 							Ports: []corev1.ContainerPort{
 								{
 									Name:          "server",

@@ -8,11 +8,11 @@ import (
 // Package Constants
 const (
 
-	// Dispatcher Resources
+	// Dispatcher Configuration
 	DispatcherImageEnvVarKey = "DISPATCHER_IMAGE"
 
-	// Channel Resources
-	ChannelImageEnvVarKey = "CHANNEL_IMAGE"
+	// Receiver Configuration
+	ReceiverImageEnvVarKey = "RECEIVER_IMAGE"
 )
 
 // Environment Structure
@@ -23,11 +23,11 @@ type Environment struct {
 	MetricsPort    int    // Required
 	MetricsDomain  string // Required
 
-	// Resource configuration
+	// Dispatcher Configuration
 	DispatcherImage string // Required
 
-	// Resource Limits for each Channel Deployment
-	ChannelImage string // Required
+	// Receiver Configuration
+	ReceiverImage string // Required
 }
 
 // Get The Environment
@@ -71,8 +71,8 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 	// Channel Configuration
 	//
 
-	// Get The Required ChannelImage Config Value
-	environment.ChannelImage, err = env.GetRequiredConfigValue(logger, ChannelImageEnvVarKey)
+	// Get The Required ReceiverImage Config Value
+	environment.ReceiverImage, err = env.GetRequiredConfigValue(logger, ReceiverImageEnvVarKey)
 	if err != nil {
 		return nil, err
 	}

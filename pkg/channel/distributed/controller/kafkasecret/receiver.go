@@ -291,7 +291,7 @@ func (r *Reconciler) newChannelDeployment(secret *corev1.Secret) (*appsv1.Deploy
 								InitialDelaySeconds: constants.ChannelReadinessDelay,
 								PeriodSeconds:       constants.ChannelReadinessPeriod,
 							},
-							Image: r.environment.ChannelImage,
+							Image: r.environment.ReceiverImage,
 							Ports: []corev1.ContainerPort{
 								{
 									Name:          "server",
