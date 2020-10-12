@@ -24,8 +24,8 @@ type EKKubernetesConfig struct {
 	Replicas      int               `json:"replicas,omitempty"`
 }
 
-// The Channel config has nothing in it except the base Kubernetes fields (Cpu, Memory, Replicas)
-type EKChannelConfig struct {
+// The Receiver config has nothing in it except the base Kubernetes fields (Cpu, Memory, Replicas)
+type EKReceiverConfig struct {
 	EKKubernetesConfig
 }
 
@@ -47,9 +47,9 @@ type EKKafkaConfig struct {
 	AdminType string             `json:"adminType,omitempty"`
 }
 
-// EventingKafkaConfig is the main struct that holds the Channel, Dispatcher, and Kafka sub-items
+// EventingKafkaConfig is the main struct that holds the Receiver, Dispatcher, and Kafka sub-items
 type EventingKafkaConfig struct {
-	Channel    EKChannelConfig    `json:"channel,omitempty"`
+	Receiver   EKReceiverConfig   `json:"receiver,omitempty"`
 	Dispatcher EKDispatcherConfig `json:"dispatcher,omitempty"`
 	Kafka      EKKafkaConfig      `json:"kafka,omitempty"`
 }

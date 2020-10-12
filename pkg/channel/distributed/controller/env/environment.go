@@ -68,7 +68,7 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 	}
 
 	//
-	// Channel Configuration
+	// Receiver Configuration
 	//
 
 	// Get The Required ReceiverImage Config Value

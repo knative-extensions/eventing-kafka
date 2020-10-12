@@ -78,14 +78,14 @@ const (
 	DispatcherMemoryLimit   = "50Mi"
 	DispatcherCpuLimit      = "300m"
 
-	// Test Channel Resources
-	ChannelMemoryRequest = "10Mi"
-	ChannelMemoryLimit   = "20Mi"
-	ChannelCpuRequest    = "10m"
-	ChannelCpuLimit      = "100m"
+	// Test Receiver Resources
+	ReceiverMemoryRequest = "10Mi"
+	ReceiverMemoryLimit   = "20Mi"
+	ReceiverCpuRequest    = "10m"
+	ReceiverCpuLimit      = "100m"
 
 	ControllerConfigYaml = `
-channel:
+receiver:
   cpuLimit: 200m
   cpuRequest: 100m
   memoryLimit: 100Mi
@@ -164,13 +164,13 @@ func NewConfig() *config.EventingKafkaConfig {
 				MemoryRequest: resource.MustParse(DispatcherMemoryRequest),
 			},
 		},
-		Channel: config.EKChannelConfig{
+		Receiver: config.EKReceiverConfig{
 			EKKubernetesConfig: config.EKKubernetesConfig{
 				Replicas:      ReceiverReplicas,
-				CpuLimit:      resource.MustParse(ChannelCpuLimit),
-				CpuRequest:    resource.MustParse(ChannelCpuRequest),
-				MemoryLimit:   resource.MustParse(ChannelMemoryLimit),
-				MemoryRequest: resource.MustParse(ChannelMemoryRequest),
+				CpuLimit:      resource.MustParse(ReceiverCpuLimit),
+				CpuRequest:    resource.MustParse(ReceiverCpuRequest),
+				MemoryLimit:   resource.MustParse(ReceiverMemoryLimit),
+				MemoryRequest: resource.MustParse(ReceiverMemoryRequest),
 			},
 		},
 		Kafka: config.EKKafkaConfig{
@@ -360,33 +360,33 @@ func WithKafkaChannelServiceFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
 	kafkachannel.Status.MarkChannelServiceFailed(event.KafkaChannelServiceReconciliationFailed.String(), "Failed To Create KafkaChannel Service: inducing failure for create services")
 }
 
-// Set The KafkaChannel's Channel Service As READY
-func WithChannelServiceReady(kafkachannel *kafkav1beta1.KafkaChannel) {
+// Set The KafkaChannel's Receiver Service As READY
+func WithReceiverServiceReady(kafkachannel *kafkav1beta1.KafkaChannel) {
 	kafkachannel.Status.MarkServiceTrue()
 }
 
-// Set The KafkaChannel's Channel Service As Failed
-func WithChannelServiceFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
+// Set The KafkaChannel's Receiver Service As Failed
+func WithReceiverServiceFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
 	kafkachannel.Status.MarkServiceFailed(event.ReceiverServiceReconciliationFailed.String(), "Receiver Service Failed: inducing failure for create services")
 }
 
-// Set The KafkaChannel's Channel Service As Finalized
-func WithChannelServiceFinalized(kafkachannel *kafkav1beta1.KafkaChannel) {
+// Set The KafkaChannel's Receiver Service As Finalized
+func WithReceiverServiceFinalized(kafkachannel *kafkav1beta1.KafkaChannel) {
 	kafkachannel.Status.MarkServiceFailed("ChannelServiceUnavailable", "Kafka Auth Secret Finalized")
 }
 
-// Set The KafkaChannel's Channel Deployment As READY
-func WithChannelDeploymentReady(kafkachannel *kafkav1beta1.KafkaChannel) {
+// Set The KafkaChannel's Receiver Deployment As READY
+func WithReceiverDeploymentReady(kafkachannel *kafkav1beta1.KafkaChannel) {
 	kafkachannel.Status.MarkEndpointsTrue()
 }
 
-// Set The KafkaChannel's Channel Deployment As Failed
-func WithChannelDeploymentFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
+// Set The KafkaChannel's Receiver Deployment As Failed
+func WithReceiverDeploymentFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
 	kafkachannel.Status.MarkEndpointsFailed(event.ReceiverDeploymentReconciliationFailed.String(), "Receiver Deployment Failed: inducing failure for create deployments")
 }
 
-// Set The KafkaChannel's Channel Deployment As Finalized
-func WithChannelDeploymentFinalized(kafkachannel *kafkav1beta1.KafkaChannel) {
+// Set The KafkaChannel's Receiver Deployment As Finalized
+func WithReceiverDeploymentFinalized(kafkachannel *kafkav1beta1.KafkaChannel) {
 	kafkachannel.Status.MarkEndpointsFailed("ChannelDeploymentUnavailable", "Kafka Auth Secret Finalized")
 }
 
@@ -592,12 +592,12 @@ func NewKafkaChannelReceiverDeployment() *appsv1.Deployment {
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Resources: corev1.ResourceRequirements{
 								Requests: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse(ChannelCpuRequest),
-									corev1.ResourceMemory: resource.MustParse(ChannelMemoryRequest),
+									corev1.ResourceCPU:    resource.MustParse(ReceiverCpuRequest),
+									corev1.ResourceMemory: resource.MustParse(ReceiverMemoryRequest),
 								},
 								Limits: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse(ChannelCpuLimit),
-									corev1.ResourceMemory: resource.MustParse(ChannelMemoryLimit),
+									corev1.ResourceCPU:    resource.MustParse(ReceiverCpuLimit),
+									corev1.ResourceMemory: resource.MustParse(ReceiverMemoryLimit),
 								},
 							},
 						},

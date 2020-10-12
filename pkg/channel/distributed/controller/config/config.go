@@ -47,16 +47,16 @@ func VerifyConfiguration(configuration *config.EventingKafkaConfig) error {
 		return ControllerConfigurationError("Dispatcher.MemoryRequest must be nonzero")
 	case configuration.Dispatcher.Replicas < 1:
 		return ControllerConfigurationError("Dispatcher.Replicas must be > 0")
-	case configuration.Channel.CpuLimit == resource.Quantity{}:
-		return ControllerConfigurationError("Channel.CpuLimit must be nonzero")
-	case configuration.Channel.CpuRequest == resource.Quantity{}:
-		return ControllerConfigurationError("Channel.CpuRequest must be nonzero")
-	case configuration.Channel.MemoryLimit == resource.Quantity{}:
-		return ControllerConfigurationError("Channel.MemoryLimit must be nonzero")
-	case configuration.Channel.MemoryRequest == resource.Quantity{}:
-		return ControllerConfigurationError("Channel.MemoryRequest must be nonzero")
-	case configuration.Channel.Replicas < 1:
-		return ControllerConfigurationError("Channel.Replicas must be > 0")
+	case configuration.Receiver.CpuLimit == resource.Quantity{}:
+		return ControllerConfigurationError("Receiver.CpuLimit must be nonzero")
+	case configuration.Receiver.CpuRequest == resource.Quantity{}:
+		return ControllerConfigurationError("Receiver.CpuRequest must be nonzero")
+	case configuration.Receiver.MemoryLimit == resource.Quantity{}:
+		return ControllerConfigurationError("Receiver.MemoryLimit must be nonzero")
+	case configuration.Receiver.MemoryRequest == resource.Quantity{}:
+		return ControllerConfigurationError("Receiver.MemoryRequest must be nonzero")
+	case configuration.Receiver.Replicas < 1:
+		return ControllerConfigurationError("Receiver.Replicas must be > 0")
 	}
 	return nil // no problems found
 }

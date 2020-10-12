@@ -89,8 +89,8 @@ func TestReconcile(t *testing.T) {
 			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
 				{
 					Object: controllertesting.NewKafkaChannel(
-						controllertesting.WithChannelServiceReady,
-						controllertesting.WithChannelDeploymentReady,
+						controllertesting.WithReceiverServiceReady,
+						controllertesting.WithReceiverDeploymentReady,
 					),
 				},
 			},
@@ -111,15 +111,15 @@ func TestReconcile(t *testing.T) {
 			Objects: []runtime.Object{
 				controllertesting.NewKafkaSecret(controllertesting.WithKafkaSecretDeleted),
 				controllertesting.NewKafkaChannel(
-					controllertesting.WithChannelServiceReady,
-					controllertesting.WithChannelDeploymentReady,
+					controllertesting.WithReceiverServiceReady,
+					controllertesting.WithReceiverDeploymentReady,
 				),
 			},
 			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
 				{
 					Object: controllertesting.NewKafkaChannel(
-						controllertesting.WithChannelServiceFinalized,
-						controllertesting.WithChannelDeploymentFinalized,
+						controllertesting.WithReceiverServiceFinalized,
+						controllertesting.WithReceiverDeploymentFinalized,
 					),
 				},
 			},
@@ -138,8 +138,8 @@ func TestReconcile(t *testing.T) {
 			Objects: []runtime.Object{
 				controllertesting.NewKafkaSecret(controllertesting.WithKafkaSecretFinalizer),
 				controllertesting.NewKafkaChannel(
-					controllertesting.WithChannelServiceReady,
-					controllertesting.WithChannelDeploymentReady,
+					controllertesting.WithReceiverServiceReady,
+					controllertesting.WithReceiverDeploymentReady,
 				),
 				controllertesting.NewKafkaChannelReceiverDeployment(),
 			},
@@ -154,8 +154,8 @@ func TestReconcile(t *testing.T) {
 			Objects: []runtime.Object{
 				controllertesting.NewKafkaSecret(controllertesting.WithKafkaSecretFinalizer),
 				controllertesting.NewKafkaChannel(
-					controllertesting.WithChannelServiceReady,
-					controllertesting.WithChannelDeploymentReady,
+					controllertesting.WithReceiverServiceReady,
+					controllertesting.WithReceiverDeploymentReady,
 				),
 				controllertesting.NewKafkaChannelService(),
 				controllertesting.NewKafkaChannelReceiverDeployment(),
@@ -168,8 +168,8 @@ func TestReconcile(t *testing.T) {
 			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
 				{
 					Object: controllertesting.NewKafkaChannel(
-						controllertesting.WithChannelServiceFailed,
-						controllertesting.WithChannelDeploymentReady,
+						controllertesting.WithReceiverServiceFailed,
+						controllertesting.WithReceiverDeploymentReady,
 					),
 				},
 			},
@@ -189,8 +189,8 @@ func TestReconcile(t *testing.T) {
 			Objects: []runtime.Object{
 				controllertesting.NewKafkaSecret(controllertesting.WithKafkaSecretFinalizer),
 				controllertesting.NewKafkaChannel(
-					controllertesting.WithChannelServiceReady,
-					controllertesting.WithChannelDeploymentReady,
+					controllertesting.WithReceiverServiceReady,
+					controllertesting.WithReceiverDeploymentReady,
 				),
 				controllertesting.NewKafkaChannelService(),
 				controllertesting.NewKafkaChannelReceiverService(),
@@ -204,8 +204,8 @@ func TestReconcile(t *testing.T) {
 			Objects: []runtime.Object{
 				controllertesting.NewKafkaSecret(controllertesting.WithKafkaSecretFinalizer),
 				controllertesting.NewKafkaChannel(
-					controllertesting.WithChannelServiceReady,
-					controllertesting.WithChannelDeploymentReady,
+					controllertesting.WithReceiverServiceReady,
+					controllertesting.WithReceiverDeploymentReady,
 				),
 				controllertesting.NewKafkaChannelService(),
 				controllertesting.NewKafkaChannelReceiverService(),
@@ -216,8 +216,8 @@ func TestReconcile(t *testing.T) {
 			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
 				{
 					Object: controllertesting.NewKafkaChannel(
-						controllertesting.WithChannelServiceReady,
-						controllertesting.WithChannelDeploymentFailed,
+						controllertesting.WithReceiverServiceReady,
+						controllertesting.WithReceiverDeploymentFailed,
 					),
 				},
 			},

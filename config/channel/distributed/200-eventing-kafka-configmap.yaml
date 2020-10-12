@@ -24,7 +24,7 @@ data:
       Idempotent: true  # Must be false for Azure EventHubs
       RequiredAcks: -1  # -1 = WaitForAll, Most stringent option for "at-least-once" delivery.
   eventing-kafka: |
-    channel:
+    receiver:
       cpuLimit: 200m
       cpuRequest: 100m
       memoryLimit: 100Mi

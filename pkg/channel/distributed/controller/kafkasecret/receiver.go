@@ -119,10 +119,10 @@ func (r *Reconciler) getReceiverService(secret *corev1.Secret) (*corev1.Service,
 	return service, err
 }
 
-// Create Receiver Service Model For The Specified Channel
+// Create Receiver Service Model For The Specified Secret
 func (r *Reconciler) newReceiverService(secret *corev1.Secret) *corev1.Service {
 
-	// Get The Receiver Deployment Name For The Channel - Use Same For Service
+	// Get The Receiver Deployment Name For The Secret - Use Same For Service
 	deploymentName := util.ReceiverDnsSafeName(secret.Name)
 
 	// Create & Return The Receiver Service Model
@@ -169,11 +169,11 @@ func (r *Reconciler) newReceiverService(secret *corev1.Secret) *corev1.Service {
 // Reconcile The Receiver Deployment
 func (r *Reconciler) reconcileReceiverDeployment(ctx context.Context, secret *corev1.Secret) error {
 
-	// Attempt To Get The Receiver Deployment Associated With The Specified Channel
+	// Attempt To Get The Receiver Deployment Associated With The Specified Secret
 	_, err := r.getReceiverDeployment(secret)
 	if err != nil {
 
-		// If The Receiver Deployment Was Not Found - Then Create A New Deployment For The Channel
+		// If The Receiver Deployment Was Not Found - Then Create A New Deployment For The Secret
 		if errors.IsNotFound(err) {
 
 			// Then Create The New Receiver Deployment
@@ -227,7 +227,7 @@ func (r *Reconciler) newChannelDeployment(secret *corev1.Secret) (*appsv1.Deploy
 	deploymentName := util.ReceiverDnsSafeName(secret.Name)
 
 	// Replicas Int Value For De-Referencing
-	replicas := int32(r.config.Channel.Replicas)
+	replicas := int32(r.config.Receiver.Replicas)
 
 	// Create The Receiver Container Environment Variables
 	channelEnvVars, err := r.receiverDeploymentEnvVars(secret)
@@ -302,12 +302,12 @@ func (r *Reconciler) newChannelDeployment(secret *corev1.Secret) (*appsv1.Deploy
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Resources: corev1.ResourceRequirements{
 								Requests: corev1.ResourceList{
-									corev1.ResourceCPU:    r.config.Channel.CpuRequest,
-									corev1.ResourceMemory: r.config.Channel.MemoryRequest,
+									corev1.ResourceCPU:    r.config.Receiver.CpuRequest,
+									corev1.ResourceMemory: r.config.Receiver.MemoryRequest,
 								},
 								Limits: corev1.ResourceList{
-									corev1.ResourceCPU:    r.config.Channel.CpuLimit,
-									corev1.ResourceMemory: r.config.Channel.MemoryLimit,
+									corev1.ResourceCPU:    r.config.Receiver.CpuLimit,
+									corev1.ResourceMemory: r.config.Receiver.MemoryLimit,
 								},
 							},
 						},

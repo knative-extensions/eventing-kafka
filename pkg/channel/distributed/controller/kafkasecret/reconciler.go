@@ -52,7 +52,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, secret *corev1.Secret) r
 	}
 
 	// Return Success
-	logger.Info("Successfully Reconciled Kafka Secret", zap.Any("Channel", secret.Name))
+	logger.Info("Successfully Reconciled Kafka Secret", zap.Any("Secret", secret.Name))
 	return reconciler.NewEvent(corev1.EventTypeNormal, event.KafkaSecretReconciled.String(), "Kafka Secret Reconciled Successfully: \"%s/%s\"", secret.Namespace, secret.Name)
 }
 
@@ -63,7 +63,7 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, secret *corev1.Secret) re
 	r.logger.Debug("<==========  START KAFKA-SECRET FINALIZATION  ==========>")
 	logger := r.logger.With(zap.String("Secret", secret.Name))
 
-	// Reconcile The Affected KafkaChannel Status To Indicate The Channel Service/Deployment Are Not Longer Available
+	// Reconcile The Affected KafkaChannel Status To Indicate The Receiver Service/Deployment Are No Longer Available
 	err := r.reconcileKafkaChannelStatus(ctx,
 		secret,
 		false, "ChannelServiceUnavailable", "Kafka Auth Secret Finalized",
