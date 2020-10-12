@@ -12,8 +12,7 @@ import (
 	commonenv "knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
 	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
 	controllerenv "knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/test"
-	controllertest "knative.dev/eventing-kafka/pkg/channel/distributed/controller/test"
+	controllertesting "knative.dev/eventing-kafka/pkg/channel/distributed/controller/testing"
 	fakeKafkaClient "knative.dev/eventing-kafka/pkg/client/injection/client/fake"
 	_ "knative.dev/eventing-kafka/pkg/client/injection/informers/messaging/v1beta1/kafkachannel/fake" // Knative Fake Informer Injection
 	"knative.dev/pkg/client/injection/kube/client/fake"
@@ -39,7 +38,7 @@ func TestNewController(t *testing.T) {
 	assert.NotNil(t, fakeInformers)
 
 	// Add The Fake K8S Clientset To The Context (Populated With ConfigMap)
-	configMap := commontesting.GetTestSaramaConfigMap(test.SaramaConfigYaml, test.ControllerConfigYaml)
+	configMap := commontesting.GetTestSaramaConfigMap(controllertesting.SaramaConfigYaml, controllertesting.ControllerConfigYaml)
 	ctx, fakeClientset := fake.With(ctx, configMap)
 	assert.NotNil(t, fakeClientset)
 
@@ -60,7 +59,7 @@ func TestNewController(t *testing.T) {
 func TestShutdown(t *testing.T) {
 
 	// Create A Mock AdminClient To Test Closing
-	mockAdminClient := &controllertest.MockAdminClient{}
+	mockAdminClient := &controllertesting.MockAdminClient{}
 
 	// Set The Package Level The Reconciler To Test Against
 	rec = &Reconciler{adminClient: mockAdminClient}
@@ -75,9 +74,9 @@ func TestShutdown(t *testing.T) {
 // Utility Function For Populating Required Environment Variables For Testing
 func populateEnvironmentVariables(t *testing.T) {
 	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, commonconstants.KnativeEventingNamespace))
-	assert.Nil(t, os.Setenv(commonenv.ServiceAccountEnvVarKey, test.ServiceAccount))
-	assert.Nil(t, os.Setenv(commonenv.MetricsDomainEnvVarKey, test.MetricsDomain))
-	assert.Nil(t, os.Setenv(commonenv.MetricsPortEnvVarKey, strconv.Itoa(test.MetricsPort)))
-	assert.Nil(t, os.Setenv(controllerenv.DispatcherImageEnvVarKey, test.MetricsDomain))
-	assert.Nil(t, os.Setenv(controllerenv.ChannelImageEnvVarKey, test.MetricsDomain))
+	assert.Nil(t, os.Setenv(commonenv.ServiceAccountEnvVarKey, controllertesting.ServiceAccount))
+	assert.Nil(t, os.Setenv(commonenv.MetricsDomainEnvVarKey, controllertesting.MetricsDomain))
+	assert.Nil(t, os.Setenv(commonenv.MetricsPortEnvVarKey, strconv.Itoa(controllertesting.MetricsPort)))
+	assert.Nil(t, os.Setenv(controllerenv.DispatcherImageEnvVarKey, controllertesting.MetricsDomain))
+	assert.Nil(t, os.Setenv(controllerenv.ChannelImageEnvVarKey, controllertesting.MetricsDomain))
 }

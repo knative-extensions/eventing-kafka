@@ -39,7 +39,7 @@ data:
     kafka:
       topic:
         defaultNumPartitions: 4
-        defaultReplicationFactor: 1
+        defaultReplicationFactor: 1 # Cannot exceed the number of Kafka Brokers!
         defaultRetentionMillis: 604800000  # 1 week
       adminType: kafka # One of "kafka", "azure", "custom"
 kind: ConfigMap
