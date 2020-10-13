@@ -344,7 +344,7 @@ func (d *KafkaDispatcher) subscribe(channelRef eventingchannels.ChannelReference
 
 	handler := &consumerMessageHandler{d.logger, sub, d.dispatcher}
 
-	consumerGroup, err := d.kafkaConsumerFactory.StartConsumerGroup(groupID, []string{topicName}, d.logger, handler)
+	consumerGroup, err := d.kafkaConsumerFactory.StartConsumerGroup(context.Background(), groupID, []string{topicName}, d.logger, handler)
 
 	if err != nil {
 		// we can not create a consumer - logging that, with reason
