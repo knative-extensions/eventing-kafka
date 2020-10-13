@@ -47,7 +47,7 @@ spec:
           value: "8081"
         - name: METRICS_DOMAIN
           value: "eventing-kafka"
-        - name: CHANNEL_IMAGE
+        - name: RECEIVER_IMAGE
           value: "ko://knative.dev/eventing-kafka/cmd/channel/distributed/receiver"
         - name: DISPATCHER_IMAGE
           value: "ko://knative.dev/eventing-kafka/cmd/channel/distributed/dispatcher"

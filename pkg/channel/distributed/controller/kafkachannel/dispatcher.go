@@ -387,6 +387,6 @@ func (r *Reconciler) dispatcherDeploymentEnvVars(channel *kafkav1beta1.KafkaChan
 		})
 	}
 
-	// Return The Channel Deployment EnvVars Array
+	// Return The Dispatcher Deployment EnvVars Array
 	return envVars, nil
 }

@@ -77,6 +77,6 @@ func populateEnvironmentVariables(t *testing.T) {
 	assert.Nil(t, os.Setenv(commonenv.ServiceAccountEnvVarKey, controllertesting.ServiceAccount))
 	assert.Nil(t, os.Setenv(commonenv.MetricsDomainEnvVarKey, controllertesting.MetricsDomain))
 	assert.Nil(t, os.Setenv(commonenv.MetricsPortEnvVarKey, strconv.Itoa(controllertesting.MetricsPort)))
-	assert.Nil(t, os.Setenv(controllerenv.DispatcherImageEnvVarKey, controllertesting.MetricsDomain))
-	assert.Nil(t, os.Setenv(controllerenv.ChannelImageEnvVarKey, controllertesting.MetricsDomain))
+	assert.Nil(t, os.Setenv(controllerenv.DispatcherImageEnvVarKey, controllertesting.DispatcherImage))
+	assert.Nil(t, os.Setenv(controllerenv.ReceiverImageEnvVarKey, controllertesting.ReceiverImage))
 }

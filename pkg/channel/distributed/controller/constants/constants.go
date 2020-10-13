@@ -8,14 +8,10 @@ const (
 	KafkaAdminTypeValueCustom = "custom"
 
 	// The Controller's Component Name (Needs To Be DNS Safe!)
-	ControllerComponentName = "eventingkafka-controller"
+	ControllerComponentName = "eventing-kafka-channel-controller"
 
 	// Knative Duck Versions
 	SubscribableDuckVersionAnnotationV1 = "v1"
-
-	// Knative Controller Naming
-	KafkaChannelControllerAgentName = "kafka-channel-controller"
-	KafkaSecretControllerAgentName  = "kafka-secret-controller"
 
 	// CRD Kinds
 	SecretKind              = "Secret"
@@ -53,7 +49,7 @@ const (
 	AppLabel                    = "app"
 	KafkaChannelNameLabel       = "kafkachannel-name"
 	KafkaChannelNamespaceLabel  = "kafkachannel-namespace"
-	KafkaChannelChannelLabel    = "kafkachannel-channel"    // Channel Label - Used To Mark Deployment As Related To Channel
+	KafkaChannelReceiverLabel   = "kafkachannel-receiver"   // Receiver Label - Used To Mark Deployment As Receiver
 	KafkaChannelDispatcherLabel = "kafkachannel-dispatcher" // Dispatcher Label - Used To Mark Deployment As Dispatcher
 	KafkaSecretLabel            = "kafkasecret"             // Secret Label - Indicates The Kafka Secret Of The KafkaChannel
 	KafkaTopicLabel             = "kafkaTopic"              // Topic Label - Indicates The Kafka Topic Of The KnativeChannel

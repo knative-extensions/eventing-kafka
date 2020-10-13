@@ -77,14 +77,14 @@ func TestNewChannelOwnerReference(t *testing.T) {
 	assert.True(t, *controllerRef.Controller)
 }
 
-// Test The ChannelDnsSafeName() Functionality
-func TestChannelDeploymentDnsSafeName(t *testing.T) {
+// Test The ReceiverDnsSafeName() Functionality
+func TestReceiverDnsSafeName(t *testing.T) {
 
 	// Perform The Test
-	actualResult := ChannelDnsSafeName(kafkaSecret)
+	actualResult := ReceiverDnsSafeName(kafkaSecret)
 
 	// Verify The Results
-	expectedResult := fmt.Sprintf("%s-%s-channel", strings.ToLower(kafkaSecret), GenerateHash(kafkaSecret, 8))
+	expectedResult := fmt.Sprintf("%s-%s-receiver", strings.ToLower(kafkaSecret), GenerateHash(kafkaSecret, 8))
 	assert.Equal(t, expectedResult, actualResult)
 }
 

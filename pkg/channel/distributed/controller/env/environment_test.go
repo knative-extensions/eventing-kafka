@@ -22,7 +22,7 @@ const (
 
 	dispatcherImage = "TestDispatcherImage"
 
-	channelImage = "TestChannelImage"
+	receiverImage = "TestReceiverImage"
 )
 
 // Define The TestCase Struct
@@ -73,9 +73,9 @@ func TestGetEnvironment(t *testing.T) {
 	testCase.expectedError = getMissingRequiredEnvironmentVariableError(DispatcherImageEnvVarKey)
 	testCases = append(testCases, testCase)
 
-	testCase = getValidTestCase("Missing Required Config - ChannelImage")
+	testCase = getValidTestCase("Missing Required Config - ReceiverImage")
 	testCase.channelImage = ""
-	testCase.expectedError = getMissingRequiredEnvironmentVariableError(ChannelImageEnvVarKey)
+	testCase.expectedError = getMissingRequiredEnvironmentVariableError(ReceiverImageEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	// Loop Over All The TestCases
@@ -87,7 +87,7 @@ func TestGetEnvironment(t *testing.T) {
 		assertSetenv(t, env.MetricsDomainEnvVarKey, testCase.metricsDomain)
 		assertSetenvNonempty(t, env.MetricsPortEnvVarKey, testCase.metricsPort)
 		assertSetenv(t, DispatcherImageEnvVarKey, testCase.dispatcherImage)
-		assertSetenv(t, ChannelImageEnvVarKey, testCase.channelImage)
+		assertSetenv(t, ReceiverImageEnvVarKey, testCase.channelImage)
 
 		// Perform The Test
 		environment, err := GetEnvironment(logger)
@@ -99,7 +99,7 @@ func TestGetEnvironment(t *testing.T) {
 			assert.NotNil(t, environment)
 			assert.Equal(t, testCase.serviceAccount, environment.ServiceAccount)
 			assert.Equal(t, testCase.metricsPort, strconv.Itoa(environment.MetricsPort))
-			assert.Equal(t, testCase.channelImage, environment.ChannelImage)
+			assert.Equal(t, testCase.channelImage, environment.ReceiverImage)
 			assert.Equal(t, testCase.dispatcherImage, environment.DispatcherImage)
 
 		} else {
@@ -119,7 +119,7 @@ func getValidTestCase(name string) TestCase {
 		metricsDomain:         metricsDomain,
 		defaultKafkaConsumers: defaultKafkaConsumers,
 		dispatcherImage:       dispatcherImage,
-		channelImage:          channelImage,
+		channelImage:          receiverImage,
 		expectedError:         nil,
 	}
 }

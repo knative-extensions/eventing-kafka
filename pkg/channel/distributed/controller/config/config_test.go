@@ -123,29 +123,29 @@ func TestVerifyConfiguration(t *testing.T) {
 	testCase.expectedError = ControllerConfigurationError("Dispatcher.Replicas must be > 0")
 	testCases = append(testCases, testCase)
 
-	testCase = getValidTestCase("Invalid Config - Channel.CpuLimit")
+	testCase = getValidTestCase("Invalid Config - Receiver.CpuLimit")
 	testCase.channelCpuLimit = resource.Quantity{}
-	testCase.expectedError = ControllerConfigurationError("Channel.CpuLimit must be nonzero")
+	testCase.expectedError = ControllerConfigurationError("Receiver.CpuLimit must be nonzero")
 	testCases = append(testCases, testCase)
 
-	testCase = getValidTestCase("Invalid Config - Channel.CpuRequest")
+	testCase = getValidTestCase("Invalid Config - Receiver.CpuRequest")
 	testCase.channelCpuRequest = resource.Quantity{}
-	testCase.expectedError = ControllerConfigurationError("Channel.CpuRequest must be nonzero")
+	testCase.expectedError = ControllerConfigurationError("Receiver.CpuRequest must be nonzero")
 	testCases = append(testCases, testCase)
 
-	testCase = getValidTestCase("Invalid Config - Channel.MemoryLimit")
+	testCase = getValidTestCase("Invalid Config - Receiver.MemoryLimit")
 	testCase.channelMemoryLimit = resource.Quantity{}
-	testCase.expectedError = ControllerConfigurationError("Channel.MemoryLimit must be nonzero")
+	testCase.expectedError = ControllerConfigurationError("Receiver.MemoryLimit must be nonzero")
 	testCases = append(testCases, testCase)
 
-	testCase = getValidTestCase("Invalid Config - Channel.MemoryRequest")
+	testCase = getValidTestCase("Invalid Config - Receiver.MemoryRequest")
 	testCase.channelMemoryRequest = resource.Quantity{}
-	testCase.expectedError = ControllerConfigurationError("Channel.MemoryRequest must be nonzero")
+	testCase.expectedError = ControllerConfigurationError("Receiver.MemoryRequest must be nonzero")
 	testCases = append(testCases, testCase)
 
-	testCase = getValidTestCase("Invalid Config - Channel.Replicas")
+	testCase = getValidTestCase("Invalid Config - Receiver.Replicas")
 	testCase.channelReplicas = -1
-	testCase.expectedError = ControllerConfigurationError("Channel.Replicas must be > 0")
+	testCase.expectedError = ControllerConfigurationError("Receiver.Replicas must be > 0")
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Invalid Config - Kafka.Provider")
@@ -166,11 +166,11 @@ func TestVerifyConfiguration(t *testing.T) {
 		testConfig.Dispatcher.MemoryLimit = testCase.dispatcherMemoryLimit
 		testConfig.Dispatcher.MemoryRequest = testCase.dispatcherMemoryRequest
 		testConfig.Dispatcher.Replicas = testCase.dispatcherReplicas
-		testConfig.Channel.CpuLimit = testCase.channelCpuLimit
-		testConfig.Channel.CpuRequest = testCase.channelCpuRequest
-		testConfig.Channel.MemoryLimit = testCase.channelMemoryLimit
-		testConfig.Channel.MemoryRequest = testCase.channelMemoryRequest
-		testConfig.Channel.Replicas = testCase.channelReplicas
+		testConfig.Receiver.CpuLimit = testCase.channelCpuLimit
+		testConfig.Receiver.CpuRequest = testCase.channelCpuRequest
+		testConfig.Receiver.MemoryLimit = testCase.channelMemoryLimit
+		testConfig.Receiver.MemoryRequest = testCase.channelMemoryRequest
+		testConfig.Receiver.Replicas = testCase.channelReplicas
 
 		// Perform The Test
 		err := VerifyConfiguration(testConfig)
@@ -187,11 +187,11 @@ func TestVerifyConfiguration(t *testing.T) {
 			assert.Equal(t, testCase.dispatcherMemoryLimit, testConfig.Dispatcher.MemoryLimit)
 			assert.Equal(t, testCase.dispatcherMemoryRequest, testConfig.Dispatcher.MemoryRequest)
 			assert.Equal(t, testCase.dispatcherReplicas, testConfig.Dispatcher.Replicas)
-			assert.Equal(t, testCase.channelCpuLimit, testConfig.Channel.CpuLimit)
-			assert.Equal(t, testCase.channelCpuRequest, testConfig.Channel.CpuRequest)
-			assert.Equal(t, testCase.channelMemoryLimit, testConfig.Channel.MemoryLimit)
-			assert.Equal(t, testCase.channelMemoryRequest, testConfig.Channel.MemoryRequest)
-			assert.Equal(t, testCase.channelReplicas, testConfig.Channel.Replicas)
+			assert.Equal(t, testCase.channelCpuLimit, testConfig.Receiver.CpuLimit)
+			assert.Equal(t, testCase.channelCpuRequest, testConfig.Receiver.CpuRequest)
+			assert.Equal(t, testCase.channelMemoryLimit, testConfig.Receiver.MemoryLimit)
+			assert.Equal(t, testCase.channelMemoryRequest, testConfig.Receiver.MemoryRequest)
+			assert.Equal(t, testCase.channelReplicas, testConfig.Receiver.Replicas)
 		} else {
 			assert.Equal(t, testCase.expectedError, err)
 		}

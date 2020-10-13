@@ -33,7 +33,7 @@ var K8sClientWrapper = func(serverUrl string, kubeconfigPath string) kubernetes.
 // Initialize The Specified Context With A K8S Client & Logger (ConfigMap Watcher)
 //
 // Note - This logic represents a stepping stone on our path towards alignment with the Knative eventing-contrib implementations.
-//        The Channel / Dispatcher are not "injected controllers" in the knative-eventing injection framework, but still want to
+//        The Receiver / Dispatcher are not "injected controllers" in the knative-eventing injection framework, but still want to
 //        leverage that implementation as much as possible to ease future refactoring.  This will allow us to use the default
 //        knative-eventing logging configuration and dynamic updating.  To that end, we are setting up a basic context ourselves
 //        that mirrors what the injection framework would have created.

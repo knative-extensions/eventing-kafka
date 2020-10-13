@@ -24,7 +24,7 @@ import (
 const (
 	// EKDefaultConfigYaml is intended to match what's in 200-eventing-kafka-configmap.yaml
 	EKDefaultConfigYaml = `
-channel:
+receiver:
   cpuLimit: 200m
   cpuRequest: 100m
   memoryLimit: 100Mi
@@ -195,11 +195,11 @@ func TestLoadDefaultSaramaSettings(t *testing.T) {
 
 	// Make sure all of our default eventing-kafka settings were loaded properly
 	// Specifically checking the type (e.g. int64, int16, int) is important
-	assert.Equal(t, resource.MustParse("200m"), configuration.Channel.CpuLimit)
-	assert.Equal(t, resource.MustParse("100m"), configuration.Channel.CpuRequest)
-	assert.Equal(t, resource.MustParse("100Mi"), configuration.Channel.MemoryLimit)
-	assert.Equal(t, resource.MustParse("50Mi"), configuration.Channel.MemoryRequest)
-	assert.Equal(t, 1, configuration.Channel.Replicas)
+	assert.Equal(t, resource.MustParse("200m"), configuration.Receiver.CpuLimit)
+	assert.Equal(t, resource.MustParse("100m"), configuration.Receiver.CpuRequest)
+	assert.Equal(t, resource.MustParse("100Mi"), configuration.Receiver.MemoryLimit)
+	assert.Equal(t, resource.MustParse("50Mi"), configuration.Receiver.MemoryRequest)
+	assert.Equal(t, 1, configuration.Receiver.Replicas)
 	assert.Equal(t, int32(4), configuration.Kafka.Topic.DefaultNumPartitions)
 	assert.Equal(t, int16(1), configuration.Kafka.Topic.DefaultReplicationFactor)
 	assert.Equal(t, int64(604800000), configuration.Kafka.Topic.DefaultRetentionMillis)
