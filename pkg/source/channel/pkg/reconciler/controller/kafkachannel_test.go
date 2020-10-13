@@ -43,13 +43,13 @@ import (
 	"knative.dev/pkg/logging"
 	. "knative.dev/pkg/reconciler/testing"
 
-	"knative.dev/eventing-kafka/contrib/kafka/channel/pkg/reconciler/controller/resources"
-	reconcilekafkatesting "knative.dev/eventing-kafka/contrib/kafka/channel/pkg/reconciler/testing"
-	reconcilertesting "knative.dev/eventing-kafka/contrib/kafka/channel/pkg/reconciler/testing"
-	. "knative.dev/eventing-kafka/contrib/kafka/channel/pkg/utils"
 	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	fakekafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client/fake"
 	"knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
+	"knative.dev/eventing-kafka/pkg/source/channel/pkg/reconciler/controller/resources"
+	reconcilekafkatesting "knative.dev/eventing-kafka/pkg/source/channel/pkg/reconciler/testing"
+	reconcilertesting "knative.dev/eventing-kafka/pkg/source/channel/pkg/reconciler/testing"
+	. "knative.dev/eventing-kafka/pkg/source/channel/pkg/utils"
 )
 
 const (

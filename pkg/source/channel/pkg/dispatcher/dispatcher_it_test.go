@@ -38,7 +38,7 @@ import (
 	"knative.dev/pkg/apis"
 	tracingconfig "knative.dev/pkg/tracing/config"
 
-	"knative.dev/eventing-kafka/contrib/kafka/channel/pkg/utils"
+	"knative.dev/eventing-kafka/pkg/source/channel/pkg/utils"
 )
 
 // This dispatcher tests the full integration of the dispatcher code with Kafka.

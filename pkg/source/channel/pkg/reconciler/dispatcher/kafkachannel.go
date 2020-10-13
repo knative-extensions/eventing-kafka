@@ -38,8 +38,6 @@ import (
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
 
-	"knative.dev/eventing-kafka/contrib/kafka/channel/pkg/dispatcher"
-	"knative.dev/eventing-kafka/contrib/kafka/channel/pkg/utils"
 	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	kafkaScheme "knative.dev/eventing-kafka/pkg/client/clientset/versioned/scheme"
@@ -47,6 +45,8 @@ import (
 	"knative.dev/eventing-kafka/pkg/client/injection/informers/messaging/v1beta1/kafkachannel"
 	kafkachannelreconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
 	listers "knative.dev/eventing-kafka/pkg/client/listers/messaging/v1beta1"
+	"knative.dev/eventing-kafka/pkg/source/channel/pkg/dispatcher"
+	"knative.dev/eventing-kafka/pkg/source/channel/pkg/utils"
 )
 
 func init() {

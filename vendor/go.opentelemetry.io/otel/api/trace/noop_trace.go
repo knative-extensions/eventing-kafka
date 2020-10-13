@@ -1,4 +1,4 @@
-// Copyright The OpenTelemetry Authors
+// Copyright 2019, OpenTelemetry Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,12 +18,17 @@ import (
 	"context"
 )
 
-type noopTracer struct{}
+type NoopTracer struct{}
 
-var _ Tracer = noopTracer{}
+var _ Tracer = NoopTracer{}
+
+// WithSpan wraps around execution of func with noop span.
+func (t NoopTracer) WithSpan(ctx context.Context, name string, body func(context.Context) error, opts ...StartOption) error {
+	return body(ctx)
+}
 
 // Start starts a noop span.
-func (noopTracer) Start(ctx context.Context, name string, opts ...SpanOption) (context.Context, Span) {
-	span := noopSpan{}
+func (NoopTracer) Start(ctx context.Context, name string, opts ...StartOption) (context.Context, Span) {
+	span := NoopSpan{}
 	return ContextWithSpan(ctx, span), span
 }

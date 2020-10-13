@@ -37,8 +37,8 @@ import (
 	eventingchannels "knative.dev/eventing/pkg/channel"
 	_ "knative.dev/pkg/system/testing"
 
-	"knative.dev/eventing-kafka/contrib/kafka/channel/pkg/utils"
-	"knative.dev/eventing-kafka/contrib/kafka/common/pkg/kafka"
+	"knative.dev/eventing-kafka/pkg/source/channel/pkg/utils"
+	"knative.dev/eventing-kafka/pkg/source/common/pkg/kafka"
 )
 
 // ----- Mocks

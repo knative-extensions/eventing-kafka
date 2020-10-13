@@ -1,4 +1,4 @@
-// Copyright The OpenTelemetry Authors
+// Copyright 2019, OpenTelemetry Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,62 +18,59 @@ import (
 	"context"
 	"time"
 
-	"go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/label"
+	"google.golang.org/grpc/codes"
+
+	"go.opentelemetry.io/otel/api/core"
 )
 
-type noopSpan struct {
+type NoopSpan struct {
 }
 
-var _ Span = noopSpan{}
+var _ Span = (*NoopSpan)(nil)
 
 // SpanContext returns an invalid span context.
-func (noopSpan) SpanContext() SpanContext {
-	return EmptySpanContext()
+func (NoopSpan) SpanContext() core.SpanContext {
+	return core.EmptySpanContext()
 }
 
 // IsRecording always returns false for NoopSpan.
-func (noopSpan) IsRecording() bool {
+func (NoopSpan) IsRecording() bool {
 	return false
 }
 
 // SetStatus does nothing.
-func (noopSpan) SetStatus(status codes.Code, msg string) {
+func (NoopSpan) SetStatus(status codes.Code) {
 }
 
 // SetError does nothing.
-func (noopSpan) SetError(v bool) {
+func (NoopSpan) SetError(v bool) {
 }
 
 // SetAttributes does nothing.
-func (noopSpan) SetAttributes(attributes ...label.KeyValue) {
-}
-
-// SetAttribute does nothing.
-func (noopSpan) SetAttribute(k string, v interface{}) {
+func (NoopSpan) SetAttributes(attributes ...core.KeyValue) {
 }
 
 // End does nothing.
-func (noopSpan) End(options ...SpanOption) {
+func (NoopSpan) End(options ...EndOption) {
 }
 
 // RecordError does nothing.
-func (noopSpan) RecordError(ctx context.Context, err error, opts ...ErrorOption) {
+func (NoopSpan) RecordError(ctx context.Context, err error, opts ...ErrorOption) {
 }
 
 // Tracer returns noop implementation of Tracer.
-func (noopSpan) Tracer() Tracer {
-	return noopTracer{}
+func (NoopSpan) Tracer() Tracer {
+	return NoopTracer{}
 }
 
 // AddEvent does nothing.
-func (noopSpan) AddEvent(ctx context.Context, name string, attrs ...label.KeyValue) {
+func (NoopSpan) AddEvent(ctx context.Context, name string, attrs ...core.KeyValue) {
 }
 
 // AddEventWithTimestamp does nothing.
-func (noopSpan) AddEventWithTimestamp(ctx context.Context, timestamp time.Time, name string, attrs ...label.KeyValue) {
+func (NoopSpan) AddEventWithTimestamp(ctx context.Context, timestamp time.Time, name string, attrs ...core.KeyValue) {
 }
 
 // SetName does nothing.
-func (noopSpan) SetName(name string) {
+func (NoopSpan) SetName(name string) {
 }
