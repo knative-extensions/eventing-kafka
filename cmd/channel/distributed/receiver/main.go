@@ -3,11 +3,14 @@ package main
 import (
 	"context"
 	"flag"
+	"github.com/kelseyhightower/envconfig"
+	"knative.dev/pkg/kmeta"
 	nethttp "net/http"
 	"strconv"
 	"strings"
 
 	"github.com/cloudevents/sdk-go/v2/binding"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	commonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
@@ -32,6 +35,11 @@ var (
 	kubeconfig    = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	kafkaProducer *producer.Producer
 )
+
+type envConfig struct {
+	PodName       string `envconfig:"POD_NAME" required:"true"`
+	ContainerName string `envconfig:"CONTAINER_NAME" required:"true"`
+}
 
 // The Main Function (Go Command)
 func main() {
@@ -103,8 +111,13 @@ func main() {
 	}
 	defer kafkaProducer.Close()
 
+	var env envConfig
+	if err := envconfig.Process("", &env); err != nil {
+		logger.Fatal("Failed To Initialize env config", zap.Error(err))
+	}
+	channelReporter := eventingchannel.NewStatsReporter(env.ContainerName, kmeta.ChildName(env.PodName, uuid.New().String()))
 	// Create A New Knative Eventing MessageReceiver (Parses The Channel From The Host Header)
-	messageReceiver, err := eventingchannel.NewMessageReceiver(handleMessage, logger, eventingchannel.ResolveMessageChannelFromHostHeader(eventingchannel.ParseChannel))
+	messageReceiver, err := eventingchannel.NewMessageReceiver(handleMessage, logger, channelReporter, eventingchannel.ResolveMessageChannelFromHostHeader(eventingchannel.ParseChannel))
 	if err != nil {
 		logger.Fatal("Failed To Create MessageReceiver", zap.Error(err))
 	}
