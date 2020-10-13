@@ -6,10 +6,10 @@ import (
 
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
-	"knative.dev/eventing/pkg/tracing"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/system"
+	"knative.dev/pkg/tracing"
 	tracingconfig "knative.dev/pkg/tracing/config"
 )
 
