@@ -22,35 +22,35 @@ import (
 	"knative.dev/pkg/system"
 )
 
-// Reconcile The "Channel" Inbound For The Specified Kafka Secret
+// Reconcile The Receiver (Kafka Producer) For The Specified KafkaChannel
 func (r *Reconciler) reconcileChannel(ctx context.Context, secret *corev1.Secret) error {
 
 	// Get Secret Specific Logger
 	logger := util.SecretLogger(r.logger, secret)
 
-	// Reconcile The Channel's Service
-	serviceErr := r.reconcileChannelService(ctx, secret)
+	// Reconcile The Receiver Service
+	serviceErr := r.reconcileReceiverService(ctx, secret)
 	if serviceErr != nil {
-		controller.GetEventRecorder(ctx).Eventf(secret, corev1.EventTypeWarning, event.ChannelServiceReconciliationFailed.String(), "Failed To Reconcile Channel Service: %v", serviceErr)
-		logger.Error("Failed To Reconcile Channel Service", zap.Error(serviceErr))
+		controller.GetEventRecorder(ctx).Eventf(secret, corev1.EventTypeWarning, event.ReceiverServiceReconciliationFailed.String(), "Failed To Reconcile Receiver Service: %v", serviceErr)
+		logger.Error("Failed To Reconcile Receiver Service", zap.Error(serviceErr))
 	} else {
-		logger.Info("Successfully Reconciled Channel Service")
+		logger.Info("Successfully Reconciled Receiver Service")
 	}
 
-	// Reconcile The Channel's Deployment
-	deploymentErr := r.reconcileChannelDeployment(ctx, secret)
+	// Reconcile The Receiver Deployment
+	deploymentErr := r.reconcileReceiverDeployment(ctx, secret)
 	if deploymentErr != nil {
-		controller.GetEventRecorder(ctx).Eventf(secret, corev1.EventTypeWarning, event.ChannelDeploymentReconciliationFailed.String(), "Failed To Reconcile Channel Deployment: %v", deploymentErr)
-		logger.Error("Failed To Reconcile Channel Deployment", zap.Error(deploymentErr))
+		controller.GetEventRecorder(ctx).Eventf(secret, corev1.EventTypeWarning, event.ReceiverDeploymentReconciliationFailed.String(), "Failed To Reconcile Receiver Deployment: %v", deploymentErr)
+		logger.Error("Failed To Reconcile Receiver Deployment", zap.Error(deploymentErr))
 	} else {
-		logger.Info("Successfully Reconciled Channel Deployment")
+		logger.Info("Successfully Reconciled Receiver Deployment")
 	}
 
 	// Reconcile Channel's KafkaChannel Status
 	statusErr := r.reconcileKafkaChannelStatus(ctx,
 		secret,
-		serviceErr == nil, event.ChannelServiceReconciliationFailed.String(), fmt.Sprintf("Channel Service Failed: %v", serviceErr),
-		deploymentErr == nil, event.ChannelDeploymentReconciliationFailed.String(), fmt.Sprintf("Channel Deployment Failed: %v", deploymentErr))
+		serviceErr == nil, event.ReceiverServiceReconciliationFailed.String(), fmt.Sprintf("Receiver Service Failed: %v", serviceErr),
+		deploymentErr == nil, event.ReceiverDeploymentReconciliationFailed.String(), fmt.Sprintf("Receiver Deployment Failed: %v", deploymentErr))
 	if statusErr != nil {
 		controller.GetEventRecorder(ctx).Eventf(secret, corev1.EventTypeWarning, event.ChannelStatusReconciliationFailed.String(), "Failed To Reconcile Channel's KafkaChannel Status: %v", statusErr)
 		logger.Error("Failed To Reconcile KafkaChannel Status", zap.Error(statusErr))
@@ -67,65 +67,65 @@ func (r *Reconciler) reconcileChannel(ctx context.Context, secret *corev1.Secret
 }
 
 //
-// Kafka Channel Service
+// Kafka Receiver Service
 //
 
-// Reconcile The Kafka Channel Service
-func (r *Reconciler) reconcileChannelService(ctx context.Context, secret *corev1.Secret) error {
+// Reconcile The Receiver Service
+func (r *Reconciler) reconcileReceiverService(ctx context.Context, secret *corev1.Secret) error {
 
-	// Attempt To Get The Service Associated With The Specified Secret
-	_, err := r.getChannelService(secret)
+	// Attempt To Get The Receiver Service Associated With The Specified Secret
+	_, err := r.getReceiverService(secret)
 	if err != nil {
 
 		// If The Service Was Not Found - Then Create A New One For The Secret
 		if errors.IsNotFound(err) {
 
-			// Then Create The New Kafka Channel Service
-			r.logger.Info("Channel Service Not Found - Creating New One")
-			service := r.newChannelService(secret)
+			// Then Create The New Receiver Service
+			r.logger.Info("Receiver Service Not Found - Creating New One")
+			service := r.newReceiverService(secret)
 			_, err = r.kubeClientset.CoreV1().Services(service.Namespace).Create(ctx, service, metav1.CreateOptions{})
 			if err != nil {
-				r.logger.Error("Failed To Create Channel Service", zap.Error(err))
+				r.logger.Error("Failed To Create Receiver Service", zap.Error(err))
 				return err
 			} else {
-				r.logger.Info("Successfully Created Channel Service")
+				r.logger.Info("Successfully Created Receiver Service")
 				return nil
 			}
 
 		} else {
 
-			// Failed In Attempt To Get Kafka Channel Service From K8S
-			r.logger.Error("Failed To Get Channel Service", zap.Error(err))
+			// Failed In Attempt To Get Receiver Service From K8S
+			r.logger.Error("Failed To Get Receiver Service", zap.Error(err))
 			return err
 		}
 	} else {
 
-		// Verified The Channel Service Exists
-		r.logger.Info("Successfully Verified Channel Service")
+		// Verified The Receiver Service Exists
+		r.logger.Info("Successfully Verified Receiver Service")
 		return nil
 	}
 }
 
-// Get The Kafka Service Associated With The Specified Channel
-func (r *Reconciler) getChannelService(secret *corev1.Secret) (*corev1.Service, error) {
+// Get The Kafka Receiver Service Associated With The Specified Channel
+func (r *Reconciler) getReceiverService(secret *corev1.Secret) (*corev1.Service, error) {
 
-	// Get The Dispatcher Deployment Name For The Channel - Use Same For Service
-	deploymentName := util.ChannelDnsSafeName(secret.Name)
+	// Get The Receiver Deployment Name For The Receiver - Use Same For Service
+	deploymentName := util.ReceiverDnsSafeName(secret.Name)
 
-	// Get The Service By Namespace / Name
+	// Get The Receiver Service By Namespace / Name
 	service, err := r.serviceLister.Services(commonconstants.KnativeEventingNamespace).Get(deploymentName)
 
 	// Return The Results
 	return service, err
 }
 
-// Create Kafka Service Model For The Specified Channel
-func (r *Reconciler) newChannelService(secret *corev1.Secret) *corev1.Service {
+// Create Receiver Service Model For The Specified Secret
+func (r *Reconciler) newReceiverService(secret *corev1.Secret) *corev1.Service {
 
-	// Get The Dispatcher Deployment Name For The Channel - Use Same For Service
-	deploymentName := util.ChannelDnsSafeName(secret.Name)
+	// Get The Receiver Deployment Name For The Secret - Use Same For Service
+	deploymentName := util.ReceiverDnsSafeName(secret.Name)
 
-	// Create & Return The Service Model
+	// Create & Return The Receiver Service Model
 	return &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: corev1.SchemeGroupVersion.String(),
@@ -135,7 +135,7 @@ func (r *Reconciler) newChannelService(secret *corev1.Secret) *corev1.Service {
 			Name:      deploymentName,
 			Namespace: commonconstants.KnativeEventingNamespace,
 			Labels: map[string]string{
-				constants.KafkaChannelChannelLabel:   "true",                               // Allows for identification of KafkaChannels
+				constants.KafkaChannelReceiverLabel:  "true",                               // Allows for identification of Receivers
 				constants.K8sAppChannelSelectorLabel: constants.K8sAppChannelSelectorValue, // Prometheus ServiceMonitor
 			},
 			OwnerReferences: []metav1.OwnerReference{
@@ -163,80 +163,80 @@ func (r *Reconciler) newChannelService(secret *corev1.Secret) *corev1.Service {
 }
 
 //
-// KafkaChannel Deployment - The Kafka Producer Implementation
+// Kafka Receiver Deployment - The Kafka Producer Implementation
 //
 
-// Reconcile The Kafka Channel Deployment
-func (r *Reconciler) reconcileChannelDeployment(ctx context.Context, secret *corev1.Secret) error {
+// Reconcile The Receiver Deployment
+func (r *Reconciler) reconcileReceiverDeployment(ctx context.Context, secret *corev1.Secret) error {
 
-	// Attempt To Get The KafkaChannel Deployment Associated With The Specified Channel
-	_, err := r.getChannelDeployment(secret)
+	// Attempt To Get The Receiver Deployment Associated With The Specified Secret
+	_, err := r.getReceiverDeployment(secret)
 	if err != nil {
 
-		// If The KafkaChannel Deployment Was Not Found - Then Create A New Deployment For The Channel
+		// If The Receiver Deployment Was Not Found - Then Create A New Deployment For The Secret
 		if errors.IsNotFound(err) {
 
-			// Then Create The New Deployment
-			r.logger.Info("KafkaChannel Deployment Not Found - Creating New One")
+			// Then Create The New Receiver Deployment
+			r.logger.Info("Receiver Deployment Not Found - Creating New One")
 			deployment, err := r.newChannelDeployment(secret)
 			if err != nil {
-				r.logger.Error("Failed To Create KafkaChannel Deployment YAML", zap.Error(err))
+				r.logger.Error("Failed To Create Receiver Deployment YAML", zap.Error(err))
 				return err
 			} else {
 				_, err = r.kubeClientset.AppsV1().Deployments(deployment.Namespace).Create(ctx, deployment, metav1.CreateOptions{})
 				if err != nil {
-					r.logger.Error("Failed To Create KafkaChannel Deployment", zap.Error(err))
+					r.logger.Error("Failed To Create Receiver Deployment", zap.Error(err))
 					return err
 				} else {
-					r.logger.Info("Successfully Created KafkaChannel Deployment")
+					r.logger.Info("Successfully Created Receiver Deployment")
 					return nil
 				}
 			}
 
 		} else {
 
-			// Failed In Attempt To Get Deployment From K8S
-			r.logger.Error("Failed To Get KafkaChannel Deployment", zap.Error(err))
+			// Failed In Attempt To Get Receiver Deployment From K8S
+			r.logger.Error("Failed To Get Receiver Deployment", zap.Error(err))
 			return err
 		}
 	} else {
 
-		// Verified The Channel Service Exists
-		r.logger.Info("Successfully Verified Channel Deployment")
+		// Verified The Receiver Deployment Exists
+		r.logger.Info("Successfully Verified Receiver Deployment")
 		return nil
 	}
 }
 
-// Get The Kafka Channel Deployment Associated With The Specified Secret
-func (r *Reconciler) getChannelDeployment(secret *corev1.Secret) (*appsv1.Deployment, error) {
+// Get The Receiver Deployment Associated With The Specified Secret
+func (r *Reconciler) getReceiverDeployment(secret *corev1.Secret) (*appsv1.Deployment, error) {
 
-	// Get The Channel Deployment Name (One Channel Deployment Per Kafka Auth Secret)
-	deploymentName := util.ChannelDnsSafeName(secret.Name)
+	// Get The Receiver Deployment Name (One Receiver Deployment Per Kafka Auth Secret)
+	deploymentName := util.ReceiverDnsSafeName(secret.Name)
 
-	// Get The Channel Deployment By Namespace / Name
+	// Get The Receiver Deployment By Namespace / Name
 	deployment, err := r.deploymentLister.Deployments(commonconstants.KnativeEventingNamespace).Get(deploymentName)
 
 	// Return The Results
 	return deployment, err
 }
 
-// Create Kafka Channel Deployment Model For The Specified Secret
+// Create Receiver Deployment Model For The Specified Secret
 func (r *Reconciler) newChannelDeployment(secret *corev1.Secret) (*appsv1.Deployment, error) {
 
-	// Get The Channel Deployment Name (One Channel Deployment Per Kafka Auth Secret)
-	deploymentName := util.ChannelDnsSafeName(secret.Name)
+	// Get The Receiver Deployment Name (One Receiver Deployment Per Kafka Auth Secret)
+	deploymentName := util.ReceiverDnsSafeName(secret.Name)
 
 	// Replicas Int Value For De-Referencing
-	replicas := int32(r.config.Channel.Replicas)
+	replicas := int32(r.config.Receiver.Replicas)
 
-	// Create The Channel Container Environment Variables
-	channelEnvVars, err := r.channelDeploymentEnvVars(secret)
+	// Create The Receiver Container Environment Variables
+	channelEnvVars, err := r.receiverDeploymentEnvVars(secret)
 	if err != nil {
-		r.logger.Error("Failed To Create Channel Deployment Environment Variables", zap.Error(err))
+		r.logger.Error("Failed To Create Receiver Deployment Environment Variables", zap.Error(err))
 		return nil, err
 	}
 
-	// Create & Return The Channel's Deployment
+	// Create The Receiver Deployment
 	deployment := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: appsv1.SchemeGroupVersion.String(),
@@ -246,8 +246,8 @@ func (r *Reconciler) newChannelDeployment(secret *corev1.Secret) (*appsv1.Deploy
 			Name:      deploymentName,
 			Namespace: commonconstants.KnativeEventingNamespace,
 			Labels: map[string]string{
-				constants.AppLabel:                 deploymentName, // Matches Service Selector Key/Value Below
-				constants.KafkaChannelChannelLabel: "true",         // Allows for identification of KafkaChannels
+				constants.AppLabel:                  deploymentName, // Matches Service Selector Key/Value Below
+				constants.KafkaChannelReceiverLabel: "true",         // Allows for identification of Receivers
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				util.NewSecretOwnerReference(secret),
@@ -291,7 +291,7 @@ func (r *Reconciler) newChannelDeployment(secret *corev1.Secret) (*appsv1.Deploy
 								InitialDelaySeconds: constants.ChannelReadinessDelay,
 								PeriodSeconds:       constants.ChannelReadinessPeriod,
 							},
-							Image: r.environment.ChannelImage,
+							Image: r.environment.ReceiverImage,
 							Ports: []corev1.ContainerPort{
 								{
 									Name:          "server",
@@ -302,12 +302,12 @@ func (r *Reconciler) newChannelDeployment(secret *corev1.Secret) (*appsv1.Deploy
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Resources: corev1.ResourceRequirements{
 								Requests: corev1.ResourceList{
-									corev1.ResourceCPU:    r.config.Channel.CpuRequest,
-									corev1.ResourceMemory: r.config.Channel.MemoryRequest,
+									corev1.ResourceCPU:    r.config.Receiver.CpuRequest,
+									corev1.ResourceMemory: r.config.Receiver.MemoryRequest,
 								},
 								Limits: corev1.ResourceList{
-									corev1.ResourceCPU:    r.config.Channel.CpuLimit,
-									corev1.ResourceMemory: r.config.Channel.MemoryLimit,
+									corev1.ResourceCPU:    r.config.Receiver.CpuLimit,
+									corev1.ResourceMemory: r.config.Receiver.MemoryLimit,
 								},
 							},
 						},
@@ -317,14 +317,14 @@ func (r *Reconciler) newChannelDeployment(secret *corev1.Secret) (*appsv1.Deploy
 		},
 	}
 
-	// Return Channel Deployment
+	// Return Receiver Deployment
 	return deployment, nil
 }
 
-// Create The Kafka Channel Deployment's Env Vars
-func (r *Reconciler) channelDeploymentEnvVars(secret *corev1.Secret) ([]corev1.EnvVar, error) {
+// Create The Receiver Deployment's Env Vars
+func (r *Reconciler) receiverDeploymentEnvVars(secret *corev1.Secret) ([]corev1.EnvVar, error) {
 
-	// Create The Channel Deployment EnvVars
+	// Create The Receiver Deployment EnvVars
 	envVars := []corev1.EnvVar{
 		{
 			Name:  system.NamespaceEnvKey,
@@ -336,7 +336,7 @@ func (r *Reconciler) channelDeploymentEnvVars(secret *corev1.Secret) ([]corev1.E
 		},
 		{
 			Name:  commonenv.ServiceNameEnvVarKey,
-			Value: util.ChannelDnsSafeName(secret.Name),
+			Value: util.ReceiverDnsSafeName(secret.Name),
 		},
 		{
 			Name:  commonenv.MetricsPortEnvVarKey,
@@ -385,6 +385,6 @@ func (r *Reconciler) channelDeploymentEnvVars(secret *corev1.Secret) ([]corev1.E
 		},
 	})
 
-	// Return The Channel Deployment EnvVars Array
+	// Return The Receiver Deployment EnvVars Array
 	return envVars, nil
 }

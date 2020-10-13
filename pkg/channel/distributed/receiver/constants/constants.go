@@ -4,7 +4,7 @@ import "time"
 
 // Global Constants
 const (
-	Component = "KafkaChannel"
+	Component = "eventing-kafka-channel-receiver"
 
 	MetricsInterval = 5 * time.Second
 

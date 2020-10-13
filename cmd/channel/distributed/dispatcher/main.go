@@ -14,6 +14,7 @@ import (
 	commonk8s "knative.dev/eventing-kafka/pkg/channel/distributed/common/k8s"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/metrics"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/controller"
 	dispatch "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/dispatcher"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/env"
@@ -24,11 +25,6 @@ import (
 	"knative.dev/pkg/logging"
 	eventingmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/signals"
-)
-
-// Constants
-const (
-	Component = "KafkaDispatcher"
 )
 
 // Variables
@@ -46,7 +42,7 @@ func main() {
 	flag.Parse()
 
 	// Initialize A Knative Injection Lite Context (K8S Client & Logger)
-	ctx := commonk8s.LoggingContext(signals.NewContext(), Component, *serverURL, *kubeconfig)
+	ctx := commonk8s.LoggingContext(signals.NewContext(), constants.Component, *serverURL, *kubeconfig)
 
 	// Get The Logger From The Context & Defer Flushing Any Buffered Log Entries On Exit
 	logger = logging.FromContext(ctx).Desugar()
@@ -68,7 +64,7 @@ func main() {
 	}
 
 	// Update The Sarama Config - Username/Password Overrides (EnvVars From Secret Take Precedence Over ConfigMap)
-	sarama.UpdateSaramaConfig(saramaConfig, Component, environment.KafkaUsername, environment.KafkaPassword)
+	sarama.UpdateSaramaConfig(saramaConfig, constants.Component, environment.KafkaUsername, environment.KafkaPassword)
 
 	// Initialize Tracing (Watches config-tracing ConfigMap, Assumes Context Came From LoggingContext With Embedded K8S Client Key)
 	err = commonconfig.InitializeTracing(logger.Sugar(), ctx, environment.ServiceName)
@@ -91,7 +87,7 @@ func main() {
 	// Create The Dispatcher With Specified Configuration
 	dispatcherConfig := dispatch.DispatcherConfig{
 		Logger:        logger,
-		ClientId:      Component,
+		ClientId:      constants.Component,
 		Brokers:       strings.Split(environment.KafkaBrokers, ","),
 		Topic:         environment.KafkaTopic,
 		Username:      environment.KafkaUsername,

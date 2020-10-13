@@ -11,7 +11,7 @@ import (
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/kafkasecretinjection"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/test"
+	controllertesting "knative.dev/eventing-kafka/pkg/channel/distributed/controller/testing"
 	fakekafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client/fake"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
@@ -61,43 +61,43 @@ func TestReconcile(t *testing.T) {
 
 		{
 			Name: "Complete Reconciliation Without KafkaChannel",
-			Key:  test.KafkaSecretKey,
+			Key:  controllertesting.KafkaSecretKey,
 			Objects: []runtime.Object{
-				test.NewKafkaSecret(),
+				controllertesting.NewKafkaSecret(),
 			},
 			WantCreates: []runtime.Object{
-				test.NewKafkaChannelChannelService(),
-				test.NewKafkaChannelChannelDeployment(),
+				controllertesting.NewKafkaChannelReceiverService(),
+				controllertesting.NewKafkaChannelReceiverDeployment(),
 			},
-			WantPatches: []clientgotesting.PatchActionImpl{test.NewKafkaSecretFinalizerPatchActionImpl()},
+			WantPatches: []clientgotesting.PatchActionImpl{controllertesting.NewKafkaSecretFinalizerPatchActionImpl()},
 			WantEvents: []string{
-				test.NewKafkaSecretFinalizerUpdateEvent(),
-				test.NewKafkaSecretSuccessfulReconciliationEvent(),
+				controllertesting.NewKafkaSecretFinalizerUpdateEvent(),
+				controllertesting.NewKafkaSecretSuccessfulReconciliationEvent(),
 			},
 		},
 		{
 			Name: "Complete Reconciliation With KafkaChannel",
-			Key:  test.KafkaSecretKey,
+			Key:  controllertesting.KafkaSecretKey,
 			Objects: []runtime.Object{
-				test.NewKafkaSecret(),
-				test.NewKafkaChannel(),
+				controllertesting.NewKafkaSecret(),
+				controllertesting.NewKafkaChannel(),
 			},
 			WantCreates: []runtime.Object{
-				test.NewKafkaChannelChannelService(),
-				test.NewKafkaChannelChannelDeployment(),
+				controllertesting.NewKafkaChannelReceiverService(),
+				controllertesting.NewKafkaChannelReceiverDeployment(),
 			},
 			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
 				{
-					Object: test.NewKafkaChannel(
-						test.WithChannelServiceReady,
-						test.WithChannelDeploymentReady,
+					Object: controllertesting.NewKafkaChannel(
+						controllertesting.WithReceiverServiceReady,
+						controllertesting.WithReceiverDeploymentReady,
 					),
 				},
 			},
-			WantPatches: []clientgotesting.PatchActionImpl{test.NewKafkaSecretFinalizerPatchActionImpl()},
+			WantPatches: []clientgotesting.PatchActionImpl{controllertesting.NewKafkaSecretFinalizerPatchActionImpl()},
 			WantEvents: []string{
-				test.NewKafkaSecretFinalizerUpdateEvent(),
-				test.NewKafkaSecretSuccessfulReconciliationEvent(),
+				controllertesting.NewKafkaSecretFinalizerUpdateEvent(),
+				controllertesting.NewKafkaSecretSuccessfulReconciliationEvent(),
 			},
 		},
 
@@ -107,135 +107,135 @@ func TestReconcile(t *testing.T) {
 
 		{
 			Name: "Finalize Deleted Secret",
-			Key:  test.KafkaSecretKey,
+			Key:  controllertesting.KafkaSecretKey,
 			Objects: []runtime.Object{
-				test.NewKafkaSecret(test.WithKafkaSecretDeleted),
-				test.NewKafkaChannel(
-					test.WithChannelServiceReady,
-					test.WithChannelDeploymentReady,
+				controllertesting.NewKafkaSecret(controllertesting.WithKafkaSecretDeleted),
+				controllertesting.NewKafkaChannel(
+					controllertesting.WithReceiverServiceReady,
+					controllertesting.WithReceiverDeploymentReady,
 				),
 			},
 			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
 				{
-					Object: test.NewKafkaChannel(
-						test.WithChannelServiceFinalized,
-						test.WithChannelDeploymentFinalized,
+					Object: controllertesting.NewKafkaChannel(
+						controllertesting.WithReceiverServiceFinalized,
+						controllertesting.WithReceiverDeploymentFinalized,
 					),
 				},
 			},
 			WantEvents: []string{
-				test.NewKafkaSecretSuccessfulFinalizedEvent(),
+				controllertesting.NewKafkaSecretSuccessfulFinalizedEvent(),
 			},
 		},
 
 		//
-		// KafkaChannel Channel Service
+		// KafkaSecret Receiver Service
 		//
 
 		{
-			Name: "Reconcile Missing Channel Service Success",
-			Key:  test.KafkaSecretKey,
+			Name: "Reconcile Missing Receiver Service Success",
+			Key:  controllertesting.KafkaSecretKey,
 			Objects: []runtime.Object{
-				test.NewKafkaSecret(test.WithKafkaSecretFinalizer),
-				test.NewKafkaChannel(
-					test.WithChannelServiceReady,
-					test.WithChannelDeploymentReady,
+				controllertesting.NewKafkaSecret(controllertesting.WithKafkaSecretFinalizer),
+				controllertesting.NewKafkaChannel(
+					controllertesting.WithReceiverServiceReady,
+					controllertesting.WithReceiverDeploymentReady,
 				),
-				test.NewKafkaChannelChannelDeployment(),
+				controllertesting.NewKafkaChannelReceiverDeployment(),
 			},
-			WantCreates: []runtime.Object{test.NewKafkaChannelChannelService()},
+			WantCreates: []runtime.Object{controllertesting.NewKafkaChannelReceiverService()},
 			WantEvents: []string{
-				test.NewKafkaSecretSuccessfulReconciliationEvent(),
+				controllertesting.NewKafkaSecretSuccessfulReconciliationEvent(),
 			},
 		},
 		{
-			Name: "Reconcile Missing Channel Service Error(Create)",
-			Key:  test.KafkaSecretKey,
+			Name: "Reconcile Missing Receiver Service Error(Create)",
+			Key:  controllertesting.KafkaSecretKey,
 			Objects: []runtime.Object{
-				test.NewKafkaSecret(test.WithKafkaSecretFinalizer),
-				test.NewKafkaChannel(
-					test.WithChannelServiceReady,
-					test.WithChannelDeploymentReady,
+				controllertesting.NewKafkaSecret(controllertesting.WithKafkaSecretFinalizer),
+				controllertesting.NewKafkaChannel(
+					controllertesting.WithReceiverServiceReady,
+					controllertesting.WithReceiverDeploymentReady,
 				),
-				test.NewKafkaChannelService(),
-				test.NewKafkaChannelChannelDeployment(),
-				test.NewKafkaChannelDispatcherService(),
-				test.NewKafkaChannelDispatcherDeployment(),
+				controllertesting.NewKafkaChannelService(),
+				controllertesting.NewKafkaChannelReceiverDeployment(),
+				controllertesting.NewKafkaChannelDispatcherService(),
+				controllertesting.NewKafkaChannelDispatcherDeployment(),
 			},
 			WithReactors: []clientgotesting.ReactionFunc{InduceFailure("create", "services")},
 			WantErr:      true,
-			WantCreates:  []runtime.Object{test.NewKafkaChannelChannelService()},
+			WantCreates:  []runtime.Object{controllertesting.NewKafkaChannelReceiverService()},
 			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
 				{
-					Object: test.NewKafkaChannel(
-						test.WithChannelServiceFailed,
-						test.WithChannelDeploymentReady,
+					Object: controllertesting.NewKafkaChannel(
+						controllertesting.WithReceiverServiceFailed,
+						controllertesting.WithReceiverDeploymentReady,
 					),
 				},
 			},
 			WantEvents: []string{
-				Eventf(corev1.EventTypeWarning, event.ChannelServiceReconciliationFailed.String(), "Failed To Reconcile Channel Service: inducing failure for create services"),
-				test.NewKafkaSecretFailedReconciliationEvent(),
+				Eventf(corev1.EventTypeWarning, event.ReceiverServiceReconciliationFailed.String(), "Failed To Reconcile Receiver Service: inducing failure for create services"),
+				controllertesting.NewKafkaSecretFailedReconciliationEvent(),
 			},
 		},
 
 		//
-		// KafkaChannel Channel Deployment
+		// KafkaSecret Receiver Deployment
 		//
 
 		{
-			Name: "Reconcile Missing Channel Deployment Success",
-			Key:  test.KafkaSecretKey,
+			Name: "Reconcile Missing Receiver Deployment Success",
+			Key:  controllertesting.KafkaSecretKey,
 			Objects: []runtime.Object{
-				test.NewKafkaSecret(test.WithKafkaSecretFinalizer),
-				test.NewKafkaChannel(
-					test.WithChannelServiceReady,
-					test.WithChannelDeploymentReady,
+				controllertesting.NewKafkaSecret(controllertesting.WithKafkaSecretFinalizer),
+				controllertesting.NewKafkaChannel(
+					controllertesting.WithReceiverServiceReady,
+					controllertesting.WithReceiverDeploymentReady,
 				),
-				test.NewKafkaChannelService(),
-				test.NewKafkaChannelChannelService(),
+				controllertesting.NewKafkaChannelService(),
+				controllertesting.NewKafkaChannelReceiverService(),
 			},
-			WantCreates: []runtime.Object{test.NewKafkaChannelChannelDeployment()},
-			WantEvents:  []string{test.NewKafkaSecretSuccessfulReconciliationEvent()},
+			WantCreates: []runtime.Object{controllertesting.NewKafkaChannelReceiverDeployment()},
+			WantEvents:  []string{controllertesting.NewKafkaSecretSuccessfulReconciliationEvent()},
 		},
 		{
-			Name: "Reconcile Missing Channel Deployment Error(Create)",
-			Key:  test.KafkaSecretKey,
+			Name: "Reconcile Missing Receiver Deployment Error(Create)",
+			Key:  controllertesting.KafkaSecretKey,
 			Objects: []runtime.Object{
-				test.NewKafkaSecret(test.WithKafkaSecretFinalizer),
-				test.NewKafkaChannel(
-					test.WithChannelServiceReady,
-					test.WithChannelDeploymentReady,
+				controllertesting.NewKafkaSecret(controllertesting.WithKafkaSecretFinalizer),
+				controllertesting.NewKafkaChannel(
+					controllertesting.WithReceiverServiceReady,
+					controllertesting.WithReceiverDeploymentReady,
 				),
-				test.NewKafkaChannelService(),
-				test.NewKafkaChannelChannelService(),
+				controllertesting.NewKafkaChannelService(),
+				controllertesting.NewKafkaChannelReceiverService(),
 			},
 			WithReactors: []clientgotesting.ReactionFunc{InduceFailure("create", "deployments")},
 			WantErr:      true,
-			WantCreates:  []runtime.Object{test.NewKafkaChannelChannelDeployment()},
+			WantCreates:  []runtime.Object{controllertesting.NewKafkaChannelReceiverDeployment()},
 			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
 				{
-					Object: test.NewKafkaChannel(
-						test.WithChannelServiceReady,
-						test.WithChannelDeploymentFailed,
+					Object: controllertesting.NewKafkaChannel(
+						controllertesting.WithReceiverServiceReady,
+						controllertesting.WithReceiverDeploymentFailed,
 					),
 				},
 			},
 			WantEvents: []string{
-				Eventf(corev1.EventTypeWarning, event.ChannelDeploymentReconciliationFailed.String(), "Failed To Reconcile Channel Deployment: inducing failure for create deployments"),
-				test.NewKafkaSecretFailedReconciliationEvent(),
+				Eventf(corev1.EventTypeWarning, event.ReceiverDeploymentReconciliationFailed.String(), "Failed To Reconcile Receiver Deployment: inducing failure for create deployments"),
+				controllertesting.NewKafkaSecretFailedReconciliationEvent(),
 			},
 		},
 	}
 
 	// Run The TableTest Using The KafkaChannel Reconciler Provided By The Factory
 	logger := logtesting.TestLogger(t)
-	tableTest.Test(t, test.MakeFactory(func(ctx context.Context, listers *test.Listers, cmw configmap.Watcher) controller.Reconciler {
+	tableTest.Test(t, controllertesting.MakeFactory(func(ctx context.Context, listers *controllertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
 		r := &Reconciler{
 			logger:             logging.FromContext(ctx).Desugar(),
 			kubeClientset:      kubeclient.Get(ctx),
-			environment:        test.NewEnvironment(),
-			config:             test.NewConfig(),
+			environment:        controllertesting.NewEnvironment(),
+			config:             controllertesting.NewConfig(),
 			kafkaChannelClient: fakekafkaclient.Get(ctx),
 			kafkachannelLister: listers.GetKafkaChannelLister(),
 			deploymentLister:   listers.GetDeploymentLister(),

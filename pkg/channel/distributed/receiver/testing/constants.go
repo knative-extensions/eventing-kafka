@@ -1,4 +1,4 @@
-package test
+package testing
 
 // Test Data
 const (
@@ -11,7 +11,7 @@ const (
 	ChannelName      = "TestChannelName"
 	ChannelNamespace = "TestChannelNamespace"
 
-	TopicName = "TestChannelNamespace.TestChannelName" // Match util.go TopicName() Implementation For Channel Name/Namespace Abovce
+	TopicName = "TestChannelNamespace.TestChannelName" // Match util.go TopicName() Implementation For Channel Name/Namespace Above
 
 	PartitionKey         = "TestPartitionKey"
 	EventId              = "TestEventId"

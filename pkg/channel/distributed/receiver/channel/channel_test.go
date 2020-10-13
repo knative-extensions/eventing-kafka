@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	channelhealth "knative.dev/eventing-kafka/pkg/channel/distributed/receiver/health"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/test"
+	receivertesting "knative.dev/eventing-kafka/pkg/channel/distributed/receiver/testing"
 	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	fakeclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned/fake"
 	"knative.dev/pkg/logging"
@@ -58,10 +58,10 @@ func TestValidateKafkaChannel(t *testing.T) {
 func performValidateKafkaChannelTest(t *testing.T, channelName string, channelNamespace string, exists bool, ready corev1.ConditionStatus, err bool) {
 
 	// Create The Channel Reference To Test
-	channelReference := test.CreateChannelReference(channelName, channelNamespace)
+	channelReference := receivertesting.CreateChannelReference(channelName, channelNamespace)
 
 	// Mock The Package Level KafkaChannel Lister For The Specified Use Case
-	kafkaChannelLister = test.NewMockKafkaChannelLister(channelReference.Name, channelReference.Namespace, exists, ready, err)
+	kafkaChannelLister = receivertesting.NewMockKafkaChannelLister(channelReference.Name, channelReference.Namespace, exists, ready, err)
 
 	// Perform The Test
 	validationError := ValidateKafkaChannel(channelReference)

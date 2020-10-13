@@ -189,9 +189,9 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: config-tracing
-  namespace: knative-eventing
+  namespace: knative-sources
   labels:
-    eventing.knative.dev/release: devel
+    contrib.eventing.knative.dev/release: devel
     knative.dev/config-propagation: original
     knative.dev/config-category: eventing
 data:

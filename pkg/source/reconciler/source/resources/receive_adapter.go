@@ -25,7 +25,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
-	"knative.dev/eventing/pkg/utils"
 	"knative.dev/pkg/kmeta"
 )
 
@@ -81,7 +80,7 @@ func MakeReceiveAdapter(args *ReceiveAdapterArgs) *v1.Deployment {
 
 	return &v1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      utils.GenerateFixedName(args.Source, fmt.Sprintf("kafkasource-%s", args.Source.Name)),
+			Name:      kmeta.ChildName(fmt.Sprintf("kafkasource-%s-", args.Source.Name), string(args.Source.GetUID())),
 			Namespace: args.Source.Namespace,
 			Labels:    args.Labels,
 			OwnerReferences: []metav1.OwnerReference{

@@ -17,7 +17,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/metrics"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/constants"
 	channelhealth "knative.dev/eventing-kafka/pkg/channel/distributed/receiver/health"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/test"
+	receivertesting "knative.dev/eventing-kafka/pkg/channel/distributed/receiver/testing"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/system"
 
@@ -89,9 +89,9 @@ Net:
   SASL:
     Mechanism: PLAIN
     Version: 1
-    User: ` + test.KafkaUsername + `
-    Password: ` + test.KafkaPassword + TestConfigMeta + TestConfigConsumer + `
-ClientID: ` + test.ClientId + `
+    User: ` + receivertesting.KafkaUsername + `
+    Password: ` + receivertesting.KafkaPassword + TestConfigMeta + TestConfigConsumer + `
+ClientID: ` + receivertesting.ClientId + `
 `
 )
 
@@ -99,7 +99,7 @@ ClientID: ` + test.ClientId + `
 func TestNewProducer(t *testing.T) {
 
 	// Create A Mock Kafka SyncProducer
-	mockSyncProducer := test.NewMockSyncProducer()
+	mockSyncProducer := receivertesting.NewMockSyncProducer()
 
 	// Create A Test Producer
 	producer := createTestProducer(t, mockSyncProducer)
@@ -112,10 +112,10 @@ func TestNewProducer(t *testing.T) {
 func TestProduceKafkaMessage(t *testing.T) {
 
 	// Create Test Data
-	mockSyncProducer := test.NewMockSyncProducer()
+	mockSyncProducer := receivertesting.NewMockSyncProducer()
 	producer := createTestProducer(t, mockSyncProducer)
-	channelReference := test.CreateChannelReference(test.ChannelName, test.ChannelNamespace)
-	bindingMessage := test.CreateBindingMessage(cloudevents.VersionV1)
+	channelReference := receivertesting.CreateChannelReference(receivertesting.ChannelName, receivertesting.ChannelNamespace)
+	bindingMessage := receivertesting.CreateBindingMessage(cloudevents.VersionV1)
 
 	// Perform The Test & Verify Results
 	err := producer.ProduceKafkaMessage(context.Background(), channelReference, bindingMessage)
@@ -124,21 +124,21 @@ func TestProduceKafkaMessage(t *testing.T) {
 	// Verify Message Was Produced Correctly
 	producerMessage := mockSyncProducer.GetMessage()
 	assert.NotNil(t, producerMessage)
-	assert.Equal(t, test.TopicName, producerMessage.Topic)
+	assert.Equal(t, receivertesting.TopicName, producerMessage.Topic)
 	value, err := producerMessage.Value.Encode()
 	assert.Nil(t, err)
-	assert.Equal(t, test.EventDataJson, value)
+	assert.Equal(t, receivertesting.EventDataJson, value)
 	key, err := producerMessage.Key.Encode()
 	assert.Nil(t, err)
-	assert.Equal(t, test.PartitionKey, string(key))
-	test.ValidateProducerMessageHeader(t, producerMessage.Headers, constants.KafkaHeaderKeyContentType, test.EventDataContentType)
-	test.ValidateProducerMessageHeader(t, producerMessage.Headers, constants.CeKafkaHeaderKeySpecVersion, cloudevents.VersionV1)
-	test.ValidateProducerMessageHeader(t, producerMessage.Headers, constants.CeKafkaHeaderKeyType, test.EventType)
-	test.ValidateProducerMessageHeader(t, producerMessage.Headers, constants.CeKafkaHeaderKeyId, test.EventId)
-	test.ValidateProducerMessageHeader(t, producerMessage.Headers, constants.CeKafkaHeaderKeySource, test.EventSource)
-	test.ValidateProducerMessageHeader(t, producerMessage.Headers, constants.CeKafkaHeaderKeySubject, test.EventSubject)
-	test.ValidateProducerMessageHeader(t, producerMessage.Headers, constants.CeKafkaHeaderKeyDataSchema, test.EventDataSchema)
-	test.ValidateProducerMessageHeader(t, producerMessage.Headers, constants.CeKafkaHeaderKeyPartitionKey, test.PartitionKey)
+	assert.Equal(t, receivertesting.PartitionKey, string(key))
+	receivertesting.ValidateProducerMessageHeader(t, producerMessage.Headers, constants.KafkaHeaderKeyContentType, receivertesting.EventDataContentType)
+	receivertesting.ValidateProducerMessageHeader(t, producerMessage.Headers, constants.CeKafkaHeaderKeySpecVersion, cloudevents.VersionV1)
+	receivertesting.ValidateProducerMessageHeader(t, producerMessage.Headers, constants.CeKafkaHeaderKeyType, receivertesting.EventType)
+	receivertesting.ValidateProducerMessageHeader(t, producerMessage.Headers, constants.CeKafkaHeaderKeyId, receivertesting.EventId)
+	receivertesting.ValidateProducerMessageHeader(t, producerMessage.Headers, constants.CeKafkaHeaderKeySource, receivertesting.EventSource)
+	receivertesting.ValidateProducerMessageHeader(t, producerMessage.Headers, constants.CeKafkaHeaderKeySubject, receivertesting.EventSubject)
+	receivertesting.ValidateProducerMessageHeader(t, producerMessage.Headers, constants.CeKafkaHeaderKeyDataSchema, receivertesting.EventDataSchema)
+	receivertesting.ValidateProducerMessageHeader(t, producerMessage.Headers, constants.CeKafkaHeaderKeyPartitionKey, receivertesting.PartitionKey)
 }
 
 func getBaseConfigMap() *corev1.ConfigMap {
@@ -163,14 +163,14 @@ func TestConfigChanged(t *testing.T) {
 	createSyncProducerWrapperPlaceholder := createSyncProducerWrapper
 	createSyncProducerWrapper = func(config *sarama.Config, brokers []string) (sarama.SyncProducer, gometrics.Registry, error) {
 		registry := gometrics.NewRegistry()
-		return test.NewMockSyncProducer(), registry, nil
+		return receivertesting.NewMockSyncProducer(), registry, nil
 	}
 	defer func() { createSyncProducerWrapper = createSyncProducerWrapperPlaceholder }()
 
 	// Setup Environment
 	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, commonconstants.KnativeEventingNamespace))
 	// Create Mocks
-	mockSyncProducer := test.NewMockSyncProducer()
+	mockSyncProducer := receivertesting.NewMockSyncProducer()
 	producer := createTestProducer(t, mockSyncProducer)
 
 	// Apply a change to the Producer config
@@ -216,7 +216,7 @@ func runConfigChangedTest(t *testing.T, originalProducer *Producer, base *corev1
 func TestClose(t *testing.T) {
 
 	// Create A Mock Kafka SyncProducer
-	mockSyncProducer := test.NewMockSyncProducer()
+	mockSyncProducer := receivertesting.NewMockSyncProducer()
 
 	// Create A Test Producer
 	producer := createTestProducer(t, mockSyncProducer)
@@ -246,7 +246,7 @@ func createTestProducer(t *testing.T, kafkaSyncProducer sarama.SyncProducer) *Pr
 	createSyncProducerWrapperPlaceholder := createSyncProducerWrapper
 	createSyncProducerWrapper = func(config *sarama.Config, brokers []string) (sarama.SyncProducer, gometrics.Registry, error) {
 		assert.Equal(t, testConfig, config)
-		assert.Equal(t, []string{test.KafkaBrokers}, brokers)
+		assert.Equal(t, []string{receivertesting.KafkaBrokers}, brokers)
 		registry := gometrics.NewRegistry()
 		return kafkaSyncProducer, registry, nil
 	}
@@ -260,7 +260,7 @@ func createTestProducer(t *testing.T, kafkaSyncProducer sarama.SyncProducer) *Pr
 	statsReporter := metrics.NewStatsReporter(logger)
 
 	// Create The Producer
-	producer, err := NewProducer(logger, testConfig, []string{test.KafkaBrokers}, statsReporter, healthServer)
+	producer, err := NewProducer(logger, testConfig, []string{receivertesting.KafkaBrokers}, statsReporter, healthServer)
 	assert.Nil(t, err)
 	assert.Equal(t, kafkaSyncProducer, producer.kafkaProducer)
 	assert.Equal(t, healthServer, producer.healthServer)

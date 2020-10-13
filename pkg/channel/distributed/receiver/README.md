@@ -1,10 +1,10 @@
-# Eventing-Kafka Channel
+# Eventing-Kafka Receiver
 
-The "Channel" implementation is a Kafka Producer which is responsible for
+The Receiver implementation is a Kafka Producer which is responsible for
 receiving CloudEvents, converting them to Kafka Messages, and writing them
 to the appropriate Kafka Topic.
 
-A unique Channel Deployment / Service is created for every Kafka Secret (in
+A unique Deployment / Service is created for every Kafka Secret (in
 the knative-eventing namespace and labelled with
 `eventing-kafka.knative.dev/kafka-secret: "true"`).  The single Deployment
 is horizontally scalable as necessary (via controller environment variables.) This
@@ -14,22 +14,23 @@ volume and multi-tenant use cases.
 An additional Service for each KafkaChannel is created in the user namespace
 where the KafkaChannel exists.  This is the actual endpoint of the `KafkaChannel`
 This service forwards requests to the service mentioned above in the
-knative-eventing namespace.  This is all necessary so that the Channel
+knative-eventing namespace.  This is all necessary so that the Receiver
 implementation can use the hostname of the request to map incoming CloudEvents
 to the appropriate Kafka Topic.
 
-The Kafka brokers and credentials are obtained from mounted Secret data from the aforementiond Kafka Secret.
+The Kafka brokers and credentials are obtained from mounted Secret data from
+the aforementiond Kafka Secret.
 
 ## Tracing, Profiling, and Metrics
 
-The Channel makes use of the infrastructure surrounding the config-tracing and config-observability
+The Receiver makes use of the infrastructure surrounding the config-tracing and config-observability
 configmaps (see [Accessing CloudEvent traces](https://knative.dev/docs/eventing/accessing-traces) and
 [Installing logging, metrics, and traces](https://knative.dev/docs/serving/installing-logging-metrics-traces)
 for more information on the basic Knative-Eventing concepts behind these features.  The default behavior for
 tracing and profiling is provided such that accessing a tracing server (such as Zipkin), and the debug profiling
 information, should work as described in those links.  For example, you might access your zipkin server
 via `http://localhost:8001/api/v1/namespaces/knative-eventing/services/zipkin:9411/proxy/zipkin` after running a
-"kubectl proxy" command or your profiling server via `http://localhost:8008/debug/pprof` after executing
+"kubectl proxy" command, or the profiling server via `http://localhost:8008/debug/pprof` after executing
 "kubectl -n knative-eventing port-forward my-channel-pod-name 8008:8008"
 
 Eventing-Kafka does provide some of its own custom metrics that use the Prometheus server provided by
