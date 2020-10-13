@@ -53,11 +53,11 @@ func NewMockMessageDispatcher(t *testing.T,
 	}
 }
 
-func (m *MockMessageDispatcher) DispatchMessage(ctx context.Context, message cloudevents.Message, additionalHeaders http.Header, destination *url.URL, reply *url.URL, deadLetter *url.URL) error {
+func (m *MockMessageDispatcher) DispatchMessage(ctx context.Context, message cloudevents.Message, additionalHeaders http.Header, destination *url.URL, reply *url.URL, deadLetter *url.URL) (channel.DispatchExecutionInfo, error) {
 	panic("implement me")
 }
 
-func (m *MockMessageDispatcher) DispatchMessageWithRetries(ctx context.Context, message cloudevents.Message, headers http.Header, destinationUrl *url.URL, replyUrl *url.URL, deadLetterUrl *url.URL, retryConfig *kncloudevents.RetryConfig) error {
+func (m *MockMessageDispatcher) DispatchMessageWithRetries(ctx context.Context, message cloudevents.Message, headers http.Header, destinationUrl *url.URL, replyUrl *url.URL, deadLetterUrl *url.URL, retryConfig *kncloudevents.RetryConfig) (channel.DispatchExecutionInfo, error) {
 
 	// Validate The Expected Args
 	assert.NotNil(m.t, ctx)
@@ -72,7 +72,7 @@ func (m *MockMessageDispatcher) DispatchMessageWithRetries(ctx context.Context, 
 	m.message = message
 
 	// Return The Desired Error Response
-	return m.response
+	return channel.DispatchExecutionInfo{}, m.response
 }
 
 func (m *MockMessageDispatcher) Message() cloudevents.Message {

@@ -27,6 +27,8 @@ import (
 	"github.com/Shopify/sarama"
 	protocolkafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"github.com/cloudevents/sdk-go/v2/binding"
+	"github.com/google/uuid"
+	"github.com/kelseyhightower/envconfig"
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
@@ -35,6 +37,7 @@ import (
 	eventingchannels "knative.dev/eventing/pkg/channel"
 	"knative.dev/eventing/pkg/channel/fanout"
 	"knative.dev/eventing/pkg/kncloudevents"
+	"knative.dev/pkg/kmeta"
 )
 
 type KafkaDispatcher struct {
@@ -60,6 +63,11 @@ type KafkaDispatcher struct {
 type Subscription struct {
 	UID types.UID
 	fanout.Subscription
+}
+
+type envConfig struct {
+	PodName       string `envconfig:"POD_NAME" required:"true"`
+	ContainerName string `envconfig:"CONTAINER_NAME" required:"true"`
 }
 
 func (sub Subscription) String() string {
@@ -102,6 +110,13 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 		logger:               args.Logger,
 		topicFunc:            args.TopicFunc,
 	}
+	var env envConfig
+	if err := envconfig.Process("", &env); err != nil {
+		return nil, err
+	}
+	// TODO expose metrics
+	reporter := eventingchannels.NewStatsReporter(env.ContainerName, kmeta.ChildName(env.PodName, uuid.New().String()))
+
 	receiverFunc, err := eventingchannels.NewMessageReceiver(
 		func(ctx context.Context, channel eventingchannels.ChannelReference, message binding.Message, transformers []binding.Transformer, _ nethttp.Header) error {
 			kafkaProducerMessage := sarama.ProducerMessage{
@@ -120,6 +135,7 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 			return nil
 		},
 		args.Logger.Desugar(),
+		reporter,
 		eventingchannels.ResolveMessageChannelFromHostHeader(dispatcher.getChannelReferenceFromHost))
 	if err != nil {
 		return nil, err
@@ -168,7 +184,7 @@ func (c consumerMessageHandler) Handle(ctx context.Context, consumerMessage *sar
 	ctx, span := startTraceFromMessage(c.logger, ctx, message, consumerMessage.Topic)
 	defer span.End()
 
-	err := c.dispatcher.DispatchMessageWithRetries(
+	_, err := c.dispatcher.DispatchMessageWithRetries(
 		ctx,
 		message,
 		nil,

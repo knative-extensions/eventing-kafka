@@ -40,4 +40,5 @@ replace (
 	k8s.io/apimachinery => k8s.io/apimachinery v0.18.8
 	k8s.io/client-go => k8s.io/client-go v0.18.8
 	k8s.io/code-generator => k8s.io/code-generator v0.18.8
+	knative.dev/eventing v0.18.1-0.20201009013021-d37dbc88e6fd => github.com/skonto/eventing v0.1.0
 )
