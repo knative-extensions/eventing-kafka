@@ -30,5 +30,4 @@ import (
 	_ "knative.dev/eventing/test/test_images/print"
 	_ "knative.dev/eventing/test/test_images/recordevents"
 	_ "knative.dev/eventing/test/test_images/sequencestepper"
-	_ "knative.dev/eventing/test/test_images/transformevents"
 )
