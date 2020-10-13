@@ -22,6 +22,7 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/kelseyhightower/envconfig"
+
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
 	"knative.dev/eventing-kafka/pkg/common/client"
 )
@@ -45,18 +46,23 @@ type AdapterNet struct {
 	TLS  AdapterTLS
 }
 
-type envConfig struct {
+type KafkaEnvConfig struct {
 	BootstrapServers []string `envconfig:"KAFKA_BOOTSTRAP_SERVERS" required:"true"`
 	Net              AdapterNet
 }
 
 // NewConfig extracts the Kafka configuration from the environment.
 func NewConfig(ctx context.Context) ([]string, *sarama.Config, error) {
-	var env envConfig
+	var env KafkaEnvConfig
 	if err := envconfig.Process("", &env); err != nil {
 		return nil, nil, err
 	}
 
+	return NewConfigWithEnv(ctx, &env)
+}
+
+// NewConfig extracts the Kafka configuration from the environment.
+func NewConfigWithEnv(ctx context.Context, env *KafkaEnvConfig) ([]string, *sarama.Config, error) {
 	kafkaAuthConfig := &client.KafkaAuthConfig{}
 
 	if env.Net.TLS.Enable {

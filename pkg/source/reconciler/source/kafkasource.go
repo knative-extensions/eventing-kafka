@@ -58,6 +58,7 @@ const (
 	kafkaSourceDeploymentFailed  = "KafkaSourceDeploymentFailed"
 	kafkaSourceDeploymentDeleted = "KafkaSourceDeploymentDeleted"
 	component                    = "kafkasource"
+	mtadapterName                = "kafkasource-mt-adapter"
 )
 
 // newDeploymentCreated makes a new reconciler event with event type Normal, and
@@ -88,7 +89,8 @@ type Reconciler struct {
 	// KubeClientSet allows us to talk to the k8s for core APIs
 	KubeClientSet kubernetes.Interface
 
-	receiveAdapterImage string
+	receiveAdapterImage     string
+	reconcileReceiveAdapter func(context.Context, *v1beta1.KafkaSource, *apis.URL) (*appsv1.Deployment, error)
 
 	kafkaLister      listers.KafkaSourceLister
 	deploymentLister appsv1listers.DeploymentLister
@@ -150,7 +152,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 
 	// TODO(mattmoor): create KafkaBinding for the receive adapter.
 
-	ra, err := r.createReceiveAdapter(ctx, src, sinkURI)
+	ra, err := r.reconcileReceiveAdapter(ctx, src, sinkURI)
 	if err != nil {
 		var event *pkgreconciler.ReconcilerEvent
 		isReconcilerEvent := pkgreconciler.EventAs(err, &event)
@@ -168,7 +170,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 	return nil
 }
 
-func (r *Reconciler) createReceiveAdapter(ctx context.Context, src *v1beta1.KafkaSource, sinkURI *apis.URL) (*appsv1.Deployment, error) {
+func (r *Reconciler) reconcileSTReceiveAdapter(ctx context.Context, src *v1beta1.KafkaSource, sinkURI *apis.URL) (*appsv1.Deployment, error) {
 	raArgs := resources.ReceiveAdapterArgs{
 		Image:          r.receiveAdapterImage,
 		Source:         src,

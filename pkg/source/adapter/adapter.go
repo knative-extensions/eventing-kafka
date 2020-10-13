@@ -17,33 +17,34 @@ limitations under the License.
 package kafka
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"strings"
 
-	"knative.dev/eventing-kafka/pkg/source"
-
+	"github.com/Shopify/sarama"
 	"go.opencensus.io/trace"
-	"knative.dev/eventing/pkg/adapter/v2"
-	"knative.dev/eventing/pkg/kncloudevents"
+	"go.uber.org/zap"
+
+	"knative.dev/pkg/logging"
 	pkgsource "knative.dev/pkg/source"
 
-	"context"
+	"knative.dev/eventing/pkg/adapter/v2"
+	"knative.dev/eventing/pkg/kncloudevents"
 
-	"github.com/Shopify/sarama"
-	"go.uber.org/zap"
 	"knative.dev/eventing-kafka/pkg/common/consumer"
-	"knative.dev/pkg/logging"
+	kafkasource "knative.dev/eventing-kafka/pkg/source"
 )
 
 const (
 	resourceGroup = "kafkasources.sources.knative.dev"
 )
 
-type adapterConfig struct {
+type AdapterConfig struct {
 	adapter.EnvConfig
+	kafkasource.KafkaEnvConfig
 
 	Topics        []string `envconfig:"KAFKA_TOPICS" required:"true"`
 	ConsumerGroup string   `envconfig:"KAFKA_CONSUMER_GROUP" required:"true"`
@@ -52,11 +53,11 @@ type adapterConfig struct {
 }
 
 func NewEnvConfig() adapter.EnvConfigAccessor {
-	return &adapterConfig{}
+	return &AdapterConfig{}
 }
 
 type Adapter struct {
-	config            *adapterConfig
+	config            *AdapterConfig
 	httpMessageSender *kncloudevents.HTTPMessageSender
 	reporter          pkgsource.StatsReporter
 	logger            *zap.SugaredLogger
@@ -68,7 +69,7 @@ var _ adapter.MessageAdapterConstructor = NewAdapter
 
 func NewAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, httpMessageSender *kncloudevents.HTTPMessageSender, reporter pkgsource.StatsReporter) adapter.MessageAdapter {
 	logger := logging.FromContext(ctx)
-	config := processed.(*adapterConfig)
+	config := processed.(*AdapterConfig)
 
 	return &Adapter{
 		config:            config,
@@ -93,7 +94,7 @@ func (a *Adapter) start(stopCh <-chan struct{}) error {
 	)
 
 	// init consumer group
-	addrs, config, err := source.NewConfig(context.Background())
+	addrs, config, err := kafkasource.NewConfigWithEnv(context.Background(), &a.config.KafkaEnvConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create the config: %w", err)
 	}

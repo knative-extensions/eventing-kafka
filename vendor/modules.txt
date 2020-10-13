@@ -1081,6 +1081,7 @@ k8s.io/utils/trace
 # knative.dev/eventing v0.20.1-0.20210125061954-340f07f40bda
 ## explicit
 knative.dev/eventing/pkg/adapter/v2
+knative.dev/eventing/pkg/adapter/v2/test
 knative.dev/eventing/pkg/adapter/v2/util/crstatusevent
 knative.dev/eventing/pkg/apis/config
 knative.dev/eventing/pkg/apis/configs

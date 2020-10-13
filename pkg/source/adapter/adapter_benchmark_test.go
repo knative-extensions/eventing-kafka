@@ -73,7 +73,7 @@ func BenchmarkHandle(b *testing.B) {
 	statsReporter, _ := source.NewStatsReporter()
 
 	a := &Adapter{
-		config: &adapterConfig{
+		config: &AdapterConfig{
 			EnvConfig: adapter.EnvConfig{
 				Sink:      sinkUrl,
 				Namespace: "test",

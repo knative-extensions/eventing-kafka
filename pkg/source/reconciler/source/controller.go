@@ -41,13 +41,6 @@ func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
 ) *controller.Impl {
-
-	raImage, defined := os.LookupEnv(raImageEnvVar)
-	if !defined {
-		logging.FromContext(ctx).Errorf("required environment variable '%s' not defined", raImageEnvVar)
-		return nil
-	}
-
 	kafkaInformer := kafkainformer.Get(ctx)
 	deploymentInformer := deploymentinformer.Get(ctx)
 
@@ -56,13 +49,18 @@ func NewController(
 		kafkaClientSet:      kafkaclient.Get(ctx),
 		kafkaLister:         kafkaInformer.Lister(),
 		deploymentLister:    deploymentInformer.Lister(),
-		receiveAdapterImage: raImage,
+		receiveAdapterImage: os.Getenv(raImageEnvVar), // empty when running in multi-tenant mode
 		loggingContext:      ctx,
 		configs:             source.WatchConfigurations(ctx, component, cmw),
 	}
 
 	impl := kafkasource.NewImpl(ctx, c)
+
 	c.sinkResolver = resolver.NewURIResolver(ctx, impl.EnqueueKey)
+	c.reconcileReceiveAdapter = c.reconcileSTReceiveAdapter
+	if c.receiveAdapterImage == "" {
+		c.reconcileReceiveAdapter = c.reconcileMTReceiveAdapter
+	}
 
 	logging.FromContext(ctx).Info("Setting up kafka event handlers")
 
