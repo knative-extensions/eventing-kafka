@@ -31,11 +31,11 @@ import (
 	"knative.dev/eventing/pkg/apis/eventing"
 	"knative.dev/eventing/pkg/channel/fanout"
 	"knative.dev/eventing/pkg/kncloudevents"
-	"knative.dev/eventing/pkg/tracing"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/logging"
+	"knative.dev/pkg/tracing"
 	pkgreconciler "knative.dev/pkg/reconciler"
 
 	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"

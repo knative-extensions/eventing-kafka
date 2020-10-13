@@ -47,7 +47,7 @@ func InitializeObservability(ctx context.Context, logger *zap.SugaredLogger, met
 	// behavior here is a fatal exit if the stats or watch cannot be set up.
 
 	// Initialize the memory stats, which will be added to the eventing metrics exporter every 30 seconds
-	sharedmain.MemStatsOrDie(ctx)
+	metrics.MemStatsOrDie(ctx)
 
 	// Create A Watcher On The Observability ConfigMap & Dynamically Update Observability Configuration
 	cmw := sharedmain.SetupConfigMapWatchOrDie(ctx, logger)
