@@ -23,7 +23,7 @@ changes to the Subscribable (Channelable) list of subscribers.  It also updates
 the KafkaChannel's SubscriberStatus when the Kafka ConsumerGroups are deemed to
 be operational.
 
-The Kafka brokers and credentials are obtained from mounted Secret data from the aforementiond Kafka Secret.
+The Kafka brokers and credentials are obtained from mounted Secret data from the aforementioned Kafka Secret.
 
 ## Tracing, Profiling, and Metrics
 

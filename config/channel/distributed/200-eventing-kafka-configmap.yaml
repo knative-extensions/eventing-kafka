@@ -1,7 +1,7 @@
 apiVersion: v1
 data:
   sarama: |
-    Version: 2.0.0 # Kafka Version Compatability From Sarama's Supported List (Major.Minor.Patch)
+    Version: 2.0.0 # Kafka Version Compatibility From Sarama's Supported List (Major.Minor.Patch)
     Admin:
       Timeout: 10000000000  # 10 seconds
     Net:

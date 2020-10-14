@@ -19,7 +19,7 @@ implementation can use the hostname of the request to map incoming CloudEvents
 to the appropriate Kafka Topic.
 
 The Kafka brokers and credentials are obtained from mounted Secret data from
-the aforementiond Kafka Secret.
+the aforementioned Kafka Secret.
 
 ## Tracing, Profiling, and Metrics
 
