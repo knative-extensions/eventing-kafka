@@ -325,7 +325,7 @@ function kafka_teardown() {
 
 # Note:  The setting of gcp-project-id option here has no effect when testing locally; it is only for the kubetest2 utility
 # If you wish to use this script just as test setup, *without* teardown, add "--skip-teardowns" to the initialize command
-initialize $@ --skip-istio-addon "--gcp-project-id=${PROJECT_ID}" --skip-teardowns
+initialize $@ --skip-istio-addon "--gcp-project-id=${PROJECT_ID}"
 
 # Test the consolidated channel
 echo "Testing the consolidated channel"
