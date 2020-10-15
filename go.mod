@@ -20,16 +20,14 @@ require (
 	go.opencensus.io v0.22.5-0.20200716030834-3456e1d174b2
 	go.uber.org/zap v1.15.0
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
-	golang.org/x/tools v0.0.0-20200916195026-c9a70fc28ce3 // indirect
-	honnef.co/go/tools v0.0.1-2020.1.5 // indirect
 	k8s.io/api v0.18.8
 	k8s.io/apiextensions-apiserver v0.18.8 // indirect
 	k8s.io/apimachinery v0.18.8
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/utils v0.0.0-20200603063816-c1c6865ac451
-	knative.dev/eventing v0.18.1-0.20201009013021-d37dbc88e6fd
-	knative.dev/pkg v0.0.0-20201009023821-73da5142da72
-	knative.dev/test-infra v0.0.0-20201008221921-aeca2ff2371a
+	knative.dev/eventing v0.18.1-0.20201015095656-0a79d05b949a
+	knative.dev/pkg v0.0.0-20201014184531-9e655c6b02f6
+	knative.dev/test-infra v0.0.0-20201014021030-ae3984a33f82
 	pack.ag/amqp v0.12.4 // indirect
 )
 
