@@ -126,11 +126,64 @@ jobs:
 
         kind create cluster --config kind.yaml
 
+    - name: Install Strimzi
+      run: |
+
+        strimzi_version=`curl https://github.com/strimzi/strimzi-kafka-operator/releases/latest |  awk -F 'tag/' '{print $2}' | awk -F '"' '{print $1}' 2>/dev/null`
+
+        kubectl create namespace kafka
+        kubectl -n kafka apply --selector strimzi.io/crd-install=true -f https://github.com/strimzi/strimzi-kafka-operator/releases/download/${strimzi_version}/strimzi-cluster-operator-${strimzi_version}.yaml
+        curl -L "https://github.com/strimzi/strimzi-kafka-operator/releases/download/${strimzi_version}/strimzi-cluster-operator-${strimzi_version}.yaml" \
+         | sed 's/namespace: .*/namespace: kafka/' \
+         | kubectl -n kafka apply -f -
+
+        kubectl -n kafka apply -f "https://raw.githubusercontent.com/strimzi/strimzi-kafka-operator/${strimzi_version}/examples/kafka/kafka-persistent-single.yaml"
+        kubectl wait deployment --all --timeout=-1s --for=condition=Available -n kafka
+
+    - name: Install Knative
+      env:
+        SERVING_VERSION: v0.18.0
+        KOURIER_VERSION: v0.18.0
+      run: |
+        # Prerequisites
+        sudo pip install yq
+
+        # Serving
+        kubectl apply --filename https://github.com/knative/serving/releases/download/$SERVING_VERSION/serving-crds.yaml
+        sleep 5
+        curl -L -s https://github.com/knative/serving/releases/download/$SERVING_VERSION/serving-core.yaml | yq 'del(.spec.template.spec.containers[]?.resources)' -y | yq 'del(.metadata.annotations."knative.dev/example-checksum")' -y | kubectl apply -f -
+        sleep 60
+        kubectl get pod -n knative-serving
+
+        # Kourier
+        kubectl apply --filename https://github.com/knative-sandbox/net-kourier/releases/download/$KOURIER_VERSION/kourier.yaml
+        kubectl patch configmap/config-network \
+        --namespace knative-serving \
+        --type merge \
+        --patch '{"data":{"ingress.class":"kourier.ingress.networking.knative.dev"}}'
+        sleep 30
+        kubectl get pod -n kourier-system
+
+        # Eventing
+        kubectl apply --filename https://knative-nightly.storage.googleapis.com/eventing/latest/eventing-crds.yaml
+        sleep 5
+        curl -L -s https://knative-nightly.storage.googleapis.com/eventing/latest/eventing-core.yaml | yq 'del(.spec.template.spec.containers[]?.resources)' -y | yq 'del(.metadata.annotations."knative.dev/example-checksum")' -y | kubectl apply -f -
+        # Eventing channels
+        curl -L -s https://knative-nightly.storage.googleapis.com/eventing/latest/in-memory-channel.yaml | yq 'del(.spec.template.spec.containers[]?.resources)' -y | yq 'del(.metadata.annotations."knative.dev/example-checksum")' -y | kubectl apply -f -
+        # Eventing broker
+        curl -L -s https://knative-nightly.storage.googleapis.com/eventing/latest/mt-channel-broker.yaml | yq 'del(.spec.template.spec.containers[]?.resources)' -y | yq 'del(.metadata.annotations."knative.dev/example-checksum")' -y | kubectl apply -f -
+        sleep 30
+        kubectl get pod -n knative-eventing
+
+        kubectl get pod --all-namespaces
+
+      - name: Install Test Images
+
     - name: Install Knative Eventing Kafka
       run: |
         set -o pipefail
 
-        sed -i 's/REPLACE_WITH_CLUSTER_URL/my-cluster-kafka-bootstrap.kafka:9092/' config/channel/consolidated/configmaps/kafka-config.yaml 
+        sed -i 's/REPLACE_WITH_CLUSTER_URL/my-cluster-kafka-bootstrap.kafka:9092/' config/channel/consolidated/configmaps/kafka-config.yaml
 
         # Build and Publish our containers to the docker daemon (including test assets)
         export GO111MODULE=on
