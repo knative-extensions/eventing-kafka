@@ -65,6 +65,12 @@ readonly KAFKA_CRD_CONFIG_DIR="$(mktemp -d)"
 # Kafka channel CRD config template directory.
 readonly KAFKA_SOURCE_CRD_CONFIG_DIR="config/source"
 
+# Namespace where we install Eventing components
+readonly SYSTEM_NAMESPACE="knative-eventing"
+
+# Zipking setup
+readonly KNATIVE_EVENTING_MONITORING_YAML="test/config/monitoring.yaml"
+
 function knative_setup() {
   if is_release_branch; then
     echo ">> Install Knative Eventing from ${KNATIVE_EVENTING_RELEASE}"
@@ -84,17 +90,12 @@ function knative_setup() {
   fi
   wait_until_pods_running knative-eventing || fail_test "Knative Eventing did not come up"
 
+  # Setup zipkin
+  kubectl apply -f $KNATIVE_EVENTING_MONITORING_YAML
+  wait_until_pods_running knative-eventing || fail_test "Zipkin inside eventing did not come up"
+
   # Setup config tracing for tracing tests
   kubectl replace -f $CONFIG_TRACING_CONFIG
-
-  # TODO install head if !is_release_branch
-  echo "Installing Knative Monitoring"
-  # Hack hack hack. Why is this namespace not created as part of monitoring release.
-  # https://github.com/knative/eventing/issues/3469
-  kubectl create ns knative-monitoring
-  kubectl create namespace istio-system
-  kubectl apply --filename "${KNATIVE_MONITORING_RELEASE}" || return 1
-  wait_until_pods_running istio-system || fail_test "Knative Monitoring did not come up"
 }
 
 function knative_teardown() {
