@@ -34,12 +34,6 @@ const (
 
 	KafkaChannelSeparator = "."
 
-	// DefaultNumPartitions defines the default number of partitions
-	DefaultNumPartitions = 1
-
-	// DefaultReplicationFactor defines the default number of replications
-	DefaultReplicationFactor = 1
-
 	knativeKafkaTopicPrefix = "knative-messaging-kafka"
 
 	DefaultMaxIdleConns        = 1000

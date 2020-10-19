@@ -19,9 +19,8 @@ package v1beta1
 import (
 	"context"
 
+	"knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/eventing/pkg/apis/messaging"
-
-	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
 )
 
 func (c *KafkaChannel) SetDefaults(ctx context.Context) {
@@ -42,9 +41,9 @@ func (c *KafkaChannel) SetDefaults(ctx context.Context) {
 
 func (cs *KafkaChannelSpec) SetDefaults(ctx context.Context) {
 	if cs.NumPartitions == 0 {
-		cs.NumPartitions = utils.DefaultNumPartitions
+		cs.NumPartitions = constants.DefaultNumPartitions
 	}
 	if cs.ReplicationFactor == 0 {
-		cs.ReplicationFactor = utils.DefaultReplicationFactor
+		cs.ReplicationFactor = constants.DefaultReplicationFactor
 	}
 }

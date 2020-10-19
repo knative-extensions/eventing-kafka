@@ -17,11 +17,9 @@ import (
 	"context"
 	"testing"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
-
 	"github.com/google/go-cmp/cmp"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/eventing-kafka/pkg/common/constants"
 )
 
 const (
@@ -41,8 +39,8 @@ func TestKafkaChannelDefaults(t *testing.T) {
 					Annotations: map[string]string{"messaging.knative.dev/subscribable": "v1alpha1"},
 				},
 				Spec: KafkaChannelSpec{
-					NumPartitions:     utils.DefaultNumPartitions,
-					ReplicationFactor: utils.DefaultReplicationFactor,
+					NumPartitions:     constants.DefaultNumPartitions,
+					ReplicationFactor: constants.DefaultReplicationFactor,
 				},
 			},
 		},
@@ -57,7 +55,7 @@ func TestKafkaChannelDefaults(t *testing.T) {
 					Annotations: map[string]string{"messaging.knative.dev/subscribable": "v1alpha1"},
 				},
 				Spec: KafkaChannelSpec{
-					NumPartitions:     utils.DefaultNumPartitions,
+					NumPartitions:     constants.DefaultNumPartitions,
 					ReplicationFactor: testReplicationFactor,
 				},
 			},
@@ -74,7 +72,7 @@ func TestKafkaChannelDefaults(t *testing.T) {
 				},
 				Spec: KafkaChannelSpec{
 					NumPartitions:     testNumPartitions,
-					ReplicationFactor: utils.DefaultReplicationFactor,
+					ReplicationFactor: constants.DefaultReplicationFactor,
 				},
 			},
 		},
