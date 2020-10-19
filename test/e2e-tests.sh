@@ -48,6 +48,9 @@ readonly HEAD_EVENTING_TEST_IMAGES="${GOPATH}/src/knative.dev/eventing/test/test
 # Config tracing config.
 readonly CONFIG_TRACING_CONFIG="test/config/config-tracing.yaml"
 
+# Installs Zipkin for tracing tests.
+readonly KNATIVE_EVENTING_MONITORING_YAML="test/config/monitoring.yaml"
+
 # Strimzi installation config template used for starting up Kafka clusters.
 readonly STRIMZI_INSTALLATION_CONFIG_TEMPLATE="test/config/100-strimzi-cluster-operator-0.19.0.yaml"
 # Strimzi installation config.
@@ -93,7 +96,7 @@ function knative_setup() {
   # https://github.com/knative/eventing/issues/3469
   kubectl create ns knative-monitoring
   kubectl create namespace istio-system
-  kubectl apply --filename "${KNATIVE_MONITORING_RELEASE}" || return 1
+  kubectl apply --filename "${KNATIVE_EVENTING_MONITORING_YAML}" || return 1
   wait_until_pods_running istio-system || fail_test "Knative Monitoring did not come up"
 }
 
