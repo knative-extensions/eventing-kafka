@@ -4,6 +4,7 @@
 Copyright 2020 The Knative Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
+	_ "knative.dev/eventing/test/test_images/filterevents"
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
@@ -24,7 +25,6 @@ import (
 
 	// Test images from eventing
 	_ "knative.dev/eventing/test/test_images/event-sender"
-	_ "knative.dev/eventing/test/test_images/filterevents"
 	_ "knative.dev/eventing/test/test_images/heartbeats"
 	_ "knative.dev/eventing/test/test_images/performance"
 	_ "knative.dev/eventing/test/test_images/print"
