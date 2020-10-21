@@ -1,24 +1,24 @@
 # Creating A Simple Kind Cluster With Kafka
 
-If you want to quickly spin up a local kubernetes cluster with
-Kafka installed, then the following instructions might be helpful.
+If you want to quickly spin up a local kubernetes cluster with Kafka installed,
+then the following instructions might be helpful.
 
-> There are lots of ways to do this (different k8s clusters, and kafka 
-implementations) and the following is just **ONE** way.  Feel free to try
-other stacks and add to this documentation ; )
-
+> There are lots of ways to do this (different k8s clusters, and kafka
+> implementations) and the following is just **ONE** way. Feel free to try other
+> stacks and add to this documentation ; )
 
 ## Prerequisites
+
 These instructions assume you have the following installed...
 
-  - [Docker](https://www.docker.com/products/docker-desktop)  
-  - [kind](https://kind.sigs.k8s.io/)
-  - [ko](https://github.com/google/ko)
+- [Docker](https://www.docker.com/products/docker-desktop)
+- [kind](https://kind.sigs.k8s.io/)
+- [ko](https://github.com/google/ko)
 
 ...and have forked / cloned this repo locally.
 
-
 ## Install Kind Cluster
+
 ```
 # Specify Kind / Kubernetes Version  (See... https://hub.docker.com/r/kindest/node/tags)
 export KUBERNETES_VERSION=v1.18.6
@@ -33,8 +33,8 @@ kubectl cluster-info --context kind-kind
 kubectl config current-context
 ```
 
-
 ## Install Knative Eventing
+
 ```
 # Specify Knative Version
 export EVENTING_VERSION=v0.18.1   # Choose from https://github.com/knative/eventing/releases
@@ -44,14 +44,17 @@ kubectl apply --filename https://github.com/knative/eventing/releases/download/$
 kubectl apply --filename https://github.com/knative/eventing/releases/download/${EVENTING_VERSION}/eventing-core.yaml
 ```
 
-
 ## Set Knative Debug Logging (Optional)
+
 To switch knative-eventing and eventing-kafka components to **debug** level
 logging edit the logging ConfigMap ...
+
 ```
 kubectl edit configmap -n knative-eventing config-logging
 ```
+
 ... and set the zap-logger-config `"level"` field ...
+
 ```
 apiVersion: v1
 data:
@@ -61,8 +64,8 @@ data:
 ...
 ```
 
-
 ## Install Strimzi Kafka
+
 ```
 Specify Strimzi Kafka Version (See... https://github.com/strimzi/strimzi-kafka-operator/releases)
 export STRIMZI_VERSION=0.18.0
@@ -80,13 +83,15 @@ kubectl apply -f https://raw.githubusercontent.com/strimzi/strimzi-kafka-operato
 kubectl wait kafka/my-cluster --for=condition=Ready --timeout=300s -n kafka
 ```
 
-
 ## Install Distributed KafkaChannel
-The following example covers deploying the distributed KafkaChannel, but similar 
+
+The following example covers deploying the distributed KafkaChannel, but similar
 steps could be used for the Consolidated KafkaChannel or Source.
 
 - Configure The Distributed KafkaChannel For Strimzi...
-  - Disable TLS/SASL in [config/channel/distributed/200-eventing-kafka-configmap.yaml](../config/channel/distributed/200-eventing-kafka-configmap.yaml)
+
+  - Disable TLS/SASL in
+    [config/channel/distributed/200-eventing-kafka-configmap.yaml](../config/channel/distributed/200-eventing-kafka-configmap.yaml)
     ```
     data:
       sarama: |
@@ -96,8 +101,9 @@ steps could be used for the Consolidated KafkaChannel or Source.
           SASL:
             Enable: false
     ```
-    
-  - Specify Strimzi Brokers in [config/channel/distributed/300-kafka-secret.yaml](../config/channel/distributed/300-kafka-secret.yaml)
+  - Specify Strimzi Brokers in
+    [config/channel/distributed/300-kafka-secret.yaml](../config/channel/distributed/300-kafka-secret.yaml)
+
     ```
     apiVersion: v1
     data:
@@ -114,23 +120,25 @@ steps could be used for the Consolidated KafkaChannel or Source.
     ```
 
   - Install the distributed KafkaChannel
+
     ```
     # Set Ko To Use Your Docker Registry (For deploying built images)
     export KO_DOCKER_REPO=<docker-registry-path>
-    
+
     # Build / Deploy
     ko apply --strict -f config/channel/distributed/
     ```
 
-
 ## Uninstall Distributed KafkaChannel
+
 ```
 ko delete -f config/channel/distributed/
 ```
 
-
 ## Uninstall Kind Cluster
+
 When you're done you can remove the Kind cluster as follows...
+
 ```
 # Double Check Current Cluster
 kubectl config current-context
@@ -138,4 +146,3 @@ kubectl config current-context
 # Delete The Kind Cluster (Updates ~/.kube/config)
 kind delete cluster
 ```
-

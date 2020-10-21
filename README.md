@@ -1,4 +1,5 @@
 # Kafka Eventing Components
+
 [![go.dev reference](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go&logoColor=white)](https://pkg.go.dev/knative.dev/eventing-kafka)
 [![Go Report Card](https://goreportcard.com/badge/knative-sandbox/eventing-kafka)](https://goreportcard.com/report/knative-sandbox/eventing-kafka)
 [![Releases](https://img.shields.io/github/release-pre/knative-sandbox/eventing-kafka.svg)](https://github.com/knative-sandbox/eventing-kafka/releases)
@@ -8,15 +9,14 @@
 [![Slack](https://img.shields.io/badge/Signup-Knative_Slack-white.svg?logo=slack)](https://slack.knative.dev)
 [![Slack](https://img.shields.io/badge/%23eventing-white.svg?logo=slack&color=522a5e)](https://knative.slack.com/archives/C9JP909F0)
 
-This repository contains eventing components using Kafka
-as the backing implementation.  It currently consists of a 
-[Source](pkg/source/README.md) implementation, and a single
-KafkaChannel CRD with two backing Channel implementations
-([Consolidated](pkg/channel/consolidated/README.md) &
+This repository contains eventing components using Kafka as the backing
+implementation. It currently consists of a [Source](pkg/source/README.md)
+implementation, and a single KafkaChannel CRD with two backing Channel
+implementations ([Consolidated](pkg/channel/consolidated/README.md) &
 [Distributed](pkg/channel/distributed/README.md)).
 
-
 ## Nightly Artifacts
+
 ```shell script
 # Install the Kafka Source
 kubectl apply -f https://storage.googleapis.com/knative-nightly/eventing-kafka/latest/source.yaml
