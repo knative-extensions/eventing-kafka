@@ -1,1 +1,1 @@
-defaultBaseImage: gcr.io/distroless/static-debian10
+defaultBaseImage: gcr.io/distroless/static:nonroot
