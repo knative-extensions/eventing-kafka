@@ -25,9 +25,9 @@ require (
 	k8s.io/apimachinery v0.18.8
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/utils v0.0.0-20200603063816-c1c6865ac451
-	knative.dev/eventing v0.18.1-0.20201015095656-0a79d05b949a
-	knative.dev/pkg v0.0.0-20201014184531-9e655c6b02f6
-	knative.dev/test-infra v0.0.0-20201014021030-ae3984a33f82
+	knative.dev/eventing v0.18.1-0.20201020205059-f3d27b9634d1
+	knative.dev/pkg v0.0.0-20201020221017-1787376258ce
+	knative.dev/test-infra v0.0.0-20201020210659-8f5dc4814ac3
 	pack.ag/amqp v0.12.4 // indirect
 )
 
