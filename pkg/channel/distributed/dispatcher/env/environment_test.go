@@ -39,6 +39,8 @@ const (
 	serviceName   = "TestServiceName"
 	kafkaUsername = "TestKafkaUsername"
 	kafkaPassword = "TestKafkaPassword"
+	podName       = "TestPod"
+	containerName = "TestContainer"
 )
 
 // Define The TestCase Struct
@@ -53,6 +55,8 @@ type TestCase struct {
 	serviceName   string
 	kafkaUsername string
 	kafkaPassword string
+	podName       string
+	containerName string
 	expectedError error
 }
 
@@ -112,6 +116,16 @@ func TestGetEnvironment(t *testing.T) {
 	testCase.expectedError = getMissingRequiredEnvironmentVariableError(commonenv.ServiceNameEnvVarKey)
 	testCases = append(testCases, testCase)
 
+	testCase = getValidTestCase("Missing Required Config - PodName")
+	testCase.podName = ""
+	testCase.expectedError = getMissingRequiredEnvironmentVariableError(commonenv.PodNameEnvVarKey)
+	testCases = append(testCases, testCase)
+
+	testCase = getValidTestCase("Missing Required Config - ContainerName")
+	testCase.containerName = ""
+	testCase.expectedError = getMissingRequiredEnvironmentVariableError(commonenv.ContainerNameEnvVarKEy)
+	testCases = append(testCases, testCase)
+
 	// Loop Over All The TestCases
 	for _, testCase := range testCases {
 
@@ -126,6 +140,8 @@ func TestGetEnvironment(t *testing.T) {
 		assertSetenv(t, commonenv.ServiceNameEnvVarKey, testCase.serviceName)
 		assertSetenv(t, commonenv.KafkaUsernameEnvVarKey, testCase.kafkaUsername)
 		assertSetenv(t, commonenv.KafkaPasswordEnvVarKey, testCase.kafkaPassword)
+		assertSetenv(t, commonenv.PodNameEnvVarKey, testCase.podName)
+		assertSetenv(t, commonenv.ContainerNameEnvVarKEy, testCase.containerName)
 
 		// Perform The Test
 		environment, err := GetEnvironment(logger)
@@ -143,6 +159,8 @@ func TestGetEnvironment(t *testing.T) {
 			assert.Equal(t, testCase.serviceName, environment.ServiceName)
 			assert.Equal(t, testCase.kafkaUsername, environment.KafkaUsername)
 			assert.Equal(t, testCase.kafkaPassword, environment.KafkaPassword)
+			assert.Equal(t, testCase.podName, environment.PodName)
+			assert.Equal(t, testCase.containerName, environment.ContainerName)
 
 		} else {
 			assert.Equal(t, testCase.expectedError, err)
@@ -175,6 +193,8 @@ func getValidTestCase(name string) TestCase {
 		serviceName:   serviceName,
 		kafkaUsername: kafkaUsername,
 		kafkaPassword: kafkaPassword,
+		podName:       podName,
+		containerName: containerName,
 		expectedError: nil,
 	}
 }

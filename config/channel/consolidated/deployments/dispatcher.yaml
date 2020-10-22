@@ -53,6 +53,8 @@ spec:
           value: "config-logging"
         - name: CONFIG_LEADERELECTION_NAME
           value: "config-leader-election-kafka"
+        - name: CONTAINER_NAME
+          value: dispatcher
         ports:
         - containerPort: 9090
           name: metrics
