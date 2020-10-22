@@ -22,7 +22,7 @@ import (
 	"strings"
 	"testing"
 
-	eventhub "github.com/Azure/azure-event-hubs-go"
+	eventhub "github.com/Azure/azure-event-hubs-go/v3"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
