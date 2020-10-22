@@ -54,7 +54,8 @@ const (
 	raImageEnvVar                = "KAFKA_RA_IMAGE"
 	kafkaSourceDeploymentCreated = "KafkaSourceDeploymentCreated"
 	kafkaSourceDeploymentUpdated = "KafkaSourceDeploymentUpdated"
-	kafkaSourceDeploymentFailed  = "KafkaSourceDeploymentUpdated"
+	kafkaSourceDeploymentScaled  = "KafkaSourceDeploymentScaled"
+	kafkaSourceDeploymentFailed  = "KafkaSourceDeploymentFailed"
 	kafkaSourceDeploymentDeleted = "KafkaSourceDeploymentDeleted"
 	component                    = "kafkasource"
 )
@@ -69,6 +70,12 @@ func newDeploymentCreated(namespace, name string) pkgreconciler.Event {
 // reason KafkaSourceDeploymentUpdated.
 func deploymentUpdated(namespace, name string) pkgreconciler.Event {
 	return pkgreconciler.NewEvent(corev1.EventTypeNormal, kafkaSourceDeploymentUpdated, "KafkaSource updated deployment: \"%s/%s\"", namespace, name)
+}
+
+// deploymentScaled makes a new reconciler event with event type Normal, and
+// reason KafkaSourceDeploymentScaled
+func deploymentScaled(namespace, name string) pkgreconciler.Event {
+	return pkgreconciler.NewEvent(corev1.EventTypeNormal, kafkaSourceDeploymentScaled, "KafkaSource scaled deployment: \"%s/%s\"", namespace, name)
 }
 
 // newDeploymentFailed makes a new reconciler event with event type Warning, and
@@ -197,6 +204,12 @@ func (r *Reconciler) createReceiveAdapter(ctx context.Context, src *v1beta1.Kafk
 			return ra, err
 		}
 		return ra, deploymentUpdated(ra.Namespace, ra.Name)
+	} else if deref(ra.Spec.Replicas) != deref(expected.Spec.Replicas) {
+		ra.Spec.Replicas = expected.Spec.Replicas
+		if ra, err = r.KubeClientSet.AppsV1().Deployments(src.Namespace).Update(ctx, ra, metav1.UpdateOptions{}); err != nil {
+			return ra, err
+		}
+		return ra, deploymentScaled(ra.Namespace, ra.Name)
 	} else {
 		logging.FromContext(ctx).Debug("Reusing existing receive adapter", zap.Any("receiveAdapter", ra))
 	}
@@ -237,4 +250,11 @@ func (r *Reconciler) createCloudEventAttributes(src *v1beta1.KafkaSource) []duck
 		}
 	}
 	return ceAttributes
+}
+
+func deref(i *int32) int32 {
+	if i == nil {
+		return 1
+	}
+	return *i
 }

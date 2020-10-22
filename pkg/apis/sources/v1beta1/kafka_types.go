@@ -52,6 +52,11 @@ var _ duckv1.KRShaped = (*KafkaSource)(nil)
 
 // KafkaSourceSpec defines the desired state of the KafkaSource.
 type KafkaSourceSpec struct {
+	// Number of desired replicas. This is a pointer to distinguish between explicit
+	// zero and not specified. Defaults to 1.
+	// +optional
+	Replicas *int32 `json:"replicas,omitempty"`
+
 	bindingsv1beta1.KafkaAuthSpec `json:",inline"`
 
 	// Topic topics to consume messages from
@@ -94,6 +99,10 @@ type KafkaSourceStatus struct {
 	// * SinkURI - the current active sink URI that has been configured for the
 	//   Source.
 	duckv1.SourceStatus `json:",inline"`
+
+	// Total number of non-terminated replicas targeted by this source
+	// +optional
+	Replicas int32 `json:"replicas,omitempty"`
 }
 
 func (*KafkaSource) GetGroupVersionKind() schema.GroupVersionKind {

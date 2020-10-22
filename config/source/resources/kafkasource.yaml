@@ -48,6 +48,11 @@ spec:
   scope: Namespaced
   subresources:
     status: {}
+    scale:
+      # specReplicasPath defines the JSONPath inside of a custom resource that corresponds to Scale.Spec.Replicas.
+      specReplicasPath: .spec.replicas
+      # statusReplicasPath defines the JSONPath inside of a custom resource that corresponds to Scale.Status.Replicas.
+      statusReplicasPath: .status.replicas
   conversion:
     strategy: Webhook
     webhookClientConfig:

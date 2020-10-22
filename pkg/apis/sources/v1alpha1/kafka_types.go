@@ -95,6 +95,12 @@ type KafkaSourceSpec struct {
 	// +optional
 	// Needed for supporting round-tripping
 	CloudEventOverrides *duckv1.CloudEventOverrides `json:"ceOverrides,omitempty"`
+
+	// Number of desired replicas. This is a pointer to distinguish between explicit
+	// zero and not specified. Defaults to 1.
+	// +optional
+	// For round-tripping only.
+	Replicas *int32 `json:"replicas,omitempty"`
 }
 
 const (
@@ -121,6 +127,11 @@ type KafkaSourceStatus struct {
 	// * SinkURI - the current active sink URI that has been configured for the
 	//   Source.
 	duckv1.SourceStatus `json:",inline"`
+
+	// Total number of non-terminated replicas targeted by this source
+	// +optional
+	// For round-tripping only
+	Replicas int32 `json:"replicas,omitempty"`
 }
 
 func (*KafkaSource) GetGroupVersionKind() schema.GroupVersionKind {
