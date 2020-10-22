@@ -3,7 +3,11 @@ module knative.dev/eventing-kafka
 go 1.14
 
 require (
-	github.com/Azure/azure-event-hubs-go v1.3.1
+	github.com/Azure/azure-event-hubs-go/v3 v3.3.2
+	github.com/Azure/azure-sdk-for-go v47.1.0+incompatible // indirect
+	github.com/Azure/go-autorest/autorest v0.11.10 // indirect
+	github.com/Azure/go-autorest/autorest/to v0.4.0 // indirect
+	github.com/Azure/go-autorest/autorest/validation v0.3.0 // indirect
 	github.com/Shopify/sarama v1.27.0
 	github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.2.0
 	github.com/cloudevents/sdk-go/v2 v2.2.0
@@ -13,12 +17,16 @@ require (
 	github.com/google/go-cmp v0.5.2
 	github.com/google/uuid v1.1.1
 	github.com/influxdata/tdigest v0.0.1 // indirect
+	github.com/jpillora/backoff v1.0.0 // indirect
 	github.com/kelseyhightower/envconfig v1.4.0
+	github.com/mitchellh/mapstructure v1.3.3 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0
 	github.com/slinkydeveloper/loadastic v0.0.0-20191203132749-9afe5a010a57
-	github.com/stretchr/testify v1.6.0
+	github.com/stretchr/testify v1.6.1
 	go.opencensus.io v0.22.5-0.20200716030834-3456e1d174b2
 	go.uber.org/zap v1.15.0
+	golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897 // indirect
+	golang.org/x/net v0.0.0-20201021035429-f5854403a974 // indirect
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
 	k8s.io/api v0.18.8
 	k8s.io/apiextensions-apiserver v0.18.8 // indirect
@@ -28,7 +36,6 @@ require (
 	knative.dev/eventing v0.18.1-0.20201015095656-0a79d05b949a
 	knative.dev/pkg v0.0.0-20201014184531-9e655c6b02f6
 	knative.dev/test-infra v0.0.0-20201014021030-ae3984a33f82
-	pack.ag/amqp v0.12.4 // indirect
 )
 
 replace (
