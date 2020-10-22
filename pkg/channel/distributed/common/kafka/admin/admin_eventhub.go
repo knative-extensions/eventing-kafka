@@ -23,7 +23,7 @@ import (
 	"regexp"
 	"strconv"
 
-	eventhub "github.com/Azure/azure-event-hubs-go"
+	eventhub "github.com/Azure/azure-event-hubs-go/v3"
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/eventhubcache"

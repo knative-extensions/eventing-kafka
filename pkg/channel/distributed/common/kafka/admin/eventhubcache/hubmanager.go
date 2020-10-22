@@ -19,7 +19,7 @@ package eventhubcache
 import (
 	"context"
 
-	eventhub "github.com/Azure/azure-event-hubs-go"
+	eventhub "github.com/Azure/azure-event-hubs-go/v3"
 )
 
 // Azure EventHub Client Doesn't Code To Interfaces Or Provide Mocks So We're Wrapping Our Usage Of The HubManager For Testing
