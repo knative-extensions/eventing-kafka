@@ -50,6 +50,11 @@ func (source *KafkaSource) ConvertTo(ctx context.Context, obj apis.Convertible) 
 		if source.Spec.Sink != nil {
 			sink.Spec.Sink = *source.Spec.Sink.DeepCopy()
 		}
+
+		if source.Spec.CloudEventOverrides != nil {
+			sink.Spec.CloudEventOverrides = source.Spec.CloudEventOverrides.DeepCopy()
+		}
+
 		if source.Status.SinkURI != nil {
 			sink.Status.SinkURI = source.Status.SinkURI.DeepCopy()
 		}
@@ -90,6 +95,11 @@ func (sink *KafkaSource) ConvertFrom(ctx context.Context, obj apis.Convertible) 
 		if source.Status.SinkURI != nil {
 			sink.Status.SinkURI = source.Status.SinkURI.DeepCopy()
 		}
+
+		if source.Spec.CloudEventOverrides != nil {
+			sink.Spec.CloudEventOverrides = source.Spec.CloudEventOverrides.DeepCopy()
+		}
+
 		if source.Status.CloudEventAttributes != nil {
 			sink.Status.CloudEventAttributes = make([]duckv1.CloudEventAttributes, len(source.Status.CloudEventAttributes))
 			copy(sink.Status.CloudEventAttributes, source.Status.CloudEventAttributes)
