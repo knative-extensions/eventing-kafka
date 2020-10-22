@@ -27,14 +27,17 @@ import (
 	"github.com/Shopify/sarama"
 	protocolkafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"github.com/cloudevents/sdk-go/v2/binding"
+	"github.com/google/uuid"
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
 	"knative.dev/eventing-kafka/pkg/common/consumer"
 	eventingchannels "knative.dev/eventing/pkg/channel"
 	"knative.dev/eventing/pkg/channel/fanout"
 	"knative.dev/eventing/pkg/kncloudevents"
+	"knative.dev/pkg/kmeta"
 )
 
 type KafkaDispatcher struct {
@@ -102,6 +105,16 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 		logger:               args.Logger,
 		topicFunc:            args.TopicFunc,
 	}
+
+	podName, err := env.GetRequiredConfigValue(args.Logger.Desugar(), env.PodNameEnvVarKey)
+	if err != nil {
+		return nil, err
+	}
+	containerName, err := env.GetRequiredConfigValue(args.Logger.Desugar(), env.ContainerNameEnvVarKEy)
+	if err != nil {
+		return nil, err
+	}
+	reporter := eventingchannels.NewStatsReporter(containerName, kmeta.ChildName(podName, uuid.New().String()))
 	receiverFunc, err := eventingchannels.NewMessageReceiver(
 		func(ctx context.Context, channel eventingchannels.ChannelReference, message binding.Message, transformers []binding.Transformer, _ nethttp.Header) error {
 			kafkaProducerMessage := sarama.ProducerMessage{
@@ -120,6 +133,7 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 			return nil
 		},
 		args.Logger.Desugar(),
+		reporter,
 		eventingchannels.ResolveMessageChannelFromHostHeader(dispatcher.getChannelReferenceFromHost))
 	if err != nil {
 		return nil, err
@@ -168,7 +182,7 @@ func (c consumerMessageHandler) Handle(ctx context.Context, consumerMessage *sar
 	ctx, span := startTraceFromMessage(c.logger, ctx, message, consumerMessage.Topic)
 	defer span.End()
 
-	err := c.dispatcher.DispatchMessageWithRetries(
+	_, err := c.dispatcher.DispatchMessageWithRetries(
 		ctx,
 		message,
 		nil,

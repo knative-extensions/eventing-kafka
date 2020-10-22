@@ -141,7 +141,8 @@ func (h *Handler) consumeMessage(consumerMessage *sarama.ConsumerMessage, destin
 	}
 
 	// Dispatch The Message With Configured Retries & Return Any Errors
-	return h.MessageDispatcher.DispatchMessageWithRetries(context.Background(), message, nil, destinationURL, replyURL, deadLetterURL, retryConfig)
+	_, dispatchError := h.MessageDispatcher.DispatchMessageWithRetries(context.Background(), message, nil, destinationURL, replyURL, deadLetterURL, retryConfig)
+	return dispatchError
 }
 
 //

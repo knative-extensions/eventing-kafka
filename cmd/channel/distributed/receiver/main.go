@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/cloudevents/sdk-go/v2/binding"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	commonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
@@ -37,6 +38,7 @@ import (
 	channelhealth "knative.dev/eventing-kafka/pkg/channel/distributed/receiver/health"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/producer"
 	eventingchannel "knative.dev/eventing/pkg/channel"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	eventingmetrics "knative.dev/pkg/metrics"
 )
@@ -119,8 +121,10 @@ func main() {
 	}
 	defer kafkaProducer.Close()
 
+	channelReporter := eventingchannel.NewStatsReporter(environment.ContainerName, kmeta.ChildName(environment.PodName, uuid.New().String()))
+
 	// Create A New Knative Eventing MessageReceiver (Parses The Channel From The Host Header)
-	messageReceiver, err := eventingchannel.NewMessageReceiver(handleMessage, logger, eventingchannel.ResolveMessageChannelFromHostHeader(eventingchannel.ParseChannel))
+	messageReceiver, err := eventingchannel.NewMessageReceiver(handleMessage, logger, channelReporter, eventingchannel.ResolveMessageChannelFromHostHeader(eventingchannel.ParseChannel))
 	if err != nil {
 		logger.Fatal("Failed To Create MessageReceiver", zap.Error(err))
 	}
