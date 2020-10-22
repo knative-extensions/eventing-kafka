@@ -558,6 +558,18 @@ func NewKafkaChannelReceiverDeployment() *appsv1.Deployment {
 									Value: commonconstants.KnativeEventingNamespace,
 								},
 								{
+									Name: commonenv.PodNameEnvVarKey,
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											FieldPath: "metadata.name",
+										},
+									},
+								},
+								{
+									Name:  commonenv.ContainerNameEnvVarKEy,
+									Value: constants.ReceiverContainerName,
+								},
+								{
 									Name:  commonenv.KnativeLoggingConfigMapNameEnvVarKey,
 									Value: logging.ConfigMapName(),
 								},
@@ -737,6 +749,18 @@ func NewKafkaChannelDispatcherDeployment() *appsv1.Deployment {
 								{
 									Name:  system.NamespaceEnvKey,
 									Value: commonconstants.KnativeEventingNamespace,
+								},
+								{
+									Name: commonenv.PodNameEnvVarKey,
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											FieldPath: "metadata.name",
+										},
+									},
+								},
+								{
+									Name:  commonenv.ContainerNameEnvVarKEy,
+									Value: constants.DispatcherContainerName,
 								},
 								{
 									Name:  commonenv.KnativeLoggingConfigMapNameEnvVarKey,

@@ -61,6 +61,10 @@ const (
 	// Eventing-Kafka Finalizers Prefix
 	EventingKafkaFinalizerPrefix = "eventing-kafka/"
 
+	// Container Names
+	DispatcherContainerName = "kafkachannel-dispatcher"
+	ReceiverContainerName   = "kafkachannel-receiver"
+
 	// Labels
 	AppLabel                    = "app"
 	KafkaChannelNameLabel       = "kafkachannel-name"
