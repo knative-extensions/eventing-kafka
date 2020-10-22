@@ -37,7 +37,6 @@ require (
 	knative.dev/eventing v0.18.1-0.20201022075137-c29798077cfc
 	knative.dev/pkg v0.0.0-20201022015237-8139298650a4
 	knative.dev/test-infra v0.0.0-20201022003632-7d3ea6019158
-	pack.ag/amqp v0.12.4 // indirect
 )
 
 replace (
