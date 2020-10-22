@@ -24,6 +24,8 @@ const (
 	MetricsPortEnvVarKey    = "METRICS_PORT"
 	MetricsDomainEnvVarKey  = "METRICS_DOMAIN"
 	HealthPortEnvVarKey     = "HEALTH_PORT"
+	PodNameEnvVarKey        = "POD_NAME"
+	ContainerNameEnvVarKEy  = "CONTAINER_NAME"
 
 	// Kafka Authorization
 	KafkaBrokerEnvVarKey   = "KAFKA_BROKERS"

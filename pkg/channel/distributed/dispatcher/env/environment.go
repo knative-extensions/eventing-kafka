@@ -28,6 +28,10 @@ type Environment struct {
 	MetricsPort   int    // Required
 	MetricsDomain string // Required
 
+	// Pod information to be used by the metrics reporter
+	PodName       string // Required
+	ContainerName string // Required
+
 	// Health Configuration
 	HealthPort int // Required
 
@@ -59,6 +63,18 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 
 	// Get The Required Metrics Domain Config Value
 	environment.MetricsDomain, err = env.GetRequiredConfigValue(logger, env.MetricsDomainEnvVarKey)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get The Required PodName Config Value
+	environment.PodName, err = env.GetRequiredConfigValue(logger, env.PodNameEnvVarKey)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get The Required ContainerName Config Value
+	environment.ContainerName, err = env.GetRequiredConfigValue(logger, env.ContainerNameEnvVarKEy)
 	if err != nil {
 		return nil, err
 	}
