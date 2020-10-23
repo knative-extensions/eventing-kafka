@@ -30,35 +30,35 @@ const (
 var format = &tracecontext.HTTPFormat{}
 
 func SerializeTrace(spanContext trace.SpanContext) []sarama.RecordHeader {
-	tp, ts := format.SpanContextToHeaders(spanContext)
+	traceParent, traceState := format.SpanContextToHeaders(spanContext)
 
-	if ts != "" {
+	if traceState != "" {
 		return []sarama.RecordHeader{{
 			Key:   []byte(traceParentHeader),
-			Value: []byte(tp),
+			Value: []byte(traceParent),
 		}, {
 			Key:   []byte(traceStateHeader),
-			Value: []byte(ts),
+			Value: []byte(traceState),
 		}}
 	}
 
 	return []sarama.RecordHeader{{
 		Key:   []byte(traceParentHeader),
-		Value: []byte(tp),
+		Value: []byte(traceParent),
 	}}
 }
 
 func ParseSpanContext(headers map[string][]byte) (sc trace.SpanContext, ok bool) {
-	tpBytes, ok := headers[traceParentHeader]
+	traceParentBytes, ok := headers[traceParentHeader]
 	if !ok {
 		return trace.SpanContext{}, false
 	}
-	tp := string(tpBytes)
+	traceParent := string(traceParentBytes)
 
-	ts := ""
-	if tsBytes, ok := headers[traceStateHeader]; ok {
-		ts = string(tsBytes)
+	traceState := ""
+	if traceStateBytes, ok := headers[traceStateHeader]; ok {
+		traceState = string(traceStateBytes)
 	}
 
-	return format.SpanContextFromHeaders(tp, ts)
+	return format.SpanContextFromHeaders(traceParent, traceState)
 }
