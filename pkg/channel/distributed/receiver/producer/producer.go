@@ -19,6 +19,7 @@ package producer
 import (
 	"context"
 	"errors"
+	"go.opencensus.io/trace"
 	"time"
 
 	"github.com/Shopify/sarama"
@@ -30,6 +31,7 @@ import (
 	kafkaproducer "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/producer"
 	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/metrics"
+	commonutil "knative.dev/eventing-kafka/pkg/channel/distributed/common/util"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/health"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/util"
@@ -117,6 +119,8 @@ func (p *Producer) ProduceKafkaMessage(ctx context.Context, channelReference eve
 		return err
 	}
 
+	producerMessage.Headers = append(producerMessage.Headers, commonutil.SerializeTrace(trace.FromContext(ctx).SpanContext())...)
+
 	// Produce The Kafka Message To The Kafka Topic
 	logger.Debug("Producing Kafka Message", zap.Any("Headers", producerMessage.Headers), zap.Any("Message", producerMessage.Value))
 	partition, offset, err := p.kafkaProducer.SendMessage(producerMessage)
@@ -179,7 +183,7 @@ func (p *Producer) Close() {
 // settings specific to the producer may be extracted and the producer restarted if necessary.
 // The new configmap could technically have changes to the eventing-kafka section as well as the sarama
 // section, but none of those matter to a currently-running Producer, so those are ignored here
-// (which avoids the necessity of calling env.GetEnvironment and env.VerifyOverrides).  If those settings
+// (which avoids the necessity of calling env.GetEnvironment).  If those settings
 // are needed in the future, the environment will also need to be re-parsed here.
 // If there aren't any producer-specific differences between the current config and the new one,
 // then just log that and move on; do not restart the Producer unnecessarily.
