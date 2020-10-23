@@ -19,6 +19,9 @@ package dispatcher
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/url"
+
 	"github.com/Shopify/sarama"
 	kafkasaramaprotocol "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"github.com/cloudevents/sdk-go/v2/binding"
@@ -28,8 +31,6 @@ import (
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/channel"
 	"knative.dev/eventing/pkg/kncloudevents"
-	"net/http"
-	"net/url"
 )
 
 // Verify The Handler Implements The Sarama ConsumerGroupHandler

@@ -19,8 +19,9 @@ package producer
 import (
 	"context"
 	"errors"
-	"go.opencensus.io/trace"
 	"time"
+
+	"go.opencensus.io/trace"
 
 	"github.com/Shopify/sarama"
 	kafkasaramaprotocol "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
