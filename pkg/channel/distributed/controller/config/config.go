@@ -24,7 +24,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 )
 
-// ConfigurationError is the type of error returned from VerifyOverrides
+// ConfigurationError is the type of error returned from VerifyConfiguration
 // when a setting is missing or invalid
 type ControllerConfigurationError string
 

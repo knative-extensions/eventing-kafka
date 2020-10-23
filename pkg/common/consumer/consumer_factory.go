@@ -65,7 +65,7 @@ func (c kafkaConsumerGroupFactoryImpl) StartConsumerGroup(groupID string, topics
 
 	go func() {
 		for {
-			err := consumerGroup.Consume(context.Background(), topics, &consumerHandler)
+			err := consumerGroup.Consume(ctx, topics, &consumerHandler)
 			if err == sarama.ErrClosedConsumerGroup {
 				return
 			}

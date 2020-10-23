@@ -19,21 +19,18 @@ package dispatcher
 import (
 	"context"
 	"errors"
-	"net/http"
-	"net/url"
-	"regexp"
-
 	"github.com/Shopify/sarama"
 	kafkasaramaprotocol "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"github.com/cloudevents/sdk-go/v2/binding"
+	"go.opencensus.io/trace"
 	"go.uber.org/zap"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/util"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/channel"
 	"knative.dev/eventing/pkg/kncloudevents"
+	"net/http"
+	"net/url"
 )
-
-// 3 Digit Word Boundary HTTP Status Code Regular Expression
-var HttpStatusCodeRegExp = regexp.MustCompile(`(^|\\s)([12345]\\d{2})(\\s|$)`)
 
 // Verify The Handler Implements The Sarama ConsumerGroupHandler
 var _ sarama.ConsumerGroupHandler = &Handler{}
@@ -111,7 +108,7 @@ func (h *Handler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama
 	for message := range claim.Messages() {
 
 		// Consume The Message (Ignore Errors - Will have already been retried and we're moving on so as not to block further Topic processing.)
-		_ = h.consumeMessage(message, destinationURL, replyURL, deadLetterURL, &retryConfig)
+		_ = h.consumeMessage(session.Context(), message, destinationURL, replyURL, deadLetterURL, &retryConfig)
 
 		// Mark The Message As Having Been Consumed (Does Not Imply Successful Delivery - Only Full Retry Attempts Made)
 		session.MarkMessage(message, "")
@@ -122,7 +119,7 @@ func (h *Handler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama
 }
 
 // Consume A Single Message
-func (h *Handler) consumeMessage(consumerMessage *sarama.ConsumerMessage, destinationURL *url.URL, replyURL *url.URL, deadLetterURL *url.URL, retryConfig *kncloudevents.RetryConfig) error {
+func (h *Handler) consumeMessage(context context.Context, consumerMessage *sarama.ConsumerMessage, destinationURL *url.URL, replyURL *url.URL, deadLetterURL *url.URL, retryConfig *kncloudevents.RetryConfig) error {
 
 	// Debug Log Kafka ConsumerMessage
 	h.Logger.Debug("Consuming Kafka Message",
@@ -140,9 +137,22 @@ func (h *Handler) consumeMessage(consumerMessage *sarama.ConsumerMessage, destin
 		return errors.New("received a message with unknown encoding - skipping")
 	}
 
+	ctx, span := startTraceFromMessage(h.Logger, context, message, consumerMessage.Topic)
+	defer span.End()
+
 	// Dispatch The Message With Configured Retries & Return Any Errors
-	_, dispatchError := h.MessageDispatcher.DispatchMessageWithRetries(context.Background(), message, nil, destinationURL, replyURL, deadLetterURL, retryConfig)
+	_, dispatchError := h.MessageDispatcher.DispatchMessageWithRetries(ctx, message, nil, destinationURL, replyURL, deadLetterURL, retryConfig)
 	return dispatchError
+}
+
+func startTraceFromMessage(logger *zap.Logger, inCtx context.Context, message *kafkasaramaprotocol.Message, topic string) (context.Context, *trace.Span) {
+	sc, ok := util.ParseSpanContext(message.Headers)
+	if !ok {
+		logger.Warn("Cannot parse the spancontext, creating a new span")
+		return trace.StartSpan(inCtx, "kafkachannel-"+topic)
+	}
+
+	return trace.StartSpanWithRemoteParent(inCtx, "kafkachannel-"+topic, sc)
 }
 
 //
@@ -175,7 +185,7 @@ func (h *Handler) checkRetry(_ context.Context, response *http.Response, err err
 	//        status codes from the subscriber and returning 400s instead.  Once this has,
 	//        been resolved we can remove 400 from the list of codes to retry.
 	//
-	if statusCode >= 500 || statusCode == 400 || statusCode == 404 || statusCode == 429 {
+	if statusCode >= 500 || statusCode == 400 || statusCode == 404 || statusCode == 429 || statusCode == 409 {
 		logger.Warn("Failed To Send Message To Subscriber Service - Retrying")
 		return true, nil
 	} else if statusCode >= 300 && statusCode <= 399 {
