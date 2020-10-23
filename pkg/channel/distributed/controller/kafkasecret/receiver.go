@@ -194,7 +194,7 @@ func (r *Reconciler) reconcileReceiverDeployment(ctx context.Context, secret *co
 
 			// Then Create The New Receiver Deployment
 			r.logger.Info("Receiver Deployment Not Found - Creating New One")
-			deployment, err := r.newChannelDeployment(secret)
+			deployment, err := r.newReceiverDeployment(secret)
 			if err != nil {
 				r.logger.Error("Failed To Create Receiver Deployment YAML", zap.Error(err))
 				return err
@@ -237,7 +237,7 @@ func (r *Reconciler) getReceiverDeployment(secret *corev1.Secret) (*appsv1.Deplo
 }
 
 // Create Receiver Deployment Model For The Specified Secret
-func (r *Reconciler) newChannelDeployment(secret *corev1.Secret) (*appsv1.Deployment, error) {
+func (r *Reconciler) newReceiverDeployment(secret *corev1.Secret) (*appsv1.Deployment, error) {
 
 	// Get The Receiver Deployment Name (One Receiver Deployment Per Kafka Auth Secret)
 	deploymentName := util.ReceiverDnsSafeName(secret.Name)
@@ -345,6 +345,18 @@ func (r *Reconciler) receiverDeploymentEnvVars(secret *corev1.Secret) ([]corev1.
 		{
 			Name:  system.NamespaceEnvKey,
 			Value: commonconstants.KnativeEventingNamespace,
+		},
+		{
+			Name: commonenv.PodNameEnvVarKey,
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.name",
+				},
+			},
+		},
+		{
+			Name:  commonenv.ContainerNameEnvVarKEy,
+			Value: constants.ReceiverContainerName,
 		},
 		{
 			Name:  commonenv.KnativeLoggingConfigMapNameEnvVarKey,

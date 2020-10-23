@@ -329,6 +329,18 @@ func (r *Reconciler) dispatcherDeploymentEnvVars(channel *kafkav1beta1.KafkaChan
 			Value: commonconstants.KnativeEventingNamespace,
 		},
 		{
+			Name: commonenv.PodNameEnvVarKey,
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.name",
+				},
+			},
+		},
+		{
+			Name:  commonenv.ContainerNameEnvVarKEy,
+			Value: constants.DispatcherContainerName,
+		},
+		{
 			Name:  commonenv.KnativeLoggingConfigMapNameEnvVarKey,
 			Value: logging.ConfigMapName(),
 		},
