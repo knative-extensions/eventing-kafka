@@ -19,6 +19,7 @@ package producer
 import (
 	"context"
 	"errors"
+	"knative.dev/eventing-kafka/pkg/common/tracing"
 	"time"
 
 	"go.opencensus.io/trace"
@@ -32,7 +33,6 @@ import (
 	kafkaproducer "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/producer"
 	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/metrics"
-	commonutil "knative.dev/eventing-kafka/pkg/channel/distributed/common/util"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/health"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/util"
@@ -120,7 +120,8 @@ func (p *Producer) ProduceKafkaMessage(ctx context.Context, channelReference eve
 		return err
 	}
 
-	producerMessage.Headers = append(producerMessage.Headers, commonutil.SerializeTrace(trace.FromContext(ctx).SpanContext())...)
+	// Add The "traceparent" And "tracestate" Headers To The Message (Helps Tie Related Messages Together In Traces)
+	producerMessage.Headers = append(producerMessage.Headers, tracing.SerializeTrace(trace.FromContext(ctx).SpanContext())...)
 
 	// Produce The Kafka Message To The Kafka Topic
 	logger.Debug("Producing Kafka Message", zap.Any("Headers", producerMessage.Headers), zap.Any("Message", producerMessage.Value))

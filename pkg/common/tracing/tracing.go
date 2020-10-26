@@ -32,6 +32,8 @@ const (
 
 var format = &tracecontext.HTTPFormat{}
 
+// SerializeTrace returns the traceparent and tracestate values from a span context as a slice
+// of sarama.RecordHeader structs that can be appended to an existing sarama.ProducerMessage
 func SerializeTrace(spanContext trace.SpanContext) []sarama.RecordHeader {
 	traceParent, traceState := format.SpanContextToHeaders(spanContext)
 
@@ -51,6 +53,11 @@ func SerializeTrace(spanContext trace.SpanContext) []sarama.RecordHeader {
 	}}
 }
 
+// StartTraceFromMessage extracts the headers from a message (traceparent and tracestate) and
+// uses them to start a span, which can be used with whatever tracing backend is set up (e.g. Zipkin)
+// in order to trace the flow of a message.  Multiple spans may be part of a single trace, for
+// example, a dead letter message or a reply should be easy to match with the original message based
+// on the trace ID.  This ID is originally set in the first message header using the SerializeTrace function.
 func StartTraceFromMessage(logger *zap.SugaredLogger, inCtx context.Context, message *protocolkafka.Message, topic string) (context.Context, *trace.Span) {
 	sc, ok := ParseSpanContext(message.Headers)
 	if !ok {
@@ -61,6 +68,9 @@ func StartTraceFromMessage(logger *zap.SugaredLogger, inCtx context.Context, mes
 	return trace.StartSpanWithRemoteParent(inCtx, "kafkachannel-"+topic, sc)
 }
 
+// ParseSpanContext takes the "traceparent" and "tracestate" headers and regenerates the
+// trace span context from them.  This context can then be used to start a new span
+// that uses the same trace ID as a different (but related) span.
 func ParseSpanContext(headers map[string][]byte) (sc trace.SpanContext, ok bool) {
 	traceParentBytes, ok := headers[traceParentHeader]
 	if !ok {
