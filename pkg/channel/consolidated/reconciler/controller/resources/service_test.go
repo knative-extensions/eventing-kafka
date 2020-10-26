@@ -36,12 +36,6 @@ const (
 	testDispatcherName = "dispatcher-name"
 )
 
-func TestMakeExternalServiceAddress(t *testing.T) {
-	if want, got := "my-test-service.my-test-ns.svc.cluster.local", MakeExternalServiceAddress(testNS, serviceName); want != got {
-		t.Errorf("Want: %q got %q", want, got)
-	}
-}
-
 func TestMakeChannelServiceAddress(t *testing.T) {
 	if want, got := "my-test-kc-kn-channel", MakeChannelServiceName(kcName); want != got {
 		t.Errorf("Want: %q got %q", want, got)

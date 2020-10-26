@@ -744,7 +744,7 @@ func makeChannelService(nc *v1beta1.KafkaChannel) *corev1.Service {
 		},
 		Spec: corev1.ServiceSpec{
 			Type:         corev1.ServiceTypeExternalName,
-			ExternalName: fmt.Sprintf("%s.%s.svc.%s", dispatcherName, testNS, network.GetClusterDomainName()),
+			ExternalName: network.GetServiceHostname(dispatcherName, testNS),
 		},
 	}
 }
@@ -764,7 +764,7 @@ func makeChannelServiceNotOwnedByUs() *corev1.Service {
 		},
 		Spec: corev1.ServiceSpec{
 			Type:         corev1.ServiceTypeExternalName,
-			ExternalName: fmt.Sprintf("%s.%s.svc.%s", dispatcherName, testNS, network.GetClusterDomainName()),
+			ExternalName: network.GetServiceHostname(dispatcherName, testNS),
 		},
 	}
 }
