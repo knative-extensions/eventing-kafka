@@ -14,12 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package util
+package tracing
 
 import (
+	"context"
 	"github.com/Shopify/sarama"
+	protocolkafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"go.opencensus.io/plugin/ochttp/propagation/tracecontext"
 	"go.opencensus.io/trace"
+	"go.uber.org/zap"
 )
 
 const (
@@ -46,6 +49,16 @@ func SerializeTrace(spanContext trace.SpanContext) []sarama.RecordHeader {
 		Key:   []byte(traceParentHeader),
 		Value: []byte(traceParent),
 	}}
+}
+
+func StartTraceFromMessage(logger *zap.SugaredLogger, inCtx context.Context, message *protocolkafka.Message, topic string) (context.Context, *trace.Span) {
+	sc, ok := ParseSpanContext(message.Headers)
+	if !ok {
+		logger.Warn("Cannot parse the spancontext, creating a new span")
+		return trace.StartSpan(inCtx, "kafkachannel-"+topic)
+	}
+
+	return trace.StartSpanWithRemoteParent(inCtx, "kafkachannel-"+topic, sc)
 }
 
 func ParseSpanContext(headers map[string][]byte) (sc trace.SpanContext, ok bool) {
