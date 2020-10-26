@@ -23,6 +23,8 @@ import (
 	"testing"
 	"time"
 
+	"math/rand"
+
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,7 +36,6 @@ import (
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/system"
-	"math/rand"
 )
 
 // Test The InitializeObservability() Functionality
