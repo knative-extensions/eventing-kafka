@@ -19,11 +19,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"knative.dev/eventing-kafka/pkg/common/tracing"
 	nethttp "net/http"
 	"strings"
 	"sync"
 	"sync/atomic"
+
+	"knative.dev/eventing-kafka/pkg/common/tracing"
 
 	"github.com/Shopify/sarama"
 	protocolkafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"

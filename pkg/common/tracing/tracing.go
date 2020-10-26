@@ -18,6 +18,7 @@ package tracing
 
 import (
 	"context"
+
 	"github.com/Shopify/sarama"
 	protocolkafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"go.opencensus.io/plugin/ochttp/propagation/tracecontext"

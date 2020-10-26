@@ -19,9 +19,10 @@ package dispatcher
 import (
 	"context"
 	"errors"
-	"knative.dev/eventing-kafka/pkg/common/tracing"
 	"net/http"
 	"net/url"
+
+	"knative.dev/eventing-kafka/pkg/common/tracing"
 
 	"github.com/Shopify/sarama"
 	kafkasaramaprotocol "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"

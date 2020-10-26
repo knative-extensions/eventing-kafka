@@ -19,8 +19,9 @@ package producer
 import (
 	"context"
 	"errors"
-	"knative.dev/eventing-kafka/pkg/common/tracing"
 	"time"
+
+	"knative.dev/eventing-kafka/pkg/common/tracing"
 
 	"go.opencensus.io/trace"
 
