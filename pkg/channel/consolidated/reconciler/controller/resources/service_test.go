@@ -29,7 +29,6 @@ import (
 )
 
 const (
-	serviceName        = "my-test-service"
 	kcName             = "my-test-kc"
 	testNS             = "my-test-ns"
 	testDispatcherNS   = "dispatcher-namespace"
