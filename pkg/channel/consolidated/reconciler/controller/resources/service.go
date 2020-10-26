@@ -36,10 +36,6 @@ const (
 // ServiceOption can be used to optionally modify the K8s service in MakeK8sService.
 type ServiceOption func(*corev1.Service) error
 
-func MakeExternalServiceAddress(namespace, service string) string {
-	return fmt.Sprintf("%s.%s.svc.%s", service, namespace, network.GetClusterDomainName())
-}
-
 func MakeChannelServiceName(name string) string {
 	return fmt.Sprintf("%s-kn-channel", name)
 }
@@ -51,7 +47,7 @@ func ExternalService(namespace, service string) ServiceOption {
 		// TODO this overrides the current serviceSpec. Is this correct?
 		svc.Spec = corev1.ServiceSpec{
 			Type:         corev1.ServiceTypeExternalName,
-			ExternalName: MakeExternalServiceAddress(namespace, service),
+			ExternalName: network.GetServiceHostname(service, namespace),
 		}
 		return nil
 	}
