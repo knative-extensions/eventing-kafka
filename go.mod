@@ -27,16 +27,15 @@ require (
 	go.opencensus.io v0.22.5-0.20200716030834-3456e1d174b2
 	go.uber.org/zap v1.15.0
 	golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897 // indirect
-	golang.org/x/net v0.0.0-20201021035429-f5854403a974 // indirect
-	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
+	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
 	k8s.io/api v0.18.8
 	k8s.io/apiextensions-apiserver v0.18.8 // indirect
 	k8s.io/apimachinery v0.18.8
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/utils v0.0.0-20200603063816-c1c6865ac451
-	knative.dev/eventing v0.18.1-0.20201022075137-c29798077cfc
-	knative.dev/pkg v0.0.0-20201022015237-8139298650a4
-	knative.dev/test-infra v0.0.0-20201022003632-7d3ea6019158
+	knative.dev/eventing v0.18.1-0.20201026095841-3ceaad40cda1
+	knative.dev/pkg v0.0.0-20201026015042-efadd36f9c63
+	knative.dev/test-infra v0.0.0-20201023182438-7efa632471b9
 )
 
 replace (
