@@ -34,6 +34,7 @@ import (
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/system"
+	"math/rand"
 )
 
 // Test The InitializeObservability() Functionality
@@ -41,7 +42,7 @@ func TestInitializeObservability(t *testing.T) {
 
 	// Test Data
 	ctx := context.TODO()
-	metricsPort := 9876
+	metricsPort := rand.Intn(10000) + 9000
 	metricsDomain := "eventing-kafka"
 
 	// Obtain a Test Logger (Required By Observability Function)

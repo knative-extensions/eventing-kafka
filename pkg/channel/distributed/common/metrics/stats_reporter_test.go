@@ -19,7 +19,6 @@ package metrics
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"regexp"
 	"strconv"
@@ -28,6 +27,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"io/ioutil"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
@@ -39,13 +39,14 @@ import (
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/system"
+	"math/rand"
 )
 
 // Test The MetricsServer's Report() Functionality
 func TestMetricsServer_Report(t *testing.T) {
 
 	// Test Data
-	metricsPort := 9876
+	metricsPort := rand.Intn(10000) + 9000
 	metricsDomain := "eventing-kafka"
 	topicName := "test-topic-name"
 	msgCount := 13579
