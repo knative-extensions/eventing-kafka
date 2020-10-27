@@ -30,7 +30,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
-	eventingNames "knative.dev/eventing/pkg/reconciler/names"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/network"
@@ -96,7 +95,7 @@ func (r *Reconciler) reconcileKafkaChannelService(ctx context.Context, channel *
 	channel.Status.MarkChannelServiceTrue()
 	channel.Status.SetAddress(&apis.URL{
 		Scheme: "http",
-		Host:   eventingNames.ServiceHostName(service.Name, service.Namespace),
+		Host:   network.GetServiceHostname(service.Name, service.Namespace),
 	})
 
 	// Return Success
@@ -124,7 +123,7 @@ func (r *Reconciler) newKafkaChannelService(channel *kafkav1beta1.KafkaChannel) 
 
 	// Get The Receiver Service Name For The Kafka Secret (One Receiver Service Per Kafka Secret)
 	deploymentName := util.ReceiverDnsSafeName(r.kafkaSecretName(channel))
-	serviceAddress := fmt.Sprintf("%s.%s.svc.%s", deploymentName, commonconstants.KnativeEventingNamespace, network.GetClusterDomainName())
+	serviceAddress := network.GetServiceHostname(deploymentName, commonconstants.KnativeEventingNamespace)
 
 	// Create & Return The Service Model
 	return &corev1.Service{
