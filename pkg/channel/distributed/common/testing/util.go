@@ -64,16 +64,20 @@ func GetDefaultSaramaConfig(t *testing.T) *sarama.Config {
 	return config
 }
 
-// Retries an HTTP GET request a specified number of times before giving up
-func RetryGet(url string, pause time.Duration, retryCount int) (*http.Response, error) {
+// Retries an HTTP GET request a specified number of times before giving up.
+// The retry is triggered if the GET response is either and error or the "retryAgain" value.  Passing in -1
+// will retry only on errors (as -1 is not a possible HTTP response).
+func RetryGet(url string, pause time.Duration, retryCount int, retryAgain int) (*http.Response, error) {
 	var resp *http.Response
 	var err error
 
 	// Retry up to "retryCount" number of attempts, waiting for "pause" duration between tries.
 	for tryCounter := 0; tryCounter < retryCount; tryCounter++ {
 		if resp, err = http.Get(url); err == nil {
-			// GET request succeeded; return immediately
-			return resp, err
+			// GET request succeeded; return immediately unless this is the "retryAgain" value (e.g. a 404)
+			if retryAgain != resp.StatusCode {
+				return resp, err
+			}
 		}
 		time.Sleep(pause)
 	}

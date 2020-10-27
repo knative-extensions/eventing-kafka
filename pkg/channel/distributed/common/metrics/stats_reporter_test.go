@@ -93,7 +93,7 @@ func TestMetricsServer_Report(t *testing.T) {
 	statsReporter.Report(stats)
 
 	// Verify The Results By Querying Metrics Endpoint And Parsing Results
-	resp, err := commontesting.RetryGet(fmt.Sprintf("http://localhost:%v/metrics", metricsPort), 100*time.Millisecond, 20)
+	resp, err := commontesting.RetryGet(fmt.Sprintf("http://localhost:%v/metrics", metricsPort), 100*time.Millisecond, 20, 404)
 	assert.Nil(t, err)
 	body, err := ioutil.ReadAll(resp.Body)
 	assert.Nil(t, err)
