@@ -176,7 +176,7 @@ func (h *Handler) checkRetry(_ context.Context, response *http.Response, err err
 	//        status codes from the subscriber and returning 400s instead.  Once this has,
 	//        been resolved we can remove 400 from the list of codes to retry.
 	//
-	if statusCode >= 500 || statusCode == 400 || statusCode == 404 || statusCode == 429 || statusCode == 409 {
+	if statusCode >= 500 || statusCode == 400 || statusCode == 404 || statusCode == 429 {
 		logger.Warn("Failed To Send Message To Subscriber Service - Retrying")
 		return true, nil
 	} else if statusCode >= 300 && statusCode <= 399 {
