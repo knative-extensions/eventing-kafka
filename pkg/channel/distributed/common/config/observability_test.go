@@ -41,7 +41,7 @@ func TestInitializeObservability(t *testing.T) {
 
 	// Test Data
 	ctx := context.TODO()
-	metricsPort := 9876
+	metricsPort := 9877
 	metricsDomain := "eventing-kafka"
 
 	// Obtain a Test Logger (Required By Observability Function)
@@ -78,13 +78,13 @@ func TestInitializeObservability(t *testing.T) {
 	assert.Nil(t, err)
 
 	// Verify that the profiling endpoint exists and responds to requests
-	assertGet(t, "http://localhost:8008/debug/pprof", 200)
+	assertGet(t, "http://localhost:8008/debug/pprof", 200, 404)
 	// Verify that the metrics endpoint exists and responds to requests
-	assertGet(t, fmt.Sprintf("http://localhost:%v/metrics", metricsPort), 200)
+	assertGet(t, fmt.Sprintf("http://localhost:%v/metrics", metricsPort), 200, 404)
 }
 
-func assertGet(t *testing.T, url string, expected int) {
-	resp, err := commontesting.RetryGet(url, 100*time.Millisecond, 20)
+func assertGet(t *testing.T, url string, expected int, retryIfResponse int) {
+	resp, err := commontesting.RetryGet(url, 100*time.Millisecond, 20, retryIfResponse)
 	assert.Nil(t, err)
 	assert.Equal(t, expected, resp.StatusCode)
 	err = resp.Body.Close()

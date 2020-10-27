@@ -139,7 +139,7 @@ func (m MockConsumerGroupSession) MarkMessage(msg *sarama.ConsumerMessage, metad
 }
 
 func (m MockConsumerGroupSession) Context() context.Context {
-	panic("implement me")
+	return context.TODO()
 }
 
 func (m MockConsumerGroupSession) Commit() {

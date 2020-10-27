@@ -24,6 +24,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"knative.dev/eventing-kafka/pkg/common/tracing"
+
 	"github.com/Shopify/sarama"
 	protocolkafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"github.com/cloudevents/sdk-go/v2/binding"
@@ -127,7 +129,7 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 				return err
 			}
 
-			kafkaProducerMessage.Headers = append(kafkaProducerMessage.Headers, serializeTrace(trace.FromContext(ctx).SpanContext())...)
+			kafkaProducerMessage.Headers = append(kafkaProducerMessage.Headers, tracing.SerializeTrace(trace.FromContext(ctx).SpanContext())...)
 
 			dispatcher.kafkaAsyncProducer.Input() <- &kafkaProducerMessage
 			return nil
@@ -179,7 +181,7 @@ func (c consumerMessageHandler) Handle(ctx context.Context, consumerMessage *sar
 		zap.String("subscription", c.sub.String()),
 	)
 
-	ctx, span := startTraceFromMessage(c.logger, ctx, message, consumerMessage.Topic)
+	ctx, span := tracing.StartTraceFromMessage(c.logger, ctx, message, consumerMessage.Topic)
 	defer span.End()
 
 	_, err := c.dispatcher.DispatchMessageWithRetries(
@@ -401,14 +403,4 @@ func (d *KafkaDispatcher) getChannelReferenceFromHost(host string) (eventingchan
 		return cr, eventingchannels.UnknownHostError(host)
 	}
 	return cr, nil
-}
-
-func startTraceFromMessage(logger *zap.SugaredLogger, inCtx context.Context, message *protocolkafka.Message, topic string) (context.Context, *trace.Span) {
-	sc, ok := parseSpanContext(message.Headers)
-	if !ok {
-		logger.Warn("Cannot parse the spancontext, creating a new span")
-		return trace.StartSpan(inCtx, "kafkachannel-"+topic)
-	}
-
-	return trace.StartSpanWithRemoteParent(inCtx, "kafkachannel-"+topic, sc)
 }

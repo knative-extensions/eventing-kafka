@@ -21,7 +21,8 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
-	"regexp"
+
+	"knative.dev/eventing-kafka/pkg/common/tracing"
 
 	"github.com/Shopify/sarama"
 	kafkasaramaprotocol "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
@@ -31,9 +32,6 @@ import (
 	"knative.dev/eventing/pkg/channel"
 	"knative.dev/eventing/pkg/kncloudevents"
 )
-
-// 3 Digit Word Boundary HTTP Status Code Regular Expression
-var HttpStatusCodeRegExp = regexp.MustCompile(`(^|\\s)([12345]\\d{2})(\\s|$)`)
 
 // Verify The Handler Implements The Sarama ConsumerGroupHandler
 var _ sarama.ConsumerGroupHandler = &Handler{}
@@ -111,7 +109,7 @@ func (h *Handler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama
 	for message := range claim.Messages() {
 
 		// Consume The Message (Ignore Errors - Will have already been retried and we're moving on so as not to block further Topic processing.)
-		_ = h.consumeMessage(message, destinationURL, replyURL, deadLetterURL, &retryConfig)
+		_ = h.consumeMessage(session.Context(), message, destinationURL, replyURL, deadLetterURL, &retryConfig)
 
 		// Mark The Message As Having Been Consumed (Does Not Imply Successful Delivery - Only Full Retry Attempts Made)
 		session.MarkMessage(message, "")
@@ -122,7 +120,7 @@ func (h *Handler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama
 }
 
 // Consume A Single Message
-func (h *Handler) consumeMessage(consumerMessage *sarama.ConsumerMessage, destinationURL *url.URL, replyURL *url.URL, deadLetterURL *url.URL, retryConfig *kncloudevents.RetryConfig) error {
+func (h *Handler) consumeMessage(context context.Context, consumerMessage *sarama.ConsumerMessage, destinationURL *url.URL, replyURL *url.URL, deadLetterURL *url.URL, retryConfig *kncloudevents.RetryConfig) error {
 
 	// Debug Log Kafka ConsumerMessage
 	h.Logger.Debug("Consuming Kafka Message",
@@ -140,8 +138,11 @@ func (h *Handler) consumeMessage(consumerMessage *sarama.ConsumerMessage, destin
 		return errors.New("received a message with unknown encoding - skipping")
 	}
 
+	ctx, span := tracing.StartTraceFromMessage(h.Logger.Sugar(), context, message, consumerMessage.Topic)
+	defer span.End()
+
 	// Dispatch The Message With Configured Retries & Return Any Errors
-	_, dispatchError := h.MessageDispatcher.DispatchMessageWithRetries(context.Background(), message, nil, destinationURL, replyURL, deadLetterURL, retryConfig)
+	_, dispatchError := h.MessageDispatcher.DispatchMessageWithRetries(ctx, message, nil, destinationURL, replyURL, deadLetterURL, retryConfig)
 	return dispatchError
 }
 

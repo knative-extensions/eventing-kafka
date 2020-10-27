@@ -222,7 +222,7 @@ func (r *Reconciler) configMapObserver(configMap *corev1.ConfigMap) {
 	// section, we currently do not do anything proactive based on configuration changes to those items.
 	// The only component in the controller that uses any of the fields after startup currently
 	// is the AdminClient, which simply uses the r.saramaConfig set here whenever necessary.
-	// This means that calling env.GetEnvironment and env.VerifyOverrides is not necessary now.  If
+	// This means that calling env.GetEnvironment is not necessary now.  If
 	// those settings are needed in the future, the environment will also need to be re-parsed here.
 
 	// Load the Sarama settings from our configmap, ignoring the eventing-kafka result.
