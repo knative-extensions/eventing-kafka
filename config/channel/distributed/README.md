@@ -151,6 +151,12 @@ your Kafka cluster.
               -----END CERTIFICATE-----
   ```
 
+    > Remember to change **Net.TLS.Enable** and/or **Net.SASL.Enable** to "true" if you are
+    > configuring authentication in the [kafka-secret.yaml](300-kafka-secret.yaml) file.
+    > Also be aware that the e2e tests require those values to be false, so if you change the
+    > defaults in the [eventing-kafka-configmap.yaml](200-eventing-kafka-configmap.yaml) file
+    > itself and commit it to the repository, those e2e tests will fail.
+
   - **Net.MaxOpenRequests:** While you are free to change this value it is
     paired with the Idempotent value below to provide in-order guarantees.
   - **Producer.Idempotent:** This value is expected to be `true` in order to
