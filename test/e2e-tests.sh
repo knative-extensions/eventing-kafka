@@ -372,6 +372,6 @@ test_consolidated_channel || return 1
 test_distributed_channel || return 1
 
 # If you wish to use this script just as test setup, *without* teardown, just uncomment this line and comment all go_test_e2e commands
-trap - SIGINT SIGQUIT SIGTSTP EXIT
+# trap - SIGINT SIGQUIT SIGTSTP EXIT
 
 success
