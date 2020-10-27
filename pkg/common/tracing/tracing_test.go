@@ -18,9 +18,10 @@ package tracing
 
 import (
 	"context"
+	"testing"
+
 	protocolkafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	logtesting "knative.dev/pkg/logging/testing"
-	"testing"
 
 	"github.com/stretchr/testify/require"
 	"go.opencensus.io/trace"
