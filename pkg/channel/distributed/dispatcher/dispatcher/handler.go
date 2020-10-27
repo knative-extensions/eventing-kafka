@@ -137,6 +137,7 @@ func (h *Handler) consumeMessage(context context.Context, consumerMessage *saram
 		return errors.New("received a message with unknown encoding - skipping")
 	}
 
+	ctx, span := tracing.StartTraceFromMessage(h.Logger.Sugar(), context, message, consumerMessage.Topic)
 	ctx, span := startTraceFromMessage(h.Logger, context, message, consumerMessage.Topic)
 	defer span.End()
 

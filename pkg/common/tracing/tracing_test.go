@@ -14,11 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package dispatcher
+package tracing
 
 import (
 	"context"
 	"testing"
+
+	protocolkafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
+	logtesting "knative.dev/pkg/logging/testing"
 
 	"github.com/stretchr/testify/require"
 	"go.opencensus.io/trace"
@@ -45,7 +48,7 @@ func TestRoundtripWithNewSpan(t *testing.T) {
 	span.AddAttributes(trace.BoolAttribute("hello", true))
 	inSpanContext := span.SpanContext()
 
-	serializedHeaders := serializeTrace(inSpanContext)
+	serializedHeaders := SerializeTrace(inSpanContext)
 
 	// Translate back to headers
 	headers := make(map[string][]byte)
@@ -53,13 +56,13 @@ func TestRoundtripWithNewSpan(t *testing.T) {
 		headers[string(h.Key)] = h.Value
 	}
 
-	outSpanContext, ok := parseSpanContext(headers)
+	outSpanContext, ok := ParseSpanContext(headers)
 	require.True(t, ok)
 	require.Equal(t, inSpanContext, outSpanContext)
 }
 
 func TestRoundtrip(t *testing.T) {
-	serializedHeaders := serializeTrace(sampleSpanContext)
+	serializedHeaders := SerializeTrace(sampleSpanContext)
 
 	// Translate back to headers
 	headers := make(map[string][]byte)
@@ -67,7 +70,35 @@ func TestRoundtrip(t *testing.T) {
 		headers[string(h.Key)] = h.Value
 	}
 
-	outSpanContext, ok := parseSpanContext(headers)
+	outSpanContext, ok := ParseSpanContext(headers)
 	require.True(t, ok)
 	require.Equal(t, sampleSpanContext, outSpanContext)
+}
+
+// Verify that the StartTraceFromMessage call creates spans.  The verification of span
+// content itself is done in the TestRoundtrip and TestRoundtripWithNewSpan functions.
+func TestStartTraceFromMessage(t *testing.T) {
+	logger := logtesting.TestLogger(t)
+
+	// Verify that "message without headers" starts a new span without errors
+	ctx, span := StartTraceFromMessage(logger, context.TODO(), &protocolkafka.Message{}, "testTopic")
+	require.NotNil(t, ctx)
+	require.NotNil(t, span)
+
+	_, span = trace.StartSpan(context.TODO(), "aaa", trace.WithSpanKind(trace.SpanKindClient))
+	span.AddAttributes(trace.BoolAttribute("hello", true))
+	inSpanContext := span.SpanContext()
+
+	serializedHeaders := SerializeTrace(inSpanContext)
+
+	// Translate back to headers
+	headers := make(map[string][]byte)
+	for _, h := range serializedHeaders {
+		headers[string(h.Key)] = h.Value
+	}
+
+	// Verify that a span can be generated from existing span headers
+	ctx, span = StartTraceFromMessage(logger, context.TODO(), &protocolkafka.Message{Headers: headers}, "testTopic")
+	require.NotNil(t, ctx)
+	require.NotNil(t, span)
 }
