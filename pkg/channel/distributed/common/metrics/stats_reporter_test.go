@@ -39,14 +39,13 @@ import (
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/system"
-	"math/rand"
 )
 
 // Test The MetricsServer's Report() Functionality
 func TestMetricsServer_Report(t *testing.T) {
 
 	// Test Data
-	metricsPort := rand.Intn(10000) + 9000
+	metricsPort := 9878
 	metricsDomain := "eventing-kafka"
 	topicName := "test-topic-name"
 	msgCount := 13579
