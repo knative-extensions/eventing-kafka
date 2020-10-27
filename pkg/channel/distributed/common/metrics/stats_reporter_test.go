@@ -27,8 +27,6 @@ import (
 	"time"
 
 	"io/ioutil"
-	"math/rand"
-
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,7 +45,7 @@ import (
 func TestMetricsServer_Report(t *testing.T) {
 
 	// Test Data
-	metricsPort := rand.Intn(10000) + 9000
+	metricsPort := 9878
 	metricsDomain := "eventing-kafka"
 	topicName := "test-topic-name"
 	msgCount := 13579
