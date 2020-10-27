@@ -333,17 +333,8 @@ function kafka_teardown() {
   kubectl delete namespace "${STRIMZI_KAFKA_NAMESPACE}"
 }
 
-# Kills the process that forwards port 9411 of the zipkin pod to the local machine.
-# This can be necessary if a test fails and leaves the process running, before re-running the tests,
-# if zipkin is reinstalled and the pod name changes.
-function kill_zipkin_forwarder() {
-  ps -e -o pid,command | grep "kubectl port-forward zipkin[^*]*9411:9411 -n knative-eventing" | cut -d ' ' -f 1 | xargs kill
-}
-
 # Installs the resources necessary to test the consolidated channel, runs those tests, and then cleans up those resources
 function test_consolidated_channel() {
-  kill_zipkin_forwarder
-
   # Test the consolidated channel
   echo "Testing the consolidated channel"
   install_consolidated_channel_crds || return 1
@@ -358,8 +349,6 @@ function test_consolidated_channel() {
 
 # Installs the resources necessary to test the distributed channel, runs those tests, and then cleans up those resources
 function test_distributed_channel() {
-  kill_zipkin_forwarder
-
   # Test the distributed channel
   echo "Testing the distributed channel"
   install_distributed_channel_crds || return 1
