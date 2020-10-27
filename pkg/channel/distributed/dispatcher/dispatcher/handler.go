@@ -19,17 +19,17 @@ package dispatcher
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/url"
+
 	"github.com/Shopify/sarama"
 	kafkasaramaprotocol "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"github.com/cloudevents/sdk-go/v2/binding"
-	"go.opencensus.io/trace"
 	"go.uber.org/zap"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/util"
+	"knative.dev/eventing-kafka/pkg/common/tracing"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/channel"
 	"knative.dev/eventing/pkg/kncloudevents"
-	"net/http"
-	"net/url"
 )
 
 // Verify The Handler Implements The Sarama ConsumerGroupHandler
@@ -138,22 +138,11 @@ func (h *Handler) consumeMessage(context context.Context, consumerMessage *saram
 	}
 
 	ctx, span := tracing.StartTraceFromMessage(h.Logger.Sugar(), context, message, consumerMessage.Topic)
-	ctx, span := startTraceFromMessage(h.Logger, context, message, consumerMessage.Topic)
 	defer span.End()
 
 	// Dispatch The Message With Configured Retries & Return Any Errors
 	_, dispatchError := h.MessageDispatcher.DispatchMessageWithRetries(ctx, message, nil, destinationURL, replyURL, deadLetterURL, retryConfig)
 	return dispatchError
-}
-
-func startTraceFromMessage(logger *zap.Logger, inCtx context.Context, message *kafkasaramaprotocol.Message, topic string) (context.Context, *trace.Span) {
-	sc, ok := util.ParseSpanContext(message.Headers)
-	if !ok {
-		logger.Warn("Cannot parse the spancontext, creating a new span")
-		return trace.StartSpan(inCtx, "kafkachannel-"+topic)
-	}
-
-	return trace.StartSpanWithRemoteParent(inCtx, "kafkachannel-"+topic, sc)
 }
 
 //
