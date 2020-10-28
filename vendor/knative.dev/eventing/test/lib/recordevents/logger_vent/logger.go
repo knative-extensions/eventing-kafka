@@ -1,5 +1,3 @@
-// +build tools
-
 /*
 Copyright 2020 The Knative Authors
 
@@ -16,17 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package tools
+package logger_vent
 
-// This package imports things required by this repository, to force `go mod` to see them as dependencies
-import (
-	_ "k8s.io/code-generator"
-	_ "k8s.io/code-generator/cmd/client-gen"
-	_ "k8s.io/code-generator/cmd/deepcopy-gen"
-	_ "k8s.io/code-generator/cmd/defaulter-gen"
-	_ "k8s.io/code-generator/cmd/informer-gen"
-	_ "k8s.io/code-generator/cmd/lister-gen"
+import "knative.dev/eventing/test/lib/recordevents"
 
-	_ "knative.dev/hack"
-	_ "knative.dev/pkg/codegen/cmd/injection-gen"
-)
+type Logger func(string, ...interface{})
+
+func (l Logger) Vent(observed recordevents.EventInfo) error {
+	l("Event: \n%s", observed.String())
+
+	return nil
+}
