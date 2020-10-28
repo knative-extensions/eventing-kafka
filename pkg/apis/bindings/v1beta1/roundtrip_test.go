@@ -1,5 +1,6 @@
 /*
-Copyright 2019 The Knative Authors
+Copyright 2020 The Knative Authors.
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -13,22 +14,25 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package v1beta1
 
 import (
-	"knative.dev/eventing/pkg/logconfig"
-	"knative.dev/pkg/webhook"
+	"testing"
 
-	channelwebhook "knative.dev/eventing-kafka/pkg/channel/consolidated/webhook"
+	"k8s.io/apimachinery/pkg/api/apitesting/fuzzer"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	pkgfuzzer "knative.dev/pkg/apis/testing/fuzzer"
+	"knative.dev/pkg/apis/testing/roundtrip"
 )
 
-func main() {
-	channelwebhook.Main(
-		"kafkachannel-webhook",
-		webhook.Options{
-			ServiceName: logconfig.WebhookName(),
-			Port:        webhook.PortFromEnv(8443),
-			SecretName:  "messaging-webhook-certs",
-		},
+func TestBindingRoundTripTypesToJSON(t *testing.T) {
+	scheme := runtime.NewScheme()
+	utilruntime.Must(AddToScheme(scheme))
+
+	fuzzerFuncs := fuzzer.MergeFuzzerFuncs(
+		pkgfuzzer.Funcs,
+		FuzzerFuncs,
 	)
+	roundtrip.ExternalTypesViaJSON(t, scheme, fuzzerFuncs)
 }
