@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # This file is automagically synced here from github.com/knative-sandbox/.github
-# repo by knobots: https://github.com/mattmoor/knobots and will be overwritten.
+# repo by knobots: https://github.com/knative-sandbox/knobots and will be overwritten.
 
 name: Code Style
 
@@ -121,7 +121,7 @@ jobs:
         if: steps.golangci_configuration.outputs.files_exists == 'true'
         uses: golangci/golangci-lint-action@v2
         with:
-          version: v1.30
+          version: v1.32
 
       - name: misspell
         shell: bash
