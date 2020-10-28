@@ -25,7 +25,7 @@
 # project $PROJECT_ID, start Knative eventing system, install resources
 # in eventing-contrib, run the tests and delete the cluster.
 
-source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/e2e-tests.sh
+source $(dirname $0)/../vendor/knative.dev/hack/e2e-tests.sh
 
 # If gcloud is not available make it a no-op, not an error.
 which gcloud &> /dev/null || gcloud() { echo "[ignore-gcloud $*]" 1>&2; }
