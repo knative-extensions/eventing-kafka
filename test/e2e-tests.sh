@@ -80,6 +80,9 @@ readonly CONSOLIDATED_TEMPLATE_DIR="${KAFKA_CRD_CONFIG_TEMPLATE_DIR}/consolidate
 # Eventing Kafka Channel CRD Secret (Will be modified to with Strimzi Auth)
 readonly EVENTING_KAFKA_SECRET_TEMPLATE="300-kafka-secret.yaml"
 
+# Eventing Kafka Channel CRD Config Map (Will be modified to with SASL/TLS disabled)
+readonly EVENTING_KAFKA_CONFIG_TEMPLATE="200-eventing-kafka-configmap.yaml"
+
 # Strimzi installation config template used for starting up Kafka clusters.
 readonly STRIMZI_INSTALLATION_CONFIG_TEMPLATE="test/config/100-strimzi-cluster-operator-0.19.0.yaml"
 # Strimzi installation config.
@@ -281,6 +284,9 @@ function install_distributed_channel_crds() {
 
   # Update The Kafka Secret With Strimzi Kafka Cluster Brokers (No Authentication)
   sed -i "s/brokers: RU1QVFk=/brokers: ${STRIMZI_KAFKA_CLUSTER_BROKERS_ENCODED}/" "${KAFKA_CRD_CONFIG_DIR}/${EVENTING_KAFKA_SECRET_TEMPLATE}"
+
+  # Update the config-eventing-kafka configmap to disable SASL/TLS for the tests
+  sed -i '/^ *TLS:/{n;s/true/false/};/^ *SASL:/{n;s/true/false/}' "${KAFKA_CRD_CONFIG_DIR}/${EVENTING_KAFKA_CONFIG_TEMPLATE}"
 
   # Install The eventing-kafka KafkaChannel Implementation
   ko apply -f "${KAFKA_CRD_CONFIG_DIR}" || return 1
