@@ -283,7 +283,7 @@ function install_distributed_channel_crds() {
   cp "${DISTRIBUTED_TEMPLATE_DIR}/"*yaml "${KAFKA_CRD_CONFIG_DIR}"
 
   # Update The Kafka Secret With Strimzi Kafka Cluster Brokers (No Authentication)
-  sed -i "s/brokers: RU1QVFk=/brokers: ${STRIMZI_KAFKA_CLUSTER_BROKERS_ENCODED}/" "${KAFKA_CRD_CONFIG_DIR}/${EVENTING_KAFKA_SECRET_TEMPLATE}"
+  sed -i "s/brokers: \"\"/brokers: ${STRIMZI_KAFKA_CLUSTER_BROKERS_ENCODED}/" "${KAFKA_CRD_CONFIG_DIR}/${EVENTING_KAFKA_SECRET_TEMPLATE}"
 
   # Update the config-eventing-kafka configmap to disable SASL/TLS for the tests
   sed -i '/^ *TLS:/{n;s/true/false/};/^ *SASL:/{n;s/true/false/}' "${KAFKA_CRD_CONFIG_DIR}/${EVENTING_KAFKA_CONFIG_TEMPLATE}"
