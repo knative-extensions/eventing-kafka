@@ -377,7 +377,7 @@ export SYSTEM_NAMESPACE
 test_consolidated_channel || return 1
 
 # Terminate any zipkin port-forward processes that are still present on the system
-ps -e -o pid,command | grep 'kubectl port-forward zipkin[^*]*9411:9411 -n' | cut -d ' ' -f 1 | xargs kill
+ps -e -o pid,command | grep 'kubectl port-forward zipkin[^*]*9411:9411 -n' | sed 's/^ *\([0-9][0-9]*\) .*/\1/' | xargs kill
 
 test_distributed_channel || return 1
 
