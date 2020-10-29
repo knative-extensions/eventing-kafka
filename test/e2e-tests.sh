@@ -77,7 +77,7 @@ readonly KAFKA_CRD_CONFIG_TEMPLATE_DIR="./config/channel"
 readonly DISTRIBUTED_TEMPLATE_DIR="${KAFKA_CRD_CONFIG_TEMPLATE_DIR}/distributed"
 readonly CONSOLIDATED_TEMPLATE_DIR="${KAFKA_CRD_CONFIG_TEMPLATE_DIR}/consolidated"
 
-# Eventing Kafka Channel CRD Secret (Will be modified with Strimzi Auth)
+# Eventing Kafka Channel CRD Secret (Will be modified with Strimzi Cluster Brokers - No Authentication)
 readonly EVENTING_KAFKA_SECRET_TEMPLATE="300-kafka-secret.yaml"
 
 # Eventing Kafka Channel CRD Config Map (Will be modified with SASL/TLS disabled)
