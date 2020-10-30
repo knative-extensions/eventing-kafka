@@ -173,11 +173,7 @@ func TestKafkaBindingConversionRoundTripV1alpha1(t *testing.T) {
 					t.Errorf("ConvertFrom() = %v", err)
 				}
 
-				// Since on the way down, we lose the DeprecatedSourceAndType,
-				// convert the in to equivalent out.
-				fixed := fixKafkaBindingDeprecated(test.in)
-
-				if diff := cmp.Diff(fixed, got); diff != "" {
+				if diff := cmp.Diff(test.in, got); diff != "" {
 					t.Errorf("roundtrip (-want, +got) = %v", diff)
 				}
 			})
@@ -319,12 +315,4 @@ func TestKafkaBindingConversionRoundTripV1beta1(t *testing.T) {
 			})
 		}
 	}
-}
-
-// Since v1beta1 to v1alpha1 is lossy but semantically equivalent,
-// fix that so diff works.
-func fixKafkaBindingDeprecated(in *KafkaBinding) *KafkaBinding {
-	//in.Spec.ServiceAccountName = ""
-	//in.Spec.Resources = KafkaResourceSpec{}
-	return in
 }

@@ -145,16 +145,6 @@ func TestKafkaSourceConversionRoundTripV1alpha1(t *testing.T) {
 					URI: apis.HTTP("sink-uri"),
 				},
 				ServiceAccountName: "kafka-sa-name",
-				Resources: KafkaResourceSpec{
-					Requests: KafkaRequestsSpec{
-						ResourceCPU:    "5",
-						ResourceMemory: "100m",
-					},
-					Limits: KafkaLimitsSpec{
-						ResourceCPU:    "10",
-						ResourceMemory: "200m",
-					},
-				},
 			},
 			Status: KafkaSourceStatus{
 				SourceStatus: duckv1.SourceStatus{
@@ -372,6 +362,5 @@ func TestKafkaSourceConversionRoundTripV1beta1(t *testing.T) {
 // fix that so diff works.
 func fixKafkaSourceDeprecated(in *KafkaSource) *KafkaSource {
 	in.Spec.ServiceAccountName = ""
-	in.Spec.Resources = KafkaResourceSpec{}
 	return in
 }
