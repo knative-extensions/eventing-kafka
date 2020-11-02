@@ -362,7 +362,7 @@ function test_distributed_channel() {
 
   # TODO: Enable v1alpha1 testing once we have the auto-converting webhook in our config/yaml
   go_test_e2e -timeout=40m -parallel=${TEST_PARALLEL} ./test/e2e -channels=messaging.knative.dev/v1beta1:KafkaChannel  || fail_test
-  go_test_e2e -timeout=5m -parallel=${TEST_PARALLEL} ./test/conformance -channels=messaging.knative.dev/v1beta1:KafkaChannel -sources=sources.knative.dev/v1beta1:KafkaSource || fail_test
+  go_test_e2e -timeout=5m -parallel=${TEST_PARALLEL} ./test/conformance -channels=messaging.knative.dev/v1beta1:KafkaChannel || fail_test
 
   uninstall_sources_crds || return 1
   uninstall_channel_crds || return 1
@@ -370,7 +370,7 @@ function test_distributed_channel() {
 
 # Note:  The setting of gcp-project-id option here has no effect when testing locally; it is only for the kubetest2 utility
 # If you wish to use this script just as test setup, *without* teardown, add "--skip-teardowns" to the initialize command
-initialize $@ --skip-istio-addon "--gcp-project-id=${PROJECT_ID}"
+initialize $@ --skip-istio-addon
 
 export SYSTEM_NAMESPACE
 
