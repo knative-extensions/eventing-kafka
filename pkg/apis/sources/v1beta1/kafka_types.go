@@ -50,21 +50,6 @@ var _ apis.Defaultable = (*KafkaSource)(nil)
 var _ apis.Validatable = (*KafkaSource)(nil)
 var _ duckv1.KRShaped = (*KafkaSource)(nil)
 
-type KafkaRequestsSpec struct {
-	ResourceCPU    string `json:"cpu,omitempty"`
-	ResourceMemory string `json:"memory,omitempty"`
-}
-
-type KafkaLimitsSpec struct {
-	ResourceCPU    string `json:"cpu,omitempty"`
-	ResourceMemory string `json:"memory,omitempty"`
-}
-
-type KafkaResourceSpec struct {
-	Requests KafkaRequestsSpec `json:"requests,omitempty"`
-	Limits   KafkaLimitsSpec   `json:"limits,omitempty"`
-}
-
 // KafkaSourceSpec defines the desired state of the KafkaSource.
 type KafkaSourceSpec struct {
 	bindingsv1beta1.KafkaAuthSpec `json:",inline"`
