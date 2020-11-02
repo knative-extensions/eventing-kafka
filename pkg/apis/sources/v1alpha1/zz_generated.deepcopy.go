@@ -156,8 +156,8 @@ func (in *KafkaSourceSpec) DeepCopyInto(out *KafkaSourceSpec) {
 		*out = new(v1.CloudEventOverrides)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.Replicas != nil {
-		in, out := &in.Replicas, &out.Replicas
+	if in.Consumers != nil {
+		in, out := &in.Consumers, &out.Consumers
 		*out = new(int32)
 		**out = **in
 	}

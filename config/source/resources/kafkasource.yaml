@@ -50,9 +50,9 @@ spec:
     status: {}
     scale:
       # specReplicasPath defines the JSONPath inside of a custom resource that corresponds to Scale.Spec.Replicas.
-      specReplicasPath: .spec.replicas
+      specReplicasPath: .spec.consumers
       # statusReplicasPath defines the JSONPath inside of a custom resource that corresponds to Scale.Status.Replicas.
-      statusReplicasPath: .status.replicas
+      statusReplicasPath: .status.consumers
   conversion:
     strategy: Webhook
     webhookClientConfig:

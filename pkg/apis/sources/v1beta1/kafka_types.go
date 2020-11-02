@@ -52,10 +52,15 @@ var _ duckv1.KRShaped = (*KafkaSource)(nil)
 
 // KafkaSourceSpec defines the desired state of the KafkaSource.
 type KafkaSourceSpec struct {
-	// Number of desired replicas. This is a pointer to distinguish between explicit
-	// zero and not specified. Defaults to 1.
+	// Number of desired consumers. Defaults to 1.
+	//
+	// A consumer is an unit for measuring resource allocation,
+	// for example the number of pods, or the allocated bandwidth.
+	//
+	// This is a pointer to distinguish between explicit
+	// zero and not specified.
 	// +optional
-	Replicas *int32 `json:"replicas,omitempty"`
+	Consumers *int32 `json:"consumers,omitempty"`
 
 	bindingsv1beta1.KafkaAuthSpec `json:",inline"`
 
@@ -100,9 +105,9 @@ type KafkaSourceStatus struct {
 	//   Source.
 	duckv1.SourceStatus `json:",inline"`
 
-	// Total number of non-terminated replicas targeted by this source
+	// Total number of consumers targeted by this source
 	// +optional
-	Replicas int32 `json:"replicas,omitempty"`
+	Consumers int32 `json:"consumers,omitempty"`
 }
 
 func (*KafkaSource) GetGroupVersionKind() schema.GroupVersionKind {

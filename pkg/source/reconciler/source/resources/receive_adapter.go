@@ -89,7 +89,7 @@ func MakeReceiveAdapter(args *ReceiveAdapterArgs) *v1.Deployment {
 			Selector: &metav1.LabelSelector{
 				MatchLabels: args.Labels,
 			},
-			Replicas: args.Source.Spec.Replicas,
+			Replicas: args.Source.Spec.Consumers,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
