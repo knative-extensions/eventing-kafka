@@ -30,7 +30,11 @@
 
 # Calling this script without arguments will create a new cluster in
 # project $PROJECT_ID, start Knative eventing system, install resources
-# in eventing-contrib, run the tests and delete the cluster.
+# in eventing-contrib, run all of the test suites and delete the cluster.
+
+# To run an individual integration test suite, use one of these command-line arguments:
+#   --consolidated    To install and run the consolidated channel
+#   --distributed     To install and run the distributed channel
 
 # Variables supported by this script:
 # PROJECT_ID:  the GKR project in which to create the new cluster (unless using "--run-tests")
@@ -42,11 +46,6 @@ source $(dirname $0)/../vendor/knative.dev/hack/e2e-tests.sh
 
 # If gcloud is not available make it a no-op, not an error.
 which gcloud &> /dev/null || gcloud() { echo "[ignore-gcloud $*]" 1>&2; }
-# Use GNU tools on macOS. Requires the 'grep' and 'gnu-sed' Homebrew formulae.
-if [ "$(uname)" == "Darwin" ]; then
-  sed=gsed
-  grep=ggrep
-fi
 
 # Use GNU Tools on MacOS (Requires the 'grep' and 'gnu-sed' Homebrew formulae)
 if [ "$(uname)" == "Darwin" ]; then
@@ -368,18 +367,44 @@ function test_distributed_channel() {
   uninstall_channel_crds || return 1
 }
 
+# Parse command-line arguments
+for arg do
+  shift
+  case $arg in
+    --distributed)
+      TEST_DISTRIBUTED_CHANNEL=1
+      continue
+      ;;
+    --consolidated)
+      TEST_CONSOLIDATED_CHANNEL=1
+      continue
+      ;;
+  esac
+  set -- "$@" "$arg"
+done
+
+# If neither test was specified, run both
+if [[ $TEST_CONSOLIDATED_CHANNEL != 1 ]] && [[ $TEST_DISTRIBUTED_CHANNEL != 1 ]]; then
+  TEST_DISTRIBUTED_CHANNEL=1
+  TEST_CONSOLIDATED_CHANNEL=1
+fi
+
 # Note:  The setting of gcp-project-id option here has no effect when testing locally; it is only for the kubetest2 utility
 # If you wish to use this script just as test setup, *without* teardown, add "--skip-teardowns" to the initialize command
 initialize $@ --skip-istio-addon
 
 export SYSTEM_NAMESPACE
 
-test_consolidated_channel || return 1
+if [[ $TEST_CONSOLIDATED_CHANNEL == 1 ]]; then
+  test_consolidated_channel || return 1
+fi
 
 # Terminate any zipkin port-forward processes that are still present on the system
 ps -e -o pid,command | grep 'kubectl port-forward zipkin[^*]*9411:9411 -n' | sed 's/^ *\([0-9][0-9]*\) .*/\1/' | xargs kill
 
-test_distributed_channel || return 1
+if [[ $TEST_DISTRIBUTED_CHANNEL == 1 ]]; then
+  test_distributed_channel || return 1
+fi
 
 # If you wish to use this script just as test setup, *without* teardown, just uncomment this line and comment all go_test_e2e commands
 # trap - SIGINT SIGQUIT SIGTSTP EXIT
