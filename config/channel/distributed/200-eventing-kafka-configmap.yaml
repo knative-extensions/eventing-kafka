@@ -44,12 +44,14 @@ data:
       memoryLimit: 100Mi
       memoryRequest: 50Mi
       replicas: 1
+      enableSaramaLogging: false
     dispatcher:
       cpuLimit: 500m
       cpuRequest: 300m
       memoryLimit: 128Mi
       memoryRequest: 50Mi
       replicas: 1
+      enableSaramaLogging: false
     kafka:
       topic:
         defaultNumPartitions: 4

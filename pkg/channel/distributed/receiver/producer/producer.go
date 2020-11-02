@@ -19,6 +19,7 @@ package producer
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"knative.dev/eventing-kafka/pkg/common/tracing"
@@ -207,6 +208,14 @@ func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 
 		// Some of the current config settings may not be overridden by the configmap (username, password, etc.)
 		kafkasarama.UpdateSaramaConfig(newConfig, p.configuration.ClientID, p.configuration.Net.SASL.User, p.configuration.Net.SASL.Password)
+
+		// Enable Sarama Logging If Specified In ConfigMap
+		if ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap); err == nil {
+			kafkasarama.EnableSaramaLogging(ekConfig.Receiver.EnableSaramaLogging)
+			p.logger.Debug(fmt.Sprintf("Receiver Sarama Logging: %v", ekConfig.Receiver.EnableSaramaLogging))
+		} else {
+			p.logger.Error("Could Not Extract Eventing-Kafka Setting From Updated ConfigMap")
+		}
 
 		// Ignore the "Admin" and "Consumer" sections when comparing, as changes to those do not require restarting the Producer
 		if kafkasarama.ConfigEqual(newConfig, p.configuration, newConfig.Admin, newConfig.Consumer) {

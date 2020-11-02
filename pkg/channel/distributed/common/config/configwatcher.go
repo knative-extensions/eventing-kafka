@@ -40,14 +40,18 @@ type EKKubernetesConfig struct {
 	Replicas      int               `json:"replicas,omitempty"`
 }
 
-// The Receiver config has nothing in it except the base Kubernetes fields (Cpu, Memory, Replicas)
+// The Receiver config has the base Kubernetes fields (Cpu, Memory, Replicas)
+// and the dispatcher-specific Sarama logging flag
 type EKReceiverConfig struct {
 	EKKubernetesConfig
+	EnableSaramaLogging bool `json:"enableSaramaLogging,omitempty"`
 }
 
-// The Dispatcher config has the base Kubernetes fields and some retry settings
+// The Dispatcher config has the base Kubernetes fields (Cpu, Memory, Replicas)
+// and the dispatcher-specific Sarama logging flag
 type EKDispatcherConfig struct {
 	EKKubernetesConfig
+	EnableSaramaLogging bool `json:"enableSaramaLogging,omitempty"`
 }
 
 // EKKafkaTopicConfig contains some defaults that are only used if not provided by the channel spec

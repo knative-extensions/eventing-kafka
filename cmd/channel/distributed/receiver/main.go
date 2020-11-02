@@ -73,14 +73,17 @@ func main() {
 		logger.Fatal("Invalid / Missing Environment Variables - Terminating", zap.Error(err))
 	}
 
-	// Load The Sarama (& Eventing-Kafka) Configuration From The ConfigMap
-	saramaConfig, _, err := sarama.LoadSettings(ctx)
+	// Load The Sarama & Eventing-Kafka Configuration From The ConfigMap
+	saramaConfig, ekConfig, err := sarama.LoadSettings(ctx)
 	if err != nil {
 		logger.Fatal("Failed To Load Sarama Settings", zap.Error(err))
 	}
 
 	// Update The Sarama Config - Username/Password Overrides (EnvVars From Secret Take Precedence Over ConfigMap)
 	sarama.UpdateSaramaConfig(saramaConfig, constants.Component, environment.KafkaUsername, environment.KafkaPassword)
+
+	// Enable Sarama Logging If Specified In ConfigMap
+	sarama.EnableSaramaLogging(ekConfig.Receiver.EnableSaramaLogging)
 
 	// Initialize Tracing (Watches config-tracing ConfigMap, Assumes Context Came From LoggingContext With Embedded K8S Client Key)
 	err = commonconfig.InitializeTracing(logger.Sugar(), ctx, environment.ServiceName)
