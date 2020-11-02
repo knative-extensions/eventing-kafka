@@ -17,6 +17,8 @@ limitations under the License.
 package util
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 )
 
@@ -41,4 +43,11 @@ import (
 //
 func KubernetesResourceFinalizerName(finalizerSuffix string) string {
 	return constants.EventingKafkaFinalizerPrefix + finalizerSuffix
+}
+
+// Remove The Specified Finalizer From The Object
+func RemoveFinalizer(finalizer string, obj *metav1.ObjectMeta) {
+	finalizers := sets.NewString(obj.Finalizers...)
+	finalizers.Delete(finalizer)
+	obj.Finalizers = finalizers.List()
 }

@@ -17,6 +17,7 @@ limitations under the License.
 package util
 
 import (
+	"fmt"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,7 +27,7 @@ import (
 
 // Get A Logger With Secret Info
 func SecretLogger(logger *zap.Logger, secret *corev1.Secret) *zap.Logger {
-	return logger.With(zap.String("Namespace", secret.Namespace), zap.String("Name", secret.Name))
+	return logger.With(zap.String("Secret", fmt.Sprintf("%s/%s", secret.Namespace, secret.Name)))
 }
 
 // Create A New OwnerReference For The Specified K8S Secret (Controller)

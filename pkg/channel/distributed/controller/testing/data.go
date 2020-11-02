@@ -154,6 +154,24 @@ var (
 )
 
 //
+// Utility Data Creation Functions
+//
+
+// Service / Deployment Options For Customizing Test Data
+type ServiceOption func(service *corev1.Service)
+type DeploymentOption func(service *appsv1.Deployment)
+
+// Clear The Specified Service's Finalizers
+func WithoutFinalizersService(service *corev1.Service) {
+	service.ObjectMeta.Finalizers = []string{}
+}
+
+// Clear The Dispatcher Deployment's Finalizers
+func WithoutFinalizersDeployment(deployment *appsv1.Deployment) {
+	deployment.ObjectMeta.Finalizers = []string{}
+}
+
+//
 // ControllerConfig Test Data
 //
 
@@ -235,7 +253,6 @@ func NewKafkaSecret(options ...KafkaSecretOption) *corev1.Secret {
 
 	// Return The Test Kafka Secret
 	return secret
-
 }
 
 // Set The Kafka Secret's DeletionTimestamp To Current Time
@@ -334,7 +351,7 @@ func WithDeletionTimestamp(kafkachannel *kafkav1beta1.KafkaChannel) {
 
 // Set The KafkaChannel's Finalizer
 func WithFinalizer(kafkachannel *kafkav1beta1.KafkaChannel) {
-	kafkachannel.ObjectMeta.Finalizers = []string{"kafkachannels.messaging.knative.dev"}
+	kafkachannel.ObjectMeta.Finalizers = []string{constants.KafkaChannelFinalizerSuffix}
 }
 
 // Set The KafkaChannel's MetaData
@@ -637,14 +654,15 @@ func NewKafkaChannelReceiverDeployment() *appsv1.Deployment {
 }
 
 // Utility Function For Creating A Custom KafkaChannel Dispatcher Service For Testing
-func NewKafkaChannelDispatcherService() *corev1.Service {
+func NewKafkaChannelDispatcherService(options ...ServiceOption) *corev1.Service {
 
 	// Get The Expected Service Name For The Test KafkaChannel
 	serviceName := util.DispatcherDnsSafeName(&kafkav1beta1.KafkaChannel{
 		ObjectMeta: metav1.ObjectMeta{Namespace: KafkaChannelNamespace, Name: KafkaChannelName},
 	})
 
-	return &corev1.Service{
+	// Create The Dispatcher Service
+	service := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: corev1.SchemeGroupVersion.String(),
 			Kind:       constants.ServiceKind,
@@ -658,9 +676,7 @@ func NewKafkaChannelDispatcherService() *corev1.Service {
 				constants.KafkaChannelDispatcherLabel: "true",
 				constants.K8sAppChannelSelectorLabel:  constants.K8sAppDispatcherSelectorValue,
 			},
-			OwnerReferences: []metav1.OwnerReference{
-				NewChannelOwnerRef(),
-			},
+			Finalizers: []string{constants.EventingKafkaFinalizerPrefix + constants.KafkaChannelFinalizerSuffix},
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
@@ -675,10 +691,18 @@ func NewKafkaChannelDispatcherService() *corev1.Service {
 			},
 		},
 	}
+
+	// Apply The Specified Service Customizations
+	for _, option := range options {
+		option(service)
+	}
+
+	// Return The Test Dispatcher Service
+	return service
 }
 
 // Utility Function For Creating A Custom KafkaChannel Dispatcher Deployment For Testing
-func NewKafkaChannelDispatcherDeployment() *appsv1.Deployment {
+func NewKafkaChannelDispatcherDeployment(options ...DeploymentOption) *appsv1.Deployment {
 
 	// Get The Expected Dispatcher & Topic Names For The Test KafkaChannel
 	sparseKafkaChannel := &kafkav1beta1.KafkaChannel{ObjectMeta: metav1.ObjectMeta{Namespace: KafkaChannelNamespace, Name: KafkaChannelName}}
@@ -688,7 +712,7 @@ func NewKafkaChannelDispatcherDeployment() *appsv1.Deployment {
 	// Replicas Int Reference
 	replicas := int32(DispatcherReplicas)
 
-	return &appsv1.Deployment{
+	deployment := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: appsv1.SchemeGroupVersion.String(),
 			Kind:       constants.DeploymentKind,
@@ -702,9 +726,7 @@ func NewKafkaChannelDispatcherDeployment() *appsv1.Deployment {
 				constants.KafkaChannelNamespaceLabel:  KafkaChannelNamespace,
 				constants.KafkaChannelDispatcherLabel: "true",
 			},
-			OwnerReferences: []metav1.OwnerReference{
-				NewChannelOwnerRef(),
-			},
+			Finalizers: []string{constants.EventingKafkaFinalizerPrefix + constants.KafkaChannelFinalizerSuffix},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
@@ -835,6 +857,14 @@ func NewKafkaChannelDispatcherDeployment() *appsv1.Deployment {
 			},
 		},
 	}
+
+	// Apply The Specified Deployment Customizations
+	for _, option := range options {
+		option(deployment)
+	}
+
+	// Return The Test Dispatcher Deployment
+	return deployment
 }
 
 // Utility Function For Creating A New OwnerReference Model For The Test Kafka Secret
@@ -904,6 +934,11 @@ func NewKafkaChannelFailedReconciliationEvent() string {
 	return reconcilertesting.Eventf(corev1.EventTypeWarning, "InternalError", constants.ReconciliationFailedError)
 }
 
+// Utility Function For Creating A Failed KafkaChannel Reconciled Event
+func NewKafkaChannelFailedFinalizationEvent() string {
+	return reconcilertesting.Eventf(corev1.EventTypeWarning, "InternalError", constants.FinalizationFailedError)
+}
+
 // Utility Function For Creating A Successful KafkaChannel Finalizer Update Event
 func NewKafkaChannelFinalizerUpdateEvent() string {
 	return reconcilertesting.Eventf(corev1.EventTypeNormal, "FinalizerUpdate", `Updated "%s" finalizers`, KafkaChannelName)
@@ -912,4 +947,56 @@ func NewKafkaChannelFinalizerUpdateEvent() string {
 // Utility Function For Creating A Successful KafkaChannel Finalizer Update Event
 func NewKafkaChannelSuccessfulFinalizedEvent() string {
 	return reconcilertesting.Eventf(corev1.EventTypeNormal, event.KafkaChannelFinalized.String(), fmt.Sprintf("KafkaChannel Finalized Successfully: \"%s/%s\"", KafkaChannelNamespace, KafkaChannelName))
+}
+
+// Utility Function For Creating A UpdateActionImpl For A Deployment Update Command
+func NewServiceUpdateActionImpl(service *corev1.Service) clientgotesting.UpdateActionImpl {
+	return clientgotesting.UpdateActionImpl{
+		ActionImpl: clientgotesting.ActionImpl{
+			Namespace:   service.Namespace,
+			Verb:        "update",
+			Resource:    schema.GroupVersionResource{Group: corev1.SchemeGroupVersion.Group, Version: corev1.SchemeGroupVersion.Version, Resource: "services"},
+			Subresource: "",
+		},
+		Object: service,
+	}
+}
+
+// Utility Function For Creating A UpdateActionImpl For A Service Update Command
+func NewDeploymentUpdateActionImpl(deployment *appsv1.Deployment) clientgotesting.UpdateActionImpl {
+	return clientgotesting.UpdateActionImpl{
+		ActionImpl: clientgotesting.ActionImpl{
+			Namespace:   deployment.Namespace,
+			Verb:        "update",
+			Resource:    schema.GroupVersionResource{Group: appsv1.SchemeGroupVersion.Group, Version: appsv1.SchemeGroupVersion.Version, Resource: "deployments"},
+			Subresource: "",
+		},
+		Object: deployment,
+	}
+}
+
+// Utility Function For Creating A DeleteActionImpl For A Deployment Update Command
+func NewServiceDeleteActionImpl(service *corev1.Service) clientgotesting.DeleteActionImpl {
+	return clientgotesting.DeleteActionImpl{
+		ActionImpl: clientgotesting.ActionImpl{
+			Namespace:   service.Namespace,
+			Verb:        "delete",
+			Resource:    schema.GroupVersionResource{Group: corev1.SchemeGroupVersion.Group, Version: corev1.SchemeGroupVersion.Version, Resource: "services"},
+			Subresource: "",
+		},
+		Name: service.Name,
+	}
+}
+
+// Utility Function For Creating A DeleteActionImpl For A Service Update Command
+func NewDeploymentDeleteActionImpl(deployment *appsv1.Deployment) clientgotesting.DeleteActionImpl {
+	return clientgotesting.DeleteActionImpl{
+		ActionImpl: clientgotesting.ActionImpl{
+			Namespace:   deployment.Namespace,
+			Verb:        "delete",
+			Resource:    schema.GroupVersionResource{Group: appsv1.SchemeGroupVersion.Group, Version: appsv1.SchemeGroupVersion.Version, Resource: "deployments"},
+			Subresource: "",
+		},
+		Name: deployment.Name,
+	}
 }

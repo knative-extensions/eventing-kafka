@@ -19,6 +19,7 @@ package kafkasecretinjection
 import (
 	"context"
 	"fmt"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"reflect"
 	"strings"
 
@@ -46,7 +47,7 @@ const (
 
 var (
 	// Need Prefix For Valid Finalizer On Native K8S Resources (Secrets)
-	defaultFinalizerName = util.KubernetesResourceFinalizerName("kafkasecrets.eventing-kafka.knative.dev")
+	defaultFinalizerName = util.KubernetesResourceFinalizerName(constants.KafkaSecretFinalizerSuffix)
 )
 
 // NewImpl returns a controller.Impl that handles queuing and feeding work from

@@ -42,6 +42,35 @@ import (
 	. "knative.dev/pkg/reconciler/testing"
 )
 
+// TODO - ORIG
+/*
+import (
+	"context"
+	"sync"
+	"testing"
+
+	"github.com/Shopify/sarama"
+	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
+	clientgotesting "k8s.io/client-go/testing"
+	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
+	kafkaadmin "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
+	controllertesting "knative.dev/eventing-kafka/pkg/channel/distributed/controller/testing"
+	fakekafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client/fake"
+	kafkachannelreconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
+	logtesting "knative.dev/pkg/logging/testing"
+	. "knative.dev/pkg/reconciler/testing"
+)
+*/
+
 // Initialization - Add types to scheme
 func init() {
 	_ = kafkav1beta1.AddToScheme(scheme.Scheme)
@@ -191,7 +220,31 @@ func TestReconcile(t *testing.T) {
 		//
 
 		{
-			Name: "Finalize Deleted KafkaChannel",
+			Name: "Finalize Deleted KafkaChannel With Dispatcher",
+			Key:  controllertesting.KafkaChannelKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaChannel(
+					controllertesting.WithInitializedConditions,
+					controllertesting.WithLabels,
+					controllertesting.WithDeletionTimestamp,
+				),
+				controllertesting.NewKafkaChannelDispatcherService(),
+				controllertesting.NewKafkaChannelDispatcherDeployment(),
+			},
+			WantUpdates: []clientgotesting.UpdateActionImpl{
+				controllertesting.NewServiceUpdateActionImpl(controllertesting.NewKafkaChannelDispatcherService(controllertesting.WithoutFinalizersService)),
+				controllertesting.NewDeploymentUpdateActionImpl(controllertesting.NewKafkaChannelDispatcherDeployment(controllertesting.WithoutFinalizersDeployment)),
+			},
+			WantDeletes: []clientgotesting.DeleteActionImpl{
+				controllertesting.NewServiceDeleteActionImpl(controllertesting.NewKafkaChannelDispatcherService(controllertesting.WithoutFinalizersService)),
+				controllertesting.NewDeploymentDeleteActionImpl(controllertesting.NewKafkaChannelDispatcherDeployment(controllertesting.WithoutFinalizersDeployment)),
+			},
+			WantEvents: []string{
+				controllertesting.NewKafkaChannelSuccessfulFinalizedEvent(),
+			},
+		},
+		{
+			Name: "Finalize Deleted KafkaChannel Without Dispatcher",
 			Key:  controllertesting.KafkaChannelKey,
 			Objects: []runtime.Object{
 				controllertesting.NewKafkaChannel(
@@ -202,6 +255,38 @@ func TestReconcile(t *testing.T) {
 			},
 			WantEvents: []string{
 				controllertesting.NewKafkaChannelSuccessfulFinalizedEvent(),
+			},
+		},
+		{
+			Name:                    "Finalize Deleted KafkaChannel Errors(Delete)",
+			SkipNamespaceValidation: true,
+			Key:                     controllertesting.KafkaChannelKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaChannel(
+					controllertesting.WithInitializedConditions,
+					controllertesting.WithLabels,
+					controllertesting.WithDeletionTimestamp,
+				),
+				controllertesting.NewKafkaChannelDispatcherService(),
+				controllertesting.NewKafkaChannelDispatcherDeployment(),
+			},
+			WithReactors: []clientgotesting.ReactionFunc{
+				InduceFailure("delete", "Services"),
+				InduceFailure("delete", "Deployments"),
+			},
+			WantUpdates: []clientgotesting.UpdateActionImpl{
+				controllertesting.NewServiceUpdateActionImpl(controllertesting.NewKafkaChannelDispatcherService(controllertesting.WithoutFinalizersService)),
+				controllertesting.NewDeploymentUpdateActionImpl(controllertesting.NewKafkaChannelDispatcherDeployment(controllertesting.WithoutFinalizersDeployment)),
+			},
+			WantDeletes: []clientgotesting.DeleteActionImpl{
+				controllertesting.NewServiceDeleteActionImpl(controllertesting.NewKafkaChannelDispatcherService(controllertesting.WithoutFinalizersService)),
+				controllertesting.NewDeploymentDeleteActionImpl(controllertesting.NewKafkaChannelDispatcherDeployment(controllertesting.WithoutFinalizersDeployment)),
+			},
+			WantErr: true,
+			WantEvents: []string{
+				Eventf(corev1.EventTypeWarning, event.DispatcherServiceFinalizationFailed.String(), "Failed To Finalize Dispatcher Service: inducing failure for delete services"),
+				Eventf(corev1.EventTypeWarning, event.DispatcherDeploymentFinalizationFailed.String(), "Failed To Finalize Dispatcher Deployment: inducing failure for delete deployments"),
+				controllertesting.NewKafkaChannelFailedFinalizationEvent(),
 			},
 		},
 
@@ -315,9 +400,9 @@ func TestReconcile(t *testing.T) {
 				controllertesting.NewKafkaChannelReceiverDeployment(),
 				controllertesting.NewKafkaChannelDispatcherDeployment(),
 			},
-			WithReactors:      []clientgotesting.ReactionFunc{InduceFailure("create", "services")},
-			WantErr:           true,
-			WantCreates:       []runtime.Object{controllertesting.NewKafkaChannelDispatcherService()},
+			WithReactors: []clientgotesting.ReactionFunc{InduceFailure("create", "Services")},
+			WantErr:      true,
+			WantCreates:  []runtime.Object{controllertesting.NewKafkaChannelDispatcherService()},
 			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
 				// Note - Not currently tracking status for the Dispatcher Service since it is only for Prometheus
 			},
@@ -376,7 +461,7 @@ func TestReconcile(t *testing.T) {
 				controllertesting.NewKafkaChannelReceiverDeployment(),
 				controllertesting.NewKafkaChannelDispatcherService(),
 			},
-			WithReactors: []clientgotesting.ReactionFunc{InduceFailure("create", "deployments")},
+			WithReactors: []clientgotesting.ReactionFunc{InduceFailure("create", "Deployments")},
 			WantErr:      true,
 			WantCreates:  []runtime.Object{controllertesting.NewKafkaChannelDispatcherDeployment()},
 			WantStatusUpdates: []clientgotesting.UpdateActionImpl{

@@ -137,6 +137,9 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, channel *kafkav1beta1.Kaf
 
 	r.logger.Debug("<==========  START KAFKA-CHANNEL FINALIZATION  ==========>")
 
+	// Setup Logger
+	logger := util.ChannelLogger(r.logger, channel)
+
 	// Add The K8S ClientSet To The Reconcile Context
 	ctx = context.WithValue(ctx, kubeclient.Key{}, r.kubeClientset)
 
@@ -148,18 +151,22 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, channel *kafkav1beta1.Kaf
 	r.SetKafkaAdminClient(ctx)
 	defer r.ClearKafkaAdminClient()
 
-	// Get The Kafka Topic Name For Specified Channel
-	topicName := util.TopicName(channel)
-
-	// Delete The Kafka Topic & Handle Error Response
-	err := r.deleteTopic(ctx, topicName)
+	// Finalize The Dispatcher (Manual Finalization Due To Cross-Namespace Ownership)
+	err := r.finalizeDispatcher(ctx, channel)
 	if err != nil {
-		r.logger.Error("Failed To Finalize KafkaChannel", zap.Any("Channel", channel), zap.Error(err))
-		return err
+		logger.Info("Failed To Finalize KafkaChannel", zap.Error(err))
+		return fmt.Errorf(constants.FinalizationFailedError)
+	}
+
+	// Finalize The Kafka Topic
+	err = r.finalizeKafkaTopic(ctx, channel)
+	if err != nil {
+		logger.Error("Failed To Finalize KafkaChannel", zap.Error(err))
+		return fmt.Errorf(constants.FinalizationFailedError)
 	}
 
 	// Return Success
-	r.logger.Info("Successfully Finalized KafkaChannel", zap.Any("Channel", channel))
+	logger.Info("Successfully Finalized KafkaChannel")
 	return reconciler.NewEvent(corev1.EventTypeNormal, event.KafkaChannelFinalized.String(), "KafkaChannel Finalized Successfully: \"%s/%s\"", channel.Namespace, channel.Name)
 }
 
@@ -170,7 +177,7 @@ func (r *Reconciler) reconcile(ctx context.Context, channel *kafkav1beta1.KafkaC
 	//        EventHub Cache to know the dynamically determined EventHub Namespace / Kafka Secret selected for the topic.
 
 	// Reconcile The KafkaChannel's Kafka Topic
-	err := r.reconcileTopic(ctx, channel)
+	err := r.reconcileKafkaTopic(ctx, channel)
 	if err != nil {
 		return fmt.Errorf(constants.ReconciliationFailedError)
 	}
