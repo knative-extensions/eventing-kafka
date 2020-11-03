@@ -59,9 +59,9 @@ type EKKafkaTopicConfig struct {
 
 // EKKafkaConfig contains items relevant to Kafka specifically, and the Sarama logging flag
 type EKKafkaConfig struct {
-	EnableSaramaLogging bool     `json:"enableSaramaLogging,omitempty"`
-	Topic     EKKafkaTopicConfig `json:"topic,omitempty"`
-	AdminType string             `json:"adminType,omitempty"`
+	EnableSaramaLogging bool               `json:"enableSaramaLogging,omitempty"`
+	Topic               EKKafkaTopicConfig `json:"topic,omitempty"`
+	AdminType           string             `json:"adminType,omitempty"`
 }
 
 // EventingKafkaConfig is the main struct that holds the Receiver, Dispatcher, and Kafka sub-items
