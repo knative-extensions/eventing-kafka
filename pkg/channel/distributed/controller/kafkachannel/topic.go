@@ -31,7 +31,7 @@ import (
 	"knative.dev/pkg/controller"
 )
 
-// Reconcile The Kafka Topic Associated With The Specified Channel & Return The Kafka Secret
+// Reconcile The Kafka Topic Associated With The Specified Channel
 func (r *Reconciler) reconcileKafkaTopic(ctx context.Context, channel *kafkav1beta1.KafkaChannel) error {
 
 	// Get The TopicName For Specified Channel
@@ -60,7 +60,7 @@ func (r *Reconciler) reconcileKafkaTopic(ctx context.Context, channel *kafkav1be
 	return err
 }
 
-// Finalize The Kafka Topic Associated With The Specified Channel & Return The Kafka Secret
+// Finalize The Kafka Topic Associated With The Specified Channel
 func (r *Reconciler) finalizeKafkaTopic(ctx context.Context, channel *kafkav1beta1.KafkaChannel) error {
 
 	// Get The TopicName For Specified Channel

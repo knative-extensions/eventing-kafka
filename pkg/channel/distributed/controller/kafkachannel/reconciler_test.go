@@ -42,35 +42,6 @@ import (
 	. "knative.dev/pkg/reconciler/testing"
 )
 
-// TODO - ORIG
-/*
-import (
-	"context"
-	"sync"
-	"testing"
-
-	"github.com/Shopify/sarama"
-	"github.com/stretchr/testify/assert"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes/scheme"
-	clientgotesting "k8s.io/client-go/testing"
-	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
-	kafkaadmin "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
-	controllertesting "knative.dev/eventing-kafka/pkg/channel/distributed/controller/testing"
-	fakekafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client/fake"
-	kafkachannelreconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
-	duckv1 "knative.dev/pkg/apis/duck/v1"
-	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
-	logtesting "knative.dev/pkg/logging/testing"
-	. "knative.dev/pkg/reconciler/testing"
-)
-*/
-
 // Initialization - Add types to scheme
 func init() {
 	_ = kafkav1beta1.AddToScheme(scheme.Scheme)
