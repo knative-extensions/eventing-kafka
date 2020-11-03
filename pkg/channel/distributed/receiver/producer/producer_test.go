@@ -203,10 +203,10 @@ func TestConfigChanged(t *testing.T) {
 	producer = runConfigChangedTest(t, producer, getBaseConfigMap(), TestConfigAdminChange, "", false)
 	// Verify that Consumer changes do not cause Reconfigure to be called
 	producer = runConfigChangedTest(t, producer, getBaseConfigMap(), TestConfigConsumerChange, "", false)
-	assert.NotNil(t, producer)
 
 	// Verify that having eventing-kafka settings in the configmap doesn't cause trouble
 	producer = runConfigChangedTest(t, producer, getBaseConfigMap(), TestConfigBase, TestEventingKafka, false)
+	assert.NotNil(t, producer)
 }
 
 func runConfigChangedTest(t *testing.T, originalProducer *Producer, base *corev1.ConfigMap, changed string, eventingKafka string, expectedNewProducer bool) *Producer {

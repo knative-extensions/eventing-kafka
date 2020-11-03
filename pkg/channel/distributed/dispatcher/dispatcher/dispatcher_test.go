@@ -390,10 +390,10 @@ func TestConfigChanged(t *testing.T) {
 
 	// Verify that Producer changes do not cause Reconfigure to be called
 	dispatcher = runConfigChangedTest(t, dispatcher, getBaseConfigMap(), TestConfigProducerChange, "", false)
-	assert.NotNil(t, dispatcher)
 
 	// Verify that having eventing-kafka settings in the configmap doesn't cause trouble
 	dispatcher = runConfigChangedTest(t, dispatcher, getBaseConfigMap(), TestConfigBase, TestEventingKafka, false)
+	assert.NotNil(t, dispatcher)
 }
 
 func runConfigChangedTest(t *testing.T, originalDispatcher Dispatcher, base *corev1.ConfigMap, changed string, eventingKafka string, expectedNewDispatcher bool) Dispatcher {
