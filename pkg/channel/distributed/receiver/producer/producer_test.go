@@ -109,6 +109,10 @@ Net:
     Password: ` + receivertesting.KafkaPassword + TestConfigMeta + TestConfigConsumer + `
 ClientID: ` + receivertesting.ClientId + `
 `
+
+	TestEventingKafka = `
+kafka:
+  enableSaramaLogging: true`
 )
 
 // Test The NewProducer Constructor
@@ -190,19 +194,22 @@ func TestConfigChanged(t *testing.T) {
 	producer := createTestProducer(t, mockSyncProducer)
 
 	// Apply a change to the Producer config
-	producer = runConfigChangedTest(t, producer, getBaseConfigMap(), TestConfigProducerChange, true)
+	producer = runConfigChangedTest(t, producer, getBaseConfigMap(), TestConfigProducerChange, "", true)
 
 	// Apply a metadata change
-	producer = runConfigChangedTest(t, producer, getBaseConfigMap(), TestConfigMetadataChange, true)
+	producer = runConfigChangedTest(t, producer, getBaseConfigMap(), TestConfigMetadataChange, "", true)
 
 	// Verify that Admin changes do not cause Reconfigure to be called
-	producer = runConfigChangedTest(t, producer, getBaseConfigMap(), TestConfigAdminChange, false)
+	producer = runConfigChangedTest(t, producer, getBaseConfigMap(), TestConfigAdminChange, "", false)
 	// Verify that Consumer changes do not cause Reconfigure to be called
-	producer = runConfigChangedTest(t, producer, getBaseConfigMap(), TestConfigConsumerChange, false)
+	producer = runConfigChangedTest(t, producer, getBaseConfigMap(), TestConfigConsumerChange, "", false)
 	assert.NotNil(t, producer)
+
+	// Verify that having eventing-kafka settings in the configmap doesn't cause trouble
+	producer = runConfigChangedTest(t, producer, getBaseConfigMap(), TestConfigBase, TestEventingKafka, false)
 }
 
-func runConfigChangedTest(t *testing.T, originalProducer *Producer, base *corev1.ConfigMap, changed string, expectedNewProducer bool) *Producer {
+func runConfigChangedTest(t *testing.T, originalProducer *Producer, base *corev1.ConfigMap, changed string, eventingKafka string, expectedNewProducer bool) *Producer {
 
 	// Change the Producer settings to the base config
 	newProducer := originalProducer.ConfigChanged(base)
@@ -214,6 +221,7 @@ func runConfigChangedTest(t *testing.T, originalProducer *Producer, base *corev1
 	// Alter the configmap to use the changed settings
 	newConfig := base
 	newConfig.Data[commonconfig.SaramaSettingsConfigKey] = changed
+	newConfig.Data[commonconfig.EventingKafkaSettingsConfigKey] = eventingKafka
 
 	// Inform the Producer that the config has changed to the new settings
 	newProducer = originalProducer.ConfigChanged(newConfig)
