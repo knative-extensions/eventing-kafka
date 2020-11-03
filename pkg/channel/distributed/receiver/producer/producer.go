@@ -214,7 +214,7 @@ func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 			kafkasarama.EnableSaramaLogging(ekConfig.Receiver.EnableSaramaLogging)
 			p.logger.Debug(fmt.Sprintf("Setting Receiver Sarama Logging to %v", ekConfig.Receiver.EnableSaramaLogging))
 		} else {
-			p.logger.Error("Could Not Extract Eventing-Kafka Setting From Updated ConfigMap")
+			p.logger.Error("Could Not Extract Eventing-Kafka Setting From Updated ConfigMap", zap.Error(err))
 		}
 
 		// Ignore the "Admin" and "Consumer" sections when comparing, as changes to those do not require restarting the Producer

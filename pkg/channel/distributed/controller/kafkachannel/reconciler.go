@@ -223,7 +223,7 @@ func (r *Reconciler) configMapObserver(configMap *corev1.ConfigMap) {
 		kafkasarama.EnableSaramaLogging(ekConfig.Controller.EnableSaramaLogging)
 		r.logger.Debug(fmt.Sprintf("Setting Controller Sarama Logging to %v", ekConfig.Controller.EnableSaramaLogging))
 	} else {
-		r.logger.Error("Could Not Extract Eventing-Kafka Setting From Updated ConfigMap")
+		r.logger.Error("Could Not Extract Eventing-Kafka Setting From Updated ConfigMap", zap.Error(err))
 	}
 
 	// Though the new configmap could technically have changes to the eventing-kafka section

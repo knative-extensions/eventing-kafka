@@ -289,7 +289,7 @@ func (d *DispatcherImpl) ConfigChanged(configMap *v1.ConfigMap) Dispatcher {
 			kafkasarama.EnableSaramaLogging(ekConfig.Dispatcher.EnableSaramaLogging)
 			d.Logger.Debug(fmt.Sprintf("Setting Dispatcher Sarama Logging to %v", ekConfig.Dispatcher.EnableSaramaLogging))
 		} else {
-			d.Logger.Error("Could Not Extract Eventing-Kafka Setting From Updated ConfigMap")
+			d.Logger.Error("Could Not Extract Eventing-Kafka Setting From Updated ConfigMap", zap.Error(err))
 		}
 
 		// Ignore the "Producer" section as changes to that do not require recreating the Dispatcher
