@@ -314,7 +314,7 @@ func LoadSettings(ctx context.Context) (*sarama.Config, *commonconfig.EventingKa
 
 func LoadEventingKafkaSettings(configMap *corev1.ConfigMap) (*commonconfig.EventingKafkaConfig, error) {
 	// Validate The ConfigMap Data
-	if configMap.Data == nil {
+	if configMap == nil || configMap.Data == nil {
 		return nil, fmt.Errorf("attempted to load configuration from empty configmap")
 	}
 

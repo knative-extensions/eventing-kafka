@@ -382,6 +382,11 @@ func TestLoadEventingKafkaSettings(t *testing.T) {
 	eventingKafkaConfig, err = LoadEventingKafkaSettings(configMap)
 	assert.Nil(t, eventingKafkaConfig)
 	assert.NotNil(t, err)
+
+	// Verify that a nil configmap returns an error
+	eventingKafkaConfig, err = LoadEventingKafkaSettings(nil)
+	assert.Nil(t, eventingKafkaConfig)
+	assert.NotNil(t, err)
 }
 
 func TestLoadSettings(t *testing.T) {
