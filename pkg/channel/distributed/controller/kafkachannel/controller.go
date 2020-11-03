@@ -65,6 +65,9 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 		logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Error(err))
 	}
 
+	// Enable Sarama Logging If Specified In ConfigMap
+	sarama.EnableSaramaLogging(configuration.Kafka.EnableSaramaLogging)
+
 	// Determine The Kafka AdminClient Type (Assume Kafka Unless Otherwise Specified)
 	var kafkaAdminClientType kafkaadmin.AdminClientType
 	switch configuration.Kafka.AdminType {

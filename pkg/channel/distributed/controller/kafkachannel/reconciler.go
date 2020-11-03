@@ -218,12 +218,21 @@ func (r *Reconciler) configMapObserver(configMap *corev1.ConfigMap) {
 		return
 	}
 
-	// Though the new configmap could technically have changes to the eventing-kafka section as well as the sarama
-	// section, we currently do not do anything proactive based on configuration changes to those items.
-	// The only component in the controller that uses any of the fields after startup currently
-	// is the AdminClient, which simply uses the r.saramaConfig set here whenever necessary.
-	// This means that calling env.GetEnvironment is not necessary now.  If
-	// those settings are needed in the future, the environment will also need to be re-parsed here.
+	// Enable Sarama Logging If Specified In ConfigMap
+	if ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap); err == nil && ekConfig != nil {
+		kafkasarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)
+		r.logger.Debug("Updated Sarama logging", zap.Bool("Kafka.EnableSaramaLogging", ekConfig.Kafka.EnableSaramaLogging))
+	} else {
+		r.logger.Error("Could Not Extract Eventing-Kafka Setting From Updated ConfigMap", zap.Error(err))
+	}
+
+	// Though the new configmap could technically have changes to the eventing-kafka section
+	// (aside from the Sarama logging) as well as the sarama section, we currently do not do
+	// anything proactive based on configuration changes to those items.  The only component
+	// in the controller that uses any of the fields after startup currently is the AdminClient,
+	// which simply uses the r.saramaConfig set here whenever necessary.  This means that calling
+	// env.GetEnvironment is not necessary now.  If	those settings are needed in the future, the
+	// environment will also need to be re-parsed here.
 
 	// Load the Sarama settings from our configmap, ignoring the eventing-kafka result.
 	saramaConfig, err := kafkasarama.MergeSaramaSettings(nil, configMap)

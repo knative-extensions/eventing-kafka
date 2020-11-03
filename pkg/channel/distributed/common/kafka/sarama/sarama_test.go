@@ -19,6 +19,7 @@ package sarama
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"os"
 	"regexp"
 	"strconv"
@@ -164,10 +165,15 @@ func TestEnableSaramaLogging(t *testing.T) {
 	}()
 
 	// Perform The Test
-	EnableSaramaLogging()
+	EnableSaramaLogging(true)
 
 	// Verify Results (Not Much Is Possible)
-	sarama.Logger.Print("TestMessage")
+	sarama.Logger.Print("TestMessage - Should See")
+
+	EnableSaramaLogging(false)
+
+	// Verify Results Visually
+	sarama.Logger.Print("TestMessage - Should Be Hidden")
 }
 
 // Test The UpdateSaramaConfig() Functionality
@@ -359,6 +365,28 @@ func TestLoadEventingKafkaSettings(t *testing.T) {
 	saramaConfig, eventingKafkaConfig, err := LoadSettings(ctx)
 	assert.Nil(t, err)
 	verifyTestEKConfigSettings(t, saramaConfig, eventingKafkaConfig)
+
+	// Test the LoadEventingKafkaSettings function by itself
+	eventingKafkaConfig, err = LoadEventingKafkaSettings(configMap)
+	assert.Nil(t, err)
+	assert.Equal(t, commontesting.DispatcherReplicas, fmt.Sprint(eventingKafkaConfig.Dispatcher.Replicas))
+
+	// Verify that invalid YAML returns an error
+	configMap.Data[commonconfig.EventingKafkaSettingsConfigKey] = "\tinvalidYAML"
+	eventingKafkaConfig, err = LoadEventingKafkaSettings(configMap)
+	assert.Nil(t, eventingKafkaConfig)
+	assert.NotNil(t, err)
+
+	// Verify that a configmap with no data section returns an error
+	configMap.Data = nil
+	eventingKafkaConfig, err = LoadEventingKafkaSettings(configMap)
+	assert.Nil(t, eventingKafkaConfig)
+	assert.NotNil(t, err)
+
+	// Verify that a nil configmap returns an error
+	eventingKafkaConfig, err = LoadEventingKafkaSettings(nil)
+	assert.Nil(t, eventingKafkaConfig)
+	assert.NotNil(t, err)
 }
 
 func TestLoadSettings(t *testing.T) {

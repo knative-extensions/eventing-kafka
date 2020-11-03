@@ -284,6 +284,14 @@ func (d *DispatcherImpl) ConfigChanged(configMap *v1.ConfigMap) Dispatcher {
 		// Some of the current config settings may not be overridden by the configmap (username, password, etc.)
 		kafkasarama.UpdateSaramaConfig(newConfig, d.SaramaConfig.ClientID, d.SaramaConfig.Net.SASL.User, d.SaramaConfig.Net.SASL.Password)
 
+		// Enable Sarama Logging If Specified In ConfigMap
+		if ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap); err == nil && ekConfig != nil {
+			kafkasarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)
+			d.Logger.Debug("Updated Sarama logging", zap.Bool("Kafka.EnableSaramaLogging", ekConfig.Kafka.EnableSaramaLogging))
+		} else {
+			d.Logger.Error("Could Not Extract Eventing-Kafka Setting From Updated ConfigMap", zap.Error(err))
+		}
+
 		// Ignore the "Producer" section as changes to that do not require recreating the Dispatcher
 		if kafkasarama.ConfigEqual(newConfig, d.SaramaConfig, newConfig.Producer) {
 			d.Logger.Info("No Consumer Changes Detected In New Configuration - Ignoring")

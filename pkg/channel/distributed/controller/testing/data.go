@@ -117,6 +117,7 @@ dispatcher:
   retryTimeMillis: 300000
   retryExponentialBackoff: true
 kafka:
+  enableSaramaLogging: false
   topic:
     defaultNumPartitions: 4
     defaultReplicationFactor: 1
