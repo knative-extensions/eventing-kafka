@@ -66,7 +66,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	}
 
 	// Enable Sarama Logging If Specified In ConfigMap
-	sarama.EnableSaramaLogging(configuration.Controller.EnableSaramaLogging)
+	sarama.EnableSaramaLogging(configuration.Kafka.EnableSaramaLogging)
 
 	// Determine The Kafka AdminClient Type (Assume Kafka Unless Otherwise Specified)
 	var kafkaAdminClientType kafkaadmin.AdminClientType

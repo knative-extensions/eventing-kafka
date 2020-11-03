@@ -371,11 +371,13 @@ func TestLoadEventingKafkaSettings(t *testing.T) {
 	// Verify that invalid YAML returns an error
 	configMap.Data[commonconfig.EventingKafkaSettingsConfigKey] = "\tinvalidYAML"
 	eventingKafkaConfig, err = LoadEventingKafkaSettings(configMap)
+	assert.Nil(t, eventingKafkaConfig)
 	assert.NotNil(t, err)
 
 	// Verify that a configmap with no data section returns an error
 	configMap.Data = nil
 	eventingKafkaConfig, err = LoadEventingKafkaSettings(configMap)
+	assert.Nil(t, eventingKafkaConfig)
 	assert.NotNil(t, err)
 }
 

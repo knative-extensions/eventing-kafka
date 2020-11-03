@@ -40,23 +40,14 @@ type EKKubernetesConfig struct {
 	Replicas      int               `json:"replicas,omitempty"`
 }
 
-// The Receiver config has the base Kubernetes fields (Cpu, Memory, Replicas)
-// and the receiver-specific Sarama logging flag
+// The Receiver config has the base Kubernetes fields (Cpu, Memory, Replicas) only
 type EKReceiverConfig struct {
 	EKKubernetesConfig
-	EnableSaramaLogging bool `json:"enableSaramaLogging,omitempty"`
 }
 
-// The Dispatcher config has the base Kubernetes fields (Cpu, Memory, Replicas)
-// and the dispatcher-specific Sarama logging flag
+// The Dispatcher config has the base Kubernetes fields (Cpu, Memory, Replicas) only
 type EKDispatcherConfig struct {
 	EKKubernetesConfig
-	EnableSaramaLogging bool `json:"enableSaramaLogging,omitempty"`
-}
-
-// The Controller config has the controller-specific Sarama logging flag
-type EKControllerConfig struct {
-	EnableSaramaLogging bool `json:"enableSaramaLogging,omitempty"`
 }
 
 // EKKafkaTopicConfig contains some defaults that are only used if not provided by the channel spec
@@ -66,8 +57,9 @@ type EKKafkaTopicConfig struct {
 	DefaultRetentionMillis   int64 `json:"defaultRetentionMillis,omitempty"`
 }
 
-// EKKafkaConfig contains items relevant to Kafka specifically
+// EKKafkaConfig contains items relevant to Kafka specifically, and the Sarama logging flag
 type EKKafkaConfig struct {
+	EnableSaramaLogging bool `json:"enableSaramaLogging,omitempty"`
 	Topic     EKKafkaTopicConfig `json:"topic,omitempty"`
 	AdminType string             `json:"adminType,omitempty"`
 }
@@ -76,7 +68,6 @@ type EKKafkaConfig struct {
 type EventingKafkaConfig struct {
 	Receiver   EKReceiverConfig   `json:"receiver,omitempty"`
 	Dispatcher EKDispatcherConfig `json:"dispatcher,omitempty"`
-	Controller EKControllerConfig `json:"controller,omitempty"`
 	Kafka      EKKafkaConfig      `json:"kafka,omitempty"`
 }
 

@@ -44,17 +44,15 @@ data:
       memoryLimit: 100Mi
       memoryRequest: 50Mi
       replicas: 1
-      enableSaramaLogging: false
     dispatcher:
       cpuLimit: 500m
       cpuRequest: 300m
       memoryLimit: 128Mi
       memoryRequest: 50Mi
       replicas: 1
-      enableSaramaLogging: false
     controller:
-      enableSaramaLogging: false
     kafka:
+      enableSaramaLogging: false
       topic:
         defaultNumPartitions: 4
         defaultReplicationFactor: 1 # Cannot exceed the number of Kafka Brokers!

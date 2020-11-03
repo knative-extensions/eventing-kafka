@@ -211,8 +211,8 @@ func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 
 		// Enable Sarama Logging If Specified In ConfigMap
 		if ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap); err == nil && ekConfig != nil {
-			kafkasarama.EnableSaramaLogging(ekConfig.Receiver.EnableSaramaLogging)
-			p.logger.Debug(fmt.Sprintf("Setting Receiver Sarama Logging to %v", ekConfig.Receiver.EnableSaramaLogging))
+			kafkasarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)
+			p.logger.Debug(fmt.Sprintf("Setting Sarama Logging to %v", ekConfig.Kafka.EnableSaramaLogging))
 		} else {
 			p.logger.Error("Could Not Extract Eventing-Kafka Setting From Updated ConfigMap", zap.Error(err))
 		}

@@ -80,7 +80,7 @@ func main() {
 	sarama.UpdateSaramaConfig(saramaConfig, constants.Component, environment.KafkaUsername, environment.KafkaPassword)
 
 	// Enable Sarama Logging If Specified In ConfigMap
-	sarama.EnableSaramaLogging(ekConfig.Dispatcher.EnableSaramaLogging)
+	sarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)
 
 	// Initialize Tracing (Watches config-tracing ConfigMap, Assumes Context Came From LoggingContext With Embedded K8S Client Key)
 	err = commonconfig.InitializeTracing(logger.Sugar(), ctx, environment.ServiceName)
