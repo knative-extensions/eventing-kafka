@@ -41,7 +41,7 @@ type EKKubernetesConfig struct {
 }
 
 // The Receiver config has the base Kubernetes fields (Cpu, Memory, Replicas)
-// and the dispatcher-specific Sarama logging flag
+// and the receiver-specific Sarama logging flag
 type EKReceiverConfig struct {
 	EKKubernetesConfig
 	EnableSaramaLogging bool `json:"enableSaramaLogging,omitempty"`
