@@ -285,7 +285,7 @@ func (d *DispatcherImpl) ConfigChanged(configMap *v1.ConfigMap) Dispatcher {
 		kafkasarama.UpdateSaramaConfig(newConfig, d.SaramaConfig.ClientID, d.SaramaConfig.Net.SASL.User, d.SaramaConfig.Net.SASL.Password)
 
 		// Enable Sarama Logging If Specified In ConfigMap
-		if ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap); err == nil {
+		if ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap); err == nil && ekConfig != nil {
 			kafkasarama.EnableSaramaLogging(ekConfig.Dispatcher.EnableSaramaLogging)
 			d.Logger.Debug(fmt.Sprintf("Setting Dispatcher Sarama Logging to %v", ekConfig.Dispatcher.EnableSaramaLogging))
 		} else {

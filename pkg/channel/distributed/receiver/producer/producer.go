@@ -210,7 +210,7 @@ func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 		kafkasarama.UpdateSaramaConfig(newConfig, p.configuration.ClientID, p.configuration.Net.SASL.User, p.configuration.Net.SASL.Password)
 
 		// Enable Sarama Logging If Specified In ConfigMap
-		if ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap); err == nil {
+		if ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap); err == nil && ekConfig != nil {
 			kafkasarama.EnableSaramaLogging(ekConfig.Receiver.EnableSaramaLogging)
 			p.logger.Debug(fmt.Sprintf("Setting Receiver Sarama Logging to %v", ekConfig.Receiver.EnableSaramaLogging))
 		} else {
