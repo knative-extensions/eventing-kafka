@@ -50,7 +50,6 @@ data:
       memoryLimit: 128Mi
       memoryRequest: 50Mi
       replicas: 1
-    controller:
     kafka:
       enableSaramaLogging: false
       topic:
