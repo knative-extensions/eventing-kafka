@@ -19,7 +19,6 @@ package producer
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"knative.dev/eventing-kafka/pkg/common/tracing"
@@ -212,7 +211,7 @@ func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 		// Enable Sarama Logging If Specified In ConfigMap
 		if ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap); err == nil && ekConfig != nil {
 			kafkasarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)
-			p.logger.Debug(fmt.Sprintf("Setting Sarama Logging to %v", ekConfig.Kafka.EnableSaramaLogging))
+			p.logger.Debug("Updated Sarama logging", zap.Bool("Kafka.EnableSaramaLogging", ekConfig.Kafka.EnableSaramaLogging))
 		} else {
 			p.logger.Error("Could Not Extract Eventing-Kafka Setting From Updated ConfigMap", zap.Error(err))
 		}
