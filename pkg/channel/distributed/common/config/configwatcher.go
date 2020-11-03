@@ -54,6 +54,11 @@ type EKDispatcherConfig struct {
 	EnableSaramaLogging bool `json:"enableSaramaLogging,omitempty"`
 }
 
+// The Controller config has the controller-specific Sarama logging flag
+type EKControllerConfig struct {
+	EnableSaramaLogging bool `json:"enableSaramaLogging,omitempty"`
+}
+
 // EKKafkaTopicConfig contains some defaults that are only used if not provided by the channel spec
 type EKKafkaTopicConfig struct {
 	DefaultNumPartitions     int32 `json:"defaultNumPartitions,omitempty"`
@@ -71,6 +76,7 @@ type EKKafkaConfig struct {
 type EventingKafkaConfig struct {
 	Receiver   EKReceiverConfig   `json:"receiver,omitempty"`
 	Dispatcher EKDispatcherConfig `json:"dispatcher,omitempty"`
+	Controller EKControllerConfig `json:"controller,omitempty"`
 	Kafka      EKKafkaConfig      `json:"kafka,omitempty"`
 }
 

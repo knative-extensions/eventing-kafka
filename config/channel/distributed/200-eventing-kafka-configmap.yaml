@@ -52,6 +52,8 @@ data:
       memoryRequest: 50Mi
       replicas: 1
       enableSaramaLogging: false
+    controller:
+      enableSaramaLogging: false
     kafka:
       topic:
         defaultNumPartitions: 4

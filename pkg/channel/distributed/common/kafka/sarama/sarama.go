@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"regexp"
@@ -46,7 +47,7 @@ func EnableSaramaLogging(enable bool) {
 	if enable {
 		sarama.Logger = log.New(os.Stdout, "[sarama] ", log.LstdFlags)
 	} else {
-		sarama.Logger = nil
+		sarama.Logger = log.New(ioutil.Discard, "[Sarama] ", log.LstdFlags)
 	}
 }
 
