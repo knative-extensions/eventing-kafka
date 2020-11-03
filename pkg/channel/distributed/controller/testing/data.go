@@ -949,7 +949,7 @@ func NewKafkaChannelSuccessfulFinalizedEvent() string {
 	return reconcilertesting.Eventf(corev1.EventTypeNormal, event.KafkaChannelFinalized.String(), fmt.Sprintf("KafkaChannel Finalized Successfully: \"%s/%s\"", KafkaChannelNamespace, KafkaChannelName))
 }
 
-// Utility Function For Creating A UpdateActionImpl For A Deployment Update Command
+// Utility Function For Creating A UpdateActionImpl For A Service Update Command
 func NewServiceUpdateActionImpl(service *corev1.Service) clientgotesting.UpdateActionImpl {
 	return clientgotesting.UpdateActionImpl{
 		ActionImpl: clientgotesting.ActionImpl{
@@ -962,7 +962,7 @@ func NewServiceUpdateActionImpl(service *corev1.Service) clientgotesting.UpdateA
 	}
 }
 
-// Utility Function For Creating A UpdateActionImpl For A Service Update Command
+// Utility Function For Creating A UpdateActionImpl For A Deployment Update Command
 func NewDeploymentUpdateActionImpl(deployment *appsv1.Deployment) clientgotesting.UpdateActionImpl {
 	return clientgotesting.UpdateActionImpl{
 		ActionImpl: clientgotesting.ActionImpl{
@@ -975,7 +975,7 @@ func NewDeploymentUpdateActionImpl(deployment *appsv1.Deployment) clientgotestin
 	}
 }
 
-// Utility Function For Creating A DeleteActionImpl For A Deployment Update Command
+// Utility Function For Creating A DeleteActionImpl For A Service Delete Command
 func NewServiceDeleteActionImpl(service *corev1.Service) clientgotesting.DeleteActionImpl {
 	return clientgotesting.DeleteActionImpl{
 		ActionImpl: clientgotesting.ActionImpl{
@@ -988,7 +988,7 @@ func NewServiceDeleteActionImpl(service *corev1.Service) clientgotesting.DeleteA
 	}
 }
 
-// Utility Function For Creating A DeleteActionImpl For A Service Update Command
+// Utility Function For Creating A DeleteActionImpl For A Deployment Delete Command
 func NewDeploymentDeleteActionImpl(deployment *appsv1.Deployment) clientgotesting.DeleteActionImpl {
 	return clientgotesting.DeleteActionImpl{
 		ActionImpl: clientgotesting.ActionImpl{
