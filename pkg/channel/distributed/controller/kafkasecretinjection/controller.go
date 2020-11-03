@@ -19,7 +19,6 @@ package kafkasecretinjection
 import (
 	"context"
 	"fmt"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"reflect"
 	"strings"
 
@@ -30,6 +29,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/record"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/kafkasecretinformer"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
 	versionedscheme "knative.dev/eventing-kafka/pkg/client/clientset/versioned/scheme"
