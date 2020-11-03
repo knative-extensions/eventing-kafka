@@ -168,9 +168,12 @@ func TestEnableSaramaLogging(t *testing.T) {
 	EnableSaramaLogging(true)
 
 	// Verify Results (Not Much Is Possible)
-	sarama.Logger.Print("TestMessage")
+	sarama.Logger.Print("TestMessage - Should See")
 
 	EnableSaramaLogging(false)
+
+	// Verify Results Visually
+	sarama.Logger.Print("TestMessage - Should Be Hidden")
 }
 
 // Test The UpdateSaramaConfig() Functionality
