@@ -31,8 +31,8 @@ import (
 	"knative.dev/pkg/controller"
 )
 
-// Reconcile The Kafka Topic Associated With The Specified Channel & Return The Kafka Secret
-func (r *Reconciler) reconcileTopic(ctx context.Context, channel *kafkav1beta1.KafkaChannel) error {
+// Reconcile The Kafka Topic Associated With The Specified Channel
+func (r *Reconciler) reconcileKafkaTopic(ctx context.Context, channel *kafkav1beta1.KafkaChannel) error {
 
 	// Get The TopicName For Specified Channel
 	topicName := util.TopicName(channel)
@@ -46,25 +46,42 @@ func (r *Reconciler) reconcileTopic(ctx context.Context, channel *kafkav1beta1.K
 	retentionMillis := util.RetentionMillis(channel, r.config, r.logger)
 
 	// Create The Topic (Handles Case Where Already Exists)
-	err := r.createTopic(ctx, topicName, numPartitions, replicationFactor, retentionMillis)
+	err := r.createTopic(ctx, logger, topicName, numPartitions, replicationFactor, retentionMillis)
 
 	// Log Results & Return Status
 	if err != nil {
 		controller.GetEventRecorder(ctx).Eventf(channel, corev1.EventTypeWarning, event.KafkaTopicReconciliationFailed.String(), "Failed To Reconcile Kafka Topic For Channel: %v", err)
-		logger.Error("Failed To Reconcile Topic", zap.Error(err))
+		logger.Error("Failed To Reconcile Kafka Topic", zap.Error(err))
 		channel.Status.MarkTopicFailed("TopicFailed", fmt.Sprintf("Channel Kafka Topic Failed: %s", err))
 	} else {
-		logger.Info("Successfully Reconciled Topic")
+		logger.Info("Successfully Reconciled Kafka Topic")
 		channel.Status.MarkTopicTrue()
 	}
 	return err
 }
 
-// Create The Specified Kafka Topic
-func (r *Reconciler) createTopic(ctx context.Context, topicName string, partitions int32, replicationFactor int16, retentionMillis int64) error {
+// Finalize The Kafka Topic Associated With The Specified Channel
+func (r *Reconciler) finalizeKafkaTopic(ctx context.Context, channel *kafkav1beta1.KafkaChannel) error {
 
-	// Setup The Logger
-	logger := r.logger.With(zap.String("Topic", topicName))
+	// Get The TopicName For Specified Channel
+	topicName := util.TopicName(channel)
+
+	// Get Channel Specific Logger & Add Topic Name
+	logger := util.ChannelLogger(r.logger, channel).With(zap.String("TopicName", topicName))
+
+	// Delete The Kafka Topic & Handle Error Response
+	err := r.deleteTopic(ctx, logger, topicName)
+	if err != nil {
+		logger.Error("Failed To Finalize Kafka Topic", zap.Error(err))
+		return err
+	} else {
+		logger.Info("Successfully Finalized Kafka Topic")
+		return nil
+	}
+}
+
+// Create The Specified Kafka Topic
+func (r *Reconciler) createTopic(ctx context.Context, logger *zap.Logger, topicName string, partitions int32, replicationFactor int16, retentionMillis int64) error {
 
 	// Create The TopicDefinition
 	retentionMillisString := strconv.FormatInt(retentionMillis, 10)
@@ -98,10 +115,7 @@ func (r *Reconciler) createTopic(ctx context.Context, topicName string, partitio
 }
 
 // Delete The Specified Kafka Topic
-func (r *Reconciler) deleteTopic(ctx context.Context, topicName string) error {
-
-	// Setup The Logger
-	logger := r.logger.With(zap.String("Topic", topicName))
+func (r *Reconciler) deleteTopic(ctx context.Context, logger *zap.Logger, topicName string) error {
 
 	// Attempt To Delete The Topic & Process Results
 	err := r.adminClient.DeleteTopic(ctx, topicName)

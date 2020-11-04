@@ -29,6 +29,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/record"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/kafkasecretinformer"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
 	versionedscheme "knative.dev/eventing-kafka/pkg/client/clientset/versioned/scheme"
@@ -46,7 +47,7 @@ const (
 
 var (
 	// Need Prefix For Valid Finalizer On Native K8S Resources (Secrets)
-	defaultFinalizerName = util.KubernetesResourceFinalizerName("kafkasecrets.eventing-kafka.knative.dev")
+	defaultFinalizerName = util.KubernetesResourceFinalizerName(constants.KafkaSecretFinalizerSuffix)
 )
 
 // NewImpl returns a controller.Impl that handles queuing and feeding work from

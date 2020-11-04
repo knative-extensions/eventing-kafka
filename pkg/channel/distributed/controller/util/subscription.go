@@ -17,6 +17,8 @@ limitations under the License.
 package util
 
 import (
+	"fmt"
+
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -26,7 +28,7 @@ import (
 
 // Get A Logger With Subscription Info
 func SubscriptionLogger(logger *zap.Logger, subscription *messagingv1.Subscription) *zap.Logger {
-	return logger.With(zap.String("Namespace", subscription.Namespace), zap.String("Name", subscription.Name))
+	return logger.With(zap.String("Subscription", fmt.Sprintf("%s/%s", subscription.Namespace, subscription.Name)))
 }
 
 // Create A New ControllerReference Model For The Specified Subscription

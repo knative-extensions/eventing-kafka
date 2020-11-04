@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 )
 
@@ -28,4 +29,24 @@ func TestKubernetesResourceFinalizerName(t *testing.T) {
 	const suffix = "TestSuffix"
 	result := KubernetesResourceFinalizerName(suffix)
 	assert.Equal(t, constants.EventingKafkaFinalizerPrefix+suffix, result)
+}
+
+// Test The RemoveFinalizer() Functionality
+func TestRemoveFinalizer(t *testing.T) {
+
+	// Test Data
+	finalizer1 := "TestFinalizer1"
+	finalizer2 := "TestFinalizer2"
+	finalizer3 := "TestFinalizer3"
+	objMeta := &metav1.ObjectMeta{
+		Finalizers: []string{finalizer1, finalizer2, finalizer3},
+	}
+
+	// Perform The Test
+	RemoveFinalizer(finalizer2, objMeta)
+
+	// Verify The Results
+	assert.Equal(t, 2, len(objMeta.Finalizers))
+	assert.Equal(t, finalizer1, objMeta.Finalizers[0])
+	assert.Equal(t, finalizer3, objMeta.Finalizers[1])
 }

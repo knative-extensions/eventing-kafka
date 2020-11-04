@@ -21,6 +21,7 @@ import (
 	"sync"
 
 	"go.uber.org/zap"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	kafkachannelv1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	commonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
@@ -112,26 +113,58 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	//
 	// Configure The Informers' EventHandlers
 	//
-	// Note - The use of EnqueueLabelOfNamespaceScopedResource() is to facilitate cross-namespace OwnerReference
-	//        management and relies upon the reconciler creating the Services/Deployments with appropriate labels.
-	//        Kubernetes OwnerReferences are not intended to be cross-namespace and thus don't include the namespace
-	//        information.
+	// Note - The use of FilterKafkaChannelOwnerByReferenceOrLabel() and EnqueueLabelOfNamespaceScopedResource()
+	//        is to facilitate cross-namespace owner relationships and relies upon the reconciler creating
+	//        the Services/Deployments with appropriate labels. Kubernetes does NOT support cross-namespace
+	//        OwnerReferences, and so we use "marker" labels to identify them instead.
 	//
 	rec.logger.Info("Setting Up EventHandlers")
 	kafkachannelInformer.Informer().AddEventHandler(
 		controller.HandleAll(controllerImpl.Enqueue),
 	)
 	serviceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterControllerGVK(kafkachannelv1beta1.SchemeGroupVersion.WithKind(constants.KafkaChannelKind)),
+		FilterFunc: FilterKafkaChannelOwnerByReferenceOrLabel(),
 		Handler:    controller.HandleAll(controllerImpl.EnqueueLabelOfNamespaceScopedResource(constants.KafkaChannelNamespaceLabel, constants.KafkaChannelNameLabel)),
 	})
 	deploymentInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterControllerGVK(kafkachannelv1beta1.SchemeGroupVersion.WithKind(constants.KafkaChannelKind)),
+		FilterFunc: FilterKafkaChannelOwnerByReferenceOrLabel(),
 		Handler:    controller.HandleAll(controllerImpl.EnqueueLabelOfNamespaceScopedResource(constants.KafkaChannelNamespaceLabel, constants.KafkaChannelNameLabel)),
 	})
 
 	// Return The KafkaChannel Controller Impl
 	return controllerImpl
+}
+
+//
+// FilterWithKafkaChannelLabels - Custom Filter For Common K8S Components "Owned" By KafkaChannels
+//
+// This function is similar to, and based on, the various knative.dev/pkg/controller/FilterXYZ
+// functions.  It is used to filter common Kubernetes objects (Service, Deployment, etc) owned by
+// KafkaChannels using either a K8S OwnerReference (preferred), or Name/Namespace marker labels.
+// This secondary support for such marker labels is necessary to work around the need for
+// Cross-Namespace OwnerReferences which are not supported by K8S.
+//
+func FilterKafkaChannelOwnerByReferenceOrLabel() func(obj interface{}) bool {
+	return func(obj interface{}) bool {
+
+		// Validate The Object
+		if object, ok := obj.(metav1.Object); ok {
+
+			// Use The Controller's OwnerReference If Present
+			owner := metav1.GetControllerOf(object)
+			if owner != nil {
+				gvk := kafkachannelv1beta1.SchemeGroupVersion.WithKind(constants.KafkaChannelKind)
+				return owner.APIVersion == gvk.GroupVersion().String() && owner.Kind == gvk.Kind
+			}
+
+			// Otherwise Failover To KafkaChannel Name/Namespace Labels
+			labels := object.GetLabels()
+			return len(labels[constants.KafkaChannelNameLabel]) > 0 && len(labels[constants.KafkaChannelNamespaceLabel]) > 0
+		}
+
+		// Exclude Invalid Object
+		return false
+	}
 }
 
 // Graceful Shutdown Hook
