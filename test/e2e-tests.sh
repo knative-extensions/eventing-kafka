@@ -32,13 +32,13 @@
 # project $PROJECT_ID, start Knative eventing system, install resources
 # in eventing-contrib, run all of the test suites and delete the cluster.
 
-# To run an individual integration test suite, use one of these command-line arguments:
-#   --consolidated    To install and run the consolidated channel
-#   --distributed     To install and run the distributed channel
+# To run an individual integration test suite, set one of these environment variables:
+#   TEST_CONSOLIDATED_CHANNEL=1    To install and run the consolidated channel
+#   TEST_DISTRIBUTED_CHANNEL=1     To install and run the distributed channel
 
 # Variables supported by this script:
-# PROJECT_ID:  the GKR project in which to create the new cluster (unless using "--run-tests")
-# MAX_PARALLEL_TESTS:  The maximum number of go tests to run in parallel (via "-test.parallel", default 12)
+#   PROJECT_ID:  the GKR project in which to create the new cluster (unless using "--run-tests")
+#   MAX_PARALLEL_TESTS:  The maximum number of go tests to run in parallel (via "-test.parallel", default 12)
 
 TEST_PARALLEL=${MAX_PARALLEL_TESTS:-12}
 
@@ -366,22 +366,6 @@ function test_distributed_channel() {
   uninstall_sources_crds || return 1
   uninstall_channel_crds || return 1
 }
-
-# Parse command-line arguments
-for arg do
-  shift
-  case $arg in
-    --distributed)
-      TEST_DISTRIBUTED_CHANNEL=1
-      continue
-      ;;
-    --consolidated)
-      TEST_CONSOLIDATED_CHANNEL=1
-      continue
-      ;;
-  esac
-  set -- "$@" "$arg"
-done
 
 # If neither test was specified, run both
 if [[ $TEST_CONSOLIDATED_CHANNEL != 1 ]] && [[ $TEST_DISTRIBUTED_CHANNEL != 1 ]]; then

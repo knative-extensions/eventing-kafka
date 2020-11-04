@@ -21,6 +21,29 @@
 # Use the flags --build-tests, --unit-tests and --integration-tests
 # to run a specific set of tests.
 
+# If --distributed or --consolidated are used, this is an integration test, and
+# we should also pass "--integration-tests"
+INTEGRATION_TESTS_FLAG=""
+
+# Parse command-line arguments and remove known ones from the argument array before
+# passing it along to the presubmit-tests.sh main function.
+for arg do
+  shift
+  case $arg in
+    --distributed)
+      export TEST_DISTRIBUTED_CHANNEL=1
+      INTEGRATION_TESTS_FLAG="--integration-tests"
+      continue
+      ;;
+    --consolidated)
+      export TEST_CONSOLIDATED_CHANNEL=1
+      INTEGRATION_TESTS_FLAG="--integration-tests"
+      continue
+      ;;
+  esac
+  set -- "$@" "$arg"
+done
+
 source $(dirname $0)/../vendor/knative.dev/hack/presubmit-tests.sh
 
-main $@
+main "${INTEGRATION_TESTS_FLAG}" $@
