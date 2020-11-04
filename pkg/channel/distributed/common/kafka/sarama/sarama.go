@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"regexp"
@@ -42,8 +43,12 @@ import (
 var regexRootPEMs = regexp.MustCompile(`(?s)\s*RootPEMs:.*-----END CERTIFICATE-----`)
 
 // Utility Function For Enabling Sarama Logging (Debugging)
-func EnableSaramaLogging() {
-	sarama.Logger = log.New(os.Stdout, "[sarama] ", log.LstdFlags)
+func EnableSaramaLogging(enable bool) {
+	if enable {
+		sarama.Logger = log.New(os.Stdout, "[sarama] ", log.LstdFlags)
+	} else {
+		sarama.Logger = log.New(ioutil.Discard, "[Sarama] ", log.LstdFlags)
+	}
 }
 
 // Utility Function For Configuring Common Settings For Admin/Producer/Consumer
@@ -296,21 +301,29 @@ func LoadSettings(ctx context.Context) (*sarama.Config, *commonconfig.EventingKa
 		return nil, nil, err
 	}
 
-	// Validate The ConfigMap Data
-	if configMap.Data == nil {
-		return nil, nil, fmt.Errorf("attempted to load configuration from empty configmap")
-	}
-
-	// Unmarshal The Eventing-Kafka ConfigMap YAML Into A EventingKafkaSettings Struct
-	eventingKafkaConfigString := configMap.Data[commonconfig.EventingKafkaSettingsConfigKey]
-	eventingKafkaConfig := &commonconfig.EventingKafkaConfig{}
-	err = yaml.Unmarshal([]byte(eventingKafkaConfigString), &eventingKafkaConfig)
+	eventingKafkaConfig, err := LoadEventingKafkaSettings(configMap)
 	if err != nil {
-		return nil, nil, fmt.Errorf("ConfigMap's eventing-kafka value could not be converted to an EventingKafkaConfig struct: %s : %v", err, eventingKafkaConfigString)
+		return nil, nil, err
 	}
 
 	// Merge The Sarama Settings In The ConfigMap Into A New Base Sarama Config
 	saramaConfig, err := MergeSaramaSettings(nil, configMap)
 
 	return saramaConfig, eventingKafkaConfig, err
+}
+
+func LoadEventingKafkaSettings(configMap *corev1.ConfigMap) (*commonconfig.EventingKafkaConfig, error) {
+	// Validate The ConfigMap Data
+	if configMap == nil || configMap.Data == nil {
+		return nil, fmt.Errorf("attempted to load configuration from empty configmap")
+	}
+
+	// Unmarshal The Eventing-Kafka ConfigMap YAML Into A EventingKafkaSettings Struct
+	eventingKafkaConfig := &commonconfig.EventingKafkaConfig{}
+	err := yaml.Unmarshal([]byte(configMap.Data[commonconfig.EventingKafkaSettingsConfigKey]), &eventingKafkaConfig)
+	if err != nil {
+		return nil, fmt.Errorf("ConfigMap's eventing-kafka value could not be converted to an EventingKafkaConfig struct: %s : %v", err, configMap.Data[commonconfig.EventingKafkaSettingsConfigKey])
+	}
+
+	return eventingKafkaConfig, nil
 }

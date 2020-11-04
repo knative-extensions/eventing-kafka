@@ -27,12 +27,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	commonconstants "knative.dev/eventing-kafka/pkg/channel/distributed/common/constants"
 	commonenv "knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/health"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
@@ -45,7 +45,7 @@ func (r *Reconciler) reconcileChannel(ctx context.Context, secret *corev1.Secret
 	logger := util.SecretLogger(r.logger, secret)
 
 	// Reconcile The Receiver Service
-	serviceErr := r.reconcileReceiverService(ctx, secret)
+	serviceErr := r.reconcileReceiverService(ctx, logger, secret)
 	if serviceErr != nil {
 		controller.GetEventRecorder(ctx).Eventf(secret, corev1.EventTypeWarning, event.ReceiverServiceReconciliationFailed.String(), "Failed To Reconcile Receiver Service: %v", serviceErr)
 		logger.Error("Failed To Reconcile Receiver Service", zap.Error(serviceErr))
@@ -54,7 +54,7 @@ func (r *Reconciler) reconcileChannel(ctx context.Context, secret *corev1.Secret
 	}
 
 	// Reconcile The Receiver Deployment
-	deploymentErr := r.reconcileReceiverDeployment(ctx, secret)
+	deploymentErr := r.reconcileReceiverDeployment(ctx, logger, secret)
 	if deploymentErr != nil {
 		controller.GetEventRecorder(ctx).Eventf(secret, corev1.EventTypeWarning, event.ReceiverDeploymentReconciliationFailed.String(), "Failed To Reconcile Receiver Deployment: %v", deploymentErr)
 		logger.Error("Failed To Reconcile Receiver Deployment", zap.Error(deploymentErr))
@@ -87,7 +87,7 @@ func (r *Reconciler) reconcileChannel(ctx context.Context, secret *corev1.Secret
 //
 
 // Reconcile The Receiver Service
-func (r *Reconciler) reconcileReceiverService(ctx context.Context, secret *corev1.Secret) error {
+func (r *Reconciler) reconcileReceiverService(ctx context.Context, logger *zap.Logger, secret *corev1.Secret) error {
 
 	// Attempt To Get The Receiver Service Associated With The Specified Secret
 	_, err := r.getReceiverService(secret)
@@ -97,27 +97,27 @@ func (r *Reconciler) reconcileReceiverService(ctx context.Context, secret *corev
 		if errors.IsNotFound(err) {
 
 			// Then Create The New Receiver Service
-			r.logger.Info("Receiver Service Not Found - Creating New One")
+			logger.Info("Receiver Service Not Found - Creating New One")
 			service := r.newReceiverService(secret)
 			_, err = r.kubeClientset.CoreV1().Services(service.Namespace).Create(ctx, service, metav1.CreateOptions{})
 			if err != nil {
-				r.logger.Error("Failed To Create Receiver Service", zap.Error(err))
+				logger.Error("Failed To Create Receiver Service", zap.Error(err))
 				return err
 			} else {
-				r.logger.Info("Successfully Created Receiver Service")
+				logger.Info("Successfully Created Receiver Service")
 				return nil
 			}
 
 		} else {
 
 			// Failed In Attempt To Get Receiver Service From K8S
-			r.logger.Error("Failed To Get Receiver Service", zap.Error(err))
+			logger.Error("Failed To Get Receiver Service", zap.Error(err))
 			return err
 		}
 	} else {
 
 		// Verified The Receiver Service Exists
-		r.logger.Info("Successfully Verified Receiver Service")
+		logger.Info("Successfully Verified Receiver Service")
 		return nil
 	}
 }
@@ -183,7 +183,7 @@ func (r *Reconciler) newReceiverService(secret *corev1.Secret) *corev1.Service {
 //
 
 // Reconcile The Receiver Deployment
-func (r *Reconciler) reconcileReceiverDeployment(ctx context.Context, secret *corev1.Secret) error {
+func (r *Reconciler) reconcileReceiverDeployment(ctx context.Context, logger *zap.Logger, secret *corev1.Secret) error {
 
 	// Attempt To Get The Receiver Deployment Associated With The Specified Secret
 	_, err := r.getReceiverDeployment(secret)
@@ -193,18 +193,18 @@ func (r *Reconciler) reconcileReceiverDeployment(ctx context.Context, secret *co
 		if errors.IsNotFound(err) {
 
 			// Then Create The New Receiver Deployment
-			r.logger.Info("Receiver Deployment Not Found - Creating New One")
-			deployment, err := r.newReceiverDeployment(secret)
+			logger.Info("Receiver Deployment Not Found - Creating New One")
+			deployment, err := r.newReceiverDeployment(logger, secret)
 			if err != nil {
-				r.logger.Error("Failed To Create Receiver Deployment YAML", zap.Error(err))
+				logger.Error("Failed To Create Receiver Deployment YAML", zap.Error(err))
 				return err
 			} else {
 				_, err = r.kubeClientset.AppsV1().Deployments(deployment.Namespace).Create(ctx, deployment, metav1.CreateOptions{})
 				if err != nil {
-					r.logger.Error("Failed To Create Receiver Deployment", zap.Error(err))
+					logger.Error("Failed To Create Receiver Deployment", zap.Error(err))
 					return err
 				} else {
-					r.logger.Info("Successfully Created Receiver Deployment")
+					logger.Info("Successfully Created Receiver Deployment")
 					return nil
 				}
 			}
@@ -212,13 +212,13 @@ func (r *Reconciler) reconcileReceiverDeployment(ctx context.Context, secret *co
 		} else {
 
 			// Failed In Attempt To Get Receiver Deployment From K8S
-			r.logger.Error("Failed To Get Receiver Deployment", zap.Error(err))
+			logger.Error("Failed To Get Receiver Deployment", zap.Error(err))
 			return err
 		}
 	} else {
 
 		// Verified The Receiver Deployment Exists
-		r.logger.Info("Successfully Verified Receiver Deployment")
+		logger.Info("Successfully Verified Receiver Deployment")
 		return nil
 	}
 }
@@ -237,7 +237,7 @@ func (r *Reconciler) getReceiverDeployment(secret *corev1.Secret) (*appsv1.Deplo
 }
 
 // Create Receiver Deployment Model For The Specified Secret
-func (r *Reconciler) newReceiverDeployment(secret *corev1.Secret) (*appsv1.Deployment, error) {
+func (r *Reconciler) newReceiverDeployment(logger *zap.Logger, secret *corev1.Secret) (*appsv1.Deployment, error) {
 
 	// Get The Receiver Deployment Name (One Receiver Deployment Per Kafka Auth Secret)
 	deploymentName := util.ReceiverDnsSafeName(secret.Name)
@@ -248,7 +248,7 @@ func (r *Reconciler) newReceiverDeployment(secret *corev1.Secret) (*appsv1.Deplo
 	// Create The Receiver Container Environment Variables
 	channelEnvVars, err := r.receiverDeploymentEnvVars(secret)
 	if err != nil {
-		r.logger.Error("Failed To Create Receiver Deployment Environment Variables", zap.Error(err))
+		logger.Error("Failed To Create Receiver Deployment Environment Variables", zap.Error(err))
 		return nil, err
 	}
 

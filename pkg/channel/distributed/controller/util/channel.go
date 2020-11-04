@@ -30,7 +30,7 @@ import (
 
 // Get A Logger With Channel Info
 func ChannelLogger(logger *zap.Logger, channel *kafkav1beta1.KafkaChannel) *zap.Logger {
-	return logger.With(zap.String("Namespace", channel.Namespace), zap.String("Name", channel.Name))
+	return logger.With(zap.String("Channel", fmt.Sprintf("%s/%s", channel.Namespace, channel.Name)))
 }
 
 // Create A Knative Reconciler "Key" Formatted Representation Of The Specified Channel

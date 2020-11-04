@@ -208,6 +208,14 @@ func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 		// Some of the current config settings may not be overridden by the configmap (username, password, etc.)
 		kafkasarama.UpdateSaramaConfig(newConfig, p.configuration.ClientID, p.configuration.Net.SASL.User, p.configuration.Net.SASL.Password)
 
+		// Enable Sarama Logging If Specified In ConfigMap
+		if ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap); err == nil && ekConfig != nil {
+			kafkasarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)
+			p.logger.Debug("Updated Sarama logging", zap.Bool("Kafka.EnableSaramaLogging", ekConfig.Kafka.EnableSaramaLogging))
+		} else {
+			p.logger.Error("Could Not Extract Eventing-Kafka Setting From Updated ConfigMap", zap.Error(err))
+		}
+
 		// Ignore the "Admin" and "Consumer" sections when comparing, as changes to those do not require restarting the Producer
 		if kafkasarama.ConfigEqual(newConfig, p.configuration, newConfig.Admin, newConfig.Consumer) {
 			p.logger.Info("No Producer Changes Detected In New Configuration - Ignoring")

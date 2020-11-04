@@ -51,6 +51,7 @@ data:
       memoryRequest: 50Mi
       replicas: 1
     kafka:
+      enableSaramaLogging: false
       topic:
         defaultNumPartitions: 4
         defaultReplicationFactor: 1 # Cannot exceed the number of Kafka Brokers!

@@ -40,12 +40,12 @@ type EKKubernetesConfig struct {
 	Replicas      int               `json:"replicas,omitempty"`
 }
 
-// The Receiver config has nothing in it except the base Kubernetes fields (Cpu, Memory, Replicas)
+// The Receiver config has the base Kubernetes fields (Cpu, Memory, Replicas) only
 type EKReceiverConfig struct {
 	EKKubernetesConfig
 }
 
-// The Dispatcher config has the base Kubernetes fields and some retry settings
+// The Dispatcher config has the base Kubernetes fields (Cpu, Memory, Replicas) only
 type EKDispatcherConfig struct {
 	EKKubernetesConfig
 }
@@ -57,10 +57,11 @@ type EKKafkaTopicConfig struct {
 	DefaultRetentionMillis   int64 `json:"defaultRetentionMillis,omitempty"`
 }
 
-// EKKafkaConfig contains items relevant to Kafka specifically
+// EKKafkaConfig contains items relevant to Kafka specifically, and the Sarama logging flag
 type EKKafkaConfig struct {
-	Topic     EKKafkaTopicConfig `json:"topic,omitempty"`
-	AdminType string             `json:"adminType,omitempty"`
+	EnableSaramaLogging bool               `json:"enableSaramaLogging,omitempty"`
+	Topic               EKKafkaTopicConfig `json:"topic,omitempty"`
+	AdminType           string             `json:"adminType,omitempty"`
 }
 
 // EventingKafkaConfig is the main struct that holds the Receiver, Dispatcher, and Kafka sub-items

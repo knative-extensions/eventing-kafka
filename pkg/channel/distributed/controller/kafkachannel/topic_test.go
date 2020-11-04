@@ -205,7 +205,7 @@ func topicTestCaseFactory(tc TopicTestCase) func(t *testing.T) {
 
 		// Perform The Test (Create) - Normal Topic Reconciliation Called Indirectly From ReconcileKind()
 		if tc.WantCreate {
-			err = r.reconcileTopic(ctx, tc.Channel)
+			err = r.reconcileKafkaTopic(ctx, tc.Channel)
 			if !mockAdminClient.CreateTopicsCalled() {
 				t.Errorf("expected CreateTopics() called to be %t", tc.WantCreate)
 			}
@@ -213,7 +213,7 @@ func topicTestCaseFactory(tc TopicTestCase) func(t *testing.T) {
 
 		// Perform The Test (Delete) - Called By Knative FinalizeKind() Directly
 		if tc.WantDelete {
-			err = r.deleteTopic(ctx, controllertesting.TopicName)
+			err = r.finalizeKafkaTopic(ctx, tc.Channel)
 			if !mockAdminClient.DeleteTopicsCalled() {
 				t.Errorf("expected DeleteTopics() called to be %t", tc.WantCreate)
 			}

@@ -34,6 +34,8 @@ func TestEventTypes(t *testing.T) {
 	performEventTypeStringTest(t, KafkaTopicReconciliationFailed, "KafkaTopicReconciliationFailed")
 	performEventTypeStringTest(t, DispatcherServiceReconciliationFailed, "DispatcherServiceReconciliationFailed")
 	performEventTypeStringTest(t, DispatcherDeploymentReconciliationFailed, "DispatcherDeploymentReconciliationFailed")
+	performEventTypeStringTest(t, DispatcherServiceFinalizationFailed, "DispatcherServiceFinalizationFailed")
+	performEventTypeStringTest(t, DispatcherDeploymentFinalizationFailed, "DispatcherDeploymentFinalizationFailed")
 	performEventTypeStringTest(t, KafkaSecretReconciled, "KafkaSecretReconciled")
 	performEventTypeStringTest(t, KafkaSecretFinalized, "KafkaSecretFinalized")
 }

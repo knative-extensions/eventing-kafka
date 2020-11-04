@@ -28,9 +28,9 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	commonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/constants"
 	kafkaconsumer "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer"
 	kafkatesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/testing"
+	"knative.dev/eventing-kafka/pkg/common/constants"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/channel"
 	logtesting "knative.dev/pkg/logging/testing"
@@ -100,6 +100,10 @@ Consumer:
 Admin:
   Retry:
     Max: 100` + TestConfigNet + TestConfigMeta + TestConfigConsumer
+
+	TestEventingKafka = `
+kafka:
+  enableSaramaLogging: true`
 )
 
 // Test The NewSubscriberWrapper() Functionality
@@ -373,23 +377,26 @@ func TestConfigChanged(t *testing.T) {
 	}
 
 	// Apply a change to the Consumer config
-	dispatcher = runConfigChangedTest(t, dispatcher, getBaseConfigMap(), TestConfigConsumerChange, true)
+	dispatcher = runConfigChangedTest(t, dispatcher, getBaseConfigMap(), TestConfigConsumerChange, "", true)
 
 	// Apply an additional setting to the Consumer config
-	dispatcher = runConfigChangedTest(t, dispatcher, getBaseConfigMap(), TestConfigConsumerAdd, true)
+	dispatcher = runConfigChangedTest(t, dispatcher, getBaseConfigMap(), TestConfigConsumerAdd, "", true)
 
 	// Change one of the metadata settings
-	dispatcher = runConfigChangedTest(t, dispatcher, getBaseConfigMap(), TestConfigMetadataChange, true)
+	dispatcher = runConfigChangedTest(t, dispatcher, getBaseConfigMap(), TestConfigMetadataChange, "", true)
 
 	// Change one of the admin settings
-	dispatcher = runConfigChangedTest(t, dispatcher, getBaseConfigMap(), TestConfigAdminChange, true)
+	dispatcher = runConfigChangedTest(t, dispatcher, getBaseConfigMap(), TestConfigAdminChange, "", true)
 
 	// Verify that Producer changes do not cause Reconfigure to be called
-	dispatcher = runConfigChangedTest(t, dispatcher, getBaseConfigMap(), TestConfigProducerChange, false)
+	dispatcher = runConfigChangedTest(t, dispatcher, getBaseConfigMap(), TestConfigProducerChange, "", false)
+
+	// Verify that having eventing-kafka settings in the configmap doesn't cause trouble
+	dispatcher = runConfigChangedTest(t, dispatcher, getBaseConfigMap(), TestConfigBase, TestEventingKafka, false)
 	assert.NotNil(t, dispatcher)
 }
 
-func runConfigChangedTest(t *testing.T, originalDispatcher Dispatcher, base *corev1.ConfigMap, changed string, expectedNewDispatcher bool) Dispatcher {
+func runConfigChangedTest(t *testing.T, originalDispatcher Dispatcher, base *corev1.ConfigMap, changed string, eventingKafka string, expectedNewDispatcher bool) Dispatcher {
 	// Change the Consumer settings to the base config
 	newDispatcher := originalDispatcher.ConfigChanged(base)
 	if newDispatcher != nil {
@@ -400,6 +407,7 @@ func runConfigChangedTest(t *testing.T, originalDispatcher Dispatcher, base *cor
 	// Alter the configmap to use the changed settings
 	newConfig := base
 	newConfig.Data[commonconfig.SaramaSettingsConfigKey] = changed
+	newConfig.Data[commonconfig.EventingKafkaSettingsConfigKey] = eventingKafka
 
 	// Inform the Dispatcher that the config has changed to the new settings
 	newDispatcher = originalDispatcher.ConfigChanged(newConfig)

@@ -191,7 +191,31 @@ func TestReconcile(t *testing.T) {
 		//
 
 		{
-			Name: "Finalize Deleted KafkaChannel",
+			Name: "Finalize Deleted KafkaChannel With Dispatcher",
+			Key:  controllertesting.KafkaChannelKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaChannel(
+					controllertesting.WithInitializedConditions,
+					controllertesting.WithLabels,
+					controllertesting.WithDeletionTimestamp,
+				),
+				controllertesting.NewKafkaChannelDispatcherService(),
+				controllertesting.NewKafkaChannelDispatcherDeployment(),
+			},
+			WantUpdates: []clientgotesting.UpdateActionImpl{
+				controllertesting.NewServiceUpdateActionImpl(controllertesting.NewKafkaChannelDispatcherService(controllertesting.WithoutFinalizersService)),
+				controllertesting.NewDeploymentUpdateActionImpl(controllertesting.NewKafkaChannelDispatcherDeployment(controllertesting.WithoutFinalizersDeployment)),
+			},
+			WantDeletes: []clientgotesting.DeleteActionImpl{
+				controllertesting.NewServiceDeleteActionImpl(controllertesting.NewKafkaChannelDispatcherService(controllertesting.WithoutFinalizersService)),
+				controllertesting.NewDeploymentDeleteActionImpl(controllertesting.NewKafkaChannelDispatcherDeployment(controllertesting.WithoutFinalizersDeployment)),
+			},
+			WantEvents: []string{
+				controllertesting.NewKafkaChannelSuccessfulFinalizedEvent(),
+			},
+		},
+		{
+			Name: "Finalize Deleted KafkaChannel Without Dispatcher",
 			Key:  controllertesting.KafkaChannelKey,
 			Objects: []runtime.Object{
 				controllertesting.NewKafkaChannel(
@@ -202,6 +226,38 @@ func TestReconcile(t *testing.T) {
 			},
 			WantEvents: []string{
 				controllertesting.NewKafkaChannelSuccessfulFinalizedEvent(),
+			},
+		},
+		{
+			Name:                    "Finalize Deleted KafkaChannel Errors(Delete)",
+			SkipNamespaceValidation: true,
+			Key:                     controllertesting.KafkaChannelKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaChannel(
+					controllertesting.WithInitializedConditions,
+					controllertesting.WithLabels,
+					controllertesting.WithDeletionTimestamp,
+				),
+				controllertesting.NewKafkaChannelDispatcherService(),
+				controllertesting.NewKafkaChannelDispatcherDeployment(),
+			},
+			WithReactors: []clientgotesting.ReactionFunc{
+				InduceFailure("delete", "Services"),
+				InduceFailure("delete", "Deployments"),
+			},
+			WantUpdates: []clientgotesting.UpdateActionImpl{
+				controllertesting.NewServiceUpdateActionImpl(controllertesting.NewKafkaChannelDispatcherService(controllertesting.WithoutFinalizersService)),
+				controllertesting.NewDeploymentUpdateActionImpl(controllertesting.NewKafkaChannelDispatcherDeployment(controllertesting.WithoutFinalizersDeployment)),
+			},
+			WantDeletes: []clientgotesting.DeleteActionImpl{
+				controllertesting.NewServiceDeleteActionImpl(controllertesting.NewKafkaChannelDispatcherService(controllertesting.WithoutFinalizersService)),
+				controllertesting.NewDeploymentDeleteActionImpl(controllertesting.NewKafkaChannelDispatcherDeployment(controllertesting.WithoutFinalizersDeployment)),
+			},
+			WantErr: true,
+			WantEvents: []string{
+				Eventf(corev1.EventTypeWarning, event.DispatcherServiceFinalizationFailed.String(), "Failed To Finalize Dispatcher Service: inducing failure for delete services"),
+				Eventf(corev1.EventTypeWarning, event.DispatcherDeploymentFinalizationFailed.String(), "Failed To Finalize Dispatcher Deployment: inducing failure for delete deployments"),
+				controllertesting.NewKafkaChannelFailedFinalizationEvent(),
 			},
 		},
 
@@ -315,7 +371,7 @@ func TestReconcile(t *testing.T) {
 				controllertesting.NewKafkaChannelReceiverDeployment(),
 				controllertesting.NewKafkaChannelDispatcherDeployment(),
 			},
-			WithReactors:      []clientgotesting.ReactionFunc{InduceFailure("create", "services")},
+			WithReactors:      []clientgotesting.ReactionFunc{InduceFailure("create", "Services")},
 			WantErr:           true,
 			WantCreates:       []runtime.Object{controllertesting.NewKafkaChannelDispatcherService()},
 			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
@@ -376,7 +432,7 @@ func TestReconcile(t *testing.T) {
 				controllertesting.NewKafkaChannelReceiverDeployment(),
 				controllertesting.NewKafkaChannelDispatcherService(),
 			},
-			WithReactors: []clientgotesting.ReactionFunc{InduceFailure("create", "deployments")},
+			WithReactors: []clientgotesting.ReactionFunc{InduceFailure("create", "Deployments")},
 			WantErr:      true,
 			WantCreates:  []runtime.Object{controllertesting.NewKafkaChannelDispatcherDeployment()},
 			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
