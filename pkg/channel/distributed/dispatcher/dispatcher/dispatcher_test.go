@@ -28,7 +28,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	commonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/constants"
+	"knative.dev/eventing-kafka/pkg/common/constants"
 	kafkaconsumer "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer"
 	kafkatesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/testing"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"

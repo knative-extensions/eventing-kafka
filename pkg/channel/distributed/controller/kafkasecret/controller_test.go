@@ -24,7 +24,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"k8s.io/client-go/rest"
-	commonconstants "knative.dev/eventing-kafka/pkg/channel/distributed/common/constants"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	commonenv "knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
 	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
 	controllerenv "knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
