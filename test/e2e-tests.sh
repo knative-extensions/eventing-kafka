@@ -367,6 +367,8 @@ function test_distributed_channel() {
   uninstall_channel_crds || return 1
 }
 
+echo "e2e-tests.sh command line: $@"
+
 # These options may be passed to this script directly or they may be provided via environment variables
 # through the presubmit-tests.sh, so they are parsed in both locations.
 for arg do
@@ -383,6 +385,10 @@ for arg do
   esac
   set -- "$@" "$arg"
 done
+
+echo "e2e-tests.sh environment:"
+echo "TEST_CONSOLIDATED_CHANNEL: ${TEST_CONSOLIDATED_CHANNEL}"
+echo "TEST_DISTRIBUTED_CHANNEL: ${TEST_DISTRIBUTED_CHANNEL}"
 
 # If neither test was specified, run both
 if [[ $TEST_CONSOLIDATED_CHANNEL != 1 ]] && [[ $TEST_DISTRIBUTED_CHANNEL != 1 ]]; then
