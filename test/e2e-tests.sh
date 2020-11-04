@@ -403,14 +403,14 @@ initialize $@ --skip-istio-addon
 export SYSTEM_NAMESPACE
 
 if [[ $TEST_CONSOLIDATED_CHANNEL == 1 ]]; then
-  test_consolidated_channel || return 1
+  test_consolidated_channel || exit 1
 fi
 
 # Terminate any zipkin port-forward processes that are still present on the system
 ps -e -o pid,command | grep 'kubectl port-forward zipkin[^*]*9411:9411 -n' | sed 's/^ *\([0-9][0-9]*\) .*/\1/' | xargs kill
 
 if [[ $TEST_DISTRIBUTED_CHANNEL == 1 ]]; then
-  test_distributed_channel || return 1
+  test_distributed_channel || exit 1
 fi
 
 # If you wish to use this script just as test setup, *without* teardown, just uncomment this line and comment all go_test_e2e commands
