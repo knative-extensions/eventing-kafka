@@ -25,6 +25,8 @@
 # we should also pass "--integration-tests"
 INTEGRATION_TESTS_FLAG=""
 
+echo "Presubmit-tests command line: $@"
+
 # Parse command-line arguments and remove known ones from the argument array before
 # passing it along to the presubmit-tests.sh main function.
 for arg do
@@ -45,5 +47,10 @@ for arg do
 done
 
 source $(dirname $0)/../vendor/knative.dev/hack/presubmit-tests.sh
+
+echo "Presubmit-tests environment:"
+echo "TEST_DISTRIBUTED_CHANNEL: ${TEST_DISTRIBUTED_CHANNEL}"
+echo "TEST_CONSOLIDATED_CHANNEL: ${TEST_CONSOLIDATED_CHANNEL}"
+echo "INTEGRATION_TESTS_FLAG: ${INTEGRATION_TESTS_FLAG}"
 
 main "${INTEGRATION_TESTS_FLAG}" $@
