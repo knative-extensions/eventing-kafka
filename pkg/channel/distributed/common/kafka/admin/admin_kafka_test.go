@@ -82,7 +82,7 @@ Metadata:
 		assert.Equal(t, kafkaSecretBrokers, brokers[0])
 		assert.NotNil(t, config)
 		assert.Equal(t, clientId, config.ClientID)
-		assert.Equal(t, constants.ConfigKafkaVersionDefault, config.Version)
+		assert.Equal(t, commonconstants.ConfigKafkaVersionDefault, config.Version)
 		assert.Equal(t, kafkaSecretUsername, config.Net.SASL.User)
 		assert.Equal(t, kafkaSecretPassword, config.Net.SASL.Password)
 		return mockClusterAdmin, nil

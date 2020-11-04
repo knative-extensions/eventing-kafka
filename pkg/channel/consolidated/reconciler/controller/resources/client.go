@@ -18,11 +18,12 @@ package resources
 
 import (
 	"github.com/Shopify/sarama"
+	"knative.dev/eventing-kafka/pkg/common/constants"
 )
 
 func MakeClient(clientID string, bootstrapServers []string) (sarama.ClusterAdmin, error) {
 	saramaConf := sarama.NewConfig()
-	saramaConf.Version = sarama.V1_1_0_0
+	saramaConf.Version = constants.ConfigKafkaVersionDefault
 	saramaConf.ClientID = clientID
 	return sarama.NewClusterAdmin(bootstrapServers, saramaConf)
 }

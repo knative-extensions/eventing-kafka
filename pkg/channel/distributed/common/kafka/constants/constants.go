@@ -52,17 +52,3 @@ const (
 	// KafkaChannel Constants
 	KafkaChannelServiceNameSuffix = "kn-channel" // Specific Value For Use With Knative e2e Tests!
 )
-
-// Non-Constant Constants ;)
-var (
-	//
-	// Default Kafka Version
-	//
-	// This is the default value which will be used when creating Sarama.Config if not
-	// otherwise specified in the ConfigMap.  It is set to the lowest common denominator
-	// version to provide the most compatible and likely to succeed solution.  Specifically,
-	// Sarama's ConsumerGroups repeatedly close due to EOF failures when working against
-	// Azure EventHubs if this is set any higher than V1_0_0_0.
-	//
-	ConfigKafkaVersionDefault = sarama.V1_0_0_0
-)

@@ -22,10 +22,10 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	kafkatesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/testing"
 	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
+	"knative.dev/eventing-kafka/pkg/common/constants"
 )
 
 // Test Constants

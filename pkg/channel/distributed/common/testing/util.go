@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
+	"knative.dev/eventing-kafka/pkg/common/constants"
 
 	"github.com/Shopify/sarama"
 	"github.com/ghodss/yaml"
