@@ -367,6 +367,23 @@ function test_distributed_channel() {
   uninstall_channel_crds || return 1
 }
 
+# These options may be passed to this script directly or they may be provided via environment variables
+# through the presubmit-tests.sh, so they are parsed in both locations.
+for arg do
+  shift
+  case $arg in
+    --distributed)
+      TEST_DISTRIBUTED_CHANNEL=1
+      continue
+      ;;
+    --consolidated)
+      TEST_CONSOLIDATED_CHANNEL=1
+      continue
+      ;;
+  esac
+  set -- "$@" "$arg"
+done
+
 # If neither test was specified, run both
 if [[ $TEST_CONSOLIDATED_CHANNEL != 1 ]] && [[ $TEST_DISTRIBUTED_CHANNEL != 1 ]]; then
   TEST_DISTRIBUTED_CHANNEL=1
