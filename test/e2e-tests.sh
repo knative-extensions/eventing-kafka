@@ -367,16 +367,32 @@ function test_distributed_channel() {
   uninstall_channel_crds || return 1
 }
 
+function parse_flags() {
+  # This function will be called repeatedly by initialize() with one fewer
+  # argument each time and expects a return value of "the number of arguments to skip"
+  # so we can just check the first argument and return 1 (to have it redirected to the
+  # test container) or 0 (to have initialize() parse it normally).
+  case $1 in
+    --distributed)
+      TEST_DISTRIBUTED_CHANNEL=1
+      return 1
+      ;;
+    --consolidated)
+      TEST_CONSOLIDATED_CHANNEL=1
+      return 1
+      ;;
+  esac
+  return 0
+}
+
+TEST_CONSOLIDATED_CHANNEL=${TEST_CONSOLIDATED_CHANNEL:-0}
+TEST_DISTRIBUTED_CHANNEL=${TEST_DISTRIBUTED_CHANNEL:-0}
+
 echo "e2e-tests.sh command line: $@"
 
-# These options may be passed to this script directly or they may be provided via environment variables
-# through the presubmit-tests.sh, so they are parsed in both locations.
-for arg in "$@"; do
-  case $arg in
-    --distributed) TEST_DISTRIBUTED_CHANNEL=1 ;;
-    --consolidated) TEST_CONSOLIDATED_CHANNEL=1 ;;
-  esac
-done
+# Note:  The setting of gcp-project-id option here has no effect when testing locally; it is only for the kubetest2 utility
+# If you wish to use this script just as test setup, *without* teardown, add "--skip-teardowns" to the initialize command
+initialize $@ --skip-istio-addon
 
 echo "e2e-tests.sh environment:"
 echo "TEST_CONSOLIDATED_CHANNEL: ${TEST_CONSOLIDATED_CHANNEL}"
@@ -387,10 +403,6 @@ if [[ $TEST_CONSOLIDATED_CHANNEL != 1 ]] && [[ $TEST_DISTRIBUTED_CHANNEL != 1 ]]
   TEST_DISTRIBUTED_CHANNEL=1
   TEST_CONSOLIDATED_CHANNEL=1
 fi
-
-# Note:  The setting of gcp-project-id option here has no effect when testing locally; it is only for the kubetest2 utility
-# If you wish to use this script just as test setup, *without* teardown, add "--skip-teardowns" to the initialize command
-initialize $@ --skip-istio-addon
 
 export SYSTEM_NAMESPACE
 
