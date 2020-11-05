@@ -21,6 +21,8 @@
 # Use the flags --build-tests, --unit-tests and --integration-tests
 # to run a specific set of tests.
 
+echo "Presubmit-tests command line: $@"
+
 source $(dirname $0)/../vendor/knative.dev/hack/presubmit-tests.sh
 
-main $@
+main "$@"

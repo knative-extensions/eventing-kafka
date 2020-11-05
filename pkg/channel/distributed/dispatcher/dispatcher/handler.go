@@ -22,12 +22,11 @@ import (
 	"net/http"
 	"net/url"
 
-	"knative.dev/eventing-kafka/pkg/common/tracing"
-
 	"github.com/Shopify/sarama"
 	kafkasaramaprotocol "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"github.com/cloudevents/sdk-go/v2/binding"
 	"go.uber.org/zap"
+	"knative.dev/eventing-kafka/pkg/common/tracing"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/channel"
 	"knative.dev/eventing/pkg/kncloudevents"
@@ -176,7 +175,7 @@ func (h *Handler) checkRetry(_ context.Context, response *http.Response, err err
 	//        status codes from the subscriber and returning 400s instead.  Once this has,
 	//        been resolved we can remove 400 from the list of codes to retry.
 	//
-	if statusCode >= 500 || statusCode == 400 || statusCode == 404 || statusCode == 429 {
+	if statusCode >= 500 || statusCode == 400 || statusCode == 404 || statusCode == 429 || statusCode == 409 {
 		logger.Warn("Failed To Send Message To Subscriber Service - Retrying")
 		return true, nil
 	} else if statusCode >= 300 && statusCode <= 399 {
