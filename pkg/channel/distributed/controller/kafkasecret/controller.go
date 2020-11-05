@@ -18,6 +18,7 @@ package kafkasecret
 
 import (
 	"context"
+	"time"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -87,22 +88,48 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	controllerImpl := kafkasecretinjection.NewImpl(ctx, r)
 
 	// Configure The Informers' EventHandlers
-	r.logger.Info("Setting Up EventHandlers")
-	kafkaSecretInformer.Informer().AddEventHandler(
-		controller.HandleAll(controllerImpl.Enqueue),
-	)
-	serviceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterControllerGVK(corev1.SchemeGroupVersion.WithKind(constants.SecretKind)),
-		Handler:    controller.HandleAll(controllerImpl.EnqueueControllerOf),
-	})
-	deploymentInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterControllerGVK(corev1.SchemeGroupVersion.WithKind(constants.SecretKind)),
-		Handler:    controller.HandleAll(controllerImpl.EnqueueControllerOf),
-	})
-	kafkachannelInformer.Informer().AddEventHandler(
-		controller.HandleAll(enqueueSecretOfKafkaChannel(controllerImpl)),
-	)
-
+	if configuration.Kafka.ResyncPeriodSeconds == 0 {
+		r.logger.Info("Setting Up EventHandlers")
+		kafkaSecretInformer.Informer().AddEventHandler(
+			controller.HandleAll(controllerImpl.Enqueue),
+		)
+		serviceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+			FilterFunc: controller.FilterControllerGVK(corev1.SchemeGroupVersion.WithKind(constants.SecretKind)),
+			Handler:    controller.HandleAll(controllerImpl.EnqueueControllerOf),
+		})
+		deploymentInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+			FilterFunc: controller.FilterControllerGVK(corev1.SchemeGroupVersion.WithKind(constants.SecretKind)),
+			Handler:    controller.HandleAll(controllerImpl.EnqueueControllerOf),
+		})
+		kafkachannelInformer.Informer().AddEventHandler(
+			controller.HandleAll(enqueueSecretOfKafkaChannel(controllerImpl)),
+		)
+	} else {
+		resyncDuration := time.Second * time.Duration(configuration.Kafka.ResyncPeriodSeconds)
+		r.logger.Info("Setting Up EventHandlers With Custom Resync Period", zap.Duration("ResyncDuration", resyncDuration))
+		kafkaSecretInformer.Informer().AddEventHandlerWithResyncPeriod(
+			controller.HandleAll(controllerImpl.Enqueue),
+			resyncDuration,
+		)
+		serviceInformer.Informer().AddEventHandlerWithResyncPeriod(
+			cache.FilteringResourceEventHandler{
+				FilterFunc: controller.FilterControllerGVK(corev1.SchemeGroupVersion.WithKind(constants.SecretKind)),
+				Handler:    controller.HandleAll(controllerImpl.EnqueueControllerOf),
+			},
+			resyncDuration,
+		)
+		deploymentInformer.Informer().AddEventHandlerWithResyncPeriod(
+			cache.FilteringResourceEventHandler{
+				FilterFunc: controller.FilterControllerGVK(corev1.SchemeGroupVersion.WithKind(constants.SecretKind)),
+				Handler:    controller.HandleAll(controllerImpl.EnqueueControllerOf),
+			},
+			resyncDuration,
+		)
+		kafkachannelInformer.Informer().AddEventHandlerWithResyncPeriod(
+			controller.HandleAll(enqueueSecretOfKafkaChannel(controllerImpl)),
+			resyncDuration,
+		)
+	}
 	// Return The KafkaSecret Controller Impl
 	return controllerImpl
 }

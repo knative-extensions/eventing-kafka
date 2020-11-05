@@ -19,6 +19,7 @@ package kafkachannel
 import (
 	"context"
 	"sync"
+	"time"
 
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -118,18 +119,41 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	//        the Services/Deployments with appropriate labels. Kubernetes does NOT support cross-namespace
 	//        OwnerReferences, and so we use "marker" labels to identify them instead.
 	//
-	rec.logger.Info("Setting Up EventHandlers")
-	kafkachannelInformer.Informer().AddEventHandler(
-		controller.HandleAll(controllerImpl.Enqueue),
-	)
-	serviceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: FilterKafkaChannelOwnerByReferenceOrLabel(),
-		Handler:    controller.HandleAll(controllerImpl.EnqueueLabelOfNamespaceScopedResource(constants.KafkaChannelNamespaceLabel, constants.KafkaChannelNameLabel)),
-	})
-	deploymentInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: FilterKafkaChannelOwnerByReferenceOrLabel(),
-		Handler:    controller.HandleAll(controllerImpl.EnqueueLabelOfNamespaceScopedResource(constants.KafkaChannelNamespaceLabel, constants.KafkaChannelNameLabel)),
-	})
+	if configuration.Kafka.ResyncPeriodSeconds == 0 {
+		rec.logger.Info("Setting Up EventHandlers")
+		kafkachannelInformer.Informer().AddEventHandler(
+			controller.HandleAll(controllerImpl.Enqueue),
+		)
+		serviceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+			FilterFunc: FilterKafkaChannelOwnerByReferenceOrLabel(),
+			Handler:    controller.HandleAll(controllerImpl.EnqueueLabelOfNamespaceScopedResource(constants.KafkaChannelNamespaceLabel, constants.KafkaChannelNameLabel)),
+		})
+		deploymentInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+			FilterFunc: FilterKafkaChannelOwnerByReferenceOrLabel(),
+			Handler:    controller.HandleAll(controllerImpl.EnqueueLabelOfNamespaceScopedResource(constants.KafkaChannelNamespaceLabel, constants.KafkaChannelNameLabel)),
+		})
+	} else {
+		resyncDuration := time.Second * time.Duration(configuration.Kafka.ResyncPeriodSeconds)
+		rec.logger.Info("Setting Up EventHandlers With Custom Resync Period", zap.Duration("ResyncDuration", resyncDuration))
+		kafkachannelInformer.Informer().AddEventHandlerWithResyncPeriod(
+			controller.HandleAll(controllerImpl.Enqueue),
+			resyncDuration,
+		)
+		serviceInformer.Informer().AddEventHandlerWithResyncPeriod(
+			cache.FilteringResourceEventHandler{
+				FilterFunc: FilterKafkaChannelOwnerByReferenceOrLabel(),
+				Handler:    controller.HandleAll(controllerImpl.EnqueueLabelOfNamespaceScopedResource(constants.KafkaChannelNamespaceLabel, constants.KafkaChannelNameLabel)),
+			},
+			resyncDuration,
+		)
+		deploymentInformer.Informer().AddEventHandlerWithResyncPeriod(
+			cache.FilteringResourceEventHandler{
+				FilterFunc: FilterKafkaChannelOwnerByReferenceOrLabel(),
+				Handler:    controller.HandleAll(controllerImpl.EnqueueLabelOfNamespaceScopedResource(constants.KafkaChannelNamespaceLabel, constants.KafkaChannelNameLabel)),
+			},
+			resyncDuration,
+		)
+	}
 
 	// Return The KafkaChannel Controller Impl
 	return controllerImpl
