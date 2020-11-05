@@ -371,19 +371,11 @@ echo "e2e-tests.sh command line: $@"
 
 # These options may be passed to this script directly or they may be provided via environment variables
 # through the presubmit-tests.sh, so they are parsed in both locations.
-for arg do
-  shift
+for arg in "$@"; do
   case $arg in
-    --distributed)
-      TEST_DISTRIBUTED_CHANNEL=1
-      continue
-      ;;
-    --consolidated)
-      TEST_CONSOLIDATED_CHANNEL=1
-      continue
-      ;;
+    --distributed) TEST_DISTRIBUTED_CHANNEL=1 ;;
+    --consolidated) TEST_CONSOLIDATED_CHANNEL=1 ;;
   esac
-  set -- "$@" "$arg"
 done
 
 echo "e2e-tests.sh environment:"
