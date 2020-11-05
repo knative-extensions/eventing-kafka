@@ -52,10 +52,7 @@ var _ duckv1.KRShaped = (*KafkaSource)(nil)
 
 // KafkaSourceSpec defines the desired state of the KafkaSource.
 type KafkaSourceSpec struct {
-	// Number of desired consumers. Defaults to 1.
-	//
-	// A consumer is an unit for measuring resource allocation,
-	// for example the number of pods, or the allocated bandwidth.
+	// Number of desired consumers running in the consumer group. Defaults to 1.
 	//
 	// This is a pointer to distinguish between explicit
 	// zero and not specified.
@@ -105,7 +102,7 @@ type KafkaSourceStatus struct {
 	//   Source.
 	duckv1.SourceStatus `json:",inline"`
 
-	// Total number of consumers targeted by this source
+	// Total number of consumers actually running in the consumer group.
 	// +optional
 	Consumers int32 `json:"consumers,omitempty"`
 }
