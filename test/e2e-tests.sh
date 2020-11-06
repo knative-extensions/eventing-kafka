@@ -356,8 +356,8 @@ function test_distributed_channel() {
   install_distributed_channel_crds || return 1
 
   # TODO: Enable v1alpha1 testing once we have the auto-converting webhook in our config/yaml
-  go_test_e2e -timeout=40m -test.parallel=${TEST_PARALLEL} ./test/e2e -channels=messaging.knative.dev/v1beta1:KafkaChannel  || fail_test
-  go_test_e2e -timeout=5m -test.parallel=${TEST_PARALLEL} ./test/conformance -channels=messaging.knative.dev/v1beta1:KafkaChannel || fail_test
+  go_test_e2e -tags=e2e -timeout=40m -test.parallel=${TEST_PARALLEL} ./test/e2e -channels=messaging.knative.dev/v1beta1:KafkaChannel  || fail_test
+  go_test_e2e -tags=e2e -timeout=5m -test.parallel=${TEST_PARALLEL} ./test/conformance -channels=messaging.knative.dev/v1beta1:KafkaChannel || fail_test
 
   uninstall_channel_crds || return 1
 }
