@@ -268,12 +268,16 @@ function uninstall_channel_crds() {
   echo "Uninstalling Kafka Channel CRD"
   kubectl delete secret -n knative-eventing kafka-cluster
   sleep 10 # Give Controller Time To React To Kafka Secret Deletion ; )
-  ko delete --ignore-not-found=true --now --timeout 60s -f "${KAFKA_CRD_CONFIG_DIR}"
+  echo "Current namespaces:"
+  kubectl get namespaces
+  echo "Current kafkachannels:"
+  kubectl get kafkachannel -A
+  ko delete --ignore-not-found=true --now --timeout 120s -f "${KAFKA_CRD_CONFIG_DIR}"
 }
 
 function uninstall_sources_crds() {
   echo "Uninstalling Kafka Source CRD"
-  ko delete --ignore-not-found=true --now --timeout 60s -f "${KAFKA_SOURCE_CRD_CONFIG_DIR}"
+  ko delete --ignore-not-found=true --now --timeout 120s -f "${KAFKA_SOURCE_CRD_CONFIG_DIR}"
 }
 
 function install_distributed_channel_crds() {
@@ -294,13 +298,6 @@ function install_distributed_channel_crds() {
   add_kn_eventing_test_pull_secret knative-eventing eventing-kafka-channel-controller eventing-kafka-channel-controller
 
   wait_until_pods_running knative-eventing || fail_test "Failed to install the distributed Kafka Channel CRD"
-}
-
-function install_distributed_sources_crds() {
-  echo "Installing Kafka Source CRD"
-  ko apply -f "${KAFKA_SOURCE_CRD_CONFIG_DIR}" || return 1
-  wait_until_pods_running knative-eventing || fail_test "Failed to install the distributed Kafka Source CRD"
-  wait_until_pods_running knative-sources || fail_test "Failed to install the distributed Kafka Source CRD"
 }
 
 function kafka_setup() {
@@ -345,8 +342,8 @@ function test_consolidated_channel() {
   install_consolidated_channel_crds || return 1
   install_consolidated_sources_crds || return 1
 
-  go_test_e2e -timeout=40m -parallel=${TEST_PARALLEL} ./test/e2e -channels=messaging.knative.dev/v1alpha1:KafkaChannel,messaging.knative.dev/v1beta1:KafkaChannel  || fail_test
-  go_test_e2e -timeout=5m -parallel=${TEST_PARALLEL} ./test/conformance -channels=messaging.knative.dev/v1beta1:KafkaChannel -sources=sources.knative.dev/v1beta1:KafkaSource || fail_test
+  go_test_e2e -tags=e2e,source -timeout=40m -test.parallel=${TEST_PARALLEL} ./test/e2e -channels=messaging.knative.dev/v1alpha1:KafkaChannel,messaging.knative.dev/v1beta1:KafkaChannel  || fail_test
+  go_test_e2e -tags=e2e,source -timeout=5m -test.parallel=${TEST_PARALLEL} ./test/conformance -channels=messaging.knative.dev/v1beta1:KafkaChannel -sources=sources.knative.dev/v1beta1:KafkaSource || fail_test
 
   uninstall_sources_crds || return 1
   uninstall_channel_crds || return 1
@@ -357,13 +354,11 @@ function test_distributed_channel() {
   # Test the distributed channel
   echo "Testing the distributed channel"
   install_distributed_channel_crds || return 1
-  install_distributed_sources_crds || return 1
 
   # TODO: Enable v1alpha1 testing once we have the auto-converting webhook in our config/yaml
-  go_test_e2e -timeout=40m -parallel=${TEST_PARALLEL} ./test/e2e -channels=messaging.knative.dev/v1beta1:KafkaChannel  || fail_test
-  go_test_e2e -timeout=5m -parallel=${TEST_PARALLEL} ./test/conformance -channels=messaging.knative.dev/v1beta1:KafkaChannel || fail_test
+  go_test_e2e -timeout=40m -test.parallel=${TEST_PARALLEL} ./test/e2e -channels=messaging.knative.dev/v1beta1:KafkaChannel  || fail_test
+  go_test_e2e -timeout=5m -test.parallel=${TEST_PARALLEL} ./test/conformance -channels=messaging.knative.dev/v1beta1:KafkaChannel || fail_test
 
-  uninstall_sources_crds || return 1
   uninstall_channel_crds || return 1
 }
 
