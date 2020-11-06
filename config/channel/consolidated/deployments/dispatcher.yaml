@@ -39,6 +39,7 @@ spec:
         image: ko://knative.dev/eventing-kafka/cmd/channel/consolidated/dispatcher
         env:
         - name: SYSTEM_NAMESPACE
+          value: ''
           valueFrom:
             fieldRef:
               apiVersion: v1
