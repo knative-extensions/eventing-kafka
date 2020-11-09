@@ -19,7 +19,6 @@ package testing
 import (
 	"fmt"
 	"strconv"
-	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -152,6 +151,7 @@ Producer:
 
 var (
 	DefaultRetentionMillisString = strconv.FormatInt(DefaultRetentionMillis, 10)
+	DeletionTimestamp            = metav1.Now()
 )
 
 //
@@ -164,14 +164,12 @@ type DeploymentOption func(service *appsv1.Deployment)
 
 // Set The Service's DeletionTimestamp To Current Time
 func WithDeletionTimestampService(service *corev1.Service) {
-	deleteTime := metav1.NewTime(time.Unix(1e9, 0))
-	service.ObjectMeta.SetDeletionTimestamp(&deleteTime)
+	service.ObjectMeta.SetDeletionTimestamp(&DeletionTimestamp)
 }
 
 // Set The Deployment's DeletionTimestamp To Current Time
 func WithDeletionTimestampDeployment(deployment *appsv1.Deployment) {
-	deleteTime := metav1.NewTime(time.Unix(1e9, 0))
-	deployment.ObjectMeta.SetDeletionTimestamp(&deleteTime)
+	deployment.ObjectMeta.SetDeletionTimestamp(&DeletionTimestamp)
 }
 
 // Clear The Specified Service's Finalizers
@@ -270,8 +268,7 @@ func NewKafkaSecret(options ...KafkaSecretOption) *corev1.Secret {
 
 // Set The Kafka Secret's DeletionTimestamp To Current Time
 func WithKafkaSecretDeleted(secret *corev1.Secret) {
-	deleteTime := metav1.NewTime(time.Unix(1e9, 0))
-	secret.ObjectMeta.SetDeletionTimestamp(&deleteTime)
+	secret.ObjectMeta.SetDeletionTimestamp(&DeletionTimestamp)
 }
 
 // Set The Kafka Secret's Finalizer
@@ -358,8 +355,7 @@ func WithInitializedConditions(kafkachannel *kafkav1beta1.KafkaChannel) {
 
 // Set The KafkaChannel's DeletionTimestamp To Current Time
 func WithDeletionTimestamp(kafkachannel *kafkav1beta1.KafkaChannel) {
-	deleteTime := metav1.NewTime(time.Unix(1e9, 0))
-	kafkachannel.ObjectMeta.SetDeletionTimestamp(&deleteTime)
+	kafkachannel.ObjectMeta.SetDeletionTimestamp(&DeletionTimestamp)
 }
 
 // Set The KafkaChannel's Finalizer
