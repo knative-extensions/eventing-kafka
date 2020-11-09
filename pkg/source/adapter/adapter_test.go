@@ -445,7 +445,7 @@ func TestAdapter_Start(t *testing.T) { // just increase code coverage
 	go func() {
 		err := a.Start(ctx)
 		if err != nil {
-			t.Errorf("unexpected error: %v", err)
+			t.Error("unexpected error:", err)
 		}
 		stopped <- true
 	}()

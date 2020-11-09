@@ -22,8 +22,6 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/wait"
-
 	kafkasource "knative.dev/eventing-kafka/pkg/source"
 
 	"go.opencensus.io/trace"
@@ -99,14 +97,9 @@ func (a *Adapter) start(stopCh <-chan struct{}) error {
 		return fmt.Errorf("failed to create the config: %w", err)
 	}
 
-	wait.Until(func() {
-		consumerGroupFactory := consumer.NewConsumerGroupFactory(addrs, config)
-		group, err := consumerGroupFactory.StartConsumerGroup(a.config.ConsumerGroup, a.config.Topics, a.logger, a)
+	consumerGroupFactory := consumer.NewConsumerGroupFactory(addrs, config)
 
-		if err != nil {
-			a.logger.Errorw("failed to start consumer group", zap.Error(err))
-			return
-		}
+	if group := a.startConsumerGroup(consumerGroupFactory, stopCh); group != nil {
 		defer func() { _ = group.Close() }()
 
 		// Track errors
@@ -115,10 +108,32 @@ func (a *Adapter) start(stopCh <-chan struct{}) error {
 				a.logger.Errorw("an error has occurred while consuming messages occurred", zap.Error(err))
 			}
 		}()
-	}, time.Second, stopCh)
+
+		<-stopCh
+	}
 
 	a.logger.Info("Shutting down...")
 	return nil
+}
+
+func (a *Adapter) startConsumerGroup(factory consumer.KafkaConsumerGroupFactory, stopCh <-chan struct{}) sarama.ConsumerGroup {
+	for {
+		group, err := factory.StartConsumerGroup(a.config.ConsumerGroup, a.config.Topics, a.logger, a)
+
+		if err != nil {
+			a.logger.Errorw("failed to start consumer group", zap.Error(err))
+
+			select {
+			case <-stopCh:
+				return nil
+			case <-time.After(time.Second):
+			}
+
+			continue
+		}
+
+		return group
+	}
 }
 
 func (a *Adapter) Handle(ctx context.Context, msg *sarama.ConsumerMessage) (bool, error) {
