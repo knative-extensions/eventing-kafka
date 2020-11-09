@@ -162,6 +162,18 @@ var (
 type ServiceOption func(service *corev1.Service)
 type DeploymentOption func(service *appsv1.Deployment)
 
+// Set The Service's DeletionTimestamp To Current Time
+func WithDeletionTimestampService(service *corev1.Service) {
+	deleteTime := metav1.NewTime(time.Unix(1e9, 0))
+	service.ObjectMeta.SetDeletionTimestamp(&deleteTime)
+}
+
+// Set The Deployment's DeletionTimestamp To Current Time
+func WithDeletionTimestampDeployment(deployment *appsv1.Deployment) {
+	deleteTime := metav1.NewTime(time.Unix(1e9, 0))
+	deployment.ObjectMeta.SetDeletionTimestamp(&deleteTime)
+}
+
 // Clear The Specified Service's Finalizers
 func WithoutFinalizersService(service *corev1.Service) {
 	service.ObjectMeta.Finalizers = []string{}
@@ -442,8 +454,10 @@ func WithTopicReady(kafkachannel *kafkav1beta1.KafkaChannel) {
 }
 
 // Utility Function For Creating A Custom KafkaChannel "Channel" Service For Testing
-func NewKafkaChannelService() *corev1.Service {
-	return &corev1.Service{
+func NewKafkaChannelService(options ...ServiceOption) *corev1.Service {
+
+	// Create The KafkaChannel Service
+	service := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: corev1.SchemeGroupVersion.String(),
 			Kind:       constants.ServiceKind,
@@ -466,11 +480,21 @@ func NewKafkaChannelService() *corev1.Service {
 			ExternalName: ReceiverDeploymentName + "." + commonconstants.KnativeEventingNamespace + ".svc.cluster.local",
 		},
 	}
+
+	// Apply The Specified Service Customizations
+	for _, option := range options {
+		option(service)
+	}
+
+	// Return The Test KafkaChannel Service
+	return service
 }
 
 // Utility Function For Creating A Custom Receiver Service For Testing
-func NewKafkaChannelReceiverService() *corev1.Service {
-	return &corev1.Service{
+func NewKafkaChannelReceiverService(options ...ServiceOption) *corev1.Service {
+
+	// Create The Receiver Service
+	service := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: corev1.SchemeGroupVersion.String(),
 			Kind:       constants.ServiceKind,
@@ -504,12 +528,24 @@ func NewKafkaChannelReceiverService() *corev1.Service {
 			},
 		},
 	}
+
+	// Apply The Specified Service Customizations
+	for _, option := range options {
+		option(service)
+	}
+
+	// Return The Test Receiver Service
+	return service
 }
 
 // Utility Function For Creating A Receiver Deployment For The Test Channel
-func NewKafkaChannelReceiverDeployment() *appsv1.Deployment {
+func NewKafkaChannelReceiverDeployment(options ...DeploymentOption) *appsv1.Deployment {
+
+	// Replicas Int Reference
 	replicas := int32(ReceiverReplicas)
-	return &appsv1.Deployment{
+
+	// Create The Receiver Deployment
+	deployment := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: appsv1.SchemeGroupVersion.String(),
 			Kind:       constants.DeploymentKind,
@@ -652,6 +688,14 @@ func NewKafkaChannelReceiverDeployment() *appsv1.Deployment {
 			},
 		},
 	}
+
+	// Apply The Specified Deployment Customizations
+	for _, option := range options {
+		option(deployment)
+	}
+
+	// Return The Test Receiver Deployment
+	return deployment
 }
 
 // Utility Function For Creating A Custom KafkaChannel Dispatcher Service For Testing
