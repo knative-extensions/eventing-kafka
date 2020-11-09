@@ -138,6 +138,17 @@ func GetOptionalConfigInt64(logger *zap.Logger, envKey string, defaultValue stri
 	return envInt, nil
 }
 
+// Get The Specified Optional Config Value From OS & Log Errors If Not Present Or Not An Int
+func GetOptionalConfigInt(logger *zap.Logger, envKey string, defaultValue string, name string) (int, error) {
+	envString := GetOptionalConfigValue(logger, envKey, defaultValue)
+	envInt, err := strconv.Atoi(envString)
+	if err != nil {
+		logger.Error("Invalid "+name+" (Non Int)", zap.String("Value", envString), zap.Error(err))
+		return 0, fmt.Errorf("invalid (non int) value '%s' for environment variable '%s'", envString, envKey)
+	}
+	return envInt, nil
+}
+
 // Parse Quantity Value
 func GetRequiredQuantityConfigValue(logger *zap.Logger, envVarKey string) (*resource.Quantity, error) {
 

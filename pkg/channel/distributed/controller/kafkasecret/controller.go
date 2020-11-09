@@ -88,7 +88,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	controllerImpl := kafkasecretinjection.NewImpl(ctx, r)
 
 	// Configure The Informers' EventHandlers
-	if configuration.Kafka.ResyncPeriodSeconds == 0 {
+	if environment.KafkaResyncPeriodSeconds == 0 {
 		r.logger.Info("Setting Up EventHandlers")
 		kafkaSecretInformer.Informer().AddEventHandler(
 			controller.HandleAll(controllerImpl.Enqueue),
@@ -105,7 +105,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 			controller.HandleAll(enqueueSecretOfKafkaChannel(controllerImpl)),
 		)
 	} else {
-		resyncDuration := time.Second * time.Duration(configuration.Kafka.ResyncPeriodSeconds)
+		resyncDuration := time.Second * time.Duration(environment.KafkaResyncPeriodSeconds)
 		r.logger.Info("Setting Up EventHandlers With Custom Resync Period", zap.Duration("ResyncDuration", resyncDuration))
 		kafkaSecretInformer.Informer().AddEventHandlerWithResyncPeriod(
 			controller.HandleAll(controllerImpl.Enqueue),

@@ -119,7 +119,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	//        the Services/Deployments with appropriate labels. Kubernetes does NOT support cross-namespace
 	//        OwnerReferences, and so we use "marker" labels to identify them instead.
 	//
-	if configuration.Kafka.ResyncPeriodSeconds == 0 {
+	if environment.KafkaResyncPeriodSeconds == 0 {
 		rec.logger.Info("Setting Up EventHandlers")
 		kafkachannelInformer.Informer().AddEventHandler(
 			controller.HandleAll(controllerImpl.Enqueue),
@@ -133,7 +133,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 			Handler:    controller.HandleAll(controllerImpl.EnqueueLabelOfNamespaceScopedResource(constants.KafkaChannelNamespaceLabel, constants.KafkaChannelNameLabel)),
 		})
 	} else {
-		resyncDuration := time.Second * time.Duration(configuration.Kafka.ResyncPeriodSeconds)
+		resyncDuration := time.Second * time.Duration(environment.KafkaResyncPeriodSeconds)
 		rec.logger.Info("Setting Up EventHandlers With Custom Resync Period", zap.Duration("ResyncDuration", resyncDuration))
 		kafkachannelInformer.Informer().AddEventHandlerWithResyncPeriod(
 			controller.HandleAll(controllerImpl.Enqueue),

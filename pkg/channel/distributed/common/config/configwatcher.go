@@ -59,7 +59,6 @@ type EKKafkaTopicConfig struct {
 
 // EKKafkaConfig contains items relevant to Kafka specifically, and the Sarama logging flag
 type EKKafkaConfig struct {
-	ResyncPeriodSeconds int32              `json:"resyncPeriodSeconds,omitempty"`
 	EnableSaramaLogging bool               `json:"enableSaramaLogging,omitempty"`
 	Topic               EKKafkaTopicConfig `json:"topic,omitempty"`
 	AdminType           string             `json:"adminType,omitempty"`

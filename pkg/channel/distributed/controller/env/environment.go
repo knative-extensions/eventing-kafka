@@ -35,9 +35,10 @@ const (
 type Environment struct {
 
 	// Eventing-kafka Configuration
-	ServiceAccount string // Required
-	MetricsPort    int    // Required
-	MetricsDomain  string // Required
+	ServiceAccount           string // Required
+	MetricsPort              int    // Required
+	MetricsDomain            string // Required
+	KafkaResyncPeriodSeconds int    // Optional
 
 	// Dispatcher Configuration
 	DispatcherImage string // Required
@@ -69,6 +70,12 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 
 	// Get The Required Metrics Port Config Value & Convert To Int
 	environment.MetricsPort, err = env.GetRequiredConfigInt(logger, env.MetricsPortEnvVarKey, "MetricsPort")
+	if err != nil {
+		return nil, err
+	}
+
+	// Get The Optional Resync Period config Value & Convert To Int
+	environment.KafkaResyncPeriodSeconds, err = env.GetOptionalConfigInt(logger, env.KafkaResyncPeriodSeconds, "0", "KafkaResyncPeriodSeconds")
 	if err != nil {
 		return nil, err
 	}
