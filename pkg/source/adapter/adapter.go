@@ -20,6 +20,9 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
+
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	kafkasource "knative.dev/eventing-kafka/pkg/source"
 
@@ -96,21 +99,24 @@ func (a *Adapter) start(stopCh <-chan struct{}) error {
 		return fmt.Errorf("failed to create the config: %w", err)
 	}
 
-	consumerGroupFactory := consumer.NewConsumerGroupFactory(addrs, config)
-	group, err := consumerGroupFactory.StartConsumerGroup(a.config.ConsumerGroup, a.config.Topics, a.logger, a)
-	if err != nil {
-		panic(err)
-	}
-	defer func() { _ = group.Close() }()
+	wait.Until(func() {
+		consumerGroupFactory := consumer.NewConsumerGroupFactory(addrs, config)
+		group, err := consumerGroupFactory.StartConsumerGroup(a.config.ConsumerGroup, a.config.Topics, a.logger, a)
 
-	// Track errors
-	go func() {
-		for err := range group.Errors() {
-			a.logger.Errorw("An error has occurred while consuming messages occurred: ", zap.Error(err))
+		if err != nil {
+			a.logger.Errorw("failed to start consumer group", zap.Error(err))
+			return
 		}
-	}()
+		defer func() { _ = group.Close() }()
 
-	<-stopCh
+		// Track errors
+		go func() {
+			for err := range group.Errors() {
+				a.logger.Errorw("an error has occurred while consuming messages occurred", zap.Error(err))
+			}
+		}()
+	}, time.Second, stopCh)
+
 	a.logger.Info("Shutting down...")
 	return nil
 }

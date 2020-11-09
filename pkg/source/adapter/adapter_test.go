@@ -28,7 +28,6 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/cloudevents/sdk-go/v2/types"
-	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"knative.dev/eventing/pkg/adapter/v2"
 	"knative.dev/pkg/source"
@@ -441,9 +440,24 @@ func TestAdapter_Start(t *testing.T) { // just increase code coverage
 	_ = os.Setenv("KAFKA_BOOTSTRAP_SERVERS", "my-cluster-kafka-bootstrap.my-kafka-namespace:9092")
 
 	a := NewAdapter(ctx, NewEnvConfig(), nil, nil)
-	require.Panics(t, func() {
-		_ = a.Start(ctx)
-	})
+
+	stopped := make(chan bool, 1)
+	go func() {
+		err := a.Start(ctx)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		stopped <- true
+	}()
+
+	// Wait a bit to make sure the adapter gets a few runs
+	time.Sleep(2 * time.Second)
 
 	cancel()
+
+	select {
+	case <-time.After(5 * time.Second):
+		t.Error("adapter failed to stop after 5 seconds")
+	case <-stopped:
+	}
 }
