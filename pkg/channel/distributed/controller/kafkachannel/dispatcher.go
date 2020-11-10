@@ -142,12 +142,18 @@ func (r *Reconciler) reconcileDispatcherService(ctx context.Context, logger *zap
 		}
 	} else {
 
-		// Check Deletion Timestamp And Log State Accordingly
-		if service.DeletionTimestamp != nil {
-			logger.Info("Blocking Pending Deletion Of Dispatcher Service")
-		} else {
+		// Log Deletion Timestamp & Finalizer State
+		if service.DeletionTimestamp.IsZero() {
 			logger.Info("Successfully Verified Dispatcher Service")
+		} else {
+			if util.HasFinalizer(r.finalizerName(), &service.ObjectMeta) {
+				logger.Info("Blocking Pending Deletion Of Dispatcher Service (Finalizer Detected)")
+			} else {
+				logger.Warn("Unable To Block Pending Deletion Of Dispatcher Service (Finalizer Missing)")
+			}
 		}
+
+		// Return Success
 		return nil
 	}
 }
@@ -288,13 +294,18 @@ func (r *Reconciler) reconcileDispatcherDeployment(ctx context.Context, logger *
 		}
 	} else {
 
-		// Check Deletion Timestamp And Log State Accordingly
-		if deployment.DeletionTimestamp != nil {
-			logger.Info("Blocking Pending Deletion Of Dispatcher Deployment")
-		} else {
+		// Log Deletion Timestamp & Finalizer State
+		if deployment.DeletionTimestamp.IsZero() {
 			logger.Info("Successfully Verified Dispatcher Deployment")
+		} else {
+			if util.HasFinalizer(r.finalizerName(), &deployment.ObjectMeta) {
+				logger.Info("Blocking Pending Deletion Of Dispatcher Deployment (Finalizer Detected)")
+			} else {
+				logger.Warn("Unable To Block Pending Deletion Of Dispatcher Deployment (Finalizer Missing)")
+			}
 		}
 
+		// Propagate Status & Return Success
 		channel.Status.PropagateDispatcherStatus(&deployment.Status)
 		return nil
 	}

@@ -321,6 +321,32 @@ func TestReconcile(t *testing.T) {
 				controllertesting.NewKafkaChannelFailedReconciliationEvent(),
 			},
 		},
+		{
+			Name:                    "Reconcile KafkaChannel Service With Deletion Timestamp",
+			SkipNamespaceValidation: true,
+			Key:                     controllertesting.KafkaChannelKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaChannel(
+					controllertesting.WithFinalizer,
+					controllertesting.WithMetaData,
+					controllertesting.WithAddress,
+					controllertesting.WithInitializedConditions,
+					controllertesting.WithKafkaChannelServiceReady,
+					controllertesting.WithDispatcherDeploymentReady,
+					controllertesting.WithTopicReady,
+				),
+				controllertesting.NewKafkaChannelService(controllertesting.WithDeletionTimestampService),
+				controllertesting.NewKafkaChannelReceiverService(),
+				controllertesting.NewKafkaChannelReceiverDeployment(),
+				controllertesting.NewKafkaChannelDispatcherService(),
+				controllertesting.NewKafkaChannelDispatcherDeployment(),
+			},
+			WantErr: true,
+			WantEvents: []string{
+				Eventf(corev1.EventTypeWarning, event.KafkaChannelServiceReconciliationFailed.String(), "Failed To Reconcile KafkaChannel Service: encountered KafkaChannel Service with DeletionTimestamp kafkachannel-namespace/kafkachannel-name-kn-channel - potential race condition"),
+				controllertesting.NewKafkaChannelFailedReconciliationEvent(),
+			},
+		},
 
 		//
 		// KafkaChannel Dispatcher Service
@@ -380,6 +406,56 @@ func TestReconcile(t *testing.T) {
 			WantEvents: []string{
 				Eventf(corev1.EventTypeWarning, event.DispatcherServiceReconciliationFailed.String(), "Failed To Reconcile Dispatcher Service: inducing failure for create services"),
 				controllertesting.NewKafkaChannelFailedReconciliationEvent(),
+			},
+		},
+		{
+			Name:                    "Reconcile Dispatcher Service With Deletion Timestamp And Finalizer",
+			SkipNamespaceValidation: true,
+			Key:                     controllertesting.KafkaChannelKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaChannel(
+					controllertesting.WithFinalizer,
+					controllertesting.WithMetaData,
+					controllertesting.WithAddress,
+					controllertesting.WithInitializedConditions,
+					controllertesting.WithKafkaChannelServiceReady,
+					controllertesting.WithDispatcherDeploymentReady,
+					controllertesting.WithTopicReady,
+				),
+				controllertesting.NewKafkaChannelService(),
+				controllertesting.NewKafkaChannelReceiverService(),
+				controllertesting.NewKafkaChannelReceiverDeployment(),
+				controllertesting.NewKafkaChannelDispatcherService(controllertesting.WithDeletionTimestampService),
+				controllertesting.NewKafkaChannelDispatcherDeployment(),
+			},
+			WantErr: false,
+			WantEvents: []string{
+				controllertesting.NewKafkaChannelSuccessfulReconciliationEvent(),
+			},
+		},
+		{
+			Name:                    "Reconcile Dispatcher Service With Deletion Timestamp And Missing Finalizer",
+			SkipNamespaceValidation: true,
+			Key:                     controllertesting.KafkaChannelKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaChannel(
+					controllertesting.WithFinalizer,
+					controllertesting.WithMetaData,
+					controllertesting.WithAddress,
+					controllertesting.WithInitializedConditions,
+					controllertesting.WithKafkaChannelServiceReady,
+					controllertesting.WithDispatcherDeploymentReady,
+					controllertesting.WithTopicReady,
+				),
+				controllertesting.NewKafkaChannelService(),
+				controllertesting.NewKafkaChannelReceiverService(),
+				controllertesting.NewKafkaChannelReceiverDeployment(),
+				controllertesting.NewKafkaChannelDispatcherService(controllertesting.WithoutFinalizersService, controllertesting.WithDeletionTimestampService),
+				controllertesting.NewKafkaChannelDispatcherDeployment(),
+			},
+			WantErr: false,
+			WantEvents: []string{
+				controllertesting.NewKafkaChannelSuccessfulReconciliationEvent(),
 			},
 		},
 
@@ -453,6 +529,56 @@ func TestReconcile(t *testing.T) {
 			WantEvents: []string{
 				Eventf(corev1.EventTypeWarning, event.DispatcherDeploymentReconciliationFailed.String(), "Failed To Reconcile Dispatcher Deployment: inducing failure for create deployments"),
 				controllertesting.NewKafkaChannelFailedReconciliationEvent(),
+			},
+		},
+		{
+			Name:                    "Reconcile Dispatcher Deployment With Deletion Timestamp And Finalizer",
+			SkipNamespaceValidation: true,
+			Key:                     controllertesting.KafkaChannelKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaChannel(
+					controllertesting.WithFinalizer,
+					controllertesting.WithMetaData,
+					controllertesting.WithAddress,
+					controllertesting.WithInitializedConditions,
+					controllertesting.WithKafkaChannelServiceReady,
+					controllertesting.WithDispatcherDeploymentReady,
+					controllertesting.WithTopicReady,
+				),
+				controllertesting.NewKafkaChannelService(),
+				controllertesting.NewKafkaChannelReceiverService(),
+				controllertesting.NewKafkaChannelReceiverDeployment(),
+				controllertesting.NewKafkaChannelDispatcherService(),
+				controllertesting.NewKafkaChannelDispatcherDeployment(controllertesting.WithDeletionTimestampDeployment),
+			},
+			WantErr: false,
+			WantEvents: []string{
+				controllertesting.NewKafkaChannelSuccessfulReconciliationEvent(),
+			},
+		},
+		{
+			Name:                    "Reconcile Dispatcher Deployment With Deletion Timestamp And Missing Finalizer",
+			SkipNamespaceValidation: true,
+			Key:                     controllertesting.KafkaChannelKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaChannel(
+					controllertesting.WithFinalizer,
+					controllertesting.WithMetaData,
+					controllertesting.WithAddress,
+					controllertesting.WithInitializedConditions,
+					controllertesting.WithKafkaChannelServiceReady,
+					controllertesting.WithDispatcherDeploymentReady,
+					controllertesting.WithTopicReady,
+				),
+				controllertesting.NewKafkaChannelService(),
+				controllertesting.NewKafkaChannelReceiverService(),
+				controllertesting.NewKafkaChannelReceiverDeployment(),
+				controllertesting.NewKafkaChannelDispatcherService(),
+				controllertesting.NewKafkaChannelDispatcherDeployment(controllertesting.WithoutFinalizersDeployment, controllertesting.WithDeletionTimestampDeployment),
+			},
+			WantErr: false,
+			WantEvents: []string{
+				controllertesting.NewKafkaChannelSuccessfulReconciliationEvent(),
 			},
 		},
 	}

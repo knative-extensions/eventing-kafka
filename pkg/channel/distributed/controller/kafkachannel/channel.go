@@ -66,7 +66,7 @@ func (r *Reconciler) reconcileKafkaChannelService(ctx context.Context, logger *z
 
 	// Attempt To Get The Service Associated With The Specified Channel
 	service, err := r.getKafkaChannelService(channel)
-	if err != nil {
+	if service == nil || err != nil {
 
 		// If The Service Was Not Found - Then Create A New One For The Channel
 		if errors.IsNotFound(err) {
@@ -87,8 +87,15 @@ func (r *Reconciler) reconcileKafkaChannelService(ctx context.Context, logger *z
 			return err
 		}
 	} else {
-		logger.Info("Successfully Verified KafkaChannel Service")
-		// Continue To Update Channel Status
+
+		// Verify KafkaChannel Service Is Not Terminating
+		if service.DeletionTimestamp.IsZero() {
+			logger.Info("Successfully Verified KafkaChannel Service")
+			// Continue To Update Channel Status
+		} else {
+			logger.Warn("Encountered KafkaChannel Service With DeletionTimestamp - Forcing Reconciliation", zap.String("Namespace", service.Namespace), zap.String("Name", service.Name))
+			return fmt.Errorf("encountered KafkaChannel Service with DeletionTimestamp %s/%s - potential race condition", service.Namespace, service.Name)
+		}
 	}
 
 	// Update Channel Status

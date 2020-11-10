@@ -31,6 +31,25 @@ func TestKubernetesResourceFinalizerName(t *testing.T) {
 	assert.Equal(t, constants.EventingKafkaFinalizerPrefix+suffix, result)
 }
 
+// Test The HasFinalizer() Functionality
+func TestHasFinalizer(t *testing.T) {
+
+	// Test Data
+	finalizer1 := "TestFinalizer1"
+	finalizer2 := "TestFinalizer2"
+	finalizer3 := "TestFinalizer3"
+	objectMeta := &metav1.ObjectMeta{
+		Finalizers: []string{finalizer1, finalizer2},
+	}
+
+	// Perform The Test
+	assert.False(t, HasFinalizer(finalizer1, nil))
+	assert.False(t, HasFinalizer(finalizer1, &metav1.ObjectMeta{}))
+	assert.True(t, HasFinalizer(finalizer1, objectMeta))
+	assert.True(t, HasFinalizer(finalizer2, objectMeta))
+	assert.False(t, HasFinalizer(finalizer3, objectMeta))
+}
+
 // Test The RemoveFinalizer() Functionality
 func TestRemoveFinalizer(t *testing.T) {
 
@@ -38,15 +57,15 @@ func TestRemoveFinalizer(t *testing.T) {
 	finalizer1 := "TestFinalizer1"
 	finalizer2 := "TestFinalizer2"
 	finalizer3 := "TestFinalizer3"
-	objMeta := &metav1.ObjectMeta{
+	objectMeta := &metav1.ObjectMeta{
 		Finalizers: []string{finalizer1, finalizer2, finalizer3},
 	}
 
 	// Perform The Test
-	RemoveFinalizer(finalizer2, objMeta)
+	RemoveFinalizer(finalizer2, objectMeta)
 
 	// Verify The Results
-	assert.Equal(t, 2, len(objMeta.Finalizers))
-	assert.Equal(t, finalizer1, objMeta.Finalizers[0])
-	assert.Equal(t, finalizer3, objMeta.Finalizers[1])
+	assert.Equal(t, 2, len(objectMeta.Finalizers))
+	assert.Equal(t, finalizer1, objectMeta.Finalizers[0])
+	assert.Equal(t, finalizer3, objectMeta.Finalizers[1])
 }
