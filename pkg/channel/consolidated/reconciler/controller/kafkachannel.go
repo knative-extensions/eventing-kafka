@@ -21,43 +21,42 @@ import (
 	"errors"
 	"fmt"
 
-	"knative.dev/eventing-kafka/pkg/source"
-
-	"k8s.io/utils/pointer"
-
 	"github.com/Shopify/sarama"
-
 	"go.uber.org/zap"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
-
-	"knative.dev/eventing/pkg/apis/eventing"
-	eventingclientset "knative.dev/eventing/pkg/client/clientset/versioned"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/network"
-
-	"knative.dev/pkg/apis"
-	"knative.dev/pkg/controller"
-	pkgreconciler "knative.dev/pkg/reconciler"
+	"k8s.io/utils/pointer"
 
 	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
+	"knative.dev/eventing-kafka/pkg/channel/consolidated/kafka"
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/reconciler/controller/resources"
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
 	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	kafkaScheme "knative.dev/eventing-kafka/pkg/client/clientset/versioned/scheme"
 	kafkaChannelReconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
 	listers "knative.dev/eventing-kafka/pkg/client/listers/messaging/v1beta1"
+	"knative.dev/eventing-kafka/pkg/source"
+	v1 "knative.dev/eventing/pkg/apis/duck/v1"
+	"knative.dev/eventing/pkg/apis/eventing"
+	eventingchannels "knative.dev/eventing/pkg/channel"
+	eventingclientset "knative.dev/eventing/pkg/client/clientset/versioned"
+	"knative.dev/pkg/apis"
+	"knative.dev/pkg/apis/duck"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/network"
+	pkgreconciler "knative.dev/pkg/reconciler"
 )
 
 const (
@@ -116,11 +115,12 @@ type Reconciler struct {
 	kafkaAuthConfig  *utils.KafkaAuthConfig
 	kafkaConfigError error
 	kafkaClientSet   kafkaclientset.Interface
-
+	clientMgr        kafka.AdminClientManager
 	// Using a shared kafkaClusterAdmin does not work currently because of an issue with
 	// Shopify/sarama, see https://github.com/Shopify/sarama/issues/1162.
-	kafkaClusterAdmin sarama.ClusterAdmin
-
+	kafkaClusterAdmin    sarama.ClusterAdmin
+	channelSubscriptions map[eventingchannels.ChannelReference][]types.UID
+	kafkaWatcher         KafkaWatcher
 	kafkachannelLister   listers.KafkaChannelLister
 	kafkachannelInformer cache.SharedIndexInformer
 	deploymentLister     appsv1listers.DeploymentLister
@@ -162,7 +162,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel
 		return r.kafkaConfigError
 	}
 
-	kafkaClusterAdmin, err := r.createClient(ctx, kc)
+	kafkaClusterAdmin, err := r.createClient()
 	if err != nil {
 		kc.Status.MarkConfigFailed("InvalidConfiguration", "Unable to build Kafka admin client for channel %s: %v", kc.Name, err)
 		return err
@@ -177,7 +177,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel
 	// 4. Dispatcher endpoints to ensure that there's something backing the Service.
 	// 5. K8s service representing the channel that will use ExternalName to point to the Dispatcher k8s service.
 
-	if err := r.createTopic(ctx, kc, kafkaClusterAdmin); err != nil {
+	if err := r.reconcileTopic(ctx, kc, kafkaClusterAdmin); err != nil {
 		kc.Status.MarkTopicFailed("TopicCreateFailed", "error while creating topic: %s", err)
 		return err
 	}
@@ -238,7 +238,10 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel
 		Scheme: "http",
 		Host:   network.GetServiceHostname(svc.Name, svc.Namespace),
 	})
-
+	err = r.setupSubscriptionStatusWatchers(ctx, kc)
+	if err != nil {
+		logger.Errorw("error setting up some subscription status watchers", zap.Error(err))
+	}
 	// close the connection
 	err = kafkaClusterAdmin.Close()
 	if err != nil {
@@ -249,6 +252,76 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel
 	// Ok, so now the Dispatcher Deployment & Service have been created, we're golden since the
 	// dispatcher watches the Channel and where it needs to dispatch events to.
 	return newReconciledNormal(kc.Namespace, kc.Name)
+}
+
+func (r *Reconciler) setupSubscriptionStatusWatchers(ctx context.Context, channel *v1beta1.KafkaChannel) error {
+	var err error
+	if channel.Spec.SubscribableSpec.Subscribers != nil {
+		for _, s := range channel.Spec.SubscribableSpec.Subscribers {
+			groupID := fmt.Sprintf("kafka.%s.%s.%s", channel.Namespace, channel.Name, string(s.UID))
+			err = r.kafkaWatcher.WatchCosumerGroup(groupID, func(event CGEvent) {
+				var err error
+				switch event {
+				case CGObserved:
+					err = r.markSubscriptionReadiness(ctx, channel, &s, true)
+
+				case CGDeleted:
+					err = r.markSubscriptionReadiness(ctx, channel, &s, false)
+				}
+				if err != nil {
+					logging.FromContext(ctx).Errorw("error updating subscription readiness", zap.Error(err))
+				}
+			})
+		}
+
+	}
+	return err
+}
+
+func (r *Reconciler) markSubscriptionReadiness(ctx context.Context, ch *v1beta1.KafkaChannel, sub *v1.SubscriberSpec, ready bool) error {
+	after := ch.DeepCopy()
+	found := false
+	after.Status.Subscribers = make([]v1.SubscriberStatus, 0)
+
+	for _, s := range ch.Status.Subscribers {
+		if s.UID == sub.UID {
+			found = true
+			if !ready {
+				// we need to make the subscription not ready, which means
+				// skip adding it to Status.Subscribers
+				continue
+			}
+		}
+		after.Status.Subscribers = append(after.Status.Subscribers, s)
+	}
+	if !found && ready {
+		after.Status.Subscribers = append(after.Status.Subscribers, v1.SubscriberStatus{
+			UID:                sub.UID,
+			ObservedGeneration: sub.Generation,
+			Ready:              corev1.ConditionTrue,
+		})
+	}
+
+	jsonPatch, err := duck.CreatePatch(ch, after)
+	if err != nil {
+		return fmt.Errorf("creating JSON patch: %w", err)
+	}
+	// If there is nothing to patch, we are good, just return.
+	// Empty patch is [], hence we check for that.
+	if len(jsonPatch) == 0 {
+		return nil
+	}
+	patch, err := jsonPatch.MarshalJSON()
+	if err != nil {
+		return fmt.Errorf("marshaling JSON patch: %w", err)
+	}
+	patched, err := r.kafkaClientSet.MessagingV1beta1().KafkaChannels(ch.Namespace).Patch(ctx, ch.Name, types.JSONPatchType, patch, metav1.PatchOptions{}, "status")
+
+	if err != nil {
+		return fmt.Errorf("Failed patching: %w", err)
+	}
+	logging.FromContext(ctx).Debugw("Patched resource", zap.Any("patch", patch), zap.Any("patched", patched))
+	return nil
 }
 
 func (r *Reconciler) reconcileDispatcher(ctx context.Context, scope string, dispatcherNamespace string, kc *v1beta1.KafkaChannel) (*appsv1.Deployment, error) {
@@ -464,7 +537,7 @@ func (r *Reconciler) reconcileChannelService(ctx context.Context, dispatcherName
 	return svc, nil
 }
 
-func (r *Reconciler) createClient(ctx context.Context, kc *v1beta1.KafkaChannel) (sarama.ClusterAdmin, error) {
+func (r *Reconciler) createClient() (sarama.ClusterAdmin, error) {
 	// We don't currently initialize r.kafkaClusterAdmin, hence we end up creating the cluster admin client every time.
 	// This is because of an issue with Shopify/sarama. See https://github.com/Shopify/sarama/issues/1162.
 	// Once the issue is fixed we should use a shared cluster admin client. Also, r.kafkaClusterAdmin is currently
@@ -480,7 +553,7 @@ func (r *Reconciler) createClient(ctx context.Context, kc *v1beta1.KafkaChannel)
 	return kafkaClusterAdmin, nil
 }
 
-func (r *Reconciler) createTopic(ctx context.Context, channel *v1beta1.KafkaChannel, kafkaClusterAdmin sarama.ClusterAdmin) error {
+func (r *Reconciler) reconcileTopic(ctx context.Context, channel *v1beta1.KafkaChannel, kafkaClusterAdmin sarama.ClusterAdmin) error {
 	logger := logging.FromContext(ctx)
 
 	topicName := utils.TopicName(utils.KafkaChannelSeparator, channel.Namespace, channel.Name)
@@ -516,10 +589,11 @@ func (r *Reconciler) deleteTopic(ctx context.Context, channel *v1beta1.KafkaChan
 }
 
 func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.ConfigMap) {
-	logging.FromContext(ctx).Info("Reloading Kafka configuration")
+	logger := logging.FromContext(ctx)
+	logger.Info("Reloading Kafka configuration")
 	kafkaConfig, err := utils.GetKafkaConfig(configMap.Data)
 	if err != nil {
-		logging.FromContext(ctx).Errorw("Error reading Kafka configuration", zap.Error(err))
+		logger.Errorw("Error reading Kafka configuration", zap.Error(err))
 	}
 
 	if kafkaConfig.AuthSecretName != "" {
@@ -530,12 +604,21 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 	// Eventually the previous config should be snapshotted to delete Kafka topics
 	r.kafkaConfig = kafkaConfig
 	r.kafkaConfigError = err
+	mgr, err := kafka.NewAdminClientManager(ctx, controllerAgentName, *kafkaConfig)
+	if err != nil {
+		logger.Errorw("Error creating AdminClientManager", zap.Error(err))
+		return
+	}
+	r.clientMgr = mgr
+	r.kafkaWatcher = NewKafkaWatcher(&mgr)
+	//TODO handle error
+	r.kafkaWatcher.Start()
 }
 
 func (r *Reconciler) FinalizeKind(ctx context.Context, kc *v1beta1.KafkaChannel) pkgreconciler.Event {
 	// Do not attempt retrying creating the client because it might be a permanent error
 	// in which case the finalizer will never get removed.
-	if kafkaClusterAdmin, err := r.createClient(ctx, kc); err == nil && r.kafkaConfig != nil {
+	if kafkaClusterAdmin, err := r.createClient(); err == nil && r.kafkaConfig != nil {
 		if err := r.deleteTopic(ctx, kc, kafkaClusterAdmin); err != nil {
 			return err
 		}
