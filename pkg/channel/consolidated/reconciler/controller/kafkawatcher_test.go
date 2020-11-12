@@ -18,17 +18,28 @@ package controller
 
 import (
 	"sort"
+	"sync"
 	"testing"
 	"time"
 )
 
 //TODO how to mock the sarama AdminClient
 type FakeClusterAdmin struct {
-	lister func() (map[string]string, error)
+	mutex sync.RWMutex
+	cgs   map[string]string
 }
 
 func (fake *FakeClusterAdmin) ListConsumerGroups() (map[string]string, error) {
-	return fake.lister()
+	fake.mutex.RLock()
+	defer fake.mutex.RUnlock()
+	cgs := fake.cgs
+	return cgs, nil
+}
+
+func (fake *FakeClusterAdmin) deleteCG(cg string) {
+	fake.mutex.Lock()
+	defer fake.mutex.Unlock()
+	delete(fake.cgs, cg)
 }
 
 func TestKafkaWatcher(t *testing.T) {
@@ -37,10 +48,9 @@ func TestKafkaWatcher(t *testing.T) {
 		cgname: "consumer",
 	}
 	ca := FakeClusterAdmin{
-		func() (map[string]string, error) {
-			return cgs, nil
-		},
+		cgs: cgs,
 	}
+
 	ch := make(chan []string, 1)
 
 	w := NewKafkaWatcher(&ca)
@@ -54,8 +64,8 @@ func TestKafkaWatcher(t *testing.T) {
 	w.Start()
 	<-ch
 	assertSync(t, ch, keys(cgs))
-	delete(cgs, cgname)
-	assertSync(t, ch, keys(cgs))
+	ca.deleteCG(cgname)
+	assertSync(t, ch, []string{})
 }
 
 func assertSync(t *testing.T, ch chan []string, cgs []string) {
