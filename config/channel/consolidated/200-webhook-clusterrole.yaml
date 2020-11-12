@@ -1,1 +1,1 @@
-roles/webhook-clusterrole.yaml
+../webhook/webhook-clusterrole.yaml
