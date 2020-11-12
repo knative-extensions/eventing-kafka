@@ -19,8 +19,6 @@ package kafkasecretinformer
 import (
 	"context"
 	"fmt"
-	"go.uber.org/zap"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	informerscorev1 "k8s.io/client-go/informers/core/v1"
@@ -69,15 +67,9 @@ func withInformer(ctx context.Context) (context.Context, controller.Informer) {
 		}),
 	}
 
-	// Load Environment Variables
-	logger := logging.FromContext(ctx).Desugar()
-	environment, err := env.GetEnvironment(logger)
-	if err != nil {
-		logger.Fatal("Failed To Load Environment Variables - Terminating!", zap.Error(err))
-	}
-
 	// Create A SharedInformerFactory With The Namespaced / Labelled Options
-	namespacedSharedInformerFactory := informers.NewSharedInformerFactoryWithOptions(client.Get(ctx), environment.ResyncPeriod, sharedInformerOptions...)
+	namespacedSharedInformerFactory := informers.NewSharedInformerFactoryWithOptions(
+		client.Get(ctx), env.GetEnvironmentOrDie(ctx).ResyncPeriod, sharedInformerOptions...)
 
 	// Create The Custom Kafka SecretInformer
 	kafkaSecretInformer := KafkaSecretInformer{

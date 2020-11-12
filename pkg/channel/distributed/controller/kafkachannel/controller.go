@@ -55,10 +55,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	serviceInformer := service.Get(ctx)
 
 	// Load The Environment Variables
-	environment, err := env.GetEnvironment(logger)
-	if err != nil {
-		logger.Fatal("Failed To Load Environment Variables - Terminating!", zap.Error(err))
-	}
+	environment := env.GetEnvironmentOrDie(ctx)
 
 	// Load the Sarama and other eventing-kafka settings from our configmap
 	saramaConfig, configuration, err := sarama.LoadSettings(ctx)
