@@ -43,8 +43,10 @@ func (source *KafkaSource) ConvertTo(ctx context.Context, obj apis.Convertible) 
 			KafkaAuthSpec: kafkaAuthSpec,
 			Topics:        source.Spec.Topics,
 			ConsumerGroup: source.Spec.ConsumerGroup,
+			Consumers:     source.Spec.Consumers,
 		}
 		source.Status.Status.DeepCopyInto(&sink.Status.Status)
+		sink.Status.Consumers = source.Status.Consumers
 
 		// Optionals
 		if source.Spec.Sink != nil {
@@ -84,12 +86,14 @@ func (sink *KafkaSource) ConvertFrom(ctx context.Context, obj apis.Convertible) 
 			Topics:        source.Spec.Topics,
 			ConsumerGroup: source.Spec.ConsumerGroup,
 			Sink:          source.Spec.Sink.DeepCopy(),
+			Consumers:     source.Spec.Consumers,
 		}
 		if reflect.DeepEqual(*sink.Spec.Sink, duckv1.Destination{}) {
 			sink.Spec.Sink = nil
 		}
 
 		source.Status.Status.DeepCopyInto(&sink.Status.Status)
+		sink.Status.Consumers = source.Status.Consumers
 
 		// Optionals
 		if source.Status.SinkURI != nil {

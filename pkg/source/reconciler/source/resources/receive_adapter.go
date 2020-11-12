@@ -37,8 +37,6 @@ type ReceiveAdapterArgs struct {
 }
 
 func MakeReceiveAdapter(args *ReceiveAdapterArgs) *v1.Deployment {
-	replicas := int32(1)
-
 	env := append([]corev1.EnvVar{{
 		Name:  "KAFKA_BOOTSTRAP_SERVERS",
 		Value: strings.Join(args.Source.Spec.BootstrapServers, ","),
@@ -91,7 +89,7 @@ func MakeReceiveAdapter(args *ReceiveAdapterArgs) *v1.Deployment {
 			Selector: &metav1.LabelSelector{
 				MatchLabels: args.Labels,
 			},
-			Replicas: &replicas,
+			Replicas: args.Source.Spec.Consumers,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
