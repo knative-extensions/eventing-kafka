@@ -15,7 +15,7 @@ need to set the `$KO_DOCKER_REPO` environment variable as desired. If using
 
 The **data** values of the [kafka-secret.yaml](300-kafka-secret.yaml) should be
 correctly populated for the user provided Kafka cluster. Similarly the **data**
-values of the [eventing-kafka-configmap.yaml](200-eventing-kafka-configmap.yaml)
+values of the [eventing-kafka-configmap.yaml](300-eventing-kafka-configmap.yaml)
 file should be configured for your particular use case.
 
 Install via `ko apply --strict -f ./config/channel/distributed` from the
@@ -28,7 +28,7 @@ shouldn't hurt in other cases.
 Eventing-Kafka supports a few options for the administration of Kafka Topics
 (Create / Delete) in the user provided Kafka cluster. The desired mechanism is
 specified via the `eventing-kafka.kafka.adminType` field in
-[eventing-kafka-configmap.yaml](200-eventing-kafka-configmap.yaml) and must be
+[eventing-kafka-configmap.yaml](300-eventing-kafka-configmap.yaml) and must be
 one of `kafka`, `azure`, or `custom` as follows...
 
 - **kafka:** This is the normal / default use case that most users will want. It
@@ -42,7 +42,7 @@ one of `kafka`, `azure`, or `custom` as follows...
   Topics themselves. This could be to support a proprietary Kafka implementation
   with a custom interface / API. The user is responsible for implementing a
   sidecar Container with the expected HTTP endpoints. They will need to add
-  their sidecar Container to the [deployment.yaml](400-deployment.yaml). Details
+  their sidecar Container to the [deployment.yaml](500-controller-deployment.yaml). Details
   for implementing such a solution can be found in the
   [Kafka README](../../../pkg/channel/distributed/common/kafka/README.md).
 
@@ -63,7 +63,7 @@ different EventHub Namespace. In that case Topics will be load balanced across
 all EventHub Namespaces. The [kakfa-secret.yaml](300-kafka-secret.yaml) is
 included in the config directory, but must be modified to hold real values. The
 values from this file will override the username/password in the
-[eventing-kafka-configmap.yaml](200-eventing-kafka-configmap.yaml). It is also
+[eventing-kafka-configmap.yaml](300-eventing-kafka-configmap.yaml). It is also
 expected that the `Config.Net.SASL` and `Config.Net.TLS` are enabled to perform
 the required authentication with the Kafka cluster.
 
@@ -99,7 +99,7 @@ kubectl label secret -n knative-eventing kafka-credentials eventing-kafka.knativ
 
 ## Configuration
 
-The [eventing-kafka-configmap.yaml](200-eventing-kafka-configmap.yaml) contains
+The [eventing-kafka-configmap.yaml](300-eventing-kafka-configmap.yaml) contains
 configuration for both the Eventing-Kafka implementation, and the majority of
 the Sarama Config structure as follows. These are presented as inline YAML for
 convenience so mind the indentation. Further it is assumed in the default

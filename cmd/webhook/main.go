@@ -16,19 +16,37 @@ limitations under the License.
 package main
 
 import (
+	channelwebhook "knative.dev/eventing-kafka/pkg/channel/webhook"
 	"knative.dev/eventing/pkg/logconfig"
+	"knative.dev/pkg/injection/sharedmain"
+	"knative.dev/pkg/signals"
 	"knative.dev/pkg/webhook"
+	"knative.dev/pkg/webhook/certificates"
+)
 
-	channelwebhook "knative.dev/eventing-kafka/pkg/channel/consolidated/webhook"
+const (
+	Component = "kafkachannel-webhook"
+	Secret    = "messaging-webhook-certs"
 )
 
 func main() {
-	channelwebhook.Main(
-		"kafkachannel-webhook",
-		webhook.Options{
-			ServiceName: logconfig.WebhookName(),
-			Port:        webhook.PortFromEnv(8443),
-			SecretName:  "messaging-webhook-certs",
-		},
+
+	// Define Webhook Options
+	options := webhook.Options{
+		ServiceName: logconfig.WebhookName(),
+		Port:        webhook.PortFromEnv(8443),
+		SecretName:  Secret,
+	}
+
+	// Create A Signal Context With Webhook Options
+	ctx := webhook.WithOptions(signals.NewContext(), options)
+
+	// Create The Webhook With Desired Controllers
+	sharedmain.MainWithContext(ctx, Component,
+		certificates.NewController,
+		channelwebhook.NewDefaultingAdmissionController,
+		channelwebhook.NewValidationAdmissionController,
+		channelwebhook.NewConversionController,
+		// TODO(mattmoor): Support config validation in eventing-kafka.
 	)
 }

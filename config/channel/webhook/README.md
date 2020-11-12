@@ -1,1 +1,3 @@
-# TODO - eventing-contrib/kafka webhook config content here
+# KafkaChannel Webhook Config
+
+This Webhook configuration is shared by both KafkaChannel implementations. 
