@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
@@ -238,7 +239,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel
 		Scheme: "http",
 		Host:   network.GetServiceHostname(svc.Name, svc.Namespace),
 	})
-	err = r.setupSubscriptionStatusWatchers(ctx, kc)
+	err = r.setupSubscriptionStatusWatcher(ctx, kc)
 	if err != nil {
 		logger.Errorw("error setting up some subscription status watchers", zap.Error(err))
 	}
@@ -254,52 +255,36 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel
 	return newReconciledNormal(kc.Namespace, kc.Name)
 }
 
-func (r *Reconciler) setupSubscriptionStatusWatchers(ctx context.Context, channel *v1beta1.KafkaChannel) error {
+func (r *Reconciler) setupSubscriptionStatusWatcher(ctx context.Context, channel *v1beta1.KafkaChannel) error {
 	var err error
-	if channel.Spec.SubscribableSpec.Subscribers != nil {
-		for _, s := range channel.Spec.SubscribableSpec.Subscribers {
-			groupID := fmt.Sprintf("kafka.%s.%s.%s", channel.Namespace, channel.Name, string(s.UID))
-			err = r.kafkaWatcher.WatchCosumerGroup(groupID, func(event CGEvent) {
-				var err error
-				switch event {
-				case CGObserved:
-					err = r.markSubscriptionReadiness(ctx, channel, &s, true)
+	groupIDPrefix := fmt.Sprintf("kafka.%s.%s", channel.Namespace, channel.Name)
 
-				case CGDeleted:
-					err = r.markSubscriptionReadiness(ctx, channel, &s, false)
-				}
-				if err != nil {
-					logging.FromContext(ctx).Errorw("error updating subscription readiness", zap.Error(err))
-				}
-			})
-		}
-
+	m := func(cg string) bool {
+		return strings.HasPrefix(cg, groupIDPrefix)
 	}
+	err = r.kafkaWatcher.WatchConsumerGroup(func() {
+		err := r.markSubscriptionReadiness(ctx, channel, r.kafkaWatcher.ListConsumerGroups(m))
+		if err != nil {
+			logging.FromContext(ctx).Errorw("error updating subscription readiness", zap.Error(err))
+		}
+	})
 	return err
 }
 
-func (r *Reconciler) markSubscriptionReadiness(ctx context.Context, ch *v1beta1.KafkaChannel, sub *v1.SubscriberSpec, ready bool) error {
+func (r *Reconciler) markSubscriptionReadiness(ctx context.Context, ch *v1beta1.KafkaChannel, cgs []string) error {
 	after := ch.DeepCopy()
-	found := false
 	after.Status.Subscribers = make([]v1.SubscriberStatus, 0)
 
-	for _, s := range ch.Status.Subscribers {
-		if s.UID == sub.UID {
-			found = true
-			if !ready {
-				// we need to make the subscription not ready, which means
-				// skip adding it to Status.Subscribers
-				continue
-			}
+	for _, s := range ch.Spec.Subscribers {
+		cg := fmt.Sprintf("kafka.%s.%s.%s", ch.Namespace, ch.Name, s.UID)
+		if Find(cgs, cg) {
+			logging.FromContext(ctx).Debugw("marking subscription", zap.Any("subscription", s))
+			after.Status.Subscribers = append(after.Status.Subscribers, v1.SubscriberStatus{
+				UID:                s.UID,
+				ObservedGeneration: s.Generation,
+				Ready:              corev1.ConditionTrue,
+			})
 		}
-		after.Status.Subscribers = append(after.Status.Subscribers, s)
-	}
-	if !found && ready {
-		after.Status.Subscribers = append(after.Status.Subscribers, v1.SubscriberStatus{
-			UID:                sub.UID,
-			ObservedGeneration: sub.Generation,
-			Ready:              corev1.ConditionTrue,
-		})
 	}
 
 	jsonPatch, err := duck.CreatePatch(ch, after)

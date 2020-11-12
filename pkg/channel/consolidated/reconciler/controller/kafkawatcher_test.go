@@ -17,6 +17,7 @@ limitations under the License.
 package controller
 
 import (
+	"sort"
 	"testing"
 	"time"
 )
@@ -40,26 +41,45 @@ func TestKafkaWatcher(t *testing.T) {
 			return cgs, nil
 		},
 	}
-	ch := make(chan CGEvent, 1)
+	ch := make(chan []string, 1)
 
 	w := NewKafkaWatcher(&ca)
-	w.WatchCosumerGroup(cgname, func(event CGEvent) {
-		ch <- event
+	w.WatchConsumerGroup(func() {
+		cgs := w.ListConsumerGroups(func(cg string) bool {
+			return cgname == cg
+		})
+		ch <- cgs
 	})
 
 	w.Start()
-	waitForEvent(t, ch, CGObserved, cgname)
+	<-ch
+	assertSync(t, ch, keys(cgs))
 	delete(cgs, cgname)
-	waitForEvent(t, ch, CGDeleted, cgname)
+	assertSync(t, ch, keys(cgs))
 }
 
-func waitForEvent(t *testing.T, ch chan CGEvent, event CGEvent, cgname string) {
+func assertSync(t *testing.T, ch chan []string, cgs []string) {
 	select {
-	case e := <-ch:
-		if e != event {
-			t.Errorf("unexpected event received. got %v expected %v", e, event)
+	case syncedCGs := <-ch:
+		if !equal(syncedCGs, cgs) {
+			t.Errorf("observed and expected consumer groups do not match. got %v expected %v", syncedCGs, cgs)
 		}
 	case <-time.After(6 * time.Second):
-		t.Errorf("timedout waiting for event %v for ConsumerGroup %s", event, cgname)
+		t.Errorf("timedout waiting for consumer groups to sync")
 	}
+}
+
+func equal(a []string, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	sort.Strings(a)
+	sort.Strings(b)
+
+	for i, s := range a {
+		if s != b[i] {
+			return false
+		}
+	}
+	return true
 }
