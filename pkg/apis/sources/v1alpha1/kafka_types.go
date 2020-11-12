@@ -95,6 +95,14 @@ type KafkaSourceSpec struct {
 	// +optional
 	// Needed for supporting round-tripping
 	CloudEventOverrides *duckv1.CloudEventOverrides `json:"ceOverrides,omitempty"`
+
+	// Number of desired consumers running in the consumer group. Defaults to 1.
+	//
+	// This is a pointer to distinguish between explicit
+	// zero and not specified.
+	// For round-tripping only.
+	// +optional
+	Consumers *int32 `json:"consumers,omitempty"`
 }
 
 const (
@@ -121,6 +129,11 @@ type KafkaSourceStatus struct {
 	// * SinkURI - the current active sink URI that has been configured for the
 	//   Source.
 	duckv1.SourceStatus `json:",inline"`
+
+	// Total number of consumers actually running in the consumer group.
+	// +optional
+	// For round-tripping only.
+	Consumers int32 `json:"consumers,omitempty"`
 }
 
 func (*KafkaSource) GetGroupVersionKind() schema.GroupVersionKind {

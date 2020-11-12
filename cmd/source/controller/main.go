@@ -18,18 +18,19 @@ package main
 
 import (
 	"context"
+	"os"
 
 	"knative.dev/eventing-kafka/pkg/apis/bindings"
 	"knative.dev/eventing-kafka/pkg/apis/sources"
 	"knative.dev/pkg/webhook/resourcesemantics/conversion"
 
-	"os"
-
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	bindingsv1alpha1 "knative.dev/eventing-kafka/pkg/apis/bindings/v1alpha1"
 	bindingsv1beta1 "knative.dev/eventing-kafka/pkg/apis/bindings/v1beta1"
 	sourcesv1alpha1 "knative.dev/eventing-kafka/pkg/apis/sources/v1alpha1"
 	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
+
 	"knative.dev/eventing-kafka/pkg/source/reconciler/binding"
 	"knative.dev/eventing-kafka/pkg/source/reconciler/source"
 	"knative.dev/pkg/configmap"

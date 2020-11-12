@@ -89,6 +89,9 @@ func DeploymentIsAvailable(d *appsv1.DeploymentStatus, def bool) bool {
 func (s *KafkaSourceStatus) MarkDeployed(d *appsv1.Deployment) {
 	if duck.DeploymentIsAvailable(&d.Status, false) {
 		KafkaSourceCondSet.Manage(s).MarkTrue(KafkaConditionDeployed)
+
+		// Propagate the number of consumers
+		s.Consumers = d.Status.Replicas
 	} else {
 		// I don't know how to propagate the status well, so just give the name of the Deployment
 		// for now.
