@@ -17,7 +17,6 @@ limitations under the License.
 package env
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"os"
@@ -55,13 +54,6 @@ type TestCase struct {
 	dispatcherImage       string
 	channelImage          string
 	expectedError         error
-}
-
-// Test The GetEnvironmentOrDie Function
-func TestGetEnvironmentOrDie(t *testing.T) {
-	setupTestEnvironment(t, getValidTestCase("Valid Complete Config"))
-	environment := GetEnvironmentOrDie(context.TODO())
-	assert.NotNil(t, environment)
 }
 
 // Test All Permutations Of The GetEnvironment() Functionality

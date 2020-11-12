@@ -17,14 +17,12 @@ limitations under the License.
 package env
 
 import (
-	"context"
 	"strconv"
 	"time"
 
 	"go.uber.org/zap"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
 	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
 )
 
 // Package Constants
@@ -51,15 +49,6 @@ type Environment struct {
 
 	// Receiver Configuration
 	ReceiverImage string // Required
-}
-
-func GetEnvironmentOrDie(ctx context.Context) *Environment {
-	logger := logging.FromContext(ctx).Desugar()
-	environment, err := GetEnvironment(logger)
-	if err != nil {
-		logger.Fatal("Failed To Load Environment Variables - Terminating!", zap.Error(err))
-	}
-	return environment
 }
 
 // Get The Environment
