@@ -50,7 +50,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/source"
 	v1 "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/apis/eventing"
-	eventingchannels "knative.dev/eventing/pkg/channel"
 	eventingclientset "knative.dev/eventing/pkg/client/clientset/versioned"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
@@ -120,7 +119,6 @@ type Reconciler struct {
 	// Using a shared kafkaClusterAdmin does not work currently because of an issue with
 	// Shopify/sarama, see https://github.com/Shopify/sarama/issues/1162.
 	kafkaClusterAdmin    sarama.ClusterAdmin
-	channelSubscriptions map[eventingchannels.ChannelReference][]types.UID
 	kafkaWatcher         KafkaWatcher
 	kafkachannelLister   listers.KafkaChannelLister
 	kafkachannelInformer cache.SharedIndexInformer

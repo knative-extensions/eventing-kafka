@@ -140,7 +140,7 @@ func (w *KafkaWatcher) ListConsumerGroups(matcher Matcher) []string {
 
 func keys(m map[string]string) []string {
 	keys := make([]string, 0, len(m))
-	for k, _ := range m {
+	for k := range m {
 		keys = append(keys, k)
 	}
 	return keys
