@@ -19,8 +19,6 @@ package kafkasecretinformer
 import (
 	"context"
 	"fmt"
-	"time"
-
 	"go.uber.org/zap"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -79,11 +77,7 @@ func withInformer(ctx context.Context) (context.Context, controller.Informer) {
 	}
 
 	// Create A SharedInformerFactory With The Namespaced / Labelled Options
-	resyncDuration := time.Second * time.Duration(environment.ResyncPeriod)
-	if resyncDuration == 0 {
-		resyncDuration = controller.DefaultResyncPeriod
-	}
-	namespacedSharedInformerFactory := informers.NewSharedInformerFactoryWithOptions(client.Get(ctx), resyncDuration, sharedInformerOptions...)
+	namespacedSharedInformerFactory := informers.NewSharedInformerFactoryWithOptions(client.Get(ctx), environment.ResyncPeriod, sharedInformerOptions...)
 
 	// Create The Custom Kafka SecretInformer
 	kafkaSecretInformer := KafkaSecretInformer{
