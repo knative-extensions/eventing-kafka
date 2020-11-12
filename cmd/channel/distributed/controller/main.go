@@ -45,6 +45,6 @@ func main() {
 	if err != nil {
 		logger.Fatal("Failed To Load Environment Variables - Terminating!", zap.Error(err))
 	}
-	sharedmain.MainWithContext(controller.WithResyncPeriod(ctx, environment.ResyncPeriod),
-		constants.ControllerComponentName, kafkachannel.NewController, kafkasecret.NewController)
+	ctx = controller.WithResyncPeriod(ctx, environment.ResyncPeriod)
+	sharedmain.MainWithContext(ctx, constants.ControllerComponentName, kafkachannel.NewController, kafkasecret.NewController)
 }
