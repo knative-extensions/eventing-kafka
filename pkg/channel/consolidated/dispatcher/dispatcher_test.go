@@ -19,12 +19,10 @@ package dispatcher
 import (
 	"context"
 	"errors"
-	"net/http"
 	"net/url"
 	"testing"
 
 	"github.com/Shopify/sarama"
-	"github.com/cloudevents/sdk-go/v2/binding"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"go.uber.org/zap"
@@ -422,26 +420,9 @@ func TestUnsubscribeUnknownSub(t *testing.T) {
 
 func TestKafkaDispatcher_Start(t *testing.T) {
 	d := &KafkaDispatcher{}
-	reporter := eventingchannels.NewStatsReporter("testcontainer", "testpod")
 	err := d.Start(context.TODO())
 	if err == nil {
 		t.Errorf("Expected error want %s, got %s", "message receiver is not set", err)
-	}
-
-	receiver, err := eventingchannels.NewMessageReceiver(
-		func(ctx context.Context, channel eventingchannels.ChannelReference, message binding.Message, _ []binding.Transformer, _ http.Header) error {
-			return nil
-		},
-		zap.NewNop(),
-		reporter,
-		eventingchannels.ResolveMessageChannelFromHostHeader(d.getChannelReferenceFromHost))
-	if err != nil {
-		t.Fatalf("Error creating new message receiver. Error:%s", err)
-	}
-	d.receiver = receiver
-	err = d.Start(context.TODO())
-	if err == nil {
-		t.Errorf("Expected error want %s, got %s", "kafkaAsyncProducer is not set", err)
 	}
 }
 
