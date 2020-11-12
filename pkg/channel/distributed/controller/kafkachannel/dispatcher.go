@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"time"
 
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
@@ -473,7 +474,7 @@ func (r *Reconciler) dispatcherDeploymentEnvVars(channel *kafkav1beta1.KafkaChan
 			},
 		},
 		{
-			Name:  commonenv.ContainerNameEnvVarKEy,
+			Name:  commonenv.ContainerNameEnvVarKey,
 			Value: constants.DispatcherContainerName,
 		},
 		{
@@ -503,6 +504,10 @@ func (r *Reconciler) dispatcherDeploymentEnvVars(channel *kafkav1beta1.KafkaChan
 		{
 			Name:  commonenv.KafkaTopicEnvVarKey,
 			Value: topicName,
+		},
+		{
+			Name:  commonenv.ResyncPeriodMinutesEnvVarKey,
+			Value: strconv.Itoa(int(r.environment.ResyncPeriod / time.Minute)),
 		},
 	}
 

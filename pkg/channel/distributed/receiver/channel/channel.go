@@ -19,6 +19,7 @@ package channel
 import (
 	"context"
 	"errors"
+	"time"
 
 	"go.uber.org/zap"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -28,7 +29,6 @@ import (
 	kafkainformers "knative.dev/eventing-kafka/pkg/client/informers/externalversions"
 	kafkalisters "knative.dev/eventing-kafka/pkg/client/listers/messaging/v1beta1"
 	eventingChannel "knative.dev/eventing/pkg/channel"
-	knativecontroller "knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 )
 
@@ -54,7 +54,7 @@ var getKafkaClient = func(ctx context.Context, serverUrl string, kubeconfigPath 
 }
 
 // Initialize The KafkaChannel Lister Singleton
-func InitializeKafkaChannelLister(ctx context.Context, serverUrl string, kubeconfigPath string, healthServer *health.Server) error {
+func InitializeKafkaChannelLister(ctx context.Context, serverUrl string, kubeconfigPath string, healthServer *health.Server, resyncDuration time.Duration) error {
 
 	// Get The Logger From The Provided Context
 	logger = logging.FromContext(ctx).Desugar()
@@ -67,7 +67,7 @@ func InitializeKafkaChannelLister(ctx context.Context, serverUrl string, kubecon
 	}
 
 	// Create A New KafkaChannel SharedInformerFactory For ALL Namespaces (Default Resync Is 10 Hrs)
-	sharedInformerFactory := kafkainformers.NewSharedInformerFactory(client, knativecontroller.DefaultResyncPeriod)
+	sharedInformerFactory := kafkainformers.NewSharedInformerFactory(client, resyncDuration)
 
 	// Initialize The Stop Channel (Close If Previously Created)
 	Close()

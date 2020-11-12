@@ -20,13 +20,13 @@ package env
 const (
 
 	// Eventing-Kafka Configuration
-	ServiceAccountEnvVarKey  = "SERVICE_ACCOUNT"
-	MetricsPortEnvVarKey     = "METRICS_PORT"
-	MetricsDomainEnvVarKey   = "METRICS_DOMAIN"
-	HealthPortEnvVarKey      = "HEALTH_PORT"
-	PodNameEnvVarKey         = "POD_NAME"
-	ContainerNameEnvVarKEy   = "CONTAINER_NAME"
-	KafkaResyncPeriodSeconds = "RESYNC_PERIOD"
+	ServiceAccountEnvVarKey      = "SERVICE_ACCOUNT"
+	MetricsPortEnvVarKey         = "METRICS_PORT"
+	MetricsDomainEnvVarKey       = "METRICS_DOMAIN"
+	HealthPortEnvVarKey          = "HEALTH_PORT"
+	PodNameEnvVarKey             = "POD_NAME"
+	ContainerNameEnvVarKey       = "CONTAINER_NAME"
+	ResyncPeriodMinutesEnvVarKey = "RESYNC_PERIOD_MINUTES"
 
 	// Kafka Authorization
 	KafkaBrokerEnvVarKey   = "KAFKA_BROKERS"

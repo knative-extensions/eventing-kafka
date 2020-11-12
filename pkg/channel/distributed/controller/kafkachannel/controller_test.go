@@ -21,6 +21,7 @@ import (
 	"os"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -207,6 +208,7 @@ func populateEnvironmentVariables(t *testing.T) {
 	assert.Nil(t, os.Setenv(commonenv.MetricsPortEnvVarKey, strconv.Itoa(controllertesting.MetricsPort)))
 	assert.Nil(t, os.Setenv(controllerenv.DispatcherImageEnvVarKey, controllertesting.DispatcherImage))
 	assert.Nil(t, os.Setenv(controllerenv.ReceiverImageEnvVarKey, controllertesting.ReceiverImage))
+	assert.Nil(t, os.Setenv(commonenv.ResyncPeriodMinutesEnvVarKey, strconv.Itoa(int(controllertesting.ResyncPeriod/time.Minute))))
 }
 
 // Utility Function For Creating A K8S Service With Specified ObjectMeta

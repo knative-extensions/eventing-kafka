@@ -102,7 +102,7 @@ func main() {
 	healthServer.Start(logger)
 
 	// Initialize The KafkaChannel Lister Used To Validate Events
-	err = channel.InitializeKafkaChannelLister(ctx, *serverURL, *kubeconfig, healthServer)
+	err = channel.InitializeKafkaChannelLister(ctx, *serverURL, *kubeconfig, healthServer, environment.ResyncPeriod)
 	if err != nil {
 		logger.Fatal("Failed To Initialize KafkaChannel Lister", zap.Error(err))
 	}

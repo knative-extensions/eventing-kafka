@@ -17,11 +17,13 @@ limitations under the License.
 package env
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
@@ -30,9 +32,10 @@ import (
 
 // Test Constants
 const (
-	serviceAccount = "TestServiceAccount"
-	metricsPort    = "9999"
-	metricsDomain  = "example.com/kafka-eventing"
+	serviceAccount      = "TestServiceAccount"
+	metricsPort         = "9999"
+	metricsDomain       = "example.com/kafka-eventing"
+	resyncPeriodMinutes = "3600"
 
 	defaultKafkaConsumers = "5"
 
@@ -47,10 +50,18 @@ type TestCase struct {
 	serviceAccount        string
 	metricsPort           string
 	metricsDomain         string
+	resyncPeriodMinutes   string
 	defaultKafkaConsumers string
 	dispatcherImage       string
 	channelImage          string
 	expectedError         error
+}
+
+// Test The GetEnvironmentOrDie Function
+func TestGetEnvironmentOrDie(t *testing.T) {
+	setupTestEnvironment(t, getValidTestCase("Valid Complete Config"))
+	environment := GetEnvironmentOrDie(context.TODO())
+	assert.NotNil(t, environment)
 }
 
 // Test All Permutations Of The GetEnvironment() Functionality
@@ -94,16 +105,16 @@ func TestGetEnvironment(t *testing.T) {
 	testCase.expectedError = getMissingRequiredEnvironmentVariableError(ReceiverImageEnvVarKey)
 	testCases = append(testCases, testCase)
 
+	testCase = getValidTestCase("Invalid Config - ResyncPeriodMinutes")
+	testCase.resyncPeriodMinutes = "NAN"
+	testCase.expectedError = getInvalidIntEnvironmentVariableError(testCase.resyncPeriodMinutes, env.ResyncPeriodMinutesEnvVarKey)
+	testCases = append(testCases, testCase)
+
 	// Loop Over All The TestCases
 	for _, testCase := range testCases {
 
 		// (Re)Setup The Environment Variables From TestCase
-		os.Clearenv()
-		assertSetenv(t, env.ServiceAccountEnvVarKey, testCase.serviceAccount)
-		assertSetenv(t, env.MetricsDomainEnvVarKey, testCase.metricsDomain)
-		assertSetenvNonempty(t, env.MetricsPortEnvVarKey, testCase.metricsPort)
-		assertSetenv(t, DispatcherImageEnvVarKey, testCase.dispatcherImage)
-		assertSetenv(t, ReceiverImageEnvVarKey, testCase.channelImage)
+		setupTestEnvironment(t, testCase)
 
 		// Perform The Test
 		environment, err := GetEnvironment(logger)
@@ -117,6 +128,7 @@ func TestGetEnvironment(t *testing.T) {
 			assert.Equal(t, testCase.metricsPort, strconv.Itoa(environment.MetricsPort))
 			assert.Equal(t, testCase.channelImage, environment.ReceiverImage)
 			assert.Equal(t, testCase.dispatcherImage, environment.DispatcherImage)
+			assert.Equal(t, testCase.resyncPeriodMinutes, strconv.Itoa(int(environment.ResyncPeriod/time.Minute)))
 
 		} else {
 			assert.Equal(t, testCase.expectedError, err)
@@ -126,6 +138,17 @@ func TestGetEnvironment(t *testing.T) {
 	}
 }
 
+// Add TestCase Variables To The Environment
+func setupTestEnvironment(t *testing.T, testCase TestCase) {
+	os.Clearenv()
+	assertSetenv(t, env.ServiceAccountEnvVarKey, testCase.serviceAccount)
+	assertSetenv(t, env.MetricsDomainEnvVarKey, testCase.metricsDomain)
+	assertSetenvNonempty(t, env.MetricsPortEnvVarKey, testCase.metricsPort)
+	assertSetenv(t, DispatcherImageEnvVarKey, testCase.dispatcherImage)
+	assertSetenv(t, ReceiverImageEnvVarKey, testCase.channelImage)
+	assertSetenv(t, env.ResyncPeriodMinutesEnvVarKey, testCase.resyncPeriodMinutes)
+}
+
 // Get The Base / Valid Test Case - All Config Specified / No Errors
 func getValidTestCase(name string) TestCase {
 	return TestCase{
@@ -133,6 +156,7 @@ func getValidTestCase(name string) TestCase {
 		serviceAccount:        serviceAccount,
 		metricsPort:           metricsPort,
 		metricsDomain:         metricsDomain,
+		resyncPeriodMinutes:   resyncPeriodMinutes,
 		defaultKafkaConsumers: defaultKafkaConsumers,
 		dispatcherImage:       dispatcherImage,
 		channelImage:          receiverImage,

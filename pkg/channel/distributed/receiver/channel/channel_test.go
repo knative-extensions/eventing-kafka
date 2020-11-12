@@ -19,6 +19,7 @@ package channel
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -43,7 +44,7 @@ func TestInitializeKafkaChannelLister(t *testing.T) {
 
 	// Perform The Test
 	healthServer := channelhealth.NewChannelHealthServer("12345")
-	err := InitializeKafkaChannelLister(ctx, "", "", healthServer)
+	err := InitializeKafkaChannelLister(ctx, "", "", healthServer, 3600*time.Second)
 
 	// Verify The Results
 	assert.Nil(t, err)

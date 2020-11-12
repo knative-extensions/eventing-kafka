@@ -130,7 +130,8 @@ func main() {
 	config.Burst = numControllers * rest.DefaultBurst
 	kafkaClientSet := versioned.NewForConfigOrDie(config)
 	kubeClient := kubernetes.NewForConfigOrDie(config)
-	kafkaInformerFactory := externalversions.NewSharedInformerFactory(kafkaClientSet, kncontroller.DefaultResyncPeriod)
+
+	kafkaInformerFactory := externalversions.NewSharedInformerFactory(kafkaClientSet, environment.ResyncPeriod)
 
 	// Create KafkaChannel Informer
 	kafkaChannelInformer := kafkaInformerFactory.Messaging().V1beta1().KafkaChannels()

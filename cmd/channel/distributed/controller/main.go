@@ -21,9 +21,12 @@ import (
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/kafkachannel"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/kafkasecret"
+	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection/sharedmain"
+	"knative.dev/pkg/signals"
 )
 
 // Eventing-Kafka Controller Main
@@ -34,5 +37,7 @@ func main() {
 	defer kafkasecret.Shutdown()
 
 	// Create The SharedMain Instance With The Various Controllers
-	sharedmain.Main(constants.ControllerComponentName, kafkachannel.NewController, kafkasecret.NewController)
+	ctx := signals.NewContext()
+	sharedmain.MainWithContext(controller.WithResyncPeriod(ctx, env.GetEnvironmentOrDie(ctx).ResyncPeriod),
+		constants.ControllerComponentName, kafkachannel.NewController, kafkasecret.NewController)
 }

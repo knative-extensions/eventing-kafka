@@ -17,8 +17,14 @@ limitations under the License.
 package env
 
 import (
+	"context"
+	"strconv"
+	"time"
+
 	"go.uber.org/zap"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 )
 
 // Package Constants
@@ -35,16 +41,25 @@ const (
 type Environment struct {
 
 	// Eventing-kafka Configuration
-	ServiceAccount           string // Required
-	MetricsPort              int    // Required
-	MetricsDomain            string // Required
-	KafkaResyncPeriodSeconds int    // Optional
+	ServiceAccount string        // Required
+	MetricsPort    int           // Required
+	MetricsDomain  string        // Required
+	ResyncPeriod   time.Duration // Optional
 
 	// Dispatcher Configuration
 	DispatcherImage string // Required
 
 	// Receiver Configuration
 	ReceiverImage string // Required
+}
+
+func GetEnvironmentOrDie(ctx context.Context) *Environment {
+	logger := logging.FromContext(ctx).Desugar()
+	environment, err := GetEnvironment(logger)
+	if err != nil {
+		logger.Fatal("Failed To Load Environment Variables - Terminating!", zap.Error(err))
+	}
+	return environment
 }
 
 // Get The Environment
@@ -74,11 +89,16 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 		return nil, err
 	}
 
-	// Get The Optional Resync Period config Value & Convert To Int
-	environment.KafkaResyncPeriodSeconds, err = env.GetOptionalConfigInt(logger, env.KafkaResyncPeriodSeconds, "0", "KafkaResyncPeriodSeconds")
+	// Get The Optional Resync Period config Value & Convert To Duration
+	resyncMinutes, err := env.GetOptionalConfigInt(
+		logger,
+		env.ResyncPeriodMinutesEnvVarKey,
+		strconv.Itoa(int(controller.DefaultResyncPeriod/time.Minute)),
+		"ResyncPeriodMinutes")
 	if err != nil {
 		return nil, err
 	}
+	environment.ResyncPeriod = time.Duration(resyncMinutes) * time.Minute
 
 	//
 	// Dispatcher Configuration

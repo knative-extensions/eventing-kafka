@@ -17,8 +17,11 @@ limitations under the License.
 package controller
 
 import (
+	"os"
 	"testing"
 	"time"
+
+	commonenv "knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -60,6 +63,7 @@ func TestNewController(t *testing.T) {
 	mockDispatcher := NewMockDispatcher(t)
 	fakeKafkaChannelClientSet := fakeclientset.NewSimpleClientset()
 	fakeK8sClientSet := fake.NewSimpleClientset()
+	populateEnvironmentVariables(t)
 	kafkaInformerFactory := externalversions.NewSharedInformerFactory(fakeKafkaChannelClientSet, kncontroller.DefaultResyncPeriod)
 	kafkaChannelInformer := kafkaInformerFactory.Messaging().V1beta1().KafkaChannels()
 	stopChan := make(chan struct{})
@@ -171,6 +175,21 @@ func TestAllCases(t *testing.T) {
 
 	// Pause to let async go processes finish logging :(
 	time.Sleep(1 * time.Second)
+}
+
+// Utility Function For Populating Required Environment Variables For Testing
+func populateEnvironmentVariables(t *testing.T) {
+	// Most of these are not actually used, but they need to exist or the GetEnvironment call will fail
+	assert.Nil(t, os.Setenv(commonenv.MetricsDomainEnvVarKey, "testMetricsDomain"))
+	assert.Nil(t, os.Setenv(commonenv.MetricsPortEnvVarKey, "6789"))
+	assert.Nil(t, os.Setenv(commonenv.ResyncPeriodMinutesEnvVarKey, "3600"))
+	assert.Nil(t, os.Setenv(commonenv.PodNameEnvVarKey, "testPodName"))
+	assert.Nil(t, os.Setenv(commonenv.ContainerNameEnvVarKey, "testContainerName"))
+	assert.Nil(t, os.Setenv(commonenv.HealthPortEnvVarKey, "5678"))
+	assert.Nil(t, os.Setenv(commonenv.KafkaBrokerEnvVarKey, "testKafkaBroker"))
+	assert.Nil(t, os.Setenv(commonenv.KafkaTopicEnvVarKey, "testKafkaTopic"))
+	assert.Nil(t, os.Setenv(commonenv.ChannelKeyEnvVarKey, "testChannelKey"))
+	assert.Nil(t, os.Setenv(commonenv.ServiceNameEnvVarKey, "testServiceName"))
 }
 
 //

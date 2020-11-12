@@ -57,6 +57,7 @@ const (
 	MetricsPort              = 9876
 	MetricsDomain            = "eventing-kafka"
 	HealthPort               = 8082
+	ResyncPeriod             = 3600 * time.Minute
 	ReceiverImage            = "TestReceiverImage"
 	ReceiverReplicas         = 1
 	DispatcherImage          = "TestDispatcherImage"
@@ -184,6 +185,7 @@ func NewEnvironment() *env.Environment {
 		MetricsDomain:   MetricsDomain,
 		DispatcherImage: DispatcherImage,
 		ReceiverImage:   ReceiverImage,
+		ResyncPeriod:    ResyncPeriod,
 	}
 }
 
@@ -584,7 +586,7 @@ func NewKafkaChannelReceiverDeployment() *appsv1.Deployment {
 									},
 								},
 								{
-									Name:  commonenv.ContainerNameEnvVarKEy,
+									Name:  commonenv.ContainerNameEnvVarKey,
 									Value: constants.ReceiverContainerName,
 								},
 								{
@@ -606,6 +608,10 @@ func NewKafkaChannelReceiverDeployment() *appsv1.Deployment {
 								{
 									Name:  commonenv.HealthPortEnvVarKey,
 									Value: strconv.Itoa(HealthPort),
+								},
+								{
+									Name:  commonenv.ResyncPeriodMinutesEnvVarKey,
+									Value: strconv.Itoa(int(ResyncPeriod / time.Minute)),
 								},
 								{
 									Name: commonenv.KafkaBrokerEnvVarKey,
@@ -782,7 +788,7 @@ func NewKafkaChannelDispatcherDeployment(options ...DeploymentOption) *appsv1.De
 									},
 								},
 								{
-									Name:  commonenv.ContainerNameEnvVarKEy,
+									Name:  commonenv.ContainerNameEnvVarKey,
 									Value: constants.DispatcherContainerName,
 								},
 								{
@@ -812,6 +818,10 @@ func NewKafkaChannelDispatcherDeployment(options ...DeploymentOption) *appsv1.De
 								{
 									Name:  commonenv.KafkaTopicEnvVarKey,
 									Value: topicName,
+								},
+								{
+									Name:  commonenv.ResyncPeriodMinutesEnvVarKey,
+									Value: strconv.Itoa(int(ResyncPeriod / time.Minute)),
 								},
 								{
 									Name: commonenv.KafkaBrokerEnvVarKey,

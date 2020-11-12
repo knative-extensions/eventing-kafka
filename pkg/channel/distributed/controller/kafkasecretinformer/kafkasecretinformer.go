@@ -19,6 +19,9 @@ package kafkasecretinformer
 import (
 	"context"
 	"fmt"
+	"time"
+
+	"go.uber.org/zap"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
@@ -26,6 +29,7 @@ import (
 	listerscorev1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	commonconstants "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
 	"knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection"
@@ -67,8 +71,19 @@ func withInformer(ctx context.Context) (context.Context, controller.Informer) {
 		}),
 	}
 
+	// Load Environment Variables
+	logger := logging.FromContext(ctx).Desugar()
+	environment, err := env.GetEnvironment(logger)
+	if err != nil {
+		logger.Fatal("Failed To Load Environment Variables - Terminating!", zap.Error(err))
+	}
+
 	// Create A SharedInformerFactory With The Namespaced / Labelled Options
-	namespacedSharedInformerFactory := informers.NewSharedInformerFactoryWithOptions(client.Get(ctx), controller.DefaultResyncPeriod, sharedInformerOptions...)
+	resyncDuration := time.Second * time.Duration(environment.ResyncPeriod)
+	if resyncDuration == 0 {
+		resyncDuration = controller.DefaultResyncPeriod
+	}
+	namespacedSharedInformerFactory := informers.NewSharedInformerFactoryWithOptions(client.Get(ctx), resyncDuration, sharedInformerOptions...)
 
 	// Create The Custom Kafka SecretInformer
 	kafkaSecretInformer := KafkaSecretInformer{
