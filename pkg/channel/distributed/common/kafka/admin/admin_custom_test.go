@@ -126,7 +126,7 @@ func TestCustomAdminClientCreateTopic(t *testing.T) {
 	mockSidecarServer.Start()
 	defer mockSidecarServer.Close()
 
-	// Create Test Kafka Secret With Dummy (But Valid) Data
+	// Create Test Kafka Secret With Sample (But Valid) Data
 	kafkaSecret := createKafkaSecret("Name", namespace, "Brokers", "Username", "Password")
 
 	// Create A Context With Test Logger & K8S Client
@@ -171,7 +171,7 @@ func TestCustomAdminClientDeleteTopic(t *testing.T) {
 	mockSidecarServer.Start()
 	defer mockSidecarServer.Close()
 
-	// Create Test Kafka Secret With Dummy (But Valid) Data
+	// Create Test Kafka Secret With Sample (But Valid) Data
 	kafkaSecret := createKafkaSecret("Name", namespace, "Brokers", "Username", "Password")
 
 	// Create A Context With Test Logger & K8S Client
