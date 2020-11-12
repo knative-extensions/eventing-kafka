@@ -91,8 +91,8 @@ func (r *Reconciler) reconcileChannel(ctx context.Context, secret *corev1.Secret
 func (r *Reconciler) reconcileReceiverService(ctx context.Context, logger *zap.Logger, secret *corev1.Secret) error {
 
 	// Attempt To Get The Receiver Service Associated With The Specified Secret
-	_, err := r.getReceiverService(secret)
-	if err != nil {
+	service, err := r.getReceiverService(secret)
+	if service == nil || err != nil {
 
 		// If The Service Was Not Found - Then Create A New One For The Secret
 		if errors.IsNotFound(err) {
@@ -117,9 +117,14 @@ func (r *Reconciler) reconcileReceiverService(ctx context.Context, logger *zap.L
 		}
 	} else {
 
-		// Verified The Receiver Service Exists
-		logger.Info("Successfully Verified Receiver Service")
-		return nil
+		// Verify Receiver Service Is Not Terminating
+		if service.DeletionTimestamp.IsZero() {
+			logger.Info("Successfully Verified Receiver Service")
+			return nil
+		} else {
+			logger.Warn("Encountered Receiver Service With DeletionTimestamp - Forcing Reconciliation", zap.String("Namespace", service.Namespace), zap.String("Name", service.Name))
+			return fmt.Errorf("encountered Receiver Service with DeletionTimestamp %s/%s - potential race condition", service.Namespace, service.Name)
+		}
 	}
 }
 
@@ -187,8 +192,8 @@ func (r *Reconciler) newReceiverService(secret *corev1.Secret) *corev1.Service {
 func (r *Reconciler) reconcileReceiverDeployment(ctx context.Context, logger *zap.Logger, secret *corev1.Secret) error {
 
 	// Attempt To Get The Receiver Deployment Associated With The Specified Secret
-	_, err := r.getReceiverDeployment(secret)
-	if err != nil {
+	deployment, err := r.getReceiverDeployment(secret)
+	if deployment == nil || err != nil {
 
 		// If The Receiver Deployment Was Not Found - Then Create A New Deployment For The Secret
 		if errors.IsNotFound(err) {
@@ -218,9 +223,14 @@ func (r *Reconciler) reconcileReceiverDeployment(ctx context.Context, logger *za
 		}
 	} else {
 
-		// Verified The Receiver Deployment Exists
-		logger.Info("Successfully Verified Receiver Deployment")
-		return nil
+		// Verify Receiver Deployment Is Not Terminating
+		if deployment.DeletionTimestamp.IsZero() {
+			logger.Info("Successfully Verified Receiver Deployment")
+			return nil
+		} else {
+			logger.Warn("Encountered Receiver Deployment With DeletionTimestamp - Forcing Reconciliation", zap.String("Namespace", deployment.Namespace), zap.String("Name", deployment.Name))
+			return fmt.Errorf("encountered Receiver Deployment with DeletionTimestamp %s/%s - potential race condition", deployment.Namespace, deployment.Name)
+		}
 	}
 }
 

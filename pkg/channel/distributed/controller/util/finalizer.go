@@ -45,9 +45,21 @@ func KubernetesResourceFinalizerName(finalizerSuffix string) string {
 	return constants.EventingKafkaFinalizerPrefix + finalizerSuffix
 }
 
+// Determine Whether ObjectMeta Contains Specified Finalizer
+func HasFinalizer(finalizer string, objectMeta *metav1.ObjectMeta) bool {
+	if objectMeta != nil {
+		finalizers := sets.NewString(objectMeta.Finalizers...)
+		return finalizers.Has(finalizer)
+	} else {
+		return false
+	}
+}
+
 // Remove The Specified Finalizer From The Object
-func RemoveFinalizer(finalizer string, obj *metav1.ObjectMeta) {
-	finalizers := sets.NewString(obj.Finalizers...)
-	finalizers.Delete(finalizer)
-	obj.Finalizers = finalizers.List()
+func RemoveFinalizer(finalizer string, objectMeta *metav1.ObjectMeta) {
+	if objectMeta != nil {
+		finalizers := sets.NewString(objectMeta.Finalizers...)
+		finalizers.Delete(finalizer)
+		objectMeta.Finalizers = finalizers.List()
+	}
 }

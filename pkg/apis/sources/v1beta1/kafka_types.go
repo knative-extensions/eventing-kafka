@@ -52,6 +52,13 @@ var _ duckv1.KRShaped = (*KafkaSource)(nil)
 
 // KafkaSourceSpec defines the desired state of the KafkaSource.
 type KafkaSourceSpec struct {
+	// Number of desired consumers running in the consumer group. Defaults to 1.
+	//
+	// This is a pointer to distinguish between explicit
+	// zero and not specified.
+	// +optional
+	Consumers *int32 `json:"consumers,omitempty"`
+
 	bindingsv1beta1.KafkaAuthSpec `json:",inline"`
 
 	// Topic topics to consume messages from
@@ -94,6 +101,10 @@ type KafkaSourceStatus struct {
 	// * SinkURI - the current active sink URI that has been configured for the
 	//   Source.
 	duckv1.SourceStatus `json:",inline"`
+
+	// Total number of consumers actually running in the consumer group.
+	// +optional
+	Consumers int32 `json:"consumers,omitempty"`
 }
 
 func (*KafkaSource) GetGroupVersionKind() schema.GroupVersionKind {

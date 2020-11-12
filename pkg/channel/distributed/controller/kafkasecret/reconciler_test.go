@@ -194,6 +194,20 @@ func TestReconcile(t *testing.T) {
 				controllertesting.NewKafkaSecretFailedReconciliationEvent(),
 			},
 		},
+		{
+			Name: "Reconcile Receiver Service With Deletion Timestamp",
+			Key:  controllertesting.KafkaSecretKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaSecret(controllertesting.WithKafkaSecretFinalizer),
+				controllertesting.NewKafkaChannelReceiverService(controllertesting.WithDeletionTimestampService),
+				controllertesting.NewKafkaChannelReceiverDeployment(),
+			},
+			WantErr: true,
+			WantEvents: []string{
+				Eventf(corev1.EventTypeWarning, event.ReceiverServiceReconciliationFailed.String(), "Failed To Reconcile Receiver Service: encountered Receiver Service with DeletionTimestamp knative-eventing/kafkasecret-name-b9176d5f-receiver - potential race condition"),
+				controllertesting.NewKafkaSecretFailedReconciliationEvent(),
+			},
+		},
 
 		//
 		// KafkaSecret Receiver Deployment
@@ -239,6 +253,20 @@ func TestReconcile(t *testing.T) {
 			},
 			WantEvents: []string{
 				Eventf(corev1.EventTypeWarning, event.ReceiverDeploymentReconciliationFailed.String(), "Failed To Reconcile Receiver Deployment: inducing failure for create deployments"),
+				controllertesting.NewKafkaSecretFailedReconciliationEvent(),
+			},
+		},
+		{
+			Name: "Reconcile Receiver Deployment With Deletion Timestamp",
+			Key:  controllertesting.KafkaSecretKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaSecret(controllertesting.WithKafkaSecretFinalizer),
+				controllertesting.NewKafkaChannelReceiverService(),
+				controllertesting.NewKafkaChannelReceiverDeployment(controllertesting.WithDeletionTimestampDeployment),
+			},
+			WantErr: true,
+			WantEvents: []string{
+				Eventf(corev1.EventTypeWarning, event.ReceiverDeploymentReconciliationFailed.String(), "Failed To Reconcile Receiver Deployment: encountered Receiver Deployment with DeletionTimestamp knative-eventing/kafkasecret-name-b9176d5f-receiver - potential race condition"),
 				controllertesting.NewKafkaSecretFailedReconciliationEvent(),
 			},
 		},

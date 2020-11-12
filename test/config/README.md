@@ -6,7 +6,7 @@ implementation.
 
 ## Kafka ([Strimzi](https://github.com/strimzi/strimzi-kafka-operator))
 
-The strimzi-cluster-operator and kafka-ephemeral-triple YAML files in test/config
-are pulled directly from Strimzi without modification (other than filename) and
-will be copied / modified slightly by the [e2e-tests.sh](../e2e-tests.sh) script
-to customize the installation namespace.
+The strimzi-cluster-operator and kafka-ephemeral-triple YAML files in
+test/config are pulled directly from Strimzi without modification (other than
+filename) and will be copied / modified slightly by the
+[e2e-tests.sh](../e2e-tests.sh) script to customize the installation namespace.
