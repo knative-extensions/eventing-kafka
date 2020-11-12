@@ -80,7 +80,7 @@ readonly CONSOLIDATED_TEMPLATE_DIR="${KAFKA_CRD_CONFIG_TEMPLATE_DIR}/consolidate
 readonly EVENTING_KAFKA_SECRET_TEMPLATE="300-kafka-secret.yaml"
 
 # Eventing Kafka Channel CRD Config Map (Will be modified with SASL/TLS disabled)
-readonly EVENTING_KAFKA_CONFIG_TEMPLATE="200-eventing-kafka-configmap.yaml"
+readonly EVENTING_KAFKA_CONFIG_TEMPLATE="300-eventing-kafka-configmap.yaml"
 
 # Strimzi installation config template used for starting up Kafka clusters.
 readonly STRIMZI_INSTALLATION_CONFIG_TEMPLATE="test/config/100-strimzi-cluster-operator-0.20.0.yaml"
