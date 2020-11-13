@@ -47,21 +47,21 @@ const (
 
 // Define The TestCase Struct
 type TestCase struct {
-	name                  string
-	metricsPort           string
-	metricsDomain         string
-	healthPort            string
-	resyncPeriodMinutes   string
-	kafkaBrokers          string
-	kafkaTopic            string
-	channelKey            string
-	serviceName           string
-	kafkaUsername         string
-	kafkaPassword         string
-	podName               string
-	containerName         string
-	expectedError         error
-	expectedResyncPeriod  string
+	name                 string
+	metricsPort          string
+	metricsDomain        string
+	healthPort           string
+	resyncPeriodMinutes  string
+	kafkaBrokers         string
+	kafkaTopic           string
+	channelKey           string
+	serviceName          string
+	kafkaUsername        string
+	kafkaPassword        string
+	podName              string
+	containerName        string
+	expectedError        error
+	expectedResyncPeriod string
 }
 
 // Test All Permutations Of The GetEnvironment() Functionality
@@ -137,7 +137,7 @@ func TestGetEnvironment(t *testing.T) {
 
 	testCase = getValidTestCase("Valid Config - Default ResyncPeriodMinutes")
 	testCase.resyncPeriodMinutes = ""
-	testCase.expectedResyncPeriod = "600"	// 10 hours - default value
+	testCase.expectedResyncPeriod = "600" // 10 hours - default value
 	testCases = append(testCases, testCase)
 
 	// Loop Over All The TestCases

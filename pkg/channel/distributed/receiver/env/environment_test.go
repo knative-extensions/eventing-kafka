@@ -103,7 +103,7 @@ func TestGetEnvironment(t *testing.T) {
 
 	testCase = getValidTestCase("Valid Config - Default ResyncPeriodMinutes")
 	testCase.resyncPeriodMinutes = ""
-	testCase.expectedResyncPeriod = "600"	// 10 hours - default value
+	testCase.expectedResyncPeriod = "600" // 10 hours - default value
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Required Config - KafkaBrokers")
