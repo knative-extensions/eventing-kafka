@@ -122,13 +122,16 @@ func (h *Handler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama
 func (h *Handler) consumeMessage(context context.Context, consumerMessage *sarama.ConsumerMessage, destinationURL *url.URL, replyURL *url.URL, deadLetterURL *url.URL, retryConfig *kncloudevents.RetryConfig) error {
 
 	// Debug Log Kafka ConsumerMessage
-	h.Logger.Debug("Consuming Kafka Message",
-		zap.Any("Headers", consumerMessage.Headers),
-		zap.ByteString("Key", consumerMessage.Key),
-		zap.ByteString("Value", consumerMessage.Value),
-		zap.String("Topic", consumerMessage.Topic),
-		zap.Int32("Partition", consumerMessage.Partition),
-		zap.Int64("Offset", consumerMessage.Offset))
+	if h.Logger.Core().Enabled(zap.DebugLevel) {
+		// Checked Logging Level First To Avoid Calling zap.Any In Production
+		h.Logger.Debug("Consuming Kafka Message",
+			zap.Any("Headers", consumerMessage.Headers),
+			zap.ByteString("Key", consumerMessage.Key),
+			zap.ByteString("Value", consumerMessage.Value),
+			zap.String("Topic", consumerMessage.Topic),
+			zap.Int32("Partition", consumerMessage.Partition),
+			zap.Int64("Offset", consumerMessage.Offset))
+	}
 
 	// Convert The Sarama ConsumerMessage Into A CloudEvents Message
 	message := kafkasaramaprotocol.NewMessageFromConsumerMessage(consumerMessage)

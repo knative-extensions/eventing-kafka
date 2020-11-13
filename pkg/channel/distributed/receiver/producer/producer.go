@@ -125,7 +125,10 @@ func (p *Producer) ProduceKafkaMessage(ctx context.Context, channelReference eve
 	producerMessage.Headers = append(producerMessage.Headers, tracing.SerializeTrace(trace.FromContext(ctx).SpanContext())...)
 
 	// Produce The Kafka Message To The Kafka Topic
-	logger.Debug("Producing Kafka Message", zap.Any("Headers", producerMessage.Headers), zap.Any("Message", producerMessage.Value))
+	if logger.Core().Enabled(zap.DebugLevel) {
+		// Checked Logging Level First To Avoid Calling zap.Any In Production
+		logger.Debug("Producing Kafka Message", zap.Any("Headers", producerMessage.Headers), zap.Any("Message", producerMessage.Value))
+	}
 	partition, offset, err := p.kafkaProducer.SendMessage(producerMessage)
 	if err != nil {
 		logger.Error("Failed To Send Message To Kafka", zap.Error(err))

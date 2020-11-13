@@ -158,8 +158,11 @@ func flush(logger *zap.Logger) {
 func handleMessage(ctx context.Context, channelReference eventingchannel.ChannelReference, message binding.Message, transformers []binding.Transformer, _ nethttp.Header) error {
 
 	// Note - The context provided here is a different context from the one created in main() and does not have our logger instance.
-	logger.Debug("~~~~~~~~~~~~~~~~~~~~  Processing Request  ~~~~~~~~~~~~~~~~~~~~")
-	logger.Debug("Received Message", zap.Any("ChannelReference", channelReference))
+	if logger.Core().Enabled(zap.DebugLevel) {
+		// Checked Logging Level First To Avoid Calling zap.Any In Production
+		logger.Debug("~~~~~~~~~~~~~~~~~~~~  Processing Request  ~~~~~~~~~~~~~~~~~~~~")
+		logger.Debug("Received Message", zap.Any("ChannelReference", channelReference))
+	}
 
 	// Trim The "-kn-channel" Suffix From The Service Name
 	channelReference.Name = kafkautil.TrimKafkaChannelServiceNameSuffix(channelReference.Name)
