@@ -17,8 +17,12 @@ limitations under the License.
 package env
 
 import (
+	"strconv"
+	"time"
+
 	"go.uber.org/zap"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
+	"knative.dev/pkg/controller"
 )
 
 // Environment Structure
@@ -36,10 +40,11 @@ type Environment struct {
 	HealthPort int // Required
 
 	// Kafka Configuration
-	KafkaBrokers string // Required
-	KafkaTopic   string // Required
-	ChannelKey   string // Required
-	ServiceName  string // Required
+	KafkaBrokers string        // Required
+	KafkaTopic   string        // Required
+	ChannelKey   string        // Required
+	ServiceName  string        // Required
+	ResyncPeriod time.Duration // Optional
 
 	// Kafka Authorization
 	KafkaUsername string // Optional
@@ -74,7 +79,7 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 	}
 
 	// Get The Required ContainerName Config Value
-	environment.ContainerName, err = env.GetRequiredConfigValue(logger, env.ContainerNameEnvVarKEy)
+	environment.ContainerName, err = env.GetRequiredConfigValue(logger, env.ContainerNameEnvVarKey)
 	if err != nil {
 		return nil, err
 	}
@@ -108,6 +113,17 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Get The Optional Resync Period Config Value & Convert To Duration
+	resyncMinutes, err := env.GetOptionalConfigInt(
+		logger,
+		env.ResyncPeriodMinutesEnvVarKey,
+		strconv.Itoa(int(controller.DefaultResyncPeriod/time.Minute)),
+		"ResyncPeriodMinutes")
+	if err != nil {
+		return nil, err
+	}
+	environment.ResyncPeriod = time.Duration(resyncMinutes) * time.Minute
 
 	// Get The Optional KafkaUsername Config Value
 	environment.KafkaUsername = env.GetOptionalConfigValue(logger, env.KafkaUsernameEnvVarKey, "")

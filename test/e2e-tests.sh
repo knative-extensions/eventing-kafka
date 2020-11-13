@@ -162,7 +162,6 @@ function knative_setup() {
     ko apply -f "${EVENTING_IN_MEMORY_CHANNEL_CONFIG}"
     popd
   fi
-  kubectl apply -f "${HOME}/yaml/config-br.yaml"   ## EDV HACK ##
   wait_until_pods_running knative-eventing || fail_test "Knative Eventing did not come up"
 
   install_zipkin

@@ -22,6 +22,7 @@ import (
 	"os"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
@@ -33,6 +34,7 @@ const (
 	metricsPort   = "9999"
 	metricsDomain = "kafka-eventing"
 	healthPort    = "1234"
+	resyncPeriod  = "3600"
 	kafkaBrokers  = "TestKafkaBrokers"
 	kafkaTopic    = "TestKafkaTopic"
 	channelKey    = "TestChannelKey"
@@ -45,19 +47,21 @@ const (
 
 // Define The TestCase Struct
 type TestCase struct {
-	name          string
-	metricsPort   string
-	metricsDomain string
-	healthPort    string
-	kafkaBrokers  string
-	kafkaTopic    string
-	channelKey    string
-	serviceName   string
-	kafkaUsername string
-	kafkaPassword string
-	podName       string
-	containerName string
-	expectedError error
+	name                 string
+	metricsPort          string
+	metricsDomain        string
+	healthPort           string
+	resyncPeriodMinutes  string
+	kafkaBrokers         string
+	kafkaTopic           string
+	channelKey           string
+	serviceName          string
+	kafkaUsername        string
+	kafkaPassword        string
+	podName              string
+	containerName        string
+	expectedError        error
+	expectedResyncPeriod string
 }
 
 // Test All Permutations Of The GetEnvironment() Functionality
@@ -123,7 +127,17 @@ func TestGetEnvironment(t *testing.T) {
 
 	testCase = getValidTestCase("Missing Required Config - ContainerName")
 	testCase.containerName = ""
-	testCase.expectedError = getMissingRequiredEnvironmentVariableError(commonenv.ContainerNameEnvVarKEy)
+	testCase.expectedError = getMissingRequiredEnvironmentVariableError(commonenv.ContainerNameEnvVarKey)
+	testCases = append(testCases, testCase)
+
+	testCase = getValidTestCase("Invalid Config - ResyncPeriodMinutes")
+	testCase.resyncPeriodMinutes = "NAN"
+	testCase.expectedError = getInvalidIntEnvironmentVariableError(testCase.resyncPeriodMinutes, commonenv.ResyncPeriodMinutesEnvVarKey)
+	testCases = append(testCases, testCase)
+
+	testCase = getValidTestCase("Valid Config - Default ResyncPeriodMinutes")
+	testCase.resyncPeriodMinutes = ""
+	testCase.expectedResyncPeriod = "600" // 10 hours - default value
 	testCases = append(testCases, testCase)
 
 	// Loop Over All The TestCases
@@ -134,6 +148,7 @@ func TestGetEnvironment(t *testing.T) {
 		assertSetenv(t, commonenv.MetricsDomainEnvVarKey, testCase.metricsDomain)
 		assertSetenvNonempty(t, commonenv.MetricsPortEnvVarKey, testCase.metricsPort)
 		assertSetenvNonempty(t, commonenv.HealthPortEnvVarKey, testCase.healthPort)
+		assertSetenvNonempty(t, commonenv.ResyncPeriodMinutesEnvVarKey, testCase.resyncPeriodMinutes)
 		assertSetenv(t, commonenv.KafkaBrokerEnvVarKey, testCase.kafkaBrokers)
 		assertSetenv(t, commonenv.KafkaTopicEnvVarKey, testCase.kafkaTopic)
 		assertSetenv(t, commonenv.ChannelKeyEnvVarKey, testCase.channelKey)
@@ -141,7 +156,7 @@ func TestGetEnvironment(t *testing.T) {
 		assertSetenv(t, commonenv.KafkaUsernameEnvVarKey, testCase.kafkaUsername)
 		assertSetenv(t, commonenv.KafkaPasswordEnvVarKey, testCase.kafkaPassword)
 		assertSetenv(t, commonenv.PodNameEnvVarKey, testCase.podName)
-		assertSetenv(t, commonenv.ContainerNameEnvVarKEy, testCase.containerName)
+		assertSetenv(t, commonenv.ContainerNameEnvVarKey, testCase.containerName)
 
 		// Perform The Test
 		environment, err := GetEnvironment(logger)
@@ -161,6 +176,7 @@ func TestGetEnvironment(t *testing.T) {
 			assert.Equal(t, testCase.kafkaPassword, environment.KafkaPassword)
 			assert.Equal(t, testCase.podName, environment.PodName)
 			assert.Equal(t, testCase.containerName, environment.ContainerName)
+			assert.Equal(t, testCase.expectedResyncPeriod, strconv.Itoa(int(environment.ResyncPeriod/time.Minute)))
 
 		} else {
 			assert.Equal(t, testCase.expectedError, err)
@@ -183,19 +199,21 @@ func assertSetenvNonempty(t *testing.T, envKey string, value string) {
 // Get The Base / Valid Test Case - All Config Specified / No Errors
 func getValidTestCase(name string) TestCase {
 	return TestCase{
-		name:          name,
-		metricsPort:   metricsPort,
-		metricsDomain: metricsDomain,
-		healthPort:    healthPort,
-		kafkaBrokers:  kafkaBrokers,
-		kafkaTopic:    kafkaTopic,
-		channelKey:    channelKey,
-		serviceName:   serviceName,
-		kafkaUsername: kafkaUsername,
-		kafkaPassword: kafkaPassword,
-		podName:       podName,
-		containerName: containerName,
-		expectedError: nil,
+		name:                 name,
+		metricsPort:          metricsPort,
+		metricsDomain:        metricsDomain,
+		healthPort:           healthPort,
+		resyncPeriodMinutes:  resyncPeriod,
+		kafkaBrokers:         kafkaBrokers,
+		kafkaTopic:           kafkaTopic,
+		channelKey:           channelKey,
+		serviceName:          serviceName,
+		kafkaUsername:        kafkaUsername,
+		kafkaPassword:        kafkaPassword,
+		podName:              podName,
+		containerName:        containerName,
+		expectedError:        nil,
+		expectedResyncPeriod: resyncPeriod,
 	}
 }
 

@@ -20,10 +20,15 @@ import (
 	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
+	"go.uber.org/zap"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/kafkachannel"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/kafkasecret"
+	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection/sharedmain"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/signals"
 )
 
 // Eventing-Kafka Controller Main
@@ -34,5 +39,12 @@ func main() {
 	defer kafkasecret.Shutdown()
 
 	// Create The SharedMain Instance With The Various Controllers
-	sharedmain.Main(constants.ControllerComponentName, kafkachannel.NewController, kafkasecret.NewController)
+	ctx := signals.NewContext()
+	logger := logging.FromContext(ctx).Desugar()
+	environment, err := env.GetEnvironment(logger)
+	if err != nil {
+		logger.Fatal("Failed To Load Environment Variables - Terminating!", zap.Error(err))
+	}
+	ctx = controller.WithResyncPeriod(ctx, environment.ResyncPeriod)
+	sharedmain.MainWithContext(ctx, constants.ControllerComponentName, kafkachannel.NewController, kafkasecret.NewController)
 }

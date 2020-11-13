@@ -19,6 +19,7 @@ package testing
 import (
 	"fmt"
 	"strconv"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -56,6 +57,7 @@ const (
 	MetricsPort              = 9876
 	MetricsDomain            = "eventing-kafka"
 	HealthPort               = 8082
+	ResyncPeriod             = 3600 * time.Minute
 	ReceiverImage            = "TestReceiverImage"
 	ReceiverReplicas         = 1
 	DispatcherImage          = "TestDispatcherImage"
@@ -194,6 +196,7 @@ func NewEnvironment() *env.Environment {
 		MetricsDomain:   MetricsDomain,
 		DispatcherImage: DispatcherImage,
 		ReceiverImage:   ReceiverImage,
+		ResyncPeriod:    ResyncPeriod,
 	}
 }
 
@@ -616,7 +619,7 @@ func NewKafkaChannelReceiverDeployment(options ...DeploymentOption) *appsv1.Depl
 									},
 								},
 								{
-									Name:  commonenv.ContainerNameEnvVarKEy,
+									Name:  commonenv.ContainerNameEnvVarKey,
 									Value: constants.ReceiverContainerName,
 								},
 								{
@@ -638,6 +641,10 @@ func NewKafkaChannelReceiverDeployment(options ...DeploymentOption) *appsv1.Depl
 								{
 									Name:  commonenv.HealthPortEnvVarKey,
 									Value: strconv.Itoa(HealthPort),
+								},
+								{
+									Name:  commonenv.ResyncPeriodMinutesEnvVarKey,
+									Value: strconv.Itoa(int(ResyncPeriod / time.Minute)),
 								},
 								{
 									Name: commonenv.KafkaBrokerEnvVarKey,
@@ -822,7 +829,7 @@ func NewKafkaChannelDispatcherDeployment(options ...DeploymentOption) *appsv1.De
 									},
 								},
 								{
-									Name:  commonenv.ContainerNameEnvVarKEy,
+									Name:  commonenv.ContainerNameEnvVarKey,
 									Value: constants.DispatcherContainerName,
 								},
 								{
@@ -852,6 +859,10 @@ func NewKafkaChannelDispatcherDeployment(options ...DeploymentOption) *appsv1.De
 								{
 									Name:  commonenv.KafkaTopicEnvVarKey,
 									Value: topicName,
+								},
+								{
+									Name:  commonenv.ResyncPeriodMinutesEnvVarKey,
+									Value: strconv.Itoa(int(ResyncPeriod / time.Minute)),
 								},
 								{
 									Name: commonenv.KafkaBrokerEnvVarKey,

@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"time"
 
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
@@ -365,7 +366,7 @@ func (r *Reconciler) receiverDeploymentEnvVars(secret *corev1.Secret) ([]corev1.
 			},
 		},
 		{
-			Name:  commonenv.ContainerNameEnvVarKEy,
+			Name:  commonenv.ContainerNameEnvVarKey,
 			Value: constants.ReceiverContainerName,
 		},
 		{
@@ -387,6 +388,10 @@ func (r *Reconciler) receiverDeploymentEnvVars(secret *corev1.Secret) ([]corev1.
 		{
 			Name:  commonenv.HealthPortEnvVarKey,
 			Value: strconv.Itoa(constants.HealthPort),
+		},
+		{
+			Name:  commonenv.ResyncPeriodMinutesEnvVarKey,
+			Value: strconv.Itoa(int(r.environment.ResyncPeriod / time.Minute)),
 		},
 	}
 

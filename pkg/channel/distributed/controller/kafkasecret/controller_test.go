@@ -21,6 +21,7 @@ import (
 	"os"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"k8s.io/client-go/rest"
@@ -85,4 +86,5 @@ func populateEnvironmentVariables(t *testing.T) {
 	assert.Nil(t, os.Setenv(commonenv.MetricsPortEnvVarKey, strconv.Itoa(controllertesting.MetricsPort)))
 	assert.Nil(t, os.Setenv(controllerenv.DispatcherImageEnvVarKey, controllertesting.DispatcherImage))
 	assert.Nil(t, os.Setenv(controllerenv.ReceiverImageEnvVarKey, controllertesting.ReceiverImage))
+	assert.Nil(t, os.Setenv(commonenv.ResyncPeriodMinutesEnvVarKey, strconv.Itoa(int(controllertesting.ResyncPeriod/time.Minute))))
 }

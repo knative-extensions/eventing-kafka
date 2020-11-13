@@ -17,8 +17,12 @@ limitations under the License.
 package env
 
 import (
+	"strconv"
+	"time"
+
 	"go.uber.org/zap"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
+	"knative.dev/pkg/controller"
 )
 
 // Package Constants
@@ -35,9 +39,10 @@ const (
 type Environment struct {
 
 	// Eventing-kafka Configuration
-	ServiceAccount string // Required
-	MetricsPort    int    // Required
-	MetricsDomain  string // Required
+	ServiceAccount string        // Required
+	MetricsPort    int           // Required
+	MetricsDomain  string        // Required
+	ResyncPeriod   time.Duration // Optional
 
 	// Dispatcher Configuration
 	DispatcherImage string // Required
@@ -72,6 +77,17 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Get The Optional Resync Period config Value & Convert To Duration
+	resyncMinutes, err := env.GetOptionalConfigInt(
+		logger,
+		env.ResyncPeriodMinutesEnvVarKey,
+		strconv.Itoa(int(controller.DefaultResyncPeriod/time.Minute)),
+		"ResyncPeriodMinutes")
+	if err != nil {
+		return nil, err
+	}
+	environment.ResyncPeriod = time.Duration(resyncMinutes) * time.Minute
 
 	//
 	// Dispatcher Configuration
