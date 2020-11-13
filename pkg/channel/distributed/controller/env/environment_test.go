@@ -144,7 +144,7 @@ func setupTestEnvironment(t *testing.T, testCase TestCase) {
 	assertSetenvNonempty(t, env.MetricsPortEnvVarKey, testCase.metricsPort)
 	assertSetenv(t, DispatcherImageEnvVarKey, testCase.dispatcherImage)
 	assertSetenv(t, ReceiverImageEnvVarKey, testCase.channelImage)
-	assertSetenv(t, env.ResyncPeriodMinutesEnvVarKey, testCase.resyncPeriodMinutes)
+	assertSetenvNonempty(t, env.ResyncPeriodMinutesEnvVarKey, testCase.resyncPeriodMinutes)
 }
 
 // Get The Base / Valid Test Case - All Config Specified / No Errors
