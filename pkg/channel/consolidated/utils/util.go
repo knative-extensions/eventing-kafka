@@ -17,9 +17,14 @@ limitations under the License.
 package utils
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
+	"knative.dev/pkg/logging"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -29,6 +34,8 @@ import (
 
 const (
 	BrokerConfigMapKey           = "bootstrapServers"
+	AuthSecretName               = "authSecretName"
+	AuthSecretNamespace          = "authSecretNamespace"
 	MaxIdleConnectionsKey        = "maxIdleConns"
 	MaxIdleConnectionsPerHostKey = "maxIdleConnsPerHost"
 
@@ -44,6 +51,55 @@ type KafkaConfig struct {
 	Brokers             []string
 	MaxIdleConns        int32
 	MaxIdleConnsPerHost int32
+	AuthSecretName      string
+	AuthSecretNamespace string
+}
+
+type KafkaAuthConfig struct {
+	TLS  *KafkaTlsConfig
+	SASL *KafkaSaslConfig
+}
+
+type KafkaTlsConfig struct {
+	Cacert   string
+	Usercert string
+	Userkey  string
+}
+
+type KafkaSaslConfig struct {
+	User     string
+	Password string
+}
+
+func GetKafkaAuthData(ctx context.Context, secretname string, secretNS string) *KafkaAuthConfig {
+
+	k8sClient := kubeclient.Get(ctx)
+	secret, err := k8sClient.CoreV1().Secrets(secretNS).Get(ctx, secretname, metav1.GetOptions{})
+
+	if err != nil {
+		logging.FromContext(ctx).Errorf("Referenced Auth Secret not found")
+		return nil
+	}
+
+	kafkaAuthConfig := &KafkaAuthConfig{}
+	// check for TLS
+	if string(secret.Data["ca.crt"]) != "" {
+		tls := &KafkaTlsConfig{
+			Cacert:   string(secret.Data["ca.crt"]),
+			Usercert: string(secret.Data["user.crt"]),
+			Userkey:  string(secret.Data["user.key"]),
+		}
+		kafkaAuthConfig.TLS = tls
+	}
+
+	if string(secret.Data["user"]) != "" {
+		sasl := &KafkaSaslConfig{
+			User:     string(secret.Data["user"]),
+			Password: string(secret.Data["password"]),
+		}
+		kafkaAuthConfig.SASL = sasl
+	}
+	return kafkaAuthConfig
 }
 
 // GetKafkaConfig returns the details of the Kafka cluster.
@@ -58,9 +114,13 @@ func GetKafkaConfig(configMap map[string]string) (*KafkaConfig, error) {
 	}
 
 	var bootstrapServers string
+	var authSecretNamespace string
+	var authSecretName string
 
 	err := configmap.Parse(configMap,
 		configmap.AsString(BrokerConfigMapKey, &bootstrapServers),
+		configmap.AsString(AuthSecretName, &authSecretName),
+		configmap.AsString(AuthSecretNamespace, &authSecretNamespace),
 		configmap.AsInt32(MaxIdleConnectionsKey, &config.MaxIdleConns),
 		configmap.AsInt32(MaxIdleConnectionsPerHostKey, &config.MaxIdleConnsPerHost),
 	)
@@ -78,6 +138,8 @@ func GetKafkaConfig(configMap map[string]string) (*KafkaConfig, error) {
 		}
 	}
 	config.Brokers = bootstrapServersSplitted
+	config.AuthSecretName = authSecretName
+	config.AuthSecretNamespace = authSecretNamespace
 
 	return config, nil
 }

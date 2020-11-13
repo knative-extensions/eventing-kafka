@@ -80,6 +80,17 @@ func TestGetKafkaConfig(t *testing.T) {
 			},
 		},
 		{
+			name: "single bootstrapServers and auth secret name and namespace",
+			data: map[string]string{"bootstrapServers": "kafkabroker.kafka:9092", "authSecretName": "kafka-auth-secret", "authSecretNamespace": "default"},
+			expected: &KafkaConfig{
+				Brokers:             []string{"kafkabroker.kafka:9092"},
+				MaxIdleConns:        1000,
+				MaxIdleConnsPerHost: 100,
+				AuthSecretName:      "kafka-auth-secret",
+				AuthSecretNamespace: "default",
+			},
+		},
+		{
 			name: "multiple bootstrapServers",
 			data: map[string]string{"bootstrapServers": "kafkabroker1.kafka:9092,kafkabroker2.kafka:9092"},
 			expected: &KafkaConfig{

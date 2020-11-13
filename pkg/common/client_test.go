@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package source
+package common
 
 import (
 	"bytes"
@@ -79,7 +79,7 @@ func TestNewTLSConfig(t *testing.T) {
 		wantServer: true,
 	}} {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := newTLSConfig(tt.cert, tt.key, tt.caCert)
+			c, err := NewTLSConfig(tt.cert, tt.key, tt.caCert)
 			if tt.wantErr {
 				if err == nil {
 					t.Fatal("wanted error")

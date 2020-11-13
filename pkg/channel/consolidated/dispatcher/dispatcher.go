@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
+	kafkaclient "knative.dev/eventing-kafka/pkg/common"
 	"knative.dev/eventing-kafka/pkg/common/consumer"
 	eventingchannels "knative.dev/eventing/pkg/channel"
 	"knative.dev/eventing/pkg/channel/fanout"
@@ -92,6 +93,29 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 	conf.ClientID = args.ClientID
 	conf.Consumer.Return.Errors = true    // Returns the errors in ConsumerGroup#Errors() https://godoc.org/github.com/Shopify/sarama#ConsumerGroup
 	conf.Producer.Return.Successes = true // Must be enabled for sync producer
+
+	// Get the auth info
+	if args.AuthSecretName != "" {
+		kafkaAuthCfg := utils.GetKafkaAuthData(ctx, args.AuthSecretName, args.AuthSecretNamespace)
+
+		if kafkaAuthCfg != nil {
+			// tls
+			if kafkaAuthCfg.TLS != nil {
+				conf.Net.TLS.Enable = true
+				tlsConfig, err := kafkaclient.NewTLSConfig(kafkaAuthCfg.TLS.Usercert, kafkaAuthCfg.TLS.Userkey, kafkaAuthCfg.TLS.Cacert)
+				if err != nil {
+					return nil, err
+				}
+				conf.Net.TLS.Config = tlsConfig
+			}
+			// SASL
+			if kafkaAuthCfg.SASL != nil {
+				conf.Net.SASL.Enable = true
+				conf.Net.SASL.User = kafkaAuthCfg.SASL.User
+				conf.Net.SASL.Password = kafkaAuthCfg.SASL.Password
+			}
+		}
+	}
 
 	producer, err := sarama.NewSyncProducer(args.Brokers, conf)
 	if err != nil {
@@ -157,11 +181,13 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 type TopicFunc func(separator, namespace, name string) string
 
 type KafkaDispatcherArgs struct {
-	KnCEConnectionArgs *kncloudevents.ConnectionArgs
-	ClientID           string
-	Brokers            []string
-	TopicFunc          TopicFunc
-	Logger             *zap.SugaredLogger
+	KnCEConnectionArgs  *kncloudevents.ConnectionArgs
+	ClientID            string
+	Brokers             []string
+	AuthSecretName      string
+	AuthSecretNamespace string
+	TopicFunc           TopicFunc
+	Logger              *zap.SugaredLogger
 }
 
 type consumerMessageHandler struct {
