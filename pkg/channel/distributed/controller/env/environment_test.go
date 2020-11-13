@@ -54,6 +54,7 @@ type TestCase struct {
 	dispatcherImage       string
 	channelImage          string
 	expectedError         error
+	expectedResyncPeriod  string
 }
 
 // Test All Permutations Of The GetEnvironment() Functionality
@@ -102,6 +103,11 @@ func TestGetEnvironment(t *testing.T) {
 	testCase.expectedError = getInvalidIntEnvironmentVariableError(testCase.resyncPeriodMinutes, env.ResyncPeriodMinutesEnvVarKey)
 	testCases = append(testCases, testCase)
 
+	testCase = getValidTestCase("Valid Config - Default ResyncPeriodMinutes")
+	testCase.resyncPeriodMinutes = ""
+	testCase.expectedResyncPeriod = "600"	// 10 hours - default value
+	testCases = append(testCases, testCase)
+
 	// Loop Over All The TestCases
 	for _, testCase := range testCases {
 
@@ -120,7 +126,7 @@ func TestGetEnvironment(t *testing.T) {
 			assert.Equal(t, testCase.metricsPort, strconv.Itoa(environment.MetricsPort))
 			assert.Equal(t, testCase.channelImage, environment.ReceiverImage)
 			assert.Equal(t, testCase.dispatcherImage, environment.DispatcherImage)
-			assert.Equal(t, testCase.resyncPeriodMinutes, strconv.Itoa(int(environment.ResyncPeriod/time.Minute)))
+			assert.Equal(t, testCase.expectedResyncPeriod, strconv.Itoa(int(environment.ResyncPeriod/time.Minute)))
 
 		} else {
 			assert.Equal(t, testCase.expectedError, err)
@@ -153,6 +159,7 @@ func getValidTestCase(name string) TestCase {
 		dispatcherImage:       dispatcherImage,
 		channelImage:          receiverImage,
 		expectedError:         nil,
+		expectedResyncPeriod:  resyncPeriodMinutes,
 	}
 }
 

@@ -23,14 +23,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"k8s.io/client-go/kubernetes/fake"
 	commonenv "knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
 	controllerenv "knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
 	controllertesting "knative.dev/eventing-kafka/pkg/channel/distributed/controller/testing"
-	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
-	"knative.dev/pkg/system"
-
-	"github.com/stretchr/testify/assert"
-	"k8s.io/client-go/kubernetes/fake"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/logging"
@@ -64,7 +61,6 @@ func TestGet(t *testing.T) {
 // Utility Function For Populating Required Environment Variables For Testing
 func populateEnvironmentVariables(t *testing.T) {
 	// Most of these are not actually used, but they need to exist or the GetEnvironment call will fail
-	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, commonconstants.KnativeEventingNamespace))
 	assert.Nil(t, os.Setenv(commonenv.ServiceAccountEnvVarKey, controllertesting.ServiceAccount))
 	assert.Nil(t, os.Setenv(commonenv.MetricsDomainEnvVarKey, controllertesting.MetricsDomain))
 	assert.Nil(t, os.Setenv(commonenv.MetricsPortEnvVarKey, strconv.Itoa(controllertesting.MetricsPort)))

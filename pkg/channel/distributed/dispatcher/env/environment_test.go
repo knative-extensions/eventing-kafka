@@ -47,20 +47,21 @@ const (
 
 // Define The TestCase Struct
 type TestCase struct {
-	name                string
-	metricsPort         string
-	metricsDomain       string
-	healthPort          string
-	resyncPeriodMinutes string
-	kafkaBrokers        string
-	kafkaTopic          string
-	channelKey          string
-	serviceName         string
-	kafkaUsername       string
-	kafkaPassword       string
-	podName             string
-	containerName       string
-	expectedError       error
+	name                  string
+	metricsPort           string
+	metricsDomain         string
+	healthPort            string
+	resyncPeriodMinutes   string
+	kafkaBrokers          string
+	kafkaTopic            string
+	channelKey            string
+	serviceName           string
+	kafkaUsername         string
+	kafkaPassword         string
+	podName               string
+	containerName         string
+	expectedError         error
+	expectedResyncPeriod  string
 }
 
 // Test All Permutations Of The GetEnvironment() Functionality
@@ -134,6 +135,11 @@ func TestGetEnvironment(t *testing.T) {
 	testCase.expectedError = getInvalidIntEnvironmentVariableError(testCase.resyncPeriodMinutes, commonenv.ResyncPeriodMinutesEnvVarKey)
 	testCases = append(testCases, testCase)
 
+	testCase = getValidTestCase("Valid Config - Default ResyncPeriodMinutes")
+	testCase.resyncPeriodMinutes = ""
+	testCase.expectedResyncPeriod = "600"	// 10 hours - default value
+	testCases = append(testCases, testCase)
+
 	// Loop Over All The TestCases
 	for _, testCase := range testCases {
 
@@ -142,7 +148,7 @@ func TestGetEnvironment(t *testing.T) {
 		assertSetenv(t, commonenv.MetricsDomainEnvVarKey, testCase.metricsDomain)
 		assertSetenvNonempty(t, commonenv.MetricsPortEnvVarKey, testCase.metricsPort)
 		assertSetenvNonempty(t, commonenv.HealthPortEnvVarKey, testCase.healthPort)
-		assertSetenv(t, commonenv.ResyncPeriodMinutesEnvVarKey, testCase.resyncPeriodMinutes)
+		assertSetenvNonempty(t, commonenv.ResyncPeriodMinutesEnvVarKey, testCase.resyncPeriodMinutes)
 		assertSetenv(t, commonenv.KafkaBrokerEnvVarKey, testCase.kafkaBrokers)
 		assertSetenv(t, commonenv.KafkaTopicEnvVarKey, testCase.kafkaTopic)
 		assertSetenv(t, commonenv.ChannelKeyEnvVarKey, testCase.channelKey)
@@ -170,7 +176,7 @@ func TestGetEnvironment(t *testing.T) {
 			assert.Equal(t, testCase.kafkaPassword, environment.KafkaPassword)
 			assert.Equal(t, testCase.podName, environment.PodName)
 			assert.Equal(t, testCase.containerName, environment.ContainerName)
-			assert.Equal(t, testCase.resyncPeriodMinutes, strconv.Itoa(int(environment.ResyncPeriod/time.Minute)))
+			assert.Equal(t, testCase.expectedResyncPeriod, strconv.Itoa(int(environment.ResyncPeriod/time.Minute)))
 
 		} else {
 			assert.Equal(t, testCase.expectedError, err)
@@ -193,20 +199,21 @@ func assertSetenvNonempty(t *testing.T, envKey string, value string) {
 // Get The Base / Valid Test Case - All Config Specified / No Errors
 func getValidTestCase(name string) TestCase {
 	return TestCase{
-		name:                name,
-		metricsPort:         metricsPort,
-		metricsDomain:       metricsDomain,
-		healthPort:          healthPort,
-		resyncPeriodMinutes: resyncPeriod,
-		kafkaBrokers:        kafkaBrokers,
-		kafkaTopic:          kafkaTopic,
-		channelKey:          channelKey,
-		serviceName:         serviceName,
-		kafkaUsername:       kafkaUsername,
-		kafkaPassword:       kafkaPassword,
-		podName:             podName,
-		containerName:       containerName,
-		expectedError:       nil,
+		name:                 name,
+		metricsPort:          metricsPort,
+		metricsDomain:        metricsDomain,
+		healthPort:           healthPort,
+		resyncPeriodMinutes:  resyncPeriod,
+		kafkaBrokers:         kafkaBrokers,
+		kafkaTopic:           kafkaTopic,
+		channelKey:           channelKey,
+		serviceName:          serviceName,
+		kafkaUsername:        kafkaUsername,
+		kafkaPassword:        kafkaPassword,
+		podName:              podName,
+		containerName:        containerName,
+		expectedError:        nil,
+		expectedResyncPeriod: resyncPeriod,
 	}
 }
 
