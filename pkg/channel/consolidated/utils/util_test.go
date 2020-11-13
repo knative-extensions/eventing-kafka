@@ -89,35 +89,8 @@ func TestGetKafkaConfig(t *testing.T) {
 			},
 		},
 		{
-			name: "partition consumer",
-			data: map[string]string{"bootstrapServers": "kafkabroker.kafka:9092", "consumerMode": "partitions"},
-			expected: &KafkaConfig{
-				Brokers:             []string{"kafkabroker.kafka:9092"},
-				MaxIdleConns:        1000,
-				MaxIdleConnsPerHost: 100,
-			},
-		},
-		{
-			name: "default multiplex",
-			data: map[string]string{"bootstrapServers": "kafkabroker.kafka:9092", "consumerMode": "multiplex"},
-			expected: &KafkaConfig{
-				Brokers:             []string{"kafkabroker.kafka:9092"},
-				MaxIdleConns:        1000,
-				MaxIdleConnsPerHost: 100,
-			},
-		},
-		{
-			name: "default multiplex from invalid consumerMode",
-			data: map[string]string{"bootstrapServers": "kafkabroker.kafka:9092", "consumerMode": "foo"},
-			expected: &KafkaConfig{
-				Brokers:             []string{"kafkabroker.kafka:9092"},
-				MaxIdleConns:        1000,
-				MaxIdleConnsPerHost: 100,
-			},
-		},
-		{
-			name: "default multiplex from invalid consumerMode elevated max idle connections",
-			data: map[string]string{"bootstrapServers": "kafkabroker.kafka:9092", "consumerMode": "foo", "maxIdleConns": "9000"},
+			name: "elevated max idle connections",
+			data: map[string]string{"bootstrapServers": "kafkabroker.kafka:9092", "maxIdleConns": "9000"},
 			expected: &KafkaConfig{
 				Brokers:             []string{"kafkabroker.kafka:9092"},
 				MaxIdleConns:        9000,
@@ -125,8 +98,8 @@ func TestGetKafkaConfig(t *testing.T) {
 			},
 		},
 		{
-			name: "default multiplex from invalid consumerMode elevated max idle connections per host",
-			data: map[string]string{"bootstrapServers": "kafkabroker.kafka:9092", "consumerMode": "foo", "maxIdleConnsPerHost": "900"},
+			name: "elevated max idle connections per host",
+			data: map[string]string{"bootstrapServers": "kafkabroker.kafka:9092", "maxIdleConnsPerHost": "900"},
 			expected: &KafkaConfig{
 				Brokers:             []string{"kafkabroker.kafka:9092"},
 				MaxIdleConns:        1000,
@@ -134,8 +107,8 @@ func TestGetKafkaConfig(t *testing.T) {
 			},
 		},
 		{
-			name: "default multiplex from invalid consumerMode elevated max idle values",
-			data: map[string]string{"bootstrapServers": "kafkabroker.kafka:9092", "consumerMode": "foo", "maxIdleConns": "9000", "maxIdleConnsPerHost": "600"},
+			name: "elevated max idle values",
+			data: map[string]string{"bootstrapServers": "kafkabroker.kafka:9092", "maxIdleConns": "9000", "maxIdleConnsPerHost": "600"},
 			expected: &KafkaConfig{
 				Brokers:             []string{"kafkabroker.kafka:9092"},
 				MaxIdleConns:        9000,
