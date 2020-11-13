@@ -159,7 +159,7 @@ func handleMessage(ctx context.Context, channelReference eventingchannel.Channel
 
 	// Note - The context provided here is a different context from the one created in main() and does not have our logger instance.
 	if logger.Core().Enabled(zap.DebugLevel) {
-		// Check Logging Level First To Avoid Calling zap.Any In Production
+		// Checked Logging Level First To Avoid Calling zap.Any In Production
 		logger.Debug("~~~~~~~~~~~~~~~~~~~~  Processing Request  ~~~~~~~~~~~~~~~~~~~~")
 		logger.Debug("Received Message", zap.Any("ChannelReference", channelReference))
 	}

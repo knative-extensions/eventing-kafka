@@ -123,7 +123,7 @@ func (h *Handler) consumeMessage(context context.Context, consumerMessage *saram
 
 	// Debug Log Kafka ConsumerMessage
 	if h.Logger.Core().Enabled(zap.DebugLevel) {
-		// Check Logging Level First To Avoid Calling zap.Any In Production
+		// Checked Logging Level First To Avoid Calling zap.Any In Production
 		h.Logger.Debug("Consuming Kafka Message",
 			zap.Any("Headers", consumerMessage.Headers),
 			zap.ByteString("Key", consumerMessage.Key),

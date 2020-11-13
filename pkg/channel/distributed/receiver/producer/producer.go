@@ -126,7 +126,7 @@ func (p *Producer) ProduceKafkaMessage(ctx context.Context, channelReference eve
 
 	// Produce The Kafka Message To The Kafka Topic
 	if logger.Core().Enabled(zap.DebugLevel) {
-		// Check Logging Level First To Avoid Calling zap.Any In Production
+		// Checked Logging Level First To Avoid Calling zap.Any In Production
 		logger.Debug("Producing Kafka Message", zap.Any("Headers", producerMessage.Headers), zap.Any("Message", producerMessage.Value))
 	}
 	partition, offset, err := p.kafkaProducer.SendMessage(producerMessage)
