@@ -29,6 +29,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Shopify/sarama"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -219,4 +221,25 @@ func TestNewConfig(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, config)
 	require.Equal(t, []string{"my-cluster-kafka-bootstrap.my-kafka-namespace:9092"}, servers)
+}
+
+func TestAdminClient(t *testing.T) {
+
+	seedBroker := sarama.NewMockBroker(t, 1)
+	defer seedBroker.Close()
+
+	seedBroker.SetHandlerByMap(map[string]sarama.MockResponse{
+		"MetadataRequest": sarama.NewMockMetadataResponse(t).
+			SetController(seedBroker.BrokerID()).
+			SetBroker(seedBroker.Addr(), seedBroker.BrokerID()),
+	})
+
+	// mock broker does not support TLS ...
+	admin, err := MakeAdminClient("test-client", nil, []string{seedBroker.Addr()})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	require.NoError(t, err)
+	require.NotNil(t, admin)
 }

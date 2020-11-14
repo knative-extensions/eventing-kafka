@@ -39,6 +39,12 @@ const (
 	MaxIdleConnectionsKey        = "maxIdleConns"
 	MaxIdleConnectionsPerHostKey = "maxIdleConnsPerHost"
 
+	TlsCacert    = "ca.crt"
+	TlsUsercert  = "user.crt"
+	TlsUserkey   = "user.key"
+	SaslUser     = "user"
+	SaslPassword = "password"
+
 	KafkaChannelSeparator = "."
 
 	knativeKafkaTopicPrefix = "knative-messaging-kafka"
@@ -76,26 +82,26 @@ func GetKafkaAuthData(ctx context.Context, secretname string, secretNS string) *
 	k8sClient := kubeclient.Get(ctx)
 	secret, err := k8sClient.CoreV1().Secrets(secretNS).Get(ctx, secretname, metav1.GetOptions{})
 
-	if err != nil {
+	if err != nil || secret == nil {
 		logging.FromContext(ctx).Errorf("Referenced Auth Secret not found")
 		return nil
 	}
 
 	kafkaAuthConfig := &KafkaAuthConfig{}
 	// check for TLS
-	if string(secret.Data["ca.crt"]) != "" {
+	if string(secret.Data[TlsCacert]) != "" {
 		tls := &KafkaTlsConfig{
-			Cacert:   string(secret.Data["ca.crt"]),
-			Usercert: string(secret.Data["user.crt"]),
-			Userkey:  string(secret.Data["user.key"]),
+			Cacert:   string(secret.Data[TlsCacert]),
+			Usercert: string(secret.Data[TlsUsercert]),
+			Userkey:  string(secret.Data[TlsUserkey]),
 		}
 		kafkaAuthConfig.TLS = tls
 	}
 
-	if string(secret.Data["user"]) != "" {
+	if string(secret.Data[SaslUser]) != "" {
 		sasl := &KafkaSaslConfig{
-			User:     string(secret.Data["user"]),
-			Password: string(secret.Data["password"]),
+			User:     string(secret.Data[SaslUser]),
+			Password: string(secret.Data[SaslPassword]),
 		}
 		kafkaAuthConfig.SASL = sasl
 	}
