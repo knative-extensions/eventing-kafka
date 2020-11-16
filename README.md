@@ -13,7 +13,8 @@ This repository contains eventing components using Kafka as the backing
 implementation. It currently consists of a [Source](pkg/source/README.md)
 implementation, and a single KafkaChannel CRD with two backing Channel
 implementations ([Consolidated](pkg/channel/consolidated/README.md) &
-[Distributed](pkg/channel/distributed/README.md)).
+[Distributed](pkg/channel/distributed/README.md)).  The work is sponsored
+by the [event-delivery working group](https://github.com/knative/community/blob/master/working-groups/WORKING-GROUPS.md#event-delivery).
 
 ## Nightly Artifacts
 

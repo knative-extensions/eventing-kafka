@@ -91,7 +91,7 @@ steps could be used for the Consolidated KafkaChannel or Source.
 - Configure The Distributed KafkaChannel For Strimzi...
 
   - Disable TLS/SASL in
-    [config/channel/distributed/200-eventing-kafka-configmap.yaml](../config/channel/distributed/200-eventing-kafka-configmap.yaml)
+    [config/channel/distributed/200-eventing-kafka-configmap.yaml](../config/channel/distributed/300-eventing-kafka-configmap.yaml)
     ```
     data:
       sarama: |

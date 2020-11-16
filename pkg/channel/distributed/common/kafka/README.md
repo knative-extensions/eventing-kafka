@@ -28,7 +28,7 @@ data:
 
 > Note - The username and password fields from the Kubernetes Secret will
 > override any similar values provided in the `sarama` section of the
-> [ConfigMap](../../../../../config/channel/distributed/200-eventing-kafka-configmap.yaml).
+> [ConfigMap](../../../../../config/channel/distributed/300-eventing-kafka-configmap.yaml).
 
 ## Producer / Consumer
 
@@ -71,19 +71,19 @@ requirements in order for this proxying of requests to work successfully.
    Deployment...
 
    - **ConfigMap:** The `data.eventing-kafka.kafka.adminType` field in the
-     [ConfigMap](../../../../../config/channel/distributed/200-eventing-kafka-configmap.yaml)
+     [ConfigMap](../../../../../config/channel/distributed/300-eventing-kafka-configmap.yaml)
      must be set to `custom`. This tells eventing-kafka that it should proxy
      Topic creation and deletion requests to the expected sidecar endpoints as
      defined below.
 
    - **Deployment:** The sidecar Container will need to be added to the
-     [Controller Deployment](../../../../../config/channel/distributed/400-deployment.yaml)
+     [Controller Deployment](../../../../../config/channel/distributed/500-controller-deployment.yaml)
      along with any other supporting infrastructure (VolumeMounts, etc.).
 
    - **Service Account:** The default
      [ServiceAccount](../../../../../config/channel/distributed/100-controller-serviceaccount.yaml)
      is used by the
-     [Controller Deployment](../../../../../config/channel/distributed/400-deployment.yaml)
+     [Controller Deployment](../../../../../config/channel/distributed/500-controller-deployment.yaml)
      to pull images. This ServiceAccount will need to be updated to include any
      `imagePullSecrets` required to pull the custom sidecar Container image.
 

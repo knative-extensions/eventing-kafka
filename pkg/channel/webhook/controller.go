@@ -20,35 +20,16 @@ import (
 	"context"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"knative.dev/eventing-kafka/pkg/apis/messaging"
+	messagingv1alpha1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1alpha1"
+	messagingv1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	"knative.dev/pkg/injection/sharedmain"
-	"knative.dev/pkg/signals"
-	"knative.dev/pkg/webhook"
-	"knative.dev/pkg/webhook/certificates"
 	"knative.dev/pkg/webhook/resourcesemantics"
 	"knative.dev/pkg/webhook/resourcesemantics/conversion"
 	"knative.dev/pkg/webhook/resourcesemantics/defaulting"
 	"knative.dev/pkg/webhook/resourcesemantics/validation"
-
-	"knative.dev/eventing-kafka/pkg/apis/messaging"
-	messagingv1alpha1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1alpha1"
-	messagingv1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 )
-
-func Main(component string, options webhook.Options) {
-
-	// Set up a signal context with our webhook options
-	ctx := webhook.WithOptions(signals.NewContext(), options)
-
-	sharedmain.MainWithContext(ctx, component,
-		certificates.NewController,
-		newDefaultingAdmissionController,
-		newValidationAdmissionController,
-		newConversionController,
-		// TODO(mattmoor): Support config validation in eventing-kafka.
-	)
-}
 
 var types = map[schema.GroupVersionKind]resourcesemantics.GenericCRD{
 	// For group messaging.knative.dev
@@ -58,7 +39,7 @@ var types = map[schema.GroupVersionKind]resourcesemantics.GenericCRD{
 
 var callbacks = map[schema.GroupVersionKind]validation.Callback{}
 
-func newDefaultingAdmissionController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
+func NewDefaultingAdmissionController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	return defaulting.NewAdmissionController(ctx,
 		// Name of the resource webhook.
 		"defaulting.webhook.kafka.messaging.knative.dev",
@@ -79,7 +60,7 @@ func newDefaultingAdmissionController(ctx context.Context, _ configmap.Watcher) 
 	)
 }
 
-func newValidationAdmissionController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
+func NewValidationAdmissionController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	return validation.NewAdmissionController(ctx,
 		// Name of the resource webhook.
 		"validation.webhook.kafka.messaging.knative.dev",
@@ -103,7 +84,7 @@ func newValidationAdmissionController(ctx context.Context, _ configmap.Watcher) 
 	)
 }
 
-func newConversionController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
+func NewConversionController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	var (
 		messagingv1alpha1_ = messagingv1alpha1.SchemeGroupVersion.Version
 		messagingv1beta1_  = messagingv1beta1.SchemeGroupVersion.Version
