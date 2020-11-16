@@ -30,7 +30,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
-	kafkaadmin "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin"
 	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
@@ -39,6 +38,7 @@ import (
 	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	"knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
 	kafkalisters "knative.dev/eventing-kafka/pkg/client/listers/messaging/v1beta1"
+	kafkaadmin "knative.dev/eventing-kafka/pkg/common/kafka/admin"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/reconciler"
 )
@@ -82,7 +82,10 @@ var (
 func (r *Reconciler) SetKafkaAdminClient(ctx context.Context) {
 	r.ClearKafkaAdminClient()
 	var err error
-	r.adminClient, err = kafkaadmin.CreateAdminClient(ctx, r.saramaConfig, constants.ControllerComponentName, r.adminClientType)
+
+	brokers := []string{r.config.Kafka.Brokers} // TODO - parse csv brokers string into array - this is just hardcoded for a quick test
+
+	r.adminClient, err = kafkaadmin.CreateAdminClient(ctx, brokers, r.saramaConfig, constants.ControllerComponentName, r.adminClientType)
 	if err != nil {
 		r.logger.Error("Failed To Create Kafka AdminClient", zap.Error(err))
 	}
@@ -189,12 +192,14 @@ func (r *Reconciler) reconcile(ctx context.Context, channel *kafkav1beta1.KafkaC
 	// instead check the Kafka Secret associated with the KafkaChannel here.
 	//
 
-	if len(r.adminClient.GetKafkaSecretName(util.TopicName(channel))) > 0 {
-		channel.Status.MarkConfigTrue()
-	} else {
-		channel.Status.MarkConfigFailed(event.KafkaSecretReconciled.String(), "No Kafka Secret For KafkaChannel")
-		return fmt.Errorf(constants.ReconciliationFailedError)
-	}
+	// TODO - DETERMINE WHAT OTHER STATUS TO TRACK HERE !!! - FOR NOW JUST MARK TRUE - QUICK TEST
+	//if len(r.adminClient.GetKafkaSecretName(util.TopicName(channel))) > 0 {
+	//	channel.Status.MarkConfigTrue()
+	//} else {
+	//	channel.Status.MarkConfigFailed(event.KafkaSecretReconciled.String(), "No Kafka Secret For KafkaChannel")
+	//	return fmt.Errorf(constants.ReconciliationFailedError)
+	//}
+	channel.Status.MarkConfigTrue()
 
 	// Reconcile The KafkaChannel's Channel & Dispatcher Deployment/Service
 	channelError := r.reconcileChannel(ctx, channel)

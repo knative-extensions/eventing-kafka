@@ -26,8 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
-	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 )
 
 // Test The GetKafkaSecrets() Functionality
@@ -57,69 +56,6 @@ func TestGetKafkaSecrets(t *testing.T) {
 	assert.Len(t, kafkaSecretList.Items, 2)
 	assert.Contains(t, kafkaSecretList.Items, *kafkaSecret1)
 	assert.Contains(t, kafkaSecretList.Items, *kafkaSecret2)
-}
-
-// Test The ValidateKafkaSecret() Functionality
-func TestValidateKafkaSecret(t *testing.T) {
-
-	// Test Data
-	brokers := "TestBrokers"
-	username := "TestUsername"
-	password := "TestPassword"
-
-	// Create A Test Logger
-	logger := logtesting.TestLogger(t).Desugar()
-
-	// Define & Create The Test Cases
-	tests := []struct {
-		name string
-		data map[string][]byte
-		want bool
-	}{
-		{
-			name: "Valid Kafka Secret (No Auth)",
-			data: map[string][]byte{
-				constants.KafkaSecretKeyBrokers:  []byte(brokers),
-				constants.KafkaSecretKeyUsername: []byte(""),
-				constants.KafkaSecretKeyPassword: []byte(""),
-			},
-			want: true,
-		},
-		{
-			name: "Valid Kafka Secret (Auth)",
-			data: map[string][]byte{
-				constants.KafkaSecretKeyBrokers:  []byte(brokers),
-				constants.KafkaSecretKeyUsername: []byte(username),
-				constants.KafkaSecretKeyPassword: []byte(password),
-			},
-			want: true,
-		},
-		{
-			name: "Invalid Kafka Secret (No Brokers)",
-			data: map[string][]byte{
-				constants.KafkaSecretKeyUsername: []byte(username),
-				constants.KafkaSecretKeyPassword: []byte(password),
-			},
-			want: false,
-		},
-	}
-
-	// Loop Over The Test Cases
-	for _, tt := range tests {
-
-		// Run Each Test Case
-		t.Run(tt.name, func(t *testing.T) {
-
-			// Kafka Secret To Test
-			secret := &corev1.Secret{Data: tt.data}
-
-			// Perform The Test
-			result := ValidateKafkaSecret(logger, secret)
-
-			// Verify The Results
-			assert.Equal(t, tt.want, result)
-		})
-	}
 }
 
 // Test The PromoteErrorToTopicError() Functionality

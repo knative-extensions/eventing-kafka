@@ -21,22 +21,20 @@ import (
 	"errors"
 	"time"
 
-	"knative.dev/eventing-kafka/pkg/common/tracing"
-
-	"go.opencensus.io/trace"
-
 	"github.com/Shopify/sarama"
 	kafkasaramaprotocol "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"github.com/cloudevents/sdk-go/v2/binding"
 	gometrics "github.com/rcrowley/go-metrics"
+	"go.opencensus.io/trace"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
-	kafkaproducer "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/producer"
 	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/metrics"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/health"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/util"
+	kafkaproducer "knative.dev/eventing-kafka/pkg/common/kafka/producer"
+	"knative.dev/eventing-kafka/pkg/common/tracing"
 	eventingChannel "knative.dev/eventing/pkg/channel"
 )
 

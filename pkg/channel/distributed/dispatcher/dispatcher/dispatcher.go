@@ -25,9 +25,9 @@ import (
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer"
 	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/metrics"
+	kafkaconsumer "knative.dev/eventing-kafka/pkg/common/kafka/consumer"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/channel"
 )
@@ -129,7 +129,7 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 			logger := d.Logger.With(zap.String("GroupId", groupId))
 
 			// Attempt To Create A Kafka ConsumerGroup
-			consumerGroup, _, err := consumer.CreateConsumerGroup(d.Brokers, d.SaramaConfig, groupId)
+			consumerGroup, _, err := kafkaconsumer.CreateConsumerGroup(d.Brokers, d.SaramaConfig, groupId)
 			if err != nil {
 
 				// Log & Return Failure

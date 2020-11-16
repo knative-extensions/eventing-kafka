@@ -26,8 +26,8 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/eventhubcache"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
+	"knative.dev/eventing-kafka/pkg/common/kafka/admin/eventhubcache"
+	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	logtesting "knative.dev/pkg/logging/testing"
 )
 
@@ -36,7 +36,7 @@ func TestNewEventHubAdminClientSuccess(t *testing.T) {
 
 	// Test Data
 	ctx := context.TODO()
-	namespace := "TestNamespace"
+	connectionStrings := []string{"TestConnectionString"}
 
 	// Create A Mock EventHub Cache
 	mockCache := &MockCache{}
@@ -44,15 +44,15 @@ func TestNewEventHubAdminClientSuccess(t *testing.T) {
 
 	// Replace The NewCache Wrapper To Provide Mock Implementation & Defer Reset
 	newCacheWrapperPlaceholder := NewCacheWrapper
-	NewCacheWrapper = func(ctxArg context.Context, namespaceArg string) eventhubcache.CacheInterface {
+	NewCacheWrapper = func(ctxArg context.Context, connectionStringsArg ...string) eventhubcache.CacheInterface {
 		assert.Equal(t, ctx, ctxArg)
-		assert.Equal(t, namespace, namespaceArg)
+		assert.Equal(t, connectionStrings, connectionStringsArg)
 		return mockCache
 	}
 	defer func() { NewCacheWrapper = newCacheWrapperPlaceholder }()
 
 	// Perform The Test
-	adminClient, err := NewEventHubAdminClient(ctx, namespace)
+	adminClient, err := NewEventHubAdminClient(ctx)
 
 	// Verify The Results
 	assert.Nil(t, err)
@@ -65,7 +65,7 @@ func TestNewEventHubAdminClientError(t *testing.T) {
 
 	// Test Data
 	ctx := context.TODO()
-	namespace := "TestNamespace"
+	connectionStrings := []string{"TestConnectionString"}
 
 	// Create A Mock EventHub Cache
 	mockCache := &MockCache{}
@@ -73,15 +73,15 @@ func TestNewEventHubAdminClientError(t *testing.T) {
 
 	// Replace The NewCache Wrapper To Provide Mock Implementation & Defer Reset
 	newCacheWrapperPlaceholder := NewCacheWrapper
-	NewCacheWrapper = func(ctxArg context.Context, namespaceArg string) eventhubcache.CacheInterface {
+	NewCacheWrapper = func(ctxArg context.Context, connectionStringsArg ...string) eventhubcache.CacheInterface {
 		assert.Equal(t, ctx, ctxArg)
-		assert.Equal(t, namespace, namespaceArg)
+		assert.Equal(t, connectionStrings, connectionStringsArg)
 		return mockCache
 	}
 	defer func() { NewCacheWrapper = newCacheWrapperPlaceholder }()
 
 	// Perform The Test
-	adminClient, err := NewEventHubAdminClient(ctx, namespace)
+	adminClient, err := NewEventHubAdminClient(ctx)
 
 	// Verify The Results
 	assert.NotNil(t, err)
@@ -514,43 +514,14 @@ func TestEventHubAdminClientDeleteTopicError(t *testing.T) {
 	mockCache.AssertExpectations(t)
 }
 
-// Test The EventHub AdminClient GetKafkaSecretName() Functionality
-func TestEventHubAdminClientGetKafkaSecretName(t *testing.T) {
-
-	// Test Data
-	topicName := "TestTopicName"
-	secretName := "TestSecretName"
-	namespace := &eventhubcache.Namespace{Secret: secretName}
-
-	// Create A Test Logger
-	logger := logtesting.TestLogger(t).Desugar()
-
-	// Create A Mock EventHub Cache
-	mockCache := &MockCache{}
-	mockCache.On("GetNamespace", topicName).Return(namespace)
-
-	// Create A New EventHub AdminClient With Mock Cache To Test
-	adminClient := &EventHubAdminClient{logger: logger, cache: mockCache}
-
-	// Perform The Test
-	actualSecretName := adminClient.GetKafkaSecretName(topicName)
-
-	// Verify The Results
-	assert.Equal(t, secretName, actualSecretName)
-	mockCache.AssertExpectations(t)
-}
-
 // Test The EventHub AdminClient Close() Functionality
 func TestEventHubAdminClientClose(t *testing.T) {
-
-	// Test Data
-	namespace := "TestNamespace"
 
 	// Create A Test Logger
 	logger := logtesting.TestLogger(t).Desugar()
 
 	// Create A New EventHub AdminClient To Test
-	adminClient := &EventHubAdminClient{logger: logger, namespace: namespace}
+	adminClient := &EventHubAdminClient{logger: logger}
 
 	// Perform The Test
 	err := adminClient.Close()

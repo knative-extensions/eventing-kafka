@@ -21,13 +21,12 @@ import (
 	"testing"
 	"time"
 
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
-
 	"github.com/Shopify/sarama"
 	"github.com/ghodss/yaml"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 )
 
 // Returns A ConfigMap Containing The Desired Sarama Config YAML

@@ -25,13 +25,13 @@ import (
 	"k8s.io/client-go/tools/cache"
 	kafkachannelv1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	commonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
-	kafkaadmin "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
 	kafkaclientsetinjection "knative.dev/eventing-kafka/pkg/client/injection/client"
 	"knative.dev/eventing-kafka/pkg/client/injection/informers/messaging/v1beta1/kafkachannel"
 	kafkachannelreconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
+	kafkaadmin "knative.dev/eventing-kafka/pkg/common/kafka/admin"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
 	"knative.dev/pkg/client/injection/kube/informers/core/v1/service"
@@ -65,6 +65,11 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	if err != nil {
 		logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Error(err))
 	}
+
+	// TODO - new - get from secret (incorporate into LoadSettings() above, etc...)
+	username := "" // Empty for quick strimzi test
+	password := "" // Empty for quick strimzi test
+	sarama.UpdateSaramaConfig(saramaConfig, constants.ControllerComponentName, username, password)
 
 	// Enable Sarama Logging If Specified In ConfigMap
 	sarama.EnableSaramaLogging(configuration.Kafka.EnableSaramaLogging)
@@ -134,6 +139,42 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	// Return The KafkaChannel Controller Impl
 	return controllerImpl
 }
+
+/* TODO - sample code for loading username/password from secret - find a home for it ; ) ...
+//// Get The K8S Client From The Context
+//k8sClient := kubeclient.Get(ctx)
+//
+//// Get A List Of The Kafka Secrets
+//kafkaSecrets, err := adminutil.GetKafkaSecrets(ctx, k8sClient, namespace)
+//if err != nil {
+//	logger.Error("Failed To Get Kafka Authentication Secrets", zap.Error(err))
+//	return nil, err
+//}
+//
+//// Currently Only Support One Kafka Secret - Invalid AdminClient For All Other Cases!
+//var kafkaSecret corev1.Secret
+//if len(kafkaSecrets.Items) != 1 {
+//	logger.Warn(fmt.Sprintf("Expected 1 Kafka Secret But Found %d - Kafka AdminClient Will Not Be Functional!", len(kafkaSecrets.Items)))
+//	return &KafkaAdminClient{logger: logger, namespace: namespace, clientId: clientId}, nil
+//} else {
+//	logger.Info("Found 1 Kafka Secret", zap.String("Secret", kafkaSecrets.Items[0].Name))
+//	kafkaSecret = kafkaSecrets.Items[0]
+//}
+//
+//// Validate Secret Data
+//if !adminutil.ValidateKafkaSecret(logger, &kafkaSecret) {
+//	err = errors.New("invalid Kafka Secret found")
+//	return nil, err
+//}
+//
+//// Extract The Relevant Data From The Kafka Secret
+//brokers := strings.Split(string(kafkaSecret.Data[constants.KafkaSecretKeyBrokers]), ",")
+//username := string(kafkaSecret.Data[constants.KafkaSecretKeyUsername])
+//password := string(kafkaSecret.Data[constants.KafkaSecretKeyPassword])
+//
+//// Update The Sarama ClusterAdmin Configuration With Our Values
+//kafkasarama.UpdateSaramaConfig(saramaConfig, clientId, username, password)
+*/
 
 //
 // FilterWithKafkaChannelLabels - Custom Filter For Common K8S Components "Owned" By KafkaChannels

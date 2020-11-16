@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"strings"
 
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
+	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 )
 
 // Get The Formatted Kafka Topic Name From The Specified Components

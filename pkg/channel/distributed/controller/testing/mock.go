@@ -20,7 +20,7 @@ import (
 	"context"
 
 	"github.com/Shopify/sarama"
-	kafkaadmin "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin"
+	kafkaadmin "knative.dev/eventing-kafka/pkg/common/kafka/admin"
 )
 
 //

@@ -20,17 +20,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
-	corev1 "k8s.io/api/core/v1"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/custom"
-	adminutil "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/util"
-	kubeclient "knative.dev/pkg/client/injection/kube/client"
+	"knative.dev/eventing-kafka/pkg/common/kafka/admin/custom"
+	adminutil "knative.dev/eventing-kafka/pkg/common/kafka/admin/util"
 	"knative.dev/pkg/logging"
 )
 
@@ -50,53 +47,26 @@ var _ AdminClientInterface = &CustomAdminClient{}
 
 // Custom AdminClient Definition
 type CustomAdminClient struct {
-	logger      *zap.Logger
-	namespace   string
-	kafkaSecret string
-	httpClient  *http.Client
+	logger     *zap.Logger
+	httpClient *http.Client
 }
 
 // Create A New Custom Kafka AdminClient Based On The Kafka Secret In The Specified K8S Namespace
-func NewCustomAdminClient(ctx context.Context, namespace string) (AdminClientInterface, error) {
+func NewCustomAdminClient(ctx context.Context) (AdminClientInterface, error) {
 
 	// Get The Logger From The Context
 	logger := logging.FromContext(ctx).Desugar()
-
-	// Get The K8S Client From The Context
-	k8sClient := kubeclient.Get(ctx)
-
-	// Get A List Of The Kafka Secrets
-	kafkaSecrets, err := adminutil.GetKafkaSecrets(ctx, k8sClient, namespace)
-	if err != nil {
-		logger.Error("Failed To Get Kafka Authentication Secrets", zap.Error(err))
-		return nil, err
-	}
-
-	// Currently Only Support One Kafka Secret - Invalid AdminClient For All Other Cases!
-	var kafkaSecret corev1.Secret
-	if len(kafkaSecrets.Items) != 1 {
-		logger.Warn(fmt.Sprintf("Expected 1 Kafka Secret But Found %d - Kafka AdminClient Will Not Be Functional!", len(kafkaSecrets.Items)))
-		return nil, nil
-	} else {
-		logger.Info("Found 1 Kafka Secret", zap.String("Secret", kafkaSecrets.Items[0].Name))
-		kafkaSecret = kafkaSecrets.Items[0]
-	}
-
-	// Validate Secret Data
-	if !adminutil.ValidateKafkaSecret(logger, &kafkaSecret) {
-		err = errors.New("invalid Kafka Secret found")
-		return nil, err
-	}
 
 	// Create A Custom HTTP Client With Custom Timeout
 	httpClient := &http.Client{Timeout: custom.SidecarTimeout}
 
 	// Create A Custom AdminClient (REST Sidecar Endpoint Pass-Through)
 	customAdminClient := &CustomAdminClient{
-		logger:      logger,
-		namespace:   namespace,
-		kafkaSecret: kafkaSecret.Name,
-		httpClient:  httpClient,
+		logger: logger,
+		// TODO
+		//namespace:   namespace,
+		//kafkaSecret: kafkaSecret.Name,
+		httpClient: httpClient,
 	}
 
 	// Return The Custom AdminClient
@@ -192,10 +162,10 @@ func (c *CustomAdminClient) Close() error {
 	return nil // Nothing to "close" in the Custom implementation (just a REST client) so this is just a compatibility no-op.
 }
 
-// Get The K8S Secret With Kafka Credentials For The Specified Topic Name
-func (c *CustomAdminClient) GetKafkaSecretName(_ string) string {
-	return c.kafkaSecret // Only supports 1 topic so just return Kafka Secret name ; )
-}
+//// Get The K8S Secret With Kafka Credentials For The Specified Topic Name
+//func (c *CustomAdminClient) GetKafkaSecretName(_ string) string {
+//	return c.kafkaSecret // Only supports 1 topic so just return Kafka Secret name ; )
+//}
 
 // Safely Close The Specified HTTP Response Body
 func (c *CustomAdminClient) safeCloseHTTPResponseBody(response *http.Response) {

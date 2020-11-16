@@ -523,7 +523,9 @@ func (r *Reconciler) dispatcherDeploymentEnvVars(channel *kafkav1beta1.KafkaChan
 	}
 
 	// Get The Kafka Secret From The Kafka Admin Client
-	kafkaSecret := r.adminClient.GetKafkaSecretName(topicName)
+	// tODO - fix this up - will get secret name from configmap or env var (per matthias)
+	//kafkaSecret := r.adminClient.GetKafkaSecretName(topicName)
+	kafkaSecret := "kafka-cluster"
 
 	// If The Kafka Secret Env Var Is Specified Then Append Relevant Env Vars
 	if len(kafkaSecret) <= 0 {

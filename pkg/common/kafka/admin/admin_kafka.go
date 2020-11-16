@@ -18,17 +18,10 @@ package admin
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"strings"
-
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
-	corev1 "k8s.io/api/core/v1"
-	adminutil "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/util"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
-	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
-	kubeclient "knative.dev/pkg/client/injection/kube/client"
+	adminutil "knative.dev/eventing-kafka/pkg/common/kafka/admin/util"
 	"knative.dev/pkg/logging"
 )
 
@@ -43,51 +36,15 @@ var _ AdminClientInterface = &KafkaAdminClient{}
 // Kafka AdminClient Definition
 type KafkaAdminClient struct {
 	logger       *zap.Logger
-	namespace    string
-	kafkaSecret  string
 	clientId     string
 	clusterAdmin sarama.ClusterAdmin
 }
 
 // Create A New Kafka AdminClient Based On The Kafka Secret In The Specified K8S Namespace
-func NewKafkaAdminClient(ctx context.Context, saramaConfig *sarama.Config, clientId string, namespace string) (AdminClientInterface, error) {
+func NewKafkaAdminClient(ctx context.Context, brokers []string, saramaConfig *sarama.Config, clientId string) (AdminClientInterface, error) {
 
 	// Get The Logger From The Context
 	logger := logging.FromContext(ctx).Desugar()
-
-	// Get The K8S Client From The Context
-	k8sClient := kubeclient.Get(ctx)
-
-	// Get A List Of The Kafka Secrets
-	kafkaSecrets, err := adminutil.GetKafkaSecrets(ctx, k8sClient, namespace)
-	if err != nil {
-		logger.Error("Failed To Get Kafka Authentication Secrets", zap.Error(err))
-		return nil, err
-	}
-
-	// Currently Only Support One Kafka Secret - Invalid AdminClient For All Other Cases!
-	var kafkaSecret corev1.Secret
-	if len(kafkaSecrets.Items) != 1 {
-		logger.Warn(fmt.Sprintf("Expected 1 Kafka Secret But Found %d - Kafka AdminClient Will Not Be Functional!", len(kafkaSecrets.Items)))
-		return &KafkaAdminClient{logger: logger, namespace: namespace, clientId: clientId}, nil
-	} else {
-		logger.Info("Found 1 Kafka Secret", zap.String("Secret", kafkaSecrets.Items[0].Name))
-		kafkaSecret = kafkaSecrets.Items[0]
-	}
-
-	// Validate Secret Data
-	if !adminutil.ValidateKafkaSecret(logger, &kafkaSecret) {
-		err = errors.New("invalid Kafka Secret found")
-		return nil, err
-	}
-
-	// Extract The Relevant Data From The Kafka Secret
-	brokers := strings.Split(string(kafkaSecret.Data[constants.KafkaSecretKeyBrokers]), ",")
-	username := string(kafkaSecret.Data[constants.KafkaSecretKeyUsername])
-	password := string(kafkaSecret.Data[constants.KafkaSecretKeyPassword])
-
-	// Update The Sarama ClusterAdmin Configuration With Our Values
-	kafkasarama.UpdateSaramaConfig(saramaConfig, clientId, username, password)
 
 	// Create A New Sarama ClusterAdmin
 	clusterAdmin, err := NewClusterAdminWrapper(brokers, saramaConfig)
@@ -99,8 +56,6 @@ func NewKafkaAdminClient(ctx context.Context, saramaConfig *sarama.Config, clien
 	// Create The KafkaAdminClient
 	kafkaAdminClient := &KafkaAdminClient{
 		logger:       logger,
-		namespace:    namespace,
-		kafkaSecret:  kafkaSecret.Name,
 		clientId:     clientId,
 		clusterAdmin: clusterAdmin,
 	}
@@ -145,9 +100,4 @@ func (k KafkaAdminClient) Close() error {
 	} else {
 		return k.clusterAdmin.Close()
 	}
-}
-
-// Get The K8S Secret With Kafka Credentials For The Specified Topic Name
-func (k KafkaAdminClient) GetKafkaSecretName(_ string) string {
-	return k.kafkaSecret
 }

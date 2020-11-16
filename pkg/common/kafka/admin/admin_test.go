@@ -23,7 +23,6 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
-	"knative.dev/eventing-kafka/pkg/common/constants"
 )
 
 // Mock AdminClient Reference
@@ -40,10 +39,9 @@ func TestCreateAdminClientKafka(t *testing.T) {
 
 	// Replace the NewKafkaAdminClientWrapper To Provide Mock AdminClient & Defer Reset
 	NewKafkaAdminClientWrapperRef := NewKafkaAdminClientWrapper
-	NewKafkaAdminClientWrapper = func(ctxArg context.Context, saramaConfig *sarama.Config, clientIdArg string, namespaceArg string) (AdminClientInterface, error) {
+	NewKafkaAdminClientWrapper = func(ctxArg context.Context, saramaConfig *sarama.Config, clientIdArg string) (AdminClientInterface, error) {
 		assert.Equal(t, ctx, ctxArg)
 		assert.Equal(t, clientId, clientIdArg)
-		assert.Equal(t, constants.KnativeEventingNamespace, namespaceArg)
 		assert.Equal(t, adminClientType, adminClientType)
 		return mockAdminClient, nil
 	}
@@ -69,16 +67,18 @@ func TestCreateAdminClientEventHub(t *testing.T) {
 
 	// Replace the NewEventHubAdminClientWrapper To Provide Mock AdminClient & Defer Reset
 	NewEventHubAdminClientWrapperRef := NewEventHubAdminClientWrapper
-	NewEventHubAdminClientWrapper = func(ctxArg context.Context, namespaceArg string) (AdminClientInterface, error) {
+	NewEventHubAdminClientWrapper = func(ctxArg context.Context) (AdminClientInterface, error) {
 		assert.Equal(t, ctx, ctxArg)
-		assert.Equal(t, constants.KnativeEventingNamespace, namespaceArg)
 		assert.Equal(t, adminClientType, adminClientType)
 		return mockAdminClient, nil
 	}
 	defer func() { NewEventHubAdminClientWrapper = NewEventHubAdminClientWrapperRef }()
 
+	// TODO - TEST BROKERS?
+	brokers := []{"TODO"}
+
 	// Perform The Test
-	adminClient, err := CreateAdminClient(ctx, commontesting.GetDefaultSaramaConfig(t), clientId, adminClientType)
+	adminClient, err := CreateAdminClient(ctx, brokers, commontesting.GetDefaultSaramaConfig(t), clientId, adminClientType)
 
 	// Verify The Results
 	assert.Nil(t, err)
@@ -97,9 +97,8 @@ func TestCreateAdminClientCustom(t *testing.T) {
 
 	// Replace the NewPluginAdminClientWrapper To Provide Mock AdminClient & Defer Reset
 	NewCustomAdminClientWrapperRef := NewCustomAdminClientWrapper
-	NewCustomAdminClientWrapper = func(ctxArg context.Context, namespaceArg string) (AdminClientInterface, error) {
+	NewCustomAdminClientWrapper = func(ctxArg context.Context) (AdminClientInterface, error) {
 		assert.Equal(t, ctx, ctxArg)
-		assert.Equal(t, constants.KnativeEventingNamespace, namespaceArg)
 		assert.Equal(t, adminClientType, adminClientType)
 		return mockAdminClient, nil
 	}

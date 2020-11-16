@@ -28,10 +28,9 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
-
 	"k8s.io/client-go/kubernetes/fake"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/custom"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
+	"knative.dev/eventing-kafka/pkg/common/kafka/admin/custom"
+	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
@@ -40,23 +39,12 @@ import (
 // Test The NewCustomAdminClient() Functionality - Success Path
 func TestNewCustomAdminClientSuccess(t *testing.T) {
 
-	// Test Data
-	namespace := "TestNamespace"
-	kafkaSecretName := "TestKafkaSecretName"
-	kafkaSecretBrokers := "TestKafkaSecretBrokers"
-	kafkaSecretUsername := "TestKafkaSecretUsername"
-	kafkaSecretPassword := "TestKafkaSecretPassword"
-
-	// Create Test Kafka Secret
-	kafkaSecret := createKafkaSecret(kafkaSecretName, namespace, kafkaSecretBrokers, kafkaSecretUsername, kafkaSecretPassword)
-
 	// Create A Context With Test Logger & K8S Client
 	logger := logtesting.TestLogger(t)
 	ctx := logging.WithLogger(context.TODO(), logger)
-	ctx = context.WithValue(ctx, injectionclient.Key{}, fake.NewSimpleClientset(kafkaSecret))
 
 	// Perform The Test
-	adminClient, err := NewCustomAdminClient(ctx, namespace)
+	adminClient, err := NewCustomAdminClient(ctx)
 
 	// Verify The Result
 	assert.Nil(t, err)
@@ -65,55 +53,13 @@ func TestNewCustomAdminClientSuccess(t *testing.T) {
 	assert.True(t, ok)
 	assert.NotNil(t, customAdminClient)
 	assert.NotEqual(t, logger, customAdminClient.logger)
-	assert.NotEqual(t, namespace, customAdminClient.logger)
-	assert.Equal(t, kafkaSecretName, customAdminClient.kafkaSecret)
 	assert.NotNil(t, customAdminClient.httpClient)
-}
-
-// Test The NewCustomAdminClient() Constructor - No Kafka Secrets
-func TestNewCustomAdminClientNoKafkaSecret(t *testing.T) {
-
-	// Test Data
-	namespace := "TestNamespace"
-
-	// Create A Context With Test Logger & K8S Client
-	ctx := logging.WithLogger(context.TODO(), logtesting.TestLogger(t))
-	ctx = context.WithValue(ctx, injectionclient.Key{}, fake.NewSimpleClientset())
-
-	// Perform The Test
-	adminClient, err := NewCustomAdminClient(ctx, namespace)
-
-	// Verify The Result
-	assert.Nil(t, err)
-	assert.Nil(t, adminClient)
-}
-
-// Test The NewCustomAdminClient() Constructor - Invalid Kafka Secrets
-func TestNewCustomAdminClientInvalidKafkaSecret(t *testing.T) {
-
-	// Test Data
-	namespace := "TestNamespace"
-
-	// Create Test Kafka Secret With Invalid Data
-	kafkaSecret := createKafkaSecret("Name", namespace, "", "", "")
-
-	// Create A Context With Test Logger & K8S Client
-	ctx := logging.WithLogger(context.TODO(), logtesting.TestLogger(t))
-	ctx = context.WithValue(ctx, injectionclient.Key{}, fake.NewSimpleClientset(kafkaSecret))
-
-	// Perform The Test
-	adminClient, err := NewCustomAdminClient(ctx, namespace)
-
-	// Verify The Result
-	assert.NotNil(t, err)
-	assert.Nil(t, adminClient)
 }
 
 // Test The Custom AdminClient CreateTopic() Functionality
 func TestCustomAdminClientCreateTopic(t *testing.T) {
 
 	// Test Data
-	namespace := "TestNamespace"
 	topicName := "TestTopicName"
 	topicNumPartitions := int32(4)
 	topicReplicationFactor := int16(2)
@@ -126,13 +72,10 @@ func TestCustomAdminClientCreateTopic(t *testing.T) {
 	mockSidecarServer.Start()
 	defer mockSidecarServer.Close()
 
-	// Create Test Kafka Secret With Sample (But Valid) Data
-	kafkaSecret := createKafkaSecret("Name", namespace, "Brokers", "Username", "Password")
-
 	// Create A Context With Test Logger & K8S Client
 	logger := logtesting.TestLogger(t)
 	ctx := logging.WithLogger(context.TODO(), logger)
-	ctx = context.WithValue(ctx, injectionclient.Key{}, fake.NewSimpleClientset(kafkaSecret))
+	ctx = context.WithValue(ctx, injectionclient.Key{}, fake.NewSimpleClientset())
 
 	// Create The Sarama TopicDetail For The Topic/EventHub To Be Created
 	topicDetail := &sarama.TopicDetail{
@@ -142,7 +85,7 @@ func TestCustomAdminClientCreateTopic(t *testing.T) {
 	}
 
 	// Create A New Custom AdminClient
-	adminClient, err := NewCustomAdminClient(ctx, namespace)
+	adminClient, err := NewCustomAdminClient(ctx)
 	assert.Nil(t, err)
 	assert.NotNil(t, adminClient)
 
@@ -163,7 +106,6 @@ func TestCustomAdminClientCreateTopic(t *testing.T) {
 func TestCustomAdminClientDeleteTopic(t *testing.T) {
 
 	// Test Data
-	namespace := "TestNamespace"
 	topicName := "TestTopicName"
 
 	// Create & Start The Test Sidecar HTTP Server (Success Response) & Defer Close
@@ -171,16 +113,13 @@ func TestCustomAdminClientDeleteTopic(t *testing.T) {
 	mockSidecarServer.Start()
 	defer mockSidecarServer.Close()
 
-	// Create Test Kafka Secret With Sample (But Valid) Data
-	kafkaSecret := createKafkaSecret("Name", namespace, "Brokers", "Username", "Password")
-
 	// Create A Context With Test Logger & K8S Client
 	logger := logtesting.TestLogger(t)
 	ctx := logging.WithLogger(context.TODO(), logger)
-	ctx = context.WithValue(ctx, injectionclient.Key{}, fake.NewSimpleClientset(kafkaSecret))
+	ctx = context.WithValue(ctx, injectionclient.Key{}, fake.NewSimpleClientset())
 
 	// Create A New Custom AdminClient
-	adminClient, err := NewCustomAdminClient(ctx, namespace)
+	adminClient, err := NewCustomAdminClient(ctx)
 	assert.Nil(t, err)
 	assert.NotNil(t, adminClient)
 
@@ -208,26 +147,6 @@ func TestCustomAdminClientClose(t *testing.T) {
 
 	// Verify The Results
 	assert.Nil(t, err)
-}
-
-// Test The Custom AdminClient GetKafkaSecretName() Functionality
-func TestCustomAdminClientGetKafkaSecretName(t *testing.T) {
-
-	// Test Data
-	topicName := "TestTopicName"
-	secretName := "TestSecretName"
-
-	// Test Logger
-	logger := logtesting.TestLogger(t).Desugar()
-
-	// Create A New Custom AdminClient To Test
-	adminClient := &CustomAdminClient{logger: logger, kafkaSecret: secretName}
-
-	// Perform The Test
-	actualSecretName := adminClient.GetKafkaSecretName(topicName)
-
-	// Verify The Results
-	assert.Equal(t, secretName, actualSecretName)
 }
 
 //

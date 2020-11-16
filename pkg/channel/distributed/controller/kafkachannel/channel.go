@@ -164,5 +164,7 @@ func (r *Reconciler) newKafkaChannelService(channel *kafkav1beta1.KafkaChannel) 
 
 // Get The Kafka Auth Secret Corresponding To The Specified KafkaChannel
 func (r *Reconciler) kafkaSecretName(channel *kafkav1beta1.KafkaChannel) string {
-	return r.adminClient.GetKafkaSecretName(util.TopicName(channel))
+	// tODO - fix this up - will get secret name from configmap or env var (per matthias)
+	//return r.adminClient.GetKafkaSecretName(util.TopicName(channel))
+	return "kafka-cluster"
 }

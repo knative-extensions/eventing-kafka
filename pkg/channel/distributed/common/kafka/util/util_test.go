@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
+	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 )
 
 // Test The TopicName() Functionality

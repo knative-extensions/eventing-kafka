@@ -22,15 +22,13 @@ import (
 	"fmt"
 
 	"github.com/Shopify/sarama"
-	"knative.dev/eventing-kafka/pkg/common/constants"
 )
 
-// Sarama ClusterAdmin Wrapping Interface To Facilitate Other Implementations (e.g. Azure EventHubs)
+// Sarama ClusterAdmin Wrapping Interface To Facilitate Other Implementations (Azure EventHubs, Custom, etc..)
 type AdminClientInterface interface {
 	CreateTopic(context.Context, string, *sarama.TopicDetail) *sarama.TopicError
 	DeleteTopic(context.Context, string) *sarama.TopicError
 	Close() error
-	GetKafkaSecretName(topicName string) string
 }
 
 // AdminClient Type Enumeration
@@ -62,18 +60,17 @@ const (
 //        brokers: <azure-namespace>.servicebus.windows.net:9093
 //        username: $ConnectionString
 //        password: Endpoint=sb://<azure-namespace>.servicebus.windows.net/;SharedAccessKeyName=<shared-access-key-name>;SharedAccessKey=<shared-access-key-value>
-//		  namespace: <azure-namespace>
+//		  namespace: <azure-eventhub-namespace>
 //
-// * If no authorization is required (local dev instance) then specify username and password as the empty string ""
 //
-func CreateAdminClient(ctx context.Context, saramaConfig *sarama.Config, clientId string, adminClientType AdminClientType) (AdminClientInterface, error) {
+func CreateAdminClient(ctx context.Context, brokers []string, saramaConfig *sarama.Config, clientId string, adminClientType AdminClientType) (AdminClientInterface, error) {
 	switch adminClientType {
 	case Kafka:
-		return NewKafkaAdminClientWrapper(ctx, saramaConfig, clientId, constants.KnativeEventingNamespace)
+		return NewKafkaAdminClientWrapper(ctx, brokers, saramaConfig, clientId)
 	case EventHub:
-		return NewEventHubAdminClientWrapper(ctx, constants.KnativeEventingNamespace)
+		return NewEventHubAdminClientWrapper(ctx, brokers)
 	case Custom:
-		return NewCustomAdminClientWrapper(ctx, constants.KnativeEventingNamespace)
+		return NewCustomAdminClientWrapper(ctx, brokers)
 	case Unknown:
 		return nil, errors.New("received unknown AdminClientType") // Should Never Happen But...
 	default:
@@ -82,16 +79,16 @@ func CreateAdminClient(ctx context.Context, saramaConfig *sarama.Config, clientI
 }
 
 // New Kafka AdminClient Wrapper To Facilitate Unit Testing
-var NewKafkaAdminClientWrapper = func(ctx context.Context, saramaConfig *sarama.Config, clientId string, namespace string) (AdminClientInterface, error) {
-	return NewKafkaAdminClient(ctx, saramaConfig, clientId, namespace)
+var NewKafkaAdminClientWrapper = func(ctx context.Context, brokers []string, saramaConfig *sarama.Config, clientId string) (AdminClientInterface, error) {
+	return NewKafkaAdminClient(ctx, brokers, saramaConfig, clientId)
 }
 
-// New EventHub AdminClient Wrapper To Facilitate Unit Testing
-var NewEventHubAdminClientWrapper = func(ctx context.Context, namespace string) (AdminClientInterface, error) {
-	return NewEventHubAdminClient(ctx, namespace)
+// New EventHub AdminClient Wrapper To Facilitate Unit Testing (Pass EventHub Namespace ConnectionStrings As "brokers")
+var NewEventHubAdminClientWrapper = func(ctx context.Context, connectionStrings []string) (AdminClientInterface, error) {
+	return NewEventHubAdminClient(ctx, connectionStrings...)
 }
 
 // New Custom AdminClient Wrapper To Facilitate Unit Testing
-var NewCustomAdminClientWrapper = func(ctx context.Context, namespace string) (AdminClientInterface, error) {
-	return NewCustomAdminClient(ctx, namespace)
+var NewCustomAdminClientWrapper = func(ctx context.Context, brokers []string) (AdminClientInterface, error) {
+	return NewCustomAdminClient(ctx)
 }

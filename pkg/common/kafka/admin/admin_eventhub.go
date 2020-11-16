@@ -26,9 +26,9 @@ import (
 	eventhub "github.com/Azure/azure-event-hubs-go/v3"
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/eventhubcache"
-	adminutil "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/util"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
+	"knative.dev/eventing-kafka/pkg/common/kafka/admin/eventhubcache"
+	adminutil "knative.dev/eventing-kafka/pkg/common/kafka/admin/util"
+	"knative.dev/eventing-kafka/pkg/common/kafka/constants"
 	"knative.dev/pkg/logging"
 )
 
@@ -46,27 +46,26 @@ var _ AdminClientInterface = &EventHubAdminClient{}
 
 // EventHub AdminClient Definition
 type EventHubAdminClient struct {
-	logger    *zap.Logger
-	namespace string
-	cache     eventhubcache.CacheInterface
+	logger *zap.Logger
+	cache  eventhubcache.CacheInterface
 }
 
 // EventHub ErrorCode RegExp - For Extracting Azure ErrorCodes From Error Messages
 var eventHubErrorCodeRegexp = *regexp.MustCompile(`^.*error code: (\d+),.*$`)
 
 // EventHub NewCache Wrapper To Facilitate Unit Testing
-var NewCacheWrapper = func(ctx context.Context, k8sNamespace string) eventhubcache.CacheInterface {
-	return eventhubcache.NewCache(ctx, k8sNamespace)
+var NewCacheWrapper = func(ctx context.Context, connectionStrings ...string) eventhubcache.CacheInterface {
+	return eventhubcache.NewCache(ctx, connectionStrings...)
 }
 
 // Create A New Azure EventHub AdminClient Based On Kafka Secrets In The Specified K8S Namespace
-func NewEventHubAdminClient(ctx context.Context, namespace string) (AdminClientInterface, error) {
+func NewEventHubAdminClient(ctx context.Context, connectionStrings ...string) (AdminClientInterface, error) {
 
 	// Get The Logger From The Context
 	logger := logging.FromContext(ctx).Desugar()
 
 	// Create A New Cache Via the Wrapper
-	cache := NewCacheWrapper(ctx, namespace)
+	cache := NewCacheWrapper(ctx, connectionStrings...)
 
 	// Initialize The EventHub Namespace Cache
 	err := cache.Update(context.TODO())
@@ -78,9 +77,8 @@ func NewEventHubAdminClient(ctx context.Context, namespace string) (AdminClientI
 	// Create And Return A New EventHub AdminClient With Namespace Cache
 	logger.Debug("Successfully Created New Azure EventHub AdminClient")
 	return &EventHubAdminClient{
-		logger:    logger,
-		namespace: namespace,
-		cache:     cache,
+		logger: logger,
+		cache:  cache,
 	}, nil
 }
 
@@ -184,22 +182,6 @@ func (c *EventHubAdminClient) DeleteTopic(ctx context.Context, topicName string)
 
 	// Return Success!
 	return adminutil.NewTopicError(sarama.ErrNoError, "successfully deleted topic")
-}
-
-// Get The K8S Secret With Kafka Credentials For The Specified Topic (EventHub)
-func (c *EventHubAdminClient) GetKafkaSecretName(topicName string) string {
-
-	// The Default Kafka Secret Name
-	kafkaSecretName := ""
-
-	// Attempt To Load The Actual Namespace & It's Kafka Secret Name
-	namespace := c.cache.GetNamespace(topicName)
-	if namespace != nil {
-		return namespace.Secret
-	}
-
-	// Return Results
-	return kafkaSecretName
 }
 
 // Kafka AdminClient Close Implementation Using Azure EventHub API

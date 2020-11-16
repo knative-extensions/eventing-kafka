@@ -20,6 +20,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"testing"
+	"time"
 
 	"github.com/Shopify/sarama"
 	"github.com/ghodss/yaml"
@@ -28,16 +30,13 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	commonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
-	kafkaconsumer "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer"
-	kafkatesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/testing"
 	"knative.dev/eventing-kafka/pkg/common/constants"
+	kafkaconsumer "knative.dev/eventing-kafka/pkg/common/kafka/consumer"
+	kafkatesting "knative.dev/eventing-kafka/pkg/common/kafka/testing"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/channel"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/system"
-
-	"testing"
-	"time"
 )
 
 // Test Data
