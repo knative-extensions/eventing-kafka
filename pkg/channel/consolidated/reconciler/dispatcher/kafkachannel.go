@@ -88,6 +88,8 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		logger.Fatalw("Error loading kafka config", zap.Error(err))
 	}
 
+	kafkaAuthCfg := utils.GetKafkaAuthData(ctx, kafkaConfig.AuthSecretName, kafkaConfig.AuthSecretNamespace)
+
 	connectionArgs := &kncloudevents.ConnectionArgs{
 		MaxIdleConns:        int(kafkaConfig.MaxIdleConns),
 		MaxIdleConnsPerHost: int(kafkaConfig.MaxIdleConnsPerHost),
@@ -95,13 +97,12 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 
 	kafkaChannelInformer := kafkachannel.Get(ctx)
 	args := &dispatcher.KafkaDispatcherArgs{
-		KnCEConnectionArgs:  connectionArgs,
-		ClientID:            "kafka-ch-dispatcher",
-		Brokers:             kafkaConfig.Brokers,
-		AuthSecretName:      kafkaConfig.AuthSecretName,
-		AuthSecretNamespace: kafkaConfig.AuthSecretNamespace,
-		TopicFunc:           utils.TopicName,
-		Logger:              logger,
+		KnCEConnectionArgs: connectionArgs,
+		ClientID:           "kafka-ch-dispatcher",
+		Brokers:            kafkaConfig.Brokers,
+		KafkaAuthConfig:    kafkaAuthCfg,
+		TopicFunc:          utils.TopicName,
+		Logger:             logger,
 	}
 	kafkaDispatcher, err := dispatcher.NewDispatcher(ctx, args)
 	if err != nil {

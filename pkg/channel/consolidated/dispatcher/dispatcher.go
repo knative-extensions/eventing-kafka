@@ -95,25 +95,21 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 	conf.Producer.Return.Successes = true // Must be enabled for sync producer
 
 	// Get the auth info
-	if args.AuthSecretName != "" {
-		kafkaAuthCfg := utils.GetKafkaAuthData(ctx, args.AuthSecretName, args.AuthSecretNamespace)
-
-		if kafkaAuthCfg != nil {
-			// tls
-			if kafkaAuthCfg.TLS != nil {
-				conf.Net.TLS.Enable = true
-				tlsConfig, err := kafkaclient.NewTLSConfig(kafkaAuthCfg.TLS.Usercert, kafkaAuthCfg.TLS.Userkey, kafkaAuthCfg.TLS.Cacert)
-				if err != nil {
-					return nil, err
-				}
-				conf.Net.TLS.Config = tlsConfig
+	if args.KafkaAuthConfig != nil {
+		// tls
+		if args.KafkaAuthConfig.TLS != nil {
+			conf.Net.TLS.Enable = true
+			tlsConfig, err := kafkaclient.NewTLSConfig(args.KafkaAuthConfig.TLS.Usercert, args.KafkaAuthConfig.TLS.Userkey, args.KafkaAuthConfig.TLS.Cacert)
+			if err != nil {
+				return nil, err
 			}
-			// SASL
-			if kafkaAuthCfg.SASL != nil {
-				conf.Net.SASL.Enable = true
-				conf.Net.SASL.User = kafkaAuthCfg.SASL.User
-				conf.Net.SASL.Password = kafkaAuthCfg.SASL.Password
-			}
+			conf.Net.TLS.Config = tlsConfig
+		}
+		// SASL
+		if args.KafkaAuthConfig.SASL != nil {
+			conf.Net.SASL.Enable = true
+			conf.Net.SASL.User = args.KafkaAuthConfig.SASL.User
+			conf.Net.SASL.Password = args.KafkaAuthConfig.SASL.Password
 		}
 	}
 
@@ -181,13 +177,12 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 type TopicFunc func(separator, namespace, name string) string
 
 type KafkaDispatcherArgs struct {
-	KnCEConnectionArgs  *kncloudevents.ConnectionArgs
-	ClientID            string
-	Brokers             []string
-	AuthSecretName      string
-	AuthSecretNamespace string
-	TopicFunc           TopicFunc
-	Logger              *zap.SugaredLogger
+	KnCEConnectionArgs *kncloudevents.ConnectionArgs
+	ClientID           string
+	Brokers            []string
+	KafkaAuthConfig    *utils.KafkaAuthConfig
+	TopicFunc          TopicFunc
+	Logger             *zap.SugaredLogger
 }
 
 type consumerMessageHandler struct {
