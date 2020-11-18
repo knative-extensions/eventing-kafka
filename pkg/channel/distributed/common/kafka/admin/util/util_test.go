@@ -19,6 +19,7 @@ package util
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/Shopify/sarama"
@@ -136,23 +137,23 @@ func TestPromoteErrorToTopicError(t *testing.T) {
 	assert.Equal(t, sarama.ErrUnknown, topicError.Err)
 	assert.Equal(t, unknownErrorMessage, *topicError.ErrMsg)
 
-	// Test Known Error Messages
-	knownErrors := []sarama.KError{
-		sarama.ErrNoError,
-		sarama.ErrTopicAlreadyExists,
-		sarama.ErrUnknownTopicOrPartition,
-		sarama.ErrInvalidTopic,
-		sarama.ErrInvalidPartitions,
-		sarama.ErrInvalidConfig,
-	}
-	for _, knownError := range knownErrors {
-		topicError = PromoteErrorToTopicError(errors.New(knownError.Error()))
+	// Test Valid KError Message Promotion
+	assert.True(t, minKError < maxKError)
+	for kError := minKError; kError <= maxKError; kError++ {
+		topicError = PromoteErrorToTopicError(errors.New(kError.Error()))
 		assert.NotNil(t, topicError)
-		assert.Equal(t, knownError, topicError.Err)
+		assert.Equal(t, kError, topicError.Err)
 		assert.Equal(t, "Promoted To TopicError Based On Error Message Match", *topicError.ErrMsg)
 	}
 
-	// Test TopicError
+	// Test Invalid KError Message Promotion
+	invalidKError := maxKError + 1
+	topicError = PromoteErrorToTopicError(invalidKError)
+	assert.NotNil(t, topicError)
+	assert.Equal(t, sarama.ErrUnknown, topicError.Err)
+	assert.Equal(t, fmt.Sprintf("Unknown error, how did this happen? Error code = %d", invalidKError), *topicError.ErrMsg)
+
+	// Test Valid TopicError
 	topicErrorMessage := "TopicErrorMessage"
 	topicError = PromoteErrorToTopicError(&sarama.TopicError{Err: sarama.ErrInvalidConfig, ErrMsg: &topicErrorMessage})
 	assert.NotNil(t, topicError)

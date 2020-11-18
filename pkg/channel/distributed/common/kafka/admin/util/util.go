@@ -27,6 +27,13 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 )
 
+// Constants
+const (
+	// Note - Update These When Sarama KErrors Change
+	minKError = sarama.ErrUnknown
+	maxKError = sarama.ErrFencedInstancedId
+)
+
 // Utility Function For Getting All (Limit 100) The Kafka Secrets In A K8S Namespace
 func GetKafkaSecrets(ctx context.Context, k8sClient kubernetes.Interface, k8sNamespace string) (*corev1.SecretList, error) {
 	return k8sClient.CoreV1().Secrets(k8sNamespace).List(ctx, metav1.ListOptions{
@@ -83,23 +90,12 @@ func PromoteErrorToTopicError(err error) *sarama.TopicError {
 		case *sarama.TopicError:
 			return err
 		default:
-			promotedMessage := "Promoted To TopicError Based On Error Message Match"
-			switch err.Error() {
-			case sarama.ErrNoError.Error():
-				return NewTopicError(sarama.ErrNoError, promotedMessage)
-			case sarama.ErrTopicAlreadyExists.Error():
-				return NewTopicError(sarama.ErrTopicAlreadyExists, promotedMessage)
-			case sarama.ErrUnknownTopicOrPartition.Error():
-				return NewTopicError(sarama.ErrUnknownTopicOrPartition, promotedMessage)
-			case sarama.ErrInvalidTopic.Error():
-				return NewTopicError(sarama.ErrInvalidTopic, promotedMessage)
-			case sarama.ErrInvalidPartitions.Error():
-				return NewTopicError(sarama.ErrInvalidPartitions, promotedMessage)
-			case sarama.ErrInvalidConfig.Error():
-				return NewTopicError(sarama.ErrInvalidConfig, promotedMessage)
-			default:
-				return NewTopicError(sarama.ErrUnknown, err.Error())
+			for kError := minKError; kError <= maxKError; kError++ {
+				if err.Error() == kError.Error() {
+					return NewTopicError(kError, "Promoted To TopicError Based On Error Message Match")
+				}
 			}
+			return NewTopicError(sarama.ErrUnknown, err.Error())
 		}
 	}
 }
