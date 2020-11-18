@@ -97,6 +97,7 @@ func (r *Reconciler) createTopic(ctx context.Context, logger *zap.Logger, topicN
 	// Attempt To Create The Topic & Process TopicError Results (Including Success ;)
 	err := r.adminClient.CreateTopic(ctx, topicName, topicDetail)
 	if err != nil {
+		logger := logger.With(zap.Int16("KError", int16(err.Err)))
 		switch err.Err {
 		case sarama.ErrNoError:
 			logger.Info("Successfully Created New Kafka Topic (ErrNoError)")
@@ -105,7 +106,7 @@ func (r *Reconciler) createTopic(ctx context.Context, logger *zap.Logger, topicN
 			logger.Info("Kafka Topic Already Exists - No Creation Required")
 			return nil
 		default:
-			logger.Error("Failed To Create Topic", zap.Any("TopicError", err))
+			logger.Error("Failed To Create Topic")
 			return err
 		}
 	} else {
@@ -120,6 +121,7 @@ func (r *Reconciler) deleteTopic(ctx context.Context, logger *zap.Logger, topicN
 	// Attempt To Delete The Topic & Process Results
 	err := r.adminClient.DeleteTopic(ctx, topicName)
 	if err != nil {
+		logger := logger.With(zap.Int16("KError", int16(err.Err)))
 		switch err.Err {
 		case sarama.ErrNoError:
 			logger.Info("Successfully Deleted Existing Kafka Topic (ErrNoError)")
@@ -134,14 +136,14 @@ func (r *Reconciler) deleteTopic(ctx context.Context, logger *zap.Logger, topicN
 				// happen when an EventHub could not be created due to exceeding the number of allowable EventHubs.  The
 				// KafkaChannel is then in an "UNKNOWN" state having never been fully reconciled.  We want to swallow this
 				// error here so that the deletion of the Topic / EventHub doesn't block the deletion of the KafkaChannel.
-				logger.Warn("Unable To Delete Topic Due To Invalid Kafka Topic Config (Likely EventHub Namespace Cache)", zap.Error(err))
+				logger.Warn("Unable To Delete Topic Due To Invalid Kafka Topic Config (Likely EventHub Namespace Cache)")
 				return nil
 			} else {
-				logger.Error("Failed To Delete Topic Due To Invalid Config", zap.Any("TopicError", err))
+				logger.Error("Failed To Delete Topic Due To Invalid Config")
 				return err
 			}
 		default:
-			logger.Error("Failed To Delete Topic", zap.Any("TopicError", err))
+			logger.Error("Failed To Delete Topic")
 			return err
 		}
 	} else {

@@ -125,28 +125,39 @@ func TestValidateKafkaSecret(t *testing.T) {
 // Test The PromoteErrorToTopicError() Functionality
 func TestPromoteErrorToTopicError(t *testing.T) {
 
-	// Test Data
-	defaultErrMsg := "test default error"
-	defaultErr := errors.New(defaultErrMsg)
-	topicErrMsg := "test TopicError"
-	topicErr := &sarama.TopicError{
-		Err:    sarama.ErrInvalidConfig,
-		ErrMsg: &topicErrMsg,
+	// Test Nil Error
+	topicError := PromoteErrorToTopicError(nil)
+	assert.Nil(t, topicError)
+
+	// Test Unknown Error Message
+	unknownErrorMessage := "UnknownErrorMessage"
+	topicError = PromoteErrorToTopicError(errors.New(unknownErrorMessage))
+	assert.NotNil(t, topicError)
+	assert.Equal(t, sarama.ErrUnknown, topicError.Err)
+	assert.Equal(t, unknownErrorMessage, *topicError.ErrMsg)
+
+	// Test Known Error Messages
+	knownErrors := []sarama.KError{
+		sarama.ErrNoError,
+		sarama.ErrTopicAlreadyExists,
+		sarama.ErrUnknownTopicOrPartition,
+		sarama.ErrInvalidTopic,
+		sarama.ErrInvalidPartitions,
+		sarama.ErrInvalidConfig,
+	}
+	for _, knownError := range knownErrors {
+		topicError = PromoteErrorToTopicError(errors.New(knownError.Error()))
+		assert.NotNil(t, topicError)
+		assert.Equal(t, knownError, topicError.Err)
+		assert.Equal(t, "Promoted To TopicError Based On Error Message Match", *topicError.ErrMsg)
 	}
 
-	// Perform The Test (Both Cases)
-	nilTopicError := PromoteErrorToTopicError(nil)
-	defaultTopicError := PromoteErrorToTopicError(defaultErr)
-	saramaTopicError := PromoteErrorToTopicError(topicErr)
-
-	// Verify The Results
-	assert.Nil(t, nilTopicError)
-	assert.NotNil(t, defaultTopicError)
-	assert.Equal(t, sarama.ErrUnknown, defaultTopicError.Err)
-	assert.Equal(t, defaultErrMsg, *defaultTopicError.ErrMsg)
-	assert.NotNil(t, saramaTopicError)
-	assert.Equal(t, topicErr.Err, saramaTopicError.Err)
-	assert.Equal(t, topicErrMsg, *saramaTopicError.ErrMsg)
+	// Test TopicError
+	topicErrorMessage := "TopicErrorMessage"
+	topicError = PromoteErrorToTopicError(&sarama.TopicError{Err: sarama.ErrInvalidConfig, ErrMsg: &topicErrorMessage})
+	assert.NotNil(t, topicError)
+	assert.Equal(t, sarama.ErrInvalidConfig, topicError.Err)
+	assert.Equal(t, topicErrorMessage, *topicError.ErrMsg)
 }
 
 // Test The NewUnknownTopicError() Functionality

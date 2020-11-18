@@ -74,7 +74,7 @@ func ValidateKafkaSecret(logger *zap.Logger, secret *corev1.Secret) bool {
 	return valid
 }
 
-// Utility Function To Up-Convert Any Basic Errors Into TopicErrors
+// Utility Function To Up-Convert Basic Errors Into TopicErrors (With Message Matching For Pertinent Errors)
 func PromoteErrorToTopicError(err error) *sarama.TopicError {
 	if err == nil {
 		return nil
@@ -83,7 +83,23 @@ func PromoteErrorToTopicError(err error) *sarama.TopicError {
 		case *sarama.TopicError:
 			return err
 		default:
-			return NewUnknownTopicError(err.Error())
+			promotedMessage := "Promoted To TopicError Based On Error Message Match"
+			switch err.Error() {
+			case sarama.ErrNoError.Error():
+				return NewTopicError(sarama.ErrNoError, promotedMessage)
+			case sarama.ErrTopicAlreadyExists.Error():
+				return NewTopicError(sarama.ErrTopicAlreadyExists, promotedMessage)
+			case sarama.ErrUnknownTopicOrPartition.Error():
+				return NewTopicError(sarama.ErrUnknownTopicOrPartition, promotedMessage)
+			case sarama.ErrInvalidTopic.Error():
+				return NewTopicError(sarama.ErrInvalidTopic, promotedMessage)
+			case sarama.ErrInvalidPartitions.Error():
+				return NewTopicError(sarama.ErrInvalidPartitions, promotedMessage)
+			case sarama.ErrInvalidConfig.Error():
+				return NewTopicError(sarama.ErrInvalidConfig, promotedMessage)
+			default:
+				return NewTopicError(sarama.ErrUnknown, err.Error())
+			}
 		}
 	}
 }
