@@ -88,8 +88,16 @@ readonly STRIMZI_INSTALLATION_CONFIG_TEMPLATE="test/config/100-strimzi-cluster-o
 readonly STRIMZI_INSTALLATION_CONFIG="$(mktemp)"
 # Kafka cluster CR config file.
 readonly KAFKA_INSTALLATION_CONFIG="test/config/100-kafka-ephemeral-triple-2.6.0.yaml"
-# Kafka cluster URL for our installation
-readonly KAFKA_CLUSTER_URL="my-cluster-kafka-bootstrap.kafka:9092"
+# Kafka TLS ConfigMap.
+readonly KAFKA_TLS_CONFIG="test/config/config-kafka-tls.yaml"
+# Kafka Users CR config file.
+readonly KAFKA_USERS_CONFIG="test/config/100-strimzi-users-0.20.0.yaml"
+# Kafka PLAIN cluster URL
+readonly KAFKA_PLAIN_CLUSTER_URL="my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+# Kafka TLS cluster URL
+readonly KAFKA_TLS_CLUSTER_URL="my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9093"
+# Kafka cluster URL for our installation, during tests
+KAFKA_CLUSTER_URL=${KAFKA_PLAIN_CLUSTER_URL}
 # Kafka channel CRD config template file. It needs to be modified to be the real config file.
 readonly KAFKA_CRD_CONFIG_TEMPLATE="400-kafka-config.yaml"
 # Real Kafka channel CRD config , generated from the template directory and modified template file.
@@ -325,6 +333,9 @@ function kafka_setup() {
 
   # Wait For The Strimzi Kafka Cluster Operator To Be Ready (Forcing Delay To Ensure CRDs Are Installed To Prevent Race Condition)
   wait_until_pods_running "${STRIMZI_KAFKA_NAMESPACE}" || fail_test "Failed to start up a Strimzi Kafka Instance"
+
+  # Create some Strimzi Kafka Users
+  kubectl apply -f "${KAFKA_USERS_CONFIG}" -n "${STRIMZI_KAFKA_NAMESPACE}"
 }
 
 function kafka_teardown() {
@@ -334,10 +345,22 @@ function kafka_teardown() {
   kubectl delete namespace "${STRIMZI_KAFKA_NAMESPACE}"
 }
 
+function create_auth_secrets() {
+  echo "Creating TLS Kafka secret"
+  STRIMZI_CRT=$(kubectl -n kafka get secret my-cluster-cluster-ca-cert --template='{{index .data "ca.crt"}}' | base64 --decode )
+  TLSUSER_CRT=$(kubectl -n kafka get secret my-tls-user --template='{{index .data "user.crt"}}' | base64 --decode )
+  TLSUSER_KEY=$(kubectl -n kafka get secret my-tls-user --template='{{index .data "user.key"}}' | base64 --decode )
+
+  kubectl create secret --namespace knative-eventing generic strimzi-tls-secret \
+    --from-literal=ca.crt="$STRIMZI_CRT" \
+    --from-literal=user.crt="$TLSUSER_CRT" \
+    --from-literal=user.key="$TLSUSER_KEY"
+}
+
 # Installs the resources necessary to test the consolidated channel, runs those tests, and then cleans up those resources
-function test_consolidated_channel() {
-  # Test the consolidated channel
-  echo "Testing the consolidated channel"
+function test_consolidated_channel_plain() {
+  # Test the consolidated channel with no auth
+  echo "Testing the consolidated channel and source"
   install_consolidated_channel_crds || return 1
   install_consolidated_sources_crds || return 1
 
@@ -345,6 +368,20 @@ function test_consolidated_channel() {
   go_test_e2e -tags=e2e,source -timeout=5m -test.parallel=${TEST_PARALLEL} ./test/conformance -channels=messaging.knative.dev/v1beta1:KafkaChannel -sources=sources.knative.dev/v1beta1:KafkaSource || fail_test
 
   uninstall_sources_crds || return 1
+  uninstall_channel_crds || return 1
+}
+
+function test_consolidated_channel_tls() {
+  # Test the consolidated channel with no auth
+  echo "Testing the consolidated channel with TLS"
+  # Set the URL to the TLS listeners config
+  cp ${KAFKA_TLS_CONFIG} "${CONSOLIDATED_TEMPLATE_DIR}/configmaps/kafka-config.yaml"
+  KAFKA_CLUSTER_URL=${KAFKA_TLS_CLUSTER_URL}
+
+  install_consolidated_channel_crds || return 1
+
+  go_test_e2e -tags=e2e -timeout=40m -test.parallel=${TEST_PARALLEL} ./test/e2e -channels=messaging.knative.dev/v1beta1:KafkaChannel  || fail_test
+
   uninstall_channel_crds || return 1
 }
 
@@ -401,7 +438,9 @@ fi
 export SYSTEM_NAMESPACE
 
 if [[ $TEST_CONSOLIDATED_CHANNEL == 1 ]]; then
-  test_consolidated_channel || exit 1
+  test_consolidated_channel_plain || exit 1
+  create_auth_secrets
+  test_consolidated_channel_tls || exit 1
 fi
 
 # Terminate any zipkin port-forward processes that are still present on the system

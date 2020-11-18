@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package source
+package common
 
 import (
 	"bytes"
@@ -28,6 +28,8 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	"github.com/Shopify/sarama"
 
 	"github.com/stretchr/testify/require"
 )
@@ -79,7 +81,7 @@ func TestNewTLSConfig(t *testing.T) {
 		wantServer: true,
 	}} {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := newTLSConfig(tt.cert, tt.key, tt.caCert)
+			c, err := NewTLSConfig(tt.cert, tt.key, tt.caCert)
 			if tt.wantErr {
 				if err == nil {
 					t.Fatal("wanted error")
@@ -219,4 +221,25 @@ func TestNewConfig(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, config)
 	require.Equal(t, []string{"my-cluster-kafka-bootstrap.my-kafka-namespace:9092"}, servers)
+}
+
+func TestAdminClient(t *testing.T) {
+
+	seedBroker := sarama.NewMockBroker(t, 1)
+	defer seedBroker.Close()
+
+	seedBroker.SetHandlerByMap(map[string]sarama.MockResponse{
+		"MetadataRequest": sarama.NewMockMetadataResponse(t).
+			SetController(seedBroker.BrokerID()).
+			SetBroker(seedBroker.Addr(), seedBroker.BrokerID()),
+	})
+
+	// mock broker does not support TLS ...
+	admin, err := MakeAdminClient("test-client", nil, []string{seedBroker.Addr()})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	require.NoError(t, err)
+	require.NotNil(t, admin)
 }

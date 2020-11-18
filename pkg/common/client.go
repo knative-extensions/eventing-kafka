@@ -14,13 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package source
+package common
 
 import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"time"
+
+	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
 
 	"github.com/Shopify/sarama"
 	"github.com/kelseyhightower/envconfig"
@@ -68,7 +70,7 @@ func NewConfig(ctx context.Context) ([]string, *sarama.Config, error) {
 
 	if env.Net.TLS.Enable {
 		cfg.Net.TLS.Enable = true
-		tlsConfig, err := newTLSConfig(env.Net.TLS.Cert, env.Net.TLS.Key, env.Net.TLS.CACert)
+		tlsConfig, err := NewTLSConfig(env.Net.TLS.Cert, env.Net.TLS.Key, env.Net.TLS.CACert)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -91,9 +93,9 @@ func NewProducer(ctx context.Context) (sarama.Client, error) {
 	return sarama.NewClient(bs, cfg)
 }
 
-// newTLSConfig returns a *tls.Config using the given ceClient cert, ceClient key,
+// NewTLSConfig returns a *tls.Config using the given ceClient cert, ceClient key,
 // and CA certificate. If none are appropriate, a nil *tls.Config is returned.
-func newTLSConfig(clientCert, clientKey, caCert string) (*tls.Config, error) {
+func NewTLSConfig(clientCert, clientKey, caCert string) (*tls.Config, error) {
 	valid := false
 
 	config := &tls.Config{}
@@ -123,6 +125,31 @@ func newTLSConfig(clientCert, clientKey, caCert string) (*tls.Config, error) {
 	}
 
 	return config, nil
+}
+
+func MakeAdminClient(clientID string, kafkaAuthCfg *utils.KafkaAuthConfig, bootstrapServers []string) (sarama.ClusterAdmin, error) {
+	saramaConf := sarama.NewConfig()
+	saramaConf.Version = sarama.V1_1_0_0
+	saramaConf.ClientID = clientID
+
+	if kafkaAuthCfg != nil {
+		// tls
+		if kafkaAuthCfg.TLS != nil {
+			saramaConf.Net.TLS.Enable = true
+			tlsConfig, err := NewTLSConfig(kafkaAuthCfg.TLS.Usercert, kafkaAuthCfg.TLS.Userkey, kafkaAuthCfg.TLS.Cacert)
+			if err != nil {
+				return nil, err
+			}
+			saramaConf.Net.TLS.Config = tlsConfig
+		}
+		// SASL
+		if kafkaAuthCfg.SASL != nil {
+			saramaConf.Net.SASL.Enable = true
+			saramaConf.Net.SASL.User = kafkaAuthCfg.SASL.User
+			saramaConf.Net.SASL.Password = kafkaAuthCfg.SASL.Password
+		}
+	}
+	return sarama.NewClusterAdmin(bootstrapServers, saramaConf)
 }
 
 // verifyCertSkipHostname verifies certificates in the same way that the
