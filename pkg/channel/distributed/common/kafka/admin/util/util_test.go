@@ -151,7 +151,7 @@ func TestPromoteErrorToTopicError(t *testing.T) {
 	topicError = PromoteErrorToTopicError(invalidKError)
 	assert.NotNil(t, topicError)
 	assert.Equal(t, sarama.ErrUnknown, topicError.Err)
-	assert.Equal(t, fmt.Sprintf("Unknown error, how did this happen? Error code = %d", invalidKError), *topicError.ErrMsg)
+	assert.Equal(t, fmt.Sprint("Unknown error, how did this happen? Error code = ", int(invalidKError)), *topicError.ErrMsg)
 
 	// Test Valid TopicError
 	topicErrorMessage := "TopicErrorMessage"
