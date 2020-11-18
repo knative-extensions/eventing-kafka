@@ -24,6 +24,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"knative.dev/eventing-kafka/pkg/source"
+
 	"knative.dev/eventing-kafka/pkg/common/tracing"
 
 	"github.com/Shopify/sarama"
@@ -35,7 +37,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
-	kafkaclient "knative.dev/eventing-kafka/pkg/common"
 	"knative.dev/eventing-kafka/pkg/common/consumer"
 	eventingchannels "knative.dev/eventing/pkg/channel"
 	"knative.dev/eventing/pkg/channel/fanout"
@@ -99,7 +100,7 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 		// tls
 		if args.KafkaAuthConfig.TLS != nil {
 			conf.Net.TLS.Enable = true
-			tlsConfig, err := kafkaclient.NewTLSConfig(args.KafkaAuthConfig.TLS.Usercert, args.KafkaAuthConfig.TLS.Userkey, args.KafkaAuthConfig.TLS.Cacert)
+			tlsConfig, err := source.NewTLSConfig(args.KafkaAuthConfig.TLS.Usercert, args.KafkaAuthConfig.TLS.Userkey, args.KafkaAuthConfig.TLS.Cacert)
 			if err != nil {
 				return nil, err
 			}
@@ -108,6 +109,18 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 		// SASL
 		if args.KafkaAuthConfig.SASL != nil {
 			conf.Net.SASL.Enable = true
+			conf.Net.SASL.Handshake = true
+
+			// if SASLTypeSCRAMSHA256 is provided we use that. Defaulting to SASLTypeSCRAMSHA512
+			if args.KafkaAuthConfig.SASL.SaslType == utils.SASLTypeSCRAMSHA256 {
+				conf.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient { return &source.XDGSCRAMClient{HashGeneratorFcn: source.SHA256} }
+				conf.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA256
+
+			} else {
+				conf.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient { return &source.XDGSCRAMClient{HashGeneratorFcn: source.SHA512} }
+				conf.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA512
+			}
+
 			conf.Net.SASL.User = args.KafkaAuthConfig.SASL.User
 			conf.Net.SASL.Password = args.KafkaAuthConfig.SASL.Password
 		}

@@ -44,6 +44,10 @@ const (
 	TlsUserkey   = "user.key"
 	SaslUser     = "user"
 	SaslPassword = "password"
+	SaslType     = "saslType"
+
+	SASLTypeSCRAMSHA256 = "scram_sha256"
+	SASLTypeSCRAMSHA512 = "scram_sha512"
 
 	KafkaChannelSeparator = "."
 
@@ -75,6 +79,7 @@ type KafkaTlsConfig struct {
 type KafkaSaslConfig struct {
 	User     string
 	Password string
+	SaslType string
 }
 
 func GetKafkaAuthData(ctx context.Context, secretname string, secretNS string) *KafkaAuthConfig {
@@ -102,6 +107,7 @@ func GetKafkaAuthData(ctx context.Context, secretname string, secretNS string) *
 		sasl := &KafkaSaslConfig{
 			User:     string(secret.Data[SaslUser]),
 			Password: string(secret.Data[SaslPassword]),
+			SaslType: string(secret.Data[SaslType]),
 		}
 		kafkaAuthConfig.SASL = sasl
 	}
