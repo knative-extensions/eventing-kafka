@@ -42,8 +42,9 @@ one of `kafka`, `azure`, or `custom` as follows...
   Topics themselves. This could be to support a proprietary Kafka implementation
   with a custom interface / API. The user is responsible for implementing a
   sidecar Container with the expected HTTP endpoints. They will need to add
-  their sidecar Container to the [deployment.yaml](500-controller-deployment.yaml). Details
-  for implementing such a solution can be found in the
+  their sidecar Container to the
+  [deployment.yaml](500-controller-deployment.yaml). Details for implementing
+  such a solution can be found in the
   [Kafka README](../../../pkg/channel/distributed/common/kafka/README.md).
 
 > Note: This setting only alters the mechanism by which Kafka Topics are managed
