@@ -465,6 +465,7 @@ if [[ $TEST_CONSOLIDATED_CHANNEL == 1 ]]; then
   test_consolidated_channel_plain || exit 1
   create_auth_secrets
   test_consolidated_channel_tls || exit 1
+  test_consolidated_channel_sasl || exit 1
 fi
 
 # Terminate any zipkin port-forward processes that are still present on the system
