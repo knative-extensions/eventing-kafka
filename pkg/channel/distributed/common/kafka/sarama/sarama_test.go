@@ -192,7 +192,7 @@ func TestUpdateSaramaConfig(t *testing.T) {
 	assert.Equal(t, clientId, config.ClientID)
 	assert.Equal(t, username, config.Net.SASL.User)
 	assert.Equal(t, password, config.Net.SASL.Password)
-	assert.Equal(t, sarama.V0_8_2_0, config.Version)
+	assert.Equal(t, sarama.V1_0_0_0, config.Version)
 	assert.Nil(t, config.Net.TLS.Config)
 }
 
