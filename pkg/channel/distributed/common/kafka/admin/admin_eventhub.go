@@ -176,7 +176,7 @@ func (c *EventHubAdminClient) DeleteTopic(ctx context.Context, topicName string)
 
 		// Delete API Returns Success For Non-Existent Topics - Nothing To Map - Just Return Error
 		c.logger.Error("Failed To Delete EventHub", zap.String("TopicName", topicName), zap.Error(err))
-		return adminutil.PromoteErrorToTopicError(err)
+		return adminutil.NewTopicError(sarama.ErrUnknown, err.Error())
 	}
 
 	// Remove The EventHub From The Cache

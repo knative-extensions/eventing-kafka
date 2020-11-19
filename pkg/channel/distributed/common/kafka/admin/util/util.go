@@ -27,6 +27,13 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 )
 
+// Constants
+const (
+	// Note - Update These When Sarama KErrors Change
+	minKError = sarama.ErrUnknown
+	maxKError = sarama.ErrFencedInstancedId
+)
+
 // Utility Function For Getting All (Limit 100) The Kafka Secrets In A K8S Namespace
 func GetKafkaSecrets(ctx context.Context, k8sClient kubernetes.Interface, k8sNamespace string) (*corev1.SecretList, error) {
 	return k8sClient.CoreV1().Secrets(k8sNamespace).List(ctx, metav1.ListOptions{
@@ -74,7 +81,7 @@ func ValidateKafkaSecret(logger *zap.Logger, secret *corev1.Secret) bool {
 	return valid
 }
 
-// Utility Function To Up-Convert Any Basic Errors Into TopicErrors
+// Utility Function To Up-Convert Basic Errors Into TopicErrors (With Message Matching For Pertinent Errors)
 func PromoteErrorToTopicError(err error) *sarama.TopicError {
 	if err == nil {
 		return nil
@@ -83,7 +90,12 @@ func PromoteErrorToTopicError(err error) *sarama.TopicError {
 		case *sarama.TopicError:
 			return err
 		default:
-			return NewUnknownTopicError(err.Error())
+			for kError := minKError; kError <= maxKError; kError++ {
+				if err.Error() == kError.Error() {
+					return NewTopicError(kError, "Promoted To TopicError Based On Error Message Match")
+				}
+			}
+			return NewTopicError(sarama.ErrUnknown, err.Error())
 		}
 	}
 }
