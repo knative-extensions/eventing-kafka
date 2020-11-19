@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors
+Copyright 2020 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,15 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package resources
-
-import (
-	"github.com/Shopify/sarama"
-)
-
-func MakeClient(clientID string, bootstrapServers []string) (sarama.ClusterAdmin, error) {
-	saramaConf := sarama.NewConfig()
-	saramaConf.Version = sarama.V1_1_0_0
-	saramaConf.ClientID = clientID
-	return sarama.NewClusterAdmin(bootstrapServers, saramaConf)
-}
+// Package v1beta2 contains API Schema definitions for the sources v1beta2 API group.
+// +k8s:deepcopy-gen=package
+// +groupName=sources.knative.dev
+package v1beta2

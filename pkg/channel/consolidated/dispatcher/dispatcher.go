@@ -24,6 +24,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"knative.dev/eventing-kafka/pkg/source"
+
 	"knative.dev/eventing-kafka/pkg/common/tracing"
 
 	"github.com/Shopify/sarama"
@@ -93,6 +95,37 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 	conf.Consumer.Return.Errors = true    // Returns the errors in ConsumerGroup#Errors() https://godoc.org/github.com/Shopify/sarama#ConsumerGroup
 	conf.Producer.Return.Successes = true // Must be enabled for sync producer
 
+	// Get the auth info
+	if args.KafkaAuthConfig != nil {
+		// tls
+		if args.KafkaAuthConfig.TLS != nil {
+			conf.Net.TLS.Enable = true
+			tlsConfig, err := source.NewTLSConfig(args.KafkaAuthConfig.TLS.Usercert, args.KafkaAuthConfig.TLS.Userkey, args.KafkaAuthConfig.TLS.Cacert)
+			if err != nil {
+				return nil, err
+			}
+			conf.Net.TLS.Config = tlsConfig
+		}
+		// SASL
+		if args.KafkaAuthConfig.SASL != nil {
+			conf.Net.SASL.Enable = true
+			conf.Net.SASL.Handshake = true
+
+			// if SASLTypeSCRAMSHA256 is provided we use that. Defaulting to SASLTypeSCRAMSHA512
+			if args.KafkaAuthConfig.SASL.SaslType == utils.SASLTypeSCRAMSHA256 {
+				conf.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient { return &source.XDGSCRAMClient{HashGeneratorFcn: source.SHA256} }
+				conf.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA256
+
+			} else {
+				conf.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient { return &source.XDGSCRAMClient{HashGeneratorFcn: source.SHA512} }
+				conf.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA512
+			}
+
+			conf.Net.SASL.User = args.KafkaAuthConfig.SASL.User
+			conf.Net.SASL.Password = args.KafkaAuthConfig.SASL.Password
+		}
+	}
+
 	producer, err := sarama.NewSyncProducer(args.Brokers, conf)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create kafka producer against Kafka bootstrap servers %v : %v", args.Brokers, err)
@@ -160,6 +193,7 @@ type KafkaDispatcherArgs struct {
 	KnCEConnectionArgs *kncloudevents.ConnectionArgs
 	ClientID           string
 	Brokers            []string
+	KafkaAuthConfig    *utils.KafkaAuthConfig
 	TopicFunc          TopicFunc
 	Logger             *zap.SugaredLogger
 }
