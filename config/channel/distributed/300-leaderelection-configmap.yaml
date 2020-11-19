@@ -61,4 +61,4 @@ data:
     #
     # - kafkachannel-controller
     # - kafkasecret-controller
-    enabledComponents: "kafkachannel-controller, kafkasecret-controller"
+    enabledComponents: "eventing-kafka-channel-controller"
