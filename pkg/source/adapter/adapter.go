@@ -21,7 +21,7 @@ import (
 	"net/http"
 	"strings"
 
-	"knative.dev/eventing-kafka/pkg/common"
+	"knative.dev/eventing-kafka/pkg/source"
 
 	"go.opencensus.io/trace"
 	"knative.dev/eventing/pkg/adapter/v2"
@@ -91,7 +91,7 @@ func (a *Adapter) start(stopCh <-chan struct{}) error {
 	)
 
 	// init consumer group
-	addrs, config, err := common.NewConfig(context.Background())
+	addrs, config, err := source.NewConfig(context.Background())
 	if err != nil {
 		return fmt.Errorf("failed to create the config: %w", err)
 	}

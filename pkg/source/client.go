@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package common
+package source
 
 import (
 	"context"
@@ -129,7 +129,7 @@ func NewTLSConfig(clientCert, clientKey, caCert string) (*tls.Config, error) {
 
 func MakeAdminClient(clientID string, kafkaAuthCfg *utils.KafkaAuthConfig, bootstrapServers []string) (sarama.ClusterAdmin, error) {
 	saramaConf := sarama.NewConfig()
-	saramaConf.Version = sarama.V1_1_0_0
+	saramaConf.Version = sarama.V2_0_0_0
 	saramaConf.ClientID = clientID
 
 	if kafkaAuthCfg != nil {
@@ -145,6 +145,17 @@ func MakeAdminClient(clientID string, kafkaAuthCfg *utils.KafkaAuthConfig, boots
 		// SASL
 		if kafkaAuthCfg.SASL != nil {
 			saramaConf.Net.SASL.Enable = true
+			saramaConf.Net.SASL.Handshake = true
+
+			// if SASLTypeSCRAMSHA256 is provided we use that. Defaulting to SASLTypeSCRAMSHA512
+			if kafkaAuthCfg.SASL.SaslType == utils.SASLTypeSCRAMSHA256 {
+				saramaConf.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient { return &XDGSCRAMClient{HashGeneratorFcn: SHA256} }
+				saramaConf.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA256
+			} else {
+				saramaConf.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient { return &XDGSCRAMClient{HashGeneratorFcn: SHA512} }
+				saramaConf.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA512
+			}
+
 			saramaConf.Net.SASL.User = kafkaAuthCfg.SASL.User
 			saramaConf.Net.SASL.Password = kafkaAuthCfg.SASL.Password
 		}

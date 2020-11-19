@@ -21,7 +21,7 @@ import (
 	"errors"
 	"fmt"
 
-	"knative.dev/eventing-kafka/pkg/common"
+	"knative.dev/eventing-kafka/pkg/source"
 
 	"k8s.io/utils/pointer"
 
@@ -472,7 +472,7 @@ func (r *Reconciler) createClient(ctx context.Context, kc *v1beta1.KafkaChannel)
 	kafkaClusterAdmin := r.kafkaClusterAdmin
 	if kafkaClusterAdmin == nil {
 		var err error
-		kafkaClusterAdmin, err = common.MakeAdminClient(controllerAgentName, r.kafkaAuthConfig, r.kafkaConfig.Brokers)
+		kafkaClusterAdmin, err = source.MakeAdminClient(controllerAgentName, r.kafkaAuthConfig, r.kafkaConfig.Brokers)
 		if err != nil {
 			return nil, err
 		}
