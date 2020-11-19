@@ -59,6 +59,5 @@ data:
     # enabledComponents is a comma-delimited list of component names for which
     # leader election is enabled. Valid values are:
     #
-    # - kafkachannel-controller
-    # - kafkasecret-controller
-    enabledComponents: "kafkachannel-controller, kafkasecret-controller"
+    # - eventing-kafka-channel-controller
+    enabledComponents: "eventing-kafka-channel-controller"
