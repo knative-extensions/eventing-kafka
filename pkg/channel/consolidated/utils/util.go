@@ -46,9 +46,6 @@ const (
 	SaslPassword = "password"
 	SaslType     = "saslType"
 
-	SASLTypeSCRAMSHA256 = "scram_sha256"
-	SASLTypeSCRAMSHA512 = "scram_sha512"
-
 	KafkaChannelSeparator = "."
 
 	knativeKafkaTopicPrefix = "knative-messaging-kafka"
