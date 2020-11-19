@@ -364,6 +364,7 @@ function create_auth_secrets() {
   kubectl create secret --namespace knative-eventing generic strimzi-sasl-secret \
     --from-literal=ca.crt="$STRIMZI_CRT" \
     --from-literal=password="$SASL_PASSWD" \
+    --from-literal=saslType="SCRAM-SHA-512" \
     --from-literal=user="my-sasl-user"
 }
 

@@ -29,10 +29,121 @@ import (
 	"testing"
 	"time"
 
+	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
+
 	"github.com/Shopify/sarama"
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestUpdateSaramaConfigWithKafkaAuthConfig(t *testing.T) {
+
+	cert, key := generateCert(t)
+
+	testCases := map[string]struct {
+		kafkaAuthCfg  *utils.KafkaAuthConfig
+		enabledTLS    bool
+		enabledSASL   bool
+		salsMechanism string
+	}{
+		"No Auth": {
+			enabledTLS:  false,
+			enabledSASL: false,
+		},
+		"Only SASL-PLAIN Auth": {
+			kafkaAuthCfg: &utils.KafkaAuthConfig{
+				SASL: &utils.KafkaSaslConfig{
+					User:     "my-user",
+					Password: "super-secret",
+				},
+			},
+			enabledTLS:    false,
+			enabledSASL:   true,
+			salsMechanism: "",
+		},
+		"Only SASL-SCRAM-SHA-256 Auth": {
+			kafkaAuthCfg: &utils.KafkaAuthConfig{
+				SASL: &utils.KafkaSaslConfig{
+					User:     "my-user",
+					Password: "super-secret",
+					SaslType: "SCRAM-SHA-256",
+				},
+			},
+			enabledTLS:    false,
+			enabledSASL:   true,
+			salsMechanism: "SCRAM-SHA-256",
+		},
+		"Only SASL-SCRAM-SHA-512 Auth": {
+			kafkaAuthCfg: &utils.KafkaAuthConfig{
+				SASL: &utils.KafkaSaslConfig{
+					User:     "my-user",
+					Password: "super-secret",
+					SaslType: "SCRAM-SHA-512",
+				},
+			},
+			enabledTLS:    false,
+			enabledSASL:   true,
+			salsMechanism: "SCRAM-SHA-512",
+		},
+		"Only TLS Auth": {
+			kafkaAuthCfg: &utils.KafkaAuthConfig{
+				TLS: &utils.KafkaTlsConfig{
+					Cacert:   cert,
+					Usercert: cert,
+					Userkey:  key,
+				},
+			},
+			enabledTLS:  true,
+			enabledSASL: false,
+		},
+		"SASL and TLS Auth": {
+			kafkaAuthCfg: &utils.KafkaAuthConfig{
+				SASL: &utils.KafkaSaslConfig{
+					User:     "my-user",
+					Password: "super-secret",
+					SaslType: "SCRAM-SHA-512",
+				},
+				TLS: &utils.KafkaTlsConfig{
+					Cacert:   cert,
+					Usercert: cert,
+					Userkey:  key,
+				},
+			},
+			enabledTLS:    true,
+			enabledSASL:   true,
+			salsMechanism: "SCRAM-SHA-512",
+		},
+	}
+
+	for n, tc := range testCases {
+		t.Run(n, func(t *testing.T) {
+
+			// Perform The Test
+			config := sarama.NewConfig()
+			UpdateSaramaConfigWithKafkaAuthConfig(config, tc.kafkaAuthCfg)
+
+			saslEnabled := config.Net.SASL.Enable
+			if saslEnabled != tc.enabledSASL {
+				t.Errorf("SASL config is wrong")
+			}
+			if saslEnabled {
+				if tc.salsMechanism != string(config.Net.SASL.Mechanism) {
+					t.Errorf("SASL Mechanism is wrong")
+				}
+			}
+
+			tlsEnabled := config.Net.TLS.Enable
+			if tlsEnabled != tc.enabledTLS {
+				t.Errorf("TLS config is wrong")
+			}
+			if tlsEnabled {
+				if config.Net.TLS.Config == nil {
+					t.Errorf("TLS config is wrong")
+				}
+			}
+		})
+	}
+}
 
 func TestNewTLSConfig(t *testing.T) {
 	cert, key := generateCert(t)
