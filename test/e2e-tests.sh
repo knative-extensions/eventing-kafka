@@ -456,9 +456,9 @@ function parse_flags() {
 }
 
 TEST_CONSOLIDATED_CHANNEL=${TEST_CONSOLIDATED_CHANNEL:-0}
-TEST_DISTRIBUTED_CHANNEL=${TEST_DISTRIBUTED_CHANNEL:-0}
 TEST_CONSOLIDATED_CHANNEL_TLS=${TEST_CONSOLIDATED_CHANNEL_TLS:-0}
 TEST_CONSOLIDATED_CHANNEL_SASL=${TEST_CONSOLIDATED_CHANNEL_SASL:-0}
+TEST_DISTRIBUTED_CHANNEL=${TEST_DISTRIBUTED_CHANNEL:-0}
 
 echo "e2e-tests.sh command line: $@"
 
@@ -472,8 +472,8 @@ echo "TEST_DISTRIBUTED_CHANNEL: ${TEST_DISTRIBUTED_CHANNEL}"
 echo "TEST_CONSOLIDATED_CHANNEL_TLS: ${TEST_CONSOLIDATED_CHANNEL_TLS}"
 echo "TEST_CONSOLIDATED_CHANNEL_SASL: ${TEST_CONSOLIDATED_CHANNEL_SASL}"
 
-# If neither test was specified, run both
-if [[ $TEST_CONSOLIDATED_CHANNEL != 1 ]] && [[ $TEST_DISTRIBUTED_CHANNEL != 1 ]]; then
+# If neither of the four test was specified, run both plain tests
+if [[ $TEST_CONSOLIDATED_CHANNEL != 1 ]] && [[ $TEST_CONSOLIDATED_CHANNEL_TLS != 1 ]] && [[ $TEST_CONSOLIDATED_CHANNEL_SASL != 1 ]] && [[ $TEST_DISTRIBUTED_CHANNEL != 1 ]]; then
   TEST_DISTRIBUTED_CHANNEL=1
   TEST_CONSOLIDATED_CHANNEL=1
 fi
@@ -481,15 +481,18 @@ fi
 export SYSTEM_NAMESPACE
 
 if [[ $TEST_CONSOLIDATED_CHANNEL == 1 ]]; then
+  echo "Launching the PLAIN TESTS:"
   test_consolidated_channel_plain || exit 1
 fi
 
 if [[ $TEST_CONSOLIDATED_CHANNEL_TLS == 1 ]]; then
+  echo "Launching the TLS TESTS:"
   create_tls_secrets
   test_consolidated_channel_tls || exit 1
 fi
 
 if [[ $TEST_CONSOLIDATED_CHANNEL_SASL == 1 ]]; then
+  echo "Launching the SASL TESTS:"
   create_sasl_secrets
   test_consolidated_channel_sasl || exit 1
 fi
