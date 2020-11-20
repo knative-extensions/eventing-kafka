@@ -17,116 +17,140 @@ limitations under the License.
 package controller
 
 import (
+	"context"
 	"sync"
 	"time"
+
+	"go.uber.org/zap"
+	"knative.dev/pkg/logging"
+
+	"knative.dev/eventing-kafka/pkg/channel/consolidated/kafka"
 )
 
-var watchersMtx sync.RWMutex
-var cacheMtx sync.RWMutex
+var (
+	watchersMtx sync.RWMutex
+	cacheMtx    sync.RWMutex
+	// Hooks into the poll logic for testing
+	after = time.After
+	done  = func() {}
+)
 
 type CGCallBack func()
 type Matcher func(string) bool
 
-type ConsumerGroupsLister interface {
-	ListConsumerGroups() (map[string]string, error)
+type ConsumerGroupWatcher interface {
+	// Start instructs the watcher to start polling for the consumer groups and
+	// notify any observers on the event of any changes
+	Start() error
+
+	// Watch registers callback on the event of any changes observed
+	// on the consumer groups. watcherID is an arbitrary string the user provides
+	// that will be used to identify his callbacks when provided to Forget(watcherID).
+	// Successive calls with the same watcherID will queue the callbacks successfully.
+	//
+	//To ensure this is event-triggered, level-driven,
+	// we don't pass the updates to the callback, instead the observer is expected
+	// to use List() to get the updated list of ConsumerGroups.
+	Watch(watcherID string, callback CGCallBack) error
+
+	// Forget removes all callbacks that correspond to the watcherID
+	Forget(watcherID string)
+
+	// List returns all the cached consumer groups that match matcher.
+	// It will return an empty slice if none matched or the cache is empty
+	List(matcher Matcher) []string
 }
 
 type KafkaWatcher struct {
+	logger *zap.SugaredLogger
 	//TODO name?
-	watchers []CGCallBack
-	cgCache  []string
-	lister   ConsumerGroupsLister
-	closed   chan bool
+	watchers     map[string][]CGCallBack
+	cgCache      []string
+	ac           kafka.AdminClient
+	pollDuration time.Duration
 }
 
-func NewKafkaWatcher(l ConsumerGroupsLister) KafkaWatcher {
+func NewKafkaWatcher(ctx context.Context, ac kafka.AdminClient, pollDuration time.Duration) KafkaWatcher {
 	w := KafkaWatcher{
-		lister:   l,
-		watchers: make([]CGCallBack, 0, 5),
-		cgCache:  make([]string, 0),
-		closed:   make(chan bool, 1),
+		logger:       logging.FromContext(ctx),
+		ac:           ac,
+		pollDuration: pollDuration,
+		watchers:     make(map[string][]CGCallBack),
+		cgCache:      make([]string, 0),
 	}
 	return w
 }
 
 func (w *KafkaWatcher) Start() error {
+	w.logger.Info("KafkaWatcher starting. Polling for consumer groups", zap.Duration("poll duration", w.pollDuration))
 	go func() {
 		for {
 			select {
-			case <-time.After(2 * time.Second):
-				//TODO log error
-				cgs, _ := w.lister.ListConsumerGroups()
+			case <-after(w.pollDuration):
+				cgs, err := w.ac.ListConsumerGroups()
+				if err != nil {
+					w.logger.Error("error while listing consumer groups", zap.Error(err))
+					continue
+				}
 				var notify bool
 				var cg string
 				// Look for observed CGs
-				for c := range cgs {
+				for _, c := range cgs {
 					if !Find(w.cgCache, c) {
 						// This is the first appearance.
+						w.logger.Debug("Consumer group observed. Caching.",
+							zap.String("consumer group", c))
 						cg = c
 						notify = true
+						break
 					}
 				}
 				// Look for disappeared CGs
 				for _, c := range w.cgCache {
-					if _, ok := cgs[c]; !ok {
+					if !Find(cgs, c) {
 						// This CG was cached but it's no longer there.
+						w.logger.Debug("Consumer group deleted.",
+							zap.String("consumer group", c))
 						cg = c
 						notify = true
+						break
 					}
 				}
 				if notify {
 					cacheMtx.Lock()
-					w.cgCache = keys(cgs)
+					w.cgCache = cgs
 					cacheMtx.Unlock()
 					w.notify(cg)
 				}
-			case <-w.closed:
-				break
+				done()
 			}
 		}
 	}()
 	return nil
 }
 
-func (w *KafkaWatcher) notify(cg string) {
-	watchersMtx.RLock()
-	cacheMtx.RLock()
-	defer watchersMtx.RUnlock()
-	defer cacheMtx.RUnlock()
-
-	for _, w := range w.watchers {
-		w()
-	}
-}
-
-func Find(list []string, item string) bool {
-	for _, i := range list {
-		if i == item {
-			return true
-		}
-	}
-	return false
-}
-
-func (w *KafkaWatcher) Stop() error {
-	//TODO handle if closed
-	close(w.closed)
-	return nil
-}
-
-// TODO Add remove watcher with key
 // TODO explore returning a channel instead of a taking callback
-func (w *KafkaWatcher) WatchConsumerGroup(cb CGCallBack) error {
-	//TODO handle if exists
+func (w *KafkaWatcher) Watch(watcherID string, cb CGCallBack) error {
+	w.logger.Debug("Adding a new watcher", zap.String("watcherID", watcherID))
 	watchersMtx.Lock()
 	defer watchersMtx.Unlock()
-	w.watchers = append(w.watchers, cb)
+	cbs, ok := w.watchers[watcherID]
+	if !ok {
+		cbs = []CGCallBack{}
+	}
+	w.watchers[watcherID] = append(cbs, cb)
 	// notify at least once to get the current state
 	cb()
 	return nil
 }
 
-func (w *KafkaWatcher) ListConsumerGroups(matcher Matcher) []string {
+func (w *KafkaWatcher) Forget(watcherID string) {
+	w.logger.Debug("Forgetting watcher", zap.String("watcherID", watcherID))
+	delete(w.watchers, watcherID)
+}
+
+func (w *KafkaWatcher) List(matcher Matcher) []string {
+	w.logger.Debug("Listing consumer groups")
 	cacheMtx.RLock()
 	defer cacheMtx.RUnlock()
 	cgs := make([]string, 0)
@@ -138,10 +162,24 @@ func (w *KafkaWatcher) ListConsumerGroups(matcher Matcher) []string {
 	return cgs
 }
 
-func keys(m map[string]string) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
+func (w *KafkaWatcher) notify(cg string) {
+	watchersMtx.RLock()
+	cacheMtx.RLock()
+	defer watchersMtx.RUnlock()
+	defer cacheMtx.RUnlock()
+
+	for _, cbs := range w.watchers {
+		for _, w := range cbs {
+			w()
+		}
 	}
-	return keys
+}
+
+func Find(list []string, item string) bool {
+	for _, i := range list {
+		if i == item {
+			return true
+		}
+	}
+	return false
 }

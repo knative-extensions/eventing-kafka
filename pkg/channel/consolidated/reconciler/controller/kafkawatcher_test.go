@@ -21,15 +21,17 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	pkgtesting "knative.dev/pkg/logging/testing"
 )
 
 //TODO how to mock the sarama AdminClient
 type FakeClusterAdmin struct {
 	mutex sync.RWMutex
-	cgs   map[string]string
+	cgs   []string
 }
 
-func (fake *FakeClusterAdmin) ListConsumerGroups() (map[string]string, error) {
+func (fake *FakeClusterAdmin) ListConsumerGroups() ([]string, error) {
 	fake.mutex.RLock()
 	defer fake.mutex.RUnlock()
 	cgs := fake.cgs
@@ -39,23 +41,28 @@ func (fake *FakeClusterAdmin) ListConsumerGroups() (map[string]string, error) {
 func (fake *FakeClusterAdmin) deleteCG(cg string) {
 	fake.mutex.Lock()
 	defer fake.mutex.Unlock()
-	delete(fake.cgs, cg)
+	cgs := make([]string, len(fake.cgs)-1)
+	for _, c := range fake.cgs {
+		if c != cg {
+			cgs = append(cgs, c)
+		}
+	}
+	fake.cgs = cgs
 }
 
 func TestKafkaWatcher(t *testing.T) {
 	cgname := "kafka.event-example.default-kne-trigger.0d9c4383-1e68-42b5-8c3a-3788274404c5"
-	cgs := map[string]string{
-		cgname: "consumer",
-	}
+	wid := "channel-abc"
+	cgs := []string{cgname}
 	ca := FakeClusterAdmin{
 		cgs: cgs,
 	}
 
 	ch := make(chan []string, 1)
 
-	w := NewKafkaWatcher(&ca)
-	w.WatchConsumerGroup(func() {
-		cgs := w.ListConsumerGroups(func(cg string) bool {
+	w := NewKafkaWatcher(pkgtesting.TestContextWithLogger(t), &ca, 2*time.Second)
+	w.Watch(wid, func() {
+		cgs := w.List(func(cg string) bool {
 			return cgname == cg
 		})
 		ch <- cgs
@@ -63,7 +70,7 @@ func TestKafkaWatcher(t *testing.T) {
 
 	w.Start()
 	<-ch
-	assertSync(t, ch, keys(cgs))
+	assertSync(t, ch, cgs)
 	ca.deleteCG(cgname)
 	assertSync(t, ch, []string{})
 }
