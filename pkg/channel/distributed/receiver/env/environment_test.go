@@ -128,43 +128,44 @@ func TestGetEnvironment(t *testing.T) {
 
 	// Loop Over All The TestCases
 	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
 
-		// (Re)Setup The Environment Variables From TestCase
-		os.Clearenv()
-		assertSetenv(t, env.MetricsDomainEnvVarKey, testCase.metricsDomain)
-		assertSetenvNonempty(t, env.MetricsPortEnvVarKey, testCase.metricsPort)
-		assertSetenvNonempty(t, env.HealthPortEnvVarKey, testCase.healthPort)
-		assertSetenv(t, env.KafkaBrokerEnvVarKey, testCase.kafkaBrokers)
-		assertSetenv(t, env.ServiceNameEnvVarKey, testCase.serviceName)
-		assertSetenv(t, env.KafkaUsernameEnvVarKey, testCase.kafkaUsername)
-		assertSetenv(t, env.KafkaPasswordEnvVarKey, testCase.kafkaPassword)
-		assertSetenv(t, env.PodNameEnvVarKey, testCase.podName)
-		assertSetenv(t, env.ContainerNameEnvVarKey, testCase.containerName)
-		assertSetenvNonempty(t, env.ResyncPeriodMinutesEnvVarKey, testCase.resyncPeriodMinutes)
+			// (Re)Setup The Environment Variables From TestCase
+			os.Clearenv()
+			assertSetenv(t, env.MetricsDomainEnvVarKey, testCase.metricsDomain)
+			assertSetenvNonempty(t, env.MetricsPortEnvVarKey, testCase.metricsPort)
+			assertSetenvNonempty(t, env.HealthPortEnvVarKey, testCase.healthPort)
+			assertSetenv(t, env.KafkaBrokerEnvVarKey, testCase.kafkaBrokers)
+			assertSetenv(t, env.ServiceNameEnvVarKey, testCase.serviceName)
+			assertSetenv(t, env.KafkaUsernameEnvVarKey, testCase.kafkaUsername)
+			assertSetenv(t, env.KafkaPasswordEnvVarKey, testCase.kafkaPassword)
+			assertSetenv(t, env.PodNameEnvVarKey, testCase.podName)
+			assertSetenv(t, env.ContainerNameEnvVarKey, testCase.containerName)
+			assertSetenvNonempty(t, env.ResyncPeriodMinutesEnvVarKey, testCase.resyncPeriodMinutes)
 
-		// Perform The Test
-		environment, err := GetEnvironment(logger)
+			// Perform The Test
+			environment, err := GetEnvironment(logger)
 
-		// Verify The Results
-		if testCase.expectedError == nil {
+			// Verify The Results
+			if testCase.expectedError == nil {
 
-			assert.Nil(t, err)
-			assert.NotNil(t, environment)
-			assert.Equal(t, testCase.metricsPort, strconv.Itoa(environment.MetricsPort))
-			assert.Equal(t, testCase.healthPort, strconv.Itoa(environment.HealthPort))
-			assert.Equal(t, testCase.kafkaBrokers, environment.KafkaBrokers)
-			assert.Equal(t, testCase.serviceName, environment.ServiceName)
-			assert.Equal(t, testCase.kafkaUsername, environment.KafkaUsername)
-			assert.Equal(t, testCase.kafkaPassword, environment.KafkaPassword)
-			assert.Equal(t, testCase.podName, environment.PodName)
-			assert.Equal(t, testCase.containerName, environment.ContainerName)
-			assert.Equal(t, testCase.expectedResyncPeriod, strconv.Itoa(int(environment.ResyncPeriod/time.Minute)))
+				assert.Nil(t, err)
+				assert.NotNil(t, environment)
+				assert.Equal(t, testCase.metricsPort, strconv.Itoa(environment.MetricsPort))
+				assert.Equal(t, testCase.healthPort, strconv.Itoa(environment.HealthPort))
+				assert.Equal(t, testCase.kafkaBrokers, environment.KafkaBrokers)
+				assert.Equal(t, testCase.serviceName, environment.ServiceName)
+				assert.Equal(t, testCase.kafkaUsername, environment.KafkaUsername)
+				assert.Equal(t, testCase.kafkaPassword, environment.KafkaPassword)
+				assert.Equal(t, testCase.podName, environment.PodName)
+				assert.Equal(t, testCase.containerName, environment.ContainerName)
+				assert.Equal(t, testCase.expectedResyncPeriod, strconv.Itoa(int(environment.ResyncPeriod/time.Minute)))
 
-		} else {
-			assert.Equal(t, testCase.expectedError, err)
-			assert.Nil(t, environment)
-		}
-
+			} else {
+				assert.Equal(t, testCase.expectedError, err)
+				assert.Nil(t, environment)
+			}
+		})
 	}
 }
 

@@ -142,47 +142,48 @@ func TestGetEnvironment(t *testing.T) {
 
 	// Loop Over All The TestCases
 	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
 
-		// (Re)Setup The Environment Variables From TestCase
-		os.Clearenv()
-		assertSetenv(t, commonenv.MetricsDomainEnvVarKey, testCase.metricsDomain)
-		assertSetenvNonempty(t, commonenv.MetricsPortEnvVarKey, testCase.metricsPort)
-		assertSetenvNonempty(t, commonenv.HealthPortEnvVarKey, testCase.healthPort)
-		assertSetenvNonempty(t, commonenv.ResyncPeriodMinutesEnvVarKey, testCase.resyncPeriodMinutes)
-		assertSetenv(t, commonenv.KafkaBrokerEnvVarKey, testCase.kafkaBrokers)
-		assertSetenv(t, commonenv.KafkaTopicEnvVarKey, testCase.kafkaTopic)
-		assertSetenv(t, commonenv.ChannelKeyEnvVarKey, testCase.channelKey)
-		assertSetenv(t, commonenv.ServiceNameEnvVarKey, testCase.serviceName)
-		assertSetenv(t, commonenv.KafkaUsernameEnvVarKey, testCase.kafkaUsername)
-		assertSetenv(t, commonenv.KafkaPasswordEnvVarKey, testCase.kafkaPassword)
-		assertSetenv(t, commonenv.PodNameEnvVarKey, testCase.podName)
-		assertSetenv(t, commonenv.ContainerNameEnvVarKey, testCase.containerName)
+			// (Re)Setup The Environment Variables From TestCase
+			os.Clearenv()
+			assertSetenv(t, commonenv.MetricsDomainEnvVarKey, testCase.metricsDomain)
+			assertSetenvNonempty(t, commonenv.MetricsPortEnvVarKey, testCase.metricsPort)
+			assertSetenvNonempty(t, commonenv.HealthPortEnvVarKey, testCase.healthPort)
+			assertSetenvNonempty(t, commonenv.ResyncPeriodMinutesEnvVarKey, testCase.resyncPeriodMinutes)
+			assertSetenv(t, commonenv.KafkaBrokerEnvVarKey, testCase.kafkaBrokers)
+			assertSetenv(t, commonenv.KafkaTopicEnvVarKey, testCase.kafkaTopic)
+			assertSetenv(t, commonenv.ChannelKeyEnvVarKey, testCase.channelKey)
+			assertSetenv(t, commonenv.ServiceNameEnvVarKey, testCase.serviceName)
+			assertSetenv(t, commonenv.KafkaUsernameEnvVarKey, testCase.kafkaUsername)
+			assertSetenv(t, commonenv.KafkaPasswordEnvVarKey, testCase.kafkaPassword)
+			assertSetenv(t, commonenv.PodNameEnvVarKey, testCase.podName)
+			assertSetenv(t, commonenv.ContainerNameEnvVarKey, testCase.containerName)
 
-		// Perform The Test
-		environment, err := GetEnvironment(logger)
+			// Perform The Test
+			environment, err := GetEnvironment(logger)
 
-		// Verify The Results
-		if testCase.expectedError == nil {
+			// Verify The Results
+			if testCase.expectedError == nil {
 
-			assert.Nil(t, err)
-			assert.NotNil(t, environment)
-			assert.Equal(t, testCase.metricsPort, strconv.Itoa(environment.MetricsPort))
-			assert.Equal(t, testCase.healthPort, strconv.Itoa(environment.HealthPort))
-			assert.Equal(t, testCase.kafkaBrokers, environment.KafkaBrokers)
-			assert.Equal(t, testCase.kafkaTopic, environment.KafkaTopic)
-			assert.Equal(t, testCase.channelKey, environment.ChannelKey)
-			assert.Equal(t, testCase.serviceName, environment.ServiceName)
-			assert.Equal(t, testCase.kafkaUsername, environment.KafkaUsername)
-			assert.Equal(t, testCase.kafkaPassword, environment.KafkaPassword)
-			assert.Equal(t, testCase.podName, environment.PodName)
-			assert.Equal(t, testCase.containerName, environment.ContainerName)
-			assert.Equal(t, testCase.expectedResyncPeriod, strconv.Itoa(int(environment.ResyncPeriod/time.Minute)))
+				assert.Nil(t, err)
+				assert.NotNil(t, environment)
+				assert.Equal(t, testCase.metricsPort, strconv.Itoa(environment.MetricsPort))
+				assert.Equal(t, testCase.healthPort, strconv.Itoa(environment.HealthPort))
+				assert.Equal(t, testCase.kafkaBrokers, environment.KafkaBrokers)
+				assert.Equal(t, testCase.kafkaTopic, environment.KafkaTopic)
+				assert.Equal(t, testCase.channelKey, environment.ChannelKey)
+				assert.Equal(t, testCase.serviceName, environment.ServiceName)
+				assert.Equal(t, testCase.kafkaUsername, environment.KafkaUsername)
+				assert.Equal(t, testCase.kafkaPassword, environment.KafkaPassword)
+				assert.Equal(t, testCase.podName, environment.PodName)
+				assert.Equal(t, testCase.containerName, environment.ContainerName)
+				assert.Equal(t, testCase.expectedResyncPeriod, strconv.Itoa(int(environment.ResyncPeriod/time.Minute)))
 
-		} else {
-			assert.Equal(t, testCase.expectedError, err)
-			assert.Nil(t, environment)
-		}
-
+			} else {
+				assert.Equal(t, testCase.expectedError, err)
+				assert.Nil(t, environment)
+			}
+		})
 	}
 }
 

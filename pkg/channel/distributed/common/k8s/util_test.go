@@ -42,7 +42,9 @@ func TestTruncateLabelValue(t *testing.T) {
 
 	// Run The TestCases
 	for _, testCase := range testCases {
-		result := TruncateLabelValue(testCase.Value)
-		assert.Equal(t, result, testCase.Result)
+		t.Run(testCase.Value, func(t *testing.T) {
+			result := TruncateLabelValue(testCase.Value)
+			assert.Equal(t, result, testCase.Result)
+		})
 	}
 }
