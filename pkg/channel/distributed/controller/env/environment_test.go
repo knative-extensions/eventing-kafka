@@ -110,29 +110,29 @@ func TestGetEnvironment(t *testing.T) {
 
 	// Loop Over All The TestCases
 	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			// (Re)Setup The Environment Variables From TestCase
+			setupTestEnvironment(t, testCase)
 
-		// (Re)Setup The Environment Variables From TestCase
-		setupTestEnvironment(t, testCase)
+			// Perform The Test
+			environment, err := GetEnvironment(logger)
 
-		// Perform The Test
-		environment, err := GetEnvironment(logger)
+			// Verify The Results
+			if testCase.expectedError == nil {
 
-		// Verify The Results
-		if testCase.expectedError == nil {
+				assert.Nil(t, err)
+				assert.NotNil(t, environment)
+				assert.Equal(t, testCase.serviceAccount, environment.ServiceAccount)
+				assert.Equal(t, testCase.metricsPort, strconv.Itoa(environment.MetricsPort))
+				assert.Equal(t, testCase.channelImage, environment.ReceiverImage)
+				assert.Equal(t, testCase.dispatcherImage, environment.DispatcherImage)
+				assert.Equal(t, testCase.expectedResyncPeriod, strconv.Itoa(int(environment.ResyncPeriod/time.Minute)))
 
-			assert.Nil(t, err)
-			assert.NotNil(t, environment)
-			assert.Equal(t, testCase.serviceAccount, environment.ServiceAccount)
-			assert.Equal(t, testCase.metricsPort, strconv.Itoa(environment.MetricsPort))
-			assert.Equal(t, testCase.channelImage, environment.ReceiverImage)
-			assert.Equal(t, testCase.dispatcherImage, environment.DispatcherImage)
-			assert.Equal(t, testCase.expectedResyncPeriod, strconv.Itoa(int(environment.ResyncPeriod/time.Minute)))
-
-		} else {
-			assert.Equal(t, testCase.expectedError, err)
-			assert.Nil(t, environment)
-		}
-
+			} else {
+				assert.Equal(t, testCase.expectedError, err)
+				assert.Nil(t, environment)
+			}
+		})
 	}
 }
 

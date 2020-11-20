@@ -169,48 +169,47 @@ func TestVerifyConfiguration(t *testing.T) {
 	testCase.expectedError = ControllerConfigurationError("Invalid / Unknown Kafka Admin Type: invalidadmintype")
 	testCases = append(testCases, testCase)
 
-	// Loop Over All The TestCases
 	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			testConfig := &config.EventingKafkaConfig{}
+			testConfig.Kafka.Topic.DefaultNumPartitions = testCase.kafkaTopicDefaultNumPartitions
+			testConfig.Kafka.Topic.DefaultReplicationFactor = testCase.kafkaTopicDefaultReplicationFactor
+			testConfig.Kafka.Topic.DefaultRetentionMillis = testCase.kafkaTopicDefaultRetentionMillis
+			testConfig.Kafka.AdminType = testCase.kafkaAdminType
+			testConfig.Dispatcher.CpuLimit = testCase.dispatcherCpuLimit
+			testConfig.Dispatcher.CpuRequest = testCase.dispatcherCpuRequest
+			testConfig.Dispatcher.MemoryLimit = testCase.dispatcherMemoryLimit
+			testConfig.Dispatcher.MemoryRequest = testCase.dispatcherMemoryRequest
+			testConfig.Dispatcher.Replicas = testCase.dispatcherReplicas
+			testConfig.Receiver.CpuLimit = testCase.channelCpuLimit
+			testConfig.Receiver.CpuRequest = testCase.channelCpuRequest
+			testConfig.Receiver.MemoryLimit = testCase.channelMemoryLimit
+			testConfig.Receiver.MemoryRequest = testCase.channelMemoryRequest
+			testConfig.Receiver.Replicas = testCase.channelReplicas
 
-		testConfig := &config.EventingKafkaConfig{}
-		testConfig.Kafka.Topic.DefaultNumPartitions = testCase.kafkaTopicDefaultNumPartitions
-		testConfig.Kafka.Topic.DefaultReplicationFactor = testCase.kafkaTopicDefaultReplicationFactor
-		testConfig.Kafka.Topic.DefaultRetentionMillis = testCase.kafkaTopicDefaultRetentionMillis
-		testConfig.Kafka.AdminType = testCase.kafkaAdminType
-		testConfig.Dispatcher.CpuLimit = testCase.dispatcherCpuLimit
-		testConfig.Dispatcher.CpuRequest = testCase.dispatcherCpuRequest
-		testConfig.Dispatcher.MemoryLimit = testCase.dispatcherMemoryLimit
-		testConfig.Dispatcher.MemoryRequest = testCase.dispatcherMemoryRequest
-		testConfig.Dispatcher.Replicas = testCase.dispatcherReplicas
-		testConfig.Receiver.CpuLimit = testCase.channelCpuLimit
-		testConfig.Receiver.CpuRequest = testCase.channelCpuRequest
-		testConfig.Receiver.MemoryLimit = testCase.channelMemoryLimit
-		testConfig.Receiver.MemoryRequest = testCase.channelMemoryRequest
-		testConfig.Receiver.Replicas = testCase.channelReplicas
+			// Perform The Test
+			err := VerifyConfiguration(testConfig)
 
-		// Perform The Test
-		err := VerifyConfiguration(testConfig)
-
-		// Verify The Results
-		if testCase.expectedError == nil {
-			assert.Nil(t, err)
-			assert.Equal(t, testCase.kafkaTopicDefaultNumPartitions, testConfig.Kafka.Topic.DefaultNumPartitions)
-			assert.Equal(t, testCase.kafkaTopicDefaultReplicationFactor, testConfig.Kafka.Topic.DefaultReplicationFactor)
-			assert.Equal(t, testCase.kafkaTopicDefaultRetentionMillis, testConfig.Kafka.Topic.DefaultRetentionMillis)
-			assert.Equal(t, testCase.kafkaAdminType, testConfig.Kafka.AdminType)
-			assert.Equal(t, testCase.dispatcherCpuLimit, testConfig.Dispatcher.CpuLimit)
-			assert.Equal(t, testCase.dispatcherCpuRequest, testConfig.Dispatcher.CpuRequest)
-			assert.Equal(t, testCase.dispatcherMemoryLimit, testConfig.Dispatcher.MemoryLimit)
-			assert.Equal(t, testCase.dispatcherMemoryRequest, testConfig.Dispatcher.MemoryRequest)
-			assert.Equal(t, testCase.dispatcherReplicas, testConfig.Dispatcher.Replicas)
-			assert.Equal(t, testCase.channelCpuLimit, testConfig.Receiver.CpuLimit)
-			assert.Equal(t, testCase.channelCpuRequest, testConfig.Receiver.CpuRequest)
-			assert.Equal(t, testCase.channelMemoryLimit, testConfig.Receiver.MemoryLimit)
-			assert.Equal(t, testCase.channelMemoryRequest, testConfig.Receiver.MemoryRequest)
-			assert.Equal(t, testCase.channelReplicas, testConfig.Receiver.Replicas)
-		} else {
-			assert.Equal(t, testCase.expectedError, err)
-		}
-
+			// Verify The Results
+			if testCase.expectedError == nil {
+				assert.Nil(t, err)
+				assert.Equal(t, testCase.kafkaTopicDefaultNumPartitions, testConfig.Kafka.Topic.DefaultNumPartitions)
+				assert.Equal(t, testCase.kafkaTopicDefaultReplicationFactor, testConfig.Kafka.Topic.DefaultReplicationFactor)
+				assert.Equal(t, testCase.kafkaTopicDefaultRetentionMillis, testConfig.Kafka.Topic.DefaultRetentionMillis)
+				assert.Equal(t, testCase.kafkaAdminType, testConfig.Kafka.AdminType)
+				assert.Equal(t, testCase.dispatcherCpuLimit, testConfig.Dispatcher.CpuLimit)
+				assert.Equal(t, testCase.dispatcherCpuRequest, testConfig.Dispatcher.CpuRequest)
+				assert.Equal(t, testCase.dispatcherMemoryLimit, testConfig.Dispatcher.MemoryLimit)
+				assert.Equal(t, testCase.dispatcherMemoryRequest, testConfig.Dispatcher.MemoryRequest)
+				assert.Equal(t, testCase.dispatcherReplicas, testConfig.Dispatcher.Replicas)
+				assert.Equal(t, testCase.channelCpuLimit, testConfig.Receiver.CpuLimit)
+				assert.Equal(t, testCase.channelCpuRequest, testConfig.Receiver.CpuRequest)
+				assert.Equal(t, testCase.channelMemoryLimit, testConfig.Receiver.MemoryLimit)
+				assert.Equal(t, testCase.channelMemoryRequest, testConfig.Receiver.MemoryRequest)
+				assert.Equal(t, testCase.channelReplicas, testConfig.Receiver.Replicas)
+			} else {
+				assert.Equal(t, testCase.expectedError, err)
+			}
+		})
 	}
 }
