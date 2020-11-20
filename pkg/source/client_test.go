@@ -55,35 +55,47 @@ func TestUpdateSaramaConfigWithKafkaAuthConfig(t *testing.T) {
 				SASL: &utils.KafkaSaslConfig{
 					User:     "my-user",
 					Password: "super-secret",
+					SaslType: sarama.SASLTypePlaintext,
 				},
 			},
 			enabledTLS:    false,
 			enabledSASL:   true,
-			salsMechanism: "",
+			salsMechanism: sarama.SASLTypePlaintext,
+		},
+		"Only SASL-PLAIN Auth (not specified, defaulted)": {
+			kafkaAuthCfg: &utils.KafkaAuthConfig{
+				SASL: &utils.KafkaSaslConfig{
+					User:     "my-user",
+					Password: "super-secret",
+				},
+			},
+			enabledTLS:    false,
+			enabledSASL:   true,
+			salsMechanism: sarama.SASLTypePlaintext,
 		},
 		"Only SASL-SCRAM-SHA-256 Auth": {
 			kafkaAuthCfg: &utils.KafkaAuthConfig{
 				SASL: &utils.KafkaSaslConfig{
 					User:     "my-user",
 					Password: "super-secret",
-					SaslType: "SCRAM-SHA-256",
+					SaslType: sarama.SASLTypeSCRAMSHA256,
 				},
 			},
 			enabledTLS:    false,
 			enabledSASL:   true,
-			salsMechanism: "SCRAM-SHA-256",
+			salsMechanism: sarama.SASLTypeSCRAMSHA256,
 		},
 		"Only SASL-SCRAM-SHA-512 Auth": {
 			kafkaAuthCfg: &utils.KafkaAuthConfig{
 				SASL: &utils.KafkaSaslConfig{
 					User:     "my-user",
 					Password: "super-secret",
-					SaslType: "SCRAM-SHA-512",
+					SaslType: sarama.SASLTypeSCRAMSHA512,
 				},
 			},
 			enabledTLS:    false,
 			enabledSASL:   true,
-			salsMechanism: "SCRAM-SHA-512",
+			salsMechanism: sarama.SASLTypeSCRAMSHA512,
 		},
 		"Only TLS Auth": {
 			kafkaAuthCfg: &utils.KafkaAuthConfig{
@@ -101,7 +113,7 @@ func TestUpdateSaramaConfigWithKafkaAuthConfig(t *testing.T) {
 				SASL: &utils.KafkaSaslConfig{
 					User:     "my-user",
 					Password: "super-secret",
-					SaslType: "SCRAM-SHA-512",
+					SaslType: sarama.SASLTypeSCRAMSHA512,
 				},
 				TLS: &utils.KafkaTlsConfig{
 					Cacert:   cert,
@@ -111,7 +123,7 @@ func TestUpdateSaramaConfigWithKafkaAuthConfig(t *testing.T) {
 			},
 			enabledTLS:    true,
 			enabledSASL:   true,
-			salsMechanism: "SCRAM-SHA-512",
+			salsMechanism: sarama.SASLTypeSCRAMSHA512,
 		},
 	}
 
@@ -128,7 +140,7 @@ func TestUpdateSaramaConfigWithKafkaAuthConfig(t *testing.T) {
 			}
 			if saslEnabled {
 				if tc.salsMechanism != string(config.Net.SASL.Mechanism) {
-					t.Errorf("SASL Mechanism is wrong")
+					t.Errorf("SASL Mechanism is wrong, want: %s vs got %s", tc.salsMechanism, string(config.Net.SASL.Mechanism))
 				}
 			}
 

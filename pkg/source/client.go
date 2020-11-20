@@ -158,9 +158,7 @@ func UpdateSaramaConfigWithKafkaAuthConfig(saramaConf *sarama.Config, kafkaAuthC
 			saramaConf.Net.SASL.Handshake = true
 
 			// if SaslType is not provided we are defaulting to PLAIN
-			if kafkaAuthCfg.SASL.SaslType == "" {
-				kafkaAuthCfg.SASL.SaslType = sarama.SASLTypePlaintext
-			}
+			saramaConf.Net.SASL.Mechanism = sarama.SASLTypePlaintext
 
 			if kafkaAuthCfg.SASL.SaslType == sarama.SASLTypeSCRAMSHA256 {
 				saramaConf.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient { return &XDGSCRAMClient{HashGeneratorFcn: SHA256} }
