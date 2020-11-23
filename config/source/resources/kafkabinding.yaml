@@ -22,7 +22,6 @@ metadata:
   name: kafkabindings.bindings.knative.dev
 spec:
   group: bindings.knative.dev
-  preserveUnknownFields: false
   versions:
     - &version
       name: v1alpha1

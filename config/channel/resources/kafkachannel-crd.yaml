@@ -23,7 +23,6 @@ metadata:
     duck.knative.dev/addressable: "true"
 spec:
   group: messaging.knative.dev
-  preserveUnknownFields: false
   versions:
     - &version
       name: v1alpha1
