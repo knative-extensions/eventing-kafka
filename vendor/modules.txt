@@ -1204,10 +1204,10 @@ knative.dev/eventing/test/test_images/heartbeats
 knative.dev/eventing/test/test_images/performance
 knative.dev/eventing/test/test_images/print
 knative.dev/eventing/test/test_images/recordevents
-# knative.dev/hack v0.0.0-20201119155951-11aa26c8eaf6
+# knative.dev/hack v0.0.0-20201120192952-353db687ec5b
 ## explicit
 knative.dev/hack
-# knative.dev/pkg v0.0.0-20201119170152-e5e30edc364a
+# knative.dev/pkg v0.0.0-20201123014053-92bc25a0a520
 ## explicit
 knative.dev/pkg/apis
 knative.dev/pkg/apis/duck
