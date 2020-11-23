@@ -24,6 +24,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"knative.dev/eventing-kafka/pkg/source"
+
 	"knative.dev/eventing-kafka/pkg/common/tracing"
 
 	"github.com/Shopify/sarama"
@@ -50,7 +52,7 @@ type KafkaDispatcher struct {
 	receiver   *eventingchannels.MessageReceiver
 	dispatcher *eventingchannels.MessageDispatcherImpl
 
-	kafkaAsyncProducer   sarama.AsyncProducer
+	kafkaSyncProducer    sarama.SyncProducer
 	channelSubscriptions map[eventingchannels.ChannelReference][]types.UID
 	subsConsumerGroups   map[types.UID]sarama.ConsumerGroup
 	subscriptions        map[types.UID]Subscription
@@ -90,9 +92,16 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 	conf := sarama.NewConfig()
 	conf.Version = sarama.V2_0_0_0
 	conf.ClientID = args.ClientID
-	conf.Consumer.Return.Errors = true // Returns the errors in ConsumerGroup#Errors() https://godoc.org/github.com/Shopify/sarama#ConsumerGroup
+	conf.Consumer.Return.Errors = true    // Returns the errors in ConsumerGroup#Errors() https://godoc.org/github.com/Shopify/sarama#ConsumerGroup
+	conf.Producer.Return.Successes = true // Must be enabled for sync producer
 
-	producer, err := sarama.NewAsyncProducer(args.Brokers, conf)
+	// append the auth info:
+	err := source.UpdateSaramaConfigWithKafkaAuthConfig(conf, args.KafkaAuthConfig)
+	if err != nil {
+		return nil, fmt.Errorf("Error updating the Sarama Auth config: %w", err)
+	}
+
+	producer, err := sarama.NewSyncProducer(args.Brokers, conf)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create kafka producer against Kafka bootstrap servers %v : %v", args.Brokers, err)
 	}
@@ -103,7 +112,7 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 		channelSubscriptions: make(map[eventingchannels.ChannelReference][]types.UID),
 		subsConsumerGroups:   make(map[types.UID]sarama.ConsumerGroup),
 		subscriptions:        make(map[types.UID]Subscription),
-		kafkaAsyncProducer:   producer,
+		kafkaSyncProducer:    producer,
 		logger:               args.Logger,
 		topicFunc:            args.TopicFunc,
 	}
@@ -131,8 +140,15 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 
 			kafkaProducerMessage.Headers = append(kafkaProducerMessage.Headers, tracing.SerializeTrace(trace.FromContext(ctx).SpanContext())...)
 
-			dispatcher.kafkaAsyncProducer.Input() <- &kafkaProducerMessage
-			return nil
+			partition, offset, err := dispatcher.kafkaSyncProducer.SendMessage(&kafkaProducerMessage)
+
+			if err == nil {
+				dispatcher.logger.Debugw("message sent", zap.Int32("partition", partition), zap.Int64("offset", offset))
+			} else {
+				dispatcher.logger.Warnw("message not sent", zap.Error(err))
+			}
+
+			return err
 		},
 		args.Logger.Desugar(),
 		reporter,
@@ -152,6 +168,7 @@ type KafkaDispatcherArgs struct {
 	KnCEConnectionArgs *kncloudevents.ConnectionArgs
 	ClientID           string
 	Brokers            []string
+	KafkaAuthConfig    *utils.KafkaAuthConfig
 	TopicFunc          TopicFunc
 	Logger             *zap.SugaredLogger
 }
@@ -313,23 +330,6 @@ func (d *KafkaDispatcher) Start(ctx context.Context) error {
 	if d.receiver == nil {
 		return fmt.Errorf("message receiver is not set")
 	}
-
-	if d.kafkaAsyncProducer == nil {
-		return fmt.Errorf("kafkaAsyncProducer is not set")
-	}
-
-	go func() {
-		for {
-			select {
-			case e := <-d.kafkaAsyncProducer.Errors():
-				d.logger.Warn("Got", zap.Error(e))
-			case s := <-d.kafkaAsyncProducer.Successes():
-				d.logger.Info("Sent", zap.Any("success", s))
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
 
 	return d.receiver.Start(ctx)
 }
