@@ -5,5 +5,5 @@ metadata:
 spec:
   containers:
     - name: event-sender
-      image: ko://knative.dev/eventing-kafka/vendor/knative.dev/eventing/test/test_images/event-sender
+      image: ko://knative.dev/eventing/test/test_images/heartbeats
 

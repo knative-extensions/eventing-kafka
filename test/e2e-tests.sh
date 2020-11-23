@@ -349,21 +349,27 @@ function kafka_teardown() {
   kubectl delete namespace "${STRIMZI_KAFKA_NAMESPACE}"
 }
 
-function create_auth_secrets() {
+function create_tls_secrets() {
   echo "Creating TLS Kafka secret"
-  STRIMZI_CRT=$(kubectl -n kafka get secret my-cluster-cluster-ca-cert --template='{{index .data "ca.crt"}}' | base64 --decode )
-  TLSUSER_CRT=$(kubectl -n kafka get secret my-tls-user --template='{{index .data "user.crt"}}' | base64 --decode )
-  TLSUSER_KEY=$(kubectl -n kafka get secret my-tls-user --template='{{index .data "user.key"}}' | base64 --decode )
-  SASL_PASSWD=$(kubectl -n kafka get secret my-sasl-user --template='{{index .data "password"}}' | base64 --decode )
+  STRIMZI_CRT=$(kubectl -n ${STRIMZI_KAFKA_NAMESPACE} get secret my-cluster-cluster-ca-cert --template='{{index .data "ca.crt"}}' | base64 --decode )
+  TLSUSER_CRT=$(kubectl -n ${STRIMZI_KAFKA_NAMESPACE} get secret my-tls-user --template='{{index .data "user.crt"}}' | base64 --decode )
+  TLSUSER_KEY=$(kubectl -n ${STRIMZI_KAFKA_NAMESPACE} get secret my-tls-user --template='{{index .data "user.key"}}' | base64 --decode )
 
   kubectl create secret --namespace knative-eventing generic strimzi-tls-secret \
     --from-literal=ca.crt="$STRIMZI_CRT" \
     --from-literal=user.crt="$TLSUSER_CRT" \
     --from-literal=user.key="$TLSUSER_KEY"
+}
+
+function create_sasl_secrets() {
+  echo "Creating SASL Kafka secret"
+  STRIMZI_CRT=$(kubectl -n ${STRIMZI_KAFKA_NAMESPACE} get secret my-cluster-cluster-ca-cert --template='{{index .data "ca.crt"}}' | base64 --decode )
+  SASL_PASSWD=$(kubectl -n ${STRIMZI_KAFKA_NAMESPACE} get secret my-sasl-user --template='{{index .data "password"}}' | base64 --decode )
 
   kubectl create secret --namespace knative-eventing generic strimzi-sasl-secret \
     --from-literal=ca.crt="$STRIMZI_CRT" \
     --from-literal=password="$SASL_PASSWD" \
+    --from-literal=saslType="SCRAM-SHA-512" \
     --from-literal=user="my-sasl-user"
 }
 
@@ -436,11 +442,21 @@ function parse_flags() {
       TEST_CONSOLIDATED_CHANNEL=1
       return 1
       ;;
+    --consolidated-tls)
+      TEST_CONSOLIDATED_CHANNEL_TLS=1
+      return 1
+      ;;
+    --consolidated-sasl)
+      TEST_CONSOLIDATED_CHANNEL_SASL=1
+      return 1
+      ;;
   esac
   return 0
 }
 
 TEST_CONSOLIDATED_CHANNEL=${TEST_CONSOLIDATED_CHANNEL:-0}
+TEST_CONSOLIDATED_CHANNEL_TLS=${TEST_CONSOLIDATED_CHANNEL_TLS:-0}
+TEST_CONSOLIDATED_CHANNEL_SASL=${TEST_CONSOLIDATED_CHANNEL_SASL:-0}
 TEST_DISTRIBUTED_CHANNEL=${TEST_DISTRIBUTED_CHANNEL:-0}
 
 echo "e2e-tests.sh command line: $@"
@@ -452,9 +468,11 @@ initialize $@ --skip-istio-addon
 echo "e2e-tests.sh environment:"
 echo "TEST_CONSOLIDATED_CHANNEL: ${TEST_CONSOLIDATED_CHANNEL}"
 echo "TEST_DISTRIBUTED_CHANNEL: ${TEST_DISTRIBUTED_CHANNEL}"
+echo "TEST_CONSOLIDATED_CHANNEL_TLS: ${TEST_CONSOLIDATED_CHANNEL_TLS}"
+echo "TEST_CONSOLIDATED_CHANNEL_SASL: ${TEST_CONSOLIDATED_CHANNEL_SASL}"
 
-# If neither test was specified, run both
-if [[ $TEST_CONSOLIDATED_CHANNEL != 1 ]] && [[ $TEST_DISTRIBUTED_CHANNEL != 1 ]]; then
+# If neither of the four test was specified, run both plain tests
+if [[ $TEST_CONSOLIDATED_CHANNEL != 1 ]] && [[ $TEST_CONSOLIDATED_CHANNEL_TLS != 1 ]] && [[ $TEST_CONSOLIDATED_CHANNEL_SASL != 1 ]] && [[ $TEST_DISTRIBUTED_CHANNEL != 1 ]]; then
   TEST_DISTRIBUTED_CHANNEL=1
   TEST_CONSOLIDATED_CHANNEL=1
 fi
@@ -462,9 +480,19 @@ fi
 export SYSTEM_NAMESPACE
 
 if [[ $TEST_CONSOLIDATED_CHANNEL == 1 ]]; then
+  echo "Launching the PLAIN TESTS:"
   test_consolidated_channel_plain || exit 1
-  create_auth_secrets
+fi
+
+if [[ $TEST_CONSOLIDATED_CHANNEL_TLS == 1 ]]; then
+  echo "Launching the TLS TESTS:"
+  create_tls_secrets
   test_consolidated_channel_tls || exit 1
+fi
+
+if [[ $TEST_CONSOLIDATED_CHANNEL_SASL == 1 ]]; then
+  echo "Launching the SASL TESTS:"
+  create_sasl_secrets
   test_consolidated_channel_sasl || exit 1
 fi
 
