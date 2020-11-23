@@ -19,6 +19,7 @@ package dispatcher
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/Shopify/sarama"
 	"github.com/ghodss/yaml"
 	"github.com/stretchr/testify/assert"

@@ -19,6 +19,7 @@ package producer
 import (
 	"context"
 	"encoding/json"
+
 	"github.com/Shopify/sarama"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/ghodss/yaml"
