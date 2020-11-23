@@ -17,6 +17,9 @@ limitations under the License.
 package env
 
 import (
+	"context"
+	"errors"
+	"knative.dev/pkg/system"
 	"strconv"
 	"time"
 
@@ -39,10 +42,11 @@ const (
 type Environment struct {
 
 	// Eventing-kafka Configuration
-	ServiceAccount string        // Required
-	MetricsPort    int           // Required
-	MetricsDomain  string        // Required
-	ResyncPeriod   time.Duration // Optional
+	SystemNamespace string        // Required
+	ServiceAccount  string        // Required
+	MetricsPort     int           // Required
+	MetricsDomain   string        // Required
+	ResyncPeriod    time.Duration // Optional
 
 	// Dispatcher Configuration
 	DispatcherImage string // Required
@@ -50,6 +54,9 @@ type Environment struct {
 	// Receiver Configuration
 	ReceiverImage string // Required
 }
+
+// Key is used as the key for associating information with a context.Context.
+type Key struct{}
 
 // Get The Environment
 func GetEnvironment(logger *zap.Logger) (*Environment, error) {
@@ -59,6 +66,12 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 
 	// The ControllerConfig Reference
 	environment := &Environment{}
+
+	// Get The Required System Namespace Config Value
+	environment.SystemNamespace, err = env.GetRequiredConfigValue(logger, system.NamespaceEnvKey)
+	if err != nil {
+		return nil, err
+	}
 
 	// Get The Required K8S ServiceAccount Config Value
 	environment.ServiceAccount, err = env.GetRequiredConfigValue(logger, env.ServiceAccountEnvVarKey)
@@ -113,5 +126,14 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 	logger.Info("Environment Variables", zap.Any("Environment", environment))
 
 	// Return The Populated ControllerConfig
+	return environment, nil
+}
+
+// Obtain the Environment struct contained in a Context, if present
+func FromContext(ctx context.Context) (*Environment, error) {
+	environment, ok := ctx.Value(Key{}).(*Environment)
+	if !ok {
+		return nil, errors.New("could not extract Environment from context")
+	}
 	return environment, nil
 }

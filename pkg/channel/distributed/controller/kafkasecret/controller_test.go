@@ -32,14 +32,12 @@ import (
 	controllertesting "knative.dev/eventing-kafka/pkg/channel/distributed/controller/testing"
 	fakeKafkaClient "knative.dev/eventing-kafka/pkg/client/injection/client/fake"
 	_ "knative.dev/eventing-kafka/pkg/client/injection/informers/messaging/v1beta1/kafkachannel/fake" // Knative Fake Informer Injection
-	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/pkg/client/injection/kube/client/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment/fake" // Knative Fake Informer Injection
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"    // Knative Fake Informer Injection
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
-	"knative.dev/pkg/system"
 )
 
 // Test The NewController() Functionality
@@ -49,7 +47,8 @@ func TestNewController(t *testing.T) {
 	populateEnvironmentVariables(t)
 
 	// Create A Context With Test Logger
-	ctx := logging.WithLogger(context.Background(), logtesting.TestLogger(t))
+	logger := logtesting.TestLogger(t)
+	ctx := logging.WithLogger(context.Background(), logger)
 
 	// Register Fake Informers (See Injection "_" Imports Above!)
 	ctx, fakeInformers := injection.Fake.SetupInformers(ctx, &rest.Config{})
@@ -65,6 +64,9 @@ func TestNewController(t *testing.T) {
 	assert.NotNil(t, fakeKafkaClientset)
 
 	// Perform The Test (Create The KafkaChannel Controller)
+	environment, err := controllerenv.GetEnvironment(logger.Desugar())
+	assert.Nil(t, err)
+	ctx = context.WithValue(ctx, controllerenv.Key{}, environment)
 	controller := NewController(ctx, nil)
 
 	// Verify The Results
@@ -80,7 +82,7 @@ func TestShutdown(t *testing.T) {
 
 // Utility Function For Populating Required Environment Variables For Testing
 func populateEnvironmentVariables(t *testing.T) {
-	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, commonconstants.KnativeEventingNamespace))
+	commontesting.SetTestEnvironment(t)
 	assert.Nil(t, os.Setenv(commonenv.ServiceAccountEnvVarKey, controllertesting.ServiceAccount))
 	assert.Nil(t, os.Setenv(commonenv.MetricsDomainEnvVarKey, controllertesting.MetricsDomain))
 	assert.Nil(t, os.Setenv(commonenv.MetricsPortEnvVarKey, strconv.Itoa(controllertesting.MetricsPort)))

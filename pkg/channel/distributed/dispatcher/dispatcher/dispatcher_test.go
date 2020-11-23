@@ -19,8 +19,6 @@ package dispatcher
 import (
 	"encoding/json"
 	"fmt"
-	"os"
-
 	"github.com/Shopify/sarama"
 	"github.com/ghodss/yaml"
 	"github.com/stretchr/testify/assert"
@@ -30,7 +28,7 @@ import (
 	commonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	kafkaconsumer "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer"
 	kafkatesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/testing"
-	"knative.dev/eventing-kafka/pkg/common/constants"
+	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/channel"
 	logtesting "knative.dev/pkg/logging/testing"
@@ -366,7 +364,7 @@ func TestConfigChanged(t *testing.T) {
 	logger := logtesting.TestLogger(t).Desugar()
 
 	// Setup Environment
-	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, constants.KnativeEventingNamespace))
+	commontesting.SetTestEnvironment(t)
 
 	// Create Mocks
 	var dispatcher Dispatcher

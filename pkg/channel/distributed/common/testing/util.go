@@ -17,7 +17,11 @@ limitations under the License.
 package testing
 
 import (
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/system"
 	"net/http"
+	"os"
 	"testing"
 	"time"
 
@@ -32,7 +36,7 @@ import (
 
 // Returns A ConfigMap Containing The Desired Sarama Config YAML
 func GetTestSaramaConfigMap(saramaConfig string, configuration string) *corev1.ConfigMap {
-	return GetTestSaramaConfigMapNamespaced(SettingsConfigMapName, KnativeEventingNamespace, saramaConfig, configuration)
+	return GetTestSaramaConfigMapNamespaced(SettingsConfigMapName, system.Namespace(), saramaConfig, configuration)
 }
 
 // Returns A ConfigMap Containing The Desired Sarama Config YAML, Name And Namespace
@@ -83,4 +87,14 @@ func RetryGet(url string, pause time.Duration, retryCount int, retryAgain int) (
 	}
 	// Request failed too many times; return the error for caller to process
 	return resp, err
+}
+
+// Sets the environment variables that are necessary for common components
+func SetTestEnvironment(t *testing.T) {
+	// The system.Namespace() call panics if the SYSTEM_NAMESPACE variable isn't set, so
+	// this sets "knative-eventing" explicitly for testing purposes
+	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, "knative-eventing"))
+	// The logging.ConfigMapName() has a default if it isn't present, so this just uses that
+	// function directly to ensure that the CONFIG_LOGGING_NAME variable is set
+	assert.Nil(t, os.Setenv(env.KnativeLoggingConfigMapNameEnvVarKey, logging.ConfigMapName()))
 }

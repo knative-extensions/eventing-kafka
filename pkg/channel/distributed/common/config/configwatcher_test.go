@@ -28,7 +28,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
-	"knative.dev/eventing-kafka/pkg/common/constants"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/system"
@@ -43,14 +42,11 @@ var (
 // Test The InitializeObservability() Functionality
 func TestInitializeConfigWatcher(t *testing.T) {
 
-	// Test Data
-	ctx := context.TODO()
-
 	// Obtain a Test Logger (Required By be InitializeConfigWatcher function)
 	logger := logtesting.TestLogger(t)
 
 	// Setup Environment
-	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, constants.KnativeEventingNamespace))
+	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, "knative-eventing"))
 
 	// Create A Test Observability ConfigMap For The InitializeObservability() Call To Watch
 	configMap := commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, commontesting.TestEKConfig)
@@ -59,7 +55,7 @@ func TestInitializeConfigWatcher(t *testing.T) {
 	fakeK8sClient := fake.NewSimpleClientset(configMap)
 
 	// Add The Fake K8S Client To The Context (Required By InitializeObservability)
-	ctx = context.WithValue(ctx, injectionclient.Key{}, fakeK8sClient)
+	ctx := context.WithValue(context.TODO(), injectionclient.Key{}, fakeK8sClient)
 
 	// The configWatcherHandler should change the nil "watchedConfigMap" to a valid ConfigMap when the watcher triggers
 

@@ -19,8 +19,6 @@ package producer
 import (
 	"context"
 	"encoding/json"
-	"os"
-
 	"github.com/Shopify/sarama"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/ghodss/yaml"
@@ -30,10 +28,10 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	commonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/metrics"
+	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/constants"
 	channelhealth "knative.dev/eventing-kafka/pkg/channel/distributed/receiver/health"
 	receivertesting "knative.dev/eventing-kafka/pkg/channel/distributed/receiver/testing"
-	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/system"
 
@@ -188,7 +186,7 @@ func TestConfigChanged(t *testing.T) {
 	defer func() { createSyncProducerWrapper = createSyncProducerWrapperPlaceholder }()
 
 	// Setup Environment
-	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, commonconstants.KnativeEventingNamespace))
+	commontesting.SetTestEnvironment(t)
 	// Create Mocks
 	mockSyncProducer := receivertesting.NewMockSyncProducer()
 	producer := createTestProducer(t, mockSyncProducer)

@@ -18,8 +18,6 @@ package admin
 
 import (
 	"context"
-	"os"
-
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -29,7 +27,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
-	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
@@ -62,7 +59,7 @@ Metadata:
 `
 
 	// Setup Environment
-	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, commonconstants.KnativeEventingNamespace))
+	commontesting.SetTestEnvironment(t)
 
 	// Create Test Kafka Secret And ConfigMap
 	kafkaSecret := createKafkaSecret(kafkaSecretName, namespace, kafkaSecretBrokers, kafkaSecretUsername, kafkaSecretPassword)

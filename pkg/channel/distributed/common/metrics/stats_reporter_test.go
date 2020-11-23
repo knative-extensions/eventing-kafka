@@ -35,7 +35,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
 	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
-	"knative.dev/eventing-kafka/pkg/common/constants"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/metrics"
@@ -52,7 +51,7 @@ func TestMetricsServer_Report(t *testing.T) {
 	msgCount := 13579
 
 	// Initialize The Environment For The Test
-	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, constants.KnativeEventingNamespace))
+	commontesting.SetTestEnvironment(t)
 	assert.Nil(t, os.Setenv(env.MetricsDomainEnvVarKey, metricsDomain))
 
 	// Create An Observability ConfigMap For The InitializeObservability() Call To Watch

@@ -21,7 +21,4 @@ const (
 	// KafkaChannel Spec Defaults
 	DefaultNumPartitions     = 1
 	DefaultReplicationFactor = 1
-
-	// Knative Eventing Namespace
-	KnativeEventingNamespace = "knative-eventing"
 )

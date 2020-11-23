@@ -55,7 +55,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	serviceInformer := service.Get(ctx)
 
 	// Load The Environment Variables
-	environment, err := env.GetEnvironment(logger)
+	environment, err := env.FromContext(ctx)
 	if err != nil {
 		logger.Fatal("Failed To Load Environment Variables - Terminating!", zap.Error(err))
 	}

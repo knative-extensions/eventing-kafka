@@ -33,7 +33,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
-	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
@@ -135,7 +134,7 @@ func (r *Reconciler) getReceiverService(secret *corev1.Secret) (*corev1.Service,
 	deploymentName := util.ReceiverDnsSafeName(secret.Name)
 
 	// Get The Receiver Service By Namespace / Name
-	service, err := r.serviceLister.Services(commonconstants.KnativeEventingNamespace).Get(deploymentName)
+	service, err := r.serviceLister.Services(system.Namespace()).Get(deploymentName)
 
 	// Return The Results
 	return service, err
@@ -155,7 +154,7 @@ func (r *Reconciler) newReceiverService(secret *corev1.Secret) *corev1.Service {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deploymentName,
-			Namespace: commonconstants.KnativeEventingNamespace,
+			Namespace: system.Namespace(),
 			Labels: map[string]string{
 				constants.KafkaChannelReceiverLabel:  "true",                               // Allows for identification of Receivers
 				constants.K8sAppChannelSelectorLabel: constants.K8sAppChannelSelectorValue, // Prometheus ServiceMonitor
@@ -241,7 +240,7 @@ func (r *Reconciler) getReceiverDeployment(secret *corev1.Secret) (*appsv1.Deplo
 	deploymentName := util.ReceiverDnsSafeName(secret.Name)
 
 	// Get The Receiver Deployment By Namespace / Name
-	deployment, err := r.deploymentLister.Deployments(commonconstants.KnativeEventingNamespace).Get(deploymentName)
+	deployment, err := r.deploymentLister.Deployments(system.Namespace()).Get(deploymentName)
 
 	// Return The Results
 	return deployment, err
@@ -271,7 +270,7 @@ func (r *Reconciler) newReceiverDeployment(logger *zap.Logger, secret *corev1.Se
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deploymentName,
-			Namespace: commonconstants.KnativeEventingNamespace,
+			Namespace: system.Namespace(),
 			Labels: map[string]string{
 				constants.AppLabel:                  deploymentName, // Matches Service Selector Key/Value Below
 				constants.KafkaChannelReceiverLabel: "true",         // Allows for identification of Receivers
@@ -355,7 +354,7 @@ func (r *Reconciler) receiverDeploymentEnvVars(secret *corev1.Secret) ([]corev1.
 	envVars := []corev1.EnvVar{
 		{
 			Name:  system.NamespaceEnvKey,
-			Value: commonconstants.KnativeEventingNamespace,
+			Value: system.Namespace(),
 		},
 		{
 			Name: commonenv.PodNameEnvVarKey,
