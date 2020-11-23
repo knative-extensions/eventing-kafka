@@ -22,9 +22,9 @@ data:
       KeepAlive: 30000000000  # 30 seconds
       MaxOpenRequests: 1 # Set to 1 for use with Idempotent Producer
       TLS:
-        Enable: false
+        Enable: true
       SASL:
-        Enable: false
+        Enable: true
         Mechanism: PLAIN
         Version: 1
     Metadata:
