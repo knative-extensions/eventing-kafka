@@ -18,6 +18,7 @@ package kafkasecret
 
 import (
 	"context"
+
 	"knative.dev/pkg/system"
 
 	"go.uber.org/zap"

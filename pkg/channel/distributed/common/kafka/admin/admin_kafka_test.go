@@ -18,6 +18,7 @@ package admin
 
 import (
 	"context"
+
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

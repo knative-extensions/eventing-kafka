@@ -18,8 +18,9 @@ package config
 
 import (
 	"context"
-	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
 	"testing"
+
+	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"

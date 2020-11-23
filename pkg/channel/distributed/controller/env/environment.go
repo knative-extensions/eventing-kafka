@@ -19,9 +19,10 @@ package env
 import (
 	"context"
 	"errors"
-	"knative.dev/pkg/system"
 	"strconv"
 	"time"
+
+	"knative.dev/pkg/system"
 
 	"go.uber.org/zap"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/env"

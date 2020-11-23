@@ -18,11 +18,12 @@ package kafkasecretinformer
 
 import (
 	"context"
-	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
 	"os"
 	"strconv"
 	"testing"
 	"time"
+
+	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
 
 	"github.com/stretchr/testify/assert"
 	"k8s.io/client-go/kubernetes/fake"

@@ -19,12 +19,13 @@ package env
 import (
 	"context"
 	"fmt"
-	"knative.dev/pkg/system"
 	"log"
 	"os"
 	"strconv"
 	"testing"
 	"time"
+
+	"knative.dev/pkg/system"
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"

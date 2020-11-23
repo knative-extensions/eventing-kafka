@@ -18,8 +18,9 @@ package admin
 
 import (
 	"context"
-	"knative.dev/pkg/system"
 	"testing"
+
+	"knative.dev/pkg/system"
 
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"

@@ -17,13 +17,14 @@ limitations under the License.
 package testing
 
 import (
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/system"
 	"net/http"
 	"os"
 	"testing"
 	"time"
+
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/system"
 
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 
