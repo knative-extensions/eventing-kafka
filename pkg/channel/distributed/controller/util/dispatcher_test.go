@@ -63,18 +63,21 @@ func TestDispatcherDnsSafeName(t *testing.T) {
 
 	// Run The TestCases
 	for _, testCase := range testCases {
-		// Test Data
-		channel := &kafkav1beta1.KafkaChannel{ObjectMeta: metav1.ObjectMeta{Name: testCase.Name, Namespace: testCase.Namespace}}
+		t.Run(testCase.Name, func(t *testing.T) {
 
-		// Perform The Test
-		actualResult := DispatcherDnsSafeName(channel)
-		hash := GenerateHash(testCase.Name+testCase.Namespace, 8)
-		truncateName := fmt.Sprintf("%.26s", testCase.Name)
-		truncateNamespace := fmt.Sprintf("%.16s", testCase.Namespace)
-		expectedResult := fmt.Sprintf("%s-%s-%s-dispatcher", truncateName, truncateNamespace, hash)
+			// Test Data
+			channel := &kafkav1beta1.KafkaChannel{ObjectMeta: metav1.ObjectMeta{Name: testCase.Name, Namespace: testCase.Namespace}}
 
-		// Verify The Results
-		assert.Equal(t, expectedResult, actualResult)
+			// Perform The Test
+			actualResult := DispatcherDnsSafeName(channel)
+			hash := GenerateHash(testCase.Name+testCase.Namespace, 8)
+			truncateName := fmt.Sprintf("%.26s", testCase.Name)
+			truncateNamespace := fmt.Sprintf("%.16s", testCase.Namespace)
+			expectedResult := fmt.Sprintf("%s-%s-%s-dispatcher", truncateName, truncateNamespace, hash)
+
+			// Verify The Results
+			assert.Equal(t, expectedResult, actualResult)
+		})
 	}
 }
 
@@ -133,26 +136,29 @@ func TestDispatcherDnsSafeName_LongNamesDifferent(t *testing.T) {
 
 	// Run The TestCases
 	for _, testCase := range testCases {
-		// Test Data
-		channel1 := &kafkav1beta1.KafkaChannel{ObjectMeta: metav1.ObjectMeta{Name: testCase.Name1, Namespace: testCase.Namespace1}}
-		channel2 := &kafkav1beta1.KafkaChannel{ObjectMeta: metav1.ObjectMeta{Name: testCase.Name2, Namespace: testCase.Namespace2}}
+		t.Run(testCase.Name1, func(t *testing.T) {
 
-		// Perform The Test
-		actualResult1 := DispatcherDnsSafeName(channel1)
-		hash1 := GenerateHash(testCase.Name1+testCase.Namespace1, 8)
-		truncateName1 := fmt.Sprintf("%.26s", testCase.Name1)
-		truncateNamespace1 := fmt.Sprintf("%.16s", testCase.Namespace1)
-		expectedResult1 := fmt.Sprintf("%s-%s-%s-dispatcher", truncateName1, truncateNamespace1, hash1)
+			// Test Data
+			channel1 := &kafkav1beta1.KafkaChannel{ObjectMeta: metav1.ObjectMeta{Name: testCase.Name1, Namespace: testCase.Namespace1}}
+			channel2 := &kafkav1beta1.KafkaChannel{ObjectMeta: metav1.ObjectMeta{Name: testCase.Name2, Namespace: testCase.Namespace2}}
 
-		actualResult2 := DispatcherDnsSafeName(channel2)
-		hash2 := GenerateHash(testCase.Name2+testCase.Namespace2, 8)
-		truncateName2 := fmt.Sprintf("%.26s", testCase.Name2)
-		truncateNamespace2 := fmt.Sprintf("%.16s", testCase.Namespace2)
-		expectedResult2 := fmt.Sprintf("%s-%s-%s-dispatcher", truncateName2, truncateNamespace2, hash2)
+			// Perform The Test
+			actualResult1 := DispatcherDnsSafeName(channel1)
+			hash1 := GenerateHash(testCase.Name1+testCase.Namespace1, 8)
+			truncateName1 := fmt.Sprintf("%.26s", testCase.Name1)
+			truncateNamespace1 := fmt.Sprintf("%.16s", testCase.Namespace1)
+			expectedResult1 := fmt.Sprintf("%s-%s-%s-dispatcher", truncateName1, truncateNamespace1, hash1)
 
-		// Verify The Results
-		assert.Equal(t, expectedResult1, actualResult1)
-		assert.Equal(t, expectedResult2, actualResult2)
-		assert.NotEqual(t, actualResult1, actualResult2)
+			actualResult2 := DispatcherDnsSafeName(channel2)
+			hash2 := GenerateHash(testCase.Name2+testCase.Namespace2, 8)
+			truncateName2 := fmt.Sprintf("%.26s", testCase.Name2)
+			truncateNamespace2 := fmt.Sprintf("%.16s", testCase.Namespace2)
+			expectedResult2 := fmt.Sprintf("%s-%s-%s-dispatcher", truncateName2, truncateNamespace2, hash2)
+
+			// Verify The Results
+			assert.Equal(t, expectedResult1, actualResult1)
+			assert.Equal(t, expectedResult2, actualResult2)
+			assert.NotEqual(t, actualResult1, actualResult2)
+		})
 	}
 }

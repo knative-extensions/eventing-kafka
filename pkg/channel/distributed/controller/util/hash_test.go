@@ -44,9 +44,10 @@ func TestGenerateHash(t *testing.T) {
 
 	// Run The TestCases
 	for _, testCase := range testCases {
-		hash := GenerateHash(testCase.Name, testCase.Length)
-		expected := fmt.Sprintf("%x", md5.Sum([]byte(testCase.Name)))[0:testCase.Length]
-		assert.Equal(t, expected, hash)
+		t.Run(testCase.Name, func(t *testing.T) {
+			hash := GenerateHash(testCase.Name, testCase.Length)
+			expected := fmt.Sprintf("%x", md5.Sum([]byte(testCase.Name)))[0:testCase.Length]
+			assert.Equal(t, expected, hash)
+		})
 	}
-
 }

@@ -56,7 +56,9 @@ func TestGenerateValidDnsName(t *testing.T) {
 
 	// Run The TestCases
 	for _, testCase := range testCases {
-		actualDnsName := GenerateValidDnsName(testCase.Name, testCase.Length, testCase.Prefix, testCase.Suffix)
-		assert.Equal(t, testCase.Result, actualDnsName)
+		t.Run(testCase.Name, func(t *testing.T) {
+			actualDnsName := GenerateValidDnsName(testCase.Name, testCase.Length, testCase.Prefix, testCase.Suffix)
+			assert.Equal(t, testCase.Result, actualDnsName)
+		})
 	}
 }
