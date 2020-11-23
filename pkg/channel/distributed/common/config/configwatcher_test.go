@@ -18,7 +18,6 @@ package config
 
 import (
 	"context"
-	"os"
 	"sync"
 	"testing"
 	"time"
@@ -46,7 +45,7 @@ func TestInitializeConfigWatcher(t *testing.T) {
 	logger := logtesting.TestLogger(t)
 
 	// Setup Environment
-	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, "knative-eventing"))
+	commontesting.SetTestEnvironment(t)
 
 	// Create A Test Observability ConfigMap For The InitializeObservability() Call To Watch
 	configMap := commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, commontesting.TestEKConfig)
