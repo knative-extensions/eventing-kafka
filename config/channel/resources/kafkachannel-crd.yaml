@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   name: kafkachannels.messaging.knative.dev
@@ -24,52 +24,58 @@ metadata:
 spec:
   group: messaging.knative.dev
   preserveUnknownFields: false
-  validation:
-    openAPIV3Schema:
-      type: object
-        # this is a work around so we don't need to flush out the
-        # schema for each version at this time
-        #
-        # see issue: https://github.com/knative/serving/issues/912
-      x-kubernetes-preserve-unknown-fields: true
+  versions:
+    - &version
+      name: v1alpha1
+      served: true
+      storage: true
+      subresources:
+        status: { }
+      schema:
+        openAPIV3Schema: &openAPIV3Schema
+          type: object
+          # this is a work around so we don't need to flush out the
+          # schema for each version at this time
+          #
+          # see issue: https://github.com/knative/serving/issues/912
+          x-kubernetes-preserve-unknown-fields: true
+      additionalPrinterColumns:
+        - name: Ready
+          type: string
+          jsonPath: ".status.conditions[?(@.type==\"Ready\")].status"
+        - name: Reason
+          type: string
+          jsonPath: ".status.conditions[?(@.type==\"Ready\")].reason"
+        - name: URL
+          type: string
+          jsonPath: .status.address.url
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+    - <<: *version
+      name: v1beta1
+      served: true
+      storage: false
+      schema:
+        openAPIV3Schema:
+          <<: *openAPIV3Schema
   names:
     kind: KafkaChannel
     plural: kafkachannels
     singular: kafkachannel
     categories:
-    - all
-    - knative
-    - messaging
-    - channel
+      - all
+      - knative
+      - messaging
+      - channel
     shortNames:
-    - kc
+      - kc
   scope: Namespaced
-  subresources:
-    status: {}
-  additionalPrinterColumns:
-    - name: Ready
-      type: string
-      JSONPath: ".status.conditions[?(@.type==\"Ready\")].status"
-    - name: Reason
-      type: string
-      JSONPath: ".status.conditions[?(@.type==\"Ready\")].reason"
-    - name: URL
-      type: string
-      JSONPath: .status.address.url
-    - name: Age
-      type: date
-      JSONPath: .metadata.creationTimestamp
-  versions:
-  - name: v1alpha1
-    served: true
-    storage: true
-  - name: v1beta1
-    served: true
-    storage: false
   conversion:
     strategy: Webhook
-    conversionReviewVersions: ["v1beta1", "v1alpha1"]
-    webhookClientConfig:
-      service:
-        name: kafka-webhook
-        namespace: knative-eventing
+    webhook:
+      conversionReviewVersions: [ "v1", "v1beta1" ]
+      clientConfig:
+        service:
+          name: kafka-webhook
+          namespace: knative-eventing
