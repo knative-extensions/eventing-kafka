@@ -115,6 +115,9 @@ readonly SYSTEM_NAMESPACE="knative-eventing"
 # Zipkin setup
 readonly KNATIVE_EVENTING_MONITORING_YAML="test/config/monitoring.yaml"
 
+# The number of control plane replicas to run.
+readonly REPLICAS=${REPLICAS:-3}
+
 #
 # TODO - Consider adding this function to the test-infra library.sh utilities ?
 #
@@ -264,6 +267,9 @@ function install_consolidated_channel_crds() {
   cp "${CONSOLIDATED_TEMPLATE_DIR}/"*yaml "${KAFKA_CRD_CONFIG_DIR}"
   sed -i "s/REPLACE_WITH_CLUSTER_URL/${KAFKA_CLUSTER_URL}/" ${KAFKA_CRD_CONFIG_DIR}/${KAFKA_CRD_CONFIG_TEMPLATE}
   ko apply -f "${KAFKA_CRD_CONFIG_DIR}" || return 1
+
+  scale_controlplane kafka-ch-controller kafka-ch-dispatcher kafka-webhook
+
   wait_until_pods_running knative-eventing || fail_test "Failed to install the consolidated Kafka Channel CRD"
 }
 
@@ -309,6 +315,17 @@ function install_distributed_channel_crds() {
   add_kn_eventing_test_pull_secret knative-eventing eventing-kafka-channel-controller eventing-kafka-channel-controller
 
   wait_until_pods_running knative-eventing || fail_test "Failed to install the distributed Kafka Channel CRD"
+}
+
+function scale_controlplane() {
+  for deployment in "$@"; do
+    # Make sure all pods run in leader-elected mode.
+    kubectl -n knative-eventing scale deployment "$deployment" --replicas=0 || fail_test "Failed to scale down to 0 ${deployment}"
+    # Give it time to kill the pods.
+    sleep 5
+    # Scale up components for HA tests
+    kubectl -n knative-eventing scale deployment "$deployment" --replicas="${REPLICAS}" || fail_test "Failed to scale up to ${REPLICAS} ${deployment}"
+  done
 }
 
 function kafka_setup() {

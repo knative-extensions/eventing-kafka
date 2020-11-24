@@ -1,5 +1,3 @@
-// +build tools
-
 /*
 Copyright 2020 The Knative Authors
 
@@ -16,19 +14,5 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package tools
-
-import (
-	_ "knative.dev/hack"
-	_ "knative.dev/pkg/hack"
-
-	// Test images from eventing
-	_ "knative.dev/eventing/test/test_images/event-sender"
-	_ "knative.dev/eventing/test/test_images/heartbeats"
-	_ "knative.dev/eventing/test/test_images/performance"
-	_ "knative.dev/eventing/test/test_images/print"
-	_ "knative.dev/eventing/test/test_images/recordevents"
-
-	// For chaos testing the leaderelection stuff.
-	_ "knative.dev/pkg/leaderelection/chaosduck"
-)
+// Package kflag contains a variety of non-standard command-line flag types
+package kflag
