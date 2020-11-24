@@ -114,6 +114,7 @@ readonly SYSTEM_NAMESPACE="knative-eventing"
 
 # Zipkin setup
 readonly KNATIVE_EVENTING_MONITORING_YAML="test/config/monitoring.yaml"
+readonly KNATIVE_EVENTING_CHAOSDUCK_YAML="test/config/chaosduck.yaml"
 
 # The number of control plane replicas to run.
 readonly REPLICAS=${REPLICAS:-3}
@@ -297,6 +298,13 @@ function uninstall_sources_crds() {
   ko delete --ignore-not-found=true --now --timeout 120s -f "${KAFKA_SOURCE_CRD_CONFIG_DIR}"
 }
 
+function install_duck() {
+  ko apply -f ${KNATIVE_EVENTING_CHAOSDUCK_YAML} || return 1
+}
+function uninstall_duck() {
+  ko delete --ignore-not-found=true --now --timeout 120s -f ${KNATIVE_EVENTING_CHAOSDUCK_YAML} || return 1
+}
+
 function install_distributed_channel_crds() {
   echo "Installing distributed Kafka Channel CRD"
   rm "${KAFKA_CRD_CONFIG_DIR}/"*yaml
@@ -396,10 +404,12 @@ function test_consolidated_channel_plain() {
   echo "Testing the consolidated channel and source"
   install_consolidated_channel_crds || return 1
   install_consolidated_sources_crds || return 1
+  install_duck || return 1
 
   go_test_e2e -tags=e2e,source -timeout=40m -test.parallel=${TEST_PARALLEL} ./test/e2e -channels=messaging.knative.dev/v1alpha1:KafkaChannel,messaging.knative.dev/v1beta1:KafkaChannel  || fail_test
   go_test_e2e -tags=e2e,source -timeout=5m -test.parallel=${TEST_PARALLEL} ./test/conformance -channels=messaging.knative.dev/v1beta1:KafkaChannel -sources=sources.knative.dev/v1beta1:KafkaSource || fail_test
 
+  uninstall_duck || return 1
   uninstall_sources_crds || return 1
   uninstall_channel_crds || return 1
 }
