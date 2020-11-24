@@ -23,7 +23,7 @@ webhooks:
   clientConfig:
     service:
       name: kafka-source-webhook
-      namespace: knative-sources
+      namespace: knative-eventing
   sideEffects: None
   failurePolicy: Fail
   name: defaulting.webhook.kafka.sources.knative.dev
@@ -39,7 +39,7 @@ webhooks:
   clientConfig:
     service:
       name: kafka-source-webhook
-      namespace: knative-sources
+      namespace: knative-eventing
   sideEffects: None
   failurePolicy: Fail
   name: kafkabindings.webhook.kafka.sources.knative.dev
@@ -55,7 +55,7 @@ webhooks:
   clientConfig:
     service:
       name: kafka-source-webhook
-      namespace: knative-sources
+      namespace: knative-eventing
   sideEffects: None
   failurePolicy: Fail
   name: validation.webhook.kafka.sources.knative.dev
@@ -71,7 +71,7 @@ webhooks:
   clientConfig:
     service:
       name: kafka-source-webhook
-      namespace: knative-sources
+      namespace: knative-eventing
   sideEffects: None
   failurePolicy: Fail
   name: config.webhook.kafka.sources.knative.dev
@@ -84,7 +84,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: kafka-source-webhook-certs
-  namespace: knative-sources
+  namespace: knative-eventing
   labels:
     contrib.eventing.knative.dev/release: devel
 # The data is populated at install time.

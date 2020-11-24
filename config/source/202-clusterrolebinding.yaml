@@ -21,7 +21,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: kafka-controller-manager
-  namespace: knative-sources
+  namespace: knative-eventing
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -38,7 +38,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: kafka-controller-manager
-  namespace: knative-sources
+  namespace: knative-eventing
 # An aggregated ClusterRole for all Addressable CRDs.
 # Ref: https://github.com/knative/eventing/tree/master/config/core/rolesaddressable-resolvers-clusterrole.yaml
 roleRef:
@@ -57,7 +57,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: kafka-controller-manager
-  namespace: knative-sources
+  namespace: knative-eventing
 # An aggregated ClusterRole for all PodSpecable CRDs.
 # Ref: https://github.com/knative/eventing/blob/master/config/core/roles/podspecable-binding-clusterrole.yaml
 roleRef:

@@ -87,4 +87,4 @@ spec:
       clientConfig:
         service:
           name: kafka-source-webhook
-          namespace: knative-sources
+          namespace: knative-eventing
