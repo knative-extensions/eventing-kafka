@@ -131,7 +131,7 @@ The following shows an example of the expected usage...
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: config-eventing-kafka
+  name: config-kafka
   namespace: knative-eventing
 data:
   sarama: |
