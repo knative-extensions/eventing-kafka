@@ -24,6 +24,7 @@ webhooks:
     service:
       name: kafka-webhook
       namespace: knative-eventing
+  sideEffects: None
   failurePolicy: Fail
   name: defaulting.webhook.kafka.messaging.knative.dev
 
@@ -41,5 +42,6 @@ webhooks:
     service:
       name: kafka-webhook
       namespace: knative-eventing
+  sideEffects: None
   failurePolicy: Fail
   name: validation.webhook.kafka.messaging.knative.dev

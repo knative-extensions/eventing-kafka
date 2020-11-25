@@ -24,6 +24,7 @@ webhooks:
     service:
       name: kafka-source-webhook
       namespace: knative-sources
+  sideEffects: None
   failurePolicy: Fail
   name: defaulting.webhook.kafka.sources.knative.dev
 ---
@@ -39,6 +40,7 @@ webhooks:
     service:
       name: kafka-source-webhook
       namespace: knative-sources
+  sideEffects: None
   failurePolicy: Fail
   name: kafkabindings.webhook.kafka.sources.knative.dev
 ---
@@ -54,6 +56,7 @@ webhooks:
     service:
       name: kafka-source-webhook
       namespace: knative-sources
+  sideEffects: None
   failurePolicy: Fail
   name: validation.webhook.kafka.sources.knative.dev
 ---
@@ -69,6 +72,7 @@ webhooks:
     service:
       name: kafka-source-webhook
       namespace: knative-sources
+  sideEffects: None
   failurePolicy: Fail
   name: config.webhook.kafka.sources.knative.dev
   namespaceSelector:
