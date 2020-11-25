@@ -22,11 +22,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	bindingsv1alpha1 "knative.dev/eventing-kafka/pkg/apis/bindings/v1alpha1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/webhook/resourcesemantics"
+
+	bindingsv1alpha1 "knative.dev/eventing-kafka/pkg/apis/bindings/v1alpha1"
+	duckv1alpha1 "knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
 )
 
 // +genclient
@@ -134,6 +136,11 @@ type KafkaSourceStatus struct {
 	// +optional
 	// For round-tripping only.
 	Consumers int32 `json:"consumers,omitempty"`
+
+	// Implement Placeable.
+	// For round-tripping only.
+	// +optional
+	duckv1alpha1.Placeable `json:",inline"`
 }
 
 func (*KafkaSource) GetGroupVersionKind() schema.GroupVersionKind {

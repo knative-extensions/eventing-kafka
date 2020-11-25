@@ -13,7 +13,7 @@
 # limitations under the License.
 
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: kafkasource-mt-adapter
   namespace: knative-sources
@@ -23,16 +23,16 @@ spec:
   replicas: 1 # TODO: set to 0
   selector:
     matchLabels: &labels
-      eventing.knative.dev/source: kafkasource
-      sources.knative.dev/role: adapter
+      control-plane: kafkasource-mt-adapter
+  serviceName: kafkasource-mt-adapter
   template:
     metadata:
       labels: *labels
     spec:
-      serviceAccountName: kafkasource-adapter
+      serviceAccountName: kafkasource-mt-adapter
       containers:
-      - name: receive-adapter
-        image: ko://knative.dev/eventing-kafka/cmd/source/mt_receive_adapter
+      - image: ko://knative.dev/eventing-kafka/cmd/source/mt_receive_adapter
+        name: receive-adapter
         env:
         - name: SYSTEM_NAMESPACE
           valueFrom:
@@ -53,8 +53,9 @@ spec:
 
         resources:
           requests:
-            cpu: 20m
-            memory: 20Mi
+            cpu: 50m
+            memory: 128Mi
+
         ports:
         - name: metrics
           containerPort: 9090

@@ -20,7 +20,7 @@ metadata:
     contrib.eventing.knative.dev/release: devel
 subjects:
 - kind: ServiceAccount
-  name: kafkasource-adapter
+  name: kafkasource-mt-adapter
   namespace: knative-sources
 roleRef:
   apiGroup: rbac.authorization.k8s.io

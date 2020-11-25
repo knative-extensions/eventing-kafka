@@ -19,6 +19,8 @@ package v1beta1
 import (
 	"fmt"
 
+	"knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -106,6 +108,10 @@ type KafkaSourceStatus struct {
 	// Total number of consumers actually running in the consumer group.
 	// +optional
 	Consumers int32 `json:"consumers,omitempty"`
+
+	// Implement Placeable.
+	// +optional
+	v1alpha1.Placeable `json:",inline"`
 }
 
 func (*KafkaSource) GetGroupVersionKind() schema.GroupVersionKind {

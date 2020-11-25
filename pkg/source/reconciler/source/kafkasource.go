@@ -48,6 +48,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	reconcilerkafkasource "knative.dev/eventing-kafka/pkg/client/injection/reconciler/sources/v1beta1/kafkasource"
 	listers "knative.dev/eventing-kafka/pkg/client/listers/sources/v1beta1"
+	"knative.dev/eventing-kafka/pkg/common/scheduler"
 )
 
 const (
@@ -90,7 +91,6 @@ type Reconciler struct {
 	KubeClientSet kubernetes.Interface
 
 	receiveAdapterImage     string
-	reconcileReceiveAdapter func(context.Context, *v1beta1.KafkaSource, *apis.URL) (*appsv1.Deployment, error)
 
 	kafkaLister      listers.KafkaSourceLister
 	deploymentLister appsv1listers.DeploymentLister
@@ -101,6 +101,7 @@ type Reconciler struct {
 	sinkResolver *resolver.URIResolver
 
 	configs source.ConfigAccessor
+	scheduler scheduler.Scheduler
 }
 
 // Check that our Reconciler implements Interface
@@ -151,20 +152,24 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 	}
 
 	// TODO(mattmoor): create KafkaBinding for the receive adapter.
-
-	ra, err := r.reconcileReceiveAdapter(ctx, src, sinkURI)
-	if err != nil {
-		var event *pkgreconciler.ReconcilerEvent
-		isReconcilerEvent := pkgreconciler.EventAs(err, &event)
-		if isReconcilerEvent && event.EventType != corev1.EventTypeNormal {
-			logging.FromContext(ctx).Error("Unable to create the receive adapter. Reconciler error", zap.Error(err))
-			return err
-		} else if !isReconcilerEvent {
-			logging.FromContext(ctx).Error("Unable to create the receive adapter. Generic error", zap.Error(err))
-			return err
+	if r.receiveAdapterImage == "" {
+		// mt mode
+		r.reconcileMTReceiveAdapter(ctx, src)
+	} else {
+		ra, err := r.reconcileSTReceiveAdapter(ctx, src, sinkURI)
+		if err != nil {
+			var event *pkgreconciler.ReconcilerEvent
+			isReconcilerEvent := pkgreconciler.EventAs(err, &event)
+			if isReconcilerEvent && event.EventType != corev1.EventTypeNormal {
+				logging.FromContext(ctx).Error("Unable to create the receive adapter. Reconciler error", zap.Error(err))
+				return err
+			} else if !isReconcilerEvent {
+				logging.FromContext(ctx).Error("Unable to create the receive adapter. Generic error", zap.Error(err))
+				return err
+			}
 		}
+		src.Status.MarkDeployed(ra)
 	}
-	src.Status.MarkDeployed(ra)
 	src.Status.CloudEventAttributes = r.createCloudEventAttributes(src)
 
 	return nil

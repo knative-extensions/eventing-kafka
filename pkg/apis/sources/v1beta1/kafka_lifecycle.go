@@ -17,6 +17,8 @@ limitations under the License.
 package v1beta1
 
 import (
+	"sync"
+
 	appsv1 "k8s.io/api/apps/v1"
 	"knative.dev/eventing/pkg/apis/duck"
 	"knative.dev/pkg/apis"
@@ -37,9 +39,21 @@ const (
 	KafkaConditionKeyType apis.ConditionType = "KeyTypeCorrect"
 )
 
-var KafkaSourceCondSet = apis.NewLivingConditionSet(
-	KafkaConditionSinkProvided,
-	KafkaConditionDeployed)
+var (
+	KafkaSourceCondSet = apis.NewLivingConditionSet(
+		KafkaConditionSinkProvided,
+		KafkaConditionDeployed)
+
+	kafkaCondSetLock = sync.RWMutex{}
+)
+
+// RegisterAlternateKafkaConditionSet register an alternate apis.ConditionSet.
+func RegisterAlternateKafkaConditionSet(conditionSet apis.ConditionSet) {
+	kafkaCondSetLock.Lock()
+	defer kafkaCondSetLock.Unlock()
+
+	KafkaSourceCondSet = conditionSet
+}
 
 // GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
 func (*KafkaSource) GetConditionSet() apis.ConditionSet {

@@ -19,16 +19,38 @@ package source
 import (
 	"context"
 
-	"knative.dev/pkg/system"
-
-	appsv1 "k8s.io/api/apps/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/pkg/apis"
+	"k8s.io/apimachinery/pkg/labels"
 
 	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
+	"knative.dev/eventing-kafka/pkg/common/scheduler"
 )
 
-func (r *Reconciler) reconcileMTReceiveAdapter(ctx context.Context, src *v1beta1.KafkaSource, sinkURI *apis.URL) (*appsv1.Deployment, error) {
+func (r *Reconciler) reconcileMTReceiveAdapter(ctx context.Context, src *v1beta1.KafkaSource) error {
+	// Make sure scheduler is initialized
+	r.initializeScheduler()
+
+	placements := r.scheduler.Schedule(src)
+	if placements != nil {
+		src.Status.Placement = placements
+	}
+
 	// TODO: patch envvars
-	return r.KubeClientSet.AppsV1().Deployments(system.Namespace()).Get(ctx, mtadapterName, metav1.GetOptions{})
+	//return r.KubeClientSet.AppsV1().DaemonSets(system.Namespace()).Get(ctx, mtadapterName, metav1.GetOptions{})
+
+	return nil
+}
+
+func (r *Reconciler) initializeScheduler() {
+	r.scheduler.EnsureInitialized(func() ([]scheduler.Schedulable, error) {
+		sources, err := r.kafkaLister.List(labels.Everything())
+		if err != nil {
+			return nil, err
+		}
+		schedulables := make([]scheduler.Schedulable, len(sources))
+		for i := 0; i < len(sources); i++ {
+			schedulables[i] = sources[i]
+		}
+		return schedulables, nil
+	})
+
 }
