@@ -334,8 +334,8 @@ func TestAllCases(t *testing.T) {
 			kafkaConfig: &KafkaConfig{
 				Brokers: []string{brokerName},
 			},
-			kafkaWatcher:       NewKafkaWatcher(ctx, &FakeClusterAdmin{}, 100*time.Millisecond),
-			kafkachannelLister: listers.GetKafkaChannelLister(),
+			consumerGroupWatcher: NewConsumerGroupWatcher(ctx, &FakeClusterAdmin{}, 100*time.Millisecond),
+			kafkachannelLister:   listers.GetKafkaChannelLister(),
 			// TODO fix
 			kafkachannelInformer: nil,
 			deploymentLister:     listers.GetDeploymentLister(),
@@ -392,7 +392,8 @@ func TestTopicExists(t *testing.T) {
 			kafkaConfig: &KafkaConfig{
 				Brokers: []string{brokerName},
 			},
-			kafkachannelLister: listers.GetKafkaChannelLister(),
+			consumerGroupWatcher: NewConsumerGroupWatcher(ctx, &FakeClusterAdmin{}, 100*time.Millisecond),
+			kafkachannelLister:   listers.GetKafkaChannelLister(),
 			// TODO fix
 			kafkachannelInformer: nil,
 			deploymentLister:     listers.GetDeploymentLister(),
@@ -461,8 +462,8 @@ func TestDeploymentUpdatedOnImageChange(t *testing.T) {
 			kafkaConfig: &KafkaConfig{
 				Brokers: []string{brokerName},
 			},
-			kafkaWatcher:       NewKafkaWatcher(ctx, &FakeClusterAdmin{}, 100*time.Millisecond),
-			kafkachannelLister: listers.GetKafkaChannelLister(),
+			consumerGroupWatcher: NewConsumerGroupWatcher(ctx, &FakeClusterAdmin{}, 100*time.Millisecond),
+			kafkachannelLister:   listers.GetKafkaChannelLister(),
 			// TODO fix
 			kafkachannelInformer: nil,
 			deploymentLister:     listers.GetDeploymentLister(),
@@ -531,7 +532,8 @@ func TestDeploymentZeroReplicas(t *testing.T) {
 			kafkaConfig: &KafkaConfig{
 				Brokers: []string{brokerName},
 			},
-			kafkachannelLister: listers.GetKafkaChannelLister(),
+			consumerGroupWatcher: NewConsumerGroupWatcher(ctx, &FakeClusterAdmin{}, 100*time.Millisecond),
+			kafkachannelLister:   listers.GetKafkaChannelLister(),
 			// TODO fix
 			kafkachannelInformer: nil,
 			deploymentLister:     listers.GetDeploymentLister(),
@@ -597,8 +599,8 @@ func TestDeploymentMoreThanOneReplicas(t *testing.T) {
 			kafkaConfig: &KafkaConfig{
 				Brokers: []string{brokerName},
 			},
-			kafkaWatcher:       NewKafkaWatcher(ctx, &FakeClusterAdmin{}, 100*time.Millisecond),
-			kafkachannelLister: listers.GetKafkaChannelLister(),
+			consumerGroupWatcher: NewConsumerGroupWatcher(ctx, &FakeClusterAdmin{}, 100*time.Millisecond),
+			kafkachannelLister:   listers.GetKafkaChannelLister(),
 			// TODO fix
 			kafkachannelInformer: nil,
 			deploymentLister:     listers.GetDeploymentLister(),

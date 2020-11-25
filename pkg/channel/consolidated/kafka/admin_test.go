@@ -48,6 +48,8 @@ func (f *FakeClusterAdmin) ListConsumerGroups() (map[string]string, error) {
 }
 
 func TestAdminClient(t *testing.T) {
+	var wg sync.WaitGroup
+	wg.Add(10)
 	ctx := pkgtesting.TestContextWithLogger(t)
 	f := &FakeClusterAdmin{}
 	ac, err := NewAdminClient(ctx, func() (sarama.ClusterAdmin, error) {
@@ -56,22 +58,28 @@ func TestAdminClient(t *testing.T) {
 	if err != nil {
 		t.Error("failed to obtain new client", err)
 	}
-	doList(t, ac)
-	check := make(chan bool)
-	go func() {
-		m.Lock()
-		f.faulty = true
-		m.Unlock()
-		check <- true
-		time.Sleep(2 * time.Second)
-		m.Lock()
-		f.faulty = false
-		m.Unlock()
-		check <- true
-	}()
-	<-check
-	doList(t, ac)
-	<-check
+	for i := 0; i < 10; i += 1 {
+		go func() {
+			doList(t, ac)
+			check := make(chan struct{})
+			go func() {
+				m.Lock()
+				f.faulty = true
+				m.Unlock()
+				check <- struct{}{}
+				time.Sleep(2 * time.Second)
+				m.Lock()
+				f.faulty = false
+				m.Unlock()
+				check <- struct{}{}
+			}()
+			<-check
+			doList(t, ac)
+			<-check
+			wg.Done()
+		}()
+	}
+	wg.Wait()
 }
 
 func doList(t *testing.T, ac AdminClient) {

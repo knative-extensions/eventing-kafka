@@ -60,7 +60,7 @@ func TestKafkaWatcher(t *testing.T) {
 
 	ch := make(chan []string, 1)
 
-	w := NewKafkaWatcher(pkgtesting.TestContextWithLogger(t), &ca, 2*time.Second)
+	w := NewConsumerGroupWatcher(pkgtesting.TestContextWithLogger(t), &ca, 2*time.Second)
 	w.Watch(wid, func() {
 		cgs := w.List(func(cg string) bool {
 			return cgname == cg

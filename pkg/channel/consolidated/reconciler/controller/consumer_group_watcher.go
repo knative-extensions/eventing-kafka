@@ -35,13 +35,16 @@ var (
 	done  = func() {}
 )
 
-type CGCallBack func()
+type ConsumerGroupHandler func()
 type Matcher func(string) bool
 
 type ConsumerGroupWatcher interface {
 	// Start instructs the watcher to start polling for the consumer groups and
 	// notify any observers on the event of any changes
 	Start() error
+
+	// Terminate instructs the watcher to stop polling and clear the watchers cache
+	Terminate()
 
 	// Watch registers callback on the event of any changes observed
 	// on the consumer groups. watcherID is an arbitrary string the user provides
@@ -51,7 +54,7 @@ type ConsumerGroupWatcher interface {
 	//To ensure this is event-triggered, level-driven,
 	// we don't pass the updates to the callback, instead the observer is expected
 	// to use List() to get the updated list of ConsumerGroups.
-	Watch(watcherID string, callback CGCallBack) error
+	Watch(watcherID string, callback ConsumerGroupHandler) error
 
 	// Forget removes all callbacks that correspond to the watcherID
 	Forget(watcherID string)
@@ -61,82 +64,91 @@ type ConsumerGroupWatcher interface {
 	List(matcher Matcher) []string
 }
 
-type KafkaWatcher struct {
+type WatcherImpl struct {
 	logger *zap.SugaredLogger
 	//TODO name?
-	watchers     map[string][]CGCallBack
-	cgCache      []string
-	ac           kafka.AdminClient
-	pollDuration time.Duration
+	watchers             map[string][]ConsumerGroupHandler
+	cachedConsumerGroups []string
+	adminClient          kafka.AdminClient
+	pollDuration         time.Duration
+	done                 chan struct{}
 }
 
-func NewKafkaWatcher(ctx context.Context, ac kafka.AdminClient, pollDuration time.Duration) KafkaWatcher {
-	w := KafkaWatcher{
-		logger:       logging.FromContext(ctx),
-		ac:           ac,
-		pollDuration: pollDuration,
-		watchers:     make(map[string][]CGCallBack),
-		cgCache:      make([]string, 0),
+func NewConsumerGroupWatcher(ctx context.Context, ac kafka.AdminClient, pollDuration time.Duration) ConsumerGroupWatcher {
+	return &WatcherImpl{
+		logger:               logging.FromContext(ctx),
+		adminClient:          ac,
+		pollDuration:         pollDuration,
+		watchers:             make(map[string][]ConsumerGroupHandler),
+		cachedConsumerGroups: make([]string, 0),
 	}
-	return w
 }
 
-func (w *KafkaWatcher) Start() error {
-	w.logger.Info("KafkaWatcher starting. Polling for consumer groups", zap.Duration("poll duration", w.pollDuration))
+func (w *WatcherImpl) Start() error {
+	w.logger.Info("ConsumerGroupWatcher starting. Polling for consumer groups", zap.Duration("poll duration", w.pollDuration))
 	go func() {
 		for {
 			select {
 			case <-after(w.pollDuration):
-				cgs, err := w.ac.ListConsumerGroups()
+				// let's get current observed consumer groups
+				observedCGs, err := w.adminClient.ListConsumerGroups()
 				if err != nil {
 					w.logger.Error("error while listing consumer groups", zap.Error(err))
 					continue
 				}
 				var notify bool
-				var cg string
+				var changedGroup string
 				// Look for observed CGs
-				for _, c := range cgs {
-					if !Find(w.cgCache, c) {
+				for _, c := range observedCGs {
+					if !Find(w.cachedConsumerGroups, c) {
 						// This is the first appearance.
 						w.logger.Debug("Consumer group observed. Caching.",
 							zap.String("consumer group", c))
-						cg = c
+						changedGroup = c
 						notify = true
 						break
 					}
 				}
 				// Look for disappeared CGs
-				for _, c := range w.cgCache {
-					if !Find(cgs, c) {
+				for _, c := range w.cachedConsumerGroups {
+					if !Find(observedCGs, c) {
 						// This CG was cached but it's no longer there.
 						w.logger.Debug("Consumer group deleted.",
 							zap.String("consumer group", c))
-						cg = c
+						changedGroup = c
 						notify = true
 						break
 					}
 				}
 				if notify {
 					cacheMtx.Lock()
-					w.cgCache = cgs
+					w.cachedConsumerGroups = observedCGs
 					cacheMtx.Unlock()
-					w.notify(cg)
+					w.notify(changedGroup)
 				}
 				done()
+			case <-w.done:
+				break
 			}
 		}
 	}()
 	return nil
 }
 
+func (w *WatcherImpl) Terminate() {
+	w.watchers = nil
+	w.cachedConsumerGroups = nil
+	w.done <- struct{}{}
+}
+
 // TODO explore returning a channel instead of a taking callback
-func (w *KafkaWatcher) Watch(watcherID string, cb CGCallBack) error {
+func (w *WatcherImpl) Watch(watcherID string, cb ConsumerGroupHandler) error {
 	w.logger.Debug("Adding a new watcher", zap.String("watcherID", watcherID))
 	watchersMtx.Lock()
 	defer watchersMtx.Unlock()
 	cbs, ok := w.watchers[watcherID]
 	if !ok {
-		cbs = []CGCallBack{}
+		cbs = []ConsumerGroupHandler{}
 	}
 	w.watchers[watcherID] = append(cbs, cb)
 	// notify at least once to get the current state
@@ -144,17 +156,17 @@ func (w *KafkaWatcher) Watch(watcherID string, cb CGCallBack) error {
 	return nil
 }
 
-func (w *KafkaWatcher) Forget(watcherID string) {
+func (w *WatcherImpl) Forget(watcherID string) {
 	w.logger.Debug("Forgetting watcher", zap.String("watcherID", watcherID))
 	delete(w.watchers, watcherID)
 }
 
-func (w *KafkaWatcher) List(matcher Matcher) []string {
+func (w *WatcherImpl) List(matcher Matcher) []string {
 	w.logger.Debug("Listing consumer groups")
 	cacheMtx.RLock()
 	defer cacheMtx.RUnlock()
 	cgs := make([]string, 0)
-	for _, cg := range w.cgCache {
+	for _, cg := range w.cachedConsumerGroups {
 		if matcher(cg) {
 			cgs = append(cgs, cg)
 		}
@@ -162,7 +174,7 @@ func (w *KafkaWatcher) List(matcher Matcher) []string {
 	return cgs
 }
 
-func (w *KafkaWatcher) notify(cg string) {
+func (w *WatcherImpl) notify(cg string) {
 	watchersMtx.RLock()
 	cacheMtx.RLock()
 	defer watchersMtx.RUnlock()

@@ -122,7 +122,7 @@ type Reconciler struct {
 	// Using a shared kafkaClusterAdmin does not work currently because of an issue with
 	// Shopify/sarama, see https://github.com/Shopify/sarama/issues/1162.
 	kafkaClusterAdmin    sarama.ClusterAdmin
-	kafkaWatcher         KafkaWatcher
+	consumerGroupWatcher ConsumerGroupWatcher
 	kafkachannelLister   listers.KafkaChannelLister
 	kafkachannelInformer cache.SharedIndexInformer
 	deploymentLister     appsv1listers.DeploymentLister
@@ -263,8 +263,8 @@ func (r *Reconciler) setupSubscriptionStatusWatcher(ctx context.Context, channel
 	m := func(cg string) bool {
 		return strings.HasPrefix(cg, groupIDPrefix)
 	}
-	err = r.kafkaWatcher.Watch(string(channel.ObjectMeta.UID), func() {
-		err := r.markSubscriptionReadiness(ctx, channel, r.kafkaWatcher.List(m))
+	err = r.consumerGroupWatcher.Watch(string(channel.ObjectMeta.UID), func() {
+		err := r.markSubscriptionReadiness(ctx, channel, r.consumerGroupWatcher.List(m))
 		if err != nil {
 			logging.FromContext(ctx).Errorw("error updating subscription readiness", zap.Error(err))
 		}
@@ -590,19 +590,22 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 	// Eventually the previous config should be snapshotted to delete Kafka topics
 	r.kafkaConfig = kafkaConfig
 	r.kafkaConfigError = err
-	factory := func() (sarama.ClusterAdmin, error) {
+	ac, err := kafka.NewAdminClient(ctx, func() (sarama.ClusterAdmin, error) {
 		return source.MakeAdminClient(controllerAgentName, r.kafkaAuthConfig, kafkaConfig.Brokers)
-	}
-	ac, err := kafka.NewAdminClient(ctx, factory)
+	})
 
 	if err != nil {
 		logger.Errorw("Error creating AdminClient", zap.Error(err))
 		return
 	}
 
-	r.kafkaWatcher = NewKafkaWatcher(ctx, ac, pollDuration)
+	if r.consumerGroupWatcher != nil {
+		r.consumerGroupWatcher.Terminate()
+	}
+
+	r.consumerGroupWatcher = NewConsumerGroupWatcher(ctx, ac, pollDuration)
 	//TODO handle error
-	r.kafkaWatcher.Start()
+	r.consumerGroupWatcher.Start()
 }
 
 func (r *Reconciler) FinalizeKind(ctx context.Context, kc *v1beta1.KafkaChannel) pkgreconciler.Event {
@@ -613,5 +616,6 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, kc *v1beta1.KafkaChannel)
 			return err
 		}
 	}
+	r.consumerGroupWatcher.Forget(string(kc.ObjectMeta.UID))
 	return newReconciledNormal(kc.Namespace, kc.Name) //ok to remove finalizer
 }

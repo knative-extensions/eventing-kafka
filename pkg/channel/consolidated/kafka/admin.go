@@ -41,9 +41,9 @@ type AdminClient interface {
 // AdminClientManager manages a ClusterAdmin connection and recreates one when needed
 // it is made to overcome https://github.com/Shopify/sarama/issues/1162
 type AdminClientManager struct {
-	logger    *zap.SugaredLogger
-	caFactory ClusterAdminFactory
-	ca        sarama.ClusterAdmin
+	logger       *zap.SugaredLogger
+	adminFactory ClusterAdminFactory
+	clusterAdmin sarama.ClusterAdmin
 }
 
 func NewAdminClient(ctx context.Context, caFactory ClusterAdminFactory) (AdminClient, error) {
@@ -52,15 +52,21 @@ func NewAdminClient(ctx context.Context, caFactory ClusterAdminFactory) (AdminCl
 	kafkaClusterAdmin, err := caFactory()
 	if err != nil {
 		logger.Error("error while creating ClusterAdmin", err)
-		return &AdminClientManager{}, err
+		return nil, err
 	}
 	return &AdminClientManager{
-		logger:    logger,
-		caFactory: caFactory,
-		ca:        kafkaClusterAdmin,
+		logger:       logger,
+		adminFactory: caFactory,
+		clusterAdmin: kafkaClusterAdmin,
 	}, nil
 }
 
+// ListConsumerGroups Returns a list of the consumer groups.
+//
+// In the occasion of errors, there will be a retry with an exponential backoff.
+// Due to a known issue in Sarama ClusterAdmin https://github.com/Shopify/sarama/issues/1162,
+// a new ClusterAdmin will be created with every retry until the call succeeds or
+// the timeout is reached.
 func (c *AdminClientManager) ListConsumerGroups() ([]string, error) {
 	c.logger.Info("Attempting to list consumer group")
 	mutex.Lock()
@@ -68,9 +74,11 @@ func (c *AdminClientManager) ListConsumerGroups() ([]string, error) {
 	r := 0
 	// This gives us around ~13min of exponential backoff
 	max := 13
-	cgsMap, err := c.ca.ListConsumerGroups()
+	cgsMap, err := c.clusterAdmin.ListConsumerGroups()
 	for err != nil && r <= max {
-		// presuming we can reconnect
+		// There's on error, let's retry and presume a new ClusterAdmin can fix it
+
+		// Calculate incremental delay following this https://docs.aws.amazon.com/general/latest/gr/api-retries.html
 		t := int(math.Pow(2, float64(r)) * 100)
 		d := time.Duration(t) * time.Millisecond
 		c.logger.Error("listing consumer group failed. Refreshing the ClusterAdmin and retrying.",
@@ -80,13 +88,15 @@ func (c *AdminClientManager) ListConsumerGroups() ([]string, error) {
 			zap.Int("Max retries", max),
 		)
 		time.Sleep(d)
-		c.ca, err = c.caFactory()
+
+		// let's reconnect and try again
+		c.clusterAdmin, err = c.adminFactory()
 		r += 1
 		if err != nil {
 			// skip this attempt
 			continue
 		}
-		cgsMap, err = c.ca.ListConsumerGroups()
+		cgsMap, err = c.clusterAdmin.ListConsumerGroups()
 	}
 
 	if r > max {
@@ -97,9 +107,11 @@ func (c *AdminClientManager) ListConsumerGroups() ([]string, error) {
 }
 
 func keys(m map[string]string) []string {
-	keys := make([]string, 0, len(m))
+	keys := make([]string, len(m))
+	i := 0
 	for k := range m {
-		keys = append(keys, k)
+		keys[i] = k
+		i++
 	}
 	return keys
 }
