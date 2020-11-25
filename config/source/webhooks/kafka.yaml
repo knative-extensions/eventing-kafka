@@ -12,19 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
   name: defaulting.webhook.kafka.sources.knative.dev
   labels:
     contrib.eventing.knative.dev/release: devel
 webhooks:
-- admissionReviewVersions:
-  - v1beta1
+- admissionReviewVersions: ["v1", "v1beta1"]
   clientConfig:
     service:
       name: kafka-source-webhook
       namespace: knative-sources
+  sideEffects: None
   failurePolicy: Fail
   name: defaulting.webhook.kafka.sources.knative.dev
 ---
@@ -35,44 +35,44 @@ metadata:
   labels:
     contrib.eventing.knative.dev/release: devel
 webhooks:
-- admissionReviewVersions:
-  - v1beta1
+- admissionReviewVersions: ["v1", "v1beta1"]
   clientConfig:
     service:
       name: kafka-source-webhook
       namespace: knative-sources
+  sideEffects: None
   failurePolicy: Fail
   name: kafkabindings.webhook.kafka.sources.knative.dev
 ---
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: validation.webhook.kafka.sources.knative.dev
   labels:
     contrib.eventing.knative.dev/release: devel
 webhooks:
-- admissionReviewVersions:
-  - v1beta1
+- admissionReviewVersions: ["v1", "v1beta1"]
   clientConfig:
     service:
       name: kafka-source-webhook
       namespace: knative-sources
+  sideEffects: None
   failurePolicy: Fail
   name: validation.webhook.kafka.sources.knative.dev
 ---
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: config.webhook.kafka.sources.knative.dev
   labels:
     contrib.eventing.knative.dev/release: devel
 webhooks:
-- admissionReviewVersions:
-  - v1beta1
+- admissionReviewVersions: ["v1", "v1beta1"]
   clientConfig:
     service:
       name: kafka-source-webhook
       namespace: knative-sources
+  sideEffects: None
   failurePolicy: Fail
   name: config.webhook.kafka.sources.knative.dev
   namespaceSelector:
