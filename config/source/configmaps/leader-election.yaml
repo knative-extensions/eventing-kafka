@@ -16,7 +16,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: config-leader-election-kafka
-  namespace: knative-sources
+  namespace: knative-eventing
 data:
   # An inactive but valid configuration follows; see example.
   resourceLock: "leases"

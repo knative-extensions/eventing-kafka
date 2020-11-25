@@ -271,7 +271,6 @@ function install_consolidated_sources_crds() {
   echo "Installing consolidated Kafka Source CRD"
   ko apply -f "${KAFKA_SOURCE_CRD_CONFIG_DIR}" || return 1
   wait_until_pods_running knative-eventing || fail_test "Failed to install the consolidated Kafka Source CRD"
-  wait_until_pods_running knative-sources || fail_test "Failed to install the consolidated Kafka Source CRD"
 }
 
 # Uninstall The eventing-kafka KafkaChannel Implementation Via Ko
