@@ -52,7 +52,7 @@ spec:
         - name: CONFIG_LOGGING_NAME
           value: config-logging
         - name: CONFIG_LEADERELECTION_NAME
-          value: config-leader-election-kafkachannel
+          value: config-leader-election
         - name: SERVICE_ACCOUNT
           valueFrom:
             fieldRef:

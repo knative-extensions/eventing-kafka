@@ -53,7 +53,7 @@ spec:
         - name: CONFIG_LOGGING_NAME
           value: "config-logging"
         - name: CONFIG_LEADERELECTION_NAME
-          value: "config-leader-election-kafka"
+          value: "config-leader-election"
         - name: CONTAINER_NAME
           value: dispatcher
         ports:

@@ -43,7 +43,7 @@ spec:
         - name: CONFIG_OBSERVABILITY_NAME
           value: config-observability
         - name: CONFIG_LEADERELECTION_NAME
-          value: config-leader-election-kafka
+          value: config-leader-election
         - name: KAFKA_RA_IMAGE
           value: ko://knative.dev/eventing-kafka/cmd/source/receive_adapter
         volumeMounts:
