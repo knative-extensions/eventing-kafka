@@ -49,11 +49,11 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         - name: METRICS_DOMAIN
-          value: "knative.dev/eventing"
+          value: knative.dev/eventing
         - name: CONFIG_LOGGING_NAME
-          value: "config-logging"
+          value: config-logging
         - name: CONFIG_LEADERELECTION_NAME
-          value: "config-leader-election"
+          value: config-leader-election
         - name: CONTAINER_NAME
           value: dispatcher
         ports:
