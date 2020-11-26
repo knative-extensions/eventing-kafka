@@ -19,9 +19,7 @@ package source
 import (
 	"context"
 	"os"
-
-	"knative.dev/eventing-kafka/pkg/common/scheduler"
-	"knative.dev/pkg/system"
+	"sync"
 
 	"k8s.io/client-go/tools/cache"
 
@@ -34,11 +32,13 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/resolver"
+	"knative.dev/pkg/system"
 
 	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 	kafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client"
 	kafkainformer "knative.dev/eventing-kafka/pkg/client/injection/informers/sources/v1beta1/kafkasource"
 	"knative.dev/eventing-kafka/pkg/client/injection/reconciler/sources/v1beta1/kafkasource"
+	"knative.dev/eventing-kafka/pkg/common/scheduler"
 )
 
 func NewController(
@@ -67,11 +67,8 @@ func NewController(
 		// Use a different set of conditions
 		sourcesv1beta1.RegisterAlternateKafkaConditionSet(sourcesv1beta1.KafkaMTSourceCondSet)
 
-		// The mt controller needs a scheduler for assigning sources
-		// to statefulset pods.
-
+		c.schedulerLock = sync.Mutex{}
 		c.scheduler = scheduler.NewStatefulSetScheduler(ctx, system.Namespace(), mtadapterName)
-		// cannot initialized the scheduler here as the informers haven't been synced yet
 	}
 
 	logging.FromContext(ctx).Info("Setting up kafka event handlers")

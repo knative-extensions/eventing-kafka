@@ -20,19 +20,26 @@ import (
 	"context"
 
 	"k8s.io/apimachinery/pkg/labels"
-
 	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 	"knative.dev/eventing-kafka/pkg/common/scheduler"
 )
 
 func (r *Reconciler) reconcileMTReceiveAdapter(ctx context.Context, src *v1beta1.KafkaSource) error {
-	// Make sure scheduler is initialized
-	r.initializeScheduler()
-
-	placements := r.scheduler.Schedule(src)
-	if placements != nil {
-		src.Status.Placement = placements
+	// TODO: find a better way to initialize it
+	err := r.initializeScheduler()
+	if err != nil {
+		return err
 	}
+
+	placements, err := r.scheduler.Schedule(src)
+	if err != nil {
+		// TODO: consider allowing partial placement
+
+		src.Status.MarkNotScheduled("Unschedulable", err.Error())
+		return err // retrying...
+	}
+	src.Status.Placement = placements
+	src.Status.MarkScheduled()
 
 	// TODO: patch envvars
 	//return r.KubeClientSet.AppsV1().DaemonSets(system.Namespace()).Get(ctx, mtadapterName, metav1.GetOptions{})
@@ -40,8 +47,15 @@ func (r *Reconciler) reconcileMTReceiveAdapter(ctx context.Context, src *v1beta1
 	return nil
 }
 
-func (r *Reconciler) initializeScheduler() {
-	r.scheduler.EnsureInitialized(func() ([]scheduler.Schedulable, error) {
+func (r *Reconciler) initializeScheduler() error {
+	r.schedulerLock.Lock()
+	defer r.schedulerLock.Unlock()
+
+	if r.schedulerInitialized {
+		return nil
+	}
+
+	err := r.scheduler.Init(func() ([]scheduler.Schedulable, error) {
 		sources, err := r.kafkaLister.List(labels.Everything())
 		if err != nil {
 			return nil, err
@@ -53,4 +67,9 @@ func (r *Reconciler) initializeScheduler() {
 		return schedulables, nil
 	})
 
+	if err != nil {
+		r.schedulerInitialized = true
+	}
+
+	return err
 }

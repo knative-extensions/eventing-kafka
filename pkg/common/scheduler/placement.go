@@ -20,12 +20,27 @@ import (
 	duckv1alpha1 "knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
 )
 
-
-
 func GetTotalReplicas(placements []duckv1alpha1.Placement) int32 {
 	r := int32(0)
 	for _, p := range placements {
 		r += p.Replicas
 	}
 	return r
+}
+
+func GetPlacementForPod(placements []duckv1alpha1.Placement, podName string) *duckv1alpha1.Placement {
+	for i := 0; i < len(placements); i++ {
+		if placements[i].PodName == podName {
+			return &placements[i]
+		}
+	}
+	return nil
+}
+
+func CopyPlacements(placements []duckv1alpha1.Placement) []duckv1alpha1.Placement {
+	result := make([]duckv1alpha1.Placement, len(placements))
+	for i, p := range placements {
+		result[i] = p
+	}
+	return result
 }

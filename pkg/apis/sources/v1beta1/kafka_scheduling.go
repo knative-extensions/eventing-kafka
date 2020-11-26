@@ -17,37 +17,19 @@ limitations under the License.
 package v1beta1
 
 import (
+	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
 )
+
+func (k *KafkaSource) GetId() types.UID {
+	return k.UID
+}
 
 func (k *KafkaSource) GetReplicas() int32 {
 	if k.Spec.Consumers == nil {
 		return 1
 	}
 	return *k.Spec.Consumers
-}
-
-func (k *KafkaSource) MarkAllUnschedulable() {
-	// TODO: add condition
-}
-
-func (k *KafkaSource) MarkUnschedulable(replica int32) {
-	// TODO: add condition
-}
-
-func (k *KafkaSource) Place(podName string, replicas int32) {
-	placements := k.Status.Placeable.Placement
-	for _, placement := range placements {
-		if placement.PodName == podName {
-			placement.Replicas = replicas
-			return
-		}
-	}
-
-	k.Status.Placeable.Placement = append(placements, v1alpha1.Placement{
-		PodName:  podName,
-		Replicas: replicas,
-	})
 }
 
 func (k *KafkaSource) GetPlacements() []v1alpha1.Placement {

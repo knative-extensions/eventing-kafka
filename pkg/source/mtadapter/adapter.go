@@ -20,6 +20,8 @@ import (
 	"context"
 	"sync"
 
+	"knative.dev/eventing-kafka/pkg/common/scheduler"
+
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"go.uber.org/zap"
 
@@ -34,12 +36,18 @@ import (
 	stadapter "knative.dev/eventing-kafka/pkg/source/adapter"
 )
 
+type AdapterConfig struct {
+	adapter.EnvConfig
+
+	PodName string `envconfig:"POD_NAME" required:"true"`
+}
+
 func NewEnvConfig() adapter.EnvConfigAccessor {
-	return &adapter.EnvConfig{}
+	return new(AdapterConfig)
 }
 
 type Adapter struct {
-	config      *adapter.EnvConfig
+	config      *AdapterConfig
 	logger      *zap.SugaredLogger
 	client      cloudevents.Client
 	adapterCtor adapter.MessageAdapterConstructor
@@ -56,7 +64,7 @@ func NewAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, ceClie
 
 func newAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, ceClient cloudevents.Client, adapterCtor adapter.MessageAdapterConstructor) adapter.Adapter {
 	logger := logging.FromContext(ctx)
-	config := processed.(*adapter.EnvConfig)
+	config := processed.(*AdapterConfig)
 
 	return &Adapter{
 		client:      ceClient,
@@ -88,6 +96,13 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) {
 		cancel()
 	}
 
+	placement := scheduler.GetPlacementForPod(obj.GetPlacements(), a.config.PodName)
+	if placement == nil || placement.Replicas == 0 {
+		// this pod does not handle this source. Skipping
+		a.logger.Infow("no replicas assigned to this pod. skipping", zap.String("key", key))
+		return
+	}
+
 	config := stadapter.AdapterConfig{
 		EnvConfig: adapter.EnvConfig{
 			Component: "kafkasource",
@@ -98,6 +113,8 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) {
 		Topics:        obj.Spec.Topics,
 		ConsumerGroup: obj.Spec.ConsumerGroup,
 		Name:          obj.Name,
+
+		// TODO: add replicas.
 	}
 
 	if val, ok := obj.GetLabels()[v1beta1.KafkaKeyTypeLabel]; ok {
@@ -109,7 +126,7 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) {
 		a.logger.Error("error building statsreporter", zap.Error(err))
 	}
 
-	httpBindingsSender, err := kncloudevents.NewHTTPMessageSender(nil, obj.Status.SinkURI.String())
+	httpBindingsSender, err := kncloudevents.NewHTTPMessageSenderWithTarget(obj.Status.SinkURI.String())
 	if err != nil {
 		a.logger.Fatal("error building cloud event client", zap.Error(err))
 	}

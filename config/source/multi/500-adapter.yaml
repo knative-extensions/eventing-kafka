@@ -38,7 +38,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
 
         # DO NOT MODIFY: The values below are being filled by the kafka source controller
         # See 500-controller.yaml

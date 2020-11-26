@@ -21,9 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/kmeta"
+	"sync"
 
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
@@ -35,6 +33,8 @@ import (
 	"knative.dev/eventing/pkg/utils"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/kmeta"
 
 	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 	"knative.dev/eventing-kafka/pkg/source/reconciler/source/resources"
@@ -90,7 +90,7 @@ type Reconciler struct {
 	// KubeClientSet allows us to talk to the k8s for core APIs
 	KubeClientSet kubernetes.Interface
 
-	receiveAdapterImage     string
+	receiveAdapterImage string
 
 	kafkaLister      listers.KafkaSourceLister
 	deploymentLister appsv1listers.DeploymentLister
@@ -101,7 +101,10 @@ type Reconciler struct {
 	sinkResolver *resolver.URIResolver
 
 	configs source.ConfigAccessor
-	scheduler scheduler.Scheduler
+
+	schedulerLock        sync.Mutex
+	schedulerInitialized bool
+	scheduler            scheduler.Scheduler
 }
 
 // Check that our Reconciler implements Interface

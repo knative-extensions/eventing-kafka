@@ -17,29 +17,36 @@ limitations under the License.
 package scheduler
 
 import (
+	"errors"
+
+	"k8s.io/apimachinery/pkg/types"
+
 	duckv1alpha1 "knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
 )
 
-type Scheduler interface {
-	EnsureInitialized(SchedulableLister) error
-	Schedule(schedulable Schedulable) []duckv1alpha1.Placement
-}
+var (
+	ErrUnschedulable = errors.New("resource is unschedulable (not enough pod replicas)")
+)
 
 type SchedulableLister func() ([]Schedulable, error)
 
+type Scheduler interface {
+	Init(lister SchedulableLister) error
+
+	// Schedule computes the new set of placements for the schedulable.
+	Schedule(schedulable Schedulable) ([]duckv1alpha1.Placement, error)
+
+	// TODO: need a way to forget a object.
+}
+
 type Schedulable interface {
+	// GetId returns the schedulable unique ID.
+	GetId() types.UID
+
 	// The number of replicas to place.
 	GetReplicas() int32
 
 	// GetPlacements returns where the schedulable is currently placed.
+	// Make sure to copy the slice before mutating it.
 	GetPlacements() []duckv1alpha1.Placement
-
-	// MarkAllUnschedulable indicates that none of the replicas can be scheduled.
-	MarkAllUnschedulable()
-
-	// MarkUnschedulable indicates that the given replica cannot be scheduled.
-	MarkUnschedulable(replica int32)
-
-	// Place allocates the number of replicas to podName
-	Place(podName string, replicas int32)
 }

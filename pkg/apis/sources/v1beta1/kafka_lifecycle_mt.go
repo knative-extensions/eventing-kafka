@@ -20,6 +20,20 @@ import (
 	"knative.dev/pkg/apis"
 )
 
-var (
-	KafkaMTSourceCondSet = apis.NewLivingConditionSet(KafkaConditionSinkProvided)
+const (
+
+	// KafkaConditionScheduled is True when all KafkaSource consumers has been scheduled
+	KafkaConditionScheduled apis.ConditionType = "Scheduled"
 )
+
+var (
+	KafkaMTSourceCondSet = apis.NewLivingConditionSet(KafkaConditionSinkProvided, KafkaConditionScheduled)
+)
+
+func (s *KafkaSourceStatus) MarkScheduled() {
+	KafkaSourceCondSet.Manage(s).MarkTrue(KafkaConditionScheduled)
+}
+
+func (s *KafkaSourceStatus) MarkNotScheduled(reason, messageFormat string, messageA ...interface{}) {
+	KafkaSourceCondSet.Manage(s).MarkFalse(KafkaConditionScheduled, reason, messageFormat, messageA...)
+}
