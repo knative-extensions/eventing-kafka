@@ -69,6 +69,7 @@ fi
 
 export SYSTEM_NAMESPACE
 create_tls_secrets
+create_sasl_secrets
 if [[ $TEST_CONSOLIDATED_CHANNEL == 1 ]]; then
   echo "Launching the PLAIN TESTS:"
   test_consolidated_channel_plain || exit 1
