@@ -47,44 +47,50 @@ import (
 const (
 	kafkaBootstrapUrlPlain   = "my-cluster-kafka-bootstrap.kafka.svc:9092"
 	kafkaBootstrapUrlTLS     = "my-cluster-kafka-bootstrap.kafka.svc:9093"
-	kafkaBootstrapURLSASL    = "my-cluster-kafka-bootstrap.kafka.svc:9094"
+	kafkaBootstrapUrlSASL    = "my-cluster-kafka-bootstrap.kafka.svc:9094"
 	kafkaClusterName         = "my-cluster"
 	kafkaClusterNamespace    = "kafka"
 	kafkaClusterSASLUsername = "my-sasl-user"
 	kafkaClusterTLSUsername  = "my-tls-user"
-	kafkaClusterPassword     = "my-seekrit-password"
-	kafkaSASLSecret          = "strimzi-sasl-secret"
-	kafkaTLSSecret           = "strimzi-tls-secret"
+
+	kafkaSASLSecret = "strimzi-sasl-secret"
+	kafkaTLSSecret  = "strimzi-tls-secret"
 )
-
-type AdapterSASL struct {
-	Enable   bool
-	User     string
-	Password string
-	Type     string
-}
-
-type AdapterTLS struct {
-	Enable bool
-	Cert   string
-	Key    string
-	CACert string
-}
-
-type AdapterNet struct {
-	SASL AdapterSASL
-	TLS  AdapterTLS
-}
 
 type authSetup struct {
 	bootStrapServer string
-	Net             AdapterNet
+	SASLEnabled     bool
+	TLSEnabled      bool
 }
 
 func withAuthEnablementV1Beta1(auth authSetup) contribresources.KafkaSourceV1Beta1Option {
-	if auth.Net.SASL.Enable == true {
+	// We test with sasl512 and enable tls with it, so check tls first
+	if auth.TLSEnabled == true {
 		return func(ks *sourcesv1beta1.KafkaSource) {
-			ks.Spec.KafkaAuthSpec.Net.SASL.Enable = auth.Net.SASL.Enable
+			ks.Spec.KafkaAuthSpec.Net.TLS.Enable = true
+			ks.Spec.KafkaAuthSpec.Net.TLS.CACert.SecretKeyRef = &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: kafkaTLSSecret,
+				},
+				Key: "ca.crt",
+			}
+			ks.Spec.KafkaAuthSpec.Net.TLS.Cert.SecretKeyRef = &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: kafkaTLSSecret,
+				},
+				Key: "user.crt",
+			}
+			ks.Spec.KafkaAuthSpec.Net.TLS.Key.SecretKeyRef = &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: kafkaTLSSecret,
+				},
+				Key: "user.key",
+			}
+		}
+	}
+	if auth.SASLEnabled == true {
+		return func(ks *sourcesv1beta1.KafkaSource) {
+			ks.Spec.KafkaAuthSpec.Net.SASL.Enable = true
 			ks.Spec.KafkaAuthSpec.Net.SASL.User.SecretKeyRef = &corev1.SecretKeySelector{
 				LocalObjectReference: corev1.LocalObjectReference{
 					Name: kafkaSASLSecret,
@@ -116,9 +122,33 @@ func withAuthEnablementV1Beta1(auth authSetup) contribresources.KafkaSourceV1Bet
 }
 
 func withAuthEnablementV1Alpha1(auth authSetup) contribresources.KafkaSourceV1Alpha1Option {
-	if auth.Net.SASL.Enable == true {
+	// We test with sasl512 and enable tls with it, so check tls first
+	if auth.TLSEnabled == true {
 		return func(ks *sourcesv1alpha1.KafkaSource) {
-			ks.Spec.KafkaAuthSpec.Net.SASL.Enable = auth.Net.SASL.Enable
+			ks.Spec.KafkaAuthSpec.Net.TLS.Enable = true
+			ks.Spec.KafkaAuthSpec.Net.TLS.CACert.SecretKeyRef = &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: kafkaTLSSecret,
+				},
+				Key: "ca.crt",
+			}
+			ks.Spec.KafkaAuthSpec.Net.TLS.Cert.SecretKeyRef = &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: kafkaTLSSecret,
+				},
+				Key: "user.crt",
+			}
+			ks.Spec.KafkaAuthSpec.Net.TLS.Key.SecretKeyRef = &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: kafkaTLSSecret,
+				},
+				Key: "user.key",
+			}
+		}
+	}
+	if auth.SASLEnabled == true {
+		return func(ks *sourcesv1alpha1.KafkaSource) {
+			ks.Spec.KafkaAuthSpec.Net.SASL.Enable = true
 			ks.Spec.KafkaAuthSpec.Net.SASL.User.SecretKeyRef = &corev1.SecretKeySelector{
 				LocalObjectReference: corev1.LocalObjectReference{
 					Name: kafkaSASLSecret,
@@ -161,13 +191,13 @@ func testKafkaSource(t *testing.T, name string, version string, messageKey strin
 	client := testlib.Setup(t, true)
 	defer testlib.TearDown(client)
 
-	if auth.Net.SASL.Enable {
+	if auth.SASLEnabled {
 		_, err := utils.CopySecret(client.Kube.CoreV1(), "knative-eventing", kafkaSASLSecret, client.Namespace, "default")
 		if err != nil {
 			t.Fatalf("could not copy SASL secret(%s): %v", kafkaSASLSecret, err)
 		}
 	}
-	if auth.Net.TLS.Enable {
+	if auth.TLSEnabled {
 		_, err := utils.CopySecret(client.Kube.CoreV1(), "knative-eventing", kafkaTLSSecret, client.Namespace, "default")
 		if err != nil {
 			t.Fatalf("could not copy secret(%s): %v", kafkaTLSSecret, err)
@@ -228,65 +258,24 @@ func TestKafkaSource(t *testing.T) {
 		"plain": {
 			auth: authSetup{
 				bootStrapServer: kafkaBootstrapUrlPlain,
-				Net: AdapterNet{
-					SASL: AdapterSASL{
-						Enable: false,
-					},
-					TLS: AdapterTLS{
-						Enable: false,
-					},
-				},
+				SASLEnabled:     false,
+				TLSEnabled:      false,
 			},
 		},
-		"sasl-512": {
+		"s512": {
 			auth: authSetup{
-				bootStrapServer: kafkaBootstrapURLSASL,
-				Net: AdapterNet{
-					AdapterSASL{
-						Enable:   true,
-						User:     kafkaClusterSASLUsername,
-						Password: kafkaClusterPassword,
-						Type:     "SCRAM-SHA-512",
-					},
-					AdapterTLS{
-						Enable: false,
-					},
-				},
+				bootStrapServer: kafkaBootstrapUrlSASL,
+				SASLEnabled:     true,
+				TLSEnabled:      false,
 			},
 		},
-		/*"sasl-256": {
+		"tls": {
 			auth: authSetup{
-				bootStrapServer: kafkaBootstrapURLSASL,
-				Net: AdapterNet{
-					AdapterSASL{
-						Enable:   true,
-						User:     kafkaClusterUsername,
-						Password: kafkaClusterPassword,
-						Type:     sarama.SASLTypeSCRAMSHA256,
-					},
-					AdapterTLS{
-						Enable: false,
-					},
-				},
+				bootStrapServer: kafkaBootstrapUrlTLS,
+				SASLEnabled:     false,
+				TLSEnabled:      true,
 			},
 		},
-		"sasl-p": {
-			auth: authSetup{
-				bootStrapServer: kafkaBootstrapURLSASL,
-				Net: AdapterNet{
-					AdapterSASL{
-						Enable:   true,
-						User:     kafkaClusterSASLUsername,
-						Password: kafkaClusterPassword,
-						Type:     sarama.SASLTypePlaintext,
-					},
-					AdapterTLS{
-						Enable: false,
-					},
-				},
-			},
-		},*/
-		//TODO "TLS":{},
 	}
 	tests := map[string]struct {
 		messageKey     string
@@ -322,7 +311,7 @@ func TestKafkaSource(t *testing.T) {
 				)
 			},
 		},
-		"no_event_no_content_type_no_key": {
+		"no_event_content_type_or_key": {
 			messagePayload: `{"value":5}`,
 			matcherGen: func(cloudEventsSourceName, cloudEventsEventType string) EventMatcher {
 				return AllOf(
