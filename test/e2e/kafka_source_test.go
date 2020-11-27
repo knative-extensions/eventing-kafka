@@ -30,6 +30,9 @@ import (
 	. "github.com/cloudevents/sdk-go/v2/test"
 	cetypes "github.com/cloudevents/sdk-go/v2/types"
 	"github.com/google/uuid"
+	corev1 "k8s.io/api/core/v1"
+
+	"knative.dev/eventing/pkg/utils"
 	testlib "knative.dev/eventing/test/lib"
 	"knative.dev/eventing/test/lib/recordevents"
 	"knative.dev/eventing/test/lib/resources"
@@ -42,26 +45,138 @@ import (
 )
 
 const (
-	kafkaBootstrapUrl     = "my-cluster-kafka-bootstrap.kafka.svc:9092"
-	kafkaClusterName      = "my-cluster"
-	kafkaClusterNamespace = "kafka"
+	kafkaBootstrapUrlPlain   = "my-cluster-kafka-bootstrap.kafka.svc:9092"
+	kafkaBootstrapUrlTLS     = "my-cluster-kafka-bootstrap.kafka.svc:9093"
+	kafkaBootstrapURLSASL    = "my-cluster-kafka-bootstrap.kafka.svc:9094"
+	kafkaClusterName         = "my-cluster"
+	kafkaClusterNamespace    = "kafka"
+	kafkaClusterSASLUsername = "my-sasl-user"
+	kafkaClusterTLSUsername  = "my-tls-user"
+	kafkaClusterPassword     = "my-seekrit-password"
+	kafkaSASLSecret          = "strimzi-sasl-secret"
+	kafkaTLSSecret           = "strimzi-tls-secret"
 )
 
-func testKafkaSource(t *testing.T, name string, version string, messageKey string, messageHeaders map[string]string, messagePayload string, matcherGen func(cloudEventsSourceName, cloudEventsEventType string) EventMatcher) {
+type AdapterSASL struct {
+	Enable   bool
+	User     string
+	Password string
+	Type     string
+}
+
+type AdapterTLS struct {
+	Enable bool
+	Cert   string
+	Key    string
+	CACert string
+}
+
+type AdapterNet struct {
+	SASL AdapterSASL
+	TLS  AdapterTLS
+}
+
+type authSetup struct {
+	bootStrapServer string
+	Net             AdapterNet
+}
+
+func withAuthEnablementV1Beta1(auth authSetup) contribresources.KafkaSourceV1Beta1Option {
+	if auth.Net.SASL.Enable == true {
+		return func(ks *sourcesv1beta1.KafkaSource) {
+			ks.Spec.KafkaAuthSpec.Net.SASL.Enable = auth.Net.SASL.Enable
+			ks.Spec.KafkaAuthSpec.Net.SASL.User.SecretKeyRef = &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: kafkaSASLSecret,
+				},
+				Key: "user",
+			}
+			ks.Spec.KafkaAuthSpec.Net.SASL.Password.SecretKeyRef = &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: kafkaSASLSecret,
+				},
+				Key: "password",
+			}
+			ks.Spec.KafkaAuthSpec.Net.SASL.Type.SecretKeyRef = &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: kafkaSASLSecret,
+				},
+				Key: "saslType",
+			}
+			ks.Spec.KafkaAuthSpec.Net.TLS.Enable = true
+			ks.Spec.KafkaAuthSpec.Net.TLS.CACert.SecretKeyRef = &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: kafkaSASLSecret,
+				},
+				Key: "ca.crt",
+			}
+		}
+	}
+	return func(ks *sourcesv1beta1.KafkaSource) {}
+}
+
+func withAuthEnablementV1Alpha1(auth authSetup) contribresources.KafkaSourceV1Alpha1Option {
+	if auth.Net.SASL.Enable == true {
+		return func(ks *sourcesv1alpha1.KafkaSource) {
+			ks.Spec.KafkaAuthSpec.Net.SASL.Enable = auth.Net.SASL.Enable
+			ks.Spec.KafkaAuthSpec.Net.SASL.User.SecretKeyRef = &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: kafkaSASLSecret,
+				},
+				Key: "user",
+			}
+			ks.Spec.KafkaAuthSpec.Net.SASL.Password.SecretKeyRef = &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: kafkaSASLSecret,
+				},
+				Key: "password",
+			}
+			ks.Spec.KafkaAuthSpec.Net.SASL.Type.SecretKeyRef = &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: kafkaSASLSecret,
+				},
+				Key: "saslType",
+			}
+			ks.Spec.KafkaAuthSpec.Net.TLS.Enable = true
+			ks.Spec.KafkaAuthSpec.Net.TLS.CACert.SecretKeyRef = &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: kafkaSASLSecret,
+				},
+				Key: "ca.crt",
+			}
+		}
+	}
+	return func(ks *sourcesv1alpha1.KafkaSource) {}
+}
+func testKafkaSource(t *testing.T, name string, version string, messageKey string, messageHeaders map[string]string, messagePayload string, matcherGen func(cloudEventsSourceName, cloudEventsEventType string) EventMatcher, auth authSetup) {
 	name = fmt.Sprintf("%s-%s", name, version)
 
 	var (
 		kafkaTopicName     = uuid.New().String()
 		consumerGroup      = uuid.New().String()
-		recordEventPodName = "e2e-kafka-recordevent-" + strings.ReplaceAll(name, "_", "-")
+		recordEventPodName = "e2e-kafka-r-" + strings.ReplaceAll(name, "_", "-")
 		kafkaSourceName    = "e2e-kafka-source-" + strings.ReplaceAll(name, "_", "-")
 	)
 
 	client := testlib.Setup(t, true)
 	defer testlib.TearDown(client)
 
+	if auth.Net.SASL.Enable {
+		_, err := utils.CopySecret(client.Kube.CoreV1(), "knative-eventing", kafkaSASLSecret, client.Namespace, "default")
+		if err != nil {
+			t.Fatalf("could not copy SASL secret(%s): %v", kafkaSASLSecret, err)
+		}
+	}
+	if auth.Net.TLS.Enable {
+		_, err := utils.CopySecret(client.Kube.CoreV1(), "knative-eventing", kafkaTLSSecret, client.Namespace, "default")
+		if err != nil {
+			t.Fatalf("could not copy secret(%s): %v", kafkaTLSSecret, err)
+		}
+	}
 	helpers.MustCreateTopic(client, kafkaClusterName, kafkaClusterNamespace, kafkaTopicName)
-
+	if len(recordEventPodName) > 63 {
+		recordEventPodName = recordEventPodName[:63]
+	}
 	eventTracker, _ := recordevents.StartEventRecordOrFail(context.Background(), client, recordEventPodName)
 
 	var (
@@ -73,21 +188,23 @@ func testKafkaSource(t *testing.T, name string, version string, messageKey strin
 	switch version {
 	case "v1alpha1":
 		contribtestlib.CreateKafkaSourceV1Alpha1OrFail(client, contribresources.KafkaSourceV1Alpha1(
-			kafkaBootstrapUrl,
+			auth.bootStrapServer,
 			kafkaTopicName,
 			resources.ServiceRef(recordEventPodName),
 			contribresources.WithNameV1Alpha1(kafkaSourceName),
 			contribresources.WithConsumerGroupV1Alpha1(consumerGroup),
+			withAuthEnablementV1Alpha1(auth),
 		))
 		cloudEventsSourceName = sourcesv1alpha1.KafkaEventSource(client.Namespace, kafkaSourceName, kafkaTopicName)
 		cloudEventsEventType = sourcesv1alpha1.KafkaEventType
 	case "v1beta1":
 		contribtestlib.CreateKafkaSourceV1Beta1OrFail(client, contribresources.KafkaSourceV1Beta1(
-			kafkaBootstrapUrl,
+			auth.bootStrapServer,
 			kafkaTopicName,
 			resources.ServiceRef(recordEventPodName),
 			contribresources.WithNameV1Beta1(kafkaSourceName),
 			contribresources.WithConsumerGroupV1Beta1(consumerGroup),
+			withAuthEnablementV1Beta1(auth),
 		))
 		cloudEventsSourceName = sourcesv1beta1.KafkaEventSource(client.Namespace, kafkaSourceName, kafkaTopicName)
 		cloudEventsEventType = sourcesv1beta1.KafkaEventType
@@ -97,7 +214,7 @@ func testKafkaSource(t *testing.T, name string, version string, messageKey strin
 
 	client.WaitForAllTestResourcesReadyOrFail(context.Background())
 
-	helpers.MustPublishKafkaMessage(client, kafkaBootstrapUrl, kafkaTopicName, messageKey, messageHeaders, messagePayload)
+	helpers.MustPublishKafkaMessage(client, kafkaBootstrapUrlPlain, kafkaTopicName, messageKey, messageHeaders, messagePayload)
 
 	eventTracker.AssertExact(1, recordevents.MatchEvent(matcherGen(cloudEventsSourceName, cloudEventsEventType)))
 }
@@ -105,6 +222,72 @@ func testKafkaSource(t *testing.T, name string, version string, messageKey strin
 func TestKafkaSource(t *testing.T) {
 	time, _ := cetypes.ParseTime("2018-04-05T17:31:00Z")
 
+	auths := map[string]struct {
+		auth authSetup
+	}{
+		"plain": {
+			auth: authSetup{
+				bootStrapServer: kafkaBootstrapUrlPlain,
+				Net: AdapterNet{
+					SASL: AdapterSASL{
+						Enable: false,
+					},
+					TLS: AdapterTLS{
+						Enable: false,
+					},
+				},
+			},
+		},
+		"sasl-512": {
+			auth: authSetup{
+				bootStrapServer: kafkaBootstrapURLSASL,
+				Net: AdapterNet{
+					AdapterSASL{
+						Enable:   true,
+						User:     kafkaClusterSASLUsername,
+						Password: kafkaClusterPassword,
+						Type:     "SCRAM-SHA-512",
+					},
+					AdapterTLS{
+						Enable: false,
+					},
+				},
+			},
+		},
+		/*"sasl-256": {
+			auth: authSetup{
+				bootStrapServer: kafkaBootstrapURLSASL,
+				Net: AdapterNet{
+					AdapterSASL{
+						Enable:   true,
+						User:     kafkaClusterUsername,
+						Password: kafkaClusterPassword,
+						Type:     sarama.SASLTypeSCRAMSHA256,
+					},
+					AdapterTLS{
+						Enable: false,
+					},
+				},
+			},
+		},
+		"sasl-p": {
+			auth: authSetup{
+				bootStrapServer: kafkaBootstrapURLSASL,
+				Net: AdapterNet{
+					AdapterSASL{
+						Enable:   true,
+						User:     kafkaClusterSASLUsername,
+						Password: kafkaClusterPassword,
+						Type:     sarama.SASLTypePlaintext,
+					},
+					AdapterTLS{
+						Enable: false,
+					},
+				},
+			},
+		},*/
+		//TODO "TLS":{},
+	}
 	tests := map[string]struct {
 		messageKey     string
 		messageHeaders map[string]string
@@ -229,14 +412,17 @@ func TestKafkaSource(t *testing.T) {
 			},
 		},
 	}
-	for name, test := range tests {
-		test := test
-		t.Run(name+"-v1alpha1", func(t *testing.T) {
-			testKafkaSource(t, name, "v1alpha1", test.messageKey, test.messageHeaders, test.messagePayload, test.matcherGen)
-		})
-		t.Run(name+"-v1beta1", func(t *testing.T) {
-			testKafkaSource(t, name, "v1beta1", test.messageKey, test.messageHeaders, test.messagePayload, test.matcherGen)
-		})
+	for authName, auth := range auths {
+		for name, test := range tests {
+			test := test
+			name := name + "_" + authName
+			t.Run(name+"-v1alpha1", func(t *testing.T) {
+				testKafkaSource(t, name, "v1alpha1", test.messageKey, test.messageHeaders, test.messagePayload, test.matcherGen, auth.auth)
+			})
+			t.Run(name+"-v1beta1", func(t *testing.T) {
+				testKafkaSource(t, name, "v1beta1", test.messageKey, test.messageHeaders, test.messagePayload, test.matcherGen, auth.auth)
+			})
+		}
 	}
 }
 

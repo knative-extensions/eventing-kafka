@@ -59,7 +59,7 @@ type KafkaSASLSpec struct {
 
 	// Type of saslType, defaults to plain (vs SCRAM-SHA-512 or SCRAM-SHA-256)
 	// +optional
-	Type SecretValueFromSource `json:"type,omitempty"`
+	Type SecretValueFromSource `json:"saslType,omitempty"`
 }
 
 type KafkaTLSSpec struct {
