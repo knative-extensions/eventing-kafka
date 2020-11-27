@@ -699,7 +699,6 @@ func (ca *mockClusterAdmin) ListConsumerGroups() (map[string]string, error) {
 		fmt.Sprintf("kafka.%s.%s.%s", kcName, testNS, sub1UID): "consumer",
 		fmt.Sprintf("kafka.%s.%s.%s", kcName, testNS, sub2UID): "consumer",
 	}
-	fmt.Println("ListConsumerGroup-------------------")
 	return cgs, nil
 }
 

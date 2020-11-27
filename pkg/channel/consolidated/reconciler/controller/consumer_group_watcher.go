@@ -85,7 +85,7 @@ func NewConsumerGroupWatcher(ctx context.Context, ac kafka.AdminClient, pollDura
 }
 
 func (w *WatcherImpl) Start() error {
-	w.logger.Info("ConsumerGroupWatcher starting. Polling for consumer groups", zap.Duration("poll duration", w.pollDuration))
+	w.logger.Infow("ConsumerGroupWatcher starting. Polling for consumer groups", zap.Duration("poll duration", w.pollDuration))
 	go func() {
 		for {
 			select {
@@ -93,7 +93,7 @@ func (w *WatcherImpl) Start() error {
 				// let's get current observed consumer groups
 				observedCGs, err := w.adminClient.ListConsumerGroups()
 				if err != nil {
-					w.logger.Error("error while listing consumer groups", zap.Error(err))
+					w.logger.Errorw("error while listing consumer groups", zap.Error(err))
 					continue
 				}
 				var notify bool
@@ -102,7 +102,7 @@ func (w *WatcherImpl) Start() error {
 				for _, c := range observedCGs {
 					if !Find(w.cachedConsumerGroups, c) {
 						// This is the first appearance.
-						w.logger.Debug("Consumer group observed. Caching.",
+						w.logger.Debugw("Consumer group observed. Caching.",
 							zap.String("consumer group", c))
 						changedGroup = c
 						notify = true
@@ -113,7 +113,7 @@ func (w *WatcherImpl) Start() error {
 				for _, c := range w.cachedConsumerGroups {
 					if !Find(observedCGs, c) {
 						// This CG was cached but it's no longer there.
-						w.logger.Debug("Consumer group deleted.",
+						w.logger.Debugw("Consumer group deleted.",
 							zap.String("consumer group", c))
 						changedGroup = c
 						notify = true
@@ -143,7 +143,7 @@ func (w *WatcherImpl) Terminate() {
 
 // TODO explore returning a channel instead of a taking callback
 func (w *WatcherImpl) Watch(watcherID string, cb ConsumerGroupHandler) error {
-	w.logger.Debug("Adding a new watcher", zap.String("watcherID", watcherID))
+	w.logger.Debugw("Adding a new watcher", zap.String("watcherID", watcherID))
 	watchersMtx.Lock()
 	defer watchersMtx.Unlock()
 	cbs, ok := w.watchers[watcherID]
@@ -157,7 +157,7 @@ func (w *WatcherImpl) Watch(watcherID string, cb ConsumerGroupHandler) error {
 }
 
 func (w *WatcherImpl) Forget(watcherID string) {
-	w.logger.Debug("Forgetting watcher", zap.String("watcherID", watcherID))
+	w.logger.Debugw("Forgetting watcher", zap.String("watcherID", watcherID))
 	delete(w.watchers, watcherID)
 }
 

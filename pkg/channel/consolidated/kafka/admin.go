@@ -51,7 +51,7 @@ func NewAdminClient(ctx context.Context, caFactory ClusterAdminFactory) (AdminCl
 	logger.Info("Creating a new AdminClient")
 	kafkaClusterAdmin, err := caFactory()
 	if err != nil {
-		logger.Error("error while creating ClusterAdmin", err)
+		logger.Errorw("error while creating ClusterAdmin", zap.Error(err))
 		return nil, err
 	}
 	return &AdminClientManager{
@@ -81,7 +81,7 @@ func (c *AdminClientManager) ListConsumerGroups() ([]string, error) {
 		// Calculate incremental delay following this https://docs.aws.amazon.com/general/latest/gr/api-retries.html
 		t := int(math.Pow(2, float64(r)) * 100)
 		d := time.Duration(t) * time.Millisecond
-		c.logger.Error("listing consumer group failed. Refreshing the ClusterAdmin and retrying.",
+		c.logger.Errorw("listing consumer group failed. Refreshing the ClusterAdmin and retrying.",
 			zap.Error(err),
 			zap.Duration("retry after", d),
 			zap.Int("Retry attempt", r),
