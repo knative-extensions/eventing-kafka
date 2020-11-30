@@ -17,9 +17,10 @@ limitations under the License.
 package env
 
 import (
-	"knative.dev/pkg/system"
 	"strconv"
 	"time"
+
+	"knative.dev/pkg/system"
 
 	"go.uber.org/zap"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
@@ -30,7 +31,7 @@ import (
 type Environment struct {
 
 	// Eventing Configuration
-	SystemNamespace string  // Required
+	SystemNamespace string // Required
 
 	// Metrics Configuration
 	MetricsPort   int    // Required

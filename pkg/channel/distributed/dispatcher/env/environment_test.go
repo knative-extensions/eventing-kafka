@@ -18,12 +18,13 @@ package env
 
 import (
 	"fmt"
-	"knative.dev/pkg/system"
 	"log"
 	"os"
 	"strconv"
 	"testing"
 	"time"
+
+	"knative.dev/pkg/system"
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
@@ -32,19 +33,19 @@ import (
 
 // Test Constants
 const (
-	systemNamespace     = "test-system-namespace"
-	metricsPort         = "9999"
-	metricsDomain       = "kafka-eventing"
-	healthPort          = "1234"
-	resyncPeriod        = "3600"
-	kafkaBrokers        = "TestKafkaBrokers"
-	kafkaTopic          = "TestKafkaTopic"
-	channelKey          = "TestChannelKey"
-	serviceName         = "TestServiceName"
-	kafkaUsername       = "TestKafkaUsername"
-	kafkaPassword       = "TestKafkaPassword"
-	podName             = "TestPod"
-	containerName       = "TestContainer"
+	systemNamespace = "test-system-namespace"
+	metricsPort     = "9999"
+	metricsDomain   = "kafka-eventing"
+	healthPort      = "1234"
+	resyncPeriod    = "3600"
+	kafkaBrokers    = "TestKafkaBrokers"
+	kafkaTopic      = "TestKafkaTopic"
+	channelKey      = "TestChannelKey"
+	serviceName     = "TestServiceName"
+	kafkaUsername   = "TestKafkaUsername"
+	kafkaPassword   = "TestKafkaPassword"
+	podName         = "TestPod"
+	containerName   = "TestContainer"
 )
 
 // Define The TestCase Struct

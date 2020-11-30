@@ -18,10 +18,11 @@ package kafkachannel
 
 import (
 	"context"
-	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
 	"sync"
 	"testing"
+
+	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
 
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
