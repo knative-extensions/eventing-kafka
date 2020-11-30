@@ -51,5 +51,4 @@ func (r *Reconciler) schedulableLister() ([]scheduler.Schedulable, error) {
 		schedulables[i] = sources[i]
 	}
 	return schedulables, nil
-
 }

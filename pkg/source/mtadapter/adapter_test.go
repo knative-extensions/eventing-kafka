@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	duckv1alpha1 "knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	pkgtesting "knative.dev/pkg/reconciler/testing"
@@ -33,14 +35,20 @@ import (
 	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 )
 
-var runningAdapterChan = make(chan *dummyAdapter)
-var stoppingAdapterChan = make(chan *dummyAdapter)
+var (
+	runningAdapterChan  = make(chan *dummyAdapter)
+	stoppingAdapterChan = make(chan *dummyAdapter)
+)
+
+const (
+	podName = "dummy-podname"
+)
 
 func TestUpdateRemoveSources(t *testing.T) {
 	ctx, _ := pkgtesting.SetupFakeContext(t)
 	ctx, cancelAdapter := context.WithCancel(ctx)
 
-	env := NewEnvConfig()
+	env := &AdapterConfig{PodName: podName}
 	ceClient := adaptertest.NewTestClient()
 
 	adapter := newAdapter(ctx, env, ceClient, newDummyAdapter).(*Adapter)
@@ -59,8 +67,13 @@ func TestUpdateRemoveSources(t *testing.T) {
 			Name:      "test-name",
 			Namespace: "test-ns",
 		},
-		Spec:   sourcesv1beta1.KafkaSourceSpec{},
-		Status: sourcesv1beta1.KafkaSourceStatus{},
+		Spec: sourcesv1beta1.KafkaSourceSpec{},
+		Status: sourcesv1beta1.KafkaSourceStatus{
+			Placeable: duckv1alpha1.Placeable{
+				Placement: []duckv1alpha1.Placement{
+					{PodName: podName, Replicas: int32(1)},
+				}},
+		},
 	})
 
 	if _, ok := adapter.sources["test-ns/test-name"]; !ok {
@@ -73,7 +86,7 @@ func TestUpdateRemoveSources(t *testing.T) {
 			t.Error("Expected adapter to be running")
 		}
 	case <-time.After(100 * time.Millisecond):
-		t.Error("sub-adapter failed to start after 2 seconds")
+		t.Error("sub-adapter failed to start after 100 ms")
 	}
 
 	adapter.Remove(ctx, &sourcesv1beta1.KafkaSource{
@@ -95,7 +108,7 @@ func TestUpdateRemoveSources(t *testing.T) {
 			t.Error("Expected adapter to not be running")
 		}
 	case <-time.After(100 * time.Millisecond):
-		t.Error("sub-adapter failed to stop after 2 seconds")
+		t.Error("sub-adapter failed to stop after 100 ms")
 	}
 
 	// Make sure the adapter is still running
