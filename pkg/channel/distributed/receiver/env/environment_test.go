@@ -18,6 +18,7 @@ package env
 
 import (
 	"fmt"
+	"knative.dev/pkg/system"
 	"log"
 	"os"
 	"strconv"
@@ -31,6 +32,7 @@ import (
 
 // Test Constants
 const (
+	systemNamespace     = "test-system-namespace"
 	metricsPort         = "9999"
 	metricsDomain       = "kafka-eventing"
 	healthPort          = "1234"
@@ -46,6 +48,7 @@ const (
 // Define The TestCase Struct
 type TestCase struct {
 	name                 string
+	systemNamespace      string
 	metricsPort          string
 	metricsDomain        string
 	healthPort           string
@@ -69,6 +72,11 @@ func TestGetEnvironment(t *testing.T) {
 	// Define The TestCases
 	testCases := make([]TestCase, 0, 20)
 	testCase := getValidTestCase("Valid Complete Config")
+	testCases = append(testCases, testCase)
+
+	testCase = getValidTestCase("Missing Required Config - SystemNamespace")
+	testCase.systemNamespace = ""
+	testCase.expectedError = getMissingRequiredEnvironmentVariableError(system.NamespaceEnvKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Required Config - MetricsDomain")
@@ -132,6 +140,7 @@ func TestGetEnvironment(t *testing.T) {
 
 			// (Re)Setup The Environment Variables From TestCase
 			os.Clearenv()
+			assertSetenv(t, system.NamespaceEnvKey, testCase.systemNamespace)
 			assertSetenv(t, env.MetricsDomainEnvVarKey, testCase.metricsDomain)
 			assertSetenvNonempty(t, env.MetricsPortEnvVarKey, testCase.metricsPort)
 			assertSetenvNonempty(t, env.HealthPortEnvVarKey, testCase.healthPort)
@@ -151,6 +160,7 @@ func TestGetEnvironment(t *testing.T) {
 
 				assert.Nil(t, err)
 				assert.NotNil(t, environment)
+				assert.Equal(t, testCase.systemNamespace, environment.SystemNamespace)
 				assert.Equal(t, testCase.metricsPort, strconv.Itoa(environment.MetricsPort))
 				assert.Equal(t, testCase.healthPort, strconv.Itoa(environment.HealthPort))
 				assert.Equal(t, testCase.kafkaBrokers, environment.KafkaBrokers)
@@ -183,6 +193,7 @@ func assertSetenvNonempty(t *testing.T, envKey string, value string) {
 func getValidTestCase(name string) TestCase {
 	return TestCase{
 		name:                 name,
+		systemNamespace:      systemNamespace,
 		metricsPort:          metricsPort,
 		metricsDomain:        metricsDomain,
 		healthPort:           healthPort,

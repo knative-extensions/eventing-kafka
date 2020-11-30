@@ -17,6 +17,7 @@ limitations under the License.
 package env
 
 import (
+	"knative.dev/pkg/system"
 	"strconv"
 	"time"
 
@@ -27,6 +28,9 @@ import (
 
 // The Environment Struct
 type Environment struct {
+
+	// Eventing Configuration
+	SystemNamespace string  // Required
 
 	// Metrics Configuration
 	MetricsPort   int    // Required
@@ -57,6 +61,12 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 
 	// The Environment Struct To Be Populated
 	environment := &Environment{}
+
+	// Get The Required System Namespace Config Value
+	environment.SystemNamespace, err = env.GetRequiredConfigValue(logger, system.NamespaceEnvKey)
+	if err != nil {
+		return nil, err
+	}
 
 	// Get The Required Metrics Port Config Value & Convert To Int
 	environment.MetricsPort, err = env.GetRequiredConfigInt(logger, env.MetricsPortEnvVarKey, "MetricsPort")

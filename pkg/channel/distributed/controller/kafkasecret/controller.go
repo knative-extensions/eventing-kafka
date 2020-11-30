@@ -19,8 +19,6 @@ package kafkasecret
 import (
 	"context"
 
-	"knative.dev/pkg/system"
-
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -57,7 +55,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	// Load The Environment Variables
 	environment, err := env.FromContext(ctx)
 	if err != nil {
-		logger.Fatal("Failed To Load Environment Variables - Terminating!", zap.Error(err))
+		logger.Fatal("Failed To Get Environment From Context - Terminating!", zap.Error(err))
 	}
 
 	// Load the Sarama and other eventing-kafka settings from our configmap
@@ -101,7 +99,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 		Handler:    controller.HandleAll(controllerImpl.EnqueueControllerOf),
 	})
 	kafkachannelInformer.Informer().AddEventHandler(
-		controller.HandleAll(enqueueSecretOfKafkaChannel(controllerImpl)),
+		controller.HandleAll(enqueueSecretOfKafkaChannel(controllerImpl, environment.SystemNamespace)),
 	)
 
 	// Return The KafkaSecret Controller Impl
@@ -114,7 +112,7 @@ func Shutdown() {
 }
 
 // Enqueue The Kafka Secret Associated With The Specified KafkaChannel
-func enqueueSecretOfKafkaChannel(controller *controller.Impl) func(obj interface{}) {
+func enqueueSecretOfKafkaChannel(controller *controller.Impl, namespace string) func(obj interface{}) {
 	return func(obj interface{}) {
 		if object, ok := obj.(metav1.Object); ok {
 			labels := object.GetLabels()
@@ -122,7 +120,7 @@ func enqueueSecretOfKafkaChannel(controller *controller.Impl) func(obj interface
 				secretName := labels[constants.KafkaSecretLabel]
 				if len(secretName) > 0 {
 					controller.EnqueueKey(types.NamespacedName{
-						Namespace: system.Namespace(),
+						Namespace: namespace,
 						Name:      secretName,
 					})
 				}

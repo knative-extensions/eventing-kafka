@@ -63,7 +63,7 @@ func TestInitializeConfigWatcher(t *testing.T) {
 	assert.Equal(t, testConfigMap.Data["sarama"], commontesting.OldSaramaConfig)
 
 	// Perform The Test (Initialize The Observability Watcher)
-	err = InitializeConfigWatcher(ctx, logger, configWatcherHandler)
+	err = InitializeConfigWatcher(ctx, logger, configWatcherHandler, system.Namespace())
 	assert.Nil(t, err)
 
 	// Wait for the configWatcherHandler to be called (happens pretty quickly; loop usually only runs once)

@@ -18,6 +18,7 @@ package testing
 
 import (
 	"fmt"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
 	"strconv"
 	"time"
 
@@ -69,7 +70,7 @@ const (
 	KafkaChannelNamespace  = "kafkachannel-namespace"
 	KafkaChannelName       = "kafkachannel-name"
 	KafkaChannelKey        = KafkaChannelNamespace + "/" + KafkaChannelName
-	KafkaSecretNamespace   = "knative-eventing" // Needs To Match system.Namespace() Call In Reconciliation
+	KafkaSecretNamespace   = "eventing-test-ns" // Needs To Match system.Namespace() Call In Reconciliation
 	KafkaSecretName        = "kafkasecret-name"
 	KafkaSecretKey         = KafkaSecretNamespace + "/" + KafkaSecretName
 	ReceiverDeploymentName = KafkaSecretName + "-b9176d5f-receiver" // Truncated MD5 Hash Of KafkaSecretName
@@ -190,6 +191,7 @@ func WithoutFinalizersDeployment(deployment *appsv1.Deployment) {
 // Set The Required Environment Variables
 func NewEnvironment() *env.Environment {
 	return &env.Environment{
+		SystemNamespace: testing.SystemNamespace,
 		ServiceAccount:  ServiceAccount,
 		MetricsPort:     MetricsPort,
 		MetricsDomain:   MetricsDomain,

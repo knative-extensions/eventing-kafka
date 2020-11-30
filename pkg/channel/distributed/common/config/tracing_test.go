@@ -64,7 +64,7 @@ func TestInitializeTracing(t *testing.T) {
 	ctx = context.WithValue(ctx, injectionclient.Key{}, fakeK8sClient)
 
 	// Perform The Test (Initialize The Tracing Watcher)
-	err := InitializeTracing(logger, ctx, service)
+	err := InitializeTracing(logger, ctx, service, system.Namespace())
 	assert.Nil(t, err)
 
 	// If the InitializeTracing Succeeds, it will not fatally exit
@@ -77,12 +77,12 @@ func TestInitializeTracing_Failure(t *testing.T) {
 	ctx := context.TODO()
 
 	// If there is no Kubernetes client in the context, the server will not start
-	err := InitializeTracing(logtesting.TestLogger(t), ctx, "TestService")
+	err := InitializeTracing(logtesting.TestLogger(t), ctx, "TestService", system.Namespace())
 	assert.NotNil(t, err)
 
 	// If there is no "config-tracing" configmap, the server will not start
 	fakeK8sClient := fake.NewSimpleClientset()
 	ctx = context.WithValue(ctx, injectionclient.Key{}, fakeK8sClient)
-	err = InitializeTracing(logtesting.TestLogger(t), ctx, "TestService")
+	err = InitializeTracing(logtesting.TestLogger(t), ctx, "TestService", system.Namespace())
 	assert.NotNil(t, err)
 }

@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
 	"github.com/Shopify/sarama"
 	"knative.dev/pkg/system"
 )

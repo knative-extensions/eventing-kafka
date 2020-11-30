@@ -30,14 +30,13 @@ import (
 	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/profiling"
-	"knative.dev/pkg/system"
 )
 
 //
 // Initialize The Specified Context With A Profiling Server (ConfigMap Watcher And HTTP Endpoint)
 // Much Of This Function Is Taken From The knative.dev sharedmain Package
 //
-func InitializeObservability(ctx context.Context, logger *zap.SugaredLogger, metricsDomain string, metricsPort int) error {
+func InitializeObservability(ctx context.Context, logger *zap.SugaredLogger, metricsDomain string, metricsPort int, namespace string) error {
 
 	// Initialize the profiling server
 	// Taken from knative.dev/pkg/injection/sharedmain/main.go::MainWithConfig
@@ -71,7 +70,7 @@ func InitializeObservability(ctx context.Context, logger *zap.SugaredLogger, met
 	// Start The Observability ConfigMap Watcher
 	// Taken from knative.dev/pkg/injection/sharedmain/main.go::WatchObservabilityConfigOrDie
 	// and knative.dev/pkg/metrics/exporter.go::ConfigMapWatcher
-	if _, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, metrics.ConfigMapName(),
+	if _, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(namespace).Get(ctx, metrics.ConfigMapName(),
 		metav1.GetOptions{}); err == nil {
 		cmw.Watch(metrics.ConfigMapName(),
 			func(configMap *corev1.ConfigMap) {

@@ -18,6 +18,7 @@ package admin
 
 import (
 	"context"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
 	"testing"
 
 	"knative.dev/pkg/system"
@@ -35,7 +36,7 @@ func TestCreateAdminClientKafka(t *testing.T) {
 
 	// Test Data
 	commontesting.SetTestEnvironment(t)
-	ctx := context.TODO()
+	ctx := context.WithValue(context.TODO(), env.Key{}, &env.Environment{SystemNamespace: system.Namespace()})
 	clientId := "TestClientId"
 	adminClientType := Kafka
 	mockAdminClient = &MockAdminClient{}
@@ -65,7 +66,7 @@ func TestCreateAdminClientEventHub(t *testing.T) {
 
 	// Test Data
 	commontesting.SetTestEnvironment(t)
-	ctx := context.TODO()
+	ctx := context.WithValue(context.TODO(), env.Key{}, &env.Environment{SystemNamespace: system.Namespace()})
 	clientId := "TestClientId"
 	adminClientType := EventHub
 	mockAdminClient = &MockAdminClient{}
@@ -94,7 +95,7 @@ func TestCreateAdminClientCustom(t *testing.T) {
 
 	// Test Data
 	commontesting.SetTestEnvironment(t)
-	ctx := context.TODO()
+	ctx := context.WithValue(context.TODO(), env.Key{}, &env.Environment{SystemNamespace: system.Namespace()})
 	clientId := "TestClientId"
 	adminClientType := Custom
 	mockAdminClient = &MockAdminClient{}

@@ -109,8 +109,12 @@ readonly KAFKA_CRD_CONFIG_DIR="$(mktemp -d)"
 # Kafka channel CRD config template directory.
 readonly KAFKA_SOURCE_CRD_CONFIG_DIR="config/source"
 
-# Namespace where we install Eventing components
+# This is the namespace of knative-eventing itself
+export EVENTING_NAMESPACE="knative-eventing"
+
+# Namespace where we install eventing-kafka components (may be different than EVENTING_NAMESPACE)
 readonly SYSTEM_NAMESPACE="knative-eventing"
+export SYSTEM_NAMESPACE
 
 # Zipkin setup
 readonly KNATIVE_EVENTING_MONITORING_YAML="test/config/monitoring.yaml"
@@ -174,7 +178,7 @@ function knative_setup() {
     ko apply -f "${EVENTING_IN_MEMORY_CHANNEL_CONFIG}"
     popd
   fi
-  wait_until_pods_running knative-eventing || fail_test "Knative Eventing did not come up"
+  wait_until_pods_running "${EVENTING_NAMESPACE}" || fail_test "Knative Eventing did not come up"
 
   install_zipkin
 }
@@ -182,18 +186,18 @@ function knative_setup() {
 # Setup zipkin
 function install_zipkin() {
   echo "Installing Zipkin..."
-  kubectl apply -f "${KNATIVE_EVENTING_MONITORING_YAML}"
-  wait_until_pods_running knative-eventing || fail_test "Zipkin inside eventing did not come up"
+  envsubst < "${KNATIVE_EVENTING_MONITORING_YAML}" | kubectl apply -f -
+  wait_until_pods_running "${SYSTEM_NAMESPACE}" || fail_test "Zipkin inside eventing did not come up"
   # Setup config tracing for tracing tests
-  kubectl apply -f "${CONFIG_TRACING_CONFIG}"
+  envsubst < "${CONFIG_TRACING_CONFIG}" | kubectl apply -f -
 }
 
 # Remove zipkin
 function uninstall_zipkin() {
   echo "Uninstalling Zipkin..."
-  kubectl delete -f "${KNATIVE_EVENTING_MONITORING_YAML}"
-  wait_until_object_does_not_exist deployment zipkin knative-eventing || fail_test "Zipkin deployment was unable to be deleted"
-  kubectl delete -n knative-eventing configmap config-tracing
+  envsubst < "${KNATIVE_EVENTING_MONITORING_YAML}" | kubectl delete -f -
+  wait_until_object_does_not_exist deployment zipkin "${SYSTEM_NAMESPACE}" || fail_test "Zipkin deployment was unable to be deleted"
+  kubectl delete -n "${SYSTEM_NAMESPACE}" configmap config-tracing
 }
 
 function knative_teardown() {
@@ -213,7 +217,7 @@ function knative_teardown() {
     ko delete -f "${EVENTING_CONFIG}"
     popd
   fi
-  wait_until_object_does_not_exist namespaces knative-eventing
+  wait_until_object_does_not_exist namespaces "${EVENTING_NAMESPACE}"
 }
 
 # Add function call to trap
@@ -264,20 +268,20 @@ function install_consolidated_channel_crds() {
   cp "${CONSOLIDATED_TEMPLATE_DIR}/"*yaml "${KAFKA_CRD_CONFIG_DIR}"
   sed -i "s/REPLACE_WITH_CLUSTER_URL/${KAFKA_CLUSTER_URL}/" ${KAFKA_CRD_CONFIG_DIR}/${KAFKA_CRD_CONFIG_TEMPLATE}
   ko apply -f "${KAFKA_CRD_CONFIG_DIR}" || return 1
-  wait_until_pods_running knative-eventing || fail_test "Failed to install the consolidated Kafka Channel CRD"
+  wait_until_pods_running "${SYSTEM_NAMESPACE}" || fail_test "Failed to install the consolidated Kafka Channel CRD"
 }
 
 function install_consolidated_sources_crds() {
   echo "Installing consolidated Kafka Source CRD"
   ko apply -f "${KAFKA_SOURCE_CRD_CONFIG_DIR}" || return 1
-  wait_until_pods_running knative-eventing || fail_test "Failed to install the consolidated Kafka Source CRD"
+  wait_until_pods_running "${SYSTEM_NAMESPACE}" || fail_test "Failed to install the consolidated Kafka Source CRD"
   wait_until_pods_running knative-sources || fail_test "Failed to install the consolidated Kafka Source CRD"
 }
 
 # Uninstall The eventing-kafka KafkaChannel Implementation Via Ko
 function uninstall_channel_crds() {
   echo "Uninstalling Kafka Channel CRD"
-  kubectl delete secret -n knative-eventing kafka-cluster
+  kubectl delete secret -n "${SYSTEM_NAMESPACE}" kafka-cluster
   sleep 10 # Give Controller Time To React To Kafka Secret Deletion ; )
   echo "Current namespaces:"
   kubectl get namespaces
@@ -295,6 +299,7 @@ function install_distributed_channel_crds() {
   echo "Installing distributed Kafka Channel CRD"
   rm "${KAFKA_CRD_CONFIG_DIR}/"*yaml
   cp "${DISTRIBUTED_TEMPLATE_DIR}/"*yaml "${KAFKA_CRD_CONFIG_DIR}"
+  sed -i "s/namespace: knative-eventing/namespace: ${SYSTEM_NAMESPACE}/g" "${KAFKA_CRD_CONFIG_DIR}/"*yaml
 
   # Update The Kafka Secret With Strimzi Kafka Cluster Brokers (No Authentication)
   sed -i "s/brokers: \"\"/brokers: ${STRIMZI_KAFKA_CLUSTER_BROKERS_ENCODED}/" "${KAFKA_CRD_CONFIG_DIR}/${EVENTING_KAFKA_SECRET_TEMPLATE}"
@@ -306,9 +311,9 @@ function install_distributed_channel_crds() {
   ko apply -f "${KAFKA_CRD_CONFIG_DIR}" || return 1
 
    # Add The kn-eventing-test-pull-secret (If Present) To ServiceAccount & Restart eventing-kafka Deployment
-  add_kn_eventing_test_pull_secret knative-eventing eventing-kafka-channel-controller eventing-kafka-channel-controller
+  add_kn_eventing_test_pull_secret "${SYSTEM_NAMESPACE}" eventing-kafka-channel-controller eventing-kafka-channel-controller
 
-  wait_until_pods_running knative-eventing || fail_test "Failed to install the distributed Kafka Channel CRD"
+  wait_until_pods_running "${SYSTEM_NAMESPACE}" || fail_test "Failed to install the distributed Kafka Channel CRD"
 }
 
 function kafka_setup() {
@@ -355,7 +360,7 @@ function create_tls_secrets() {
   TLSUSER_CRT=$(kubectl -n ${STRIMZI_KAFKA_NAMESPACE} get secret my-tls-user --template='{{index .data "user.crt"}}' | base64 --decode )
   TLSUSER_KEY=$(kubectl -n ${STRIMZI_KAFKA_NAMESPACE} get secret my-tls-user --template='{{index .data "user.key"}}' | base64 --decode )
 
-  kubectl create secret --namespace knative-eventing generic strimzi-tls-secret \
+  kubectl create secret --namespace "${SYSTEM_NAMESPACE}" generic strimzi-tls-secret \
     --from-literal=ca.crt="$STRIMZI_CRT" \
     --from-literal=user.crt="$TLSUSER_CRT" \
     --from-literal=user.key="$TLSUSER_KEY"
@@ -366,7 +371,7 @@ function create_sasl_secrets() {
   STRIMZI_CRT=$(kubectl -n ${STRIMZI_KAFKA_NAMESPACE} get secret my-cluster-cluster-ca-cert --template='{{index .data "ca.crt"}}' | base64 --decode )
   SASL_PASSWD=$(kubectl -n ${STRIMZI_KAFKA_NAMESPACE} get secret my-sasl-user --template='{{index .data "password"}}' | base64 --decode )
 
-  kubectl create secret --namespace knative-eventing generic strimzi-sasl-secret \
+  kubectl create secret --namespace "${SYSTEM_NAMESPACE}" generic strimzi-sasl-secret \
     --from-literal=ca.crt="$STRIMZI_CRT" \
     --from-literal=password="$SASL_PASSWD" \
     --from-literal=saslType="SCRAM-SHA-512" \
@@ -391,7 +396,7 @@ function test_consolidated_channel_tls() {
   # Test the consolidated channel with TLS
   echo "Testing the consolidated channel with TLS"
   # Set the URL to the TLS listeners config
-  cp ${KAFKA_TLS_CONFIG} "${CONSOLIDATED_TEMPLATE_DIR}/configmaps/kafka-config.yaml"
+  envsubst < "${KAFKA_TLS_CONFIG}" > "${CONSOLIDATED_TEMPLATE_DIR}/configmaps/kafka-config.yaml"
   KAFKA_CLUSTER_URL=${KAFKA_TLS_CLUSTER_URL}
 
   install_consolidated_channel_crds || return 1
@@ -405,7 +410,7 @@ function test_consolidated_channel_sasl() {
   # Test the consolidated channel with SASL
   echo "Testing the consolidated channel with SASL"
   # Set the URL to the SASL listeners config
-  cp ${KAFKA_SASL_CONFIG} "${CONSOLIDATED_TEMPLATE_DIR}/configmaps/kafka-config.yaml"
+  envsubst < "${KAFKA_SASL_CONFIG}" > "${CONSOLIDATED_TEMPLATE_DIR}/configmaps/kafka-config.yaml"
   KAFKA_CLUSTER_URL=${KAFKA_SASL_CLUSTER_URL}
 
   install_consolidated_channel_crds || return 1
@@ -454,6 +459,9 @@ function parse_flags() {
   return 0
 }
 
+# This is the namespace for the eventing-kafka components (but not all of knative-eventing)
+kubectl get namespace "${SYSTEM_NAMESPACE}" || kubectl create namespace "${SYSTEM_NAMESPACE}"
+
 TEST_CONSOLIDATED_CHANNEL=${TEST_CONSOLIDATED_CHANNEL:-0}
 TEST_CONSOLIDATED_CHANNEL_TLS=${TEST_CONSOLIDATED_CHANNEL_TLS:-0}
 TEST_CONSOLIDATED_CHANNEL_SASL=${TEST_CONSOLIDATED_CHANNEL_SASL:-0}
@@ -461,7 +469,6 @@ TEST_DISTRIBUTED_CHANNEL=${TEST_DISTRIBUTED_CHANNEL:-0}
 
 echo "e2e-tests.sh command line: $@"
 
-# Note:  The setting of gcp-project-id option here has no effect when testing locally; it is only for the kubetest2 utility
 # If you wish to use this script just as test setup, *without* teardown, add "--skip-teardowns" to the initialize command
 initialize $@ --skip-istio-addon
 
@@ -471,13 +478,11 @@ echo "TEST_DISTRIBUTED_CHANNEL: ${TEST_DISTRIBUTED_CHANNEL}"
 echo "TEST_CONSOLIDATED_CHANNEL_TLS: ${TEST_CONSOLIDATED_CHANNEL_TLS}"
 echo "TEST_CONSOLIDATED_CHANNEL_SASL: ${TEST_CONSOLIDATED_CHANNEL_SASL}"
 
-# If neither of the four test was specified, run both plain tests
+# If none of the tests were explicitly specified, run both plain tests
 if [[ $TEST_CONSOLIDATED_CHANNEL != 1 ]] && [[ $TEST_CONSOLIDATED_CHANNEL_TLS != 1 ]] && [[ $TEST_CONSOLIDATED_CHANNEL_SASL != 1 ]] && [[ $TEST_DISTRIBUTED_CHANNEL != 1 ]]; then
   TEST_DISTRIBUTED_CHANNEL=1
   TEST_CONSOLIDATED_CHANNEL=1
 fi
-
-export SYSTEM_NAMESPACE
 
 if [[ $TEST_CONSOLIDATED_CHANNEL == 1 ]]; then
   echo "Launching the PLAIN TESTS:"

@@ -93,8 +93,8 @@ func RetryGet(url string, pause time.Duration, retryCount int, retryAgain int) (
 // Sets the environment variables that are necessary for common components
 func SetTestEnvironment(t *testing.T) {
 	// The system.Namespace() call panics if the SYSTEM_NAMESPACE variable isn't set, so
-	// this sets "knative-eventing" explicitly for testing purposes
-	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, "knative-eventing"))
+	// this sets a dummy namespace value explicitly for testing purposes
+	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, SystemNamespace))
 	// The logging.ConfigMapName() has a default if it isn't present, so this just uses that
 	// function directly to ensure that the CONFIG_LOGGING_NAME variable is set
 	assert.Nil(t, os.Setenv(env.KnativeLoggingConfigMapNameEnvVarKey, logging.ConfigMapName()))

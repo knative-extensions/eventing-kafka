@@ -73,7 +73,7 @@ func TestInitializeObservability(t *testing.T) {
 	ctx = context.WithValue(ctx, injectionclient.Key{}, fakeK8sClient)
 
 	// Perform The Test (Initialize The Observability Watcher)
-	err := InitializeObservability(ctx, logger, metricsDomain, metricsPort)
+	err := InitializeObservability(ctx, logger, metricsDomain, metricsPort, system.Namespace())
 	assert.Nil(t, err)
 
 	// Verify that the profiling endpoint exists and responds to requests

@@ -16,9 +16,9 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: config-tracing
-  namespace: knative-eventing
+  namespace: ${SYSTEM_NAMESPACE}
 data:
   backend: "zipkin"
-  zipkin-endpoint: "http://zipkin.knative-eventing.svc.cluster.local:9411/api/v2/spans"
+  zipkin-endpoint: "http://zipkin.${SYSTEM_NAMESPACE}.svc.cluster.local:9411/api/v2/spans"
   debug: "true"
   sample-rate: "1.0"

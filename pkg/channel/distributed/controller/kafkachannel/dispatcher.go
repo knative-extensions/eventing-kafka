@@ -207,7 +207,7 @@ func (r *Reconciler) getDispatcherService(channel *kafkav1beta1.KafkaChannel) (*
 	serviceName := util.DispatcherDnsSafeName(channel)
 
 	// Get The Service By Namespace / Name
-	service, err := r.serviceLister.Services(system.Namespace()).Get(serviceName)
+	service, err := r.serviceLister.Services(r.environment.SystemNamespace).Get(serviceName)
 
 	// Return The Results
 	return service, err
@@ -227,7 +227,7 @@ func (r *Reconciler) newDispatcherService(channel *kafkav1beta1.KafkaChannel) *c
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,
-			Namespace: system.Namespace(),
+			Namespace: r.environment.SystemNamespace,
 			Labels: map[string]string{
 				constants.KafkaChannelDispatcherLabel:   "true",                                  // Identifies the Service as being a KafkaChannel "Dispatcher"
 				constants.KafkaChannelNameLabel:         channel.Name,                            // Identifies the Service's Owning KafkaChannel's Name
@@ -360,7 +360,7 @@ func (r *Reconciler) getDispatcherDeployment(channel *kafkav1beta1.KafkaChannel)
 	deploymentName := util.DispatcherDnsSafeName(channel)
 
 	// Get The Dispatcher Deployment By Namespace / Name
-	deployment, err := r.deploymentLister.Deployments(system.Namespace()).Get(deploymentName)
+	deployment, err := r.deploymentLister.Deployments(r.environment.SystemNamespace).Get(deploymentName)
 
 	// Return The Results
 	return deployment, err
@@ -390,7 +390,7 @@ func (r *Reconciler) newDispatcherDeployment(logger *zap.Logger, channel *kafkav
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deploymentName,
-			Namespace: system.Namespace(),
+			Namespace: r.environment.SystemNamespace,
 			Labels: map[string]string{
 				constants.AppLabel:                    deploymentName,    // Matches K8S Service Selector Key/Value Below
 				constants.KafkaChannelDispatcherLabel: "true",            // Identifies the Deployment as being a KafkaChannel "Dispatcher"
@@ -473,7 +473,7 @@ func (r *Reconciler) dispatcherDeploymentEnvVars(channel *kafkav1beta1.KafkaChan
 	envVars := []corev1.EnvVar{
 		{
 			Name:  system.NamespaceEnvKey,
-			Value: system.Namespace(),
+			Value: r.environment.SystemNamespace,
 		},
 		{
 			Name: commonenv.PodNameEnvVarKey,
