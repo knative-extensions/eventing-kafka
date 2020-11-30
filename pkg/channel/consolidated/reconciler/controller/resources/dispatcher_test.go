@@ -77,7 +77,7 @@ func TestNewDispatcher(t *testing.T) {
 								Value: "config-logging",
 							}, {
 								Name:  "CONFIG_LEADERELECTION_NAME",
-								Value: "config-leader-election-kafka",
+								Value: "config-leader-election",
 							}},
 							Ports: []corev1.ContainerPort{{
 								Name:          "metrics",
@@ -159,7 +159,7 @@ func TestNewNamespaceDispatcher(t *testing.T) {
 								Value: "config-logging",
 							}, {
 								Name:  "CONFIG_LEADERELECTION_NAME",
-								Value: "config-leader-election-kafka",
+								Value: "config-leader-election",
 							}, {
 								Name: "NAMESPACE",
 								ValueFrom: &corev1.EnvVarSource{

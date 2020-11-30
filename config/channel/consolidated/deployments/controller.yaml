@@ -47,7 +47,7 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         - name: CONFIG_LEADERELECTION_NAME
-          value: config-leader-election-kafka
+          value: config-leader-election
         - name: DISPATCHER_IMAGE
           value: ko://knative.dev/eventing-kafka/cmd/channel/consolidated/dispatcher
         ports:

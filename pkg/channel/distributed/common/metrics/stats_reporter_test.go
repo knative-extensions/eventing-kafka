@@ -43,6 +43,8 @@ import (
 
 // Test The MetricsServer's Report() Functionality
 func TestMetricsServer_Report(t *testing.T) {
+	// see https://github.com/knative-sandbox/eventing-kafka/issues/218
+	t.Skip("Flaky test, therefore skipping for now")
 
 	// Test Data
 	metricsPort := 9878

@@ -28,7 +28,7 @@ import (
 )
 
 // The EventingKafkaConfig and these EK sub-structs contain our custom configuration settings,
-// stored in the config-eventing-kafka configmap.  The sub-structs are explicitly declared so that they
+// stored in the config-kafka configmap.  The sub-structs are explicitly declared so that they
 // can have their own JSON tags in the overall EventingKafkaConfig
 type EKKubernetesConfig struct {
 	CpuLimit      resource.Quantity `json:"cpuLimit,omitempty"`

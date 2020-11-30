@@ -27,7 +27,7 @@ const (
 	NewPassword = "TestNewPassword"
 
 	KnativeEventingNamespace       = "knative-eventing"
-	SettingsConfigMapName          = "config-eventing-kafka"
+	SettingsConfigMapName          = "config-kafka"
 	SaramaSettingsConfigKey        = "sarama"
 	EventingKafkaSettingsConfigKey = "eventing-kafka"
 

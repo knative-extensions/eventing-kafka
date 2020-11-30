@@ -17,7 +17,6 @@ package main
 
 import (
 	channelwebhook "knative.dev/eventing-kafka/pkg/channel/webhook"
-	"knative.dev/eventing/pkg/logconfig"
 	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/webhook"
@@ -33,7 +32,7 @@ func main() {
 
 	// Define Webhook Options
 	options := webhook.Options{
-		ServiceName: logconfig.WebhookName(),
+		ServiceName: webhook.NameFromEnv(),
 		Port:        webhook.PortFromEnv(8443),
 		SecretName:  Secret,
 	}

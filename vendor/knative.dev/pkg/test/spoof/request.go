@@ -14,13 +14,25 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package config
+package spoof
 
-// Package Constants
-const (
-	// The name of the configmap used to hold eventing-kafka settings
-	SettingsConfigMapName = "config-kafka"
-	// The name of the keys in the Data section of the eventing-kafka configmap that holds Sarama and Eventing-Kafka configuration YAML
-	SaramaSettingsConfigKey        = "sarama"
-	EventingKafkaSettingsConfigKey = "eventing-kafka"
-)
+import "net/http"
+
+// RequestOption enables configuration of requests
+// when polling for endpoint states.
+type RequestOption func(*http.Request)
+
+// WithHeader will add the provided headers to the request.
+func WithHeader(header http.Header) RequestOption {
+	return func(r *http.Request) {
+		if r.Header == nil {
+			r.Header = header
+			return
+		}
+		for key, values := range header {
+			for _, value := range values {
+				r.Header.Add(key, value)
+			}
+		}
+	}
+}
