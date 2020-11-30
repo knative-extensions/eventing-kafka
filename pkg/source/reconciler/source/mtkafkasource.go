@@ -25,12 +25,6 @@ import (
 )
 
 func (r *Reconciler) reconcileMTReceiveAdapter(ctx context.Context, src *v1beta1.KafkaSource) error {
-	// TODO: find a better way to initialize it
-	err := r.initializeScheduler()
-	if err != nil {
-		return err
-	}
-
 	placements, err := r.scheduler.Schedule(src)
 	if err != nil {
 		// TODO: consider allowing partial placement
@@ -47,29 +41,15 @@ func (r *Reconciler) reconcileMTReceiveAdapter(ctx context.Context, src *v1beta1
 	return nil
 }
 
-func (r *Reconciler) initializeScheduler() error {
-	r.schedulerLock.Lock()
-	defer r.schedulerLock.Unlock()
-
-	if r.schedulerInitialized {
-		return nil
-	}
-
-	err := r.scheduler.Init(func() ([]scheduler.Schedulable, error) {
-		sources, err := r.kafkaLister.List(labels.Everything())
-		if err != nil {
-			return nil, err
-		}
-		schedulables := make([]scheduler.Schedulable, len(sources))
-		for i := 0; i < len(sources); i++ {
-			schedulables[i] = sources[i]
-		}
-		return schedulables, nil
-	})
-
+func (r *Reconciler) schedulableLister() ([]scheduler.Schedulable, error) {
+	sources, err := r.kafkaLister.List(labels.Everything())
 	if err != nil {
-		r.schedulerInitialized = true
+		return nil, err
 	}
+	schedulables := make([]scheduler.Schedulable, len(sources))
+	for i := 0; i < len(sources); i++ {
+		schedulables[i] = sources[i]
+	}
+	return schedulables, nil
 
-	return err
 }

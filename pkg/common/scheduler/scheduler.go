@@ -25,18 +25,15 @@ import (
 )
 
 var (
-	ErrUnschedulable = errors.New("resource is unschedulable (not enough pod replicas)")
+	ErrUnschedulable     = errors.New("scheduling failed (no replicas available)")
+	ErrPartialScheduling = errors.New("resource is partially schedulable (not enough pod replicas)")
 )
 
 type SchedulableLister func() ([]Schedulable, error)
 
 type Scheduler interface {
-	Init(lister SchedulableLister) error
-
 	// Schedule computes the new set of placements for the schedulable.
 	Schedule(schedulable Schedulable) ([]duckv1alpha1.Placement, error)
-
-	// TODO: need a way to forget a object.
 }
 
 type Schedulable interface {

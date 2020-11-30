@@ -37,10 +37,11 @@ func GetPlacementForPod(placements []duckv1alpha1.Placement, podName string) *du
 	return nil
 }
 
-func CopyPlacements(placements []duckv1alpha1.Placement) []duckv1alpha1.Placement {
-	result := make([]duckv1alpha1.Placement, len(placements))
-	for i, p := range placements {
-		result[i] = p
-	}
-	return result
-}
+//
+//func CopyPlacements(placements []duckv1alpha1.Placement) []duckv1alpha1.Placement {
+//	result := make([]duckv1alpha1.Placement, len(placements))
+//	for i, p := range placements {
+//		result[i] = p
+//	}
+//	return result
+//}

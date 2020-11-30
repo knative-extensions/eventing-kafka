@@ -19,7 +19,6 @@ package source
 import (
 	"context"
 	"os"
-	"sync"
 
 	"k8s.io/client-go/tools/cache"
 
@@ -67,8 +66,7 @@ func NewController(
 		// Use a different set of conditions
 		sourcesv1beta1.RegisterAlternateKafkaConditionSet(sourcesv1beta1.KafkaMTSourceCondSet)
 
-		c.schedulerLock = sync.Mutex{}
-		c.scheduler = scheduler.NewStatefulSetScheduler(ctx, system.Namespace(), mtadapterName)
+		c.scheduler = scheduler.NewStatefulSetScheduler(ctx, system.Namespace(), mtadapterName, c.schedulableLister)
 	}
 
 	logging.FromContext(ctx).Info("Setting up kafka event handlers")

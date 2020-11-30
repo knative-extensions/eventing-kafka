@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"sync"
 
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
@@ -102,9 +101,7 @@ type Reconciler struct {
 
 	configs source.ConfigAccessor
 
-	schedulerLock        sync.Mutex
-	schedulerInitialized bool
-	scheduler            scheduler.Scheduler
+	scheduler scheduler.Scheduler
 }
 
 // Check that our Reconciler implements Interface
