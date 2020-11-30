@@ -181,22 +181,22 @@ function knative_setup() {
   install_zipkin
 }
 
- # Setup zipkin
- function install_zipkin() {
-   echo "Installing Zipkin..."
-   sed "s/\${SYSTEM_NAMESPACE}/${SYSTEM_NAMESPACE}/g" < "${KNATIVE_EVENTING_MONITORING_YAML}" | kubectl apply -f -
-   wait_until_pods_running "${SYSTEM_NAMESPACE}" || fail_test "Zipkin inside eventing did not come up"
-   # Setup config tracing for tracing tests
-   sed "s/\${SYSTEM_NAMESPACE}/${SYSTEM_NAMESPACE}/g" <  "${CONFIG_TRACING_CONFIG}" | kubectl apply -f -
- }
+# Setup zipkin
+function install_zipkin() {
+  echo "Installing Zipkin..."
+  sed "s/\${SYSTEM_NAMESPACE}/${SYSTEM_NAMESPACE}/g" < "${KNATIVE_EVENTING_MONITORING_YAML}" | kubectl apply -f -
+  wait_until_pods_running "${SYSTEM_NAMESPACE}" || fail_test "Zipkin inside eventing did not come up"
+  # Setup config tracing for tracing tests
+  sed "s/\${SYSTEM_NAMESPACE}/${SYSTEM_NAMESPACE}/g" <  "${CONFIG_TRACING_CONFIG}" | kubectl apply -f -
+}
 
- # Remove zipkin
- function uninstall_zipkin() {
-   echo "Uninstalling Zipkin..."
-   sed "s/\${SYSTEM_NAMESPACE}/${SYSTEM_NAMESPACE}/g" <  "${KNATIVE_EVENTING_MONITORING_YAML}" | kubectl delete -f -
-   wait_until_object_does_not_exist deployment zipkin "${SYSTEM_NAMESPACE}" || fail_test "Zipkin deployment was unable to be deleted"
-   kubectl delete -n "${SYSTEM_NAMESPACE}" configmap config-tracing
- }
+# Remove zipkin
+function uninstall_zipkin() {
+  echo "Uninstalling Zipkin..."
+  sed "s/\${SYSTEM_NAMESPACE}/${SYSTEM_NAMESPACE}/g" <  "${KNATIVE_EVENTING_MONITORING_YAML}" | kubectl delete -f -
+  wait_until_object_does_not_exist deployment zipkin "${SYSTEM_NAMESPACE}" || fail_test "Zipkin deployment was unable to be deleted"
+  kubectl delete -n "${SYSTEM_NAMESPACE}" configmap config-tracing
+}
 
 function knative_teardown() {
   echo ">> Stopping Knative Eventing"
