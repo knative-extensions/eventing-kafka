@@ -18,8 +18,9 @@ package admin
 
 import (
 	"context"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
 	"testing"
+
+	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
 
 	"knative.dev/pkg/system"
 
