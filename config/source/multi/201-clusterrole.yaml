@@ -76,6 +76,14 @@ rules:
     verbs: *everything
 
   - apiGroups:
+      - apps
+    resources:
+      - statefulsets/scale
+    verbs:
+      - get
+      - update
+
+  - apiGroups:
       - ""
     resources:
       - pods

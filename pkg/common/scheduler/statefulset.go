@@ -320,7 +320,8 @@ func (s *StatefulSetScheduler) autoscale(ctx context.Context) {
 
 				scale, err := s.statefulSetClient.GetScale(ctx, s.statefulSetName, metav1.GetOptions{})
 				if err != nil {
-					// skip beat
+					// skip a beat
+					s.logger.Infow("failed to get scale subresource", zap.Error(err))
 					return
 				}
 
