@@ -68,7 +68,8 @@ if [[ $TEST_CONSOLIDATED_CHANNEL != 1 ]] && [[ $TEST_CONSOLIDATED_CHANNEL_TLS !=
 fi
 
 export SYSTEM_NAMESPACE
-
+create_tls_secrets
+create_sasl_secrets
 if [[ $TEST_CONSOLIDATED_CHANNEL == 1 ]]; then
   echo "Launching the PLAIN TESTS:"
   test_consolidated_channel_plain || exit 1
@@ -76,13 +77,11 @@ fi
 
 if [[ $TEST_CONSOLIDATED_CHANNEL_TLS == 1 ]]; then
   echo "Launching the TLS TESTS:"
-  create_tls_secrets
   test_consolidated_channel_tls || exit 1
 fi
 
 if [[ $TEST_CONSOLIDATED_CHANNEL_SASL == 1 ]]; then
   echo "Launching the SASL TESTS:"
-  create_sasl_secrets
   test_consolidated_channel_sasl || exit 1
 fi
 
