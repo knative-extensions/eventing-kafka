@@ -82,6 +82,9 @@ func (source *KafkaAuthSpec) ConvertTo(_ context.Context, obj apis.Convertible) 
 				},
 				Password: bindingsv1beta1.SecretValueFromSource{
 					SecretKeyRef: source.Net.SASL.Password.SecretKeyRef},
+				Type: bindingsv1beta1.SecretValueFromSource{
+					SecretKeyRef: source.Net.SASL.Type.SecretKeyRef,
+				},
 			},
 			TLS: bindingsv1beta1.KafkaTLSSpec{
 				Enable: source.Net.TLS.Enable,
@@ -116,6 +119,9 @@ func (sink *KafkaAuthSpec) ConvertFrom(_ context.Context, obj apis.Convertible) 
 				},
 				Password: SecretValueFromSource{
 					SecretKeyRef: source.Net.SASL.Password.SecretKeyRef},
+				Type: SecretValueFromSource{
+					SecretKeyRef: source.Net.SASL.Type.SecretKeyRef,
+				},
 			},
 			TLS: KafkaTLSSpec{
 				Enable: source.Net.TLS.Enable,
