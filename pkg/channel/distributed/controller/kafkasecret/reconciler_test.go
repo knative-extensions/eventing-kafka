@@ -20,10 +20,12 @@ import (
 	"context"
 	"testing"
 
+	clientgotesting "k8s.io/client-go/testing"
+	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
-	clientgotesting "k8s.io/client-go/testing"
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/kafkasecretinjection"
@@ -56,6 +58,7 @@ func TestReconcile(t *testing.T) {
 	// Note - Knative reconciler framework expects Events (not errors) from ReconcileKind()
 	//        so WantErr is only for higher level failures in the injected Reconcile() function.
 	//
+	commontesting.SetTestEnvironment(t)
 	tableTest := TableTest{
 
 		//
@@ -204,7 +207,7 @@ func TestReconcile(t *testing.T) {
 			},
 			WantErr: true,
 			WantEvents: []string{
-				Eventf(corev1.EventTypeWarning, event.ReceiverServiceReconciliationFailed.String(), "Failed To Reconcile Receiver Service: encountered Receiver Service with DeletionTimestamp knative-eventing/kafkasecret-name-b9176d5f-receiver - potential race condition"),
+				Eventf(corev1.EventTypeWarning, event.ReceiverServiceReconciliationFailed.String(), "Failed To Reconcile Receiver Service: encountered Receiver Service with DeletionTimestamp "+controllertesting.KafkaSecretNamespace+"/kafkasecret-name-b9176d5f-receiver - potential race condition"),
 				controllertesting.NewKafkaSecretFailedReconciliationEvent(),
 			},
 		},
@@ -266,7 +269,7 @@ func TestReconcile(t *testing.T) {
 			},
 			WantErr: true,
 			WantEvents: []string{
-				Eventf(corev1.EventTypeWarning, event.ReceiverDeploymentReconciliationFailed.String(), "Failed To Reconcile Receiver Deployment: encountered Receiver Deployment with DeletionTimestamp knative-eventing/kafkasecret-name-b9176d5f-receiver - potential race condition"),
+				Eventf(corev1.EventTypeWarning, event.ReceiverDeploymentReconciliationFailed.String(), "Failed To Reconcile Receiver Deployment: encountered Receiver Deployment with DeletionTimestamp "+controllertesting.KafkaSecretNamespace+"/kafkasecret-name-b9176d5f-receiver - potential race condition"),
 				controllertesting.NewKafkaSecretFailedReconciliationEvent(),
 			},
 		},

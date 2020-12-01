@@ -23,6 +23,8 @@ import (
 	"testing"
 	"time"
 
+	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
+
 	"github.com/stretchr/testify/assert"
 	"k8s.io/client-go/kubernetes/fake"
 	commonenv "knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
@@ -61,6 +63,7 @@ func TestGet(t *testing.T) {
 // Utility Function For Populating Required Environment Variables For Testing
 func populateEnvironmentVariables(t *testing.T) {
 	// Most of these are not actually used, but they need to exist or the GetEnvironment call will fail
+	commontesting.SetTestEnvironment(t)
 	assert.Nil(t, os.Setenv(commonenv.ServiceAccountEnvVarKey, controllertesting.ServiceAccount))
 	assert.Nil(t, os.Setenv(commonenv.MetricsDomainEnvVarKey, controllertesting.MetricsDomain))
 	assert.Nil(t, os.Setenv(commonenv.MetricsPortEnvVarKey, strconv.Itoa(controllertesting.MetricsPort)))

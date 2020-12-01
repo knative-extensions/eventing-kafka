@@ -44,6 +44,9 @@ TEST_PARALLEL=${MAX_PARALLEL_TESTS:-12}
 
 source "$(dirname "$0")/e2e-common.sh"
 
+# Create the system namespace if it doesn't already exist (may be the same as the EVENTING_NAMESPACE)
+kubectl get namespace "${SYSTEM_NAMESPACE}" || kubectl create namespace "${SYSTEM_NAMESPACE}"
+
 TEST_CONSOLIDATED_CHANNEL=${TEST_CONSOLIDATED_CHANNEL:-0}
 TEST_CONSOLIDATED_CHANNEL_TLS=${TEST_CONSOLIDATED_CHANNEL_TLS:-0}
 TEST_CONSOLIDATED_CHANNEL_SASL=${TEST_CONSOLIDATED_CHANNEL_SASL:-0}
@@ -51,25 +54,33 @@ TEST_DISTRIBUTED_CHANNEL=${TEST_DISTRIBUTED_CHANNEL:-0}
 
 echo "e2e-tests.sh command line: $@"
 
-# Note:  The setting of gcp-project-id option here has no effect when testing locally; it is only for the kubetest2 utility
 # If you wish to use this script just as test setup, *without* teardown, add "--skip-teardowns" to the initialize command
 initialize $@ --skip-istio-addon
 
+# Copy some resources if the SYSTEM_NAMESPACE is not the same as the EVENTING_NAMESPACE
+if [[ $SYSTEM_NAMESPACE != $EVENTING_NAMESPACE ]]; then
+  for configmap in config-leader-election config-logging config-observability config-kafka; do
+    kubectl get configmap "${configmap}" "--namespace=${EVENTING_NAMESPACE}" -o yaml | sed "s/namespace: ${EVENTING_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/" | kubectl create -f -
+  done
+fi
+
 echo "e2e-tests.sh environment:"
+echo "EVENTING_NAMESPACE: ${EVENTING_NAMESPACE}"
+echo "SYSTEM_NAMESPACE: ${SYSTEM_NAMESPACE}"
 echo "TEST_CONSOLIDATED_CHANNEL: ${TEST_CONSOLIDATED_CHANNEL}"
 echo "TEST_DISTRIBUTED_CHANNEL: ${TEST_DISTRIBUTED_CHANNEL}"
 echo "TEST_CONSOLIDATED_CHANNEL_TLS: ${TEST_CONSOLIDATED_CHANNEL_TLS}"
 echo "TEST_CONSOLIDATED_CHANNEL_SASL: ${TEST_CONSOLIDATED_CHANNEL_SASL}"
 
-# If neither of the four test was specified, run both plain tests
+# If none of the tests were explicitly specified, run both plain tests
 if [[ $TEST_CONSOLIDATED_CHANNEL != 1 ]] && [[ $TEST_CONSOLIDATED_CHANNEL_TLS != 1 ]] && [[ $TEST_CONSOLIDATED_CHANNEL_SASL != 1 ]] && [[ $TEST_DISTRIBUTED_CHANNEL != 1 ]]; then
   TEST_DISTRIBUTED_CHANNEL=1
   TEST_CONSOLIDATED_CHANNEL=1
 fi
 
-export SYSTEM_NAMESPACE
 create_tls_secrets
 create_sasl_secrets
+
 if [[ $TEST_CONSOLIDATED_CHANNEL == 1 ]]; then
   echo "Launching the PLAIN TESTS:"
   test_consolidated_channel_plain || exit 1

@@ -17,12 +17,15 @@ limitations under the License.
 package env
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
 	"strconv"
 	"testing"
 	"time"
+
+	"knative.dev/pkg/system"
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
@@ -31,6 +34,7 @@ import (
 
 // Test Constants
 const (
+	systemNamespace     = "test-system-namespace"
 	serviceAccount      = "TestServiceAccount"
 	metricsPort         = "9999"
 	metricsDomain       = "example.com/kafka-eventing"
@@ -46,6 +50,7 @@ const (
 // Define The TestCase Struct
 type TestCase struct {
 	name                  string
+	systemNamespace       string
 	serviceAccount        string
 	metricsPort           string
 	metricsDomain         string
@@ -66,6 +71,11 @@ func TestGetEnvironment(t *testing.T) {
 	// Define The TestCases
 	testCases := make([]TestCase, 0, 30)
 	testCase := getValidTestCase("Valid Complete Config")
+	testCases = append(testCases, testCase)
+
+	testCase = getValidTestCase("Missing Required Config - SystemNamespace")
+	testCase.systemNamespace = ""
+	testCase.expectedError = getMissingRequiredEnvironmentVariableError(system.NamespaceEnvKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Required Config - ServiceAccount")
@@ -122,6 +132,7 @@ func TestGetEnvironment(t *testing.T) {
 
 				assert.Nil(t, err)
 				assert.NotNil(t, environment)
+				assert.Equal(t, testCase.systemNamespace, environment.SystemNamespace)
 				assert.Equal(t, testCase.serviceAccount, environment.ServiceAccount)
 				assert.Equal(t, testCase.metricsPort, strconv.Itoa(environment.MetricsPort))
 				assert.Equal(t, testCase.channelImage, environment.ReceiverImage)
@@ -136,9 +147,23 @@ func TestGetEnvironment(t *testing.T) {
 	}
 }
 
+// Test that the FromContext function loads an Environment struct from a Context properly
+func TestFromContext(t *testing.T) {
+	ctx := context.TODO()
+	environment, err := FromContext(ctx)
+	assert.Nil(t, environment)
+	assert.NotNil(t, err)
+	ctx = context.WithValue(ctx, Key{}, &Environment{SystemNamespace: "test-namespace"})
+	environment, err = FromContext(ctx)
+	assert.NotNil(t, environment)
+	assert.Nil(t, err)
+	assert.Equal(t, "test-namespace", environment.SystemNamespace)
+}
+
 // Add TestCase Variables To The Environment
 func setupTestEnvironment(t *testing.T, testCase TestCase) {
 	os.Clearenv()
+	assertSetenv(t, system.NamespaceEnvKey, testCase.systemNamespace)
 	assertSetenv(t, env.ServiceAccountEnvVarKey, testCase.serviceAccount)
 	assertSetenv(t, env.MetricsDomainEnvVarKey, testCase.metricsDomain)
 	assertSetenvNonempty(t, env.MetricsPortEnvVarKey, testCase.metricsPort)
@@ -152,6 +177,7 @@ func getValidTestCase(name string) TestCase {
 	return TestCase{
 		name:                  name,
 		serviceAccount:        serviceAccount,
+		systemNamespace:       systemNamespace,
 		metricsPort:           metricsPort,
 		metricsDomain:         metricsDomain,
 		resyncPeriodMinutes:   resyncPeriodMinutes,

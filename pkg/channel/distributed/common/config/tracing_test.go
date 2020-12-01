@@ -18,14 +18,14 @@ package config
 
 import (
 	"context"
-	"os"
 	"testing"
+
+	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
-	"knative.dev/eventing-kafka/pkg/common/constants"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/system"
@@ -43,7 +43,7 @@ func TestInitializeTracing(t *testing.T) {
 	logger := logtesting.TestLogger(t)
 
 	// Setup Environment
-	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, constants.KnativeEventingNamespace))
+	commontesting.SetTestEnvironment(t)
 
 	// Create A Test Tracing ConfigMap For The SetupDynamicPublishing() Call To Watch
 	tracingConfigMap := &corev1.ConfigMap{
@@ -64,7 +64,7 @@ func TestInitializeTracing(t *testing.T) {
 	ctx = context.WithValue(ctx, injectionclient.Key{}, fakeK8sClient)
 
 	// Perform The Test (Initialize The Tracing Watcher)
-	err := InitializeTracing(logger, ctx, service)
+	err := InitializeTracing(logger, ctx, service, system.Namespace())
 	assert.Nil(t, err)
 
 	// If the InitializeTracing Succeeds, it will not fatally exit
@@ -73,16 +73,16 @@ func TestInitializeTracing(t *testing.T) {
 }
 
 func TestInitializeTracing_Failure(t *testing.T) {
-	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, constants.KnativeEventingNamespace))
+	commontesting.SetTestEnvironment(t)
 	ctx := context.TODO()
 
 	// If there is no Kubernetes client in the context, the server will not start
-	err := InitializeTracing(logtesting.TestLogger(t), ctx, "TestService")
+	err := InitializeTracing(logtesting.TestLogger(t), ctx, "TestService", system.Namespace())
 	assert.NotNil(t, err)
 
 	// If there is no "config-tracing" configmap, the server will not start
 	fakeK8sClient := fake.NewSimpleClientset()
 	ctx = context.WithValue(ctx, injectionclient.Key{}, fakeK8sClient)
-	err = InitializeTracing(logtesting.TestLogger(t), ctx, "TestService")
+	err = InitializeTracing(logtesting.TestLogger(t), ctx, "TestService", system.Namespace())
 	assert.NotNil(t, err)
 }

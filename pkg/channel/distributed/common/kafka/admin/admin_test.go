@@ -20,10 +20,13 @@ import (
 	"context"
 	"testing"
 
+	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
+
+	"knative.dev/pkg/system"
+
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
-	"knative.dev/eventing-kafka/pkg/common/constants"
 )
 
 // Mock AdminClient Reference
@@ -33,7 +36,8 @@ var mockAdminClient AdminClientInterface
 func TestCreateAdminClientKafka(t *testing.T) {
 
 	// Test Data
-	ctx := context.TODO()
+	commontesting.SetTestEnvironment(t)
+	ctx := context.WithValue(context.TODO(), env.Key{}, &env.Environment{SystemNamespace: system.Namespace()})
 	clientId := "TestClientId"
 	adminClientType := Kafka
 	mockAdminClient = &MockAdminClient{}
@@ -43,7 +47,7 @@ func TestCreateAdminClientKafka(t *testing.T) {
 	NewKafkaAdminClientWrapper = func(ctxArg context.Context, saramaConfig *sarama.Config, clientIdArg string, namespaceArg string) (AdminClientInterface, error) {
 		assert.Equal(t, ctx, ctxArg)
 		assert.Equal(t, clientId, clientIdArg)
-		assert.Equal(t, constants.KnativeEventingNamespace, namespaceArg)
+		assert.Equal(t, system.Namespace(), namespaceArg)
 		assert.Equal(t, adminClientType, adminClientType)
 		return mockAdminClient, nil
 	}
@@ -62,7 +66,8 @@ func TestCreateAdminClientKafka(t *testing.T) {
 func TestCreateAdminClientEventHub(t *testing.T) {
 
 	// Test Data
-	ctx := context.TODO()
+	commontesting.SetTestEnvironment(t)
+	ctx := context.WithValue(context.TODO(), env.Key{}, &env.Environment{SystemNamespace: system.Namespace()})
 	clientId := "TestClientId"
 	adminClientType := EventHub
 	mockAdminClient = &MockAdminClient{}
@@ -71,7 +76,7 @@ func TestCreateAdminClientEventHub(t *testing.T) {
 	NewEventHubAdminClientWrapperRef := NewEventHubAdminClientWrapper
 	NewEventHubAdminClientWrapper = func(ctxArg context.Context, namespaceArg string) (AdminClientInterface, error) {
 		assert.Equal(t, ctx, ctxArg)
-		assert.Equal(t, constants.KnativeEventingNamespace, namespaceArg)
+		assert.Equal(t, system.Namespace(), namespaceArg)
 		assert.Equal(t, adminClientType, adminClientType)
 		return mockAdminClient, nil
 	}
@@ -90,7 +95,8 @@ func TestCreateAdminClientEventHub(t *testing.T) {
 func TestCreateAdminClientCustom(t *testing.T) {
 
 	// Test Data
-	ctx := context.TODO()
+	commontesting.SetTestEnvironment(t)
+	ctx := context.WithValue(context.TODO(), env.Key{}, &env.Environment{SystemNamespace: system.Namespace()})
 	clientId := "TestClientId"
 	adminClientType := Custom
 	mockAdminClient = &MockAdminClient{}
@@ -99,7 +105,7 @@ func TestCreateAdminClientCustom(t *testing.T) {
 	NewCustomAdminClientWrapperRef := NewCustomAdminClientWrapper
 	NewCustomAdminClientWrapper = func(ctxArg context.Context, namespaceArg string) (AdminClientInterface, error) {
 		assert.Equal(t, ctx, ctxArg)
-		assert.Equal(t, constants.KnativeEventingNamespace, namespaceArg)
+		assert.Equal(t, system.Namespace(), namespaceArg)
 		assert.Equal(t, adminClientType, adminClientType)
 		return mockAdminClient, nil
 	}

@@ -17,6 +17,8 @@ limitations under the License.
 package testing
 
 const (
+	SystemNamespace = "eventing-test-ns"
+
 	OldClientId = "TestOldClientId"
 	NewClientId = "TestNewClientId"
 	OldUsername = "TestOldUsername"

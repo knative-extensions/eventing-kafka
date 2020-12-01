@@ -55,9 +55,9 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	serviceInformer := service.Get(ctx)
 
 	// Load The Environment Variables
-	environment, err := env.GetEnvironment(logger)
+	environment, err := env.FromContext(ctx)
 	if err != nil {
-		logger.Fatal("Failed To Load Environment Variables - Terminating!", zap.Error(err))
+		logger.Fatal("Failed To Get Environment From Context - Terminating!", zap.Error(err))
 	}
 
 	// Load the Sarama and other eventing-kafka settings from our configmap
@@ -102,7 +102,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	}
 
 	// Watch The Settings ConfigMap For Changes
-	err = commonconfig.InitializeConfigWatcher(ctx, logger.Sugar(), rec.configMapObserver)
+	err = commonconfig.InitializeConfigWatcher(ctx, logger.Sugar(), rec.configMapObserver, environment.SystemNamespace)
 	if err != nil {
 		logger.Fatal("Failed To Initialize ConfigMap Watcher", zap.Error(err))
 	}

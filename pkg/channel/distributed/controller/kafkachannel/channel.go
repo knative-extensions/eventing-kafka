@@ -29,7 +29,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
-	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/network"
@@ -130,7 +129,7 @@ func (r *Reconciler) newKafkaChannelService(channel *kafkav1beta1.KafkaChannel) 
 
 	// Get The Receiver Service Name For The Kafka Secret (One Receiver Service Per Kafka Secret)
 	deploymentName := util.ReceiverDnsSafeName(r.kafkaSecretName(channel))
-	serviceAddress := network.GetServiceHostname(deploymentName, commonconstants.KnativeEventingNamespace)
+	serviceAddress := network.GetServiceHostname(deploymentName, r.environment.SystemNamespace)
 
 	// Create & Return The Service Model
 	return &corev1.Service{

@@ -21,6 +21,8 @@ import (
 	"strconv"
 	"time"
 
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -38,7 +40,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
-	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/eventing/pkg/apis/messaging"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/logging"
@@ -70,7 +71,7 @@ const (
 	KafkaChannelNamespace  = "kafkachannel-namespace"
 	KafkaChannelName       = "kafkachannel-name"
 	KafkaChannelKey        = KafkaChannelNamespace + "/" + KafkaChannelName
-	KafkaSecretNamespace   = commonconstants.KnativeEventingNamespace // Needs To Match Hardcoded Value In Reconciliation
+	KafkaSecretNamespace   = "eventing-test-ns" // Needs To Match system.Namespace() Call In Reconciliation
 	KafkaSecretName        = "kafkasecret-name"
 	KafkaSecretKey         = KafkaSecretNamespace + "/" + KafkaSecretName
 	ReceiverDeploymentName = KafkaSecretName + "-b9176d5f-receiver" // Truncated MD5 Hash Of KafkaSecretName
@@ -191,6 +192,7 @@ func WithoutFinalizersDeployment(deployment *appsv1.Deployment) {
 // Set The Required Environment Variables
 func NewEnvironment() *env.Environment {
 	return &env.Environment{
+		SystemNamespace: testing.SystemNamespace,
 		ServiceAccount:  ServiceAccount,
 		MetricsPort:     MetricsPort,
 		MetricsDomain:   MetricsDomain,
@@ -476,7 +478,7 @@ func NewKafkaChannelService(options ...ServiceOption) *corev1.Service {
 		},
 		Spec: corev1.ServiceSpec{
 			Type:         corev1.ServiceTypeExternalName,
-			ExternalName: ReceiverDeploymentName + "." + commonconstants.KnativeEventingNamespace + ".svc.cluster.local",
+			ExternalName: ReceiverDeploymentName + "." + system.Namespace() + ".svc.cluster.local",
 		},
 	}
 
@@ -500,7 +502,7 @@ func NewKafkaChannelReceiverService(options ...ServiceOption) *corev1.Service {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ReceiverDeploymentName,
-			Namespace: commonconstants.KnativeEventingNamespace,
+			Namespace: system.Namespace(),
 			Labels: map[string]string{
 				"k8s-app":               "eventing-kafka-channels",
 				"kafkachannel-receiver": "true",
@@ -540,6 +542,7 @@ func NewKafkaChannelReceiverService(options ...ServiceOption) *corev1.Service {
 // Utility Function For Creating A Receiver Deployment For The Test Channel
 func NewKafkaChannelReceiverDeployment(options ...DeploymentOption) *appsv1.Deployment {
 
+	systemNamespace := system.Namespace()
 	// Replicas Int Reference
 	replicas := int32(ReceiverReplicas)
 
@@ -551,7 +554,7 @@ func NewKafkaChannelReceiverDeployment(options ...DeploymentOption) *appsv1.Depl
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ReceiverDeploymentName,
-			Namespace: commonconstants.KnativeEventingNamespace,
+			Namespace: systemNamespace,
 			Labels: map[string]string{
 				"app":                   ReceiverDeploymentName,
 				"kafkachannel-receiver": "true",
@@ -608,7 +611,7 @@ func NewKafkaChannelReceiverDeployment(options ...DeploymentOption) *appsv1.Depl
 							Env: []corev1.EnvVar{
 								{
 									Name:  system.NamespaceEnvKey,
-									Value: commonconstants.KnativeEventingNamespace,
+									Value: systemNamespace,
 								},
 								{
 									Name: commonenv.PodNameEnvVarKey,
@@ -717,7 +720,7 @@ func NewKafkaChannelDispatcherService(options ...ServiceOption) *corev1.Service 
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,
-			Namespace: commonconstants.KnativeEventingNamespace,
+			Namespace: system.Namespace(),
 			Labels: map[string]string{
 				constants.KafkaChannelNameLabel:       KafkaChannelName,
 				constants.KafkaChannelNamespaceLabel:  KafkaChannelNamespace,
@@ -756,6 +759,7 @@ func NewKafkaChannelDispatcherDeployment(options ...DeploymentOption) *appsv1.De
 	sparseKafkaChannel := &kafkav1beta1.KafkaChannel{ObjectMeta: metav1.ObjectMeta{Namespace: KafkaChannelNamespace, Name: KafkaChannelName}}
 	dispatcherName := util.DispatcherDnsSafeName(sparseKafkaChannel)
 	topicName := util.TopicName(sparseKafkaChannel)
+	systemNamespace := system.Namespace()
 
 	// Replicas Int Reference
 	replicas := int32(DispatcherReplicas)
@@ -767,7 +771,7 @@ func NewKafkaChannelDispatcherDeployment(options ...DeploymentOption) *appsv1.De
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dispatcherName,
-			Namespace: commonconstants.KnativeEventingNamespace,
+			Namespace: systemNamespace,
 			Labels: map[string]string{
 				constants.AppLabel:                    dispatcherName,
 				constants.KafkaChannelNameLabel:       KafkaChannelName,
@@ -818,7 +822,7 @@ func NewKafkaChannelDispatcherDeployment(options ...DeploymentOption) *appsv1.De
 							Env: []corev1.EnvVar{
 								{
 									Name:  system.NamespaceEnvKey,
-									Value: commonconstants.KnativeEventingNamespace,
+									Value: systemNamespace,
 								},
 								{
 									Name: commonenv.PodNameEnvVarKey,

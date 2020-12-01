@@ -83,13 +83,13 @@ func main() {
 	sarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)
 
 	// Initialize Tracing (Watches config-tracing ConfigMap, Assumes Context Came From LoggingContext With Embedded K8S Client Key)
-	err = commonconfig.InitializeTracing(logger.Sugar(), ctx, environment.ServiceName)
+	err = commonconfig.InitializeTracing(logger.Sugar(), ctx, environment.ServiceName, environment.SystemNamespace)
 	if err != nil {
 		logger.Fatal("Failed To Initialize Tracing - Terminating", zap.Error(err))
 	}
 
 	// Initialize Observability (Watches config-observability ConfigMap And Starts Profiling Server)
-	err = commonconfig.InitializeObservability(ctx, logger.Sugar(), environment.MetricsDomain, environment.MetricsPort)
+	err = commonconfig.InitializeObservability(ctx, logger.Sugar(), environment.MetricsDomain, environment.MetricsPort, environment.SystemNamespace)
 	if err != nil {
 		logger.Fatal("Failed To Initialize Observability - Terminating", zap.Error(err))
 	}
@@ -115,7 +115,7 @@ func main() {
 	dispatcher = dispatch.NewDispatcher(dispatcherConfig)
 
 	// Watch The Settings ConfigMap For Changes
-	err = commonconfig.InitializeConfigWatcher(ctx, logger.Sugar(), configMapObserver)
+	err = commonconfig.InitializeConfigWatcher(ctx, logger.Sugar(), configMapObserver, environment.SystemNamespace)
 	if err != nil {
 		logger.Fatal("Failed To Initialize ConfigMap Watcher", zap.Error(err))
 	}

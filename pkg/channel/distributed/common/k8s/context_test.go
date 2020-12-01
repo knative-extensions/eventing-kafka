@@ -18,17 +18,16 @@ package k8s
 
 import (
 	"context"
-	"os"
 	"testing"
 	"time"
+
+	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
-	"knative.dev/eventing-kafka/pkg/common/constants"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
@@ -42,8 +41,7 @@ func TestLoggingContext(t *testing.T) {
 	component := "TestComponent"
 
 	// Setup Environment
-	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, constants.KnativeEventingNamespace))
-	assert.Nil(t, os.Setenv(env.KnativeLoggingConfigMapNameEnvVarKey, logging.ConfigMapName()))
+	commontesting.SetTestEnvironment(t)
 
 	// Create A Test Logging ConfigMap
 	loggingConfigMap := &corev1.ConfigMap{

@@ -21,6 +21,9 @@ import (
 	"sync"
 	"testing"
 
+	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
+
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -78,7 +81,8 @@ func TestSetKafkaAdminClient(t *testing.T) {
 	}
 
 	// Perform The Test
-	reconciler.SetKafkaAdminClient(context.TODO())
+	ctx := context.WithValue(context.TODO(), env.Key{}, &env.Environment{SystemNamespace: commontesting.SystemNamespace})
+	reconciler.SetKafkaAdminClient(ctx)
 
 	// Verify Results
 	assert.True(t, mockAdminClient1.CloseCalled())
@@ -124,6 +128,7 @@ func TestReconcile(t *testing.T) {
 	// Note - Knative reconciler framework expects Events (not errors) from ReconcileKind()
 	//        so WantErr is only for higher level failures in the injected Reconcile() function.
 	//
+	commontesting.SetTestEnvironment(t)
 	tableTest := TableTest{
 
 		//

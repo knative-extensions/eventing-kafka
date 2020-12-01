@@ -29,7 +29,6 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
 	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
-	"knative.dev/eventing-kafka/pkg/common/constants"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/metrics"
@@ -48,7 +47,7 @@ func TestInitializeObservability(t *testing.T) {
 	logger := logtesting.TestLogger(t)
 
 	// Setup Environment
-	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, constants.KnativeEventingNamespace))
+	commontesting.SetTestEnvironment(t)
 	assert.Nil(t, os.Setenv(env.MetricsDomainEnvVarKey, metricsDomain))
 
 	// Create A Test Observability ConfigMap For The InitializeObservability() Call To Watch
@@ -74,7 +73,7 @@ func TestInitializeObservability(t *testing.T) {
 	ctx = context.WithValue(ctx, injectionclient.Key{}, fakeK8sClient)
 
 	// Perform The Test (Initialize The Observability Watcher)
-	err := InitializeObservability(ctx, logger, metricsDomain, metricsPort)
+	err := InitializeObservability(ctx, logger, metricsDomain, metricsPort, system.Namespace())
 	assert.Nil(t, err)
 
 	// Verify that the profiling endpoint exists and responds to requests

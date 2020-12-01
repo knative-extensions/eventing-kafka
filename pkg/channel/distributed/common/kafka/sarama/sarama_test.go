@@ -20,7 +20,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -33,9 +32,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	commonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
-	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
-	"knative.dev/pkg/system"
 )
 
 const (
@@ -199,7 +196,7 @@ func TestUpdateSaramaConfig(t *testing.T) {
 // This test is specifically to validate that our default settings (used in 200-eventing-kafka-configmap.yaml)
 // are valid.  If the defaults in the file change, change this test to match for verification purposes.
 func TestLoadDefaultSaramaSettings(t *testing.T) {
-	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, commonconstants.KnativeEventingNamespace))
+	commontesting.SetTestEnvironment(t)
 	configMap := commontesting.GetTestSaramaConfigMap(EKDefaultSaramaConfig, EKDefaultConfigYaml)
 	fakeK8sClient := fake.NewSimpleClientset(configMap)
 	ctx := context.WithValue(context.Background(), injectionclient.Key{}, fakeK8sClient)
@@ -236,7 +233,7 @@ func TestLoadDefaultSaramaSettings(t *testing.T) {
 // Verify that the JSON fragment can be loaded into a sarama.Config struct
 func TestMergeSaramaSettings(t *testing.T) {
 	// Setup Environment
-	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, commonconstants.KnativeEventingNamespace))
+	commontesting.SetTestEnvironment(t)
 
 	// Get a default Sarama config for verification that we don't overwrite settings when we merge
 	defaultConfig := sarama.NewConfig()
@@ -356,7 +353,7 @@ func TestSaramaConfigEqual(t *testing.T) {
 
 func TestLoadEventingKafkaSettings(t *testing.T) {
 	// Set up a configmap and verify that the sarama settings are loaded properly from it
-	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, commonconstants.KnativeEventingNamespace))
+	commontesting.SetTestEnvironment(t)
 	configMap := commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, commontesting.TestEKConfig)
 	fakeK8sClient := fake.NewSimpleClientset(configMap)
 
@@ -431,7 +428,7 @@ func verifyTestEKConfigSettings(t *testing.T, saramaConfig *sarama.Config, event
 
 func getTestSaramaContext(t *testing.T, saramaConfig string, eventingKafkaConfig string) context.Context {
 	// Set up a configmap and return a context containing that configmap (for tests)
-	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, commonconstants.KnativeEventingNamespace))
+	commontesting.SetTestEnvironment(t)
 	configMap := commontesting.GetTestSaramaConfigMap(saramaConfig, eventingKafkaConfig)
 	fakeK8sClient := fake.NewSimpleClientset(configMap)
 	ctx := context.WithValue(context.Background(), injectionclient.Key{}, fakeK8sClient)

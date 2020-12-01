@@ -22,7 +22,7 @@ import (
 	"fmt"
 
 	"github.com/Shopify/sarama"
-	"knative.dev/eventing-kafka/pkg/common/constants"
+	"knative.dev/pkg/system"
 )
 
 // Sarama ClusterAdmin Wrapping Interface To Facilitate Other Implementations (e.g. Azure EventHubs)
@@ -69,11 +69,11 @@ const (
 func CreateAdminClient(ctx context.Context, saramaConfig *sarama.Config, clientId string, adminClientType AdminClientType) (AdminClientInterface, error) {
 	switch adminClientType {
 	case Kafka:
-		return NewKafkaAdminClientWrapper(ctx, saramaConfig, clientId, constants.KnativeEventingNamespace)
+		return NewKafkaAdminClientWrapper(ctx, saramaConfig, clientId, system.Namespace())
 	case EventHub:
-		return NewEventHubAdminClientWrapper(ctx, constants.KnativeEventingNamespace)
+		return NewEventHubAdminClientWrapper(ctx, system.Namespace())
 	case Custom:
-		return NewCustomAdminClientWrapper(ctx, constants.KnativeEventingNamespace)
+		return NewCustomAdminClientWrapper(ctx, system.Namespace())
 	case Unknown:
 		return nil, errors.New("received unknown AdminClientType") // Should Never Happen But...
 	default:

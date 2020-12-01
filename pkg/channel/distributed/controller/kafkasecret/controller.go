@@ -32,7 +32,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/kafkasecretinjection"
 	injectionclient "knative.dev/eventing-kafka/pkg/client/injection/client"
 	"knative.dev/eventing-kafka/pkg/client/injection/informers/messaging/v1beta1/kafkachannel"
-	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
 	"knative.dev/pkg/client/injection/kube/informers/core/v1/service"
@@ -54,9 +53,9 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	serviceInformer := service.Get(ctx)
 
 	// Load The Environment Variables
-	environment, err := env.GetEnvironment(logger)
+	environment, err := env.FromContext(ctx)
 	if err != nil {
-		logger.Fatal("Failed To Load Environment Variables - Terminating!", zap.Error(err))
+		logger.Fatal("Failed To Get Environment From Context - Terminating!", zap.Error(err))
 	}
 
 	// Load the Sarama and other eventing-kafka settings from our configmap
@@ -100,7 +99,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 		Handler:    controller.HandleAll(controllerImpl.EnqueueControllerOf),
 	})
 	kafkachannelInformer.Informer().AddEventHandler(
-		controller.HandleAll(enqueueSecretOfKafkaChannel(controllerImpl)),
+		controller.HandleAll(enqueueSecretOfKafkaChannel(controllerImpl, environment.SystemNamespace)),
 	)
 
 	// Return The KafkaSecret Controller Impl
@@ -113,7 +112,7 @@ func Shutdown() {
 }
 
 // Enqueue The Kafka Secret Associated With The Specified KafkaChannel
-func enqueueSecretOfKafkaChannel(controller *controller.Impl) func(obj interface{}) {
+func enqueueSecretOfKafkaChannel(controller *controller.Impl, namespace string) func(obj interface{}) {
 	return func(obj interface{}) {
 		if object, ok := obj.(metav1.Object); ok {
 			labels := object.GetLabels()
@@ -121,7 +120,7 @@ func enqueueSecretOfKafkaChannel(controller *controller.Impl) func(obj interface
 				secretName := labels[constants.KafkaSecretLabel]
 				if len(secretName) > 0 {
 					controller.EnqueueKey(types.NamespacedName{
-						Namespace: commonconstants.KnativeEventingNamespace,
+						Namespace: namespace,
 						Name:      secretName,
 					})
 				}
