@@ -18,9 +18,7 @@ package metrics
 
 import (
 	"context"
-	"fmt"
 	"os"
-	"regexp"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -90,26 +88,4 @@ func createTestMetrics(topic string, count int64) map[string]map[string]interfac
 	testMetrics["response-size"] = map[string]interface{}{"75%": 503.25, "95%": 1797, "99%": 1797, "99.9%": 1797, "count": 6, "max": 1797, "mean": 359.5, "median": 72, "min": 72, "stddev": 642.8695435311895}
 	testMetrics["response-size-for-broker-0"] = map[string]interface{}{"75%": 72, "95%": 72, "99%": 72, "99.9%": 72, "count": 5, "max": 72, "mean": 72, "median": 72, "min": 72, "stddev": 0}
 	return testMetrics
-}
-
-// Verifies that the metrics response string slice contains the desired values
-// This is test code so a quick regex check will suffice rather than parsing the Prometheus output in a more structured manner
-func verifyMetric(body []string, name string, topicName string, expectedValue string) bool {
-	for _, line := range body {
-		if isMatch(line, fmt.Sprintf(`^%s`, name)) &&
-			isMatch(line, fmt.Sprintf(`topic="%s"`, topicName)) &&
-			isMatch(line, fmt.Sprintf(` %s$`, expectedValue)) {
-			return true
-		}
-	}
-	return false
-}
-
-// Simple regex match that treats errors as false, for testing only
-func isMatch(source string, regex string) bool {
-	match, err := regexp.MatchString(regex, source)
-	if err != nil {
-		return false
-	}
-	return match
 }

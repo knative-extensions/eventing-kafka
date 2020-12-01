@@ -17,20 +17,16 @@ limitations under the License.
 package health
 
 import (
+	"github.com/stretchr/testify/assert"
 	"io"
+	logtesting "knative.dev/pkg/logging/testing"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"testing"
-	"time"
-
-	"github.com/stretchr/testify/assert"
-	logtesting "knative.dev/pkg/logging/testing"
 )
 
 // Test Constants
 const (
-	testHttpHost  = "localhost"
 	livenessPath  = "/healthz"
 	readinessPath = "/healthy"
 )
@@ -153,32 +149,6 @@ func TestHealthServer(t *testing.T) {
 //
 // Private Utility Functions
 //
-
-// Waits Until A GET Request Succeeds (Or Times Out)
-func waitServerReady(uri string, timeout time.Duration) {
-	// Create An HTTP Client And Send The Request Until Success Or Timeout
-	client := http.DefaultClient
-	for start := time.Now(); time.Since(start) < timeout; {
-		_, err := client.Get(uri) // Don't care what the response actually is, only if there was an error getting it
-		if err == nil {
-			return
-		}
-		time.Sleep(200 * time.Millisecond)
-	}
-}
-
-// Sends A Simple GET Event To A URL Expecting A Specific Response Code
-func getEventToServer(t *testing.T, uri *url.URL, expectedStatus int) {
-
-	// Create An HTTP Client And Send The Request
-	client := http.DefaultClient
-	resp, err := client.Get(uri.String())
-
-	// Verify The Client Response Is As Expected
-	assert.NotNil(t, resp)
-	assert.Nil(t, err)
-	assert.Equal(t, expectedStatus, resp.StatusCode)
-}
 
 // Sends A Request To An HTTP Response Recorder Directly Expecting A Specific Response Code
 func getEventToHandler(t *testing.T, handlerFunc http.HandlerFunc, path string, expectedStatus int) {
