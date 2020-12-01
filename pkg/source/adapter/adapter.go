@@ -136,6 +136,10 @@ func (a *Adapter) Handle(ctx context.Context, msg *sarama.ConsumerMessage) (bool
 		a.logger.Debug("Error while sending the message", zap.Error(err))
 		return false, err // Error while sending, don't commit offset
 	}
+	// Always try to close body so the connection can be reused afterwards
+	if res.Body != nil {
+		res.Body.Close()
+	}
 
 	if res.StatusCode/100 != 2 {
 		a.logger.Debug("Unexpected status code", zap.Int("status code", res.StatusCode))
