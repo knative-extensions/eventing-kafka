@@ -66,7 +66,7 @@ func NewController(
 		// Use a different set of conditions
 		sourcesv1beta1.RegisterAlternateKafkaConditionSet(sourcesv1beta1.KafkaMTSourceCondSet)
 
-		c.scheduler = scheduler.NewStatefulSetScheduler(ctx, system.Namespace(), mtadapterName, c.schedulableLister)
+		c.scheduler = scheduler.NewStatefulSetScheduler(ctx, system.Namespace(), mtadapterName, c.schedulableLister, impl.EnqueueKey)
 	}
 
 	logging.FromContext(ctx).Info("Setting up kafka event handlers")

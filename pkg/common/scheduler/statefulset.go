@@ -20,6 +20,7 @@ import (
 	"context"
 	"math"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -30,6 +31,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/integer"
 
+	"k8s.io/apimachinery/pkg/types"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	statefulsetinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/statefulset"
 	"knative.dev/pkg/controller"
@@ -43,14 +45,19 @@ type StatefulSetScheduler struct {
 	statefulSetName   string
 	statefulSetClient clientappsv1.StatefulSetInterface
 	schedulableLister SchedulableLister
-
-	lock sync.Locker
+	lock              sync.Locker
 
 	// replicas is the (cached) number of statefulset replicas
 	replicas int32
 
 	// capacity is the total number of slots available per pod.
 	capacity int32
+
+	// pending tracks the number of virtual replicas that haven't been scheduled yet
+	pending map[types.NamespacedName]int32
+
+	// enq is used to trigger the reconcilation of the named object
+	enq func(types.NamespacedName)
 
 	// state is the last known allocation state
 	state state
@@ -64,7 +71,7 @@ type state struct {
 	free map[string]int32
 }
 
-func NewStatefulSetScheduler(ctx context.Context, namespace, name string, lister SchedulableLister) Scheduler {
+func NewStatefulSetScheduler(ctx context.Context, namespace, name string, lister SchedulableLister, enq func(types.NamespacedName)) Scheduler {
 	scheduler := &StatefulSetScheduler{
 		logger:            logging.FromContext(ctx),
 		statefulSetName:   name,
@@ -72,6 +79,8 @@ func NewStatefulSetScheduler(ctx context.Context, namespace, name string, lister
 		schedulableLister: lister,
 		capacity:          10,      // TODO: from annotation on statefulset, configmap?
 		state:             state{}, // cannot call refreshState because the informers haven't been started yet.
+		enq:               enq,
+		pending:           make(map[types.NamespacedName]int32),
 		lock:              new(sync.Mutex),
 	}
 
@@ -104,41 +113,47 @@ func (s *StatefulSetScheduler) Schedule(schedulable Schedulable) ([]duckv1alpha1
 
 	if s.replicas == 0 {
 		s.logger.Info("scheduling failed (no replicas available)")
-		return nil, ErrUnschedulable
+		s.pending[schedulable.GetKey()] = schedulable.GetReplicas()
+		return make([]duckv1alpha1.Placement, 0), ErrUnschedulable
 	}
+
+	// Remove placements from scaled-down pods
+	placements := s.sanitize(schedulable.GetPlacements())
 
 	// The scheduler
 	// - allocates as many replicas as possible to the same pod(s) (for placed schedulable)
 	// - allocates remaining replicas to new pods
 
 	// Exact number of replicas => do nothing
-	tr := GetTotalReplicas(schedulable.GetPlacements())
+	tr := GetTotalReplicas(placements)
 	if tr == schedulable.GetReplicas() {
 		s.logger.Info("scheduling succeeded (already scheduled)")
+		delete(s.pending, schedulable.GetKey())
 
 		// Fully placed. Nothing to do
-		return schedulable.GetPlacements(), nil
+		return placements, nil
 	}
 
 	// Need less => scale down
 	if tr > schedulable.GetReplicas() {
 		s.logger.Infow("scaling down", zap.Int32("replicas", tr), zap.Int32("new replicas", schedulable.GetReplicas()))
-		placements := s.removeReplicas(tr-schedulable.GetReplicas(), schedulable.GetPlacements())
+		placements := s.removeReplicas(tr-schedulable.GetReplicas(), placements)
 		return placements, nil
 	}
 
 	// Need more => scale up
 
 	s.logger.Infow("scaling up", zap.Int32("replicas", tr), zap.Int32("new replicas", schedulable.GetReplicas()))
-	placements, left := s.addReplicas(schedulable.GetReplicas()-tr, schedulable.GetPlacements())
+	placements, left := s.addReplicas(schedulable.GetReplicas()-tr, placements)
 	if left > 0 {
 		// Give time for the autoscaler to do its job
 		s.logger.Info("scheduling failed (not enough pod replicas)", zap.Any("placement", placements))
-
+		s.pending[schedulable.GetKey()] = left
 		return placements, ErrPartialScheduling
 	}
 
 	s.logger.Infow("scheduling successful", zap.Any("placement", placements))
+	delete(s.pending, schedulable.GetKey())
 	return placements, nil
 }
 
@@ -165,12 +180,34 @@ func (s *StatefulSetScheduler) refreshState() error {
 
 			if free[podName] < 0 {
 				// Over committed. The autoscaler will fix it.
-				s.logger.Infow("pod is over committed", zap.String("podName", podName))
+				s.logger.Infow("pod is overcommitted", zap.String("podName", podName))
 			}
 		}
 	}
 	s.state.free = free
 	return nil
+}
+
+func (s *StatefulSetScheduler) sanitize(placements []duckv1alpha1.Placement) []duckv1alpha1.Placement {
+	if s.needSanitization(placements) {
+		newPlacements := make([]duckv1alpha1.Placement, 0, len(placements))
+		for i := 0; i < len(placements); i++ {
+			if s.ordinalFromPodName(placements[i].PodName) > s.replicas {
+				newPlacements = append(newPlacements, placements[i])
+			}
+		}
+		return newPlacements
+	}
+	return placements
+}
+
+func (s *StatefulSetScheduler) needSanitization(placements []duckv1alpha1.Placement) bool {
+	for i := 0; i < len(placements); i++ {
+		if s.ordinalFromPodName(placements[i].PodName) >= s.replicas {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *StatefulSetScheduler) removeReplicas(diff int32, placements []duckv1alpha1.Placement) []duckv1alpha1.Placement {
@@ -210,10 +247,7 @@ func (s *StatefulSetScheduler) addReplicas(diff int32, placements []duckv1alpha1
 			diff -= allocation
 			s.state.free[podName] -= allocation
 		} else {
-			newPlacements = append(newPlacements, duckv1alpha1.Placement{
-				PodName:  podName,
-				Replicas: placements[i].Replicas,
-			})
+			newPlacements = append(newPlacements, placements[i])
 		}
 	}
 
@@ -242,6 +276,24 @@ func (s *StatefulSetScheduler) addReplicas(diff int32, placements []duckv1alpha1
 	return newPlacements, diff
 }
 
+func (s *StatefulSetScheduler) evict() {
+	schedulables, err := s.schedulableLister()
+	if err != nil {
+		s.logger.Fatalw("failed to list schedulable objects", zap.Error(err))
+		return
+	}
+
+	for _, schedulable := range schedulables {
+		ps := schedulable.GetPlacements()
+		for i := 0; i < len(ps); i++ {
+			if s.ordinalFromPodName(ps[i].PodName) >= s.replicas {
+				s.enq(schedulable.GetKey())
+				break
+			}
+		}
+	}
+}
+
 func (s *StatefulSetScheduler) updateStatefulset(obj interface{}) {
 	// Update the internal cache and evict schedulable if needed
 	statefulset, ok := obj.(*appsv1.StatefulSet)
@@ -251,8 +303,9 @@ func (s *StatefulSetScheduler) updateStatefulset(obj interface{}) {
 
 	s.lock.Lock()
 	defer s.lock.Unlock()
+
 	if s.replicas < statefulset.Status.Replicas {
-		// TODO: Evict scheduled resources on deleted replicas by enqueing resources
+		s.evict()
 
 	} else if s.replicas > statefulset.Status.Replicas {
 		// noop: controller will retry to schedule resources
@@ -277,6 +330,11 @@ func (s *StatefulSetScheduler) podNameFromOrdinal(ordinal int32) string {
 	return s.statefulSetName + "-" + strconv.Itoa(int(ordinal))
 }
 
+func (s *StatefulSetScheduler) ordinalFromPodName(podName string) int32 {
+	ordinal, _ := strconv.Atoi(podName[strings.LastIndex(podName, "-")+1:])
+	return int32(ordinal)
+}
+
 // freeCapacity returns the free capacity across all pods
 func (s *StatefulSetScheduler) freeCapacity() int32 {
 	t := int32(0)
@@ -291,8 +349,25 @@ func (s *StatefulSetScheduler) usedCapacity() int32 {
 	return s.capacity*s.replicas - s.freeCapacity()
 }
 
-// avgUsedCapacityPerPod returns the average used capacity per replica
+// pendingReplicas returns the total number of virtual replicas
+// that haven't been scheduled yet
+func (s *StatefulSetScheduler) pendingReplicas() int32 {
+	t := int32(0)
+	for _, v := range s.pending {
+		t += v
+	}
+	return t
+}
+
+// avgUsedCapacityPerPod returns the average used capacity per replica,
+// including pending virtual replicas
 func (s *StatefulSetScheduler) avgUsedCapacityPerPod() float64 {
+	if s.replicas == 0 {
+		if s.pendingReplicas() > 0 {
+			return float64(s.capacity) // full
+		}
+		return float64(s.capacity) / 2 // 50%
+	}
 	return float64(s.usedCapacity()) / float64(s.replicas)
 }
 
@@ -306,9 +381,17 @@ func (s *StatefulSetScheduler) autoscale(ctx context.Context) {
 			s.lock.Lock()
 			defer s.lock.Unlock()
 
+			// Refresh state as the scheduler does not receive deletion notifications.
+			err := s.refreshState()
+			if err != nil {
+				s.logger.Info("error while refreshing scheduler state (will retry)", zap.Error(err))
+				return
+			}
+
 			s.logger.Infow("checking adapter capacity",
 				zap.Int32("free", s.freeCapacity()),
 				zap.Int32("used", s.usedCapacity()),
+				zap.Int32("pending", s.pendingReplicas()),
 				zap.Int32("replicas", s.replicas))
 
 			ratio := s.avgUsedCapacityPerPod() / float64(s.capacity)
@@ -326,7 +409,7 @@ func (s *StatefulSetScheduler) autoscale(ctx context.Context) {
 				}
 
 				// Desired ratio is 0.5 (TODO: configurable)
-				scale.Spec.Replicas = int32(math.Ceil(float64(s.usedCapacity()) / (float64(s.capacity) * 0.5)))
+				scale.Spec.Replicas = int32(math.Ceil(float64(s.usedCapacity()+s.pendingReplicas()) / (float64(s.capacity) * 0.5)))
 
 				s.logger.Infow("updating adapter replicas", zap.Int32("replicas", scale.Spec.Replicas))
 
@@ -337,6 +420,6 @@ func (s *StatefulSetScheduler) autoscale(ctx context.Context) {
 			}
 		}()
 
-		time.Sleep(10 * time.Second)
+		time.Sleep(10 * time.Second) // TODO: configurable refresh period
 	}
 }

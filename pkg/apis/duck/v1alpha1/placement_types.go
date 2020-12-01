@@ -19,14 +19,13 @@ package v1alpha1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-
 	"knative.dev/pkg/apis/duck"
 )
 
 // +genduck
 
-// Placeable is a list of podName and replicas pairs.
-// Each pair represents the allocation of replicas to a pod
+// Placeable is a list of podName and virtual replicas pairs.
+// Each pair represents the allocation of virtual replicas to a pod
 type Placeable struct {
 	Placement []Placement `json:"placements,omitempty"`
 }
@@ -48,15 +47,16 @@ type PlaceableStatus struct {
 }
 
 type Placement struct {
-	PodName  string `json:"podName,omitempty"`
-	Replicas int32  `json:"replicas,omitempty"`
+	// PodName is the name of the pod where the resource is placed
+	PodName string `json:"podName,omitempty"`
+
+	// Replicas is the number of virtual replicas to allocate in the pod
+	Replicas int32 `json:"replicas,omitempty"`
 }
 
 var (
 	// Placeable is an Implementable "duck type".
 	_ duck.Implementable = (*Placeable)(nil)
-	// Placements is a Convertible type.
-	//_ apis.Convertible = (*Placeable)(nil)
 )
 
 // GetFullType implements duck.Implementable

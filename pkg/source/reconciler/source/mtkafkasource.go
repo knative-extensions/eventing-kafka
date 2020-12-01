@@ -26,13 +26,16 @@ import (
 
 func (r *Reconciler) reconcileMTReceiveAdapter(ctx context.Context, src *v1beta1.KafkaSource) error {
 	placements, err := r.scheduler.Schedule(src)
-	if err != nil {
-		// TODO: consider allowing partial placement
 
+	// Update placements, even partial ones.
+	if placements != nil {
+		src.Status.Placement = placements
+	}
+
+	if err != nil {
 		src.Status.MarkNotScheduled("Unschedulable", err.Error())
 		return err // retrying...
 	}
-	src.Status.Placement = placements
 	src.Status.MarkScheduled()
 
 	// TODO: patch envvars

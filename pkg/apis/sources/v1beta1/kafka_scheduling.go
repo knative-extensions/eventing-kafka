@@ -21,8 +21,11 @@ import (
 	"knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
 )
 
-func (k *KafkaSource) GetId() types.UID {
-	return k.UID
+func (k *KafkaSource) GetKey() types.NamespacedName {
+	return types.NamespacedName{
+		Namespace: k.Namespace,
+		Name:      k.Name,
+	}
 }
 
 func (k *KafkaSource) GetReplicas() int32 {

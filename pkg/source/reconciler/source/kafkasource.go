@@ -154,7 +154,9 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 	// TODO(mattmoor): create KafkaBinding for the receive adapter.
 	if r.receiveAdapterImage == "" {
 		// mt mode
-		r.reconcileMTReceiveAdapter(ctx, src)
+		if err := r.reconcileMTReceiveAdapter(ctx, src); err != nil {
+			return err
+		}
 	} else {
 		ra, err := r.reconcileSTReceiveAdapter(ctx, src, sinkURI)
 		if err != nil {

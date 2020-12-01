@@ -37,10 +37,10 @@ type Scheduler interface {
 }
 
 type Schedulable interface {
-	// GetId returns the schedulable unique ID.
-	GetId() types.UID
+	// GetKey returns the schedulable key.
+	GetKey() types.NamespacedName
 
-	// The number of replicas to place.
+	// The number of virtual replicas to place.
 	GetReplicas() int32
 
 	// GetPlacements returns where the schedulable is currently placed.
