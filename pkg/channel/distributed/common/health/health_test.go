@@ -17,12 +17,13 @@ limitations under the License.
 package health
 
 import (
-	"github.com/stretchr/testify/assert"
 	"io"
-	logtesting "knative.dev/pkg/logging/testing"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	logtesting "knative.dev/pkg/logging/testing"
 )
 
 // Test Constants
