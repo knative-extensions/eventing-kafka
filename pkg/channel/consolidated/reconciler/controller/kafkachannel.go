@@ -77,7 +77,7 @@ const (
 
 	dispatcherName = "kafka-ch-dispatcher"
 
-	pollDuration = 2 * time.Second
+	pollInterval = 2 * time.Second
 )
 
 func newReconciledNormal(namespace, name string) pkgreconciler.Event {
@@ -603,7 +603,7 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 		r.consumerGroupWatcher.Terminate()
 	}
 
-	r.consumerGroupWatcher = NewConsumerGroupWatcher(ctx, ac, pollDuration)
+	r.consumerGroupWatcher = NewConsumerGroupWatcher(ctx, ac, pollInterval)
 	//TODO handle error
 	r.consumerGroupWatcher.Start()
 }

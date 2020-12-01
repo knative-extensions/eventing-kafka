@@ -23,6 +23,8 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"go.uber.org/zap"
 
 	"github.com/Shopify/sarama"
@@ -100,18 +102,8 @@ func (c *AdminClientManager) ListConsumerGroups() ([]string, error) {
 	}
 
 	if r > max {
-		return []string{}, fmt.Errorf("failed to refresh the culster admin and retry: %v", err)
+		return nil, fmt.Errorf("failed to refresh the culster admin and retry: %v", err)
 	}
 
-	return keys(cgsMap), nil
-}
-
-func keys(m map[string]string) []string {
-	keys := make([]string, len(m))
-	i := 0
-	for k := range m {
-		keys[i] = k
-		i++
-	}
-	return keys
+	return sets.StringKeySet(cgsMap).List(), nil
 }

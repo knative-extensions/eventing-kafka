@@ -21,6 +21,8 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"go.uber.org/zap"
 	"knative.dev/pkg/logging"
 
@@ -49,9 +51,8 @@ type ConsumerGroupWatcher interface {
 	// Watch registers callback on the event of any changes observed
 	// on the consumer groups. watcherID is an arbitrary string the user provides
 	// that will be used to identify his callbacks when provided to Forget(watcherID).
-	// Successive calls with the same watcherID will queue the callbacks successfully.
 	//
-	//To ensure this is event-triggered, level-driven,
+	// To ensure this is event-triggered, level-driven,
 	// we don't pass the updates to the callback, instead the observer is expected
 	// to use List() to get the updated list of ConsumerGroups.
 	Watch(watcherID string, callback ConsumerGroupHandler) error
@@ -67,8 +68,8 @@ type ConsumerGroupWatcher interface {
 type WatcherImpl struct {
 	logger *zap.SugaredLogger
 	//TODO name?
-	watchers             map[string][]ConsumerGroupHandler
-	cachedConsumerGroups []string
+	watchers             map[string]ConsumerGroupHandler
+	cachedConsumerGroups sets.String
 	adminClient          kafka.AdminClient
 	pollDuration         time.Duration
 	done                 chan struct{}
@@ -79,8 +80,8 @@ func NewConsumerGroupWatcher(ctx context.Context, ac kafka.AdminClient, pollDura
 		logger:               logging.FromContext(ctx),
 		adminClient:          ac,
 		pollDuration:         pollDuration,
-		watchers:             make(map[string][]ConsumerGroupHandler),
-		cachedConsumerGroups: make([]string, 0),
+		watchers:             make(map[string]ConsumerGroupHandler),
+		cachedConsumerGroups: sets.String{},
 	}
 }
 
@@ -98,9 +99,10 @@ func (w *WatcherImpl) Start() error {
 				}
 				var notify bool
 				var changedGroup string
+				observedCGsSet := sets.String{}.Insert(observedCGs...)
 				// Look for observed CGs
-				for _, c := range observedCGs {
-					if !Find(w.cachedConsumerGroups, c) {
+				for c := range observedCGsSet {
+					if !w.cachedConsumerGroups.Has(c) {
 						// This is the first appearance.
 						w.logger.Debugw("Consumer group observed. Caching.",
 							zap.String("consumer group", c))
@@ -110,8 +112,8 @@ func (w *WatcherImpl) Start() error {
 					}
 				}
 				// Look for disappeared CGs
-				for _, c := range w.cachedConsumerGroups {
-					if !Find(observedCGs, c) {
+				for c := range w.cachedConsumerGroups {
+					if !observedCGsSet.Has(c) {
 						// This CG was cached but it's no longer there.
 						w.logger.Debugw("Consumer group deleted.",
 							zap.String("consumer group", c))
@@ -122,7 +124,7 @@ func (w *WatcherImpl) Start() error {
 				}
 				if notify {
 					cacheMtx.Lock()
-					w.cachedConsumerGroups = observedCGs
+					w.cachedConsumerGroups = observedCGsSet
 					cacheMtx.Unlock()
 					w.notify(changedGroup)
 				}
@@ -136,6 +138,11 @@ func (w *WatcherImpl) Start() error {
 }
 
 func (w *WatcherImpl) Terminate() {
+	watchersMtx.Lock()
+	cacheMtx.Lock()
+	defer watchersMtx.Unlock()
+	defer cacheMtx.Unlock()
+
 	w.watchers = nil
 	w.cachedConsumerGroups = nil
 	w.done <- struct{}{}
@@ -146,11 +153,8 @@ func (w *WatcherImpl) Watch(watcherID string, cb ConsumerGroupHandler) error {
 	w.logger.Debugw("Adding a new watcher", zap.String("watcherID", watcherID))
 	watchersMtx.Lock()
 	defer watchersMtx.Unlock()
-	cbs, ok := w.watchers[watcherID]
-	if !ok {
-		cbs = []ConsumerGroupHandler{}
-	}
-	w.watchers[watcherID] = append(cbs, cb)
+	w.watchers[watcherID] = cb
+
 	// notify at least once to get the current state
 	cb()
 	return nil
@@ -158,6 +162,8 @@ func (w *WatcherImpl) Watch(watcherID string, cb ConsumerGroupHandler) error {
 
 func (w *WatcherImpl) Forget(watcherID string) {
 	w.logger.Debugw("Forgetting watcher", zap.String("watcherID", watcherID))
+	watchersMtx.Lock()
+	defer watchersMtx.Unlock()
 	delete(w.watchers, watcherID)
 }
 
@@ -166,7 +172,7 @@ func (w *WatcherImpl) List(matcher Matcher) []string {
 	cacheMtx.RLock()
 	defer cacheMtx.RUnlock()
 	cgs := make([]string, 0)
-	for _, cg := range w.cachedConsumerGroups {
+	for cg := range w.cachedConsumerGroups {
 		if matcher(cg) {
 			cgs = append(cgs, cg)
 		}
@@ -176,14 +182,10 @@ func (w *WatcherImpl) List(matcher Matcher) []string {
 
 func (w *WatcherImpl) notify(cg string) {
 	watchersMtx.RLock()
-	cacheMtx.RLock()
 	defer watchersMtx.RUnlock()
-	defer cacheMtx.RUnlock()
 
-	for _, cbs := range w.watchers {
-		for _, w := range cbs {
-			w()
-		}
+	for _, cb := range w.watchers {
+		cb()
 	}
 }
 
