@@ -24,6 +24,8 @@ import (
 	"net/http"
 	"strings"
 
+	"golang.org/x/time/rate"
+
 	"github.com/Shopify/sarama"
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
@@ -62,6 +64,7 @@ type Adapter struct {
 	reporter          pkgsource.StatsReporter
 	logger            *zap.SugaredLogger
 	keyTypeMapper     func([]byte) interface{}
+	rateLimiter       *rate.Limiter
 }
 
 var _ adapter.MessageAdapter = (*Adapter)(nil)
@@ -119,6 +122,10 @@ func (a *Adapter) start(stopCh <-chan struct{}) error {
 }
 
 func (a *Adapter) Handle(ctx context.Context, msg *sarama.ConsumerMessage) (bool, error) {
+	if a.rateLimiter != nil {
+		a.rateLimiter.Wait(ctx)
+	}
+
 	ctx, span := trace.StartSpan(ctx, "kafka-source")
 	defer span.End()
 
@@ -158,4 +165,9 @@ func (a *Adapter) Handle(ctx context.Context, msg *sarama.ConsumerMessage) (bool
 
 	_ = a.reporter.ReportEventCount(reportArgs, res.StatusCode)
 	return true, nil
+}
+
+// SetRateLimiter sets the global consumer rate limiter
+func (a *Adapter) SetRateLimits(r rate.Limit, b int) {
+	a.rateLimiter = rate.NewLimiter(r, b)
 }

@@ -20,7 +20,7 @@ import (
 	"context"
 	"sync"
 
-	"knative.dev/eventing-kafka/pkg/common/scheduler"
+	"golang.org/x/time/rate"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"go.uber.org/zap"
@@ -32,6 +32,7 @@ import (
 	"knative.dev/eventing/pkg/kncloudevents"
 
 	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
+	"knative.dev/eventing-kafka/pkg/common/scheduler"
 	"knative.dev/eventing-kafka/pkg/source"
 	stadapter "knative.dev/eventing-kafka/pkg/source/adapter"
 )
@@ -92,6 +93,7 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) {
 	a.sourcesMu.RUnlock()
 
 	if ok {
+		// TODO: do not stop if the only thing that changes is the number of vreplicas
 		a.logger.Info("stopping adapter", zap.String("key", key))
 		cancel()
 	}
@@ -113,8 +115,6 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) {
 		Topics:        obj.Spec.Topics,
 		ConsumerGroup: obj.Spec.ConsumerGroup,
 		Name:          obj.Name,
-
-		// TODO: add replicas.
 	}
 
 	if val, ok := obj.GetLabels()[v1beta1.KafkaKeyTypeLabel]; ok {
@@ -132,6 +132,11 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) {
 	}
 
 	adapter := a.adapterCtor(ctx, &config, httpBindingsSender, reporter)
+
+	if a, ok := adapter.(*stadapter.Adapter); ok {
+		// TODO: configurable
+		a.SetRateLimits(rate.Limit(10.0*placement.Replicas), 20*int(placement.Replicas))
+	}
 
 	ctx, cancelFn := context.WithCancel(ctx)
 	go func(ctx context.Context) {
