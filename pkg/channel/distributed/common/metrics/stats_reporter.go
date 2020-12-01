@@ -132,7 +132,7 @@ func (r *Reporter) Report(stats map[string]map[string]interface{}) {
 						return
 					}
 
-					// RecordWrapper The Produced Message Count Metric
+					// Record The Produced Message Count Metric
 					RecordWrapper(ctx, producedMessageCount.M(msgCount))
 
 				} else {
