@@ -21,6 +21,8 @@ import (
 	nethttp "net/http"
 	"strings"
 
+	"knative.dev/pkg/configmap"
+
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
@@ -31,6 +33,10 @@ import (
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/profiling"
 )
+
+var ListenAndServeWrapper = func(srv *nethttp.Server) func() error { return srv.ListenAndServe }
+var StartWatcherWrapper = func(cmw *configmap.InformedWatcher, done <-chan struct{}) error { return cmw.Start(done) }
+var UpdateExporterWrapper = metrics.UpdateExporter
 
 //
 // Initialize The Specified Context With A Profiling Server (ConfigMap Watcher And HTTP Endpoint)
@@ -43,7 +49,7 @@ func InitializeObservability(ctx context.Context, logger *zap.SugaredLogger, met
 	profilingHandler := profiling.NewHandler(logger, false)
 	profilingServer := profiling.NewServer(profilingHandler)
 	eg, egCtx := errgroup.WithContext(ctx)
-	eg.Go(profilingServer.ListenAndServe)
+	eg.Go(ListenAndServeWrapper(profilingServer))
 	go func() {
 		// This will block until either a signal arrives or one of the grouped functions
 		// returns an error.
@@ -74,7 +80,7 @@ func InitializeObservability(ctx context.Context, logger *zap.SugaredLogger, met
 		metav1.GetOptions{}); err == nil {
 		cmw.Watch(metrics.ConfigMapName(),
 			func(configMap *corev1.ConfigMap) {
-				err := metrics.UpdateExporter(ctx, metrics.ExporterOptions{
+				err := UpdateExporterWrapper(ctx, metrics.ExporterOptions{
 					Domain:         metrics.Domain(),
 					Component:      strings.ReplaceAll(metricsDomain, "-", "_"),
 					ConfigMap:      configMap.Data,
@@ -91,7 +97,7 @@ func InitializeObservability(ctx context.Context, logger *zap.SugaredLogger, met
 		return err
 	}
 
-	if err := cmw.Start(ctx.Done()); err != nil {
+	if err := StartWatcherWrapper(cmw, ctx.Done()); err != nil {
 		logger.Error("Failed to start observability configuration manager", zap.Error(err))
 		return err
 	}

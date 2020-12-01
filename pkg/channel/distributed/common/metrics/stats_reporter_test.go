@@ -21,68 +21,26 @@ import (
 	"fmt"
 	"os"
 	"regexp"
-	"strconv"
-	"strings"
 	"testing"
-	"time"
-
-	"io/ioutil"
 
 	"github.com/stretchr/testify/assert"
-	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/fake"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
+	ocstats "go.opencensus.io/stats"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
-	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
-	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	logtesting "knative.dev/pkg/logging/testing"
-	"knative.dev/pkg/metrics"
-	"knative.dev/pkg/system"
 )
 
 // Test The MetricsServer's Report() Functionality
 func TestMetricsServer_Report(t *testing.T) {
-	// see https://github.com/knative-sandbox/eventing-kafka/issues/218
-	t.Skip("Flaky test, therefore skipping for now")
-
 	// Test Data
-	metricsPort := 9878
 	metricsDomain := "eventing-kafka"
 	topicName := "test-topic-name"
 	msgCount := 13579
 
 	// Initialize The Environment For The Test
-	commontesting.SetTestEnvironment(t)
 	assert.Nil(t, os.Setenv(env.MetricsDomainEnvVarKey, metricsDomain))
-
-	// Create An Observability ConfigMap For The InitializeObservability() Call To Watch
-	observabilityConfigMap := &corev1.ConfigMap{
-		TypeMeta: v1.TypeMeta{
-			Kind:       "ConfigMap",
-			APIVersion: corev1.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: v1.ObjectMeta{
-			Name:      metrics.ConfigMapName(),
-			Namespace: system.Namespace(),
-		},
-		Data: map[string]string{
-			"metrics.backend-destination": "prometheus",
-		},
-	}
-
-	// Create The Fake K8S Client And Add It To The ConfigMap
-	fakeK8sClient := fake.NewSimpleClientset(observabilityConfigMap)
-
-	// Add The Fake K8S Client To The Context (Required By InitializeObservability)
-	ctx := context.WithValue(context.TODO(), injectionclient.Key{}, fakeK8sClient)
 
 	// Create A Test Logger
 	logger := logtesting.TestLogger(t).Desugar()
-
-	// Initialize The Observability Watcher
-	err := config.InitializeObservability(ctx, logger.Sugar(), metricsDomain, metricsPort, system.Namespace())
-	assert.Nil(t, err)
 
 	// Create A New StatsReporter To Test
 	statsReporter := NewStatsReporter(logger)
@@ -90,18 +48,20 @@ func TestMetricsServer_Report(t *testing.T) {
 	// Create The Stats / Metrics To Report
 	stats := createTestMetrics(topicName, int64(msgCount))
 
+	measuredMsgCount := 0.0
+
+	RecordWrapperRef := RecordWrapper
+	defer func() { RecordWrapper = RecordWrapperRef }()
+
+	// Set up a mock RecordWrapper() that will capture the produced message count from our stats reporter
+	RecordWrapper = func(ctx context.Context, ms ocstats.Measurement, ros ...ocstats.Options) {
+		measuredMsgCount += ms.Value()
+	}
+
 	// Perform The Test
 	statsReporter.Report(stats)
 
-	// Verify The Results By Querying Metrics Endpoint And Parsing Results
-	resp, err := commontesting.RetryGet(fmt.Sprintf("http://localhost:%v/metrics", metricsPort), 100*time.Millisecond, 20, 404)
-	assert.Nil(t, err)
-	body, err := ioutil.ReadAll(resp.Body)
-	assert.Nil(t, err)
-	err = resp.Body.Close()
-	assert.Nil(t, err)
-	bodyStrings := strings.Split(string(body), "\n")
-	assert.True(t, verifyMetric(bodyStrings, "eventing_kafka_produced_msg_count", topicName, strconv.Itoa(msgCount)))
+	assert.Equal(t, float64(msgCount), measuredMsgCount)
 }
 
 // Utility Function For Creating Sample Test Metrics  (Representative Data From Sarama Metrics Trace - With Custom Test Data)

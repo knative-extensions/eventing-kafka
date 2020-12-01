@@ -86,10 +86,11 @@ func (hs *Server) initializeServer(httpPort string) {
 }
 
 // Start The HTTP Server (Blocking Call)
-func (hs *Server) Start(logger *zap.Logger) {
+func (hs *Server) Start(logger *zap.Logger) error {
 	listener, err := net.Listen("tcp", ":"+hs.HttpPort)
 	if err != nil {
 		logger.Error("Server HTTP Listen Returned Error", zap.Error(err))
+		return err
 	}
 
 	// Set the HttpPort field to whatever port was actually used by the system
@@ -105,6 +106,8 @@ func (hs *Server) Start(logger *zap.Logger) {
 			logger.Info("Server HTTP Serve Returned Error", zap.Error(err)) // Info log since it could just be normal shutdown
 		}
 	}()
+
+	return nil
 }
 
 // Stop The HTTP Server Listening For Requests

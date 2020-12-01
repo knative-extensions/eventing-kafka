@@ -17,7 +17,6 @@ limitations under the License.
 package health
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -38,7 +37,8 @@ const (
 
 // Test Struct That Implements The HealthInterface Functions
 type testStatus struct {
-	server *Server
+	server  *Server
+	IsReady bool
 }
 
 // Mock Function That Returns The Mock Status "Alive" Flag
@@ -48,13 +48,14 @@ func (ts *testStatus) Alive() bool {
 
 // Mock Function That Returns True For Readiness Flag
 func (ts *testStatus) Ready() bool {
-	return true
+	return ts.IsReady
 }
 
 // Mock Status For Starting Health Server
 var mockStatus testStatus
 
 func getTestHealthServer() *Server {
+	mockStatus.IsReady = true
 	health := NewHealthServer("0", &mockStatus)
 	mockStatus.server = health
 	return health
@@ -130,33 +131,23 @@ func TestHealthHandler(t *testing.T) {
 	// Verify that the shutdown process sets liveness to false
 	health.Shutdown()
 	getEventToHandler(t, health.HandleLiveness, livenessPath, http.StatusInternalServerError)
+
+	// Verify that the readiness status follows the health.Ready flag
+	mockStatus.IsReady = false
+	getEventToHandler(t, health.HandleReadiness, readinessPath, http.StatusInternalServerError)
+
 }
 
-// Test The Health Server Via Live HTTP Calls
+// Test The Health Server With Startup Errors
 func TestHealthServer(t *testing.T) {
 
 	logger := logtesting.TestLogger(t).Desugar()
 
 	health := getTestHealthServer()
-	health.Start(logger)
-
-	livenessUri, err := url.Parse(fmt.Sprintf("http://%s:%s%s", testHttpHost, health.HttpPort, livenessPath))
-	assert.Nil(t, err)
-	readinessUri, err := url.Parse(fmt.Sprintf("http://%s:%s%s", testHttpHost, health.HttpPort, readinessPath))
-	assert.Nil(t, err)
-	waitServerReady(readinessUri.String(), 3*time.Second)
-
-	// Test basic functionality - advanced logical tests are in TestHealthHandler
-	getEventToServer(t, livenessUri, http.StatusInternalServerError)
-	getEventToServer(t, readinessUri, http.StatusOK)
-	health.SetAlive(true)
-	getEventToServer(t, livenessUri, http.StatusOK)
-
+	health.HttpPort = "--"
+	err := health.Start(logger)
+	assert.NotNil(t, err)
 	health.Stop(logger)
-
-	// Pause to let async go process finish logging :(
-	// Appears to be race condition between test finishing and logging in health.Stop() above
-	time.Sleep(1 * time.Second)
 }
 
 //
