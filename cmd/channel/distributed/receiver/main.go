@@ -99,8 +99,10 @@ func main() {
 
 	// Start The Liveness And Readiness Servers
 	healthServer := channelhealth.NewChannelHealthServer(strconv.Itoa(environment.HealthPort))
-	healthServer.Start(logger)
-
+	err = healthServer.Start(logger)
+	if err != nil {
+		logger.Fatal("Failed To Initialize Health Server - Terminating", zap.Error(err))
+	}
 	// Initialize The KafkaChannel Lister Used To Validate Events
 	err = channel.InitializeKafkaChannelLister(ctx, *serverURL, *kubeconfig, healthServer, environment.ResyncPeriod)
 	if err != nil {

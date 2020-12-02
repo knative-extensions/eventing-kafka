@@ -86,6 +86,11 @@ func NewStatsReporter(log *zap.Logger) StatsReporter {
 	return &Reporter{logger: log}
 }
 
+// Our RecordWrapper, which defaults to the knative metrics.Record()
+// This wrapper function facilitates minimally-invasive unit testing of the
+// Report functionality without requiring live servers to be started.
+var RecordWrapper = metrics.Record
+
 //
 // Report The Sarama Metrics (go-metrics) Via Knative / OpenCensus Metrics
 //
@@ -130,7 +135,7 @@ func (r *Reporter) Report(stats map[string]map[string]interface{}) {
 					}
 
 					// Record The Produced Message Count Metric
-					metrics.Record(ctx, producedMessageCount.M(msgCount))
+					RecordWrapper(ctx, producedMessageCount.M(msgCount))
 
 				} else {
 					r.logger.Warn("Encountered Non Int64 'count' Field In Metric", zap.String("Metric", metricKey))

@@ -17,13 +17,10 @@ limitations under the License.
 package health
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	logtesting "knative.dev/pkg/logging/testing"
@@ -31,14 +28,14 @@ import (
 
 // Test Constants
 const (
-	testHttpHost  = "localhost"
 	livenessPath  = "/healthz"
 	readinessPath = "/healthy"
 )
 
 // Test Struct That Implements The HealthInterface Functions
 type testStatus struct {
-	server *Server
+	server  *Server
+	IsReady bool
 }
 
 // Mock Function That Returns The Mock Status "Alive" Flag
@@ -48,13 +45,14 @@ func (ts *testStatus) Alive() bool {
 
 // Mock Function That Returns True For Readiness Flag
 func (ts *testStatus) Ready() bool {
-	return true
+	return ts.IsReady
 }
 
 // Mock Status For Starting Health Server
 var mockStatus testStatus
 
 func getTestHealthServer() *Server {
+	mockStatus.IsReady = true
 	health := NewHealthServer("0", &mockStatus)
 	mockStatus.server = health
 	return health
@@ -130,64 +128,28 @@ func TestHealthHandler(t *testing.T) {
 	// Verify that the shutdown process sets liveness to false
 	health.Shutdown()
 	getEventToHandler(t, health.HandleLiveness, livenessPath, http.StatusInternalServerError)
+
+	// Verify that the readiness status follows the health.Ready flag
+	mockStatus.IsReady = false
+	getEventToHandler(t, health.HandleReadiness, readinessPath, http.StatusInternalServerError)
+
 }
 
-// Test The Health Server Via Live HTTP Calls
+// Test The Health Server With Startup Errors
 func TestHealthServer(t *testing.T) {
 
 	logger := logtesting.TestLogger(t).Desugar()
 
 	health := getTestHealthServer()
-	health.Start(logger)
-
-	livenessUri, err := url.Parse(fmt.Sprintf("http://%s:%s%s", testHttpHost, health.HttpPort, livenessPath))
-	assert.Nil(t, err)
-	readinessUri, err := url.Parse(fmt.Sprintf("http://%s:%s%s", testHttpHost, health.HttpPort, readinessPath))
-	assert.Nil(t, err)
-	waitServerReady(readinessUri.String(), 3*time.Second)
-
-	// Test basic functionality - advanced logical tests are in TestHealthHandler
-	getEventToServer(t, livenessUri, http.StatusInternalServerError)
-	getEventToServer(t, readinessUri, http.StatusOK)
-	health.SetAlive(true)
-	getEventToServer(t, livenessUri, http.StatusOK)
-
+	health.HttpPort = "--"
+	err := health.Start(logger)
+	assert.NotNil(t, err)
 	health.Stop(logger)
-
-	// Pause to let async go process finish logging :(
-	// Appears to be race condition between test finishing and logging in health.Stop() above
-	time.Sleep(1 * time.Second)
 }
 
 //
 // Private Utility Functions
 //
-
-// Waits Until A GET Request Succeeds (Or Times Out)
-func waitServerReady(uri string, timeout time.Duration) {
-	// Create An HTTP Client And Send The Request Until Success Or Timeout
-	client := http.DefaultClient
-	for start := time.Now(); time.Since(start) < timeout; {
-		_, err := client.Get(uri) // Don't care what the response actually is, only if there was an error getting it
-		if err == nil {
-			return
-		}
-		time.Sleep(200 * time.Millisecond)
-	}
-}
-
-// Sends A Simple GET Event To A URL Expecting A Specific Response Code
-func getEventToServer(t *testing.T, uri *url.URL, expectedStatus int) {
-
-	// Create An HTTP Client And Send The Request
-	client := http.DefaultClient
-	resp, err := client.Get(uri.String())
-
-	// Verify The Client Response Is As Expected
-	assert.NotNil(t, resp)
-	assert.Nil(t, err)
-	assert.Equal(t, expectedStatus, resp.StatusCode)
-}
 
 // Sends A Request To An HTTP Response Recorder Directly Expecting A Specific Response Code
 func getEventToHandler(t *testing.T, handlerFunc http.HandlerFunc, path string, expectedStatus int) {

@@ -96,7 +96,10 @@ func main() {
 
 	// Start The Liveness And Readiness Servers
 	healthServer := dispatcherhealth.NewDispatcherHealthServer(strconv.Itoa(environment.HealthPort))
-	healthServer.Start(logger)
+	err = healthServer.Start(logger)
+	if err != nil {
+		logger.Fatal("Failed To Initialize Health Server - Terminating", zap.Error(err))
+	}
 
 	statsReporter := metrics.NewStatsReporter(logger)
 
