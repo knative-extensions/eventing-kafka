@@ -34,9 +34,13 @@ import (
 	"knative.dev/pkg/profiling"
 )
 
-var ListenAndServeWrapper = func(srv *nethttp.Server) func() error { return srv.ListenAndServe }
-var StartWatcherWrapper = func(cmw *configmap.InformedWatcher, done <-chan struct{}) error { return cmw.Start(done) }
-var UpdateExporterWrapper = metrics.UpdateExporter
+// These wrapper functions are to facilitate minimally-invasive unit testing of the
+// InitializeObservability functionality without requiring live servers to be started.
+var (
+	ListenAndServeWrapper = func(srv *nethttp.Server) func() error { return srv.ListenAndServe }
+	StartWatcherWrapper   = func(cmw *configmap.InformedWatcher, done <-chan struct{}) error { return cmw.Start(done) }
+	UpdateExporterWrapper = metrics.UpdateExporter
+)
 
 //
 // Initialize The Specified Context With A Profiling Server (ConfigMap Watcher And HTTP Endpoint)
