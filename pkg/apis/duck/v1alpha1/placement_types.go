@@ -25,7 +25,7 @@ import (
 // +genduck
 
 // Placeable is a list of podName and virtual replicas pairs.
-// Each pair represents the allocation of virtual replicas to a pod
+// Each pair represents the assignment of virtual replicas to a pod
 type Placeable struct {
 	Placement []Placement `json:"placements,omitempty"`
 }
@@ -50,8 +50,8 @@ type Placement struct {
 	// PodName is the name of the pod where the resource is placed
 	PodName string `json:"podName,omitempty"`
 
-	// Replicas is the number of virtual replicas to allocate in the pod
-	Replicas int32 `json:"replicas,omitempty"`
+	// VReplicas is the number of virtual replicas assigned to in the pod
+	VReplicas int32 `json:"vreplicas,omitempty"`
 }
 
 var (
@@ -66,7 +66,7 @@ func (*Placeable) GetFullType() duck.Populatable {
 
 // Populate implements duck.Populatable
 func (t *PlaceableType) Populate() {
-	t.Status.Placement = []Placement{{PodName: "pod-0", Replicas: int32(1)}}
+	t.Status.Placement = []Placement{{PodName: "pod-0", VReplicas: int32(1)}}
 }
 
 // GetListType implements apis.Listable

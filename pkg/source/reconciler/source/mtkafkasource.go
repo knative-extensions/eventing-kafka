@@ -44,14 +44,14 @@ func (r *Reconciler) reconcileMTReceiveAdapter(ctx context.Context, src *v1beta1
 	return nil
 }
 
-func (r *Reconciler) schedulableLister() ([]scheduler.Schedulable, error) {
+func (r *Reconciler) vpodLister() ([]scheduler.VPod, error) {
 	sources, err := r.kafkaLister.List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
-	schedulables := make([]scheduler.Schedulable, len(sources))
+	vpods := make([]scheduler.VPod, len(sources))
 	for i := 0; i < len(sources); i++ {
-		schedulables[i] = sources[i]
+		vpods[i] = sources[i]
 	}
-	return schedulables, nil
+	return vpods, nil
 }

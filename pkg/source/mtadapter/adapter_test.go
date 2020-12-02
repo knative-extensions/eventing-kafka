@@ -71,7 +71,7 @@ func TestUpdateRemoveSources(t *testing.T) {
 		Status: sourcesv1beta1.KafkaSourceStatus{
 			Placeable: duckv1alpha1.Placeable{
 				Placement: []duckv1alpha1.Placement{
-					{PodName: podName, Replicas: int32(1)},
+					{PodName: podName, VReplicas: int32(1)},
 				}},
 		},
 	})

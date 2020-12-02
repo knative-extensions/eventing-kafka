@@ -99,7 +99,7 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) {
 	}
 
 	placement := scheduler.GetPlacementForPod(obj.GetPlacements(), a.config.PodName)
-	if placement == nil || placement.Replicas == 0 {
+	if placement == nil || placement.VReplicas == 0 {
 		// this pod does not handle this source. Skipping
 		a.logger.Infow("no replicas assigned to this pod. skipping", zap.String("key", key))
 		return
@@ -135,7 +135,7 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) {
 
 	if a, ok := adapter.(*stadapter.Adapter); ok {
 		// TODO: configurable
-		a.SetRateLimits(rate.Limit(10.0*placement.Replicas), 20*int(placement.Replicas))
+		a.SetRateLimits(rate.Limit(10.0*placement.VReplicas), 20*int(placement.VReplicas))
 	}
 
 	ctx, cancelFn := context.WithCancel(ctx)

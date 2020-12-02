@@ -13,31 +13,18 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
-package v1beta1
+package statefulset
 
 import (
-	"k8s.io/apimachinery/pkg/types"
-	"knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
+	"strconv"
+	"strings"
 )
 
-func (k *KafkaSource) GetKey() types.NamespacedName {
-	return types.NamespacedName{
-		Namespace: k.Namespace,
-		Name:      k.Name,
-	}
+func podNameFromOrdinal(name string, ordinal int32) string {
+	return name + "-" + strconv.Itoa(int(ordinal))
 }
 
-func (k *KafkaSource) GetVReplicas() int32 {
-	if k.Spec.Consumers == nil {
-		return 1
-	}
-	return *k.Spec.Consumers
-}
-
-func (k *KafkaSource) GetPlacements() []v1alpha1.Placement {
-	if k.Status.Placeable.Placement == nil {
-		return nil
-	}
-	return k.Status.Placeable.Placement
+func ordinalFromPodName(podName string) int32 {
+	ordinal, _ := strconv.Atoi(podName[strings.LastIndex(podName, "-")+1:])
+	return int32(ordinal)
 }

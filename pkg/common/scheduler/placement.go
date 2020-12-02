@@ -20,14 +20,16 @@ import (
 	duckv1alpha1 "knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
 )
 
-func GetTotalReplicas(placements []duckv1alpha1.Placement) int32 {
+// GetTotalVReplicas returns the total number of placed virtual replicas
+func GetTotalVReplicas(placements []duckv1alpha1.Placement) int32 {
 	r := int32(0)
 	for _, p := range placements {
-		r += p.Replicas
+		r += p.VReplicas
 	}
 	return r
 }
 
+// GetPlacementForPod returns the placement corresponding to podName
 func GetPlacementForPod(placements []duckv1alpha1.Placement, podName string) *duckv1alpha1.Placement {
 	for i := 0; i < len(placements); i++ {
 		if placements[i].PodName == podName {

@@ -25,25 +25,29 @@ import (
 )
 
 var (
-	ErrUnschedulable     = errors.New("scheduling failed (no replicas available)")
-	ErrPartialScheduling = errors.New("resource is partially schedulable (not enough pod replicas)")
+	ErrNoReplicas        = errors.New("scheduling failed (no pod replicas available)")
+	ErrNotEnoughReplicas = errors.New("scheduling partially failed (not enough pod replicas)")
 )
 
-type SchedulableLister func() ([]Schedulable, error)
+// VPodLister is the function signature for returning a list of VPods
+type VPodLister func() ([]VPod, error)
 
+// Scheduler is responsible for placing VPods into real Kubernetes pods
 type Scheduler interface {
-	// Schedule computes the new set of placements for the schedulable.
-	Schedule(schedulable Schedulable) ([]duckv1alpha1.Placement, error)
+	// Schedule computes the new set of placements for vpod.
+	Schedule(vpod VPod) ([]duckv1alpha1.Placement, error)
 }
 
-type Schedulable interface {
-	// GetKey returns the schedulable key.
+// VPod represents virtual replicas placed into real Kubernetes pods
+// The scheduler is responsible for placing VPods
+type VPod interface {
+	// GetKey returns the VPod key (namespace/name).
 	GetKey() types.NamespacedName
 
-	// The number of virtual replicas to place.
-	GetReplicas() int32
+	// GetVReplicas returns the number of expected virtual replicas
+	GetVReplicas() int32
 
-	// GetPlacements returns where the schedulable is currently placed.
-	// Make sure to copy the slice before mutating it.
+	// GetPlacements returns the current list of placements
+	// Do not mutate!
 	GetPlacements() []duckv1alpha1.Placement
 }

@@ -37,7 +37,7 @@ import (
 	kafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client"
 	kafkainformer "knative.dev/eventing-kafka/pkg/client/injection/informers/sources/v1beta1/kafkasource"
 	"knative.dev/eventing-kafka/pkg/client/injection/reconciler/sources/v1beta1/kafkasource"
-	"knative.dev/eventing-kafka/pkg/common/scheduler"
+	scheduler "knative.dev/eventing-kafka/pkg/common/scheduler/statefulset"
 )
 
 func NewController(
@@ -66,7 +66,7 @@ func NewController(
 		// Use a different set of conditions
 		sourcesv1beta1.RegisterAlternateKafkaConditionSet(sourcesv1beta1.KafkaMTSourceCondSet)
 
-		c.scheduler = scheduler.NewStatefulSetScheduler(ctx, system.Namespace(), mtadapterName, c.schedulableLister, impl.EnqueueKey)
+		c.scheduler = scheduler.NewStatefulSetScheduler(ctx, system.Namespace(), mtadapterName, c.vpodLister, impl.EnqueueKey)
 	}
 
 	logging.FromContext(ctx).Info("Setting up kafka event handlers")
