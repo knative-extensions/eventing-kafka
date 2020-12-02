@@ -53,7 +53,9 @@ func TestMetricsServer_Report(t *testing.T) {
 
 	// Set up a mock RecordWrapper() that will capture the produced message count from our stats reporter
 	RecordWrapper = func(ctx context.Context, ms ocstats.Measurement, ros ...ocstats.Options) {
-		measuredMsgCount += ms.Value()
+		if ms.Measure().Name() == "produced_msg_count" {
+			measuredMsgCount += ms.Value()
+		}
 	}
 
 	// Perform The Test

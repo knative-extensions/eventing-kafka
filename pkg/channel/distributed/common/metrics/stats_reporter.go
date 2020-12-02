@@ -87,6 +87,8 @@ func NewStatsReporter(log *zap.Logger) StatsReporter {
 }
 
 // Our RecordWrapper, which defaults to the knative metrics.Record()
+// This wrapper function facilitates minimally-invasive unit testing of the
+// Report functionality without requiring live servers to be started.
 var RecordWrapper = metrics.Record
 
 //
