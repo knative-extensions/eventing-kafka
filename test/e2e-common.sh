@@ -361,7 +361,7 @@ function create_tls_secrets() {
   TLSUSER_CRT=$(kubectl -n ${STRIMZI_KAFKA_NAMESPACE} get secret my-tls-user --template='{{index .data "user.crt"}}' | base64 --decode )
   TLSUSER_KEY=$(kubectl -n ${STRIMZI_KAFKA_NAMESPACE} get secret my-tls-user --template='{{index .data "user.key"}}' | base64 --decode )
 
-  kubectl create secret --namespace "${EVENTING_NAMESPACE}" generic strimzi-tls-secret \
+  kubectl create secret --namespace "${SYSTEM_NAMESPACE}" generic strimzi-tls-secret \
     --from-literal=ca.crt="$STRIMZI_CRT" \
     --from-literal=user.crt="$TLSUSER_CRT" \
     --from-literal=user.key="$TLSUSER_KEY"
@@ -372,7 +372,7 @@ function create_sasl_secrets() {
   STRIMZI_CRT=$(kubectl -n ${STRIMZI_KAFKA_NAMESPACE} get secret my-cluster-cluster-ca-cert --template='{{index .data "ca.crt"}}' | base64 --decode )
   SASL_PASSWD=$(kubectl -n ${STRIMZI_KAFKA_NAMESPACE} get secret my-sasl-user --template='{{index .data "password"}}' | base64 --decode )
 
-  kubectl create secret --namespace "${EVENTING_NAMESPACE}" generic strimzi-sasl-secret \
+  kubectl create secret --namespace "${SYSTEM_NAMESPACE}" generic strimzi-sasl-secret \
     --from-literal=ca.crt="$STRIMZI_CRT" \
     --from-literal=password="$SASL_PASSWD" \
     --from-literal=saslType="SCRAM-SHA-512" \
@@ -397,6 +397,7 @@ function test_consolidated_channel_tls() {
   # Test the consolidated channel with TLS
   echo "Testing the consolidated channel with TLS"
   # Set the URL to the TLS listeners config
+  sed -i "s/\${SYSTEM_NAMESPACE}/${SYSTEM_NAMESPACE}/g" ${KAFKA_TLS_CONFIG}
   cp "${KAFKA_TLS_CONFIG}" "${CONSOLIDATED_TEMPLATE_DIR}/configmaps/kafka-config.yaml"
   KAFKA_CLUSTER_URL=${KAFKA_TLS_CLUSTER_URL}
 
@@ -411,6 +412,7 @@ function test_consolidated_channel_sasl() {
   # Test the consolidated channel with SASL
   echo "Testing the consolidated channel with SASL"
   # Set the URL to the SASL listeners config
+  sed -i "s/\${SYSTEM_NAMESPACE}/${SYSTEM_NAMESPACE}/g" ${KAFKA_SASL_CONFIG}
   cp "${KAFKA_SASL_CONFIG}" "${CONSOLIDATED_TEMPLATE_DIR}/configmaps/kafka-config.yaml"
   KAFKA_CLUSTER_URL=${KAFKA_SASL_CLUSTER_URL}
 
