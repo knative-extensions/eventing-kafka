@@ -88,12 +88,12 @@ const (
 
 	// Health Configuration
 	HealthPort                = 8082
-	ChannelLivenessDelay      = 10
+	ChannelLivenessDelay      = 30
 	ChannelLivenessPeriod     = 5
-	ChannelReadinessDelay     = 10
+	ChannelReadinessDelay     = 30
 	ChannelReadinessPeriod    = 5
-	DispatcherLivenessDelay   = 10
+	DispatcherLivenessDelay   = 30
 	DispatcherLivenessPeriod  = 5
-	DispatcherReadinessDelay  = 10
+	DispatcherReadinessDelay  = 30
 	DispatcherReadinessPeriod = 5
 )
