@@ -61,6 +61,7 @@ func NewProducer(logger *zap.Logger,
 	healthServer *health.Server) (*Producer, error) {
 
 	// Create The Kafka Producer Using The Specified Kafka Authentication
+	logger.Info("Creating Kafka SyncProducer")
 	kafkaProducer, metricsRegistry, err := createSyncProducerWrapper(config, brokers)
 	if err != nil {
 		logger.Error("Failed To Create Kafka SyncProducer - Exiting", zap.Error(err), zap.Any("Brokers", brokers))
