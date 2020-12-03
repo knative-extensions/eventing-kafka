@@ -20,8 +20,6 @@ import (
 	"context"
 	"sync"
 
-	"knative.dev/eventing-kafka/pkg/common/scheduler"
-
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	clientappsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
@@ -35,6 +33,7 @@ import (
 	"knative.dev/pkg/logging"
 
 	duckv1alpha1 "knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
+	"knative.dev/eventing-kafka/pkg/common/scheduler"
 )
 
 // StatefulSetScheduler is a scheduler placing VPod into statefulset-managed pods

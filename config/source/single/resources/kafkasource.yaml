@@ -45,7 +45,7 @@ spec:
         status: { }
         scale:
           # specReplicasPath defines the JSONPath inside of a custom resource that corresponds to Scale.Spec.Replicas.
-          specReplicasPath: .spec.consumers
+          specReplicasPath: .spec.c+onsumers
           # statusReplicasPath defines the JSONPath inside of a custom resource that corresponds to Scale.Status.Replicas.
           statusReplicasPath: .status.consumers
       additionalPrinterColumns:
