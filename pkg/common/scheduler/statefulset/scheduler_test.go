@@ -96,14 +96,18 @@ func TestStatefulsetScheduler(t *testing.T) {
 				t.Fatal("unexpected error", err)
 			}
 
-			s := NewStatefulSetScheduler(ctx, sfsNs, sfsName, vpodClient.List, nil)
+			s := NewStatefulSetScheduler(ctx, sfsNs, sfsName, vpodClient.List, nil).(*StatefulSetScheduler)
 
 			// Give some time for the informer to notify the scheduler
 			time.Sleep(500 * time.Millisecond)
 
-			if s.(*StatefulSetScheduler).replicas != 1 {
-				t.Fatalf("expected number of statefulset replica to be 1 (got %d)", s.(*StatefulSetScheduler).replicas)
-			}
+			func() {
+				s.lock.Lock()
+				defer s.lock.Unlock()
+				if s.replicas != 1 {
+					t.Fatalf("expected number of statefulset replica to be 1 (got %d)", s.replicas)
+				}
+			}()
 
 			for i, vreplicas := range tc.vreplicas {
 				vpodName := fmt.Sprintf("vpod-name-%d", i)
