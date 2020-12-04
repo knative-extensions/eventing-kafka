@@ -16,7 +16,10 @@ limitations under the License.
 
 package testing
 
-import "knative.dev/eventing-kafka/pkg/common/scheduler"
+import (
+	duckv1alpha1 "knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
+	"knative.dev/eventing-kafka/pkg/common/scheduler"
+)
 
 type VPodClient struct {
 	store  *VPodStore
@@ -31,8 +34,10 @@ func NewVPodClient() *VPodClient {
 	}
 }
 
-func (s *VPodClient) Create(ns, name string, vreplicas int32) scheduler.VPod {
-	vpod := newVPod(ns, name, vreplicas)
+func (s *VPodClient) Create(ns, name string, vreplicas int32, placements []duckv1alpha1.Placement) scheduler.VPod {
+	vpod := newVPod(ns, name, vreplicas, placements)
+	s.store.lock.Lock()
+	defer s.store.lock.Unlock()
 	s.store.vpods = append(s.store.vpods, vpod)
 	return vpod
 }

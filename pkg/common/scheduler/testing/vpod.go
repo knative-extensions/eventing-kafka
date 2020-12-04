@@ -27,14 +27,14 @@ type dummyVPod struct {
 	placements []duckv1alpha1.Placement
 }
 
-func newVPod(ns, name string, vreplicas int32) *dummyVPod {
+func newVPod(ns, name string, vreplicas int32, placements []duckv1alpha1.Placement) *dummyVPod {
 	return &dummyVPod{
 		key: types.NamespacedName{
 			Namespace: ns,
 			Name:      name,
 		},
 		vreplicas:  vreplicas,
-		placements: nil,
+		placements: placements,
 	}
 }
 

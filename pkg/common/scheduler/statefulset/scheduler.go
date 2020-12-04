@@ -78,7 +78,7 @@ func NewStatefulSetScheduler(ctx context.Context, namespace, name string, lister
 	})
 
 	// Start the autoscaler. Eventually we may want to rely on HPA + custom metrics
-	// in particular to handle fluctuations
+	// in particular to handle fluctuation
 	go scheduler.autoscale(ctx)
 
 	return scheduler

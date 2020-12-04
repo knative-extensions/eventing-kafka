@@ -74,7 +74,11 @@ func (s *StatefulSetScheduler) autoscale(ctx context.Context) {
 			}
 		}()
 
-		time.Sleep(10 * time.Second) // TODO: configurable refresh period
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(10 * time.Second): // TODO: configurable refresh period
+		}
 	}
 }
 

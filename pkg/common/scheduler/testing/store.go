@@ -18,10 +18,12 @@ package testing
 
 import (
 	"knative.dev/eventing-kafka/pkg/common/scheduler"
+	"sync"
 )
 
 type VPodStore struct {
 	vpods []scheduler.VPod
+	lock  sync.Mutex
 }
 
 func newVPodStore() *VPodStore {
@@ -30,6 +32,8 @@ func newVPodStore() *VPodStore {
 
 func newVPodLister(store *VPodStore) scheduler.VPodLister {
 	return func() ([]scheduler.VPod, error) {
+		store.lock.Lock()
+		defer store.lock.Unlock()
 		dst := make([]scheduler.VPod, len(store.vpods))
 		copy(dst, store.vpods)
 		return dst, nil

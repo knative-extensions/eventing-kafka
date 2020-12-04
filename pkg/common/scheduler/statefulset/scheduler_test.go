@@ -18,26 +18,25 @@ package statefulset
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"testing"
 	"time"
-
-	"knative.dev/eventing-kafka/pkg/common/scheduler"
-
-	duckv1alpha1 "knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
 
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	gtesting "k8s.io/client-go/testing"
-	"k8s.io/utils/pointer"
+
 	kubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/apps/v1/statefulset/fake"
 	"knative.dev/pkg/controller"
 	rectesting "knative.dev/pkg/reconciler/testing"
 
+	duckv1alpha1 "knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
+	"knative.dev/eventing-kafka/pkg/common/scheduler"
 	tscheduler "knative.dev/eventing-kafka/pkg/common/scheduler/testing"
 )
 
@@ -46,43 +45,50 @@ const (
 	sfsNs   = "statefulset-namespace"
 )
 
-func TestNoStatefulsetScheduler(t *testing.T) {
-	ctx := setupFakeContext(t)
-	vpodClient := tscheduler.NewVPodClient()
-
-	s := NewStatefulSetScheduler(ctx, sfsNs, sfsName, vpodClient.List, nil)
-
-	vpod1 := vpodClient.Create("test-ns", "vpod1", 1)
-	_, err := s.Schedule(vpod1)
-	if err == nil {
-		t.Error("expected error")
-	}
-}
-
 func TestStatefulsetScheduler(t *testing.T) {
-	ctx := setupFakeContext(t)
+	ctx, cancel := setupFakeContext(t)
 
 	testCases := []struct {
 		name       string
-		vreplicas  []int32
+		vpods      []int32
+		replicas   int32
 		placements []duckv1alpha1.Placement
 		err        error
 	}{
 		{
+			name:       "no replicas",
+			vpods:      []int32{1},
+			replicas:   int32(0),
+			err:        scheduler.ErrNoReplicas,
+			placements: []duckv1alpha1.Placement{},
+		},
+		{
 			name:       "one vpod, one vreplicas",
-			vreplicas:  []int32{1},
-			placements: []duckv1alpha1.Placement{{"statefulset-name-0", 1}},
+			vpods:      []int32{1},
+			replicas:   int32(1),
+			placements: []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 1}},
 		},
 		{
 			name:       "one vpod, 3 vreplicas",
-			vreplicas:  []int32{3},
-			placements: []duckv1alpha1.Placement{{"statefulset-name-0", 3}},
+			vpods:      []int32{3},
+			replicas:   int32(1),
+			placements: []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 3}},
 		},
 		{
 			name:       "one vpod, 15 vreplicas, partial scheduling",
-			vreplicas:  []int32{15},
+			vpods:      []int32{15},
+			replicas:   int32(1),
 			err:        scheduler.ErrNotEnoughReplicas,
-			placements: []duckv1alpha1.Placement{{"statefulset-name-0", 10}},
+			placements: []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 10}},
+		},
+		{
+			name:     "one vpod, 15 vreplicas, full scheduling",
+			vpods:    []int32{15},
+			replicas: int32(2),
+			placements: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 10},
+				{PodName: "statefulset-name-1", VReplicas: 5},
+			},
 		},
 	}
 
@@ -91,7 +97,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 			vpodClient := tscheduler.NewVPodClient()
 			sfsNs := fmt.Sprintf("ns-%d", i)
 
-			_, err := kubeclient.Get(ctx).AppsV1().StatefulSets(sfsNs).Create(ctx, makeStatefulset(ctx, sfsNs, sfsName), metav1.CreateOptions{})
+			_, err := kubeclient.Get(ctx).AppsV1().StatefulSets(sfsNs).Create(ctx, makeStatefulset(ctx, sfsNs, sfsName, tc.replicas), metav1.CreateOptions{})
 			if err != nil {
 				t.Fatal("unexpected error", err)
 			}
@@ -104,16 +110,16 @@ func TestStatefulsetScheduler(t *testing.T) {
 			func() {
 				s.lock.Lock()
 				defer s.lock.Unlock()
-				if s.replicas != 1 {
-					t.Fatalf("expected number of statefulset replica to be 1 (got %d)", s.replicas)
+				if s.replicas != tc.replicas {
+					t.Fatalf("expected number of statefulset replica to be %d (got %d)", tc.replicas, s.replicas)
 				}
 			}()
 
-			for i, vreplicas := range tc.vreplicas {
+			for i, vreplicas := range tc.vpods {
 				vpodName := fmt.Sprintf("vpod-name-%d", i)
 				vpodNamespace := fmt.Sprintf("vpod-ns-%d", i)
 
-				vpod := vpodClient.Create(vpodNamespace, vpodName, vreplicas)
+				vpod := vpodClient.Create(vpodNamespace, vpodName, vreplicas, nil)
 				placements, err := s.Schedule(vpod)
 
 				if tc.err == nil && err != nil {
@@ -130,19 +136,21 @@ func TestStatefulsetScheduler(t *testing.T) {
 			}
 		})
 	}
+	cancel()
+	<-ctx.Done()
 }
 
-func makeStatefulset(ctx context.Context, ns, name string) *appsv1.StatefulSet {
+func makeStatefulset(ctx context.Context, ns, name string, replicas int32) *appsv1.StatefulSet {
 	obj := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: ns,
 		},
 		Spec: appsv1.StatefulSetSpec{
-			Replicas: pointer.Int32Ptr(1),
+			Replicas: &replicas,
 		},
 		Status: appsv1.StatefulSetStatus{
-			Replicas: 1,
+			Replicas: replicas,
 		},
 	}
 
@@ -161,11 +169,20 @@ func makeStatefulset(ctx context.Context, ns, name string) *appsv1.StatefulSet {
 	return obj
 }
 
-func setupFakeContext(t *testing.T) context.Context {
-	ctx, informers := rectesting.SetupFakeContext(t)
+func setupFakeContext(t *testing.T) (context.Context, context.CancelFunc) {
+	ctx, cancel, informers := rectesting.SetupFakeContextWithCancel(t)
 	err := controller.StartInformers(ctx.Done(), informers...)
 	if err != nil {
 		t.Fatal("unexpected error", err)
 	}
-	return ctx
+
+	kc := kubeclient.Get(ctx)
+	kc.PrependReactor("get", "statefulsets", func(action gtesting.Action) (handled bool, ret runtime.Object, err error) {
+		if action.GetSubresource() == "scale" {
+			return true, nil, errors.New("object not found")
+		}
+		return false, nil, nil
+	})
+
+	return ctx, cancel
 }
