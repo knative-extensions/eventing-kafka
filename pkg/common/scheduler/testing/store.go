@@ -17,8 +17,9 @@ limitations under the License.
 package testing
 
 import (
-	"knative.dev/eventing-kafka/pkg/common/scheduler"
 	"sync"
+
+	"knative.dev/eventing-kafka/pkg/common/scheduler"
 )
 
 type VPodStore struct {

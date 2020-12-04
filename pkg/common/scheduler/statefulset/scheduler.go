@@ -248,9 +248,10 @@ func (s *StatefulSetScheduler) updateStatefulset(obj interface{}) {
 		// Less replicas: evict VPods scheduled on those replicas.
 		s.evict()
 
-	} else if s.replicas > statefulset.Status.Replicas {
-		// noop: controller will retry to schedule pending vreplicas
 	}
+	// else if s.replicas > statefulset.Status.Replicas {
+	//   noop: controller will retry to schedule pending vreplicas
+	// }
 
 	s.replicas = statefulset.Status.Replicas
 

@@ -78,7 +78,7 @@ func TestSnapshot(t *testing.T) {
 	for i, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			vpodClient := tscheduler.NewVPodClient()
-			sfsNs := fmt.Sprintf("ns-%d", i)
+			sfsNs := fmt.Sprint("ns-", i)
 
 			_, err := kubeclient.Get(ctx).AppsV1().StatefulSets(sfsNs).Create(ctx, makeStatefulset(ctx, sfsNs, sfsName, tc.replicas), metav1.CreateOptions{})
 			if err != nil {
@@ -99,8 +99,8 @@ func TestSnapshot(t *testing.T) {
 			}()
 
 			for i, placements := range tc.vpods {
-				vpodName := fmt.Sprintf("vpod-name-%d", i)
-				vpodNamespace := fmt.Sprintf("vpod-ns-%d", i)
+				vpodName := fmt.Sprint("vpod-name-", i)
+				vpodNamespace := fmt.Sprint("vpod-ns-", i)
 
 				vpodClient.Create(vpodNamespace, vpodName, 1, placements)
 

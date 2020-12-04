@@ -21,14 +21,14 @@ import (
 	duckv1alpha1 "knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
 )
 
-type dummyVPod struct {
+type sampleVPod struct {
 	key        types.NamespacedName
 	vreplicas  int32
 	placements []duckv1alpha1.Placement
 }
 
-func newVPod(ns, name string, vreplicas int32, placements []duckv1alpha1.Placement) *dummyVPod {
-	return &dummyVPod{
+func newVPod(ns, name string, vreplicas int32, placements []duckv1alpha1.Placement) *sampleVPod {
+	return &sampleVPod{
 		key: types.NamespacedName{
 			Namespace: ns,
 			Name:      name,
@@ -38,14 +38,14 @@ func newVPod(ns, name string, vreplicas int32, placements []duckv1alpha1.Placeme
 	}
 }
 
-func (d *dummyVPod) GetKey() types.NamespacedName {
+func (d *sampleVPod) GetKey() types.NamespacedName {
 	return d.key
 }
 
-func (d *dummyVPod) GetVReplicas() int32 {
+func (d *sampleVPod) GetVReplicas() int32 {
 	return d.vreplicas
 }
 
-func (d *dummyVPod) GetPlacements() []duckv1alpha1.Placement {
+func (d *sampleVPod) GetPlacements() []duckv1alpha1.Placement {
 	return d.placements
 }

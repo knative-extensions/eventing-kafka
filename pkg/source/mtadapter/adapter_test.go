@@ -36,12 +36,12 @@ import (
 )
 
 var (
-	runningAdapterChan  = make(chan *dummyAdapter)
-	stoppingAdapterChan = make(chan *dummyAdapter)
+	runningAdapterChan  = make(chan *sampleAdapter)
+	stoppingAdapterChan = make(chan *sampleAdapter)
 )
 
 const (
-	podName = "dummy-podname"
+	podName = "sample-podname"
 )
 
 func TestUpdateRemoveSources(t *testing.T) {
@@ -51,13 +51,13 @@ func TestUpdateRemoveSources(t *testing.T) {
 	env := &AdapterConfig{PodName: podName}
 	ceClient := adaptertest.NewTestClient()
 
-	adapter := newAdapter(ctx, env, ceClient, newDummyAdapter).(*Adapter)
+	adapter := newAdapter(ctx, env, ceClient, newSampleAdapter).(*Adapter)
 
 	adapterStopped := make(chan bool)
 	go func() {
 		err := adapter.Start(ctx)
 		if err != nil {
-			t.Errorf("Unexpected error %v", err)
+			t.Error("Unexpected error ", err)
 		}
 		adapterStopped <- true
 	}()
@@ -127,15 +127,15 @@ func TestUpdateRemoveSources(t *testing.T) {
 	}
 }
 
-type dummyAdapter struct {
+type sampleAdapter struct {
 	running bool
 }
 
-func newDummyAdapter(ctx context.Context, env adapter.EnvConfigAccessor, adapter *kncloudevents.HTTPMessageSender, reporter source.StatsReporter) adapter.MessageAdapter {
-	return &dummyAdapter{}
+func newSampleAdapter(ctx context.Context, env adapter.EnvConfigAccessor, adapter *kncloudevents.HTTPMessageSender, reporter source.StatsReporter) adapter.MessageAdapter {
+	return &sampleAdapter{}
 }
 
-func (d *dummyAdapter) Start(ctx context.Context) error {
+func (d *sampleAdapter) Start(ctx context.Context) error {
 	d.running = true
 	runningAdapterChan <- d
 

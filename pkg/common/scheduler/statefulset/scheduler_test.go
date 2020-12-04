@@ -42,7 +42,6 @@ import (
 
 const (
 	sfsName = "statefulset-name"
-	sfsNs   = "statefulset-namespace"
 )
 
 func TestStatefulsetScheduler(t *testing.T) {
@@ -95,7 +94,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 	for i, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			vpodClient := tscheduler.NewVPodClient()
-			sfsNs := fmt.Sprintf("ns-%d", i)
+			sfsNs := fmt.Sprint("ns-", i)
 
 			_, err := kubeclient.Get(ctx).AppsV1().StatefulSets(sfsNs).Create(ctx, makeStatefulset(ctx, sfsNs, sfsName, tc.replicas), metav1.CreateOptions{})
 			if err != nil {
@@ -116,8 +115,8 @@ func TestStatefulsetScheduler(t *testing.T) {
 			}()
 
 			for i, vreplicas := range tc.vpods {
-				vpodName := fmt.Sprintf("vpod-name-%d", i)
-				vpodNamespace := fmt.Sprintf("vpod-ns-%d", i)
+				vpodName := fmt.Sprint("vpod-name-", i)
+				vpodNamespace := fmt.Sprint("vpod-ns-", i)
 
 				vpod := vpodClient.Create(vpodNamespace, vpodName, vreplicas, nil)
 				placements, err := s.Schedule(vpod)
