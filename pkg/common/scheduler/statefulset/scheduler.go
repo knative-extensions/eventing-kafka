@@ -149,7 +149,7 @@ func (s *StatefulSetScheduler) reschedule(placements []duckv1alpha1.Placement) [
 	if s.needRescheduling(placements) {
 		newPlacements := make([]duckv1alpha1.Placement, 0, len(placements))
 		for i := 0; i < len(placements); i++ {
-			if ordinalFromPodName(placements[i].PodName) > s.replicas {
+			if ordinalFromPodName(placements[i].PodName) >= s.replicas {
 				newPlacements = append(newPlacements, placements[i])
 			}
 		}

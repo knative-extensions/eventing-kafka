@@ -45,10 +45,19 @@ func (s *StatefulSetScheduler) autoscale(ctx context.Context) {
 			s.logger.Infow("checking adapter capacity",
 				zap.Int32("free", s.freeCapacity(snapshot)),
 				zap.Int32("used", s.usedCapacity(snapshot)),
-				zap.Int32("pending", s.pendingReplicas()),
+				zap.Int32("pending", s.pendingVReplicas()),
 				zap.Int32("replicas", s.replicas))
 
-			ratio := s.avgUsedCapacityPerPod(snapshot) / float64(s.capacity)
+			var ratio float64
+			if s.replicas == 0 {
+				if s.pendingVReplicas() > 0 {
+					ratio = 1.0
+				} else {
+					ratio = 0.5
+				}
+			} else {
+				ratio = s.avgUsedCapacityPerPod(snapshot) / float64(s.capacity)
+			}
 
 			if ratio > 0.7 || ratio < 0.3 {
 				// Scale up when capacity is above 80% (TODO: configurable)
@@ -63,7 +72,7 @@ func (s *StatefulSetScheduler) autoscale(ctx context.Context) {
 				}
 
 				// Desired ratio is 0.5 (TODO: configurable)
-				scale.Spec.Replicas = int32(math.Ceil(float64(s.usedCapacity(snapshot)+s.pendingReplicas()) / (float64(s.capacity) * 0.5)))
+				scale.Spec.Replicas = int32(math.Ceil(float64(s.usedCapacity(snapshot)+s.pendingVReplicas()) / (float64(s.capacity) * 0.5)))
 
 				s.logger.Infow("updating adapter replicas", zap.Int32("replicas", scale.Spec.Replicas))
 
@@ -98,7 +107,7 @@ func (s *StatefulSetScheduler) usedCapacity(snapshot *Snapshot) int32 {
 
 // pendingReplicas returns the total number of virtual replicas
 // that haven't been scheduled yet
-func (s *StatefulSetScheduler) pendingReplicas() int32 {
+func (s *StatefulSetScheduler) pendingVReplicas() int32 {
 	t := int32(0)
 	for _, v := range s.pending {
 		t += v
@@ -106,14 +115,7 @@ func (s *StatefulSetScheduler) pendingReplicas() int32 {
 	return t
 }
 
-// avgUsedCapacityPerPod returns the average used capacity per replica,
-// including pending virtual replicas
+// avgUsedCapacityPerPod returns the average used capacity per replica
 func (s *StatefulSetScheduler) avgUsedCapacityPerPod(snapshot *Snapshot) float64 {
-	if s.replicas == 0 {
-		if s.pendingReplicas() > 0 {
-			return float64(s.capacity) // full
-		}
-		return float64(s.capacity) / 2 // 50%
-	}
 	return float64(s.usedCapacity(snapshot)) / float64(s.replicas)
 }
