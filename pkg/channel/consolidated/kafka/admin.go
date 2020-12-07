@@ -50,7 +50,7 @@ type AdminClientManager struct {
 
 func NewAdminClient(ctx context.Context, caFactory ClusterAdminFactory) (AdminClient, error) {
 	logger := logging.FromContext(ctx)
-	logger.Info("Creating a new AdminClient")
+	logger.Debug("Creating a new AdminClient")
 	kafkaClusterAdmin, err := caFactory()
 	if err != nil {
 		logger.Errorw("error while creating ClusterAdmin", zap.Error(err))
@@ -70,7 +70,7 @@ func NewAdminClient(ctx context.Context, caFactory ClusterAdminFactory) (AdminCl
 // a new ClusterAdmin will be created with every retry until the call succeeds or
 // the timeout is reached.
 func (c *AdminClientManager) ListConsumerGroups() ([]string, error) {
-	c.logger.Info("Attempting to list consumer group")
+	c.logger.Debug("Attempting to list consumer group")
 	mutex.Lock()
 	defer mutex.Unlock()
 	r := 0
