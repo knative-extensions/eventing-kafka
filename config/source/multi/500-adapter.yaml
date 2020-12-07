@@ -16,7 +16,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: kafkasource-mt-adapter
-  namespace: knative-sources
+  namespace: knative-eventing
   labels:
     contrib.eventing.knative.dev/release: devel
 spec:

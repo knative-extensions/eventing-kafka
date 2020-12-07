@@ -21,7 +21,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: kafkasource-mt-adapter
-  namespace: knative-sources
+  namespace: knative-eventing
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

@@ -16,7 +16,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: kafka-controller-manager
-  namespace: knative-sources
+  namespace: knative-eventing
   labels:
     contrib.eventing.knative.dev/release: devel
     control-plane: kafka-controller-manager
