@@ -16,6 +16,7 @@ limitations under the License.
 package statefulset
 
 import (
+	"math"
 	"strconv"
 	"strings"
 )
@@ -25,6 +26,9 @@ func podNameFromOrdinal(name string, ordinal int32) string {
 }
 
 func ordinalFromPodName(podName string) int32 {
-	ordinal, _ := strconv.Atoi(podName[strings.LastIndex(podName, "-")+1:])
+	ordinal, err := strconv.ParseInt(podName[strings.LastIndex(podName, "-")+1:], 10, 32)
+	if err != nil {
+		return math.MaxInt32
+	}
 	return int32(ordinal)
 }
