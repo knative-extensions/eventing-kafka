@@ -19,9 +19,10 @@ package consumer
 import (
 	"context"
 	"fmt"
+	"sync"
+
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
-	"sync"
 )
 
 type KafkaConsumerHandler interface {
