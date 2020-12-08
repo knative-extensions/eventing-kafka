@@ -19,7 +19,6 @@ package consumer
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
@@ -38,9 +37,9 @@ type SaramaConsumerHandler struct {
 	handler KafkaConsumerHandler
 
 	logger *zap.SugaredLogger
+
 	// Errors channel
-	closeErrors sync.Once
-	errors      chan error
+	errors chan error
 }
 
 func NewConsumerHandler(logger *zap.SugaredLogger, handler KafkaConsumerHandler, errorsCh chan error) SaramaConsumerHandler {
