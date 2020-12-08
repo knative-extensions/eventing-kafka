@@ -293,7 +293,7 @@ function uninstall_channel_crds() {
 
 function uninstall_sources_crds() {
   echo "Uninstalling Kafka Source CRD"
-  ko delete --ignore-not-found=true --now --timeout 120s -f "${KAFKA_SOURCE_CRD_CONFIG_DIR}"
+  ko delete --ignore-not-found=true --now --timeout 180s -f "${KAFKA_SOURCE_CRD_CONFIG_DIR}"
 }
 
 function install_distributed_channel_crds() {
