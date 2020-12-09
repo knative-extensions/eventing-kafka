@@ -17,7 +17,7 @@ kind: ClusterRoleBinding
 metadata:
   name: eventing-sources-kafka-controller
   labels:
-    contrib.eventing.knative.dev/release: devel
+    kafka.eventing.knative.dev/release: devel
 subjects:
 - kind: ServiceAccount
   name: kafka-controller-manager
@@ -34,7 +34,7 @@ kind: ClusterRoleBinding
 metadata:
   name: eventing-sources-kafka-controller-addressable-resolver
   labels:
-    contrib.eventing.knative.dev/release: devel
+    kafka.eventing.knative.dev/release: devel
 subjects:
 - kind: ServiceAccount
   name: kafka-controller-manager
@@ -53,7 +53,7 @@ kind: ClusterRoleBinding
 metadata:
   name: eventing-sources-kafka-controller-podspecable-binding
   labels:
-    contrib.eventing.knative.dev/release: devel
+    kafka.eventing.knative.dev/release: devel
 subjects:
 - kind: ServiceAccount
   name: kafka-controller-manager

@@ -17,7 +17,7 @@ kind: ClusterRoleBinding
 metadata:
   name: kafka-ch-controller
   labels:
-    contrib.eventing.knative.dev/release: devel
+    kafka.eventing.knative.dev/release: devel
 subjects:
 - kind: ServiceAccount
   name: kafka-ch-controller
@@ -34,7 +34,7 @@ kind: ClusterRoleBinding
 metadata:
   name: kafka-ch-dispatcher
   labels:
-    contrib.eventing.knative.dev/release: devel
+    kafka.eventing.knative.dev/release: devel
 subjects:
 - kind: ServiceAccount
   name: kafka-ch-dispatcher
