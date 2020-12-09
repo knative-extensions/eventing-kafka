@@ -106,7 +106,7 @@ func (a *Adapter) start(stopCh <-chan struct{}) error {
 	// Track errors
 	go func() {
 		for err := range group.Errors() {
-			a.logger.Errorw("An error has occurred while consuming messages occurred: ", zap.Error(err))
+			a.logger.Errorw("Error while consuming messages", zap.Error(err))
 		}
 	}()
 
