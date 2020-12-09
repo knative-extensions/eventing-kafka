@@ -17,7 +17,7 @@ kind: ClusterRoleBinding
 metadata:
   name: kafka-webhook
   labels:
-    contrib.eventing.knative.dev/release: devel
+    kafka.eventing.knative.dev/release: devel
 subjects:
 - kind: ServiceAccount
   name: kafka-webhook

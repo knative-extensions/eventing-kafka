@@ -33,8 +33,8 @@ readonly COMPONENTS
 function build_release() {
    # Update release labels if this is a tagged release
   if [[ -n "${TAG}" ]]; then
-    echo "Tagged release, updating release labels to contrib.eventing.knative.dev/release: \"${TAG}\""
-    LABEL_YAML_CMD=(sed -e "s|contrib.eventing.knative.dev/release: devel|contrib.eventing.knative.dev/release: \"${TAG}\"|")
+    echo "Tagged release, updating release labels to kafka.eventing.knative.dev/release: \"${TAG}\""
+    LABEL_YAML_CMD=(sed -e "s|kafka.eventing.knative.dev/release: devel|kafka.eventing.knative.dev/release: \"${TAG}\"|")
   else
     echo "Untagged release, will NOT update release labels"
     LABEL_YAML_CMD=(cat)

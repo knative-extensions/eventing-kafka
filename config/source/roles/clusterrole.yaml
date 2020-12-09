@@ -17,7 +17,7 @@ kind: ClusterRole
 metadata:
   name: eventing-sources-kafka-controller
   labels:
-    contrib.eventing.knative.dev/release: devel
+    kafka.eventing.knative.dev/release: devel
 rules:
 
 - apiGroups:
@@ -143,7 +143,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: eventing-kafka-source-observer
   labels:
-    contrib.eventing.knative.dev/release: devel
+    kafka.eventing.knative.dev/release: devel
     duck.knative.dev/source: "true"
 rules:
 - apiGroups:
