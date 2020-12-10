@@ -19,7 +19,6 @@ package config
 import (
 	"strings"
 
-	"k8s.io/apimachinery/pkg/api/resource"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 )
@@ -53,15 +52,15 @@ func VerifyConfiguration(configuration *config.EventingKafkaConfig) error {
 		return ControllerConfigurationError("Kafka.Topic.DefaultReplicationFactor must be > 0")
 	case configuration.Kafka.Topic.DefaultRetentionMillis < 1:
 		return ControllerConfigurationError("Kafka.Topic.DefaultRetentionMillis must be > 0")
-	case configuration.Dispatcher.CpuRequest == resource.Quantity{}:
+	case configuration.Dispatcher.CpuRequest.IsZero():
 		return ControllerConfigurationError("Dispatcher.CpuRequest must be nonzero")
-	case configuration.Dispatcher.MemoryRequest == resource.Quantity{}:
+	case configuration.Dispatcher.MemoryRequest.IsZero():
 		return ControllerConfigurationError("Dispatcher.MemoryRequest must be nonzero")
 	case configuration.Dispatcher.Replicas < 1:
 		return ControllerConfigurationError("Dispatcher.Replicas must be > 0")
-	case configuration.Receiver.CpuRequest == resource.Quantity{}:
+	case configuration.Receiver.CpuRequest.IsZero():
 		return ControllerConfigurationError("Receiver.CpuRequest must be nonzero")
-	case configuration.Receiver.MemoryRequest == resource.Quantity{}:
+	case configuration.Receiver.MemoryRequest.IsZero():
 		return ControllerConfigurationError("Receiver.MemoryRequest must be nonzero")
 	case configuration.Receiver.Replicas < 1:
 		return ControllerConfigurationError("Receiver.Replicas must be > 0")
