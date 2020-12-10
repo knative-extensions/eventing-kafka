@@ -67,5 +67,5 @@ spec:
           value: "ko://knative.dev/eventing-kafka/cmd/channel/distributed/dispatcher"
         resources:
           requests:
-            cpu: 100m
-            memory: 50Mi
+            cpu: 20m
+            memory: 25Mi
