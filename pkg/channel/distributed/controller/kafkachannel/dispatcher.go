@@ -19,6 +19,7 @@ package kafkachannel
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"strconv"
 	"time"
 
@@ -382,6 +383,16 @@ func (r *Reconciler) newDispatcherDeployment(logger *zap.Logger, channel *kafkav
 		return nil, err
 	}
 
+	// There is a difference between setting an entry in the limits map to the zero-value of a Quantity and
+	// not actually having that entry in the map at all.  If we want "no limit" then the entry must not be present.
+	limits := make(map[corev1.ResourceName]resource.Quantity)
+	if ! r.config.Dispatcher.MemoryLimit.IsZero() {
+		limits[corev1.ResourceMemory] = r.config.Dispatcher.MemoryLimit
+	}
+	if ! r.config.Dispatcher.CpuLimit.IsZero() {
+		limits[corev1.ResourceCPU] = r.config.Dispatcher.CpuLimit
+	}
+
 	// Create The Dispatcher's Deployment
 	deployment := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
@@ -443,10 +454,7 @@ func (r *Reconciler) newDispatcherDeployment(logger *zap.Logger, channel *kafkav
 							Env:             envVars,
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Resources: corev1.ResourceRequirements{
-								Limits: corev1.ResourceList{
-									corev1.ResourceMemory: r.config.Dispatcher.MemoryLimit,
-									corev1.ResourceCPU:    r.config.Dispatcher.CpuLimit,
-								},
+								Limits: limits,
 								Requests: corev1.ResourceList{
 									corev1.ResourceMemory: r.config.Dispatcher.MemoryRequest,
 									corev1.ResourceCPU:    r.config.Dispatcher.CpuRequest,

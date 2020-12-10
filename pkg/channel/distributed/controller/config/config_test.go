@@ -114,19 +114,9 @@ func TestVerifyConfiguration(t *testing.T) {
 	testCase.expectedError = ControllerConfigurationError("Kafka.Topic.DefaultRetentionMillis must be > 0")
 	testCases = append(testCases, testCase)
 
-	testCase = getValidTestCase("Invalid Config - Dispatcher.CpuLimit")
-	testCase.dispatcherCpuLimit = resource.Quantity{}
-	testCase.expectedError = ControllerConfigurationError("Dispatcher.CpuLimit must be nonzero")
-	testCases = append(testCases, testCase)
-
 	testCase = getValidTestCase("Invalid Config - Dispatcher.CpuRequest")
 	testCase.dispatcherCpuRequest = resource.Quantity{}
 	testCase.expectedError = ControllerConfigurationError("Dispatcher.CpuRequest must be nonzero")
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Invalid Config - Dispatcher.MemoryLimit")
-	testCase.dispatcherMemoryLimit = resource.Quantity{}
-	testCase.expectedError = ControllerConfigurationError("Dispatcher.MemoryLimit must be nonzero")
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Invalid Config - Dispatcher.MemoryRequest")
@@ -139,19 +129,9 @@ func TestVerifyConfiguration(t *testing.T) {
 	testCase.expectedError = ControllerConfigurationError("Dispatcher.Replicas must be > 0")
 	testCases = append(testCases, testCase)
 
-	testCase = getValidTestCase("Invalid Config - Receiver.CpuLimit")
-	testCase.channelCpuLimit = resource.Quantity{}
-	testCase.expectedError = ControllerConfigurationError("Receiver.CpuLimit must be nonzero")
-	testCases = append(testCases, testCase)
-
 	testCase = getValidTestCase("Invalid Config - Receiver.CpuRequest")
 	testCase.channelCpuRequest = resource.Quantity{}
 	testCase.expectedError = ControllerConfigurationError("Receiver.CpuRequest must be nonzero")
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Invalid Config - Receiver.MemoryLimit")
-	testCase.channelMemoryLimit = resource.Quantity{}
-	testCase.expectedError = ControllerConfigurationError("Receiver.MemoryLimit must be nonzero")
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Invalid Config - Receiver.MemoryRequest")
