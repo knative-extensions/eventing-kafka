@@ -18,6 +18,8 @@ package kafka
 
 import (
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"strings"
 
@@ -136,8 +138,9 @@ func (a *Adapter) Handle(ctx context.Context, msg *sarama.ConsumerMessage) (bool
 		a.logger.Debug("Error while sending the message", zap.Error(err))
 		return false, err // Error while sending, don't commit offset
 	}
-	// Always try to close body so the connection can be reused afterwards
+	// Always try to read and close body so the connection can be reused afterwards
 	if res.Body != nil {
+		io.Copy(ioutil.Discard, res.Body)
 		res.Body.Close()
 	}
 
