@@ -85,7 +85,10 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		logger.Fatalw("Error loading kafka config", zap.Error(err))
 	}
 
-	kafkaAuthCfg := utils.GetKafkaAuthData(ctx, kafkaConfig.AuthSecretName, kafkaConfig.AuthSecretNamespace)
+	kafkaAuthCfg := nil
+	if kafkaConfig.AuthSecretName != "" {
+		kafkaAuthCfg := utils.GetKafkaAuthData(ctx, kafkaConfig.AuthSecretName, kafkaConfig.AuthSecretNamespace)
+	}
 
 	connectionArgs := &kncloudevents.ConnectionArgs{
 		MaxIdleConns:        int(kafkaConfig.MaxIdleConns),
