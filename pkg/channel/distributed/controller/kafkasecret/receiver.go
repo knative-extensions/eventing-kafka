@@ -19,9 +19,10 @@ package kafkasecret
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"strconv"
 	"time"
+
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
@@ -266,10 +267,10 @@ func (r *Reconciler) newReceiverDeployment(logger *zap.Logger, secret *corev1.Se
 	// There is a difference between setting an entry in the limits map to the zero-value of a Quantity and
 	// not actually having that entry in the map at all.  If we want "no limit" then the entry must not be present.
 	limits := make(map[corev1.ResourceName]resource.Quantity)
-	if ! r.config.Receiver.MemoryLimit.IsZero() {
+	if !r.config.Receiver.MemoryLimit.IsZero() {
 		limits[corev1.ResourceMemory] = r.config.Receiver.MemoryLimit
 	}
-	if ! r.config.Receiver.CpuLimit.IsZero() {
+	if !r.config.Receiver.CpuLimit.IsZero() {
 		limits[corev1.ResourceCPU] = r.config.Receiver.CpuLimit
 	}
 
