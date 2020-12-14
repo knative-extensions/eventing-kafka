@@ -386,21 +386,21 @@ func (r *Reconciler) newDispatcherDeployment(logger *zap.Logger, channel *kafkav
 
 	// There is a difference between setting an entry in the limits or requests map to the zero-value
 	// of a Quantity and not actually having that entry in the map at all.
-	// If we want "no limit" or "no request" then the entry must not be present in the map at all.
+	// If we want "no limit" or "no request" then the entry must not be present in the map.
 	// Note: Since a "Quantity" type has no nil value, we use the Zero value to represent unlimited.
-	limits := make(map[corev1.ResourceName]resource.Quantity)
+	resourceLimits := make(map[corev1.ResourceName]resource.Quantity)
 	if !r.config.Dispatcher.MemoryLimit.IsZero() {
-		limits[corev1.ResourceMemory] = r.config.Dispatcher.MemoryLimit
+		resourceLimits[corev1.ResourceMemory] = r.config.Dispatcher.MemoryLimit
 	}
 	if !r.config.Dispatcher.CpuLimit.IsZero() {
-		limits[corev1.ResourceCPU] = r.config.Dispatcher.CpuLimit
+		resourceLimits[corev1.ResourceCPU] = r.config.Dispatcher.CpuLimit
 	}
-	requests := make(map[corev1.ResourceName]resource.Quantity)
+	resourceRequests := make(map[corev1.ResourceName]resource.Quantity)
 	if !r.config.Dispatcher.MemoryRequest.IsZero() {
-		requests[corev1.ResourceMemory] = r.config.Dispatcher.MemoryRequest
+		resourceRequests[corev1.ResourceMemory] = r.config.Dispatcher.MemoryRequest
 	}
 	if !r.config.Dispatcher.CpuRequest.IsZero() {
-		requests[corev1.ResourceCPU] = r.config.Dispatcher.CpuRequest
+		resourceRequests[corev1.ResourceCPU] = r.config.Dispatcher.CpuRequest
 	}
 
 	// Create The Dispatcher's Deployment
@@ -464,8 +464,8 @@ func (r *Reconciler) newDispatcherDeployment(logger *zap.Logger, channel *kafkav
 							Env:             envVars,
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Resources: corev1.ResourceRequirements{
-								Limits:   limits,
-								Requests: requests,
+								Limits:   resourceLimits,
+								Requests: resourceRequests,
 							},
 						},
 					},

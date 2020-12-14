@@ -52,18 +52,18 @@ type TestCase struct {
 	// Config settings
 	kafkaTopicDefaultNumPartitions     int32
 	kafkaTopicDefaultReplicationFactor int16
-	kafkaTopicDefaultRetentionMillis int64
-	kafkaAdminType          string
-	dispatcherCpuLimit      resource.Quantity
-	dispatcherCpuRequest    resource.Quantity
-	dispatcherMemoryLimit   resource.Quantity
-	dispatcherMemoryRequest resource.Quantity
-	dispatcherReplicas      int
-	receiverCpuLimit        resource.Quantity
-	receiverCpuRequest      resource.Quantity
-	receiverMemoryLimit     resource.Quantity
-	receiverMemoryRequest   resource.Quantity
-	receiverReplicas        int
+	kafkaTopicDefaultRetentionMillis   int64
+	kafkaAdminType                     string
+	dispatcherCpuLimit                 resource.Quantity
+	dispatcherCpuRequest               resource.Quantity
+	dispatcherMemoryLimit              resource.Quantity
+	dispatcherMemoryRequest            resource.Quantity
+	dispatcherReplicas                 int
+	receiverCpuLimit                   resource.Quantity
+	receiverCpuRequest                 resource.Quantity
+	receiverMemoryLimit                resource.Quantity
+	receiverMemoryRequest              resource.Quantity
+	receiverReplicas                   int
 
 	expectedError error
 }
@@ -129,7 +129,7 @@ func TestVerifyConfiguration(t *testing.T) {
 	testCase = getValidTestCase("Valid Config - Dispatcher.MemoryRequest = Zero (unlimited)")
 	testCase.dispatcherMemoryRequest = resource.Quantity{}
 	testCases = append(testCases, testCase)
-	
+
 	testCase = getValidTestCase("Invalid Config - Dispatcher.Replicas")
 	testCase.dispatcherReplicas = -1
 	testCase.expectedError = ControllerConfigurationError("Dispatcher.Replicas must be > 0")
