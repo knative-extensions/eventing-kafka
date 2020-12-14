@@ -190,13 +190,8 @@ func TestReconcile(t *testing.T) {
 				controllertesting.NewKafkaChannelSuccessfulReconciliationEvent(),
 			},
 		},
-
-		//
-		// Full Reconciliation (No Dispatcher Resource Requests Or Limits)
-		//
-
 		{
-			Name:                    "Complete Reconciliation Success",
+			Name:                    "Complete Reconciliation Success, No Dispatcher Resource Requests Or Limits",
 			SkipNamespaceValidation: true,
 			Key:                     controllertesting.KafkaChannelKey,
 			Objects: []runtime.Object{

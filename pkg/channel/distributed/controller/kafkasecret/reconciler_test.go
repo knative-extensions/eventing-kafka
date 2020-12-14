@@ -147,6 +147,7 @@ func TestReconcile(t *testing.T) {
 				"configOptions": []controllertesting.KafkaConfigOption{controllertesting.WithNoReceiverResources},
 			},
 		},
+
 		//
 		// KafkaChannel Secret Deletion (Finalizer)
 		//
