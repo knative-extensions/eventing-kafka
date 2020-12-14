@@ -144,7 +144,7 @@ func TestReconcile(t *testing.T) {
 				controllertesting.NewKafkaSecretSuccessfulReconciliationEvent(),
 			},
 			OtherTestData: map[string]interface{}{
-				"configOptions": []controllertesting.KafkaConfigOption { controllertesting.WithNoReceiverResources },
+				"configOptions": []controllertesting.KafkaConfigOption{controllertesting.WithNoReceiverResources},
 			},
 		},
 		//

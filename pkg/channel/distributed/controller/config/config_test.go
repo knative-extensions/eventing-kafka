@@ -122,6 +122,14 @@ func TestVerifyConfiguration(t *testing.T) {
 	testCase.dispatcherMemoryLimit = resource.Quantity{}
 	testCases = append(testCases, testCase)
 
+	testCase = getValidTestCase("Valid Config - Dispatcher.CpuRequest = Zero (unlimited)")
+	testCase.dispatcherCpuRequest = resource.Quantity{}
+	testCases = append(testCases, testCase)
+
+	testCase = getValidTestCase("Valid Config - Dispatcher.MemoryRequest = Zero (unlimited)")
+	testCase.dispatcherMemoryRequest = resource.Quantity{}
+	testCases = append(testCases, testCase)
+	
 	testCase = getValidTestCase("Invalid Config - Dispatcher.Replicas")
 	testCase.dispatcherReplicas = -1
 	testCase.expectedError = ControllerConfigurationError("Dispatcher.Replicas must be > 0")
@@ -133,6 +141,14 @@ func TestVerifyConfiguration(t *testing.T) {
 
 	testCase = getValidTestCase("Valid Config - Receiver.MemoryLimit = Zero (unlimited)")
 	testCase.receiverMemoryLimit = resource.Quantity{}
+	testCases = append(testCases, testCase)
+
+	testCase = getValidTestCase("Valid Config - Receiver.CpuRequest = Zero (unlimited)")
+	testCase.receiverCpuRequest = resource.Quantity{}
+	testCases = append(testCases, testCase)
+
+	testCase = getValidTestCase("Valid Config - Receiver.MemoryRequest = Zero (unlimited)")
+	testCase.receiverMemoryRequest = resource.Quantity{}
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Invalid Config - Receiver.Replicas")

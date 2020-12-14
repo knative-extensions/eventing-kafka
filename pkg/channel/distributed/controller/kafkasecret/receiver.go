@@ -263,11 +263,11 @@ func (r *Reconciler) newReceiverDeployment(logger *zap.Logger, secret *corev1.Se
 		logger.Error("Failed To Create Receiver Deployment Environment Variables", zap.Error(err))
 		return nil, err
 	}
-	
+
 	// There is a difference between setting an entry in the limits or requests map to the zero-value
 	// of a Quantity and not actually having that entry in the map at all.
 	// If we want "no limit" or "no request" then the entry must not be present in the map at all.
-	// Note: Since a "Quantity" type has no nil value, we use the Zero value to represent unlimited. 
+	// Note: Since a "Quantity" type has no nil value, we use the Zero value to represent unlimited.
 	limits := make(map[corev1.ResourceName]resource.Quantity)
 	if !r.config.Receiver.MemoryLimit.IsZero() {
 		limits[corev1.ResourceMemory] = r.config.Receiver.MemoryLimit
@@ -349,7 +349,7 @@ func (r *Reconciler) newReceiverDeployment(logger *zap.Logger, secret *corev1.Se
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Resources: corev1.ResourceRequirements{
 								Requests: requests,
-								Limits: limits,
+								Limits:   limits,
 							},
 						},
 					},

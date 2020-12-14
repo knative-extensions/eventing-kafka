@@ -237,7 +237,7 @@ func TestReconcile(t *testing.T) {
 				controllertesting.NewKafkaChannelSuccessfulReconciliationEvent(),
 			},
 			OtherTestData: map[string]interface{}{
-				"configOptions": []controllertesting.KafkaConfigOption { controllertesting.WithNoDispatcherResources },
+				"configOptions": []controllertesting.KafkaConfigOption{controllertesting.WithNoDispatcherResources},
 			},
 		},
 

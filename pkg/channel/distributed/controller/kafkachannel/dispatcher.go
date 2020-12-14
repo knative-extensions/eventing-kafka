@@ -464,7 +464,7 @@ func (r *Reconciler) newDispatcherDeployment(logger *zap.Logger, channel *kafkav
 							Env:             envVars,
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Resources: corev1.ResourceRequirements{
-								Limits: limits,
+								Limits:   limits,
 								Requests: requests,
 							},
 						},
