@@ -119,7 +119,34 @@ func TestReconcile(t *testing.T) {
 				controllertesting.NewKafkaSecretSuccessfulReconciliationEvent(),
 			},
 		},
-
+		{
+			Name: "Complete Reconciliation With KafkaChannel, No Receiver Resource Requests Or Limits",
+			Key:  controllertesting.KafkaSecretKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaSecret(),
+				controllertesting.NewKafkaChannel(),
+			},
+			WantCreates: []runtime.Object{
+				controllertesting.NewKafkaChannelReceiverService(),
+				controllertesting.NewKafkaChannelReceiverDeployment(controllertesting.WithoutResources),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
+				{
+					Object: controllertesting.NewKafkaChannel(
+						controllertesting.WithReceiverServiceReady,
+						controllertesting.WithReceiverDeploymentReady,
+					),
+				},
+			},
+			WantPatches: []clientgotesting.PatchActionImpl{controllertesting.NewKafkaSecretFinalizerPatchActionImpl()},
+			WantEvents: []string{
+				controllertesting.NewKafkaSecretFinalizerUpdateEvent(),
+				controllertesting.NewKafkaSecretSuccessfulReconciliationEvent(),
+			},
+			OtherTestData: map[string]interface{}{
+				"configOptions": []controllertesting.KafkaConfigOption { controllertesting.WithNoReceiverResources },
+			},
+		},
 		//
 		// KafkaChannel Secret Deletion (Finalizer)
 		//
@@ -277,12 +304,12 @@ func TestReconcile(t *testing.T) {
 
 	// Run The TableTest Using The KafkaChannel Reconciler Provided By The Factory
 	logger := logtesting.TestLogger(t)
-	tableTest.Test(t, controllertesting.MakeFactory(func(ctx context.Context, listers *controllertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
+	tableTest.Test(t, controllertesting.MakeFactory(func(ctx context.Context, listers *controllertesting.Listers, cmw configmap.Watcher, configOptions []controllertesting.KafkaConfigOption) controller.Reconciler {
 		r := &Reconciler{
 			logger:             logging.FromContext(ctx).Desugar(),
 			kubeClientset:      kubeclient.Get(ctx),
 			environment:        controllertesting.NewEnvironment(),
-			config:             controllertesting.NewConfig(),
+			config:             controllertesting.NewConfig(configOptions...),
 			kafkaChannelClient: fakekafkaclient.Get(ctx),
 			kafkachannelLister: listers.GetKafkaChannelLister(),
 			deploymentLister:   listers.GetDeploymentLister(),

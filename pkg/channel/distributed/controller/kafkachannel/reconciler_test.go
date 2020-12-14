@@ -192,6 +192,56 @@ func TestReconcile(t *testing.T) {
 		},
 
 		//
+		// Full Reconciliation (No Dispatcher Resource Requests Or Limits)
+		//
+
+		{
+			Name:                    "Complete Reconciliation Success",
+			SkipNamespaceValidation: true,
+			Key:                     controllertesting.KafkaChannelKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaChannel(controllertesting.WithInitializedConditions),
+			},
+			WantCreates: []runtime.Object{
+				controllertesting.NewKafkaChannelService(),
+				controllertesting.NewKafkaChannelDispatcherService(),
+				controllertesting.NewKafkaChannelDispatcherDeployment(controllertesting.WithoutResources),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
+				{
+					Object: controllertesting.NewKafkaChannel(
+						controllertesting.WithAddress,
+						controllertesting.WithInitializedConditions,
+						controllertesting.WithKafkaChannelServiceReady,
+						controllertesting.WithDispatcherDeploymentReady,
+						controllertesting.WithTopicReady,
+					),
+				},
+			},
+			WantUpdates: []clientgotesting.UpdateActionImpl{
+				controllertesting.NewKafkaChannelLabelUpdate(
+					controllertesting.NewKafkaChannel(
+						controllertesting.WithFinalizer,
+						controllertesting.WithMetaData,
+						controllertesting.WithAddress,
+						controllertesting.WithInitializedConditions,
+						controllertesting.WithKafkaChannelServiceReady,
+						controllertesting.WithDispatcherDeploymentReady,
+						controllertesting.WithTopicReady,
+					),
+				),
+			},
+			WantPatches: []clientgotesting.PatchActionImpl{controllertesting.NewFinalizerPatchActionImpl()},
+			WantEvents: []string{
+				controllertesting.NewKafkaChannelFinalizerUpdateEvent(),
+				controllertesting.NewKafkaChannelSuccessfulReconciliationEvent(),
+			},
+			OtherTestData: map[string]interface{}{
+				"configOptions": []controllertesting.KafkaConfigOption { controllertesting.WithNoDispatcherResources },
+			},
+		},
+
+		//
 		// KafkaChannel Deletion (Finalizer)
 		//
 
@@ -599,14 +649,14 @@ func TestReconcile(t *testing.T) {
 
 	// Run The TableTest Using The KafkaChannel Reconciler Provided By The Factory
 	logger := logtesting.TestLogger(t)
-	tableTest.Test(t, controllertesting.MakeFactory(func(ctx context.Context, listers *controllertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
+	tableTest.Test(t, controllertesting.MakeFactory(func(ctx context.Context, listers *controllertesting.Listers, cmw configmap.Watcher, configOptions []controllertesting.KafkaConfigOption) controller.Reconciler {
 		r := &Reconciler{
 			logger:               logging.FromContext(ctx).Desugar(),
 			kubeClientset:        kubeclient.Get(ctx),
 			adminClientType:      kafkaadmin.Kafka,
 			adminClient:          nil,
 			environment:          controllertesting.NewEnvironment(),
-			config:               controllertesting.NewConfig(),
+			config:               controllertesting.NewConfig(configOptions...),
 			kafkachannelLister:   listers.GetKafkaChannelLister(),
 			kafkachannelInformer: nil,
 			deploymentLister:     listers.GetDeploymentLister(),

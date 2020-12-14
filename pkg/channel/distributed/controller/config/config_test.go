@@ -38,11 +38,11 @@ const (
 	dispatcherMemoryLimit   = "50Mi"
 	dispatcherCpuLimit      = "300m"
 
-	channelReplicas      = 1
-	channelMemoryRequest = "10Mi"
-	channelCpuRquest     = "10m"
-	channelMemoryLimit   = "20Mi"
-	channelCpuLimit      = "100m"
+	receiverReplicas      = 1
+	receiverMemoryRequest = "10Mi"
+	receiverCpuRquest     = "10m"
+	receiverMemoryLimit   = "20Mi"
+	receiverCpuLimit      = "100m"
 )
 
 // Define The TestCase Struct
@@ -52,18 +52,18 @@ type TestCase struct {
 	// Config settings
 	kafkaTopicDefaultNumPartitions     int32
 	kafkaTopicDefaultReplicationFactor int16
-	kafkaTopicDefaultRetentionMillis   int64
-	kafkaAdminType                     string
-	dispatcherCpuLimit                 resource.Quantity
-	dispatcherCpuRequest               resource.Quantity
-	dispatcherMemoryLimit              resource.Quantity
-	dispatcherMemoryRequest            resource.Quantity
-	dispatcherReplicas                 int
-	channelCpuLimit                    resource.Quantity
-	channelCpuRequest                  resource.Quantity
-	channelMemoryLimit                 resource.Quantity
-	channelMemoryRequest               resource.Quantity
-	channelReplicas                    int
+	kafkaTopicDefaultRetentionMillis int64
+	kafkaAdminType          string
+	dispatcherCpuLimit      resource.Quantity
+	dispatcherCpuRequest    resource.Quantity
+	dispatcherMemoryLimit   resource.Quantity
+	dispatcherMemoryRequest resource.Quantity
+	dispatcherReplicas      int
+	receiverCpuLimit        resource.Quantity
+	receiverCpuRequest      resource.Quantity
+	receiverMemoryLimit     resource.Quantity
+	receiverMemoryRequest   resource.Quantity
+	receiverReplicas        int
 
 	expectedError error
 }
@@ -81,11 +81,11 @@ func getValidTestCase(name string) TestCase {
 		dispatcherMemoryLimit:              resource.MustParse(dispatcherMemoryLimit),
 		dispatcherMemoryRequest:            resource.MustParse(dispatcherMemoryRequest),
 		dispatcherReplicas:                 dispatcherReplicas,
-		channelCpuLimit:                    resource.MustParse(channelCpuLimit),
-		channelCpuRequest:                  resource.MustParse(channelCpuRquest),
-		channelMemoryLimit:                 resource.MustParse(channelMemoryLimit),
-		channelMemoryRequest:               resource.MustParse(channelMemoryRequest),
-		channelReplicas:                    channelReplicas,
+		receiverCpuLimit:                   resource.MustParse(receiverCpuLimit),
+		receiverCpuRequest:                 resource.MustParse(receiverCpuRquest),
+		receiverMemoryLimit:                resource.MustParse(receiverMemoryLimit),
+		receiverMemoryRequest:              resource.MustParse(receiverMemoryRequest),
+		receiverReplicas:                   receiverReplicas,
 		expectedError:                      nil,
 	}
 }
@@ -114,14 +114,12 @@ func TestVerifyConfiguration(t *testing.T) {
 	testCase.expectedError = ControllerConfigurationError("Kafka.Topic.DefaultRetentionMillis must be > 0")
 	testCases = append(testCases, testCase)
 
-	testCase = getValidTestCase("Invalid Config - Dispatcher.CpuRequest")
-	testCase.dispatcherCpuRequest = resource.Quantity{}
-	testCase.expectedError = ControllerConfigurationError("Dispatcher.CpuRequest must be nonzero")
+	testCase = getValidTestCase("Valid Config - Dispatcher.CpuLimit = Zero (unlimited)")
+	testCase.dispatcherCpuLimit = resource.Quantity{}
 	testCases = append(testCases, testCase)
 
-	testCase = getValidTestCase("Invalid Config - Dispatcher.MemoryRequest")
-	testCase.dispatcherMemoryRequest = resource.Quantity{}
-	testCase.expectedError = ControllerConfigurationError("Dispatcher.MemoryRequest must be nonzero")
+	testCase = getValidTestCase("Valid Config - Dispatcher.MemoryLimit = Zero (unlimited)")
+	testCase.dispatcherMemoryLimit = resource.Quantity{}
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Invalid Config - Dispatcher.Replicas")
@@ -129,18 +127,16 @@ func TestVerifyConfiguration(t *testing.T) {
 	testCase.expectedError = ControllerConfigurationError("Dispatcher.Replicas must be > 0")
 	testCases = append(testCases, testCase)
 
-	testCase = getValidTestCase("Invalid Config - Receiver.CpuRequest")
-	testCase.channelCpuRequest = resource.Quantity{}
-	testCase.expectedError = ControllerConfigurationError("Receiver.CpuRequest must be nonzero")
+	testCase = getValidTestCase("Valid Config - Receiver.CpuLimit = Zero (unlimited)")
+	testCase.receiverCpuLimit = resource.Quantity{}
 	testCases = append(testCases, testCase)
 
-	testCase = getValidTestCase("Invalid Config - Receiver.MemoryRequest")
-	testCase.channelMemoryRequest = resource.Quantity{}
-	testCase.expectedError = ControllerConfigurationError("Receiver.MemoryRequest must be nonzero")
+	testCase = getValidTestCase("Valid Config - Receiver.MemoryLimit = Zero (unlimited)")
+	testCase.receiverMemoryLimit = resource.Quantity{}
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Invalid Config - Receiver.Replicas")
-	testCase.channelReplicas = -1
+	testCase.receiverReplicas = -1
 	testCase.expectedError = ControllerConfigurationError("Receiver.Replicas must be > 0")
 	testCases = append(testCases, testCase)
 
@@ -161,11 +157,11 @@ func TestVerifyConfiguration(t *testing.T) {
 			testConfig.Dispatcher.MemoryLimit = testCase.dispatcherMemoryLimit
 			testConfig.Dispatcher.MemoryRequest = testCase.dispatcherMemoryRequest
 			testConfig.Dispatcher.Replicas = testCase.dispatcherReplicas
-			testConfig.Receiver.CpuLimit = testCase.channelCpuLimit
-			testConfig.Receiver.CpuRequest = testCase.channelCpuRequest
-			testConfig.Receiver.MemoryLimit = testCase.channelMemoryLimit
-			testConfig.Receiver.MemoryRequest = testCase.channelMemoryRequest
-			testConfig.Receiver.Replicas = testCase.channelReplicas
+			testConfig.Receiver.CpuLimit = testCase.receiverCpuLimit
+			testConfig.Receiver.CpuRequest = testCase.receiverCpuRequest
+			testConfig.Receiver.MemoryLimit = testCase.receiverMemoryLimit
+			testConfig.Receiver.MemoryRequest = testCase.receiverMemoryRequest
+			testConfig.Receiver.Replicas = testCase.receiverReplicas
 
 			// Perform The Test
 			err := VerifyConfiguration(testConfig)
@@ -182,11 +178,11 @@ func TestVerifyConfiguration(t *testing.T) {
 				assert.Equal(t, testCase.dispatcherMemoryLimit, testConfig.Dispatcher.MemoryLimit)
 				assert.Equal(t, testCase.dispatcherMemoryRequest, testConfig.Dispatcher.MemoryRequest)
 				assert.Equal(t, testCase.dispatcherReplicas, testConfig.Dispatcher.Replicas)
-				assert.Equal(t, testCase.channelCpuLimit, testConfig.Receiver.CpuLimit)
-				assert.Equal(t, testCase.channelCpuRequest, testConfig.Receiver.CpuRequest)
-				assert.Equal(t, testCase.channelMemoryLimit, testConfig.Receiver.MemoryLimit)
-				assert.Equal(t, testCase.channelMemoryRequest, testConfig.Receiver.MemoryRequest)
-				assert.Equal(t, testCase.channelReplicas, testConfig.Receiver.Replicas)
+				assert.Equal(t, testCase.receiverCpuLimit, testConfig.Receiver.CpuLimit)
+				assert.Equal(t, testCase.receiverCpuRequest, testConfig.Receiver.CpuRequest)
+				assert.Equal(t, testCase.receiverMemoryLimit, testConfig.Receiver.MemoryLimit)
+				assert.Equal(t, testCase.receiverMemoryRequest, testConfig.Receiver.MemoryRequest)
+				assert.Equal(t, testCase.receiverReplicas, testConfig.Receiver.Replicas)
 			} else {
 				assert.Equal(t, testCase.expectedError, err)
 			}
