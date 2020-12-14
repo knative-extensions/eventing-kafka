@@ -22,6 +22,8 @@ import (
 	"strconv"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -262,6 +264,25 @@ func (r *Reconciler) newReceiverDeployment(logger *zap.Logger, secret *corev1.Se
 		return nil, err
 	}
 
+	// There is a difference between setting an entry in the limits or requests map to the zero-value
+	// of a Quantity and not actually having that entry in the map at all.
+	// If we want "no limit" or "no request" then the entry must not be present in the map.
+	// Note: Since a "Quantity" type has no nil value, we use the Zero value to represent unlimited.
+	resourceLimits := make(map[corev1.ResourceName]resource.Quantity)
+	if !r.config.Receiver.MemoryLimit.IsZero() {
+		resourceLimits[corev1.ResourceMemory] = r.config.Receiver.MemoryLimit
+	}
+	if !r.config.Receiver.CpuLimit.IsZero() {
+		resourceLimits[corev1.ResourceCPU] = r.config.Receiver.CpuLimit
+	}
+	resourceRequests := make(map[corev1.ResourceName]resource.Quantity)
+	if !r.config.Receiver.MemoryRequest.IsZero() {
+		resourceRequests[corev1.ResourceMemory] = r.config.Receiver.MemoryRequest
+	}
+	if !r.config.Receiver.CpuRequest.IsZero() {
+		resourceRequests[corev1.ResourceCPU] = r.config.Receiver.CpuRequest
+	}
+
 	// Create The Receiver Deployment
 	deployment := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
@@ -327,14 +348,8 @@ func (r *Reconciler) newReceiverDeployment(logger *zap.Logger, secret *corev1.Se
 							Env:             channelEnvVars,
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Resources: corev1.ResourceRequirements{
-								Requests: corev1.ResourceList{
-									corev1.ResourceCPU:    r.config.Receiver.CpuRequest,
-									corev1.ResourceMemory: r.config.Receiver.MemoryRequest,
-								},
-								Limits: corev1.ResourceList{
-									corev1.ResourceCPU:    r.config.Receiver.CpuLimit,
-									corev1.ResourceMemory: r.config.Receiver.MemoryLimit,
-								},
+								Requests: resourceRequests,
+								Limits:   resourceLimits,
 							},
 						},
 					},

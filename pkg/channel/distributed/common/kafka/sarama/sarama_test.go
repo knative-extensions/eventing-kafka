@@ -39,15 +39,11 @@ const (
 	// EKDefaultConfigYaml is intended to match what's in 200-eventing-kafka-configmap.yaml
 	EKDefaultConfigYaml = `
 receiver:
-  cpuLimit: 200m
   cpuRequest: 100m
-  memoryLimit: 100Mi
   memoryRequest: 50Mi
   replicas: 1
 dispatcher:
-  cpuLimit: 500m
-  cpuRequest: 300m
-  memoryLimit: 128Mi
+  cpuRequest: 100m
   memoryRequest: 50Mi
   replicas: 1
 kafka:
@@ -214,17 +210,17 @@ func TestLoadDefaultSaramaSettings(t *testing.T) {
 
 	// Make sure all of our default eventing-kafka settings were loaded properly
 	// Specifically checking the type (e.g. int64, int16, int) is important
-	assert.Equal(t, resource.MustParse("200m"), configuration.Receiver.CpuLimit)
+	assert.Equal(t, resource.Quantity{}, configuration.Receiver.CpuLimit)
 	assert.Equal(t, resource.MustParse("100m"), configuration.Receiver.CpuRequest)
-	assert.Equal(t, resource.MustParse("100Mi"), configuration.Receiver.MemoryLimit)
+	assert.Equal(t, resource.Quantity{}, configuration.Receiver.MemoryLimit)
 	assert.Equal(t, resource.MustParse("50Mi"), configuration.Receiver.MemoryRequest)
 	assert.Equal(t, 1, configuration.Receiver.Replicas)
 	assert.Equal(t, int32(4), configuration.Kafka.Topic.DefaultNumPartitions)
 	assert.Equal(t, int16(1), configuration.Kafka.Topic.DefaultReplicationFactor)
 	assert.Equal(t, int64(604800000), configuration.Kafka.Topic.DefaultRetentionMillis)
-	assert.Equal(t, resource.MustParse("500m"), configuration.Dispatcher.CpuLimit)
-	assert.Equal(t, resource.MustParse("300m"), configuration.Dispatcher.CpuRequest)
-	assert.Equal(t, resource.MustParse("128Mi"), configuration.Dispatcher.MemoryLimit)
+	assert.Equal(t, resource.Quantity{}, configuration.Dispatcher.CpuLimit)
+	assert.Equal(t, resource.MustParse("100m"), configuration.Dispatcher.CpuRequest)
+	assert.Equal(t, resource.Quantity{}, configuration.Dispatcher.MemoryLimit)
 	assert.Equal(t, resource.MustParse("50Mi"), configuration.Dispatcher.MemoryRequest)
 	assert.Equal(t, 1, configuration.Dispatcher.Replicas)
 	assert.Equal(t, "azure", configuration.Kafka.AdminType)

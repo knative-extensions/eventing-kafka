@@ -22,6 +22,8 @@ import (
 	"strconv"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -382,6 +384,25 @@ func (r *Reconciler) newDispatcherDeployment(logger *zap.Logger, channel *kafkav
 		return nil, err
 	}
 
+	// There is a difference between setting an entry in the limits or requests map to the zero-value
+	// of a Quantity and not actually having that entry in the map at all.
+	// If we want "no limit" or "no request" then the entry must not be present in the map.
+	// Note: Since a "Quantity" type has no nil value, we use the Zero value to represent unlimited.
+	resourceLimits := make(map[corev1.ResourceName]resource.Quantity)
+	if !r.config.Dispatcher.MemoryLimit.IsZero() {
+		resourceLimits[corev1.ResourceMemory] = r.config.Dispatcher.MemoryLimit
+	}
+	if !r.config.Dispatcher.CpuLimit.IsZero() {
+		resourceLimits[corev1.ResourceCPU] = r.config.Dispatcher.CpuLimit
+	}
+	resourceRequests := make(map[corev1.ResourceName]resource.Quantity)
+	if !r.config.Dispatcher.MemoryRequest.IsZero() {
+		resourceRequests[corev1.ResourceMemory] = r.config.Dispatcher.MemoryRequest
+	}
+	if !r.config.Dispatcher.CpuRequest.IsZero() {
+		resourceRequests[corev1.ResourceCPU] = r.config.Dispatcher.CpuRequest
+	}
+
 	// Create The Dispatcher's Deployment
 	deployment := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
@@ -443,14 +464,8 @@ func (r *Reconciler) newDispatcherDeployment(logger *zap.Logger, channel *kafkav
 							Env:             envVars,
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Resources: corev1.ResourceRequirements{
-								Limits: corev1.ResourceList{
-									corev1.ResourceMemory: r.config.Dispatcher.MemoryLimit,
-									corev1.ResourceCPU:    r.config.Dispatcher.CpuLimit,
-								},
-								Requests: corev1.ResourceList{
-									corev1.ResourceMemory: r.config.Dispatcher.MemoryRequest,
-									corev1.ResourceCPU:    r.config.Dispatcher.CpuRequest,
-								},
+								Limits:   resourceLimits,
+								Requests: resourceRequests,
 							},
 						},
 					},

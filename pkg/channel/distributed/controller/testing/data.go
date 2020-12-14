@@ -185,6 +185,11 @@ func WithoutFinalizersDeployment(deployment *appsv1.Deployment) {
 	deployment.ObjectMeta.Finalizers = []string{}
 }
 
+func WithoutResources(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].Resources.Limits = nil
+	deployment.Spec.Template.Spec.Containers[0].Resources.Requests = nil
+}
+
 //
 // ControllerConfig Test Data
 //
@@ -202,9 +207,12 @@ func NewEnvironment() *env.Environment {
 	}
 }
 
+// KafkaConfigOption Enables Customization Of An EventingKafkaConfig
+type KafkaConfigOption func(kafkaConfig *config.EventingKafkaConfig)
+
 // Set The Required Config Fields
-func NewConfig() *config.EventingKafkaConfig {
-	return &config.EventingKafkaConfig{
+func NewConfig(options ...KafkaConfigOption) *config.EventingKafkaConfig {
+	kafkaConfig := &config.EventingKafkaConfig{
 		Dispatcher: config.EKDispatcherConfig{
 			EKKubernetesConfig: config.EKKubernetesConfig{
 				Replicas:      DispatcherReplicas,
@@ -232,6 +240,29 @@ func NewConfig() *config.EventingKafkaConfig {
 			AdminType: KafkaAdminType,
 		},
 	}
+
+	// Apply The Specified Kafka secret Customizations
+	for _, option := range options {
+		option(kafkaConfig)
+	}
+
+	return kafkaConfig
+}
+
+// Remove The Receiver Resource Requests And Limits
+func WithNoReceiverResources(kafkaConfig *config.EventingKafkaConfig) {
+	kafkaConfig.Receiver.EKKubernetesConfig.CpuLimit = resource.Quantity{}
+	kafkaConfig.Receiver.EKKubernetesConfig.CpuRequest = resource.Quantity{}
+	kafkaConfig.Receiver.EKKubernetesConfig.MemoryLimit = resource.Quantity{}
+	kafkaConfig.Receiver.EKKubernetesConfig.MemoryRequest = resource.Quantity{}
+}
+
+// Remove The Dispatcher Resource Requests And Limits
+func WithNoDispatcherResources(kafkaConfig *config.EventingKafkaConfig) {
+	kafkaConfig.Dispatcher.EKKubernetesConfig.CpuLimit = resource.Quantity{}
+	kafkaConfig.Dispatcher.EKKubernetesConfig.CpuRequest = resource.Quantity{}
+	kafkaConfig.Dispatcher.EKKubernetesConfig.MemoryLimit = resource.Quantity{}
+	kafkaConfig.Dispatcher.EKKubernetesConfig.MemoryRequest = resource.Quantity{}
 }
 
 //
