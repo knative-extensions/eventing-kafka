@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -430,35 +429,4 @@ func getTestSaramaContext(t *testing.T, saramaConfig string, eventingKafkaConfig
 	ctx := context.WithValue(context.Background(), injectionclient.Key{}, fakeK8sClient)
 	assert.NotNil(t, ctx)
 	return ctx
-}
-
-// Test The ExtractRoots() Functionality
-func TestExtractRootCerts(t *testing.T) {
-
-	// The Sarama Config YAML String To Test
-	beforeSaramaConfigYaml := EKDefaultSaramaConfigWithRootCert
-
-	// Perform The Test (Extract The RootCert)
-	afterSaramaConfigYaml, certPool, err := extractRootCerts(beforeSaramaConfigYaml)
-
-	// Verify The RootCert Was Extracted Successfully & Returned In CertPool
-	assert.NotNil(t, afterSaramaConfigYaml)
-	assert.NotEqual(t, beforeSaramaConfigYaml, afterSaramaConfigYaml)
-	assert.False(t, strings.Contains(afterSaramaConfigYaml, "RootPEMs"))
-	assert.False(t, strings.Contains(afterSaramaConfigYaml, "-----BEGIN CERTIFICATE-----"))
-	assert.False(t, strings.Contains(afterSaramaConfigYaml, "-----END CERTIFICATE-----"))
-	assert.NotNil(t, certPool)
-	assert.Nil(t, err)
-	subjects := certPool.Subjects()
-	assert.NotNil(t, subjects)
-	assert.Len(t, subjects, 1)
-
-	// Attempt To Extract Again (Now That There Arent' Any RootPEMs)
-	finalSaramaConfigYaml, certPool, err := extractRootCerts(afterSaramaConfigYaml)
-
-	// Verify The YAML String Is Unchanged And CertPool Is Nil
-	assert.NotNil(t, finalSaramaConfigYaml)
-	assert.Equal(t, afterSaramaConfigYaml, finalSaramaConfigYaml)
-	assert.Nil(t, certPool)
-	assert.Nil(t, err)
 }
