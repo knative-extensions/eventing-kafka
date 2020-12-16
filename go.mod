@@ -14,7 +14,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/ghodss/yaml v1.0.0
 	github.com/golang/protobuf v1.4.3
-	github.com/google/go-cmp v0.5.2
+	github.com/google/go-cmp v0.5.4
 	github.com/google/gofuzz v1.1.0
 	github.com/google/uuid v1.1.2
 	github.com/influxdata/tdigest v0.0.1 // indirect
@@ -27,14 +27,14 @@ require (
 	go.opencensus.io v0.22.5
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897 // indirect
-	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
+	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a
 	k8s.io/api v0.18.12
 	k8s.io/apimachinery v0.18.12
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/utils v0.0.0-20200603063816-c1c6865ac451
-	knative.dev/eventing v0.19.1-0.20201210151342-904cbe408ab3
-	knative.dev/hack v0.0.0-20201201234937-fddbf732e450
-	knative.dev/pkg v0.0.0-20201210165642-80c1131539da
+	knative.dev/eventing v0.19.1-0.20201215192158-c806bcc5dfda
+	knative.dev/hack v0.0.0-20201214230143-4ed1ecb8db24
+	knative.dev/pkg v0.0.0-20201216014558-95b8793bd623
 )
 
 replace (
