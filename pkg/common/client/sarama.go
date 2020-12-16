@@ -23,7 +23,7 @@ var regexRootPEMs = regexp.MustCompile(`(?s)\s*RootPEMs:.*-----END CERTIFICATE--
 // and return as an actual sarama.KafkaVersion.  In the case where the user has NOT specified
 // a Version string we will return a default version.
 //
-func ExtractKafkaVersion(saramaConfigYamlString string) (string, sarama.KafkaVersion, error) {
+func extractKafkaVersion(saramaConfigYamlString string) (string, sarama.KafkaVersion, error) {
 
 	// Define Inline Struct To Marshall The Top Level Sarama Config "Kafka" Version Into
 	type saramaConfigShell struct {
@@ -102,7 +102,7 @@ data:
 prevent trailing linefeed. The indentation of the PEM content is also important
 and must be aligned as shown.
 */
-func ExtractRootCerts(saramaConfigYamlString string) (string, *x509.CertPool, error) {
+func extractRootCerts(saramaConfigYamlString string) (string, *x509.CertPool, error) {
 
 	// Define Inline Struct To Marshall The TLS Config 'RootPEMs' Into
 	type tlsConfigShell struct {

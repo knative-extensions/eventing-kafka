@@ -37,6 +37,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/env"
 	channelhealth "knative.dev/eventing-kafka/pkg/channel/distributed/receiver/health"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/producer"
+	"knative.dev/eventing-kafka/pkg/common/client"
 	eventingchannel "knative.dev/eventing/pkg/channel"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
@@ -80,7 +81,7 @@ func main() {
 	}
 
 	// Update The Sarama Config - Username/Password Overrides (EnvVars From Secret Take Precedence Over ConfigMap)
-	sarama.UpdateSaramaConfig(saramaConfig, constants.Component, environment.KafkaUsername, environment.KafkaPassword)
+	client.UpdateSaramaConfig(saramaConfig, constants.Component, environment.KafkaUsername, environment.KafkaPassword)
 
 	// Enable Sarama Logging If Specified In ConfigMap
 	sarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)

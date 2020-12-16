@@ -32,6 +32,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	kafkaadmin "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin"
 	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
@@ -39,6 +40,7 @@ import (
 	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	"knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
 	kafkalisters "knative.dev/eventing-kafka/pkg/client/listers/messaging/v1beta1"
+	"knative.dev/eventing-kafka/pkg/common/client"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/reconciler"
 )
@@ -242,7 +244,17 @@ func (r *Reconciler) configMapObserver(configMap *corev1.ConfigMap) {
 	// environment will also need to be re-parsed here.
 
 	// Load the Sarama settings from our configmap, ignoring the eventing-kafka result.
-	saramaConfig, err := kafkasarama.MergeSaramaSettings(nil, configMap)
+
+	// Validate The ConfigMap Data
+	if configMap.Data == nil {
+		r.logger.Fatal("Attempted to merge sarama settings with empty configmap")
+		return
+	}
+
+	// Merge The ConfigMap Settings Into The Provided Config
+	saramaSettingsYamlString := configMap.Data[testing.SaramaSettingsConfigKey]
+
+	saramaConfig, err := client.MergeSaramaSettings(nil, saramaSettingsYamlString)
 	if err != nil {
 		r.logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Error(err))
 	}

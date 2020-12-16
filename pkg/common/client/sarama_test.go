@@ -70,7 +70,7 @@ func TestExtractRootCerts(t *testing.T) {
 	beforeSaramaConfigYaml := EKDefaultSaramaConfigWithRootCert
 
 	// Perform The Test (Extract The RootCert)
-	afterSaramaConfigYaml, certPool, err := ExtractRootCerts(beforeSaramaConfigYaml)
+	afterSaramaConfigYaml, certPool, err := extractRootCerts(beforeSaramaConfigYaml)
 
 	// Verify The RootCert Was Extracted Successfully & Returned In CertPool
 	assert.NotNil(t, afterSaramaConfigYaml)
@@ -85,7 +85,7 @@ func TestExtractRootCerts(t *testing.T) {
 	assert.Len(t, subjects, 1)
 
 	// Attempt To Extract Again (Now That There Arent' Any RootPEMs)
-	finalSaramaConfigYaml, certPool, err := ExtractRootCerts(afterSaramaConfigYaml)
+	finalSaramaConfigYaml, certPool, err := extractRootCerts(afterSaramaConfigYaml)
 
 	// Verify The YAML String Is Unchanged And CertPool Is Nil
 	assert.NotNil(t, finalSaramaConfigYaml)

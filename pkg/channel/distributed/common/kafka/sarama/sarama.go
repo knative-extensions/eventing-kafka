@@ -32,7 +32,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	commonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
 	"knative.dev/eventing-kafka/pkg/common/client"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
@@ -46,23 +45,6 @@ func EnableSaramaLogging(enable bool) {
 	} else {
 		sarama.Logger = log.New(ioutil.Discard, "[Sarama] ", log.LstdFlags)
 	}
-}
-
-// Utility Function For Configuring Common Settings For Admin/Producer/Consumer
-func UpdateSaramaConfig(config *sarama.Config, clientId string, username string, password string) {
-
-	// Set The ClientID For Logging
-	config.ClientID = clientId
-
-	// Set The SASL Username / Password
-	config.Net.SASL.User = username
-	config.Net.SASL.Password = password
-
-	// We Always Want To Know About Consumer Errors
-	config.Consumer.Return.Errors = true
-
-	// We Always Want Success Messages From Producer
-	config.Producer.Return.Successes = true
 }
 
 // ConfigEqual is a convenience function to determine if two given sarama.Config structs are identical aside
@@ -99,60 +81,6 @@ func ConfigEqual(config1, config2 *sarama.Config, ignore ...interface{}) bool {
 	return cmp.Equal(config1, config2, ignoredTypes, ignoredUnexported)
 }
 
-// Extract The Sarama-Specific Settings From A ConfigMap And Merge Them With Existing Settings
-// If config Is nil, A New sarama.Config Struct Will Be Created With Default Values
-func MergeSaramaSettings(config *sarama.Config, configMap *corev1.ConfigMap) (*sarama.Config, error) {
-
-	// Validate The ConfigMap Data
-	if configMap.Data == nil {
-		return nil, fmt.Errorf("attempted to merge sarama settings with empty configmap")
-	}
-
-	// Merging To A Nil Config Requires Creating An Default One First
-	if config == nil {
-		// Start With Base Sarama Defaults
-		config = sarama.NewConfig()
-
-		// Use Our Default Minimum Version
-		config.Version = constants.ConfigKafkaVersionDefault
-
-		// Add Any Required Settings
-		UpdateSaramaConfig(config, config.ClientID, "", "")
-	}
-
-	// Merge The ConfigMap Settings Into The Provided Config
-	saramaSettingsYamlString := configMap.Data[testing.SaramaSettingsConfigKey]
-
-	// Extract (Remove) The KafkaVersion From The Sarama Config YAML
-	saramaSettingsYamlString, kafkaVersion, err := client.ExtractKafkaVersion(saramaSettingsYamlString)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract KafkaVersion from Sarama Config YAML: err=%s : config=%+v", err, saramaSettingsYamlString)
-	}
-
-	// Extract (Remove) Any TLS.Config RootCAs & Set In Sarama.Config
-	saramaSettingsYamlString, certPool, err := client.ExtractRootCerts(saramaSettingsYamlString)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract RootPEMs from Sarama Config YAML: err=%s : config=%+v", err, saramaSettingsYamlString)
-	}
-
-	// Unmarshall The Sarama Config Yaml Into The Provided Sarama.Config Object
-	err = yaml.Unmarshal([]byte(saramaSettingsYamlString), &config)
-	if err != nil {
-		return nil, fmt.Errorf("ConfigMap's sarama value could not be converted to a Sarama.Config struct: %s : %v", err, saramaSettingsYamlString)
-	}
-
-	// Override The Custom Parsed KafkaVersion
-	config.Version = kafkaVersion
-
-	// Override Any Custom Parsed TLS.Config.RootCAs
-	if certPool != nil && len(certPool.Subjects()) > 0 {
-		config.Net.TLS.Config = &tls.Config{RootCAs: certPool}
-	}
-
-	// Return Success
-	return config, nil
-}
-
 // Load The Sarama & EventingKafka Configuration From The ConfigMap
 // The Provided Context Must Have A Kubernetes Client Associated With It
 func LoadSettings(ctx context.Context) (*sarama.Config, *commonconfig.EventingKafkaConfig, error) {
@@ -170,8 +98,16 @@ func LoadSettings(ctx context.Context) (*sarama.Config, *commonconfig.EventingKa
 		return nil, nil, err
 	}
 
+	// Validate The ConfigMap Data
+	if configMap.Data == nil {
+		return nil, nil, fmt.Errorf("Attempted to merge sarama settings with empty configmap")
+	}
+
+	// Merge The ConfigMap Settings Into The Provided Config
+	saramaSettingsYamlString := configMap.Data[testing.SaramaSettingsConfigKey]
+
 	// Merge The Sarama Settings In The ConfigMap Into A New Base Sarama Config
-	saramaConfig, err := MergeSaramaSettings(nil, configMap)
+	saramaConfig, err := client.MergeSaramaSettings(nil, saramaSettingsYamlString)
 
 	return saramaConfig, eventingKafkaConfig, err
 }
