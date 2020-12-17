@@ -21,6 +21,8 @@ import (
 	"errors"
 	"time"
 
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
+	"knative.dev/eventing-kafka/pkg/common/client"
 	"knative.dev/eventing-kafka/pkg/common/tracing"
 
 	"go.opencensus.io/trace"
@@ -199,8 +201,17 @@ func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 	// Create A New Sarama Config (Carrying Forward The Kafka Secret Auth)
 	p.logger.Debug("New ConfigMap Received", zap.String("configMap.Name", configMap.ObjectMeta.Name))
 
+	// Validate The ConfigMap Data
+	if configMap.Data == nil {
+		p.logger.Error("Attempted to merge sarama settings with empty configmap")
+		return nil
+	}
+
+	// Merge The ConfigMap Settings Into The Provided Config
+	saramaSettingsYamlString := configMap.Data[testing.SaramaSettingsConfigKey]
+
 	// Merge The Sarama Config From ConfigMap Into New Sarama Config
-	newConfig, err := kafkasarama.MergeSaramaSettings(nil, configMap)
+	newConfig, err := client.MergeSaramaSettings(nil, saramaSettingsYamlString)
 	if err != nil {
 		p.logger.Error("Unable to merge sarama settings", zap.Error(err))
 		return nil
@@ -210,7 +221,7 @@ func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 	if p.configuration != nil {
 
 		// Some of the current config settings may not be overridden by the configmap (username, password, etc.)
-		kafkasarama.UpdateSaramaConfig(newConfig, p.configuration.ClientID, p.configuration.Net.SASL.User, p.configuration.Net.SASL.Password)
+		client.UpdateSaramaConfig(newConfig, p.configuration.ClientID, p.configuration.Net.SASL.User, p.configuration.Net.SASL.Password)
 
 		// Enable Sarama Logging If Specified In ConfigMap
 		if ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap); err == nil && ekConfig != nil {

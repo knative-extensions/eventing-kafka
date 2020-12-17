@@ -28,6 +28,8 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer"
 	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/metrics"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
+	"knative.dev/eventing-kafka/pkg/common/client"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/channel"
 )
@@ -272,7 +274,16 @@ func (d *DispatcherImpl) ConfigChanged(configMap *v1.ConfigMap) Dispatcher {
 	// Create A New Sarama Config
 	d.Logger.Debug("New ConfigMap Received", zap.String("configMap.Name", configMap.ObjectMeta.Name))
 
-	newConfig, err := kafkasarama.MergeSaramaSettings(nil, configMap)
+	// Validate The ConfigMap Data
+	if configMap.Data == nil {
+		d.Logger.Error("Attempted to merge sarama settings with empty configmap")
+		return nil
+	}
+
+	// Merge The ConfigMap Settings Into The Provided Config
+	saramaSettingsYamlString := configMap.Data[testing.SaramaSettingsConfigKey]
+
+	newConfig, err := client.MergeSaramaSettings(nil, saramaSettingsYamlString)
 	if err != nil {
 		d.Logger.Error("Unable to merge sarama settings", zap.Error(err))
 		return nil
@@ -282,7 +293,7 @@ func (d *DispatcherImpl) ConfigChanged(configMap *v1.ConfigMap) Dispatcher {
 	if d.SaramaConfig != nil {
 
 		// Some of the current config settings may not be overridden by the configmap (username, password, etc.)
-		kafkasarama.UpdateSaramaConfig(newConfig, d.SaramaConfig.ClientID, d.SaramaConfig.Net.SASL.User, d.SaramaConfig.Net.SASL.Password)
+		client.UpdateSaramaConfig(newConfig, d.SaramaConfig.ClientID, d.SaramaConfig.Net.SASL.User, d.SaramaConfig.Net.SASL.Password)
 
 		// Enable Sarama Logging If Specified In ConfigMap
 		if ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap); err == nil && ekConfig != nil {
