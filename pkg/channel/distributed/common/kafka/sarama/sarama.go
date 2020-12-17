@@ -107,7 +107,7 @@ func LoadSettings(ctx context.Context) (*sarama.Config, *commonconfig.EventingKa
 	saramaSettingsYamlString := configMap.Data[testing.SaramaSettingsConfigKey]
 
 	// Merge The Sarama Settings In The ConfigMap Into A New Base Sarama Config
-	saramaConfig, err := client.MergeSaramaSettings(nil, saramaSettingsYamlString)
+	saramaConfig, err := client.InitializeSaramaSettings(nil, saramaSettingsYamlString)
 
 	return saramaConfig, eventingKafkaConfig, err
 }

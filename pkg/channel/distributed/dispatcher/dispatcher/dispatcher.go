@@ -283,7 +283,7 @@ func (d *DispatcherImpl) ConfigChanged(configMap *v1.ConfigMap) Dispatcher {
 	// Merge The ConfigMap Settings Into The Provided Config
 	saramaSettingsYamlString := configMap.Data[testing.SaramaSettingsConfigKey]
 
-	newConfig, err := client.MergeSaramaSettings(nil, saramaSettingsYamlString)
+	newConfig, err := client.InitializeSaramaSettings(nil, saramaSettingsYamlString)
 	if err != nil {
 		d.Logger.Error("Unable to merge sarama settings", zap.Error(err))
 		return nil

@@ -253,7 +253,7 @@ func (r *Reconciler) configMapObserver(configMap *corev1.ConfigMap) {
 	saramaSettingsYamlString := configMap.Data[testing.SaramaSettingsConfigKey]
 
 	// Load the Sarama settings from our configmap, ignoring the eventing-kafka result.
-	saramaConfig, err := client.MergeSaramaSettings(nil, saramaSettingsYamlString)
+	saramaConfig, err := client.InitializeSaramaSettings(nil, saramaSettingsYamlString)
 	if err != nil {
 		r.logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Error(err))
 	}

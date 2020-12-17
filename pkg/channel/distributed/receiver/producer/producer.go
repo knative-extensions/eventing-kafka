@@ -211,7 +211,7 @@ func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 	saramaSettingsYamlString := configMap.Data[testing.SaramaSettingsConfigKey]
 
 	// Merge The Sarama Config From ConfigMap Into New Sarama Config
-	newConfig, err := client.MergeSaramaSettings(nil, saramaSettingsYamlString)
+	newConfig, err := client.InitializeSaramaSettings(nil, saramaSettingsYamlString)
 	if err != nil {
 		p.logger.Error("Unable to merge sarama settings", zap.Error(err))
 		return nil

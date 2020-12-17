@@ -27,21 +27,17 @@ import (
 
 // Merge existing Sarama config with provided YAML string.
 // Values in YAML string will override the values in the config.
-// If config Is nil, A New sarama.Config Struct Will Be Created With Default Values
-func MergeSaramaSettings(config *sarama.Config, saramaSettingsYamlString string) (*sarama.Config, error) {
+// If config is nil, A New sarama.Config struct will be created with default values
+func InitializeSaramaSettings(config *sarama.Config, saramaSettingsYamlString string) (*sarama.Config, error) {
 	// Merging To A Nil Config Requires Creating An Default One First
 	if config == nil {
 		// Start With Base Sarama Defaults
 		config = sarama.NewConfig()
 
-		// Use Our Default Minimum Version
-		config.Version = constants.ConfigKafkaVersionDefault
-
-		// Add Any Required Settings
-		UpdateSaramaConfig(config, config.ClientID, "", "")
+		setSaramaConfigDefaults(config)
 	}
 
-	// Extract (Remove) The KafkaVersion From The Sarama Config YAML
+	// Extract (Remove) The KafkaVersion From The Sarama Config YAML as we can't marshal it regularly
 	saramaSettingsYamlString, kafkaVersionInYaml, err := extractKafkaVersion(saramaSettingsYamlString)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract KafkaVersion from Sarama Config YAML: err=%s : config=%+v", err, saramaSettingsYamlString)
@@ -71,6 +67,19 @@ func MergeSaramaSettings(config *sarama.Config, saramaSettingsYamlString string)
 
 	// Return Success
 	return config, nil
+}
+
+func setSaramaConfigDefaults(config *sarama.Config) {
+	// Use Our Default Minimum Version
+	config.Version = constants.ConfigKafkaVersionDefault
+
+	// Add Any Required Settings
+
+	// We Always Want To Know About Consumer Errors
+	config.Consumer.Return.Errors = true
+
+	// We Always Want Success Messages From Producer
+	config.Producer.Return.Successes = true
 }
 
 // Utility Function For Configuring Common Settings For Admin/Producer/Consumer
