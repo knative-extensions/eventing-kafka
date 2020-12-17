@@ -23,7 +23,6 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/ghodss/yaml"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 )
 
 // Regular Expression To Find All Certificates In Net.TLS.Config.RootPEMs Field
@@ -36,10 +35,11 @@ var regexRootPEMs = regexp.MustCompile(`(?s)\s*RootPEMs:.*-----END CERTIFICATE--
 // This type contains a package scoped [4]uint field called 'version' which we cannot unmarshal
 // the yaml into.  Therefore, we instead support the user providing a 'Version' string of the
 // format "major.minor.patch" (e.g. "2.3.0") which we will "extract" out of the YAML string
-// and return as an actual sarama.KafkaVersion.  In the case where the user has NOT specified
-// a Version string we will return a default version.
+// and return as an actual sarama.KafkaVersion.
 //
-func extractKafkaVersion(saramaConfigYamlString string) (string, sarama.KafkaVersion, error) {
+// In the case where the user has NOT specified, nil will be returned.
+//
+func extractKafkaVersion(saramaConfigYamlString string) (string, *sarama.KafkaVersion, error) {
 
 	// Define Inline Struct To Marshall The Top Level Sarama Config "Kafka" Version Into
 	type saramaConfigShell struct {
@@ -50,27 +50,27 @@ func extractKafkaVersion(saramaConfigYamlString string) (string, sarama.KafkaVer
 	shell := &saramaConfigShell{}
 	err := yaml.Unmarshal([]byte(saramaConfigYamlString), shell)
 	if err != nil {
-		return saramaConfigYamlString, constants.ConfigKafkaVersionDefault, err
+		return saramaConfigYamlString, nil, err
 	}
 
-	// Return Default Kafka Version If Not Specified
+	// Return nil If Not Specified
 	if len(shell.Version) <= 0 {
-		return saramaConfigYamlString, constants.ConfigKafkaVersionDefault, nil
+		return saramaConfigYamlString, nil, nil
 	}
 
 	// Attempt To Parse The Version String Into A Sarama.KafkaVersion
 	kafkaVersion, err := sarama.ParseKafkaVersion(shell.Version)
 	if err != nil {
-		return saramaConfigYamlString, constants.ConfigKafkaVersionDefault, err
+		return saramaConfigYamlString, nil, err
 	}
 
 	// Remove The Version From The Sarama Config YAML String
 	regex, err := regexp.Compile("\\s*Version:\\s*" + shell.Version + "\\s*")
 	if err != nil {
-		return saramaConfigYamlString, constants.ConfigKafkaVersionDefault, err
+		return saramaConfigYamlString, nil, err
 	} else {
 		updatedSaramaConfigYamlBytes := regex.ReplaceAll([]byte(saramaConfigYamlString), []byte{})
-		return string(updatedSaramaConfigYamlBytes), kafkaVersion, nil
+		return string(updatedSaramaConfigYamlBytes), &kafkaVersion, nil
 	}
 }
 

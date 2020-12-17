@@ -42,7 +42,7 @@ func MergeSaramaSettings(config *sarama.Config, saramaSettingsYamlString string)
 	}
 
 	// Extract (Remove) The KafkaVersion From The Sarama Config YAML
-	saramaSettingsYamlString, kafkaVersion, err := extractKafkaVersion(saramaSettingsYamlString)
+	saramaSettingsYamlString, kafkaVersionInYaml, err := extractKafkaVersion(saramaSettingsYamlString)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract KafkaVersion from Sarama Config YAML: err=%s : config=%+v", err, saramaSettingsYamlString)
 	}
@@ -59,8 +59,10 @@ func MergeSaramaSettings(config *sarama.Config, saramaSettingsYamlString string)
 		return nil, fmt.Errorf("ConfigMap's sarama value could not be converted to a Sarama.Config struct: %s : %v", err, saramaSettingsYamlString)
 	}
 
-	// Override The Custom Parsed KafkaVersion
-	config.Version = kafkaVersion
+	// Override The Custom Parsed KafkaVersion, if it is specified in the YAML
+	if kafkaVersionInYaml != nil {
+		config.Version = *kafkaVersionInYaml
+	}
 
 	// Override Any Custom Parsed TLS.Config.RootCAs
 	if certPool != nil && len(certPool.Subjects()) > 0 {
