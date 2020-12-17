@@ -243,8 +243,6 @@ func (r *Reconciler) configMapObserver(configMap *corev1.ConfigMap) {
 	// env.GetEnvironment is not necessary now.  If	those settings are needed in the future, the
 	// environment will also need to be re-parsed here.
 
-	// Load the Sarama settings from our configmap, ignoring the eventing-kafka result.
-
 	// Validate The ConfigMap Data
 	if configMap.Data == nil {
 		r.logger.Fatal("Attempted to merge sarama settings with empty configmap")
@@ -254,6 +252,7 @@ func (r *Reconciler) configMapObserver(configMap *corev1.ConfigMap) {
 	// Merge The ConfigMap Settings Into The Provided Config
 	saramaSettingsYamlString := configMap.Data[testing.SaramaSettingsConfigKey]
 
+	// Load the Sarama settings from our configmap, ignoring the eventing-kafka result.
 	saramaConfig, err := client.MergeSaramaSettings(nil, saramaSettingsYamlString)
 	if err != nil {
 		r.logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Error(err))
