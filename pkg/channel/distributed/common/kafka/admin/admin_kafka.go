@@ -90,15 +90,17 @@ func NewKafkaAdminClient(ctx context.Context, saramaConfig *sarama.Config, clien
 	saramaConfig.ClientID = clientId
 
 	// Update The Sarama ClusterAdmin Configuration With Our Values
-	err = client.UpdateSaramaConfigWithKafkaAuthConfig(saramaConfig, &client.KafkaAuthConfig{
-		SASL: &client.KafkaSaslConfig{
-			User:     username,
-			Password: password,
-		},
-	})
-	if err != nil {
-		logger.Fatal("Unable to set SASL username and password on Sarama config", zap.Error(err))
-		return nil, err
+	if username != "" {
+		err = client.UpdateSaramaConfigWithKafkaAuthConfig(saramaConfig, &client.KafkaAuthConfig{
+			SASL: &client.KafkaSaslConfig{
+				User:     username,
+				Password: password,
+			},
+		})
+		if err != nil {
+			logger.Fatal("Unable to set SASL username and password on Sarama config", zap.Error(err))
+			return nil, err
+		}
 	}
 
 	// Create A New Sarama ClusterAdmin

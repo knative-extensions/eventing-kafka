@@ -296,15 +296,17 @@ func (d *DispatcherImpl) ConfigChanged(configMap *v1.ConfigMap) Dispatcher {
 		newConfig.ClientID = d.SaramaConfig.ClientID
 
 		// Some of the current config settings may not be overridden by the configmap (username, password, etc.)
-		err = client.UpdateSaramaConfigWithKafkaAuthConfig(newConfig, &client.KafkaAuthConfig{
-			SASL: &client.KafkaSaslConfig{
-				User:     d.SaramaConfig.Net.SASL.User,
-				Password: d.SaramaConfig.Net.SASL.Password,
-			},
-		})
-		if err != nil {
-			d.Logger.Fatal("Unable to set SASL username and password on Sarama config", zap.Error(err))
-			return nil
+		if d.SaramaConfig.Net.SASL.User != "" {
+			err = client.UpdateSaramaConfigWithKafkaAuthConfig(newConfig, &client.KafkaAuthConfig{
+				SASL: &client.KafkaSaslConfig{
+					User:     d.SaramaConfig.Net.SASL.User,
+					Password: d.SaramaConfig.Net.SASL.Password,
+				},
+			})
+			if err != nil {
+				d.Logger.Fatal("Unable to set SASL username and password on Sarama config", zap.Error(err))
+				return nil
+			}
 		}
 
 		// Enable Sarama Logging If Specified In ConfigMap
