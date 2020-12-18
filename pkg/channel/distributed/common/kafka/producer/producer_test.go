@@ -91,6 +91,7 @@ func verifySaramaConfig(t *testing.T, config *sarama.Config, clientId string, us
 	assert.Equal(t, clientId, config.ClientID)
 	assert.NotNil(t, config.Net)
 	assert.NotNil(t, config.Net.SASL)
+	assert.True(t, config.Net.SASL.Enable)
 	assert.Equal(t, username, config.Net.SASL.User)
 	assert.Equal(t, password, config.Net.SASL.Password)
 	assert.Equal(t, constants.ConfigKafkaVersionDefault, config.Version)

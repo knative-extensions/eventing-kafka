@@ -49,6 +49,7 @@ func TestCreateConsumerGroup(t *testing.T) {
 		assert.Equal(t, GroupId, groupIdArg)
 		assert.NotNil(t, configArg)
 		assert.Equal(t, ClientId, configArg.ClientID)
+		assert.True(t, configArg.Net.SASL.Enable)
 		assert.Equal(t, KafkaUsername, configArg.Net.SASL.User)
 		assert.Equal(t, KafkaPassword, configArg.Net.SASL.Password)
 		assert.Equal(t, constants.ConfigKafkaVersionDefault, configArg.Version)
