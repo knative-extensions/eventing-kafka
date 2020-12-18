@@ -18,8 +18,6 @@ package sarama
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -27,8 +25,6 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/ghodss/yaml"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	commonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
@@ -45,40 +41,6 @@ func EnableSaramaLogging(enable bool) {
 	} else {
 		sarama.Logger = log.New(ioutil.Discard, "[Sarama] ", log.LstdFlags)
 	}
-}
-
-// ConfigEqual is a convenience function to determine if two given sarama.Config structs are identical aside
-// from unserializable fields (e.g. function pointers).  To ignore parts of the sarama.Config struct, pass
-// them in as the "ignore" parameter.
-func ConfigEqual(config1, config2 *sarama.Config, ignore ...interface{}) bool {
-	// If some of the types in the sarama.Config struct are not ignored, these kinds of errors will appear:
-	// panic: cannot handle unexported field at {*sarama.Config}.Consumer.Group.Rebalance.Strategy.(*sarama.balanceStrategy).name
-
-	// Note that using the types directly from config1 is convenient (it allows us to call IgnoreTypes instead of the
-	// more complicated IgnoreInterfaces), but it will fail if, for example, config1.Consumer.Group.Rebalance is nil
-
-	// However, the sarama.NewConfig() function sets all of these values to a non-nil default, so the risk
-	// is minimal and should be caught by one of the several unit tests for this function if the sarama vendor
-	// code is updated and these defaults become something invalid at that time)
-
-	ignoreTypeList := append([]interface{}{
-		config1.Consumer.Group.Rebalance.Strategy,
-		config1.MetricRegistry,
-		config1.Producer.Partitioner},
-		ignore...)
-	ignoredTypes := cmpopts.IgnoreTypes(ignoreTypeList...)
-
-	// If some interfaces are not included in the "IgnoreUnexported" list, these kinds of errors will appear:
-	// panic: cannot handle unexported field at {*sarama.Config}.Net.TLS.Config.mutex: "crypto/tls".Config
-
-	// Note that x509.CertPool and tls.Config are created here explicitly because config1/config2 may not
-	// have those fields, and results in a nil pointer panic if used in the IgnoreUnexported list indirectly
-	// like config1.Version is (Version is required to be present in a sarama.Config struct).
-
-	ignoredUnexported := cmpopts.IgnoreUnexported(config1.Version, x509.CertPool{}, tls.Config{})
-
-	// Compare the two sarama config structs, ignoring types and unexported fields as specified
-	return cmp.Equal(config1, config2, ignoredTypes, ignoredUnexported)
 }
 
 // Load The Sarama & EventingKafka Configuration From The ConfigMap
@@ -107,7 +69,7 @@ func LoadSettings(ctx context.Context) (*sarama.Config, *commonconfig.EventingKa
 	saramaSettingsYamlString := configMap.Data[testing.SaramaSettingsConfigKey]
 
 	// Merge The Sarama Settings In The ConfigMap Into A New Base Sarama Config
-	saramaConfig, err := client.InitializeSaramaSettings(nil, saramaSettingsYamlString)
+	saramaConfig, err := client.BuildSaramaConfig(nil, saramaSettingsYamlString, nil)
 
 	return saramaConfig, eventingKafkaConfig, err
 }

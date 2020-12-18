@@ -63,22 +63,24 @@ func TestCreateConsumerGroup(t *testing.T) {
 		NewConsumerGroupWrapper = newConsumerGroupWrapperPlaceholder
 	}()
 
+	config, err := client.BuildSaramaConfig(nil, commontesting.SaramaDefaultConfigYaml, nil)
+	assert.Nil(t, err)
+
+	err = client.UpdateSaramaConfigWithKafkaAuthConfig(config, &client.KafkaAuthConfig{
+		SASL: &client.KafkaSaslConfig{
+			User:     KafkaUsername,
+			Password: KafkaPassword,
+		},
+	})
+	assert.Nil(t, err)
+
+	config.ClientID = ClientId
+
 	// Perform The Test
-	config := commontesting.GetDefaultSaramaConfig(t)
-	client.UpdateSaramaConfig(config, ClientId, KafkaUsername, KafkaPassword)
 	consumerGroup, registry, err := CreateConsumerGroup(brokers, config, GroupId)
 
 	// Verify The Results
 	assert.Nil(t, err)
 	assert.NotNil(t, consumerGroup)
 	assert.NotNil(t, registry)
-}
-
-// Test that the UpdateSaramaConfig sets values as expected
-func TestUpdateConfig(t *testing.T) {
-	config := sarama.NewConfig()
-	client.UpdateSaramaConfig(config, ClientId, KafkaUsername, KafkaPassword)
-	assert.Equal(t, ClientId, config.ClientID)
-	assert.Equal(t, KafkaUsername, config.Net.SASL.User)
-	assert.Equal(t, KafkaPassword, config.Net.SASL.Password)
 }

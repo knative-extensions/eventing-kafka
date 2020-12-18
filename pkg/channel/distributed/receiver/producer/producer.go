@@ -211,7 +211,7 @@ func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 	saramaSettingsYamlString := configMap.Data[testing.SaramaSettingsConfigKey]
 
 	// Merge The Sarama Config From ConfigMap Into New Sarama Config
-	newConfig, err := client.InitializeSaramaSettings(nil, saramaSettingsYamlString)
+	newConfig, err := client.BuildSaramaConfig(nil, saramaSettingsYamlString, nil)
 	if err != nil {
 		p.logger.Error("Unable to merge sarama settings", zap.Error(err))
 		return nil
@@ -220,8 +220,20 @@ func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 	// Validate Configuration (Should Always Be Present)
 	if p.configuration != nil {
 
+		client.InitSaramaConfig(newConfig)
+		newConfig.ClientID = p.configuration.ClientID
+
 		// Some of the current config settings may not be overridden by the configmap (username, password, etc.)
-		client.UpdateSaramaConfig(newConfig, p.configuration.ClientID, p.configuration.Net.SASL.User, p.configuration.Net.SASL.Password)
+		err := client.UpdateSaramaConfigWithKafkaAuthConfig(newConfig, &client.KafkaAuthConfig{
+			SASL: &client.KafkaSaslConfig{
+				User:     p.configuration.Net.SASL.User,
+				Password: p.configuration.Net.SASL.Password,
+			},
+		})
+		if err != nil {
+			p.logger.Error("Unable to set SASL username and password on Sarama config", zap.Error(err))
+			return nil
+		}
 
 		// Enable Sarama Logging If Specified In ConfigMap
 		if ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap); err == nil && ekConfig != nil {
@@ -232,7 +244,7 @@ func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 		}
 
 		// Ignore the "Admin" and "Consumer" sections when comparing, as changes to those do not require restarting the Producer
-		if kafkasarama.ConfigEqual(newConfig, p.configuration, newConfig.Admin, newConfig.Consumer) {
+		if client.ConfigEqual(newConfig, p.configuration, newConfig.Admin, newConfig.Consumer) {
 			p.logger.Info("No Producer Changes Detected In New Configuration - Ignoring")
 			return nil
 		}

@@ -77,8 +77,19 @@ func main() {
 		logger.Fatal("Failed To Load Sarama Settings", zap.Error(err))
 	}
 
+	client.InitSaramaConfig(saramaConfig)
+	saramaConfig.ClientID = constants.Component
+
 	// Update The Sarama Config - Username/Password Overrides (EnvVars From Secret Take Precedence Over ConfigMap)
-	client.UpdateSaramaConfig(saramaConfig, constants.Component, environment.KafkaUsername, environment.KafkaPassword)
+	err = client.UpdateSaramaConfigWithKafkaAuthConfig(saramaConfig, &client.KafkaAuthConfig{
+		SASL: &client.KafkaSaslConfig{
+			User:     environment.KafkaUsername,
+			Password: environment.KafkaPassword,
+		},
+	})
+	if err != nil {
+		logger.Fatal("Unable to set SASL username and password on Sarama config", zap.Error(err))
+	}
 
 	// Enable Sarama Logging If Specified In ConfigMap
 	sarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)

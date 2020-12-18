@@ -18,12 +18,9 @@ package source
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"fmt"
-	"time"
 
-	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
+	"knative.dev/eventing-kafka/pkg/common/client"
 
 	"github.com/Shopify/sarama"
 	"github.com/kelseyhightower/envconfig"
@@ -55,42 +52,44 @@ type envConfig struct {
 
 // NewConfig extracts the Kafka configuration from the environment.
 func NewConfig(ctx context.Context) ([]string, *sarama.Config, error) {
-	cfg := sarama.NewConfig()
-	cfg.Version = sarama.V2_0_0_0
-	cfg.Consumer.Return.Errors = true
-
 	var env envConfig
 	if err := envconfig.Process("", &env); err != nil {
 		return nil, nil, err
 	}
 
-	if env.Net.SASL.Enable {
-		cfg.Net.SASL.Enable = true
-		cfg.Net.SASL.Handshake = true
-		cfg.Net.SASL.User = env.Net.SASL.User
-		cfg.Net.SASL.Password = env.Net.SASL.Password
+	kafkaAuthConfig := &client.KafkaAuthConfig{}
 
-		// We default to plain sasl type
-		cfg.Net.SASL.Mechanism = sarama.SASLTypePlaintext
-
-		if env.Net.SASL.Type == sarama.SASLTypeSCRAMSHA256 {
-			cfg.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient { return &XDGSCRAMClient{HashGeneratorFcn: SHA256} }
-			cfg.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA256
-		}
-
-		if env.Net.SASL.Type == sarama.SASLTypeSCRAMSHA512 {
-			cfg.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient { return &XDGSCRAMClient{HashGeneratorFcn: SHA512} }
-			cfg.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA512
+	if env.Net.TLS.Enable {
+		kafkaAuthConfig.TLS = &client.KafkaTlsConfig{
+			Cacert:   env.Net.TLS.CACert,
+			Usercert: env.Net.TLS.Cert,
+			Userkey:  env.Net.TLS.Key,
 		}
 	}
 
-	if env.Net.TLS.Enable {
-		cfg.Net.TLS.Enable = true
-		tlsConfig, err := NewTLSConfig(env.Net.TLS.Cert, env.Net.TLS.Key, env.Net.TLS.CACert)
-		if err != nil {
-			return nil, nil, err
+	if env.Net.SASL.Enable {
+		kafkaAuthConfig.SASL = &client.KafkaSaslConfig{
+			User:     env.Net.SASL.User,
+			Password: env.Net.SASL.Password,
+			SaslType: env.Net.SASL.Type,
 		}
-		cfg.Net.TLS.Config = tlsConfig
+	}
+
+	cfg := sarama.NewConfig()
+
+	// explicitly used
+	cfg.Version = sarama.V2_0_0_0
+
+	client.InitSaramaConfig(cfg)
+
+	cfg, err := client.BuildSaramaConfig(cfg, "", kafkaAuthConfig)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error creating Sarama config: %w", err)
+	}
+
+	err = client.UpdateSaramaConfigWithKafkaAuthConfig(cfg, kafkaAuthConfig)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error configuring Sarama config with auth: %w", err)
 	}
 
 	return env.BootstrapServers, cfg, nil
@@ -103,120 +102,24 @@ func NewProducer(ctx context.Context) (sarama.Client, error) {
 		return nil, err
 	}
 
-	cfg.Producer.Return.Successes = true
+	// TODO: specific here. can we do this for all?
 	cfg.Producer.Return.Errors = true
 
 	return sarama.NewClient(bs, cfg)
 }
 
-// NewTLSConfig returns a *tls.Config using the given ceClient cert, ceClient key,
-// and CA certificate. If none are appropriate, a nil *tls.Config is returned.
-func NewTLSConfig(clientCert, clientKey, caCert string) (*tls.Config, error) {
-	valid := false
-
-	config := &tls.Config{}
-
-	if clientCert != "" && clientKey != "" {
-		cert, err := tls.X509KeyPair([]byte(clientCert), []byte(clientKey))
-		if err != nil {
-			return nil, err
-		}
-		config.Certificates = []tls.Certificate{cert}
-		valid = true
-	}
-
-	if caCert != "" {
-		caCertPool := x509.NewCertPool()
-		caCertPool.AppendCertsFromPEM([]byte(caCert))
-		config.RootCAs = caCertPool
-		// The CN of Heroku Kafka certs do not match the hostname of the
-		// broker, but Go's default TLS behavior requires that they do.
-		config.VerifyPeerCertificate = verifyCertSkipHostname(caCertPool)
-		config.InsecureSkipVerify = true
-		valid = true
-	}
-
-	if !valid {
-		config = nil
-	}
-
-	return config, nil
-}
-
-func MakeAdminClient(clientID string, kafkaAuthCfg *utils.KafkaAuthConfig, bootstrapServers []string) (sarama.ClusterAdmin, error) {
+func MakeAdminClient(clientID string, kafkaAuthCfg *client.KafkaAuthConfig, bootstrapServers []string) (sarama.ClusterAdmin, error) {
 	saramaConf := sarama.NewConfig()
+
 	saramaConf.Version = sarama.V2_0_0_0
 	saramaConf.ClientID = clientID
 
-	err := UpdateSaramaConfigWithKafkaAuthConfig(saramaConf, kafkaAuthCfg)
+	client.InitSaramaConfig(saramaConf)
+
+	saramaConf, err := client.BuildSaramaConfig(saramaConf, "", kafkaAuthCfg)
 	if err != nil {
-		return nil, fmt.Errorf("Error creating the Admin Client: %w", err)
+		return nil, fmt.Errorf("error creating admin client Sarama config: %w", err)
 	}
 
 	return sarama.NewClusterAdmin(bootstrapServers, saramaConf)
-}
-
-func UpdateSaramaConfigWithKafkaAuthConfig(saramaConf *sarama.Config, kafkaAuthCfg *utils.KafkaAuthConfig) error {
-	if kafkaAuthCfg != nil {
-		// tls
-		if kafkaAuthCfg.TLS != nil {
-			saramaConf.Net.TLS.Enable = true
-			tlsConfig, err := NewTLSConfig(kafkaAuthCfg.TLS.Usercert, kafkaAuthCfg.TLS.Userkey, kafkaAuthCfg.TLS.Cacert)
-			if err != nil {
-				return fmt.Errorf("Error creating TLS config: %w", err)
-			}
-			saramaConf.Net.TLS.Config = tlsConfig
-		}
-		// SASL
-		if kafkaAuthCfg.SASL != nil {
-			saramaConf.Net.SASL.Enable = true
-			saramaConf.Net.SASL.Handshake = true
-
-			// if SaslType is not provided we are defaulting to PLAIN
-			saramaConf.Net.SASL.Mechanism = sarama.SASLTypePlaintext
-
-			if kafkaAuthCfg.SASL.SaslType == sarama.SASLTypeSCRAMSHA256 {
-				saramaConf.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient { return &XDGSCRAMClient{HashGeneratorFcn: SHA256} }
-				saramaConf.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA256
-			}
-
-			if kafkaAuthCfg.SASL.SaslType == sarama.SASLTypeSCRAMSHA512 {
-				saramaConf.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient { return &XDGSCRAMClient{HashGeneratorFcn: SHA512} }
-				saramaConf.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA512
-			}
-			saramaConf.Net.SASL.User = kafkaAuthCfg.SASL.User
-			saramaConf.Net.SASL.Password = kafkaAuthCfg.SASL.Password
-		}
-	}
-	return nil
-}
-
-// verifyCertSkipHostname verifies certificates in the same way that the
-// default TLS handshake does, except it skips hostname verification. It must
-// be used with InsecureSkipVerify.
-func verifyCertSkipHostname(roots *x509.CertPool) func([][]byte, [][]*x509.Certificate) error {
-	return func(certs [][]byte, _ [][]*x509.Certificate) error {
-		opts := x509.VerifyOptions{
-			Roots:         roots,
-			CurrentTime:   time.Now(),
-			Intermediates: x509.NewCertPool(),
-		}
-
-		leaf, err := x509.ParseCertificate(certs[0])
-		if err != nil {
-			return err
-		}
-
-		for _, asn1Data := range certs[1:] {
-			cert, err := x509.ParseCertificate(asn1Data)
-			if err != nil {
-				return err
-			}
-
-			opts.Intermediates.AddCert(cert)
-		}
-
-		_, err = leaf.Verify(opts)
-		return err
-	}
 }

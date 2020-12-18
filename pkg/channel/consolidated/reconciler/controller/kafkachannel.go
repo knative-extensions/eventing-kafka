@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/kafka"
+	"knative.dev/eventing-kafka/pkg/common/client"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
@@ -116,7 +117,7 @@ type Reconciler struct {
 	dispatcherImage string
 
 	kafkaConfig      *utils.KafkaConfig
-	kafkaAuthConfig  *utils.KafkaAuthConfig
+	kafkaAuthConfig  *client.KafkaAuthConfig
 	kafkaConfigError error
 	kafkaClientSet   kafkaclientset.Interface
 	// Using a shared kafkaClusterAdmin does not work currently because of an issue with

@@ -30,7 +30,6 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	commonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
-	"knative.dev/eventing-kafka/pkg/common/client"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 )
 
@@ -184,67 +183,6 @@ func TestLoadDefaultSaramaSettings(t *testing.T) {
 	assert.Equal(t, resource.MustParse("50Mi"), configuration.Dispatcher.MemoryRequest)
 	assert.Equal(t, 1, configuration.Dispatcher.Replicas)
 	assert.Equal(t, "azure", configuration.Kafka.AdminType)
-}
-
-// Verify that comparisons of sarama config structs function as expected
-func TestSaramaConfigEqual(t *testing.T) {
-	config1 := sarama.NewConfig()
-	config2 := sarama.NewConfig()
-
-	// Change some of the values back and forth and verify that the comparison function is correctly evaluated
-	assert.True(t, ConfigEqual(config1, config2))
-
-	config1.Admin = sarama.Config{}.Admin // Zero out the entire Admin sub-struct
-	assert.False(t, ConfigEqual(config1, config2))
-
-	config2.Admin = sarama.Config{}.Admin // Zero out the entire Admin sub-struct
-	assert.True(t, ConfigEqual(config1, config2))
-
-	config1.Net.SASL.Version = 12345
-	assert.False(t, ConfigEqual(config1, config2))
-
-	config2.Net.SASL.Version = 12345
-	assert.True(t, ConfigEqual(config1, config2))
-
-	config1.Metadata.RefreshFrequency = 1234 * time.Second
-	assert.False(t, ConfigEqual(config1, config2))
-
-	config2.Metadata.RefreshFrequency = 1234 * time.Second
-	assert.True(t, ConfigEqual(config1, config2))
-
-	config1.Producer.Flush.Bytes = 12345678
-	assert.False(t, ConfigEqual(config1, config2))
-
-	config2.Producer.Flush.Bytes = 12345678
-	assert.True(t, ConfigEqual(config1, config2))
-
-	config1.RackID = "New Rack ID"
-	assert.False(t, ConfigEqual(config1, config2))
-
-	config2.RackID = "New Rack ID"
-	assert.True(t, ConfigEqual(config1, config2))
-
-	// Change a boolean flag in the TLS.Config struct (which is not Sarama-specific) and make sure the compare function
-	// works with those sub-structs as well.
-	config1.Net.TLS.Config = &tls.Config{}
-	config2.Net.TLS.Config = &tls.Config{}
-
-	config1.Net.TLS.Config.InsecureSkipVerify = true
-	config2.Net.TLS.Config.InsecureSkipVerify = false
-	assert.False(t, ConfigEqual(config1, config2))
-	config2.Net.TLS.Config.InsecureSkipVerify = true
-	assert.True(t, ConfigEqual(config1, config2))
-	config1.Net.TLS.Config.InsecureSkipVerify = false
-	assert.False(t, ConfigEqual(config1, config2))
-	config2.Net.TLS.Config.InsecureSkipVerify = false
-	assert.True(t, ConfigEqual(config1, config2))
-
-	// Test config with TLS struct
-	config1, err := client.MergeSaramaSettings(nil, EKDefaultSaramaConfigWithRootCert)
-	assert.Nil(t, err)
-	config2, err = client.MergeSaramaSettings(nil, EKDefaultSaramaConfigWithRootCert)
-	assert.Nil(t, err)
-	assert.True(t, ConfigEqual(config1, config2))
 }
 
 func TestLoadEventingKafkaSettings(t *testing.T) {

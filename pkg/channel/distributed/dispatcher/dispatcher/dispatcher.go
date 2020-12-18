@@ -283,7 +283,7 @@ func (d *DispatcherImpl) ConfigChanged(configMap *v1.ConfigMap) Dispatcher {
 	// Merge The ConfigMap Settings Into The Provided Config
 	saramaSettingsYamlString := configMap.Data[testing.SaramaSettingsConfigKey]
 
-	newConfig, err := client.InitializeSaramaSettings(nil, saramaSettingsYamlString)
+	newConfig, err := client.BuildSaramaConfig(nil, saramaSettingsYamlString, nil)
 	if err != nil {
 		d.Logger.Error("Unable to merge sarama settings", zap.Error(err))
 		return nil
@@ -292,8 +292,20 @@ func (d *DispatcherImpl) ConfigChanged(configMap *v1.ConfigMap) Dispatcher {
 	// Validate Configuration (Should Always Be Present)
 	if d.SaramaConfig != nil {
 
+		client.InitSaramaConfig(newConfig)
+		newConfig.ClientID = d.SaramaConfig.ClientID
+
 		// Some of the current config settings may not be overridden by the configmap (username, password, etc.)
-		client.UpdateSaramaConfig(newConfig, d.SaramaConfig.ClientID, d.SaramaConfig.Net.SASL.User, d.SaramaConfig.Net.SASL.Password)
+		err = client.UpdateSaramaConfigWithKafkaAuthConfig(newConfig, &client.KafkaAuthConfig{
+			SASL: &client.KafkaSaslConfig{
+				User:     d.SaramaConfig.Net.SASL.User,
+				Password: d.SaramaConfig.Net.SASL.Password,
+			},
+		})
+		if err != nil {
+			d.Logger.Fatal("Unable to set SASL username and password on Sarama config", zap.Error(err))
+			return nil
+		}
 
 		// Enable Sarama Logging If Specified In ConfigMap
 		if ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap); err == nil && ekConfig != nil {
@@ -304,7 +316,7 @@ func (d *DispatcherImpl) ConfigChanged(configMap *v1.ConfigMap) Dispatcher {
 		}
 
 		// Ignore the "Producer" section as changes to that do not require recreating the Dispatcher
-		if kafkasarama.ConfigEqual(newConfig, d.SaramaConfig, newConfig.Producer) {
+		if client.ConfigEqual(newConfig, d.SaramaConfig, newConfig.Producer) {
 			d.Logger.Info("No Consumer Changes Detected In New Configuration - Ignoring")
 			return nil
 		}

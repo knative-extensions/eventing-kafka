@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/eventing-kafka/pkg/common/client"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
 
@@ -62,24 +63,7 @@ type KafkaConfig struct {
 	AuthSecretNamespace string
 }
 
-type KafkaAuthConfig struct {
-	TLS  *KafkaTlsConfig
-	SASL *KafkaSaslConfig
-}
-
-type KafkaTlsConfig struct {
-	Cacert   string
-	Usercert string
-	Userkey  string
-}
-
-type KafkaSaslConfig struct {
-	User     string
-	Password string
-	SaslType string
-}
-
-func GetKafkaAuthData(ctx context.Context, secretname string, secretNS string) *KafkaAuthConfig {
+func GetKafkaAuthData(ctx context.Context, secretname string, secretNS string) *client.KafkaAuthConfig {
 
 	k8sClient := kubeclient.Get(ctx)
 	secret, err := k8sClient.CoreV1().Secrets(secretNS).Get(ctx, secretname, metav1.GetOptions{})
@@ -89,10 +73,10 @@ func GetKafkaAuthData(ctx context.Context, secretname string, secretNS string) *
 		return nil
 	}
 
-	kafkaAuthConfig := &KafkaAuthConfig{}
+	kafkaAuthConfig := &client.KafkaAuthConfig{}
 	// check for TLS
 	if string(secret.Data[TlsCacert]) != "" {
-		tls := &KafkaTlsConfig{
+		tls := &client.KafkaTlsConfig{
 			Cacert:   string(secret.Data[TlsCacert]),
 			Usercert: string(secret.Data[TlsUsercert]),
 			Userkey:  string(secret.Data[TlsUserkey]),
@@ -101,7 +85,7 @@ func GetKafkaAuthData(ctx context.Context, secretname string, secretNS string) *
 	}
 
 	if string(secret.Data[SaslUser]) != "" {
-		sasl := &KafkaSaslConfig{
+		sasl := &client.KafkaSaslConfig{
 			User:     string(secret.Data[SaslUser]),
 			Password: string(secret.Data[SaslPassword]),
 			SaslType: string(secret.Data[SaslType]),

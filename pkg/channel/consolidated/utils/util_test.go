@@ -22,6 +22,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	clientcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"knative.dev/eventing-kafka/pkg/common/client"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 
 	"testing"
@@ -74,7 +75,7 @@ func TestGetKafkaAuthData(t *testing.T) {
 		userkey     string
 		user        string
 		password    string
-		expected    *KafkaAuthConfig
+		expected    *client.KafkaAuthConfig
 	}{
 		"empty secret": {
 			corev1Input: api.Client.CoreV1(),
@@ -85,7 +86,7 @@ func TestGetKafkaAuthData(t *testing.T) {
 			userkey:     "",
 			user:        "",
 			password:    "",
-			expected:    &KafkaAuthConfig{},
+			expected:    &client.KafkaAuthConfig{},
 		},
 		"wrong secret name": {
 			corev1Input: api.Client.CoreV1(),
@@ -107,13 +108,13 @@ func TestGetKafkaAuthData(t *testing.T) {
 			userkey:     "userkey",
 			user:        "user",
 			password:    "password",
-			expected: &KafkaAuthConfig{
-				TLS: &KafkaTlsConfig{
+			expected: &client.KafkaAuthConfig{
+				TLS: &client.KafkaTlsConfig{
 					Cacert:   "cacert",
 					Usercert: "usercert",
 					Userkey:  "userkey",
 				},
-				SASL: &KafkaSaslConfig{
+				SASL: &client.KafkaSaslConfig{
 					User:     "user",
 					Password: "password",
 				},
@@ -128,8 +129,8 @@ func TestGetKafkaAuthData(t *testing.T) {
 			userkey:     "userkey",
 			user:        "",
 			password:    "",
-			expected: &KafkaAuthConfig{
-				TLS: &KafkaTlsConfig{
+			expected: &client.KafkaAuthConfig{
+				TLS: &client.KafkaTlsConfig{
 					Cacert:   "cacert",
 					Usercert: "usercert",
 					Userkey:  "userkey",
@@ -145,9 +146,9 @@ func TestGetKafkaAuthData(t *testing.T) {
 			userkey:     "",
 			user:        "user",
 			password:    "password",
-			expected: &KafkaAuthConfig{
+			expected: &client.KafkaAuthConfig{
 				TLS: nil,
-				SASL: &KafkaSaslConfig{
+				SASL: &client.KafkaSaslConfig{
 					User:     "user",
 					Password: "password",
 				},

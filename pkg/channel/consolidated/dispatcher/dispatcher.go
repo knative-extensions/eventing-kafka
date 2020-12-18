@@ -24,8 +24,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"knative.dev/eventing-kafka/pkg/source"
-
+	"knative.dev/eventing-kafka/pkg/common/client"
 	"knative.dev/eventing-kafka/pkg/common/tracing"
 
 	"github.com/Shopify/sarama"
@@ -90,13 +89,15 @@ func (sub Subscription) String() string {
 
 func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispatcher, error) {
 	conf := sarama.NewConfig()
-	conf.Version = sarama.V2_0_0_0
+	// don't get the clientID cleared by when it is built later
 	conf.ClientID = args.ClientID
-	conf.Consumer.Return.Errors = true    // Returns the errors in ConsumerGroup#Errors() https://godoc.org/github.com/Shopify/sarama#ConsumerGroup
-	conf.Producer.Return.Successes = true // Must be enabled for sync producer
+	// explicit version
+	conf.Version = sarama.V2_0_0_0
+
+	client.InitSaramaConfig(conf)
 
 	// append the auth info:
-	err := source.UpdateSaramaConfigWithKafkaAuthConfig(conf, args.KafkaAuthConfig)
+	conf, err := client.BuildSaramaConfig(conf, "", args.KafkaAuthConfig)
 	if err != nil {
 		return nil, fmt.Errorf("Error updating the Sarama Auth config: %w", err)
 	}
@@ -168,7 +169,7 @@ type KafkaDispatcherArgs struct {
 	KnCEConnectionArgs *kncloudevents.ConnectionArgs
 	ClientID           string
 	Brokers            []string
-	KafkaAuthConfig    *utils.KafkaAuthConfig
+	KafkaAuthConfig    *client.KafkaAuthConfig
 	TopicFunc          TopicFunc
 	Logger             *zap.SugaredLogger
 }
