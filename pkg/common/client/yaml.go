@@ -69,7 +69,7 @@ func extractKafkaVersion(saramaConfigYamlString string) (string, *sarama.KafkaVe
 	if err != nil {
 		return saramaConfigYamlString, nil, err
 	} else {
-		updatedSaramaConfigYamlBytes := regex.ReplaceAll([]byte(saramaConfigYamlString), []byte{})
+		updatedSaramaConfigYamlBytes := regex.ReplaceAll([]byte(saramaConfigYamlString), []byte("\n"))
 		return string(updatedSaramaConfigYamlBytes), &kafkaVersion, nil
 	}
 }

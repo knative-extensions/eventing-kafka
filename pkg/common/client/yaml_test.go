@@ -20,6 +20,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -173,7 +174,7 @@ Net:
 			// Verify The RootCert Was Extracted Successfully & Returned In CertPool
 			assert.Nil(t, err)
 
-			assert.Equal(t, yamlAfter, tc.expectedYamlAfter)
+			assert.Equal(t, tc.expectedYamlAfter, yamlAfter)
 
 			assert.False(t, strings.Contains(yamlAfter, "RootPEMs"))
 			assert.False(t, strings.Contains(yamlAfter, "-----BEGIN CERTIFICATE-----"))
@@ -185,6 +186,116 @@ Net:
 				assert.NotNil(t, certPool)
 				assert.Len(t, certPool.Subjects(), tc.expectedRootCertCount)
 			}
+		})
+	}
+}
+
+// Test The extractKafkaVersion() Functionality
+func TestExtractKafkaVersion(t *testing.T) {
+	tt := []struct {
+		name              string
+		yamlBefore        string
+		error             bool
+		expectedYamlAfter string
+		expectedVersion   *sarama.KafkaVersion
+	}{
+		{
+			name: "version exists with 3 numbers",
+			yamlBefore: `
+Net:
+  TLS:
+    Enable: false
+Version: 1.0.0
+Metadata:
+  RefreshFrequency: 300000000000
+`,
+			error: false,
+			expectedYamlAfter: `
+Net:
+  TLS:
+    Enable: false
+Metadata:
+  RefreshFrequency: 300000000000
+`,
+			expectedVersion: &sarama.V1_0_0_0,
+		},
+		{
+			// Sarama special thing: only versions starting with 0 can have 4 digits
+			name: "version exists with 4 numbers",
+			yamlBefore: `
+Net:
+  TLS:
+    Enable: false
+Version: 0.8.2.0
+Metadata:
+  RefreshFrequency: 300000000000
+`,
+			error: false,
+			expectedYamlAfter: `
+Net:
+  TLS:
+    Enable: false
+Metadata:
+  RefreshFrequency: 300000000000
+`,
+			expectedVersion: &sarama.V0_8_2_0,
+		},
+		{
+			name: "invalid version",
+			yamlBefore: `
+Net:
+  TLS:
+    Enable: false
+Version: ABC
+Metadata:
+  RefreshFrequency: 300000000000
+`,
+			error: true,
+			expectedYamlAfter: `
+Net:
+  TLS:
+    Enable: false
+Version: ABC
+Metadata:
+  RefreshFrequency: 300000000000
+`,
+			expectedVersion: nil,
+		},
+		{
+			name: "version doesn't exist",
+			yamlBefore: `
+Net:
+  TLS:
+    Enable: false
+Metadata:
+  RefreshFrequency: 300000000000
+`,
+			error: false,
+			expectedYamlAfter: `
+Net:
+  TLS:
+    Enable: false
+Metadata:
+  RefreshFrequency: 300000000000
+`,
+			expectedVersion: nil,
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			// Perform The Test (Extract The Version)
+			yamlAfter, version, err := extractKafkaVersion(tc.yamlBefore)
+
+			if !tc.error {
+				assert.Nil(t, err)
+				assert.False(t, strings.Contains(yamlAfter, "Version: "))
+			} else {
+				assert.NotNil(t, err)
+			}
+
+			assert.Equal(t, tc.expectedYamlAfter, yamlAfter)
+			assert.Equal(t, tc.expectedVersion, version)
 		})
 	}
 }
