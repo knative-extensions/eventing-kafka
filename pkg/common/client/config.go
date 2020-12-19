@@ -72,36 +72,9 @@ func BuildSaramaConfig(config *sarama.Config, saramaSettingsYamlString string, k
 		}
 	}
 
-	if kafkaAuthCfg != nil {
-		// tls
-		if kafkaAuthCfg.TLS != nil {
-			config.Net.TLS.Enable = true
-			tlsConfig, err := newTLSConfig(kafkaAuthCfg.TLS.Usercert, kafkaAuthCfg.TLS.Userkey, kafkaAuthCfg.TLS.Cacert)
-			if err != nil {
-				return nil, fmt.Errorf("Error creating TLS config: %w", err)
-			}
-			config.Net.TLS.Config = tlsConfig
-		}
-		// SASL
-		if kafkaAuthCfg.SASL != nil {
-			config.Net.SASL.Enable = true
-			config.Net.SASL.Handshake = true
-
-			// if SaslType is not provided we are defaulting to PLAIN
-			config.Net.SASL.Mechanism = sarama.SASLTypePlaintext
-
-			if kafkaAuthCfg.SASL.SaslType == sarama.SASLTypeSCRAMSHA256 {
-				config.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient { return &XDGSCRAMClient{HashGeneratorFcn: SHA256} }
-				config.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA256
-			}
-
-			if kafkaAuthCfg.SASL.SaslType == sarama.SASLTypeSCRAMSHA512 {
-				config.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient { return &XDGSCRAMClient{HashGeneratorFcn: SHA512} }
-				config.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA512
-			}
-			config.Net.SASL.User = kafkaAuthCfg.SASL.User
-			config.Net.SASL.Password = kafkaAuthCfg.SASL.Password
-		}
+	err := UpdateSaramaConfigWithKafkaAuthConfig(config, kafkaAuthCfg)
+	if err != nil {
+		return nil, err
 	}
 
 	// Return Success

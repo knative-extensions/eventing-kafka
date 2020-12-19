@@ -160,6 +160,129 @@ func TestBuildSaramaConfig(t *testing.T) {
 	assert.True(t, config.Net.TLS.Config.InsecureSkipVerify)
 }
 
+func TestBuildSaramaConfigWithTLSAuth(t *testing.T) {
+	// Setup Environment
+	commontesting.SetTestEnvironment(t)
+
+	// Verify that auth config is merged
+	noAuthSaramaYaml := `
+Net:
+  TLS:
+    Enable: false
+  SASL:
+    Enable: true
+    Mechanism: PLAIN
+    Version: 1
+Metadata:
+  RefreshFrequency: 300000000000
+`
+	kafkaAuthCfg := &KafkaAuthConfig{
+		TLS: &KafkaTlsConfig{
+			Cacert: `-----BEGIN CERTIFICATE-----
+MIICkDCCAfmgAwIBAgIUWxBoN+HbX3Cp97QkWedg5nnRw8swDQYJKoZIhvcNAQEL
+BQAwWjELMAkGA1UEBhMCVFIxETAPBgNVBAgMCElzdGFuYnVsMREwDwYDVQQHDAhJ
+c3RhbmJ1bDERMA8GA1UECgwIS25hdGl2ZTIxEjAQBgNVBAsMCUV2ZW50aW5nMjAe
+Fw0yMDEyMTkyMDU4MzRaFw0yMTEyMTkyMDU4MzRaMFoxCzAJBgNVBAYTAlRSMREw
+DwYDVQQIDAhJc3RhbmJ1bDERMA8GA1UEBwwISXN0YW5idWwxETAPBgNVBAoMCEtu
+YXRpdmUyMRIwEAYDVQQLDAlFdmVudGluZzIwgZ8wDQYJKoZIhvcNAQEBBQADgY0A
+MIGJAoGBANIjPQtvYpfHRtrjRiPwiJnRFCs7M+i1Y1lXiyYGFKIJgFOteBKluHH5
+ZJ4Le37lxkaS4LoEgc5PiN7Z7aM4qBsh1XWV2rQ2/0mZCvxarfb7oD5DIjZOGVoW
+rr6mDArdqaxNSDe0+Jch8ZSlFivtk7af3m00BDmQSUqmhYvaWph7AgMBAAGjUzBR
+MB0GA1UdDgQWBBTvm9UMcoH0nWvWPCAQz4GG9KfxOjAfBgNVHSMEGDAWgBTvm9UM
+coH0nWvWPCAQz4GG9KfxOjAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUA
+A4GBAAqUoCQ2w04W12eHUs6xCVccmDYgdECLaiZ5s8A7YI9BipMK46T0lKtRDgbF
+GmW1otglU9VjOHrwh02z7uUGu5EuLa7OWHc/dIrGYLSO1Wr8f7+WWxjmiasBK4Sj
+G3wZl+h4Fd3/ARnFshcCgp1WCvwGPArwP2l4ePfmIjjA94lo
+-----END CERTIFICATE-----
+`,
+			Usercert: `-----BEGIN CERTIFICATE-----
+MIICiDCCAfGgAwIBAgIUemseKHPaNxCypHhZ+QcBX15FLtUwDQYJKoZIhvcNAQEL
+BQAwVjELMAkGA1UEBhMCVFIxEDAOBgNVBAgMB0theXNlcmkxEDAOBgNVBAcMB0th
+eXNlcmkxEDAOBgNVBAoMB0tuYXRpdmUxETAPBgNVBAsMCEV2ZW50aW5nMB4XDTIw
+MTIxOTIwNTQ0OVoXDTMwMTIxNzIwNTQ0OVowVjELMAkGA1UEBhMCVFIxEDAOBgNV
+BAgMB0theXNlcmkxEDAOBgNVBAcMB0theXNlcmkxEDAOBgNVBAoMB0tuYXRpdmUx
+ETAPBgNVBAsMCEV2ZW50aW5nMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDq
+391sRAlMjJ9B63VwuMPvSPwWf3Hnx+sJY9/q1bN6VuYkwWkoFjbqT3iKGLq00LHX
+RWmDYbdIZ8gccS1sE7K/p1StBSEAXDLYw8bZLTmHrnUXYxxamiXLlOV3Mw+D5zvP
+Qp0nlX3LYn87RRCYNwcilqijzL0DhtQ+/fBcxjlgFwIDAQABo1MwUTAdBgNVHQ4E
+FgQUDubgADC9pQTaFr74JwzBM07l760wHwYDVR0jBBgwFoAUDubgADC9pQTaFr74
+JwzBM07l760wDwYDVR0TAQH/BAUwAwEB/zANBgkqhkiG9w0BAQsFAAOBgQDgmhgY
+Kq5PKDkGykk1SUlvcJl0py+CDGhBKpVoPstui7YleU+LcFZx9DmfuRW3k0AasAky
+ms8iaTuT5nrQkmoqTB+SYUezLujuXHayVCNMNF5qJcUWBmkLedI5ZRMcSrnPcN76
+JyOW+qTVy8PUsysnSdEe3BOTacbNzNpL0Nibjg==
+-----END CERTIFICATE-----`,
+			Userkey: `-----BEGIN RSA PRIVATE KEY-----
+MIICWwIBAAKBgQDq391sRAlMjJ9B63VwuMPvSPwWf3Hnx+sJY9/q1bN6VuYkwWko
+FjbqT3iKGLq00LHXRWmDYbdIZ8gccS1sE7K/p1StBSEAXDLYw8bZLTmHrnUXYxxa
+miXLlOV3Mw+D5zvPQp0nlX3LYn87RRCYNwcilqijzL0DhtQ+/fBcxjlgFwIDAQAB
+AoGAdCjbPVw4rR8u9E8a+fCnFoSmCApnrxX0a+R1LZMa/HpVv//Xnfe+mQtMth+c
+1ygPjEPL9yowlyKcmVRv/m+Pir7gNkJ0DUus3K/QuCuBtNj1yM+POqW1m/61ZWRa
+1rSsSQFQeTV4zZW395ORvat2UCcRIxOn4LeGKAVnaS5z98ECQQD+7vyfl+GUpkCa
+16cqDtqjR6me8Hj1xzwS/j5jYe7M228OfHJvsmWHZI+JTXDGZqG29E6o6LLNR5di
+BsrpN2wPAkEA69tlf+XRGAge/pabqIrf40EhBAViJ+vtRg38bDiBXHImR9SMSD8x
+zUkiXqWKmgOlYn2AWm5EJ8mBw4jn2GrjeQJACOF0ZW7aCd6cw4gdp6Zq0WNOsl24
+KP+uxQ6cR8QCmJpQTRXiuqdhSA0lvue2tQKgQYpTLykkCWikCmMoMGWg2wJAH4/S
+e1UDsBWWIDeDSQCciUqz4lfeFL2LmO5SMyE0nmxgFwioZRqfzXrV8Jhyfb2zKgTl
+YjSTRke+562waNOU8QJAfCZkNR12+RF1ntIDEFYpNMj+VySQ8R0Xgz8DGfwhhx7Q
+sny569QyyWHk2+FZoWDfjxFZ7CvIdgLJBHc3qUXLsg==
+-----END RSA PRIVATE KEY-----
+`,
+		},
+	}
+
+	config, err := BuildSaramaConfig(nil, noAuthSaramaYaml, kafkaAuthCfg)
+	assert.Nil(t, err)
+
+	// Make sure TLS settings are applied from the KafkaAuthConfig
+	assert.True(t, config.Net.TLS.Enable)
+	assert.True(t, config.Net.TLS.Config.InsecureSkipVerify)
+	assert.Len(t, config.Net.TLS.Config.Certificates, 1)
+	assert.Len(t, config.Net.TLS.Config.RootCAs.Subjects(), 1)
+
+	// Make sure SASL settings are untouched
+	assert.True(t, config.Net.SASL.Enable)
+	assert.Equal(t, sarama.SASLMechanism("PLAIN"), config.Net.SASL.Mechanism)
+	assert.Equal(t, int16(1), config.Net.SASL.Version)
+}
+
+func TestBuildSaramaConfigWithSASLAuth(t *testing.T) {
+	// Setup Environment
+	commontesting.SetTestEnvironment(t)
+
+	// Verify that auth config is merged
+	noAuthSaramaYaml := `
+Net:
+  TLS:
+    Enable: false
+  SASL:
+    Enable: true
+    Mechanism: PLAIN
+    Version: 1
+Metadata:
+  RefreshFrequency: 300000000000
+`
+	kafkaAuthCfg := &KafkaAuthConfig{
+		SASL: &KafkaSaslConfig{
+			User:     "USERNAME",
+			Password: "PASSWORD",
+			SaslType: "SCRAM-SHA-256",
+		},
+	}
+
+	config, err := BuildSaramaConfig(nil, noAuthSaramaYaml, kafkaAuthCfg)
+	assert.Nil(t, err)
+
+	// Make sure SASL settings are applied from the KafkaAuthConfig
+	assert.True(t, config.Net.SASL.Enable)
+	assert.True(t, config.Net.SASL.Handshake)
+	assert.Equal(t, sarama.SASLMechanism(sarama.SASLTypeSCRAMSHA256), config.Net.SASL.Mechanism)
+	assert.Equal(t, "USERNAME", config.Net.SASL.User)
+	assert.Equal(t, "PASSWORD", config.Net.SASL.Password)
+
+	// Make sure TLS settings are untouched
+	assert.False(t, config.Net.TLS.Enable)
+}
+
 // Verify that comparisons of sarama config structs function as expected
 func TestSaramaConfigEqual(t *testing.T) {
 	config1 := sarama.NewConfig()
