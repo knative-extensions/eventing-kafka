@@ -29,6 +29,7 @@ import (
 	"knative.dev/eventing/pkg/channel/fanout"
 	"knative.dev/eventing/pkg/kncloudevents"
 	"knative.dev/pkg/configmap"
+	configmapinformer "knative.dev/pkg/configmap/informer"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/logging"
@@ -70,7 +71,7 @@ var _ kafkachannelreconciler.Interface = (*Reconciler)(nil)
 func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 	logger := logging.FromContext(ctx)
 
-	err := tracing.SetupDynamicPublishing(logger, cmw.(*configmap.InformedWatcher), "kafka-ch-dispatcher", "config-tracing")
+	err := tracing.SetupDynamicPublishing(logger, cmw.(*configmapinformer.InformedWatcher), "kafka-ch-dispatcher", "config-tracing")
 	if err != nil {
 		logger.Fatalw("unable to setup tracing", zap.Error(err))
 	}

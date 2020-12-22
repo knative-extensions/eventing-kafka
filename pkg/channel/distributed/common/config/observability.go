@@ -21,7 +21,7 @@ import (
 	nethttp "net/http"
 	"strings"
 
-	"knative.dev/pkg/configmap"
+	configmap "knative.dev/pkg/configmap/informer"
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
