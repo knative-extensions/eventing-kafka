@@ -26,7 +26,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	k8sclientcmd "k8s.io/client-go/tools/clientcmd"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
-	"knative.dev/pkg/configmap"
+	configmap "knative.dev/pkg/configmap/informer"
 	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
