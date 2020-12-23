@@ -89,9 +89,9 @@ func (sub Subscription) String() string {
 
 func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispatcher, error) {
 	conf := sarama.NewConfig()
-	// don't get the clientID cleared by when it is built later
+	// set the client id explicitly
 	conf.ClientID = args.ClientID
-	// explicit version
+	// set the version explicitly
 	conf.Version = sarama.V2_0_0_0
 
 	client.UpdateConfigWithDefaults(conf)
