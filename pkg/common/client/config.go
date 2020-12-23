@@ -29,6 +29,23 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 )
 
+type KafkaAuthConfig struct {
+	TLS  *KafkaTlsConfig
+	SASL *KafkaSaslConfig
+}
+
+type KafkaTlsConfig struct {
+	Cacert   string
+	Usercert string
+	Userkey  string
+}
+
+type KafkaSaslConfig struct {
+	User     string
+	Password string
+	SaslType string
+}
+
 // BuildSaramaConfig builds the Sarama config using 3 things: an existing Sarama config,
 // a Sarama config YAML and a KafkaAuthConfig.
 // Listed parameters above have precedence in the reverse order. So, the function
@@ -169,23 +186,6 @@ func ConfigEqual(config1, config2 *sarama.Config, ignore ...interface{}) bool {
 
 	// Compare the two sarama config structs, ignoring types and unexported fields as specified
 	return cmp.Equal(config1, config2, ignoredTypes, ignoredUnexported)
-}
-
-type KafkaAuthConfig struct {
-	TLS  *KafkaTlsConfig
-	SASL *KafkaSaslConfig
-}
-
-type KafkaTlsConfig struct {
-	Cacert   string
-	Usercert string
-	Userkey  string
-}
-
-type KafkaSaslConfig struct {
-	User     string
-	Password string
-	SaslType string
 }
 
 // verifyCertSkipHostname verifies certificates in the same way that the
