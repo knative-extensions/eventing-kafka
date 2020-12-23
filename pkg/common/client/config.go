@@ -29,6 +29,15 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 )
 
+// BuildSaramaConfig builds the Sarama config using 3 things: an existing Sarama config,
+// a Sarama config YAML and a KafkaAuthConfig.
+// Listed parameters above have precedence in the reverse order. So, the function
+// first gets the existing config, then applies the config in the YAML and finally it applies the
+// config in the KafkaAuthConfig.
+//
+// If existing config is nil, it creates a new sarama.Config object, initializes it with
+// our defaults and builds it.
+// If YAML string or kafkaAuthConfig are null, they're simply ignored.
 func BuildSaramaConfig(config *sarama.Config, saramaSettingsYamlString string, kafkaAuthCfg *KafkaAuthConfig) (*sarama.Config, error) {
 	// Merging To A Nil Config Requires Creating An Default One First
 	if config == nil {
@@ -39,7 +48,7 @@ func BuildSaramaConfig(config *sarama.Config, saramaSettingsYamlString string, k
 		config.Version = constants.ConfigKafkaVersionDefault
 
 		// Add Any Required Settings
-		InitSaramaConfig(config)
+		UpdateConfigWithDefaults(config)
 	}
 
 	if saramaSettingsYamlString != "" {
@@ -81,7 +90,9 @@ func BuildSaramaConfig(config *sarama.Config, saramaSettingsYamlString string, k
 	return config, nil
 }
 
-func InitSaramaConfig(config *sarama.Config) {
+// UpdateConfigWithDefaults updates the given Sarama config with
+// some defaults that we always use in eventing-kafka.
+func UpdateConfigWithDefaults(config *sarama.Config) {
 	// We Always Want To Know About Consumer Errors
 	config.Consumer.Return.Errors = true
 
@@ -89,6 +100,8 @@ func InitSaramaConfig(config *sarama.Config) {
 	config.Producer.Return.Successes = true
 }
 
+// UpdateSaramaConfigWithKafkaAuthConfig updates the TLS and SASL of Sarama config
+// based on the values in the given KafkaAuthConfig.
 func UpdateSaramaConfigWithKafkaAuthConfig(saramaConf *sarama.Config, kafkaAuthCfg *KafkaAuthConfig) error {
 	if kafkaAuthCfg != nil {
 		// tls

@@ -77,7 +77,7 @@ func main() {
 		logger.Fatal("Failed To Load Sarama Settings", zap.Error(err))
 	}
 
-	client.InitSaramaConfig(saramaConfig)
+	client.UpdateConfigWithDefaults(saramaConfig)
 	saramaConfig.ClientID = constants.Component
 
 	// Update The Sarama Config - Username/Password Overrides (EnvVars From Secret Take Precedence Over ConfigMap)

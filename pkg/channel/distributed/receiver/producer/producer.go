@@ -220,7 +220,7 @@ func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 	// Validate Configuration (Should Always Be Present)
 	if p.configuration != nil {
 
-		client.InitSaramaConfig(newConfig)
+		client.UpdateConfigWithDefaults(newConfig)
 		newConfig.ClientID = p.configuration.ClientID
 
 		// Some of the current config settings may not be overridden by the configmap (username, password, etc.)

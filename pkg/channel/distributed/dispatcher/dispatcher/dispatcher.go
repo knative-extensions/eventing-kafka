@@ -292,7 +292,7 @@ func (d *DispatcherImpl) ConfigChanged(configMap *v1.ConfigMap) Dispatcher {
 	// Validate Configuration (Should Always Be Present)
 	if d.SaramaConfig != nil {
 
-		client.InitSaramaConfig(newConfig)
+		client.UpdateConfigWithDefaults(newConfig)
 		newConfig.ClientID = d.SaramaConfig.ClientID
 
 		// Some of the current config settings may not be overridden by the configmap (username, password, etc.)

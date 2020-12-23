@@ -94,7 +94,7 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 	// explicit version
 	conf.Version = sarama.V2_0_0_0
 
-	client.InitSaramaConfig(conf)
+	client.UpdateConfigWithDefaults(conf)
 
 	// append the auth info:
 	conf, err := client.BuildSaramaConfig(conf, "", args.KafkaAuthConfig)

@@ -80,7 +80,7 @@ func main() {
 		logger.Fatal("Failed To Load Sarama Settings", zap.Error(err))
 	}
 
-	client.InitSaramaConfig(saramaConfig)
+	client.UpdateConfigWithDefaults(saramaConfig)
 	saramaConfig.ClientID = constants.Component
 
 	if environment.KafkaUsername != "" {

@@ -86,7 +86,7 @@ func NewKafkaAdminClient(ctx context.Context, saramaConfig *sarama.Config, clien
 	username := string(kafkaSecret.Data[constants.KafkaSecretKeyUsername])
 	password := string(kafkaSecret.Data[constants.KafkaSecretKeyPassword])
 
-	client.InitSaramaConfig(saramaConfig)
+	client.UpdateConfigWithDefaults(saramaConfig)
 	saramaConfig.ClientID = clientId
 
 	// Update The Sarama ClusterAdmin Configuration With Our Values
