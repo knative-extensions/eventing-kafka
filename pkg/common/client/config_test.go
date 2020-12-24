@@ -123,7 +123,10 @@ func TestBuildSaramaConfig(t *testing.T) {
 
 	// Verify a few settings in different parts of two separate sarama.Config structures
 	// Since it's a simple JSON merge we don't need to test every possible value.
-	config, err := BuildSaramaConfig(nil, commontesting.OldSaramaConfig, nil)
+	config, err := NewConfigBuilder().
+		WithDefaults().
+		FromYaml(commontesting.OldSaramaConfig).
+		Build()
 	assert.Nil(t, err)
 	assert.NotNil(t, config)
 	assert.True(t, config.Net.SASL.Enable)
@@ -131,7 +134,10 @@ func TestBuildSaramaConfig(t *testing.T) {
 	assert.Equal(t, defaultConfig.Producer.Timeout, config.Producer.Timeout)
 	assert.Equal(t, defaultConfig.Consumer.MaxProcessingTime, config.Consumer.MaxProcessingTime)
 
-	config, err = BuildSaramaConfig(config, commontesting.NewSaramaConfig, nil)
+	config, err = NewConfigBuilder().
+		WithDefaults().
+		FromYaml(commontesting.NewSaramaConfig).
+		Build()
 	assert.Nil(t, err)
 	assert.NotNil(t, config)
 	assert.Equal(t, sarama.V2_3_0_0, config.Version)
@@ -142,22 +148,55 @@ func TestBuildSaramaConfig(t *testing.T) {
 
 	// Verify error when an invalid Version is provided
 	regexVersion := regexp.MustCompile(`Version:\s*\d*\.[\d.]*`) // Must have at least one period or it will match the "Version: 1" in Net.SASL
-	config, err = BuildSaramaConfig(config, regexVersion.ReplaceAllString(commontesting.NewSaramaConfig, "Version: INVALID"), nil)
+	config, err = NewConfigBuilder().
+		WithDefaults().
+		FromYaml(regexVersion.ReplaceAllString(commontesting.NewSaramaConfig, "Version: INVALID")).
+		Build()
 	assert.NotNil(t, err)
 
 	// Verify error when an invalid RootPEMs is provided
-	config, err = BuildSaramaConfig(config, strings.Replace(EKDefaultSaramaConfigWithRootCert, "-----BEGIN CERTIFICATE-----", "INVALID CERT DATA", -1), nil)
+	config, err = NewConfigBuilder().
+		WithDefaults().
+		FromYaml(strings.Replace(EKDefaultSaramaConfigWithRootCert, "-----BEGIN CERTIFICATE-----", "INVALID CERT DATA", -1)).
+		Build()
 	assert.NotNil(t, err)
 
 	// Verify that the RootPEMs section is merged properly
-	config, err = BuildSaramaConfig(config, EKDefaultSaramaConfigWithRootCert, nil)
+	config, err = NewConfigBuilder().
+		WithDefaults().
+		FromYaml(EKDefaultSaramaConfigWithRootCert).
+		Build()
 	assert.Nil(t, err)
 	assert.NotNil(t, config.Net.TLS.Config.RootCAs)
 
 	// Verify that the InsecureSkipVerify flag can be set properly
-	config, err = BuildSaramaConfig(config, EKDefaultSaramaConfigWithInsecureSkipVerify, nil)
+	config, err = NewConfigBuilder().
+		WithDefaults().
+		FromYaml(EKDefaultSaramaConfigWithInsecureSkipVerify).
+		Build()
 	assert.Nil(t, err)
 	assert.True(t, config.Net.TLS.Config.InsecureSkipVerify)
+
+	// Verify precedence
+	existing := sarama.NewConfig()
+	existing.ClientID = "toBeOverriddenClientId"
+	existing.Version = sarama.V1_0_0_0
+	config, err = NewConfigBuilder().
+		WithDefaults().
+		WithExisting(existing).
+		FromYaml(EKDefaultSaramaConfigWithRootCert).
+		WithAuth(&KafkaAuthConfig{
+			SASL: &KafkaSaslConfig{
+				User: "foo",
+			},
+		}).
+		WithVersion(sarama.V2_0_0_0).
+		WithClientId("newClientId").
+		Build()
+	assert.Nil(t, err)
+	assert.Equal(t, "foo", config.Net.SASL.User)
+	assert.Equal(t, "newClientId", config.ClientID)
+	assert.Equal(t, sarama.V2_0_0_0, config.Version)
 }
 
 func TestBuildSaramaConfigWithTLSAuth(t *testing.T) {
@@ -230,7 +269,11 @@ sny569QyyWHk2+FZoWDfjxFZ7CvIdgLJBHc3qUXLsg==
 		},
 	}
 
-	config, err := BuildSaramaConfig(nil, noAuthSaramaYaml, kafkaAuthCfg)
+	config, err := NewConfigBuilder().
+		WithDefaults().
+		FromYaml(noAuthSaramaYaml).
+		WithAuth(kafkaAuthCfg).
+		Build()
 	assert.Nil(t, err)
 
 	// Make sure TLS settings are applied from the KafkaAuthConfig
@@ -269,7 +312,11 @@ Metadata:
 		},
 	}
 
-	config, err := BuildSaramaConfig(nil, noAuthSaramaYaml, kafkaAuthCfg)
+	config, err := NewConfigBuilder().
+		WithDefaults().
+		FromYaml(noAuthSaramaYaml).
+		WithAuth(kafkaAuthCfg).
+		Build()
 	assert.Nil(t, err)
 
 	// Make sure SASL settings are applied from the KafkaAuthConfig
@@ -337,9 +384,15 @@ func TestSaramaConfigEqual(t *testing.T) {
 	assert.True(t, ConfigEqual(config1, config2))
 
 	// Test config with TLS struct
-	config1, err := BuildSaramaConfig(nil, EKDefaultSaramaConfigWithRootCert, nil)
+	config1, err := NewConfigBuilder().
+		WithDefaults().
+		FromYaml(EKDefaultSaramaConfigWithRootCert).
+		Build()
 	assert.Nil(t, err)
-	config2, err = BuildSaramaConfig(nil, EKDefaultSaramaConfigWithRootCert, nil)
+	config2, err = NewConfigBuilder().
+		WithDefaults().
+		FromYaml(EKDefaultSaramaConfigWithRootCert).
+		Build()
 	assert.Nil(t, err)
 	assert.True(t, ConfigEqual(config1, config2))
 }
@@ -439,8 +492,10 @@ func TestUpdateSaramaConfigWithKafkaAuthConfig(t *testing.T) {
 		t.Run(n, func(t *testing.T) {
 
 			// Perform The Test
-			config := sarama.NewConfig()
-			err := UpdateSaramaConfigWithKafkaAuthConfig(config, tc.kafkaAuthCfg)
+			config, err := NewConfigBuilder().
+				WithAuth(tc.kafkaAuthCfg).
+				Build()
+
 			if err != nil {
 				t.Errorf("error configuring Sarama config with auth :%e", err)
 			}

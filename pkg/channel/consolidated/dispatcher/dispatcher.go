@@ -88,16 +88,13 @@ func (sub Subscription) String() string {
 }
 
 func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispatcher, error) {
-	conf := sarama.NewConfig()
-	// set the client id explicitly
-	conf.ClientID = args.ClientID
-	// set the version explicitly
-	conf.Version = sarama.V2_0_0_0
+	conf, err := client.NewConfigBuilder().
+		WithClientId(args.ClientID).
+		WithVersion(sarama.V2_0_0_0).
+		WithDefaults().
+		WithAuth(args.KafkaAuthConfig).
+		Build()
 
-	client.UpdateConfigWithDefaults(conf)
-
-	// append the auth info:
-	conf, err := client.BuildSaramaConfig(conf, "", args.KafkaAuthConfig)
 	if err != nil {
 		return nil, fmt.Errorf("Error updating the Sarama Auth config: %w", err)
 	}

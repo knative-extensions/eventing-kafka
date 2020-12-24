@@ -46,31 +46,113 @@ type KafkaSaslConfig struct {
 	SaslType string
 }
 
-// BuildSaramaConfig builds the Sarama config using 3 things: an existing Sarama config,
-// a Sarama config YAML and a KafkaAuthConfig.
-// Listed parameters above have precedence in the reverse order. So, the function
-// first gets the existing config, then applies the config in the YAML and finally it applies the
-// config in the KafkaAuthConfig.
-//
-// If existing config is nil, it creates a new sarama.Config object, initializes it with
-// our defaults and builds it.
-// If YAML string or kafkaAuthConfig are null, they're simply ignored.
-func BuildSaramaConfig(config *sarama.Config, saramaSettingsYamlString string, kafkaAuthCfg *KafkaAuthConfig) (*sarama.Config, error) {
-	// Merging To A Nil Config Requires Creating An Default One First
-	if config == nil {
-		// Start With Base Sarama Defaults
-		config = sarama.NewConfig()
+// ConfigBuilder builds the Sarama config using multiple options.
+// Precedence for the options is following:
+// - get existing config if provided, create a new one otherwise
+// - apply defaults
+// - apply settings from YAML string
+// - apply settings from KafkaAuthConfig
+// - apply individual settings like version, clientId
+type ConfigBuilder interface {
+	// WithExisting makes the builder use an existing Sarama
+	// config as a base.
+	WithExisting(existing *sarama.Config) ConfigBuilder
 
+	// WithDefaults makes the builder to apply
+	// some defaults that we always use in eventing-kafka.
+	WithDefaults() ConfigBuilder
+
+	// FromYaml makes the builder to apply the settings
+	// in a YAML-string for Sarama.
+	FromYaml(saramaYaml string) ConfigBuilder
+
+	// WithAuth makes the builder to apply the TLS/SASL settings
+	// on the config for the given KafkaAuthConfig
+	WithAuth(kafkaAuthConfig *KafkaAuthConfig) ConfigBuilder
+
+	// WithVersion makes the builder to set the version
+	// explicitly, regardless what's set in the existing config
+	// (if provided) or in the YAML-string
+	WithVersion(version sarama.KafkaVersion) ConfigBuilder
+
+	// WithClientId makes the builder to set the clientId
+	// explicitly, regardless what's set in the existing config
+	// (if provided) or in the YAML-string
+	WithClientId(clientId string) ConfigBuilder
+
+	// Build builds the Sarama config wih the given builder config
+	Build() (*sarama.Config, error)
+}
+
+func NewConfigBuilder() ConfigBuilder {
+	return &configBuilder{}
+}
+
+type configBuilder struct {
+	existing *sarama.Config
+	defaults bool
+	version  *sarama.KafkaVersion
+	clientId string
+	yaml     string
+	auth     *KafkaAuthConfig
+}
+
+func (b *configBuilder) WithExisting(existing *sarama.Config) ConfigBuilder {
+	b.existing = existing
+	return b
+}
+
+func (b *configBuilder) WithDefaults() ConfigBuilder {
+	b.defaults = true
+	return b
+}
+
+func (b *configBuilder) WithVersion(version sarama.KafkaVersion) ConfigBuilder {
+	b.version = &version
+	return b
+}
+
+func (b *configBuilder) WithClientId(clientId string) ConfigBuilder {
+	b.clientId = clientId
+	return b
+}
+
+func (b *configBuilder) FromYaml(saramaSettingsYamlString string) ConfigBuilder {
+	b.yaml = saramaSettingsYamlString
+	return b
+}
+
+func (b *configBuilder) WithAuth(kafkaAuthCfg *KafkaAuthConfig) ConfigBuilder {
+	b.auth = kafkaAuthCfg
+	return b
+}
+
+func (b *configBuilder) Build() (*sarama.Config, error) {
+	var config *sarama.Config
+
+	// check if there's existing first
+	if b.existing != nil {
+		config = b.existing
+	} else {
+		config = sarama.NewConfig()
+	}
+
+	// then apply defaults, if requested
+	if b.defaults {
 		// Use Our Default Minimum Version
 		config.Version = constants.ConfigKafkaVersionDefault
 
-		// Add Any Required Settings
-		UpdateConfigWithDefaults(config)
+		// We Always Want To Know About Consumer Errors
+		config.Consumer.Return.Errors = true
+
+		// We Always Want Success Messages From Producer
+		config.Producer.Return.Successes = true
 	}
 
-	if saramaSettingsYamlString != "" {
+	// then apply stuff from YAML
+	if b.yaml != "" {
 		// Extract (Remove) The KafkaVersion From The Sarama Config YAML as we can't marshal it regularly
-		saramaSettingsYamlString, kafkaVersionInYaml, err := extractKafkaVersion(saramaSettingsYamlString)
+		saramaSettingsYamlString, kafkaVersionInYaml, err := extractKafkaVersion(b.yaml)
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract KafkaVersion from Sarama Config YAML: err=%s : config=%+v", err, saramaSettingsYamlString)
 		}
@@ -98,60 +180,48 @@ func BuildSaramaConfig(config *sarama.Config, saramaSettingsYamlString string, k
 		}
 	}
 
-	err := UpdateSaramaConfigWithKafkaAuthConfig(config, kafkaAuthCfg)
-	if err != nil {
-		return nil, err
-	}
-
-	// Return Success
-	return config, nil
-}
-
-// UpdateConfigWithDefaults updates the given Sarama config with
-// some defaults that we always use in eventing-kafka.
-func UpdateConfigWithDefaults(config *sarama.Config) {
-	// We Always Want To Know About Consumer Errors
-	config.Consumer.Return.Errors = true
-
-	// We Always Want Success Messages From Producer
-	config.Producer.Return.Successes = true
-}
-
-// UpdateSaramaConfigWithKafkaAuthConfig updates the TLS and SASL of Sarama config
-// based on the values in the given KafkaAuthConfig.
-func UpdateSaramaConfigWithKafkaAuthConfig(saramaConf *sarama.Config, kafkaAuthCfg *KafkaAuthConfig) error {
-	if kafkaAuthCfg != nil {
+	// then apply auth settings
+	if b.auth != nil {
 		// tls
-		if kafkaAuthCfg.TLS != nil {
-			saramaConf.Net.TLS.Enable = true
-			tlsConfig, err := newTLSConfig(kafkaAuthCfg.TLS.Usercert, kafkaAuthCfg.TLS.Userkey, kafkaAuthCfg.TLS.Cacert)
+		if b.auth.TLS != nil {
+			config.Net.TLS.Enable = true
+			tlsConfig, err := newTLSConfig(b.auth.TLS.Usercert, b.auth.TLS.Userkey, b.auth.TLS.Cacert)
 			if err != nil {
-				return fmt.Errorf("Error creating TLS config: %w", err)
+				return nil, fmt.Errorf("Error creating TLS config: %w", err)
 			}
-			saramaConf.Net.TLS.Config = tlsConfig
+			config.Net.TLS.Config = tlsConfig
 		}
 		// SASL
-		if kafkaAuthCfg.SASL != nil {
-			saramaConf.Net.SASL.Enable = true
-			saramaConf.Net.SASL.Handshake = true
+		if b.auth.SASL != nil {
+			config.Net.SASL.Enable = true
+			config.Net.SASL.Handshake = true
 
 			// if SaslType is not provided we are defaulting to PLAIN
-			saramaConf.Net.SASL.Mechanism = sarama.SASLTypePlaintext
+			config.Net.SASL.Mechanism = sarama.SASLTypePlaintext
 
-			if kafkaAuthCfg.SASL.SaslType == sarama.SASLTypeSCRAMSHA256 {
-				saramaConf.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient { return &XDGSCRAMClient{HashGeneratorFcn: SHA256} }
-				saramaConf.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA256
+			if b.auth.SASL.SaslType == sarama.SASLTypeSCRAMSHA256 {
+				config.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient { return &XDGSCRAMClient{HashGeneratorFcn: SHA256} }
+				config.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA256
 			}
 
-			if kafkaAuthCfg.SASL.SaslType == sarama.SASLTypeSCRAMSHA512 {
-				saramaConf.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient { return &XDGSCRAMClient{HashGeneratorFcn: SHA512} }
-				saramaConf.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA512
+			if b.auth.SASL.SaslType == sarama.SASLTypeSCRAMSHA512 {
+				config.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient { return &XDGSCRAMClient{HashGeneratorFcn: SHA512} }
+				config.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA512
 			}
-			saramaConf.Net.SASL.User = kafkaAuthCfg.SASL.User
-			saramaConf.Net.SASL.Password = kafkaAuthCfg.SASL.Password
+			config.Net.SASL.User = b.auth.SASL.User
+			config.Net.SASL.Password = b.auth.SASL.Password
 		}
 	}
-	return nil
+
+	// finally, apply individual fields
+	if b.version != nil {
+		config.Version = *b.version
+	}
+	if b.clientId != "" {
+		config.ClientID = b.clientId
+	}
+
+	return config, nil
 }
 
 // ConfigEqual is a convenience function to determine if two given sarama.Config structs are identical aside

@@ -64,18 +64,19 @@ func TestCreateConsumerGroup(t *testing.T) {
 		NewConsumerGroupWrapper = newConsumerGroupWrapperPlaceholder
 	}()
 
-	config, err := client.BuildSaramaConfig(nil, commontesting.SaramaDefaultConfigYaml, nil)
-	assert.Nil(t, err)
+	config, err := client.NewConfigBuilder().
+		WithDefaults().
+		FromYaml(commontesting.SaramaDefaultConfigYaml).
+		WithAuth(&client.KafkaAuthConfig{
+			SASL: &client.KafkaSaslConfig{
+				User:     KafkaUsername,
+				Password: KafkaPassword,
+			},
+		}).
+		WithClientId(ClientId).
+		Build()
 
-	err = client.UpdateSaramaConfigWithKafkaAuthConfig(config, &client.KafkaAuthConfig{
-		SASL: &client.KafkaSaslConfig{
-			User:     KafkaUsername,
-			Password: KafkaPassword,
-		},
-	})
 	assert.Nil(t, err)
-
-	config.ClientID = ClientId
 
 	// Perform The Test
 	consumerGroup, registry, err := CreateConsumerGroup(brokers, config, GroupId)

@@ -45,7 +45,7 @@ func EnableSaramaLogging(enable bool) {
 
 // Load The Sarama & EventingKafka Configuration From The ConfigMap
 // The Provided Context Must Have A Kubernetes Client Associated With It
-func LoadSettings(ctx context.Context) (*sarama.Config, *commonconfig.EventingKafkaConfig, error) {
+func LoadSettings(ctx context.Context, clientId string, kafkaAuthConfig *client.KafkaAuthConfig) (*sarama.Config, *commonconfig.EventingKafkaConfig, error) {
 	if ctx == nil {
 		return nil, nil, fmt.Errorf("attempted to load settings from a nil context")
 	}
@@ -69,7 +69,12 @@ func LoadSettings(ctx context.Context) (*sarama.Config, *commonconfig.EventingKa
 	saramaSettingsYamlString := configMap.Data[testing.SaramaSettingsConfigKey]
 
 	// Merge The Sarama Settings In The ConfigMap Into A New Base Sarama Config
-	saramaConfig, err := client.BuildSaramaConfig(nil, saramaSettingsYamlString, nil)
+	saramaConfig, err := client.NewConfigBuilder().
+		WithDefaults().
+		FromYaml(saramaSettingsYamlString).
+		WithAuth(kafkaAuthConfig).
+		WithClientId(clientId).
+		Build()
 
 	return saramaConfig, eventingKafkaConfig, err
 }

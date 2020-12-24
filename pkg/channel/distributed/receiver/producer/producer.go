@@ -211,7 +211,26 @@ func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 	saramaSettingsYamlString := configMap.Data[testing.SaramaSettingsConfigKey]
 
 	// Merge The Sarama Config From ConfigMap Into New Sarama Config
-	newConfig, err := client.BuildSaramaConfig(nil, saramaSettingsYamlString, nil)
+	configBuilder := client.NewConfigBuilder().
+		WithDefaults().
+		FromYaml(saramaSettingsYamlString)
+
+	if p.configuration != nil {
+		configBuilder = configBuilder.WithClientId(p.configuration.ClientID)
+
+		// Some of the current config settings may not be overridden by the configmap (username, password, etc.)
+		if p.configuration.Net.SASL.User != "" {
+			kafkaAuthCfg := &client.KafkaAuthConfig{
+				SASL: &client.KafkaSaslConfig{
+					User:     p.configuration.Net.SASL.User,
+					Password: p.configuration.Net.SASL.Password,
+				},
+			}
+			configBuilder = configBuilder.WithAuth(kafkaAuthCfg)
+		}
+	}
+
+	newConfig, err := client.NewConfigBuilder().Build()
 	if err != nil {
 		p.logger.Error("Unable to merge sarama settings", zap.Error(err))
 		return nil
@@ -219,24 +238,6 @@ func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 
 	// Validate Configuration (Should Always Be Present)
 	if p.configuration != nil {
-
-		client.UpdateConfigWithDefaults(newConfig)
-		newConfig.ClientID = p.configuration.ClientID
-
-		// Some of the current config settings may not be overridden by the configmap (username, password, etc.)
-		if p.configuration.Net.SASL.User != "" {
-			err := client.UpdateSaramaConfigWithKafkaAuthConfig(newConfig, &client.KafkaAuthConfig{
-				SASL: &client.KafkaSaslConfig{
-					User:     p.configuration.Net.SASL.User,
-					Password: p.configuration.Net.SASL.Password,
-				},
-			})
-			if err != nil {
-				p.logger.Error("Unable to set SASL username and password on Sarama config", zap.Error(err))
-				return nil
-			}
-		}
-
 		// Enable Sarama Logging If Specified In ConfigMap
 		if ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap); err == nil && ekConfig != nil {
 			kafkasarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)

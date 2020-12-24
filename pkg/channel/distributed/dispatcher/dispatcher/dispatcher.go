@@ -271,7 +271,6 @@ func (d *DispatcherImpl) closeConsumerGroup(subscriber *SubscriberWrapper) {
 // then just log that and move on; do not restart the ConsumerGroups unnecessarily.
 func (d *DispatcherImpl) ConfigChanged(configMap *v1.ConfigMap) Dispatcher {
 
-	// Create A New Sarama Config
 	d.Logger.Debug("New ConfigMap Received", zap.String("configMap.Name", configMap.ObjectMeta.Name))
 
 	// Validate The ConfigMap Data
@@ -283,32 +282,35 @@ func (d *DispatcherImpl) ConfigChanged(configMap *v1.ConfigMap) Dispatcher {
 	// Merge The ConfigMap Settings Into The Provided Config
 	saramaSettingsYamlString := configMap.Data[testing.SaramaSettingsConfigKey]
 
-	newConfig, err := client.BuildSaramaConfig(nil, saramaSettingsYamlString, nil)
+	// Create A New Sarama Config
+	configBuilder := client.NewConfigBuilder().
+		WithDefaults().
+		FromYaml(saramaSettingsYamlString)
+
+	// Validate Configuration (Should Always Be Present)
+	if d.SaramaConfig != nil {
+		configBuilder = configBuilder.WithClientId(d.SaramaConfig.ClientID)
+
+		// Some of the current config settings may not be overridden by the configmap (username, password, etc.)
+		if d.SaramaConfig.Net.SASL.User != "" {
+			kafkaAuthCfg := &client.KafkaAuthConfig{
+				SASL: &client.KafkaSaslConfig{
+					User:     d.SaramaConfig.Net.SASL.User,
+					Password: d.SaramaConfig.Net.SASL.Password,
+				},
+			}
+			configBuilder = configBuilder.WithAuth(kafkaAuthCfg)
+		}
+	}
+
+	newConfig, err := configBuilder.Build()
 	if err != nil {
-		d.Logger.Error("Unable to merge sarama settings", zap.Error(err))
+		d.Logger.Error("Unable to build sarama settings", zap.Error(err))
 		return nil
 	}
 
 	// Validate Configuration (Should Always Be Present)
 	if d.SaramaConfig != nil {
-
-		client.UpdateConfigWithDefaults(newConfig)
-		newConfig.ClientID = d.SaramaConfig.ClientID
-
-		// Some of the current config settings may not be overridden by the configmap (username, password, etc.)
-		if d.SaramaConfig.Net.SASL.User != "" {
-			err = client.UpdateSaramaConfigWithKafkaAuthConfig(newConfig, &client.KafkaAuthConfig{
-				SASL: &client.KafkaSaslConfig{
-					User:     d.SaramaConfig.Net.SASL.User,
-					Password: d.SaramaConfig.Net.SASL.Password,
-				},
-			})
-			if err != nil {
-				d.Logger.Fatal("Unable to set SASL username and password on Sarama config", zap.Error(err))
-				return nil
-			}
-		}
-
 		// Enable Sarama Logging If Specified In ConfigMap
 		if ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap); err == nil && ekConfig != nil {
 			kafkasarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)

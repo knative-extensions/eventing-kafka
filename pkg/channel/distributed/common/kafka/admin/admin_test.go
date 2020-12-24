@@ -54,7 +54,10 @@ func TestCreateAdminClientKafka(t *testing.T) {
 	}
 	defer func() { NewKafkaAdminClientWrapper = NewKafkaAdminClientWrapperRef }()
 
-	saramaConfig, err := client.BuildSaramaConfig(nil, commontesting.SaramaDefaultConfigYaml, nil)
+	saramaConfig, err := client.NewConfigBuilder().
+		WithDefaults().
+		FromYaml(commontesting.SaramaDefaultConfigYaml).
+		Build()
 	assert.Nil(t, err)
 
 	// Perform The Test
@@ -86,7 +89,10 @@ func TestCreateAdminClientEventHub(t *testing.T) {
 	}
 	defer func() { NewEventHubAdminClientWrapper = NewEventHubAdminClientWrapperRef }()
 
-	saramaConfig, err := client.BuildSaramaConfig(nil, commontesting.SaramaDefaultConfigYaml, nil)
+	saramaConfig, err := client.NewConfigBuilder().
+		WithDefaults().
+		FromYaml(commontesting.SaramaDefaultConfigYaml).
+		Build()
 	assert.Nil(t, err)
 
 	// Perform The Test
@@ -118,7 +124,10 @@ func TestCreateAdminClientCustom(t *testing.T) {
 	}
 	defer func() { NewCustomAdminClientWrapper = NewCustomAdminClientWrapperRef }()
 
-	saramaConfig, err := client.BuildSaramaConfig(nil, commontesting.SaramaDefaultConfigYaml, nil)
+	saramaConfig, err := client.NewConfigBuilder().
+		WithDefaults().
+		FromYaml(commontesting.SaramaDefaultConfigYaml).
+		Build()
 	assert.Nil(t, err)
 
 	// Perform The Test
@@ -138,7 +147,10 @@ func TestCreateAdminClientUnknown(t *testing.T) {
 	clientId := "TestClientId"
 	adminClientType := Unknown
 
-	saramaConfig, err := client.BuildSaramaConfig(nil, commontesting.SaramaDefaultConfigYaml, nil)
+	saramaConfig, err := client.NewConfigBuilder().
+		WithDefaults().
+		FromYaml(commontesting.SaramaDefaultConfigYaml).
+		Build()
 	assert.Nil(t, err)
 
 	// Perform The Test

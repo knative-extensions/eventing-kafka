@@ -100,7 +100,7 @@ func TestLoadDefaultSaramaSettings(t *testing.T) {
 	fakeK8sClient := fake.NewSimpleClientset(configMap)
 	ctx := context.WithValue(context.Background(), injectionclient.Key{}, fakeK8sClient)
 
-	config, configuration, err := LoadSettings(ctx)
+	config, configuration, err := LoadSettings(ctx, "myClient", nil)
 	assert.Nil(t, err)
 	// Make sure all of our default Sarama settings were loaded properly
 	assert.Equal(t, tls.ClientAuthType(0), config.Net.TLS.Config.ClientAuth)
@@ -110,6 +110,7 @@ func TestLoadDefaultSaramaSettings(t *testing.T) {
 	assert.Equal(t, time.Duration(5000000000), config.Consumer.Offsets.AutoCommit.Interval)
 	assert.Equal(t, time.Duration(604800000000000), config.Consumer.Offsets.Retention)
 	assert.Equal(t, true, config.Consumer.Return.Errors)
+	assert.Equal(t, "myClient", config.ClientID)
 
 	// Make sure all of our default eventing-kafka settings were loaded properly
 	// Specifically checking the type (e.g. int64, int16, int) is important
@@ -137,7 +138,7 @@ func TestLoadEventingKafkaSettings(t *testing.T) {
 
 	ctx := context.WithValue(context.Background(), injectionclient.Key{}, fakeK8sClient)
 
-	saramaConfig, eventingKafkaConfig, err := LoadSettings(ctx)
+	saramaConfig, eventingKafkaConfig, err := LoadSettings(ctx, "", nil)
 	assert.Nil(t, err)
 	verifyTestEKConfigSettings(t, saramaConfig, eventingKafkaConfig)
 
@@ -167,13 +168,13 @@ func TestLoadEventingKafkaSettings(t *testing.T) {
 func TestLoadSettings(t *testing.T) {
 	// Set up a configmap and verify that the sarama and eventing-kafka settings are loaded properly from it
 	ctx := getTestSaramaContext(t, commontesting.OldSaramaConfig, commontesting.TestEKConfig)
-	saramaConfig, eventingKafkaConfig, err := LoadSettings(ctx)
+	saramaConfig, eventingKafkaConfig, err := LoadSettings(ctx, "", nil)
 	assert.Nil(t, err)
 	verifyTestEKConfigSettings(t, saramaConfig, eventingKafkaConfig)
 
 	// Verify that a context with no configmap returns an error
 	ctx = context.WithValue(context.Background(), injectionclient.Key{}, fake.NewSimpleClientset())
-	saramaConfig, eventingKafkaConfig, err = LoadSettings(ctx)
+	saramaConfig, eventingKafkaConfig, err = LoadSettings(ctx, "", nil)
 	assert.Nil(t, saramaConfig)
 	assert.Nil(t, eventingKafkaConfig)
 	assert.NotNil(t, err)
@@ -182,7 +183,7 @@ func TestLoadSettings(t *testing.T) {
 	configMap := commontesting.GetTestSaramaConfigMap("", "")
 	configMap.Data = nil
 	ctx = context.WithValue(context.Background(), injectionclient.Key{}, fake.NewSimpleClientset(configMap))
-	saramaConfig, eventingKafkaConfig, err = LoadSettings(ctx)
+	saramaConfig, eventingKafkaConfig, err = LoadSettings(ctx, "", nil)
 	assert.Nil(t, saramaConfig)
 	assert.Nil(t, eventingKafkaConfig)
 	assert.NotNil(t, err)
@@ -191,7 +192,7 @@ func TestLoadSettings(t *testing.T) {
 	configMap = commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, "")
 	configMap.Data[commontesting.EventingKafkaSettingsConfigKey] = "\tinvalidYaml"
 	ctx = context.WithValue(context.Background(), injectionclient.Key{}, fake.NewSimpleClientset(configMap))
-	saramaConfig, eventingKafkaConfig, err = LoadSettings(ctx)
+	saramaConfig, eventingKafkaConfig, err = LoadSettings(ctx, "", nil)
 	assert.Nil(t, saramaConfig)
 	assert.Nil(t, eventingKafkaConfig)
 	assert.NotNil(t, err)

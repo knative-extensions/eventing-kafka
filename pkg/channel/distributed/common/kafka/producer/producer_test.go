@@ -62,18 +62,18 @@ func performCreateSyncProducerTest(t *testing.T, username string, password strin
 	}
 	defer func() { newSyncProducerWrapper = newSyncProducerWrapperPlaceholder }()
 
-	config, err := client.BuildSaramaConfig(nil, commontesting.SaramaDefaultConfigYaml, nil)
+	config, err := client.NewConfigBuilder().
+		WithDefaults().
+		FromYaml(commontesting.SaramaDefaultConfigYaml).
+		WithAuth(&client.KafkaAuthConfig{
+			SASL: &client.KafkaSaslConfig{
+				User:     username,
+				Password: password,
+			},
+		}).
+		WithClientId(ClientId).
+		Build()
 	assert.Nil(t, err)
-
-	err = client.UpdateSaramaConfigWithKafkaAuthConfig(config, &client.KafkaAuthConfig{
-		SASL: &client.KafkaSaslConfig{
-			User:     username,
-			Password: password,
-		},
-	})
-	assert.Nil(t, err)
-
-	config.ClientID = ClientId
 
 	// Perform The Test
 	producer, registry, err := CreateSyncProducer([]string{KafkaBrokers}, config)

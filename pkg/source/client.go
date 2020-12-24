@@ -75,21 +75,13 @@ func NewConfig(ctx context.Context) ([]string, *sarama.Config, error) {
 		}
 	}
 
-	cfg := sarama.NewConfig()
-
-	// explicitly used
-	cfg.Version = sarama.V2_0_0_0
-
-	client.UpdateConfigWithDefaults(cfg)
-
-	cfg, err := client.BuildSaramaConfig(cfg, "", kafkaAuthConfig)
+	cfg, err := client.NewConfigBuilder().
+		WithDefaults().
+		WithAuth(kafkaAuthConfig).
+		WithVersion(sarama.V2_0_0_0).
+		Build()
 	if err != nil {
 		return nil, nil, fmt.Errorf("error creating Sarama config: %w", err)
-	}
-
-	err = client.UpdateSaramaConfigWithKafkaAuthConfig(cfg, kafkaAuthConfig)
-	if err != nil {
-		return nil, nil, fmt.Errorf("error configuring Sarama config with auth: %w", err)
 	}
 
 	return env.BootstrapServers, cfg, nil
@@ -111,12 +103,12 @@ func NewProducer(ctx context.Context) (sarama.Client, error) {
 func MakeAdminClient(clientID string, kafkaAuthCfg *client.KafkaAuthConfig, bootstrapServers []string) (sarama.ClusterAdmin, error) {
 	saramaConf := sarama.NewConfig()
 
-	saramaConf.Version = sarama.V2_0_0_0
-	saramaConf.ClientID = clientID
-
-	client.UpdateConfigWithDefaults(saramaConf)
-
-	saramaConf, err := client.BuildSaramaConfig(saramaConf, "", kafkaAuthCfg)
+	saramaConf, err := client.NewConfigBuilder().
+		WithDefaults().
+		WithAuth(kafkaAuthCfg).
+		WithVersion(sarama.V2_0_0_0).
+		WithClientId(clientID).
+		Build()
 	if err != nil {
 		return nil, fmt.Errorf("error creating admin client Sarama config: %w", err)
 	}

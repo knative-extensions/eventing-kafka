@@ -91,7 +91,10 @@ Metadata:
 		NewClusterAdminWrapper = newClusterAdminWrapperPlaceholder
 	}()
 
-	saramaConfig, err := client.BuildSaramaConfig(nil, commontesting.SaramaDefaultConfigYaml, nil)
+	saramaConfig, err := client.NewConfigBuilder().
+		WithDefaults().
+		FromYaml(commontesting.SaramaDefaultConfigYaml).
+		Build()
 	assert.Nil(t, err)
 
 	// Perform The Test
@@ -113,7 +116,10 @@ func TestNewKafkaAdminClientNoSecrets(t *testing.T) {
 	ctx := logging.WithLogger(context.TODO(), logtesting.TestLogger(t))
 	ctx = context.WithValue(ctx, injectionclient.Key{}, fake.NewSimpleClientset())
 
-	saramaConfig, err := client.BuildSaramaConfig(nil, commontesting.SaramaDefaultConfigYaml, nil)
+	saramaConfig, err := client.NewConfigBuilder().
+		WithDefaults().
+		FromYaml(commontesting.SaramaDefaultConfigYaml).
+		Build()
 	assert.Nil(t, err)
 
 	// Perform The Test
