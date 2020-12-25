@@ -101,8 +101,6 @@ func NewProducer(ctx context.Context) (sarama.Client, error) {
 }
 
 func MakeAdminClient(clientID string, kafkaAuthCfg *client.KafkaAuthConfig, bootstrapServers []string) (sarama.ClusterAdmin, error) {
-	saramaConf := sarama.NewConfig()
-
 	saramaConf, err := client.NewConfigBuilder().
 		WithDefaults().
 		WithAuth(kafkaAuthCfg).

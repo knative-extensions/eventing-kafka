@@ -148,14 +148,14 @@ func TestBuildSaramaConfig(t *testing.T) {
 
 	// Verify error when an invalid Version is provided
 	regexVersion := regexp.MustCompile(`Version:\s*\d*\.[\d.]*`) // Must have at least one period or it will match the "Version: 1" in Net.SASL
-	config, err = NewConfigBuilder().
+	_, err = NewConfigBuilder().
 		WithDefaults().
 		FromYaml(regexVersion.ReplaceAllString(commontesting.NewSaramaConfig, "Version: INVALID")).
 		Build()
 	assert.NotNil(t, err)
 
 	// Verify error when an invalid RootPEMs is provided
-	config, err = NewConfigBuilder().
+	_, err = NewConfigBuilder().
 		WithDefaults().
 		FromYaml(strings.Replace(EKDefaultSaramaConfigWithRootCert, "-----BEGIN CERTIFICATE-----", "INVALID CERT DATA", -1)).
 		Build()
