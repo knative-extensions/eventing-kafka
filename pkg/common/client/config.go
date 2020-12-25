@@ -80,7 +80,7 @@ type ConfigBuilder interface {
 	// (if provided) or in the YAML-string
 	WithClientId(clientId string) ConfigBuilder
 
-	// Build builds the Sarama config wih the given builder config
+	// Build builds the Sarama config with the given builder config
 	Build() (*sarama.Config, error)
 }
 
