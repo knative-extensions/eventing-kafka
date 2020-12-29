@@ -19,8 +19,9 @@ package producer
 import (
 	"context"
 	"errors"
-	"knative.dev/pkg/logging"
 	"time"
+
+	"knative.dev/pkg/logging"
 
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
 	"knative.dev/eventing-kafka/pkg/common/client"
@@ -128,6 +129,7 @@ func (p *Producer) ProduceKafkaMessage(ctx context.Context, channelReference eve
 
 	// Add The "traceparent" And "tracestate" Headers To The Message (Helps Tie Related Messages Together In Traces)
 	producerMessage.Headers = append(producerMessage.Headers, tracing.SerializeTrace(trace.FromContext(ctx).SpanContext())...)
+
 	// Produce The Kafka Message To The Kafka Topic
 	if logger.Core().Enabled(zap.DebugLevel) {
 		// Checked Logging Level First To Avoid Calling zap.Any In Production

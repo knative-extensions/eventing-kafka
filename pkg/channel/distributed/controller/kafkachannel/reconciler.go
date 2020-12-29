@@ -19,8 +19,9 @@ package kafkachannel
 import (
 	"context"
 	"fmt"
-	"knative.dev/pkg/logging"
 	"sync"
+
+	"knative.dev/pkg/logging"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
