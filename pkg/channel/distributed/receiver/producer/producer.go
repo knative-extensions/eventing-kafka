@@ -21,8 +21,6 @@ import (
 	"errors"
 	"time"
 
-	"knative.dev/pkg/logging"
-
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
 	"knative.dev/eventing-kafka/pkg/common/client"
 	"knative.dev/eventing-kafka/pkg/common/tracing"
@@ -106,16 +104,15 @@ var createSyncProducerWrapper = func(config *sarama.Config, brokers []string) (s
 // Produce A KafkaMessage From The Specified CloudEvent To The Specified Topic And Wait For The Delivery Report
 func (p *Producer) ProduceKafkaMessage(ctx context.Context, channelReference eventingChannel.ChannelReference, message binding.Message, transformers ...binding.Transformer) error {
 
-	logger := logging.FromContext(ctx).Desugar()
 	// Validate The Kafka Producer (Must Be Pre-Initialized)
 	if p.kafkaProducer == nil {
-		logger.Error("Kafka Producer Not Initialized - Unable To Produce Message")
+		p.logger.Error("Kafka Producer Not Initialized - Unable To Produce Message")
 		return errors.New("uninitialized kafka producer - unable to produce message")
 	}
 
 	// Get The Topic Name From The ChannelReference
 	topicName := util.TopicName(channelReference)
-	logger = logger.With(zap.String("Topic", topicName))
+	logger := p.logger.With(zap.String("Topic", topicName))
 
 	// Initialize The Sarama ProducerMessage With The Specified Topic Name
 	producerMessage := &sarama.ProducerMessage{Topic: topicName}
@@ -123,7 +120,7 @@ func (p *Producer) ProduceKafkaMessage(ctx context.Context, channelReference eve
 	// Use The SaramaKafka Protocol To Convert The Binding Message To A ProducerMessage
 	err := kafkasaramaprotocol.WriteProducerMessage(ctx, message, producerMessage, transformers...)
 	if err != nil {
-		logger.Error("Failed To Convert BindingMessage To Sarama ProducerMessage", zap.Error(err))
+		p.logger.Error("Failed To Convert BindingMessage To Sarama ProducerMessage", zap.Error(err))
 		return err
 	}
 

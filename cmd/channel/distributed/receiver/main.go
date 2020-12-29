@@ -23,8 +23,6 @@ import (
 	"strconv"
 	"strings"
 
-	"knative.dev/pkg/logging/logkey"
-
 	"github.com/cloudevents/sdk-go/v2/binding"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -162,15 +160,11 @@ func flush(logger *zap.Logger) {
 // CloudEvent Message Handler - Converts To KafkaMessage And Produces To Channel's Kafka Topic
 func handleMessage(ctx context.Context, channelReference eventingchannel.ChannelReference, message binding.Message, transformers []binding.Transformer, _ nethttp.Header) error {
 
-	// Add a traceId to the logger so that we can more easily follow a particular message/failure in the log
-	traceLogger := logger.With(zap.String(logkey.TraceID, uuid.New().String()))
-	ctx = logging.WithLogger(ctx, traceLogger.Sugar())
-
 	// Note - The context provided here is a different context from the one created in main() and does not have our logger instance.
-	if traceLogger.Core().Enabled(zap.DebugLevel) {
+	if logger.Core().Enabled(zap.DebugLevel) {
 		// Checked Logging Level First To Avoid Calling zap.Any In Production
-		traceLogger.Debug("~~~~~~~~~~~~~~~~~~~~  Processing Request  ~~~~~~~~~~~~~~~~~~~~")
-		traceLogger.Debug("Received Message", zap.Any("ChannelReference", channelReference))
+		logger.Debug("~~~~~~~~~~~~~~~~~~~~  Processing Request  ~~~~~~~~~~~~~~~~~~~~")
+		logger.Debug("Received Message", zap.Any("ChannelReference", channelReference))
 	}
 
 	// Trim The "-kn-channel" Suffix From The Service Name
@@ -179,14 +173,14 @@ func handleMessage(ctx context.Context, channelReference eventingchannel.Channel
 	// Validate The KafkaChannel Prior To Producing Kafka Message
 	err := channel.ValidateKafkaChannel(channelReference)
 	if err != nil {
-		traceLogger.Warn("Unable To Validate ChannelReference", zap.Any("ChannelReference", channelReference), zap.Error(err))
+		logger.Warn("Unable To Validate ChannelReference", zap.Any("ChannelReference", channelReference), zap.Error(err))
 		return err
 	}
 
 	// Produce The CloudEvent Binding Message (Send To The Appropriate Kafka Topic)
 	err = kafkaProducer.ProduceKafkaMessage(ctx, channelReference, message, transformers...)
 	if err != nil {
-		traceLogger.Error("Failed To Produce Kafka Message", zap.Error(err))
+		logger.Error("Failed To Produce Kafka Message", zap.Error(err))
 		return err
 	}
 
