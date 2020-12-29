@@ -162,7 +162,7 @@ func flush(logger *zap.Logger) {
 // CloudEvent Message Handler - Converts To KafkaMessage And Produces To Channel's Kafka Topic
 func handleMessage(ctx context.Context, channelReference eventingchannel.ChannelReference, message binding.Message, transformers []binding.Transformer, _ nethttp.Header) error {
 
-	// Add a traceId to the logger so that we can more easily follow a particular reconciliation in the log
+	// Add a traceId to the logger so that we can more easily follow a particular message/failure in the log
 	traceLogger := logger.With(zap.String(logkey.TraceID, uuid.New().String()))
 	ctx = logging.WithLogger(ctx, traceLogger.Sugar())
 
