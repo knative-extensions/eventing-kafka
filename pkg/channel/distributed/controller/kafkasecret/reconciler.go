@@ -19,7 +19,6 @@ package kafkasecret
 import (
 	"context"
 	"fmt"
-
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -32,6 +31,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/kafkasecretinjection"
 	"knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	kafkalisters "knative.dev/eventing-kafka/pkg/client/listers/messaging/v1beta1"
+	"knative.dev/pkg/logging"
 	"knative.dev/pkg/reconciler"
 )
 
@@ -55,9 +55,12 @@ var (
 // ReconcileKind Implements The Reconciler Interface & Is Responsible For Performing The Reconciliation (Creation)
 func (r *Reconciler) ReconcileKind(ctx context.Context, secret *corev1.Secret) reconciler.Event {
 
+	// Extract the logger from the context, as it contains a traceId that can be of use for diagnostic purposes.
+	logger := logging.FromContext(ctx)
+
 	// Setup Logger & Debug Log Separator
-	r.logger.Debug("<==========  START KAFKA-SECRET RECONCILIATION  ==========>")
-	logger := r.logger.With(zap.String("Secret", secret.Name))
+	logger.Debug("<==========  START KAFKA-SECRET RECONCILIATION  ==========>")
+	logger = logger.With(zap.String("Secret", secret.Name))
 
 	// Perform The Secret Reconciliation & Handle Error Response
 	logger.Info("Secret Owned By Controller - Reconciling", zap.String("Secret", secret.Name))

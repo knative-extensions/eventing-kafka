@@ -19,6 +19,7 @@ package producer
 import (
 	"context"
 	"errors"
+	"knative.dev/pkg/logging"
 	"time"
 
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
@@ -104,15 +105,16 @@ var createSyncProducerWrapper = func(config *sarama.Config, brokers []string) (s
 // Produce A KafkaMessage From The Specified CloudEvent To The Specified Topic And Wait For The Delivery Report
 func (p *Producer) ProduceKafkaMessage(ctx context.Context, channelReference eventingChannel.ChannelReference, message binding.Message, transformers ...binding.Transformer) error {
 
+	logger := logging.FromContext(ctx).Desugar()
 	// Validate The Kafka Producer (Must Be Pre-Initialized)
 	if p.kafkaProducer == nil {
-		p.logger.Error("Kafka Producer Not Initialized - Unable To Produce Message")
+		logger.Error("Kafka Producer Not Initialized - Unable To Produce Message")
 		return errors.New("uninitialized kafka producer - unable to produce message")
 	}
 
 	// Get The Topic Name From The ChannelReference
 	topicName := util.TopicName(channelReference)
-	logger := p.logger.With(zap.String("Topic", topicName))
+	logger = logger.With(zap.String("Topic", topicName))
 
 	// Initialize The Sarama ProducerMessage With The Specified Topic Name
 	producerMessage := &sarama.ProducerMessage{Topic: topicName}
@@ -120,13 +122,12 @@ func (p *Producer) ProduceKafkaMessage(ctx context.Context, channelReference eve
 	// Use The SaramaKafka Protocol To Convert The Binding Message To A ProducerMessage
 	err := kafkasaramaprotocol.WriteProducerMessage(ctx, message, producerMessage, transformers...)
 	if err != nil {
-		p.logger.Error("Failed To Convert BindingMessage To Sarama ProducerMessage", zap.Error(err))
+		logger.Error("Failed To Convert BindingMessage To Sarama ProducerMessage", zap.Error(err))
 		return err
 	}
 
 	// Add The "traceparent" And "tracestate" Headers To The Message (Helps Tie Related Messages Together In Traces)
 	producerMessage.Headers = append(producerMessage.Headers, tracing.SerializeTrace(trace.FromContext(ctx).SpanContext())...)
-
 	// Produce The Kafka Message To The Kafka Topic
 	if logger.Core().Enabled(zap.DebugLevel) {
 		// Checked Logging Level First To Avoid Calling zap.Any In Production

@@ -19,6 +19,7 @@ package kafkachannel
 import (
 	"context"
 	"fmt"
+	"knative.dev/pkg/logging"
 	"sync"
 
 	"github.com/Shopify/sarama"
@@ -104,7 +105,9 @@ func (r *Reconciler) ClearKafkaAdminClient() {
 // ReconcileKind Implements The Reconciler Interface & Is Responsible For Performing The Reconciliation (Creation)
 func (r *Reconciler) ReconcileKind(ctx context.Context, channel *kafkav1beta1.KafkaChannel) reconciler.Event {
 
-	r.logger.Debug("<==========  START KAFKA-CHANNEL RECONCILIATION  ==========>")
+	// Extract the logger from the context, as it contains a traceId that can be of use for diagnostic purposes.
+	logger := logging.FromContext(ctx)
+	logger.Debug("<==========  START KAFKA-CHANNEL RECONCILIATION  ==========>")
 
 	// Add The K8S ClientSet To The Reconcile Context
 	ctx = context.WithValue(ctx, kubeclient.Key{}, r.kubeClientset)
@@ -121,15 +124,15 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, channel *kafkav1beta1.Ka
 	channel.Status.InitializeConditions()
 
 	// Perform The KafkaChannel Reconciliation & Handle Error Response
-	r.logger.Info("Channel Owned By Controller - Reconciling", zap.Any("Channel.Spec", channel.Spec))
+	logger.Info("Channel Owned By Controller - Reconciling", zap.Any("Channel.Spec", channel.Spec))
 	err := r.reconcile(ctx, channel)
 	if err != nil {
-		r.logger.Error("Failed To Reconcile KafkaChannel", zap.Any("Channel", channel), zap.Error(err))
+		logger.Error("Failed To Reconcile KafkaChannel", zap.Any("Channel", channel), zap.Error(err))
 		return err
 	}
 
 	// Return Success
-	r.logger.Info("Successfully Reconciled KafkaChannel", zap.Any("Channel", channel))
+	logger.Info("Successfully Reconciled KafkaChannel", zap.Any("Channel", channel))
 	channel.Status.ObservedGeneration = channel.Generation
 	return reconciler.NewEvent(corev1.EventTypeNormal, event.KafkaChannelReconciled.String(), "KafkaChannel Reconciled Successfully: \"%s/%s\"", channel.Namespace, channel.Name)
 }

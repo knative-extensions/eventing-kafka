@@ -44,7 +44,7 @@ import (
 func (r *Reconciler) reconcileChannel(ctx context.Context, secret *corev1.Secret) error {
 
 	// Get Secret Specific Logger
-	logger := util.SecretLogger(r.logger, secret)
+	logger := util.SecretLogger(logging.FromContext(ctx).Desugar(), secret)
 
 	// Reconcile The Receiver Service
 	serviceErr := r.reconcileReceiverService(ctx, logger, secret)
