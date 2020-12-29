@@ -110,7 +110,7 @@ func TestClearKafkaAdminClient(t *testing.T) {
 	}
 
 	// Perform The Test
-	reconciler.ClearKafkaAdminClient()
+	reconciler.ClearKafkaAdminClient(context.TODO())
 
 	// Verify Results
 	assert.True(t, mockAdminClient.CloseCalled())

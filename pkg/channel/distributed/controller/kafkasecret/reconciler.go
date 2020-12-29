@@ -38,7 +38,6 @@ import (
 
 // Reconciler Implements controller.Reconciler for K8S Secrets Containing Kafka Auth (Labelled)
 type Reconciler struct {
-	logger             *zap.Logger
 	kubeClientset      kubernetes.Interface
 	config             *config.EventingKafkaConfig
 	environment        *env.Environment
@@ -55,8 +54,6 @@ var (
 
 // ReconcileKind Implements The Reconciler Interface & Is Responsible For Performing The Reconciliation (Creation)
 func (r *Reconciler) ReconcileKind(ctx context.Context, secret *corev1.Secret) reconciler.Event {
-
-	// Extract the logger from the context, as it contains a traceId that can be of use for diagnostic purposes.
 	logger := logging.FromContext(ctx)
 
 	// Setup Logger & Debug Log Separator
@@ -78,10 +75,11 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, secret *corev1.Secret) r
 
 // ReconcileKind Implements The Finalizer Interface & Is Responsible For Performing The Finalization (KafkaChannel Status)
 func (r *Reconciler) FinalizeKind(ctx context.Context, secret *corev1.Secret) reconciler.Event {
+	logger := logging.FromContext(ctx)
 
 	// Setup Logger & Debug Log Separator
-	r.logger.Debug("<==========  START KAFKA-SECRET FINALIZATION  ==========>")
-	logger := r.logger.With(zap.String("Secret", secret.Name))
+	logger.Debug("<==========  START KAFKA-SECRET FINALIZATION  ==========>")
+	logger = logger.With(zap.String("Secret", secret.Name))
 
 	// Reconcile The Affected KafkaChannel Status To Indicate The Receiver Service/Deployment Is No Longer Available
 	err := r.reconcileKafkaChannelStatus(ctx,

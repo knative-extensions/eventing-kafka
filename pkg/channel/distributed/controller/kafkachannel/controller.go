@@ -118,7 +118,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	//        the Services/Deployments with appropriate labels. Kubernetes does NOT support cross-namespace
 	//        OwnerReferences, and so we use "marker" labels to identify them instead.
 	//
-	rec.logger.Info("Setting Up EventHandlers")
+	logger.Info("Setting Up EventHandlers")
 	kafkachannelInformer.Informer().AddEventHandler(
 		controller.HandleAll(controllerImpl.Enqueue),
 	)
@@ -169,5 +169,5 @@ func FilterKafkaChannelOwnerByReferenceOrLabel() func(obj interface{}) bool {
 
 // Graceful Shutdown Hook
 func Shutdown() {
-	rec.ClearKafkaAdminClient()
+	rec.ClearKafkaAdminClient(context.Background())
 }

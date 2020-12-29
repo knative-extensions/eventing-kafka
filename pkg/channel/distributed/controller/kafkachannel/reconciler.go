@@ -84,20 +84,24 @@ var (
 // not have to support both use cases.
 //
 func (r *Reconciler) SetKafkaAdminClient(ctx context.Context) {
-	r.ClearKafkaAdminClient()
+	logger := logging.FromContext(ctx)
+
+	r.ClearKafkaAdminClient(ctx)
 	var err error
 	r.adminClient, err = kafkaadmin.CreateAdminClient(ctx, r.saramaConfig, constants.ControllerComponentName, r.adminClientType)
 	if err != nil {
-		r.logger.Error("Failed To Create Kafka AdminClient", zap.Error(err))
+		logger.Error("Failed To Create Kafka AdminClient", zap.Error(err))
 	}
 }
 
 // Clear (Close) The Reconciler's Kafka AdminClient
-func (r *Reconciler) ClearKafkaAdminClient() {
+func (r *Reconciler) ClearKafkaAdminClient(ctx context.Context) {
+	logger := logging.FromContext(ctx)
+
 	if r.adminClient != nil {
 		err := r.adminClient.Close()
 		if err != nil {
-			r.logger.Error("Failed To Close Kafka AdminClient", zap.Error(err))
+			logger.Error("Failed To Close Kafka AdminClient", zap.Error(err))
 		}
 		r.adminClient = nil
 	}
@@ -106,7 +110,6 @@ func (r *Reconciler) ClearKafkaAdminClient() {
 // ReconcileKind Implements The Reconciler Interface & Is Responsible For Performing The Reconciliation (Creation)
 func (r *Reconciler) ReconcileKind(ctx context.Context, channel *kafkav1beta1.KafkaChannel) reconciler.Event {
 
-	// Extract the logger from the context, as it contains a traceId that can be of use for diagnostic purposes.
 	logger := logging.FromContext(ctx)
 	logger.Debug("<==========  START KAFKA-CHANNEL RECONCILIATION  ==========>")
 
@@ -119,7 +122,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, channel *kafkav1beta1.Ka
 
 	// Create A New Kafka AdminClient For Each Reconciliation Attempt
 	r.SetKafkaAdminClient(ctx)
-	defer r.ClearKafkaAdminClient()
+	defer r.ClearKafkaAdminClient(ctx)
 
 	// Reset The Channel's Status Conditions To Unknown (Addressable, Topic, Service, Deployment, etc...)
 	channel.Status.InitializeConditions()
@@ -140,11 +143,12 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, channel *kafkav1beta1.Ka
 
 // ReconcileKind Implements The Finalizer Interface & Is Responsible For Performing The Finalization (Topic Deletion)
 func (r *Reconciler) FinalizeKind(ctx context.Context, channel *kafkav1beta1.KafkaChannel) reconciler.Event {
+	logger := logging.FromContext(ctx).Desugar()
 
-	r.logger.Debug("<==========  START KAFKA-CHANNEL FINALIZATION  ==========>")
+	logger.Debug("<==========  START KAFKA-CHANNEL FINALIZATION  ==========>")
 
 	// Setup Logger
-	logger := util.ChannelLogger(r.logger, channel)
+	logger = util.ChannelLogger(logger, channel)
 
 	// Add The K8S ClientSet To The Reconcile Context
 	ctx = context.WithValue(ctx, kubeclient.Key{}, r.kubeClientset)
@@ -155,7 +159,7 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, channel *kafkav1beta1.Kaf
 
 	// Create A New Kafka AdminClient For Each Reconciliation Attempt
 	r.SetKafkaAdminClient(ctx)
-	defer r.ClearKafkaAdminClient()
+	defer r.ClearKafkaAdminClient(ctx)
 
 	// Finalize The Dispatcher (Manual Finalization Due To Cross-Namespace Ownership)
 	err := r.finalizeDispatcher(ctx, channel)
