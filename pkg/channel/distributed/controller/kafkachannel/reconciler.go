@@ -49,6 +49,9 @@ import (
 
 // Reconciler Implements controller.Reconciler for KafkaChannel Resources
 type Reconciler struct {
+	// Note:  The only purpose this logger field serves is to be available for the configObserver function
+	//        which has a predefined definition that contains no context or logger parameters.  Other reconciler
+	//        logging output should be done via the Logger contained in the given Context.
 	logger               *zap.Logger
 	kubeClientset        kubernetes.Interface
 	kafkaClientSet       kafkaclientset.Interface
@@ -225,22 +228,26 @@ func (r *Reconciler) reconcile(ctx context.Context, channel *kafkav1beta1.KafkaC
 
 // configMapObserver is the callback function that handles changes to our ConfigMap
 func (r *Reconciler) configMapObserver(configMap *corev1.ConfigMap) {
+
+	if r == nil {
+		// This typically happens during startup and can be ignored
+		return
+	}
+
 	if configMap == nil {
 		r.logger.Warn("Nil ConfigMap passed to configMapObserver; ignoring")
 		return
 	}
-	if r == nil {
-		// This typically happens during startup
-		r.logger.Debug("Reconciler is nil during call to configMapObserver; ignoring changes")
-		return
-	}
+
+	// Add the config map to the logger for assistance with debug, error and fatal diagnostics
+	logger := r.logger.With(zap.Any("configMap", configMap))
 
 	// Enable Sarama Logging If Specified In ConfigMap
 	if ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap); err == nil && ekConfig != nil {
 		kafkasarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)
-		r.logger.Debug("Updated Sarama logging", zap.Bool("Kafka.EnableSaramaLogging", ekConfig.Kafka.EnableSaramaLogging))
+		logger.Debug("Updated Sarama logging", zap.Bool("Kafka.EnableSaramaLogging", ekConfig.Kafka.EnableSaramaLogging))
 	} else {
-		r.logger.Error("Could Not Extract Eventing-Kafka Setting From Updated ConfigMap", zap.Error(err))
+		logger.Error("Could Not Extract Eventing-Kafka Setting From Updated ConfigMap", zap.Error(err))
 	}
 
 	// Though the new configmap could technically have changes to the eventing-kafka section
@@ -253,7 +260,7 @@ func (r *Reconciler) configMapObserver(configMap *corev1.ConfigMap) {
 
 	// Validate The ConfigMap Data
 	if configMap.Data == nil {
-		r.logger.Fatal("Attempted to merge sarama settings with empty configmap")
+		logger.Fatal("Attempted to merge sarama settings with empty configmap")
 		return
 	}
 
@@ -263,12 +270,13 @@ func (r *Reconciler) configMapObserver(configMap *corev1.ConfigMap) {
 	// Load the Sarama settings from our configmap, ignoring the eventing-kafka result.
 	saramaConfig, err := client.MergeSaramaSettings(nil, saramaSettingsYamlString)
 	if err != nil {
-		r.logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Error(err))
+		logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Error(err))
 	}
 
 	// Note - We're not calling UpdateSaramaConfig() here because we load the Kafka Secret
 	//        from inside the AdminClient, which is currently done for every reconciliation.
 
+	// Use r.logger instead of logger so as to not log the entire configMap during an Info output
 	r.logger.Info("ConfigMap Changed; Updating Sarama Configuration")
 	r.saramaConfig = saramaConfig
 }

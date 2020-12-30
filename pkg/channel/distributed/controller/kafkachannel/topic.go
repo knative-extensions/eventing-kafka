@@ -19,6 +19,7 @@ package kafkachannel
 import (
 	"context"
 	"fmt"
+	"knative.dev/pkg/logging"
 	"strconv"
 
 	"github.com/Shopify/sarama"
@@ -38,12 +39,12 @@ func (r *Reconciler) reconcileKafkaTopic(ctx context.Context, channel *kafkav1be
 	topicName := util.TopicName(channel)
 
 	// Get Channel Specific Logger & Add Topic Name
-	logger := util.ChannelLogger(r.logger, channel).With(zap.String("TopicName", topicName))
+	logger := util.ChannelLogger(logging.FromContext(ctx).Desugar(), channel).With(zap.String("TopicName", topicName))
 
 	// Get The Topic Configuration (First From Channel With Failover To Environment)
-	numPartitions := util.NumPartitions(channel, r.config, r.logger)
-	replicationFactor := util.ReplicationFactor(channel, r.config, r.logger)
-	retentionMillis := util.RetentionMillis(channel, r.config, r.logger)
+	numPartitions := util.NumPartitions(channel, r.config, logger)
+	replicationFactor := util.ReplicationFactor(channel, r.config, logger)
+	retentionMillis := util.RetentionMillis(channel, r.config, logger)
 
 	// Create The Topic (Handles Case Where Already Exists)
 	err := r.createTopic(ctx, logger, topicName, numPartitions, replicationFactor, retentionMillis)
@@ -67,7 +68,7 @@ func (r *Reconciler) finalizeKafkaTopic(ctx context.Context, channel *kafkav1bet
 	topicName := util.TopicName(channel)
 
 	// Get Channel Specific Logger & Add Topic Name
-	logger := util.ChannelLogger(r.logger, channel).With(zap.String("TopicName", topicName))
+	logger := util.ChannelLogger(logging.FromContext(ctx).Desugar(), channel).With(zap.String("TopicName", topicName))
 
 	// Delete The Kafka Topic & Handle Error Response
 	err := r.deleteTopic(ctx, logger, topicName)

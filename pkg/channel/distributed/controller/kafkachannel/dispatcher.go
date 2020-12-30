@@ -55,7 +55,7 @@ import (
 func (r *Reconciler) reconcileDispatcher(ctx context.Context, channel *kafkav1beta1.KafkaChannel) error {
 
 	// Get Channel Specific Logger
-	logger := util.ChannelLogger(r.logger, channel)
+	logger := util.ChannelLogger(logging.FromContext(ctx).Desugar(), channel)
 
 	// Reconcile The Dispatcher's Service (For Prometheus Only)
 	serviceErr := r.reconcileDispatcherService(ctx, logger, channel)
@@ -87,7 +87,7 @@ func (r *Reconciler) reconcileDispatcher(ctx context.Context, channel *kafkav1be
 func (r *Reconciler) finalizeDispatcher(ctx context.Context, channel *kafkav1beta1.KafkaChannel) error {
 
 	// Get Channel Specific Logger
-	logger := util.ChannelLogger(r.logger, channel)
+	logger := util.ChannelLogger(logging.FromContext(ctx).Desugar(), channel)
 
 	// Finalize The Dispatcher's Service
 	serviceErr := r.finalizeDispatcherService(ctx, logger, channel)
