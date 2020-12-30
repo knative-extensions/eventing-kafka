@@ -19,6 +19,7 @@ package kafkachannel
 import (
 	"context"
 	"fmt"
+
 	"knative.dev/pkg/logging"
 
 	"go.uber.org/zap"
