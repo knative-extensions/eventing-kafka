@@ -37,6 +37,7 @@ type MockAdminClient struct {
 	deleteTopicsCalled  bool
 	MockCreateTopicFunc func(context.Context, string, *sarama.TopicDetail) *sarama.TopicError
 	MockDeleteTopicFunc func(context.Context, string) *sarama.TopicError
+	MockCloseFunc       func() error
 }
 
 // Mock Kafka AdminClient CreateTopic() Function - Calls Custom CreateTopic() If Specified, Otherwise Returns Success
@@ -72,6 +73,9 @@ func (m *MockAdminClient) DeleteTopicsCalled() bool {
 // Mock Kafka AdminClient Close Function - NoOp
 func (m *MockAdminClient) Close() error {
 	m.closeCalled = true
+	if m.MockCloseFunc != nil {
+		return m.MockCloseFunc()
+	}
 	return nil
 }
 

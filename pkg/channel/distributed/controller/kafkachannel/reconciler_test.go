@@ -18,6 +18,7 @@ package kafkachannel
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 
@@ -88,6 +89,13 @@ func TestSetKafkaAdminClient(t *testing.T) {
 	assert.True(t, mockAdminClient1.CloseCalled())
 	assert.NotNil(t, reconciler.adminClient)
 	assert.Equal(t, mockAdminClient2, reconciler.adminClient)
+
+	// Perform The Test - Error Conditions
+	reconciler.adminClientType = kafkaadmin.Unknown
+	reconciler.SetKafkaAdminClient(ctx)
+
+	// Verify Results
+	assert.Nil(t, reconciler.adminClient)
 }
 
 // Test The Reconciler's ClearKafkaAdminClient() Functionality
@@ -110,6 +118,15 @@ func TestClearKafkaAdminClient(t *testing.T) {
 	}
 
 	// Perform The Test
+	reconciler.ClearKafkaAdminClient(context.TODO())
+
+	// Verify Results
+	assert.True(t, mockAdminClient.CloseCalled())
+
+	// Perform The Test - Error Conditions
+	mockAdminClient = &controllertesting.MockAdminClient{}
+	mockAdminClient.MockCloseFunc = func() error { return errors.New("close test") }
+	reconciler.adminClient = mockAdminClient
 	reconciler.ClearKafkaAdminClient(context.TODO())
 
 	// Verify Results
