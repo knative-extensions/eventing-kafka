@@ -23,6 +23,7 @@ require (
 	github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0
 	github.com/slinkydeveloper/loadastic v0.0.0-20191203132749-9afe5a010a57
 	github.com/stretchr/testify v1.6.1
+	github.com/tsenart/vegeta v12.7.1-0.20190725001342-b5f4fca92137+incompatible // indirect
 	github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c
 	go.opencensus.io v0.22.5
 	go.uber.org/zap v1.16.0
@@ -32,9 +33,9 @@ require (
 	k8s.io/apimachinery v0.18.12
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/utils v0.0.0-20200603063816-c1c6865ac451
-	knative.dev/eventing v0.19.1-0.20201216183558-f3468d1c9954
+	knative.dev/eventing v0.19.1-0.20210104101731-109066f16f03
 	knative.dev/hack v0.0.0-20201214230143-4ed1ecb8db24
-	knative.dev/pkg v0.0.0-20201222215804-e2d6b4f84573
+	knative.dev/pkg v0.0.0-20201231084629-fb3dc711206a
 )
 
 replace (
