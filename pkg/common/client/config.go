@@ -58,24 +58,24 @@ type ConfigBuilder interface {
 	// config as a base.
 	WithExisting(existing *sarama.Config) ConfigBuilder
 
-	// WithDefaults makes the builder to apply
+	// WithDefaults makes the builder apply
 	// some defaults that we always use in eventing-kafka.
 	WithDefaults() ConfigBuilder
 
-	// FromYaml makes the builder to apply the settings
+	// FromYaml makes the builder apply the settings
 	// in a YAML-string for Sarama.
 	FromYaml(saramaYaml string) ConfigBuilder
 
-	// WithAuth makes the builder to apply the TLS/SASL settings
+	// WithAuth makes the builder apply the TLS/SASL settings
 	// on the config for the given KafkaAuthConfig
 	WithAuth(kafkaAuthConfig *KafkaAuthConfig) ConfigBuilder
 
-	// WithVersion makes the builder to set the version
+	// WithVersion makes the builder set the version
 	// explicitly, regardless what's set in the existing config
 	// (if provided) or in the YAML-string
 	WithVersion(version *sarama.KafkaVersion) ConfigBuilder
 
-	// WithClientId makes the builder to set the clientId
+	// WithClientId makes the builder set the clientId
 	// explicitly, regardless what's set in the existing config
 	// (if provided) or in the YAML-string
 	WithClientId(clientId string) ConfigBuilder
