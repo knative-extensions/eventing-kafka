@@ -29,7 +29,7 @@ import (
 	"knative.dev/pkg/injection/sharedmain"
 )
 
-// This function type is for a shim that we can pass our own logger to the Observer function
+// This function type is for a shim so that we can pass our own logger to the Observer function
 type LoggingObserver func(*zap.SugaredLogger, *corev1.ConfigMap)
 
 // The EventingKafkaConfig and these EK sub-structs contain our custom configuration settings,
