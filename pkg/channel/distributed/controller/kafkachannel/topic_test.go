@@ -29,7 +29,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	controllertesting "knative.dev/eventing-kafka/pkg/channel/distributed/controller/testing"
 	"knative.dev/pkg/controller"
-	logtesting "knative.dev/pkg/logging/testing"
 )
 
 // Define The Topic TestCase Type
@@ -195,7 +194,6 @@ func topicTestCaseFactory(tc TopicTestCase) func(t *testing.T) {
 
 		// Initialize The Reconciler For The Current TopicTestCase
 		r := &Reconciler{
-			logger:      logtesting.TestLogger(t).Desugar(),
 			adminClient: mockAdminClient,
 			config:      controllertesting.NewConfig(),
 		}

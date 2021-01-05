@@ -49,10 +49,6 @@ import (
 
 // Reconciler Implements controller.Reconciler for KafkaChannel Resources
 type Reconciler struct {
-	// Note:  The only purpose this logger field serves is to be available for the configObserver function
-	//        which has a predefined definition that contains no context or logger parameters.  Other reconciler
-	//        logging output should be done via the Logger contained in the given Context.
-	logger               *zap.Logger
 	kubeClientset        kubernetes.Interface
 	kafkaClientSet       kafkaclientset.Interface
 	adminClientType      kafkaadmin.AdminClientType
@@ -64,7 +60,7 @@ type Reconciler struct {
 	kafkachannelInformer cache.SharedIndexInformer
 	deploymentLister     appsv1listers.DeploymentLister
 	serviceLister        corev1listers.ServiceLister
-	configObserver       func(configMap *corev1.ConfigMap)
+	configObserver       config.LoggingObserver
 	adminMutex           *sync.Mutex
 }
 
@@ -113,11 +109,14 @@ func (r *Reconciler) ClearKafkaAdminClient(ctx context.Context) {
 // ReconcileKind Implements The Reconciler Interface & Is Responsible For Performing The Reconciliation (Creation)
 func (r *Reconciler) ReconcileKind(ctx context.Context, channel *kafkav1beta1.KafkaChannel) reconciler.Event {
 
-	logger := logging.FromContext(ctx)
+	// Get The Logger Via The Context
+	logger := logging.FromContext(ctx).Desugar()
 	logger.Debug("<==========  START KAFKA-CHANNEL RECONCILIATION  ==========>")
 
 	// Add The K8S ClientSet To The Reconcile Context
 	ctx = context.WithValue(ctx, kubeclient.Key{}, r.kubeClientset)
+	// Add A Channel-Specific Logger To The Context
+	ctx = logging.WithLogger(ctx, util.ChannelLogger(logger, channel).Sugar())
 
 	// Don't let another goroutine clear out the admin client while we're using it in this one
 	r.adminMutex.Lock()
@@ -146,15 +145,15 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, channel *kafkav1beta1.Ka
 
 // ReconcileKind Implements The Finalizer Interface & Is Responsible For Performing The Finalization (Topic Deletion)
 func (r *Reconciler) FinalizeKind(ctx context.Context, channel *kafkav1beta1.KafkaChannel) reconciler.Event {
+
+	// Get The Logger Via The Context
 	logger := logging.FromContext(ctx).Desugar()
-
 	logger.Debug("<==========  START KAFKA-CHANNEL FINALIZATION  ==========>")
-
-	// Setup Logger
-	logger = util.ChannelLogger(logger, channel)
 
 	// Add The K8S ClientSet To The Reconcile Context
 	ctx = context.WithValue(ctx, kubeclient.Key{}, r.kubeClientset)
+	// Add A Channel-Specific Logger To The Context
+	ctx = logging.WithLogger(ctx, util.ChannelLogger(logger, channel).Sugar())
 
 	// Don't let another goroutine clear out the admin client while we're using it in this one
 	r.adminMutex.Lock()
@@ -227,7 +226,7 @@ func (r *Reconciler) reconcile(ctx context.Context, channel *kafkav1beta1.KafkaC
 }
 
 // configMapObserver is the callback function that handles changes to our ConfigMap
-func (r *Reconciler) configMapObserver(configMap *corev1.ConfigMap) {
+func (r *Reconciler) configMapObserver(logger *zap.SugaredLogger, configMap *corev1.ConfigMap) {
 
 	if r == nil {
 		// This typically happens during startup and can be ignored
@@ -235,19 +234,16 @@ func (r *Reconciler) configMapObserver(configMap *corev1.ConfigMap) {
 	}
 
 	if configMap == nil {
-		r.logger.Warn("Nil ConfigMap passed to configMapObserver; ignoring")
+		logger.Warn("Nil ConfigMap passed to configMapObserver; ignoring")
 		return
 	}
-
-	// Add the config map to the logger for assistance with debug, error and fatal diagnostics
-	logger := r.logger.With(zap.Any("configMap", configMap))
 
 	// Enable Sarama Logging If Specified In ConfigMap
 	if ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap); err == nil && ekConfig != nil {
 		kafkasarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)
-		logger.Debug("Updated Sarama logging", zap.Bool("Kafka.EnableSaramaLogging", ekConfig.Kafka.EnableSaramaLogging))
+		logger.Debug("Updated Sarama logging", zap.Any("configMap", configMap), zap.Bool("Kafka.EnableSaramaLogging", ekConfig.Kafka.EnableSaramaLogging))
 	} else {
-		logger.Error("Could Not Extract Eventing-Kafka Setting From Updated ConfigMap", zap.Error(err))
+		logger.Error("Could Not Extract Eventing-Kafka Setting From Updated ConfigMap", zap.Any("configMap", configMap), zap.Error(err))
 	}
 
 	// Though the new configmap could technically have changes to the eventing-kafka section
@@ -260,7 +256,7 @@ func (r *Reconciler) configMapObserver(configMap *corev1.ConfigMap) {
 
 	// Validate The ConfigMap Data
 	if configMap.Data == nil {
-		logger.Fatal("Attempted to merge sarama settings with empty configmap")
+		logger.Fatal("Attempted to merge sarama settings with empty configmap", zap.Any("configMap", configMap))
 		return
 	}
 
@@ -270,13 +266,12 @@ func (r *Reconciler) configMapObserver(configMap *corev1.ConfigMap) {
 	// Load the Sarama settings from our configmap, ignoring the eventing-kafka result.
 	saramaConfig, err := client.MergeSaramaSettings(nil, saramaSettingsYamlString)
 	if err != nil {
-		logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Error(err))
+		logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Any("configMap", configMap), zap.Error(err))
 	}
 
 	// Note - We're not calling UpdateSaramaConfig() here because we load the Kafka Secret
 	//        from inside the AdminClient, which is currently done for every reconciliation.
 
-	// Use r.logger instead of logger so as to not log the entire configMap during an Info output
-	r.logger.Info("ConfigMap Changed; Updating Sarama Configuration")
+	logger.Info("ConfigMap Changed; Updating Sarama Configuration")
 	r.saramaConfig = saramaConfig
 }

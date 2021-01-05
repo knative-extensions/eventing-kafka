@@ -185,7 +185,7 @@ func flush(logger *zap.Logger) {
 }
 
 // configMapObserver is the callback function that handles changes to our ConfigMap
-func configMapObserver(configMap *v1.ConfigMap) {
+func configMapObserver(logger *zap.SugaredLogger, configMap *v1.ConfigMap) {
 	if configMap == nil {
 		logger.Warn("Nil ConfigMap passed to configMapObserver; ignoring")
 		return

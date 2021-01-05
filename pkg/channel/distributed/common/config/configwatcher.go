@@ -19,14 +19,18 @@ package config
 import (
 	"context"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"go.uber.org/zap"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/injection/sharedmain"
 )
+
+// This function type is for a shim that we can pass our own logger to the Observer function
+type LoggingObserver func(*zap.SugaredLogger, *corev1.ConfigMap)
 
 // The EventingKafkaConfig and these EK sub-structs contain our custom configuration settings,
 // stored in the config-kafka configmap.  The sub-structs are explicitly declared so that they
@@ -74,7 +78,7 @@ type EventingKafkaConfig struct {
 // Initialize The Specified Context With A ConfigMap Watcher
 // Much Of This Function Is Taken From The knative.dev sharedmain Package
 //
-func InitializeConfigWatcher(ctx context.Context, logger *zap.SugaredLogger, handler configmap.Observer, namespace string) error {
+func InitializeConfigWatcher(ctx context.Context, logger *zap.SugaredLogger, handler LoggingObserver, namespace string) error {
 
 	// Create A Watcher On The Configuration Settings ConfigMap & Dynamically Update Configuration
 	// Since this is designed to be called by the main() function, the default KNative package behavior here
@@ -84,7 +88,7 @@ func InitializeConfigWatcher(ctx context.Context, logger *zap.SugaredLogger, han
 	// Start The ConfigMap Watcher
 	// Taken from knative.dev/pkg/injection/sharedmain/main.go::WatchObservabilityConfigOrDie
 	if _, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(namespace).Get(ctx, SettingsConfigMapName, metav1.GetOptions{}); err == nil {
-		watcher.Watch(SettingsConfigMapName, handler)
+		watcher.Watch(SettingsConfigMapName, func(configmap *corev1.ConfigMap) { handler(logger, configmap) })
 	} else if !apierrors.IsNotFound(err) {
 		logger.Error("Error reading ConfigMap "+SettingsConfigMapName, zap.Error(err))
 		return err

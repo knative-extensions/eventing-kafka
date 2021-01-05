@@ -54,8 +54,8 @@ import (
 // Reconcile The Dispatcher For The Specified KafkaChannel - Ensure Desired State!
 func (r *Reconciler) reconcileDispatcher(ctx context.Context, channel *kafkav1beta1.KafkaChannel) error {
 
-	// Get Channel Specific Logger
-	logger := util.ChannelLogger(logging.FromContext(ctx).Desugar(), channel)
+	// Get The Channel-Specific Logger Provided Via The Context
+	logger := logging.FromContext(ctx).Desugar()
 
 	// Reconcile The Dispatcher's Service (For Prometheus Only)
 	serviceErr := r.reconcileDispatcherService(ctx, logger, channel)
@@ -86,11 +86,11 @@ func (r *Reconciler) reconcileDispatcher(ctx context.Context, channel *kafkav1be
 // Finalize The Dispatcher For The Specified KafkaChannel - Ensure Manual Deletion
 func (r *Reconciler) finalizeDispatcher(ctx context.Context, channel *kafkav1beta1.KafkaChannel) error {
 
-	// Get Channel Specific Logger
-	logger := util.ChannelLogger(logging.FromContext(ctx).Desugar(), channel)
+	// Get The Channel-Specific Logger Provided Via The Context
+	logger := logging.FromContext(ctx).Desugar()
 
 	// Finalize The Dispatcher's Service
-	serviceErr := r.finalizeDispatcherService(ctx, logger, channel)
+	serviceErr := r.finalizeDispatcherService(ctx, channel)
 	if serviceErr != nil {
 		controller.GetEventRecorder(ctx).Eventf(channel, corev1.EventTypeWarning, event.DispatcherServiceFinalizationFailed.String(), "Failed To Finalize Dispatcher Service: %v", serviceErr)
 		logger.Error("Failed To Finalize Dispatcher Service", zap.Error(serviceErr))
@@ -161,7 +161,10 @@ func (r *Reconciler) reconcileDispatcherService(ctx context.Context, logger *zap
 }
 
 // Finalize The Dispatcher Service
-func (r *Reconciler) finalizeDispatcherService(ctx context.Context, logger *zap.Logger, channel *kafkav1beta1.KafkaChannel) error {
+func (r *Reconciler) finalizeDispatcherService(ctx context.Context, channel *kafkav1beta1.KafkaChannel) error {
+
+	// Get The Channel-Specific Logger Provided Via The Context
+	logger := logging.FromContext(ctx).Desugar()
 
 	// Attempt To Get The Dispatcher Service Associated With The Specified Channel
 	service, err := r.getDispatcherService(channel)

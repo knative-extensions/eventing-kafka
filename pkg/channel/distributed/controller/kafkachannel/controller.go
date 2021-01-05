@@ -85,7 +85,6 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 
 	// Create A KafkaChannel Reconciler & Track As Package Variable
 	rec = &Reconciler{
-		logger:               logger,
 		kubeClientset:        kubeclient.Get(ctx),
 		environment:          environment,
 		config:               configuration,

@@ -39,8 +39,8 @@ import (
 // Reconcile The "Channel" Inbound For The Specified Channel
 func (r *Reconciler) reconcileChannel(ctx context.Context, channel *kafkav1beta1.KafkaChannel) error {
 
-	// Get Channel Specific Logger
-	logger := util.ChannelLogger(logging.FromContext(ctx).Desugar(), channel)
+	// Get The Channel-Specific Logger Provided Via The Context
+	logger := logging.FromContext(ctx).Desugar()
 
 	// Reconcile The KafkaChannel's Service
 	err := r.reconcileKafkaChannelService(ctx, logger, channel)

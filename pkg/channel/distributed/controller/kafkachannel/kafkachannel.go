@@ -34,8 +34,8 @@ import (
 // Reconcile The KafkaChannel Itself - After Channel Reconciliation (Add MetaData)
 func (r *Reconciler) reconcileKafkaChannel(ctx context.Context, channel *kafkav1beta1.KafkaChannel) error {
 
-	// Get Channel Specific Logger
-	logger := util.ChannelLogger(logging.FromContext(ctx).Desugar(), channel)
+	// Get The Channel-Specific Logger Provided Via The Context
+	logger := logging.FromContext(ctx).Desugar()
 
 	// Reconcile The KafkaChannel's MetaData
 	err := r.reconcileMetaData(ctx, channel)
@@ -51,8 +51,8 @@ func (r *Reconciler) reconcileKafkaChannel(ctx context.Context, channel *kafkav1
 // Reconcile The KafkaChannels MetaData (Annotations, Labels, etc...)
 func (r *Reconciler) reconcileMetaData(ctx context.Context, channel *kafkav1beta1.KafkaChannel) error {
 
-	// Get The Logger From The Context
-	logger := logging.FromContext(ctx)
+	// Get The Channel-Specific Logger Provided Via The Context
+	logger := logging.FromContext(ctx).Desugar()
 
 	// Update The MetaData (Annotations, Labels, etc...)
 	annotationsModified := r.reconcileAnnotations(channel)
