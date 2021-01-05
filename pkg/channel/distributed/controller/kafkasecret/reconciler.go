@@ -54,6 +54,8 @@ var (
 
 // ReconcileKind Implements The Reconciler Interface & Is Responsible For Performing The Reconciliation (Creation)
 func (r *Reconciler) ReconcileKind(ctx context.Context, secret *corev1.Secret) reconciler.Event {
+
+	// Get The Logger From The Context
 	logger := logging.FromContext(ctx)
 
 	// Setup Logger & Debug Log Separator
