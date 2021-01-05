@@ -73,7 +73,7 @@ type ConfigBuilder interface {
 	// WithVersion makes the builder to set the version
 	// explicitly, regardless what's set in the existing config
 	// (if provided) or in the YAML-string
-	WithVersion(version sarama.KafkaVersion) ConfigBuilder
+	WithVersion(version *sarama.KafkaVersion) ConfigBuilder
 
 	// WithClientId makes the builder to set the clientId
 	// explicitly, regardless what's set in the existing config
@@ -107,8 +107,8 @@ func (b *configBuilder) WithDefaults() ConfigBuilder {
 	return b
 }
 
-func (b *configBuilder) WithVersion(version sarama.KafkaVersion) ConfigBuilder {
-	b.version = &version
+func (b *configBuilder) WithVersion(version *sarama.KafkaVersion) ConfigBuilder {
+	b.version = version
 	return b
 }
 

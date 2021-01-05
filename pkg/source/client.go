@@ -78,7 +78,7 @@ func NewConfig(ctx context.Context) ([]string, *sarama.Config, error) {
 	cfg, err := client.NewConfigBuilder().
 		WithDefaults().
 		WithAuth(kafkaAuthConfig).
-		WithVersion(sarama.V2_0_0_0).
+		WithVersion(&sarama.V2_0_0_0).
 		Build()
 	if err != nil {
 		return nil, nil, fmt.Errorf("error creating Sarama config: %w", err)
@@ -104,7 +104,7 @@ func MakeAdminClient(clientID string, kafkaAuthCfg *client.KafkaAuthConfig, boot
 	saramaConf, err := client.NewConfigBuilder().
 		WithDefaults().
 		WithAuth(kafkaAuthCfg).
-		WithVersion(sarama.V2_0_0_0).
+		WithVersion(&sarama.V2_0_0_0).
 		WithClientId(clientID).
 		Build()
 	if err != nil {

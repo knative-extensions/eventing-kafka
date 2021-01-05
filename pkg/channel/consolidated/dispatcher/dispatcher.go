@@ -90,7 +90,7 @@ func (sub Subscription) String() string {
 func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispatcher, error) {
 	conf, err := client.NewConfigBuilder().
 		WithClientId(args.ClientID).
-		WithVersion(sarama.V2_0_0_0).
+		WithVersion(&sarama.V2_0_0_0).
 		WithDefaults().
 		WithAuth(args.KafkaAuthConfig).
 		Build()

@@ -190,7 +190,7 @@ func TestBuildSaramaConfig(t *testing.T) {
 				User: "foo",
 			},
 		}).
-		WithVersion(sarama.V2_0_0_0).
+		WithVersion(&sarama.V2_0_0_0).
 		WithClientId("newClientId").
 		Build()
 	assert.Nil(t, err)
