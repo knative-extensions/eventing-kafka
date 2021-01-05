@@ -120,7 +120,10 @@ var _ controller.Reconciler = (*reconcilerImpl)(nil)
 var _ reconciler.LeaderAware = (*reconcilerImpl)(nil)
 
 func NewReconciler(ctx context.Context, client corev1client.CoreV1Interface, lister corev1listers.SecretLister, recorder record.EventRecorder, r Interface, options ...controller.Options) controller.Reconciler {
+
+	// Get The Logger From The Context
 	logger := logging.FromContext(ctx)
+
 	// Check the options function input. It should be 0 or 1.
 	if len(options) > 1 {
 		logger.Fatalf("up to one options struct is supported, found %d", len(options))
