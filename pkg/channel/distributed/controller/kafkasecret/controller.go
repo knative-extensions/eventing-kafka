@@ -72,7 +72,6 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 
 	// Create The KafkaSecret Reconciler
 	r := &Reconciler{
-		logger:             logger,
 		kubeClientset:      kubeclient.Get(ctx),
 		config:             configuration,
 		environment:        environment,
@@ -86,7 +85,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	controllerImpl := kafkasecretinjection.NewImpl(ctx, r)
 
 	// Configure The Informers' EventHandlers
-	r.logger.Info("Setting Up EventHandlers")
+	logger.Info("Setting Up EventHandlers")
 	kafkaSecretInformer.Informer().AddEventHandler(
 		controller.HandleAll(controllerImpl.Enqueue),
 	)

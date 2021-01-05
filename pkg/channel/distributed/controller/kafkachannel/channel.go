@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 
+	"knative.dev/pkg/logging"
+
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -37,8 +39,8 @@ import (
 // Reconcile The "Channel" Inbound For The Specified Channel
 func (r *Reconciler) reconcileChannel(ctx context.Context, channel *kafkav1beta1.KafkaChannel) error {
 
-	// Get Channel Specific Logger
-	logger := util.ChannelLogger(r.logger, channel)
+	// Get The Channel-Specific Logger Provided Via The Context
+	logger := logging.FromContext(ctx).Desugar()
 
 	// Reconcile The KafkaChannel's Service
 	err := r.reconcileKafkaChannelService(ctx, logger, channel)

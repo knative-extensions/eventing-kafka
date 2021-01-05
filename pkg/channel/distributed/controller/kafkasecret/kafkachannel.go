@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 
+	"knative.dev/pkg/logging"
+
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -43,7 +45,7 @@ func (r *Reconciler) reconcileKafkaChannelStatus(ctx context.Context,
 	deploymentValid bool, deploymentReason string, deploymentMessage string) error {
 
 	// Get A Secret Logger (With The Valid Service/Deployment State
-	logger := util.SecretLogger(r.logger, secret).With(zap.Bool("Service", serviceValid), zap.Bool("Deployment", deploymentValid))
+	logger := util.SecretLogger(logging.FromContext(ctx).Desugar(), secret).With(zap.Bool("Service", serviceValid), zap.Bool("Deployment", deploymentValid))
 
 	// Create Selector With Requirement For KafkaSecret Labels With Value Of Specified Secret Name
 	selector := labels.NewSelector()
@@ -87,7 +89,7 @@ func (r *Reconciler) updateKafkaChannelStatus(ctx context.Context, originalChann
 	deploymentValid bool, deploymentReason string, deploymentMessage string) error {
 
 	// Get A KafkaChannel Logger
-	logger := util.ChannelLogger(r.logger, originalChannel)
+	logger := util.ChannelLogger(logging.FromContext(ctx).Desugar(), originalChannel)
 
 	// Update The KafkaChannel (Retry On Conflict - KafkaChannel Controller Will Also Be Updating KafkaChannel Status)
 	return reconciler.RetryUpdateConflicts(func(attempts int) error {

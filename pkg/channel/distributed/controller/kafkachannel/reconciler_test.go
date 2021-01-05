@@ -18,6 +18,7 @@ package kafkachannel
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 
@@ -40,7 +41,6 @@ import (
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
 	. "knative.dev/pkg/reconciler/testing"
 )
@@ -57,9 +57,6 @@ func TestSetKafkaAdminClient(t *testing.T) {
 	// Test Data
 	clientType := kafkaadmin.Kafka
 
-	// Create A Test Logger
-	logger := logtesting.TestLogger(t).Desugar()
-
 	// Create A Couple Of Mock AdminClients
 	mockAdminClient1 := &controllertesting.MockAdminClient{}
 	mockAdminClient2 := &controllertesting.MockAdminClient{}
@@ -75,7 +72,6 @@ func TestSetKafkaAdminClient(t *testing.T) {
 
 	// Create A Reconciler To Test
 	reconciler := &Reconciler{
-		logger:          logger,
 		adminClientType: clientType,
 		adminClient:     mockAdminClient1,
 	}
@@ -88,6 +84,13 @@ func TestSetKafkaAdminClient(t *testing.T) {
 	assert.True(t, mockAdminClient1.CloseCalled())
 	assert.NotNil(t, reconciler.adminClient)
 	assert.Equal(t, mockAdminClient2, reconciler.adminClient)
+
+	// Perform The Test - Error Conditions
+	reconciler.adminClientType = kafkaadmin.Unknown
+	reconciler.SetKafkaAdminClient(ctx)
+
+	// Verify Results
+	assert.Nil(t, reconciler.adminClient)
 }
 
 // Test The Reconciler's ClearKafkaAdminClient() Functionality
@@ -96,21 +99,26 @@ func TestClearKafkaAdminClient(t *testing.T) {
 	// Test Data
 	clientType := kafkaadmin.Kafka
 
-	// Create A Test Logger
-	logger := logtesting.TestLogger(t).Desugar()
-
 	// Create A Mock AdminClient
 	mockAdminClient := &controllertesting.MockAdminClient{}
 
 	// Create A Reconciler To Test
 	reconciler := &Reconciler{
-		logger:          logger,
 		adminClientType: clientType,
 		adminClient:     mockAdminClient,
 	}
 
 	// Perform The Test
-	reconciler.ClearKafkaAdminClient()
+	reconciler.ClearKafkaAdminClient(context.TODO())
+
+	// Verify Results
+	assert.True(t, mockAdminClient.CloseCalled())
+
+	// Perform The Test - Error Conditions
+	mockAdminClient = &controllertesting.MockAdminClient{}
+	mockAdminClient.MockCloseFunc = func() error { return errors.New("close test") }
+	reconciler.adminClient = mockAdminClient
+	reconciler.ClearKafkaAdminClient(context.TODO())
 
 	// Verify Results
 	assert.True(t, mockAdminClient.CloseCalled())
@@ -646,7 +654,6 @@ func TestReconcile(t *testing.T) {
 	logger := logtesting.TestLogger(t)
 	tableTest.Test(t, controllertesting.MakeFactory(func(ctx context.Context, listers *controllertesting.Listers, cmw configmap.Watcher, configOptions []controllertesting.KafkaConfigOption) controller.Reconciler {
 		r := &Reconciler{
-			logger:               logging.FromContext(ctx).Desugar(),
 			kubeClientset:        kubeclient.Get(ctx),
 			adminClientType:      kafkaadmin.Kafka,
 			adminClient:          nil,
@@ -659,6 +666,6 @@ func TestReconcile(t *testing.T) {
 			kafkaClientSet:       fakekafkaclient.Get(ctx),
 			adminMutex:           &sync.Mutex{},
 		}
-		return kafkachannelreconciler.NewReconciler(ctx, r.logger.Sugar(), r.kafkaClientSet, listers.GetKafkaChannelLister(), controller.GetEventRecorder(ctx), r)
+		return kafkachannelreconciler.NewReconciler(ctx, logger, r.kafkaClientSet, listers.GetKafkaChannelLister(), controller.GetEventRecorder(ctx), r)
 	}, logger.Desugar()))
 }

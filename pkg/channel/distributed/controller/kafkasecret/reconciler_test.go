@@ -35,7 +35,6 @@ import (
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
 	. "knative.dev/pkg/reconciler/testing"
 )
@@ -307,7 +306,6 @@ func TestReconcile(t *testing.T) {
 	logger := logtesting.TestLogger(t)
 	tableTest.Test(t, controllertesting.MakeFactory(func(ctx context.Context, listers *controllertesting.Listers, cmw configmap.Watcher, configOptions []controllertesting.KafkaConfigOption) controller.Reconciler {
 		r := &Reconciler{
-			logger:             logging.FromContext(ctx).Desugar(),
 			kubeClientset:      kubeclient.Get(ctx),
 			environment:        controllertesting.NewEnvironment(),
 			config:             controllertesting.NewConfig(configOptions...),
@@ -316,6 +314,6 @@ func TestReconcile(t *testing.T) {
 			deploymentLister:   listers.GetDeploymentLister(),
 			serviceLister:      listers.GetServiceLister(),
 		}
-		return kafkasecretinjection.NewReconciler(ctx, r.logger.Sugar(), r.kubeClientset.CoreV1(), listers.GetSecretLister(), controller.GetEventRecorder(ctx), r)
+		return kafkasecretinjection.NewReconciler(ctx, r.kubeClientset.CoreV1(), listers.GetSecretLister(), controller.GetEventRecorder(ctx), r)
 	}, logger.Desugar()))
 }

@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 
+	"knative.dev/pkg/logging"
+
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
@@ -32,8 +34,8 @@ import (
 // Reconcile The KafkaChannel Itself - After Channel Reconciliation (Add MetaData)
 func (r *Reconciler) reconcileKafkaChannel(ctx context.Context, channel *kafkav1beta1.KafkaChannel) error {
 
-	// Get Channel Specific Logger
-	logger := util.ChannelLogger(r.logger, channel)
+	// Get The Channel-Specific Logger Provided Via The Context
+	logger := logging.FromContext(ctx).Desugar()
 
 	// Reconcile The KafkaChannel's MetaData
 	err := r.reconcileMetaData(ctx, channel)
@@ -49,6 +51,9 @@ func (r *Reconciler) reconcileKafkaChannel(ctx context.Context, channel *kafkav1
 // Reconcile The KafkaChannels MetaData (Annotations, Labels, etc...)
 func (r *Reconciler) reconcileMetaData(ctx context.Context, channel *kafkav1beta1.KafkaChannel) error {
 
+	// Get The Channel-Specific Logger Provided Via The Context
+	logger := logging.FromContext(ctx).Desugar()
+
 	// Update The MetaData (Annotations, Labels, etc...)
 	annotationsModified := r.reconcileAnnotations(channel)
 	labelsModified := r.reconcileLabels(channel)
@@ -59,16 +64,16 @@ func (r *Reconciler) reconcileMetaData(ctx context.Context, channel *kafkav1beta
 		// Then Persist Changes To Kubernetes
 		_, err := r.kafkaClientSet.MessagingV1beta1().KafkaChannels(channel.Namespace).Update(ctx, channel, metav1.UpdateOptions{})
 		if err != nil {
-			r.logger.Error("Failed To Update KafkaChannel MetaData", zap.Error(err))
+			logger.Error("Failed To Update KafkaChannel MetaData", zap.Error(err))
 			return err
 		} else {
-			r.logger.Info("Successfully Updated KafkaChannel MetaData")
+			logger.Info("Successfully Updated KafkaChannel MetaData")
 			return nil
 		}
 	} else {
 
 		// Otherwise Nothing To Do
-		r.logger.Info("Successfully Verified KafkaChannel MetaData")
+		logger.Info("Successfully Verified KafkaChannel MetaData")
 		return nil
 	}
 }
