@@ -61,7 +61,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	}
 
 	// Load the Sarama and other eventing-kafka settings from our configmap
-	saramaConfig, configuration, err := sarama.LoadSettings(ctx)
+	saramaConfig, configuration, err := sarama.LoadSettings(ctx, "", nil)
 	if err != nil {
 		logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Error(err))
 	}

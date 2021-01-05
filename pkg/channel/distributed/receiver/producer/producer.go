@@ -211,7 +211,26 @@ func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 	saramaSettingsYamlString := configMap.Data[testing.SaramaSettingsConfigKey]
 
 	// Merge The Sarama Config From ConfigMap Into New Sarama Config
-	newConfig, err := client.MergeSaramaSettings(nil, saramaSettingsYamlString)
+	configBuilder := client.NewConfigBuilder().
+		WithDefaults().
+		FromYaml(saramaSettingsYamlString)
+
+	if p.configuration != nil {
+		configBuilder = configBuilder.WithClientId(p.configuration.ClientID)
+
+		// Some of the current config settings may not be overridden by the configmap (username, password, etc.)
+		if p.configuration.Net.SASL.User != "" {
+			kafkaAuthCfg := &client.KafkaAuthConfig{
+				SASL: &client.KafkaSaslConfig{
+					User:     p.configuration.Net.SASL.User,
+					Password: p.configuration.Net.SASL.Password,
+				},
+			}
+			configBuilder = configBuilder.WithAuth(kafkaAuthCfg)
+		}
+	}
+
+	newConfig, err := configBuilder.Build()
 	if err != nil {
 		p.logger.Error("Unable to merge sarama settings", zap.Error(err))
 		return nil
@@ -219,10 +238,6 @@ func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 
 	// Validate Configuration (Should Always Be Present)
 	if p.configuration != nil {
-
-		// Some of the current config settings may not be overridden by the configmap (username, password, etc.)
-		client.UpdateSaramaConfig(newConfig, p.configuration.ClientID, p.configuration.Net.SASL.User, p.configuration.Net.SASL.Password)
-
 		// Enable Sarama Logging If Specified In ConfigMap
 		if ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap); err == nil && ekConfig != nil {
 			kafkasarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)
@@ -232,7 +247,7 @@ func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 		}
 
 		// Ignore the "Admin" and "Consumer" sections when comparing, as changes to those do not require restarting the Producer
-		if kafkasarama.ConfigEqual(newConfig, p.configuration, newConfig.Admin, newConfig.Consumer) {
+		if client.ConfigEqual(newConfig, p.configuration, newConfig.Admin, newConfig.Consumer) {
 			p.logger.Info("No Producer Changes Detected In New Configuration - Ignoring")
 			return nil
 		}

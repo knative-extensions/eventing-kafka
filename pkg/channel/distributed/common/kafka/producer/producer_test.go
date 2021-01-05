@@ -62,9 +62,20 @@ func performCreateSyncProducerTest(t *testing.T, username string, password strin
 	}
 	defer func() { newSyncProducerWrapper = newSyncProducerWrapperPlaceholder }()
 
+	config, err := client.NewConfigBuilder().
+		WithDefaults().
+		FromYaml(commontesting.SaramaDefaultConfigYaml).
+		WithAuth(&client.KafkaAuthConfig{
+			SASL: &client.KafkaSaslConfig{
+				User:     username,
+				Password: password,
+			},
+		}).
+		WithClientId(ClientId).
+		Build()
+	assert.Nil(t, err)
+
 	// Perform The Test
-	config := commontesting.GetDefaultSaramaConfig(t)
-	client.UpdateSaramaConfig(config, ClientId, username, password)
 	producer, registry, err := CreateSyncProducer([]string{KafkaBrokers}, config)
 
 	// Verify The Results
@@ -74,21 +85,13 @@ func performCreateSyncProducerTest(t *testing.T, username string, password strin
 	assert.NotNil(t, registry)
 }
 
-// Test that the UpdateSaramaConfig sets values as expected
-func TestUpdateConfig(t *testing.T) {
-	config := sarama.NewConfig()
-	client.UpdateSaramaConfig(config, ClientId, KafkaUsername, KafkaPassword)
-	assert.Equal(t, ClientId, config.ClientID)
-	assert.Equal(t, KafkaUsername, config.Net.SASL.User)
-	assert.Equal(t, KafkaPassword, config.Net.SASL.Password)
-}
-
 // Verify The Sarama Config Is As Expected
 func verifySaramaConfig(t *testing.T, config *sarama.Config, clientId string, username string, password string) {
 	assert.NotNil(t, config)
 	assert.Equal(t, clientId, config.ClientID)
 	assert.NotNil(t, config.Net)
 	assert.NotNil(t, config.Net.SASL)
+	assert.True(t, config.Net.SASL.Enable)
 	assert.Equal(t, username, config.Net.SASL.User)
 	assert.Equal(t, password, config.Net.SASL.Password)
 	assert.Equal(t, constants.ConfigKafkaVersionDefault, config.Version)

@@ -71,14 +71,22 @@ func main() {
 		logger.Fatal("Failed To Load Environment Variables - Terminating!", zap.Error(err))
 	}
 
+	var kafkaAuthCfg *client.KafkaAuthConfig
+	// Update The Sarama Config - Username/Password Overrides (EnvVars From Secret Take Precedence Over ConfigMap)
+	if environment.KafkaUsername != "" {
+		kafkaAuthCfg = &client.KafkaAuthConfig{
+			SASL: &client.KafkaSaslConfig{
+				User:     environment.KafkaUsername,
+				Password: environment.KafkaPassword,
+			},
+		}
+	}
+
 	// Load The Sarama & Eventing-Kafka Configuration From The ConfigMap
-	saramaConfig, ekConfig, err := sarama.LoadSettings(ctx)
+	saramaConfig, ekConfig, err := sarama.LoadSettings(ctx, constants.Component, kafkaAuthCfg)
 	if err != nil {
 		logger.Fatal("Failed To Load Sarama Settings", zap.Error(err))
 	}
-
-	// Update The Sarama Config - Username/Password Overrides (EnvVars From Secret Take Precedence Over ConfigMap)
-	client.UpdateSaramaConfig(saramaConfig, constants.Component, environment.KafkaUsername, environment.KafkaPassword)
 
 	// Enable Sarama Logging If Specified In ConfigMap
 	sarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)

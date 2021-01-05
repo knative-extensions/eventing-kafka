@@ -26,10 +26,6 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
 
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
-
-	"github.com/Shopify/sarama"
-	"github.com/ghodss/yaml"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -56,17 +52,6 @@ func GetTestSaramaConfigMapNamespaced(name, namespace, saramaConfig, configurati
 			EventingKafkaSettingsConfigKey: configuration,
 		},
 	}
-}
-
-// Obtain A Default Sarama Config With Custom Values For Testing
-func GetDefaultSaramaConfig(t *testing.T) *sarama.Config {
-	config := sarama.NewConfig()
-	config.Version = constants.ConfigKafkaVersionDefault
-	config.Consumer.Return.Errors = true
-	config.Producer.Return.Successes = true
-	assert.NotNil(t, config)
-	assert.Nil(t, yaml.Unmarshal([]byte(SaramaDefaultConfigYaml), config))
-	return config
 }
 
 // Retries an HTTP GET request a specified number of times before giving up.

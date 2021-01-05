@@ -28,6 +28,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
+	"knative.dev/eventing-kafka/pkg/common/client"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
@@ -81,6 +82,7 @@ Metadata:
 		assert.NotNil(t, config)
 		assert.Equal(t, clientId, config.ClientID)
 		assert.Equal(t, constants.ConfigKafkaVersionDefault, config.Version)
+		assert.True(t, config.Net.SASL.Enable)
 		assert.Equal(t, kafkaSecretUsername, config.Net.SASL.User)
 		assert.Equal(t, kafkaSecretPassword, config.Net.SASL.Password)
 		return mockClusterAdmin, nil
@@ -89,8 +91,14 @@ Metadata:
 		NewClusterAdminWrapper = newClusterAdminWrapperPlaceholder
 	}()
 
+	saramaConfig, err := client.NewConfigBuilder().
+		WithDefaults().
+		FromYaml(commontesting.SaramaDefaultConfigYaml).
+		Build()
+	assert.Nil(t, err)
+
 	// Perform The Test
-	adminClient, err := NewKafkaAdminClient(ctx, commontesting.GetDefaultSaramaConfig(t), clientId, namespace)
+	adminClient, err := NewKafkaAdminClient(ctx, saramaConfig, clientId, namespace)
 
 	// Verify The Results
 	assert.Nil(t, err)
@@ -108,8 +116,14 @@ func TestNewKafkaAdminClientNoSecrets(t *testing.T) {
 	ctx := logging.WithLogger(context.TODO(), logtesting.TestLogger(t))
 	ctx = context.WithValue(ctx, injectionclient.Key{}, fake.NewSimpleClientset())
 
+	saramaConfig, err := client.NewConfigBuilder().
+		WithDefaults().
+		FromYaml(commontesting.SaramaDefaultConfigYaml).
+		Build()
+	assert.Nil(t, err)
+
 	// Perform The Test
-	adminClient, err := NewKafkaAdminClient(ctx, commontesting.GetDefaultSaramaConfig(t), clientId, namespace)
+	adminClient, err := NewKafkaAdminClient(ctx, saramaConfig, clientId, namespace)
 
 	// Verify The Results
 	assert.Nil(t, err)

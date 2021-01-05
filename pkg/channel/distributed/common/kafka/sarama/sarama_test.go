@@ -30,7 +30,6 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	commonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
-	"knative.dev/eventing-kafka/pkg/common/client"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 )
 
@@ -57,62 +56,6 @@ Net:
   TLS:
     Config:
       ClientAuth: 0
-  SASL:
-    Mechanism: PLAIN
-    Version: 1
-Metadata:
-  RefreshFrequency: 300000000000
-Consumer:
-  Offsets:
-    AutoCommit:
-        Interval: 5000000000
-    Retention: 604800000000000
-  Return:
-    Errors: true
-`
-
-	EKDefaultSaramaConfigWithRootCert = `
-Net:
-  TLS:
-    Enable: true
-    Config:
-      RootPEMs: # Array of Root Certificate PEM Files As Strings (Mind indentation and use '|-' Syntax To Avoid Terminating \n)
-      - |-
-        -----BEGIN CERTIFICATE-----
-        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
-        NAehp9bMeco=
-        -----END CERTIFICATE-----
   SASL:
     Mechanism: PLAIN
     Version: 1
@@ -157,7 +100,7 @@ func TestLoadDefaultSaramaSettings(t *testing.T) {
 	fakeK8sClient := fake.NewSimpleClientset(configMap)
 	ctx := context.WithValue(context.Background(), injectionclient.Key{}, fakeK8sClient)
 
-	config, configuration, err := LoadSettings(ctx)
+	config, configuration, err := LoadSettings(ctx, "myClient", nil)
 	assert.Nil(t, err)
 	// Make sure all of our default Sarama settings were loaded properly
 	assert.Equal(t, tls.ClientAuthType(0), config.Net.TLS.Config.ClientAuth)
@@ -167,6 +110,7 @@ func TestLoadDefaultSaramaSettings(t *testing.T) {
 	assert.Equal(t, time.Duration(5000000000), config.Consumer.Offsets.AutoCommit.Interval)
 	assert.Equal(t, time.Duration(604800000000000), config.Consumer.Offsets.Retention)
 	assert.Equal(t, true, config.Consumer.Return.Errors)
+	assert.Equal(t, "myClient", config.ClientID)
 
 	// Make sure all of our default eventing-kafka settings were loaded properly
 	// Specifically checking the type (e.g. int64, int16, int) is important
@@ -186,67 +130,6 @@ func TestLoadDefaultSaramaSettings(t *testing.T) {
 	assert.Equal(t, "azure", configuration.Kafka.AdminType)
 }
 
-// Verify that comparisons of sarama config structs function as expected
-func TestSaramaConfigEqual(t *testing.T) {
-	config1 := sarama.NewConfig()
-	config2 := sarama.NewConfig()
-
-	// Change some of the values back and forth and verify that the comparison function is correctly evaluated
-	assert.True(t, ConfigEqual(config1, config2))
-
-	config1.Admin = sarama.Config{}.Admin // Zero out the entire Admin sub-struct
-	assert.False(t, ConfigEqual(config1, config2))
-
-	config2.Admin = sarama.Config{}.Admin // Zero out the entire Admin sub-struct
-	assert.True(t, ConfigEqual(config1, config2))
-
-	config1.Net.SASL.Version = 12345
-	assert.False(t, ConfigEqual(config1, config2))
-
-	config2.Net.SASL.Version = 12345
-	assert.True(t, ConfigEqual(config1, config2))
-
-	config1.Metadata.RefreshFrequency = 1234 * time.Second
-	assert.False(t, ConfigEqual(config1, config2))
-
-	config2.Metadata.RefreshFrequency = 1234 * time.Second
-	assert.True(t, ConfigEqual(config1, config2))
-
-	config1.Producer.Flush.Bytes = 12345678
-	assert.False(t, ConfigEqual(config1, config2))
-
-	config2.Producer.Flush.Bytes = 12345678
-	assert.True(t, ConfigEqual(config1, config2))
-
-	config1.RackID = "New Rack ID"
-	assert.False(t, ConfigEqual(config1, config2))
-
-	config2.RackID = "New Rack ID"
-	assert.True(t, ConfigEqual(config1, config2))
-
-	// Change a boolean flag in the TLS.Config struct (which is not Sarama-specific) and make sure the compare function
-	// works with those sub-structs as well.
-	config1.Net.TLS.Config = &tls.Config{}
-	config2.Net.TLS.Config = &tls.Config{}
-
-	config1.Net.TLS.Config.InsecureSkipVerify = true
-	config2.Net.TLS.Config.InsecureSkipVerify = false
-	assert.False(t, ConfigEqual(config1, config2))
-	config2.Net.TLS.Config.InsecureSkipVerify = true
-	assert.True(t, ConfigEqual(config1, config2))
-	config1.Net.TLS.Config.InsecureSkipVerify = false
-	assert.False(t, ConfigEqual(config1, config2))
-	config2.Net.TLS.Config.InsecureSkipVerify = false
-	assert.True(t, ConfigEqual(config1, config2))
-
-	// Test config with TLS struct
-	config1, err := client.MergeSaramaSettings(nil, EKDefaultSaramaConfigWithRootCert)
-	assert.Nil(t, err)
-	config2, err = client.MergeSaramaSettings(nil, EKDefaultSaramaConfigWithRootCert)
-	assert.Nil(t, err)
-	assert.True(t, ConfigEqual(config1, config2))
-}
-
 func TestLoadEventingKafkaSettings(t *testing.T) {
 	// Set up a configmap and verify that the sarama settings are loaded properly from it
 	commontesting.SetTestEnvironment(t)
@@ -255,7 +138,7 @@ func TestLoadEventingKafkaSettings(t *testing.T) {
 
 	ctx := context.WithValue(context.Background(), injectionclient.Key{}, fakeK8sClient)
 
-	saramaConfig, eventingKafkaConfig, err := LoadSettings(ctx)
+	saramaConfig, eventingKafkaConfig, err := LoadSettings(ctx, "", nil)
 	assert.Nil(t, err)
 	verifyTestEKConfigSettings(t, saramaConfig, eventingKafkaConfig)
 
@@ -285,13 +168,13 @@ func TestLoadEventingKafkaSettings(t *testing.T) {
 func TestLoadSettings(t *testing.T) {
 	// Set up a configmap and verify that the sarama and eventing-kafka settings are loaded properly from it
 	ctx := getTestSaramaContext(t, commontesting.OldSaramaConfig, commontesting.TestEKConfig)
-	saramaConfig, eventingKafkaConfig, err := LoadSettings(ctx)
+	saramaConfig, eventingKafkaConfig, err := LoadSettings(ctx, "", nil)
 	assert.Nil(t, err)
 	verifyTestEKConfigSettings(t, saramaConfig, eventingKafkaConfig)
 
 	// Verify that a context with no configmap returns an error
 	ctx = context.WithValue(context.Background(), injectionclient.Key{}, fake.NewSimpleClientset())
-	saramaConfig, eventingKafkaConfig, err = LoadSettings(ctx)
+	saramaConfig, eventingKafkaConfig, err = LoadSettings(ctx, "", nil)
 	assert.Nil(t, saramaConfig)
 	assert.Nil(t, eventingKafkaConfig)
 	assert.NotNil(t, err)
@@ -300,7 +183,7 @@ func TestLoadSettings(t *testing.T) {
 	configMap := commontesting.GetTestSaramaConfigMap("", "")
 	configMap.Data = nil
 	ctx = context.WithValue(context.Background(), injectionclient.Key{}, fake.NewSimpleClientset(configMap))
-	saramaConfig, eventingKafkaConfig, err = LoadSettings(ctx)
+	saramaConfig, eventingKafkaConfig, err = LoadSettings(ctx, "", nil)
 	assert.Nil(t, saramaConfig)
 	assert.Nil(t, eventingKafkaConfig)
 	assert.NotNil(t, err)
@@ -309,7 +192,7 @@ func TestLoadSettings(t *testing.T) {
 	configMap = commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, "")
 	configMap.Data[commontesting.EventingKafkaSettingsConfigKey] = "\tinvalidYaml"
 	ctx = context.WithValue(context.Background(), injectionclient.Key{}, fake.NewSimpleClientset(configMap))
-	saramaConfig, eventingKafkaConfig, err = LoadSettings(ctx)
+	saramaConfig, eventingKafkaConfig, err = LoadSettings(ctx, "", nil)
 	assert.Nil(t, saramaConfig)
 	assert.Nil(t, eventingKafkaConfig)
 	assert.NotNil(t, err)

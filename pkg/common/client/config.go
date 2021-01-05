@@ -18,72 +18,306 @@ package client
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"time"
 
 	"github.com/Shopify/sarama"
 	"github.com/ghodss/yaml"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 )
 
-// Merge existing Sarama config with provided YAML string.
-// Values in YAML string will override the values in the config.
-// If config Is nil, A New sarama.Config Struct Will Be Created With Default Values
-func MergeSaramaSettings(config *sarama.Config, saramaSettingsYamlString string) (*sarama.Config, error) {
-	// Merging To A Nil Config Requires Creating An Default One First
-	if config == nil {
-		// Start With Base Sarama Defaults
-		config = sarama.NewConfig()
+type KafkaAuthConfig struct {
+	TLS  *KafkaTlsConfig
+	SASL *KafkaSaslConfig
+}
 
+type KafkaTlsConfig struct {
+	Cacert   string
+	Usercert string
+	Userkey  string
+}
+
+type KafkaSaslConfig struct {
+	User     string
+	Password string
+	SaslType string
+}
+
+// ConfigBuilder builds the Sarama config using multiple options.
+// Precedence for the options is following:
+// - get existing config if provided, create a new one otherwise
+// - apply defaults
+// - apply settings from YAML string
+// - apply settings from KafkaAuthConfig
+// - apply individual settings like version, clientId
+type ConfigBuilder interface {
+	// WithExisting makes the builder use an existing Sarama
+	// config as a base.
+	WithExisting(existing *sarama.Config) ConfigBuilder
+
+	// WithDefaults makes the builder apply
+	// some defaults that we always use in eventing-kafka.
+	WithDefaults() ConfigBuilder
+
+	// FromYaml makes the builder apply the settings
+	// in a YAML-string for Sarama.
+	FromYaml(saramaYaml string) ConfigBuilder
+
+	// WithAuth makes the builder apply the TLS/SASL settings
+	// on the config for the given KafkaAuthConfig
+	WithAuth(kafkaAuthConfig *KafkaAuthConfig) ConfigBuilder
+
+	// WithVersion makes the builder set the version
+	// explicitly, regardless what's set in the existing config
+	// (if provided) or in the YAML-string
+	WithVersion(version *sarama.KafkaVersion) ConfigBuilder
+
+	// WithClientId makes the builder set the clientId
+	// explicitly, regardless what's set in the existing config
+	// (if provided) or in the YAML-string
+	WithClientId(clientId string) ConfigBuilder
+
+	// Build builds the Sarama config with the given builder config
+	Build() (*sarama.Config, error)
+}
+
+func NewConfigBuilder() ConfigBuilder {
+	return &configBuilder{}
+}
+
+type configBuilder struct {
+	existing *sarama.Config
+	defaults bool
+	version  *sarama.KafkaVersion
+	clientId string
+	yaml     string
+	auth     *KafkaAuthConfig
+}
+
+func (b *configBuilder) WithExisting(existing *sarama.Config) ConfigBuilder {
+	b.existing = existing
+	return b
+}
+
+func (b *configBuilder) WithDefaults() ConfigBuilder {
+	b.defaults = true
+	return b
+}
+
+func (b *configBuilder) WithVersion(version *sarama.KafkaVersion) ConfigBuilder {
+	b.version = version
+	return b
+}
+
+func (b *configBuilder) WithClientId(clientId string) ConfigBuilder {
+	b.clientId = clientId
+	return b
+}
+
+func (b *configBuilder) FromYaml(saramaSettingsYamlString string) ConfigBuilder {
+	b.yaml = saramaSettingsYamlString
+	return b
+}
+
+func (b *configBuilder) WithAuth(kafkaAuthCfg *KafkaAuthConfig) ConfigBuilder {
+	b.auth = kafkaAuthCfg
+	return b
+}
+
+func (b *configBuilder) Build() (*sarama.Config, error) {
+	var config *sarama.Config
+
+	// check if there's existing first
+	if b.existing != nil {
+		config = b.existing
+	} else {
+		config = sarama.NewConfig()
+	}
+
+	// then apply defaults, if requested
+	if b.defaults {
 		// Use Our Default Minimum Version
 		config.Version = constants.ConfigKafkaVersionDefault
 
-		// Add Any Required Settings
-		UpdateSaramaConfig(config, config.ClientID, "", "")
+		// We Always Want To Know About Consumer Errors
+		config.Consumer.Return.Errors = true
+
+		// We Always Want Success Messages From Producer
+		config.Producer.Return.Successes = true
 	}
 
-	// Extract (Remove) The KafkaVersion From The Sarama Config YAML
-	saramaSettingsYamlString, kafkaVersion, err := extractKafkaVersion(saramaSettingsYamlString)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract KafkaVersion from Sarama Config YAML: err=%s : config=%+v", err, saramaSettingsYamlString)
+	// then apply stuff from YAML
+	if b.yaml != "" {
+		// Extract (Remove) The KafkaVersion From The Sarama Config YAML as we can't marshal it regularly
+		saramaSettingsYamlString, kafkaVersionInYaml, err := extractKafkaVersion(b.yaml)
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract KafkaVersion from Sarama Config YAML: err=%s : config=%+v", err, saramaSettingsYamlString)
+		}
+
+		// Extract (Remove) Any TLS.Config RootCAs & Set In Sarama.Config
+		saramaSettingsYamlString, certPool, err := extractRootCerts(saramaSettingsYamlString)
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract RootPEMs from Sarama Config YAML: err=%s : config=%+v", err, saramaSettingsYamlString)
+		}
+
+		// Unmarshall The Sarama Config Yaml Into The Provided Sarama.Config Object
+		err = yaml.Unmarshal([]byte(saramaSettingsYamlString), &config)
+		if err != nil {
+			return nil, fmt.Errorf("ConfigMap's sarama value could not be converted to a Sarama.Config struct: %s : %v", err, saramaSettingsYamlString)
+		}
+
+		// Override The Custom Parsed KafkaVersion, if it is specified in the YAML
+		if kafkaVersionInYaml != nil {
+			config.Version = *kafkaVersionInYaml
+		}
+
+		// Override Any Custom Parsed TLS.Config.RootCAs
+		if certPool != nil && len(certPool.Subjects()) > 0 {
+			config.Net.TLS.Config = &tls.Config{RootCAs: certPool}
+		}
 	}
 
-	// Extract (Remove) Any TLS.Config RootCAs & Set In Sarama.Config
-	saramaSettingsYamlString, certPool, err := extractRootCerts(saramaSettingsYamlString)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract RootPEMs from Sarama Config YAML: err=%s : config=%+v", err, saramaSettingsYamlString)
+	// then apply auth settings
+	if b.auth != nil {
+		// tls
+		if b.auth.TLS != nil {
+			config.Net.TLS.Enable = true
+			tlsConfig, err := newTLSConfig(b.auth.TLS.Usercert, b.auth.TLS.Userkey, b.auth.TLS.Cacert)
+			if err != nil {
+				return nil, fmt.Errorf("Error creating TLS config: %w", err)
+			}
+			config.Net.TLS.Config = tlsConfig
+		}
+		// SASL
+		if b.auth.SASL != nil {
+			config.Net.SASL.Enable = true
+			config.Net.SASL.Handshake = true
+
+			// if SaslType is not provided we are defaulting to PLAIN
+			config.Net.SASL.Mechanism = sarama.SASLTypePlaintext
+
+			if b.auth.SASL.SaslType == sarama.SASLTypeSCRAMSHA256 {
+				config.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient { return &XDGSCRAMClient{HashGeneratorFcn: SHA256} }
+				config.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA256
+			}
+
+			if b.auth.SASL.SaslType == sarama.SASLTypeSCRAMSHA512 {
+				config.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient { return &XDGSCRAMClient{HashGeneratorFcn: SHA512} }
+				config.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA512
+			}
+			config.Net.SASL.User = b.auth.SASL.User
+			config.Net.SASL.Password = b.auth.SASL.Password
+		}
 	}
 
-	// Unmarshall The Sarama Config Yaml Into The Provided Sarama.Config Object
-	err = yaml.Unmarshal([]byte(saramaSettingsYamlString), &config)
-	if err != nil {
-		return nil, fmt.Errorf("ConfigMap's sarama value could not be converted to a Sarama.Config struct: %s : %v", err, saramaSettingsYamlString)
+	// finally, apply individual fields
+	if b.version != nil {
+		config.Version = *b.version
+	}
+	if b.clientId != "" {
+		config.ClientID = b.clientId
 	}
 
-	// Override The Custom Parsed KafkaVersion
-	config.Version = kafkaVersion
-
-	// Override Any Custom Parsed TLS.Config.RootCAs
-	if certPool != nil && len(certPool.Subjects()) > 0 {
-		config.Net.TLS.Config = &tls.Config{RootCAs: certPool}
-	}
-
-	// Return Success
 	return config, nil
 }
 
-// Utility Function For Configuring Common Settings For Admin/Producer/Consumer
-func UpdateSaramaConfig(config *sarama.Config, clientId string, username string, password string) {
+// ConfigEqual is a convenience function to determine if two given sarama.Config structs are identical aside
+// from unserializable fields (e.g. function pointers).  To ignore parts of the sarama.Config struct, pass
+// them in as the "ignore" parameter.
+func ConfigEqual(config1, config2 *sarama.Config, ignore ...interface{}) bool {
+	// If some of the types in the sarama.Config struct are not ignored, these kinds of errors will appear:
+	// panic: cannot handle unexported field at {*sarama.Config}.Consumer.Group.Rebalance.Strategy.(*sarama.balanceStrategy).name
 
-	// Set The ClientID For Logging
-	config.ClientID = clientId
+	// Note that using the types directly from config1 is convenient (it allows us to call IgnoreTypes instead of the
+	// more complicated IgnoreInterfaces), but it will fail if, for example, config1.Consumer.Group.Rebalance is nil
 
-	// Set The SASL Username / Password
-	config.Net.SASL.User = username
-	config.Net.SASL.Password = password
+	// However, the sarama.NewConfig() function sets all of these values to a non-nil default, so the risk
+	// is minimal and should be caught by one of the several unit tests for this function if the sarama vendor
+	// code is updated and these defaults become something invalid at that time)
 
-	// We Always Want To Know About Consumer Errors
-	config.Consumer.Return.Errors = true
+	ignoreTypeList := append([]interface{}{
+		config1.Consumer.Group.Rebalance.Strategy,
+		config1.MetricRegistry,
+		config1.Producer.Partitioner},
+		ignore...)
+	ignoredTypes := cmpopts.IgnoreTypes(ignoreTypeList...)
 
-	// We Always Want Success Messages From Producer
-	config.Producer.Return.Successes = true
+	// If some interfaces are not included in the "IgnoreUnexported" list, these kinds of errors will appear:
+	// panic: cannot handle unexported field at {*sarama.Config}.Net.TLS.Config.mutex: "crypto/tls".Config
+
+	// Note that x509.CertPool and tls.Config are created here explicitly because config1/config2 may not
+	// have those fields, and results in a nil pointer panic if used in the IgnoreUnexported list indirectly
+	// like config1.Version is (Version is required to be present in a sarama.Config struct).
+
+	ignoredUnexported := cmpopts.IgnoreUnexported(config1.Version, x509.CertPool{}, tls.Config{})
+
+	// Compare the two sarama config structs, ignoring types and unexported fields as specified
+	return cmp.Equal(config1, config2, ignoredTypes, ignoredUnexported)
+}
+
+// verifyCertSkipHostname verifies certificates in the same way that the
+// default TLS handshake does, except it skips hostname verification. It must
+// be used with InsecureSkipVerify.
+func verifyCertSkipHostname(roots *x509.CertPool) func([][]byte, [][]*x509.Certificate) error {
+	return func(certs [][]byte, _ [][]*x509.Certificate) error {
+		opts := x509.VerifyOptions{
+			Roots:         roots,
+			CurrentTime:   time.Now(),
+			Intermediates: x509.NewCertPool(),
+		}
+
+		leaf, err := x509.ParseCertificate(certs[0])
+		if err != nil {
+			return err
+		}
+
+		for _, asn1Data := range certs[1:] {
+			cert, err := x509.ParseCertificate(asn1Data)
+			if err != nil {
+				return err
+			}
+
+			opts.Intermediates.AddCert(cert)
+		}
+
+		_, err = leaf.Verify(opts)
+		return err
+	}
+}
+
+// NewTLSConfig returns a *tls.Config using the given ceClient cert, ceClient key,
+// and CA certificate. If none are appropriate, a nil *tls.Config is returned.
+func newTLSConfig(clientCert, clientKey, caCert string) (*tls.Config, error) {
+	valid := false
+
+	config := &tls.Config{}
+
+	if clientCert != "" && clientKey != "" {
+		cert, err := tls.X509KeyPair([]byte(clientCert), []byte(clientKey))
+		if err != nil {
+			return nil, err
+		}
+		config.Certificates = []tls.Certificate{cert}
+		valid = true
+	}
+
+	if caCert != "" {
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM([]byte(caCert))
+		config.RootCAs = caCertPool
+		// The CN of Heroku Kafka certs do not match the hostname of the
+		// broker, but Go's default TLS behavior requires that they do.
+		config.VerifyPeerCertificate = verifyCertSkipHostname(caCertPool)
+		config.InsecureSkipVerify = true
+		valid = true
+	}
+
+	if !valid {
+		config = nil
+	}
+
+	return config, nil
 }

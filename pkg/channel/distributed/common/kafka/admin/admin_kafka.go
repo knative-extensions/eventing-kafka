@@ -86,13 +86,33 @@ func NewKafkaAdminClient(ctx context.Context, saramaConfig *sarama.Config, clien
 	username := string(kafkaSecret.Data[constants.KafkaSecretKeyUsername])
 	password := string(kafkaSecret.Data[constants.KafkaSecretKeyPassword])
 
+	var kafkaAuthCfg *client.KafkaAuthConfig
+
 	// Update The Sarama ClusterAdmin Configuration With Our Values
-	client.UpdateSaramaConfig(saramaConfig, clientId, username, password)
+	if username != "" {
+		kafkaAuthCfg = &client.KafkaAuthConfig{
+			SASL: &client.KafkaSaslConfig{
+				User:     username,
+				Password: password,
+			},
+		}
+	}
+
+	newConfig, err := client.NewConfigBuilder().
+		WithDefaults().
+		WithExisting(saramaConfig).
+		WithClientId(clientId).
+		WithAuth(kafkaAuthCfg).
+		Build()
+	if err != nil {
+		logger.Error("Unable to build sarama settings", zap.Error(err))
+		return nil, err
+	}
 
 	// Create A New Sarama ClusterAdmin
-	clusterAdmin, err := NewClusterAdminWrapper(brokers, saramaConfig)
+	clusterAdmin, err := NewClusterAdminWrapper(brokers, newConfig)
 	if err != nil {
-		logger.Error("Failed To Create New ClusterAdmin", zap.Any("Config", saramaConfig), zap.Error(err))
+		logger.Error("Failed To Create New ClusterAdmin", zap.Any("Config", newConfig), zap.Error(err))
 		return nil, err
 	}
 
