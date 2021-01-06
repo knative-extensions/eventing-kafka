@@ -288,6 +288,7 @@ github.com/konsorten/go-windows-terminal-sequences
 github.com/lightstep/tracecontext.go/traceparent
 github.com/lightstep/tracecontext.go/tracestate
 # github.com/mailru/easyjson v0.7.1-0.20191009090205-6c0755d89d1e
+github.com/mailru/easyjson
 github.com/mailru/easyjson/buffer
 github.com/mailru/easyjson/jlexer
 github.com/mailru/easyjson/jwriter
@@ -351,7 +352,7 @@ github.com/rogpeppe/go-internal/module
 github.com/rogpeppe/go-internal/semver
 # github.com/sirupsen/logrus v1.6.0
 github.com/sirupsen/logrus
-# github.com/slinkydeveloper/loadastic v0.0.0-20191203132749-9afe5a010a57
+# github.com/slinkydeveloper/loadastic v0.0.0-20201218203601-5c69eea3b7d8
 ## explicit
 github.com/slinkydeveloper/loadastic/common
 github.com/slinkydeveloper/loadastic/kafka
@@ -364,8 +365,8 @@ github.com/stretchr/objx
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/mock
 github.com/stretchr/testify/require
-# github.com/tsenart/vegeta v12.7.1-0.20190725001342-b5f4fca92137+incompatible
-github.com/tsenart/vegeta/lib
+# github.com/tsenart/vegeta/v12 v12.8.4
+github.com/tsenart/vegeta/v12/lib
 # github.com/valyala/bytebufferpool v1.0.0
 github.com/valyala/bytebufferpool
 # github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c
@@ -1077,7 +1078,7 @@ k8s.io/utils/buffer
 k8s.io/utils/integer
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# knative.dev/eventing v0.19.1-0.20201216183558-f3468d1c9954
+# knative.dev/eventing v0.19.1-0.20210106094043-f4b5fd47542c
 ## explicit
 knative.dev/eventing/pkg/adapter/v2
 knative.dev/eventing/pkg/adapter/v2/util/crstatusevent
@@ -1211,7 +1212,7 @@ knative.dev/eventing/test/test_images/recordevents
 # knative.dev/hack v0.0.0-20201214230143-4ed1ecb8db24
 ## explicit
 knative.dev/hack
-# knative.dev/pkg v0.0.0-20201222215804-e2d6b4f84573
+# knative.dev/pkg v0.0.0-20201231084629-fb3dc711206a
 ## explicit
 knative.dev/pkg/apis
 knative.dev/pkg/apis/duck
