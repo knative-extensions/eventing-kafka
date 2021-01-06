@@ -191,7 +191,7 @@ func TestLoadSettings(t *testing.T) {
 
 	// Verify that a configmap with invalid YAML returns an error
 	configMap = commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, "")
-	configMap.Data[commontesting.EventingKafkaSettingsConfigKey] = "\tinvalidYaml"
+	configMap.Data[constants.EventingKafkaSettingsConfigKey] = "\tinvalidYaml"
 	ctx = context.WithValue(context.Background(), injectionclient.Key{}, fake.NewSimpleClientset(configMap))
 	saramaConfig, eventingKafkaConfig, err = LoadSettings(ctx, "", nil)
 	assert.Nil(t, saramaConfig)

@@ -4,15 +4,16 @@ The "Dispatcher" implementation is a set of Kafka ConsumerGroups which are
 responsible for reading Kafka Messages from a Kafka Topic and converting them
 back to CloudEvents before sending them on to the Knative Subscription endpoint.
 
+## Runtime Deployments
+
 A unique "Dispatcher" Deployment is created for every KafkaChannel (Topic) and
-contains a Kafka Consumer for every Subscription to that KafkaChannel. The
+contains a Kafka ConsumerGroup for every Subscription to that KafkaChannel. The
 single Deployment is horizontally scalable as necessary (via controller
-environment variables.) Each such instance will contain a Kafka Consumer in the
-same ConsumerGroup for the Subscription. The maximum number of such instances
-should never be larger than your configured partitioning, as no further
-performance will be gained beyond that. This allows for an efficient use of
-cluster resources while still supporting high volume use cases in a segregated
-manner.
+environment variables.) Each replica will contain a Kafka Consumer in the same
+ConsumerGroup for the Subscription. The maximum number of replicas should never
+be larger than the configured number of partitions, as no further performance
+will be gained beyond that. This allows for an efficient use of cluster
+resources while still supporting high volume use cases.
 
 A Service is also created for the Dispatcher but this is simply to facilitate
 Prometheus monitoring endpoints.
@@ -24,6 +25,50 @@ be operational.
 
 The Kafka brokers and credentials are obtained from mounted Secret data from the
 aforementioned Kafka Secret.
+
+## CPU Requirements
+
+_Coming soon to a README near you!_
+
+## Memory Requirements
+
+The memory needs of the Dispatcher replicas (Pods) can be significant and are
+directly related to the number of Partitions the KafkaChannel's Topic contains,
+the number of Subscriptions to the KafkaChannel, and the size of events in the
+KafkaChannel.
+
+By default, Sarama stores 256 messages for each partition but this can be
+reduced by setting the `ChannelBufferSize` in the
+[ConfigMap](../../../../config/channel/distributed/300-eventing-kafka-configmap.yaml)
+as follows...
+
+```
+data:
+  sarama: |
+    ChannelBufferSize: 128    
+```
+
+To provide an imprecise example of the memory usage consider the following...
+
+```
+10 Subscriptions * 4 Partitions * 256 Msgs * 10kB Msg Size = ~100mB HEAP 
+```
+
+...which is only HEAP memory and does not include the Stack and other overhead.
+Sample usage has shown 15 Subscriptions & 4 Partitions to require anywhere from
+256MB to 512MB of total memory for a Pod. You should test the runtime behaviour
+of your system under load in order to fully estimate the sizing of your
+Kubernetes cluster and namespaces. Also, while it might seem obvious to reduce
+the `ChannelBufferSize`, this might impact throughput as it is assumed to have
+been set that way for performance reasons (buffering).
+
+It should also be noted that Golang is generally pretty greedy about keeping
+memory that it has requested, even if it is not in use. It does this by having
+the Garbage Collector tell the OS that it CAN take back the memory IF needed. So
+unless there is memory pressure from the OS, it might not actually be taken
+back. Internal profiling of the Dispatcher's HEAP however shows the Garbage
+Collector releasing unused memory as one would expect and this might differ from
+the Kubernetes Pod usage reported by `kubectl top pods -n knative-eventing`.
 
 ## Tracing, Profiling, and Metrics
 

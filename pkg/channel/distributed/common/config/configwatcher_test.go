@@ -106,7 +106,7 @@ func setWatchedMap(configMap *corev1.ConfigMap) {
 }
 
 // Handler function for the ConfigMap watcher
-func configWatcherHandler(logger *zap.SugaredLogger, configMap *corev1.ConfigMap) {
+func configWatcherHandler(_ *zap.SugaredLogger, configMap *corev1.ConfigMap) {
 	// Set the package variable to indicate that the test watcher was called
 	setWatchedMap(configMap)
 }

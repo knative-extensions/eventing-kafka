@@ -29,7 +29,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	commonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config/constants"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
 	"knative.dev/eventing-kafka/pkg/common/client"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/system"
@@ -63,11 +62,11 @@ func LoadSettings(ctx context.Context, clientId string, kafkaAuthConfig *client.
 
 	// Validate The ConfigMap Data
 	if configMap.Data == nil {
-		return nil, nil, fmt.Errorf("Attempted to merge sarama settings with empty configmap")
+		return nil, nil, fmt.Errorf("attempted to merge sarama settings with empty configmap")
 	}
 
 	// Merge The ConfigMap Settings Into The Provided Config
-	saramaSettingsYamlString := configMap.Data[testing.SaramaSettingsConfigKey]
+	saramaSettingsYamlString := configMap.Data[constants.SaramaSettingsConfigKey]
 
 	// Merge The Sarama Settings In The ConfigMap Into A New Base Sarama Config
 	saramaConfig, err := client.NewConfigBuilder().

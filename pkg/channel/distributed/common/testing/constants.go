@@ -26,11 +26,6 @@ const (
 	OldPassword = "TestOldPassword"
 	NewPassword = "TestNewPassword"
 
-	KnativeEventingNamespace       = "knative-eventing"
-	SettingsConfigMapName          = "config-kafka"
-	SaramaSettingsConfigKey        = "sarama"
-	EventingKafkaSettingsConfigKey = "eventing-kafka"
-
 	DispatcherReplicas     = "3"
 	DispatcherRetryInitial = "5000"
 	DispatcherRetry        = "500000"
