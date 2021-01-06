@@ -18,18 +18,10 @@ package producer
 
 import (
 	"github.com/Shopify/sarama"
-	"github.com/rcrowley/go-metrics"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/producer/wrapper"
 )
 
-// Create A Sarama Kafka SyncProducer (Optional Authentication)
-func CreateSyncProducer(brokers []string, config *sarama.Config) (sarama.SyncProducer, metrics.Registry, error) {
-
-	// Create A New Sarama SyncProducer & Return Results
-	syncProducer, err := newSyncProducerWrapper(brokers, config)
-	return syncProducer, config.MetricRegistry, err
-}
-
-// Function Reference Variable To Facilitate Mocking In Unit Tests
-var newSyncProducerWrapper = func(brokers []string, config *sarama.Config) (sarama.SyncProducer, error) {
-	return sarama.NewSyncProducer(brokers, config)
+// Create A Sarama SyncProducer (Via Wrapper)
+func CreateSyncProducer(brokers []string, config *sarama.Config) (sarama.SyncProducer, error) {
+	return wrapper.NewSyncProducerFn(brokers, config)
 }

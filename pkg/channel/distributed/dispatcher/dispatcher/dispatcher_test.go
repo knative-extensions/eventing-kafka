@@ -19,6 +19,8 @@ package dispatcher
 import (
 	"encoding/json"
 	"fmt"
+	"testing"
+	"time"
 
 	"github.com/Shopify/sarama"
 	"github.com/ghodss/yaml"
@@ -26,7 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	commonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config/constants"
 	kafkaconsumer "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer"
 	kafkatesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/testing"
 	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
@@ -34,9 +36,6 @@ import (
 	"knative.dev/eventing/pkg/channel"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/system"
-
-	"testing"
-	"time"
 )
 
 // Test Data
@@ -351,11 +350,11 @@ func getBaseConfigMap() *corev1.ConfigMap {
 			APIVersion: corev1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      commonconfig.SettingsConfigMapName,
+			Name:      constants.SettingsConfigMapName,
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
-			commonconfig.SaramaSettingsConfigKey: TestConfigBase,
+			constants.SaramaSettingsConfigKey: TestConfigBase,
 		},
 	}
 }
@@ -405,8 +404,8 @@ func runConfigChangedTest(t *testing.T, originalDispatcher Dispatcher, base *cor
 
 	// Alter the configmap to use the changed settings
 	newConfig := base
-	newConfig.Data[commonconfig.SaramaSettingsConfigKey] = changed
-	newConfig.Data[commonconfig.EventingKafkaSettingsConfigKey] = eventingKafka
+	newConfig.Data[constants.SaramaSettingsConfigKey] = changed
+	newConfig.Data[constants.EventingKafkaSettingsConfigKey] = eventingKafka
 
 	// Inform the Dispatcher that the config has changed to the new settings
 	newDispatcher = originalDispatcher.ConfigChanged(newConfig)

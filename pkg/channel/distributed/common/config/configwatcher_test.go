@@ -22,12 +22,12 @@ import (
 	"testing"
 	"time"
 
-	"go.uber.org/zap"
-
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config/constants"
 	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	logtesting "knative.dev/pkg/logging/testing"
@@ -60,7 +60,7 @@ func TestInitializeConfigWatcher(t *testing.T) {
 
 	// The configWatcherHandler should change the nil "watchedConfigMap" to a valid ConfigMap when the watcher triggers
 
-	testConfigMap, err := fakeK8sClient.CoreV1().ConfigMaps(system.Namespace()).Get(ctx, SettingsConfigMapName, metav1.GetOptions{})
+	testConfigMap, err := fakeK8sClient.CoreV1().ConfigMaps(system.Namespace()).Get(ctx, constants.SettingsConfigMapName, metav1.GetOptions{})
 	assert.Nil(t, err)
 	assert.Equal(t, testConfigMap.Data["sarama"], commontesting.OldSaramaConfig)
 

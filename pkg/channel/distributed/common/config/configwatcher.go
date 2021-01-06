@@ -19,12 +19,12 @@ package config
 import (
 	"context"
 
-	corev1 "k8s.io/api/core/v1"
-
 	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config/constants"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/injection/sharedmain"
 )
@@ -87,10 +87,10 @@ func InitializeConfigWatcher(ctx context.Context, logger *zap.SugaredLogger, han
 
 	// Start The ConfigMap Watcher
 	// Taken from knative.dev/pkg/injection/sharedmain/main.go::WatchObservabilityConfigOrDie
-	if _, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(namespace).Get(ctx, SettingsConfigMapName, metav1.GetOptions{}); err == nil {
-		watcher.Watch(SettingsConfigMapName, func(configmap *corev1.ConfigMap) { handler(logger, configmap) })
+	if _, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(namespace).Get(ctx, constants.SettingsConfigMapName, metav1.GetOptions{}); err == nil {
+		watcher.Watch(constants.SettingsConfigMapName, func(configmap *corev1.ConfigMap) { handler(logger, configmap) })
 	} else if !apierrors.IsNotFound(err) {
-		logger.Error("Error reading ConfigMap "+SettingsConfigMapName, zap.Error(err))
+		logger.Error("Error reading ConfigMap "+constants.SettingsConfigMapName, zap.Error(err))
 		return err
 	}
 

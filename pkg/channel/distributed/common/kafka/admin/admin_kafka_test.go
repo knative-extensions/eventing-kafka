@@ -18,6 +18,8 @@ package admin
 
 import (
 	"context"
+	"strconv"
+	"testing"
 
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
@@ -25,7 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
+	configconstants "knative.dev/eventing-kafka/pkg/channel/distributed/common/config/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
 	"knative.dev/eventing-kafka/pkg/common/client"
@@ -33,9 +35,6 @@ import (
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/system"
-
-	"strconv"
-	"testing"
 )
 
 // Test The NewKafkaAdminClient() Constructor - Success Path
@@ -65,7 +64,7 @@ Metadata:
 
 	// Create Test Kafka Secret And ConfigMap
 	kafkaSecret := createKafkaSecret(kafkaSecretName, namespace, kafkaSecretBrokers, kafkaSecretUsername, kafkaSecretPassword)
-	kafkaConfig := createKafkaConfig(config.SettingsConfigMapName, system.Namespace(), saramaSettings)
+	kafkaConfig := createKafkaConfig(configconstants.SettingsConfigMapName, system.Namespace(), saramaSettings)
 
 	// Create A Context With Test Logger & K8S Client
 	ctx := logging.WithLogger(context.TODO(), logtesting.TestLogger(t))
