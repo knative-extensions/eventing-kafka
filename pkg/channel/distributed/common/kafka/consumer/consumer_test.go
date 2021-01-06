@@ -17,72 +17,30 @@ limitations under the License.
 package consumer
 
 import (
-	"strconv"
 	"testing"
 
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
-	kafkatesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/testing"
-	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
-	"knative.dev/eventing-kafka/pkg/common/client"
-)
-
-// Test Constants
-const (
-	ClientId      = "TestClientId"
-	GroupId       = "TestGrouId"
-	KafkaUsername = "TestUsername"
-	KafkaPassword = "TestPassword"
+	consumertesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer/testing"
 )
 
 // Test The CreateConsumerGroup() Functionality
 func TestCreateConsumerGroup(t *testing.T) {
 
 	// Test Data
-	brokers := []string{"TestBroker"}
+	brokers := []string{"TestBrokers"}
+	groupId := "TestGroupId"
+	config := sarama.NewConfig()
 
-	// Replace The NewConsumerGroupWrapper With Mock For Testing & Restore After Test
-	newConsumerGroupWrapperPlaceholder := NewConsumerGroupWrapper
-	NewConsumerGroupWrapper = func(brokersArg []string, groupIdArg string, configArg *sarama.Config) (sarama.ConsumerGroup, error) {
-		assert.Equal(t, brokers, brokersArg)
-		assert.Equal(t, GroupId, groupIdArg)
-		assert.NotNil(t, configArg)
-		assert.Equal(t, ClientId, configArg.ClientID)
-		assert.True(t, configArg.Net.SASL.Enable)
-		assert.Equal(t, KafkaUsername, configArg.Net.SASL.User)
-		assert.Equal(t, KafkaPassword, configArg.Net.SASL.Password)
-		assert.Equal(t, constants.ConfigKafkaVersionDefault, configArg.Version)
-		assert.Equal(t, commontesting.ConfigNetKeepAlive, strconv.FormatInt(int64(configArg.Net.KeepAlive), 10))
-		assert.True(t, configArg.Consumer.Return.Errors)
-		assert.Equal(t, commontesting.ConfigMetadataRefreshFrequency, strconv.FormatInt(int64(configArg.Metadata.RefreshFrequency), 10))
-		assert.Equal(t, commontesting.ConfigConsumerOffsetsAutoCommitInterval, strconv.FormatInt(int64(configArg.Consumer.Offsets.AutoCommit.Interval), 10))
-		assert.Equal(t, commontesting.ConfigConsumerOffsetsRetention, strconv.FormatInt(int64(configArg.Consumer.Offsets.Retention), 10))
-		return kafkatesting.NewMockConsumerGroup(t), nil
-	}
-	defer func() {
-		NewConsumerGroupWrapper = newConsumerGroupWrapperPlaceholder
-	}()
-
-	config, err := client.NewConfigBuilder().
-		WithDefaults().
-		FromYaml(commontesting.SaramaDefaultConfigYaml).
-		WithAuth(&client.KafkaAuthConfig{
-			SASL: &client.KafkaSaslConfig{
-				User:     KafkaUsername,
-				Password: KafkaPassword,
-			},
-		}).
-		WithClientId(ClientId).
-		Build()
-
-	assert.Nil(t, err)
+	// Create A Mock ConsumerGroup, Stub NewConsumerGroupWrapper() & Restore After Test
+	mockConsumerGroup := consumertesting.NewMockConsumerGroup()
+	consumertesting.StubNewConsumerGroupFn(consumertesting.ValidatingNewConsumerGroupFn(t, brokers, groupId, config, mockConsumerGroup))
+	defer consumertesting.RestoreNewConsumerGroupFn()
 
 	// Perform The Test
-	consumerGroup, registry, err := CreateConsumerGroup(brokers, config, GroupId)
+	consumerGroup, err := CreateConsumerGroup(brokers, groupId, config)
 
 	// Verify The Results
 	assert.Nil(t, err)
-	assert.NotNil(t, consumerGroup)
-	assert.NotNil(t, registry)
+	assert.Equal(t, mockConsumerGroup, consumerGroup)
 }

@@ -14,14 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package consumer
+package wrapper
 
 import (
 	"github.com/Shopify/sarama"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer/wrapper"
 )
 
-// Create A Sarama ConsumerGroup (Via Wrapper)
-func CreateConsumerGroup(brokers []string, groupId string, config *sarama.Config) (sarama.ConsumerGroup, error) {
-	return wrapper.NewConsumerGroupFn(brokers, groupId, config)
+// Define Function Types For Wrapper Variables (Typesafe Stubbing For Tests)
+type NewConsumerGroupFnType = func(brokers []string, groupId string, config *sarama.Config) (sarama.ConsumerGroup, error)
+
+// Function Variables To Facilitate Mocking Of Sarama Functionality In Unit Tests
+var NewConsumerGroupFn = SaramaNewConsumerGroupWrapper
+
+// The Production Sarama NewConsumerGroup Wrapper Function
+func SaramaNewConsumerGroupWrapper(brokers []string, groupId string, config *sarama.Config) (sarama.ConsumerGroup, error) {
+	return sarama.NewConsumerGroup(brokers, groupId, config)
 }

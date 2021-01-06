@@ -23,12 +23,12 @@ import (
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer"
 	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/metrics"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
 	"knative.dev/eventing-kafka/pkg/common/client"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/channel"
@@ -63,7 +63,7 @@ func NewSubscriberWrapper(subscriberSpec eventingduck.SubscriberSpec, groupId st
 
 //  Dispatcher Interface
 type Dispatcher interface {
-	ConfigChanged(*v1.ConfigMap) Dispatcher
+	ConfigChanged(*corev1.ConfigMap) Dispatcher
 	Shutdown()
 	UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error
 }
@@ -131,7 +131,7 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 			logger := d.Logger.With(zap.String("GroupId", groupId))
 
 			// Attempt To Create A Kafka ConsumerGroup
-			consumerGroup, _, err := consumer.CreateConsumerGroup(d.Brokers, d.SaramaConfig, groupId)
+			consumerGroup, err := consumer.CreateConsumerGroup(d.Brokers, groupId, d.SaramaConfig)
 			if err != nil {
 
 				// Log & Return Failure
@@ -269,7 +269,7 @@ func (d *DispatcherImpl) closeConsumerGroup(subscriber *SubscriberWrapper) {
 // are needed in the future, the environment will also need to be re-parsed here.
 // If there aren't any consumer-specific differences between the current config and the new one,
 // then just log that and move on; do not restart the ConsumerGroups unnecessarily.
-func (d *DispatcherImpl) ConfigChanged(configMap *v1.ConfigMap) Dispatcher {
+func (d *DispatcherImpl) ConfigChanged(configMap *corev1.ConfigMap) Dispatcher {
 
 	d.Logger.Debug("New ConfigMap Received", zap.String("configMap.Name", configMap.ObjectMeta.Name))
 
@@ -280,7 +280,7 @@ func (d *DispatcherImpl) ConfigChanged(configMap *v1.ConfigMap) Dispatcher {
 	}
 
 	// Merge The ConfigMap Settings Into The Provided Config
-	saramaSettingsYamlString := configMap.Data[testing.SaramaSettingsConfigKey]
+	saramaSettingsYamlString := configMap.Data[constants.SaramaSettingsConfigKey]
 
 	// Create A New Sarama Config
 	configBuilder := client.NewConfigBuilder().

@@ -14,14 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package consumer
+package testing
 
-import (
-	"github.com/Shopify/sarama"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer/wrapper"
+// Test Data
+const (
+	KafkaBroker = "TestBroker"
 )
-
-// Create A Sarama ConsumerGroup (Via Wrapper)
-func CreateConsumerGroup(brokers []string, groupId string, config *sarama.Config) (sarama.ConsumerGroup, error) {
-	return wrapper.NewConsumerGroupFn(brokers, groupId, config)
-}
