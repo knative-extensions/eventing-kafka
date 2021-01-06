@@ -20,7 +20,7 @@ import (
 	"context"
 
 	"github.com/Shopify/sarama"
-	kafkaadmin "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/types"
 )
 
 //
@@ -28,7 +28,7 @@ import (
 //
 
 // Verify The Mock AdminClient Implements The KafkaAdminClient Interface
-var _ kafkaadmin.AdminClientInterface = &MockAdminClient{}
+var _ types.AdminClientInterface = &MockAdminClient{}
 
 // Mock Kafka AdminClient Implementation
 type MockAdminClient struct {

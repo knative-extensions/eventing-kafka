@@ -22,17 +22,15 @@ import (
 	"sync"
 	"testing"
 
-	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
-
-	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	clientgotesting "k8s.io/client-go/testing"
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
-	kafkaadmin "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin"
+	kafkaadmintesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/testing"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/types"
+	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
 	controllertesting "knative.dev/eventing-kafka/pkg/channel/distributed/controller/testing"
 	fakekafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client/fake"
@@ -51,77 +49,88 @@ func init() {
 	_ = duckv1.AddToScheme(scheme.Scheme)
 }
 
-// Test The Reconciler's SetKafkaAdminClient() Functionality
+// Test SetKafkaAdminClient() Functionality - Success Case
 func TestSetKafkaAdminClient(t *testing.T) {
-
-	// Test Data
-	clientType := kafkaadmin.Kafka
 
 	// Create A Couple Of Mock AdminClients
 	mockAdminClient1 := &controllertesting.MockAdminClient{}
 	mockAdminClient2 := &controllertesting.MockAdminClient{}
 
-	// Mock The Creation Of Kafka ClusterAdmin
-	newKafkaAdminClientWrapperPlaceholder := kafkaadmin.NewKafkaAdminClientWrapper
-	kafkaadmin.NewKafkaAdminClientWrapper = func(ctx context.Context, saramaConfig *sarama.Config, clientId string, namespace string) (kafkaadmin.AdminClientInterface, error) {
-		return mockAdminClient2, nil
-	}
-	defer func() {
-		kafkaadmin.NewKafkaAdminClientWrapper = newKafkaAdminClientWrapperPlaceholder
-	}()
+	// Stub The Creation Of AdminClient
+	kafkaadmintesting.StubNewAdminClientFn(kafkaadmintesting.NonValidatingNewAdminClientFn(mockAdminClient2))
+	defer kafkaadmintesting.RestoreNewAdminClientFn()
 
 	// Create A Reconciler To Test
-	reconciler := &Reconciler{
-		adminClientType: clientType,
-		adminClient:     mockAdminClient1,
-	}
+	reconciler := &Reconciler{adminClient: mockAdminClient1}
 
 	// Perform The Test
-	ctx := context.WithValue(context.TODO(), env.Key{}, &env.Environment{SystemNamespace: commontesting.SystemNamespace})
-	reconciler.SetKafkaAdminClient(ctx)
+	reconciler.SetKafkaAdminClient(context.TODO())
 
 	// Verify Results
 	assert.True(t, mockAdminClient1.CloseCalled())
 	assert.NotNil(t, reconciler.adminClient)
 	assert.Equal(t, mockAdminClient2, reconciler.adminClient)
+}
 
-	// Perform The Test - Error Conditions
-	reconciler.adminClientType = kafkaadmin.Unknown
-	reconciler.SetKafkaAdminClient(ctx)
+// Test SetKafkaAdminClient() Functionality - Error Case
+func TestSetKafkaAdminClientError(t *testing.T) {
+
+	// Test Data
+	err := errors.New("test error - new")
+
+	// Create A Mock AdminClient
+	mockAdminClient1 := &controllertesting.MockAdminClient{}
+
+	// Stub The Creation Of AdminClient
+	kafkaadmintesting.StubNewAdminClientFn(kafkaadmintesting.ErrorNewAdminClientFn(err))
+	defer kafkaadmintesting.RestoreNewAdminClientFn()
+
+	// Create A Reconciler To Test
+	reconciler := &Reconciler{adminClient: mockAdminClient1}
+
+	// Perform The Test
+	reconciler.SetKafkaAdminClient(context.TODO())
 
 	// Verify Results
 	assert.Nil(t, reconciler.adminClient)
 }
 
-// Test The Reconciler's ClearKafkaAdminClient() Functionality
+// Test ClearKafkaAdminClient() Functionality - Success Case
 func TestClearKafkaAdminClient(t *testing.T) {
-
-	// Test Data
-	clientType := kafkaadmin.Kafka
 
 	// Create A Mock AdminClient
 	mockAdminClient := &controllertesting.MockAdminClient{}
 
 	// Create A Reconciler To Test
-	reconciler := &Reconciler{
-		adminClientType: clientType,
-		adminClient:     mockAdminClient,
-	}
+	reconciler := &Reconciler{adminClient: mockAdminClient}
 
 	// Perform The Test
 	reconciler.ClearKafkaAdminClient(context.TODO())
 
 	// Verify Results
 	assert.True(t, mockAdminClient.CloseCalled())
+	assert.Nil(t, reconciler.adminClient)
+}
 
-	// Perform The Test - Error Conditions
-	mockAdminClient = &controllertesting.MockAdminClient{}
-	mockAdminClient.MockCloseFunc = func() error { return errors.New("close test") }
-	reconciler.adminClient = mockAdminClient
+// Test ClearKafkaAdminClient() Functionality - Error Case
+func TestClearKafkaAdminClientError(t *testing.T) {
+
+	// Test Data
+	err := errors.New("test error - close")
+
+	// Create A Mock AdminClient
+	mockAdminClient := &controllertesting.MockAdminClient{}
+	mockAdminClient.MockCloseFunc = func() error { return err }
+
+	// Create A Reconciler To Test
+	reconciler := &Reconciler{adminClient: mockAdminClient}
+
+	// Perform The Test
 	reconciler.ClearKafkaAdminClient(context.TODO())
 
 	// Verify Results
 	assert.True(t, mockAdminClient.CloseCalled())
+	assert.Nil(t, reconciler.adminClient)
 }
 
 // Test The Reconcile Functionality
@@ -455,9 +464,9 @@ func TestReconcile(t *testing.T) {
 				controllertesting.NewKafkaChannelReceiverDeployment(),
 				controllertesting.NewKafkaChannelDispatcherDeployment(),
 			},
-			WithReactors:      []clientgotesting.ReactionFunc{InduceFailure("create", "Services")},
-			WantErr:           true,
-			WantCreates:       []runtime.Object{controllertesting.NewKafkaChannelDispatcherService()},
+			WithReactors: []clientgotesting.ReactionFunc{InduceFailure("create", "Services")},
+			WantErr:      true,
+			WantCreates:  []runtime.Object{controllertesting.NewKafkaChannelDispatcherService()},
 			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
 				// Note - Not currently tracking status for the Dispatcher Service since it is only for Prometheus
 			},
@@ -641,21 +650,19 @@ func TestReconcile(t *testing.T) {
 		},
 	}
 
-	// Mock The Common Kafka AdminClient Creation For Test
-	newKafkaAdminClientWrapperPlaceholder := kafkaadmin.NewKafkaAdminClientWrapper
-	kafkaadmin.NewKafkaAdminClientWrapper = func(ctx context.Context, saramaConfig *sarama.Config, clientId string, namespace string) (kafkaadmin.AdminClientInterface, error) {
-		return &controllertesting.MockAdminClient{}, nil
-	}
-	defer func() {
-		kafkaadmin.NewKafkaAdminClientWrapper = newKafkaAdminClientWrapperPlaceholder
-	}()
+	// Create A Mock AdminClient
+	mockAdminClient := &controllertesting.MockAdminClient{}
+
+	// Stub The Creation Of AdminClient
+	kafkaadmintesting.StubNewAdminClientFn(kafkaadmintesting.NonValidatingNewAdminClientFn(mockAdminClient))
+	defer kafkaadmintesting.RestoreNewAdminClientFn()
 
 	// Run The TableTest Using The KafkaChannel Reconciler Provided By The Factory
 	logger := logtesting.TestLogger(t)
 	tableTest.Test(t, controllertesting.MakeFactory(func(ctx context.Context, listers *controllertesting.Listers, cmw configmap.Watcher, configOptions []controllertesting.KafkaConfigOption) controller.Reconciler {
 		r := &Reconciler{
 			kubeClientset:        kubeclient.Get(ctx),
-			adminClientType:      kafkaadmin.Kafka,
+			adminClientType:      types.Kafka,
 			adminClient:          nil,
 			environment:          controllertesting.NewEnvironment(),
 			config:               controllertesting.NewConfig(configOptions...),
@@ -665,6 +672,10 @@ func TestReconcile(t *testing.T) {
 			serviceLister:        listers.GetServiceLister(),
 			kafkaClientSet:       fakekafkaclient.Get(ctx),
 			adminMutex:           &sync.Mutex{},
+			kafkaBrokers:         controllertesting.KafkaSecretDataValueBrokers,
+			kafkaSecret:          controllertesting.KafkaSecretName,
+			kafkaUsername:        controllertesting.KafkaSecretDataValueUsername,
+			kafkaPassword:        controllertesting.KafkaSecretDataValuePassword,
 		}
 		return kafkachannelreconciler.NewReconciler(ctx, logger, r.kafkaClientSet, listers.GetKafkaChannelLister(), controller.GetEventRecorder(ctx), r)
 	}, logger.Desugar()))

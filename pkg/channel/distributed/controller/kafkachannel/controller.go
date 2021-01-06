@@ -25,13 +25,16 @@ import (
 	"k8s.io/client-go/tools/cache"
 	kafkachannelv1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	commonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
-	kafkaadmin "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/types"
+	clientconstants "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
 	kafkaclientsetinjection "knative.dev/eventing-kafka/pkg/client/injection/client"
 	"knative.dev/eventing-kafka/pkg/client/injection/informers/messaging/v1beta1/kafkachannel"
 	kafkachannelreconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
+	commonclient "knative.dev/eventing-kafka/pkg/common/client"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
 	"knative.dev/pkg/client/injection/kube/informers/core/v1/service"
@@ -60,8 +63,40 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 		logger.Fatal("Failed To Get Environment From Context - Terminating!", zap.Error(err))
 	}
 
+	// Get The K8S Client
+	kubeClientset := kubeclient.Get(ctx)
+
+	// Get & Validate The Kafka Auth Secret
+	kafkaSecret, err := util.GetKafkaSecret(ctx, kubeClientset, environment.SystemNamespace)
+	if err != nil {
+		logger.Fatal("Failed To Load Kafka Auth Secret", zap.Error(err))
+	} else if kafkaSecret == nil {
+		logger.Fatal("No Kafka Auth Secret Found")
+	} else if !util.ValidateKafkaSecret(logger, kafkaSecret) {
+		logger.Fatal("Found Invalid Kafka Auth Secret")
+	} else {
+		logger.Info("Found Valid Kafka Auth Secret")
+	}
+
+	// Extract The Relevant Data From The Kafka Secret
+	kafkaSecretName := kafkaSecret.Name
+	kafkaBrokers := string(kafkaSecret.Data[clientconstants.KafkaSecretKeyBrokers])
+	kafkaUsername := string(kafkaSecret.Data[clientconstants.KafkaSecretKeyUsername])
+	kafkaPassword := string(kafkaSecret.Data[clientconstants.KafkaSecretKeyPassword])
+
+	// Create A Kafka Auth Config From Current Credentials (EnvVars From Secret Take Precedence Over ConfigMap)
+	var kafkaAuthCfg *commonclient.KafkaAuthConfig
+	if kafkaUsername != "" {
+		kafkaAuthCfg = &commonclient.KafkaAuthConfig{
+			SASL: &commonclient.KafkaSaslConfig{
+				User:     kafkaUsername,
+				Password: kafkaPassword,
+			},
+		}
+	}
+
 	// Load the Sarama and other eventing-kafka settings from our configmap
-	saramaConfig, configuration, err := sarama.LoadSettings(ctx, "", nil)
+	saramaConfig, configuration, err := sarama.LoadSettings(ctx, "", kafkaAuthCfg)
 	if err != nil {
 		logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Error(err))
 	}
@@ -70,22 +105,22 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	sarama.EnableSaramaLogging(configuration.Kafka.EnableSaramaLogging)
 
 	// Determine The Kafka AdminClient Type (Assume Kafka Unless Otherwise Specified)
-	var kafkaAdminClientType kafkaadmin.AdminClientType
+	var kafkaAdminClientType types.AdminClientType
 	switch configuration.Kafka.AdminType {
 	case constants.KafkaAdminTypeValueKafka:
-		kafkaAdminClientType = kafkaadmin.Kafka
+		kafkaAdminClientType = types.Kafka
 	case constants.KafkaAdminTypeValueAzure:
-		kafkaAdminClientType = kafkaadmin.EventHub
+		kafkaAdminClientType = types.EventHub
 	case constants.KafkaAdminTypeValueCustom:
-		kafkaAdminClientType = kafkaadmin.Custom
+		kafkaAdminClientType = types.Custom
 	default:
 		logger.Warn("Encountered Unexpected Kafka AdminType - Defaulting To 'kafka'", zap.String("AdminType", configuration.Kafka.AdminType))
-		kafkaAdminClientType = kafkaadmin.Kafka
+		kafkaAdminClientType = types.Kafka
 	}
 
 	// Create A KafkaChannel Reconciler & Track As Package Variable
 	rec = &Reconciler{
-		kubeClientset:        kubeclient.Get(ctx),
+		kubeClientset:        kubeClientset,
 		environment:          environment,
 		config:               configuration,
 		saramaConfig:         saramaConfig,
@@ -98,6 +133,10 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 		adminClient:          nil,
 		adminMutex:           &sync.Mutex{},
 		configObserver:       rec.configMapObserver, // Maintains a reference so that the ConfigWatcher can call it
+		kafkaSecret:          kafkaSecretName,
+		kafkaBrokers:         kafkaBrokers,
+		kafkaUsername:        kafkaUsername,
+		kafkaPassword:        kafkaPassword,
 	}
 
 	// Watch The Settings ConfigMap For Changes

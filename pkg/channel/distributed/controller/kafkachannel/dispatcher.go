@@ -22,12 +22,11 @@ import (
 	"strconv"
 	"time"
 
-	"k8s.io/apimachinery/pkg/api/resource"
-
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
@@ -539,8 +538,8 @@ func (r *Reconciler) dispatcherDeploymentEnvVars(channel *kafkav1beta1.KafkaChan
 		},
 	}
 
-	// Get The Kafka Secret From The Kafka Admin Client
-	kafkaSecret := r.adminClient.GetKafkaSecretName(topicName)
+	// Get The Kafka Secret From The Reconciler
+	kafkaSecret := r.kafkaSecret
 
 	// If The Kafka Secret Env Var Is Specified Then Append Relevant Env Vars
 	if len(kafkaSecret) <= 0 {

@@ -14,23 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package admin
+package custom
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
-	corev1 "k8s.io/api/core/v1"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/custom"
-	adminutil "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/util"
-	kubeclient "knative.dev/pkg/client/injection/kube/client"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/types"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/util"
 	"knative.dev/pkg/logging"
 )
 
@@ -46,57 +43,27 @@ import (
 //
 
 // Ensure The KafkaAdminClient Struct Implements The AdminClientInterface
-var _ AdminClientInterface = &CustomAdminClient{}
+var _ types.AdminClientInterface = &CustomAdminClient{}
 
 // Custom AdminClient Definition
 type CustomAdminClient struct {
-	logger      *zap.Logger
-	namespace   string
-	kafkaSecret string
-	httpClient  *http.Client
+	logger     *zap.Logger
+	httpClient *http.Client
 }
 
 // Create A New Custom Kafka AdminClient Based On The Kafka Secret In The Specified K8S Namespace
-func NewCustomAdminClient(ctx context.Context, namespace string) (AdminClientInterface, error) {
+func NewAdminClient(ctx context.Context) (types.AdminClientInterface, error) {
 
 	// Get The Logger From The Context
 	logger := logging.FromContext(ctx).Desugar()
 
-	// Get The K8S Client From The Context
-	k8sClient := kubeclient.Get(ctx)
-
-	// Get A List Of The Kafka Secrets
-	kafkaSecrets, err := adminutil.GetKafkaSecrets(ctx, k8sClient, namespace)
-	if err != nil {
-		logger.Error("Failed To Get Kafka Authentication Secrets", zap.Error(err))
-		return nil, err
-	}
-
-	// Currently Only Support One Kafka Secret - Invalid AdminClient For All Other Cases!
-	var kafkaSecret corev1.Secret
-	if len(kafkaSecrets.Items) != 1 {
-		logger.Warn(fmt.Sprintf("Expected 1 Kafka Secret But Found %d - Kafka AdminClient Will Not Be Functional!", len(kafkaSecrets.Items)))
-		return nil, nil
-	} else {
-		logger.Info("Found 1 Kafka Secret", zap.String("Secret", kafkaSecrets.Items[0].Name))
-		kafkaSecret = kafkaSecrets.Items[0]
-	}
-
-	// Validate Secret Data
-	if !adminutil.ValidateKafkaSecret(logger, &kafkaSecret) {
-		err = errors.New("invalid Kafka Secret found")
-		return nil, err
-	}
-
 	// Create A Custom HTTP Client With Custom Timeout
-	httpClient := &http.Client{Timeout: custom.SidecarTimeout}
+	httpClient := &http.Client{Timeout: SidecarTimeout}
 
 	// Create A Custom AdminClient (REST Sidecar Endpoint Pass-Through)
 	customAdminClient := &CustomAdminClient{
-		logger:      logger,
-		namespace:   namespace,
-		kafkaSecret: kafkaSecret.Name,
-		httpClient:  httpClient,
+		logger:     logger,
+		httpClient: httpClient,
 	}
 
 	// Return The Custom AdminClient
@@ -113,18 +80,18 @@ func (c *CustomAdminClient) CreateTopic(_ context.Context, topicName string, top
 	// Validate Topic
 	if len(topicName) <= 0 || topicDetail == nil {
 		logger.Warn("Received Empty/Nil Topic Configuration", zap.Any("TopicDetail", topicDetail))
-		return adminutil.NewTopicError(sarama.ErrInvalidRequest, "received empty/nil topic name and / or detail")
+		return util.NewTopicError(sarama.ErrInvalidRequest, "received empty/nil topic name and / or detail")
 	}
 
 	// Convert The Sarama TopicDetail Into A Custom TopicDetail & Parse Into Request Body
-	customTopicDetail := &custom.TopicDetail{}
+	customTopicDetail := &TopicDetail{}
 	customTopicDetail.FromSaramaTopicDetail(topicDetail)
 
 	// Create The Request Body From The Custom TopicDetail
 	requestBody, err := json.Marshal(customTopicDetail)
 	if err != nil {
 		logger.Error("Failed To Marshall Create Topics Request Body", zap.Any("TopicDetail", topicDetail), zap.Error(err))
-		return adminutil.NewTopicError(sarama.ErrInvalidConfig, fmt.Sprintf("failed to marshal request body for creation of topic '%s'", topicName))
+		return util.NewTopicError(sarama.ErrInvalidConfig, fmt.Sprintf("failed to marshal request body for creation of topic '%s'", topicName))
 	}
 
 	// Create Topics URL For Sidecar Endpoint (No TopicName In POST URL!)
@@ -134,19 +101,19 @@ func (c *CustomAdminClient) CreateTopic(_ context.Context, topicName string, top
 	request, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(requestBody))
 	if err != nil {
 		logger.Error("Failed To Create New HTTP POST Request", zap.String("URL", url), zap.Error(err))
-		return adminutil.NewTopicError(sarama.ErrUnknown, fmt.Sprintf("failed to create new http request for creation of topic '%s'", topicName))
+		return util.NewTopicError(sarama.ErrUnknown, fmt.Sprintf("failed to create new http request for creation of topic '%s'", topicName))
 	}
 
 	// Populate Required Headers
 	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set(custom.TopicNameHeader, topicName)
+	request.Header.Set(TopicNameHeader, topicName)
 
 	// Make The HTTP Request
 	response, err := c.httpClient.Do(request)
 	defer c.safeCloseHTTPResponseBody(response)
 	if err != nil {
 		logger.Error("HTTP POST Request To Create Topic Failed", zap.Error(err))
-		return adminutil.NewTopicError(sarama.ErrNetworkException, fmt.Sprintf("failed to make http request for creation of topic '%s'", topicName))
+		return util.NewTopicError(sarama.ErrNetworkException, fmt.Sprintf("failed to make http request for creation of topic '%s'", topicName))
 	}
 
 	// Map The HTTP Response Into A Sarama TopicError & Return
@@ -162,7 +129,7 @@ func (c *CustomAdminClient) DeleteTopic(_ context.Context, topicName string) *sa
 	// Validate The Topic
 	if len(topicName) <= 0 {
 		logger.Warn("Received Empty/Nil Topic Configuration")
-		return adminutil.NewTopicError(sarama.ErrInvalidRequest, "received empty/nil topic name")
+		return util.NewTopicError(sarama.ErrInvalidRequest, "received empty/nil topic name")
 	}
 
 	// Create Topics URL For Sidecar Endpoint (TopicName In DELETE URL!)
@@ -172,7 +139,7 @@ func (c *CustomAdminClient) DeleteTopic(_ context.Context, topicName string) *sa
 	request, err := http.NewRequest(http.MethodDelete, url, nil)
 	if err != nil {
 		logger.Error("Failed To Create New HTTP POST Request", zap.String("URL", url), zap.Error(err))
-		return adminutil.NewTopicError(sarama.ErrUnknown, fmt.Sprintf("failed to create new http request for creation of topic '%s'", topicName))
+		return util.NewTopicError(sarama.ErrUnknown, fmt.Sprintf("failed to create new http request for creation of topic '%s'", topicName))
 	}
 
 	// Make The HTTP Request
@@ -180,7 +147,7 @@ func (c *CustomAdminClient) DeleteTopic(_ context.Context, topicName string) *sa
 	defer c.safeCloseHTTPResponseBody(response)
 	if err != nil {
 		logger.Error("HTTP DELETE Request To Delete Topic Failed", zap.Error(err))
-		return adminutil.NewTopicError(sarama.ErrNetworkException, fmt.Sprintf("failed to make http request for deletion of topic '%s'", topicName))
+		return util.NewTopicError(sarama.ErrNetworkException, fmt.Sprintf("failed to make http request for deletion of topic '%s'", topicName))
 	}
 
 	// Map The HTTP Response Into A Sarama TopicError & Return
@@ -190,11 +157,6 @@ func (c *CustomAdminClient) DeleteTopic(_ context.Context, topicName string) *sa
 // Custom REST Pass-Through Function For Closing The Admin Client
 func (c *CustomAdminClient) Close() error {
 	return nil // Nothing to "close" in the Custom implementation (just a REST client) so this is just a compatibility no-op.
-}
-
-// Get The K8S Secret With Kafka Credentials For The Specified Topic Name
-func (c *CustomAdminClient) GetKafkaSecretName(_ string) string {
-	return c.kafkaSecret // Only supports 1 topic so just return Kafka Secret name ; )
 }
 
 // Safely Close The Specified HTTP Response Body
@@ -209,7 +171,7 @@ func (c *CustomAdminClient) safeCloseHTTPResponseBody(response *http.Response) {
 
 // Get The Expected Topics URL For The Custom Sidecar Implementation
 func (c *CustomAdminClient) sidecarTopicsUrl(topicName string) string {
-	topicsUrl := "http://" + custom.SidecarHost + ":" + custom.SidecarPort + custom.TopicsPath
+	topicsUrl := "http://" + SidecarHost + ":" + SidecarPort + TopicsPath
 	if len(topicName) > 0 {
 		topicsUrl = topicsUrl + "/" + topicName
 	}
@@ -243,18 +205,18 @@ func (c *CustomAdminClient) mapHttpResponse(operation string, response *http.Res
 		// Separate Success & Error Response Codes
 		switch {
 		case statusCode >= 200 && statusCode <= 299:
-			return adminutil.NewTopicError(sarama.ErrNoError, fmt.Sprintf("custom sidecar topic '%s' operation succeeded with status code '%d' and body '%s'", operation, statusCode, responseBodyString))
+			return util.NewTopicError(sarama.ErrNoError, fmt.Sprintf("custom sidecar topic '%s' operation succeeded with status code '%d' and body '%s'", operation, statusCode, responseBodyString))
 		case statusCode == 404 && operation == "delete": // 404 Not Found Indicates Topic Does Not Exist In Delete Operation
-			return adminutil.NewTopicError(sarama.ErrUnknownTopicOrPartition, fmt.Sprintf("custom sidecar topic '%s' operation returned status code '%d' and body '%s'", operation, statusCode, responseBodyString))
+			return util.NewTopicError(sarama.ErrUnknownTopicOrPartition, fmt.Sprintf("custom sidecar topic '%s' operation returned status code '%d' and body '%s'", operation, statusCode, responseBodyString))
 		case statusCode == 409 && operation == "create": // 409 Conflict Indicates Topic Already Exists In Create Operation
-			return adminutil.NewTopicError(sarama.ErrTopicAlreadyExists, fmt.Sprintf("custom sidecar topic '%s' operation returned status code '%d' and body '%s'", operation, statusCode, responseBodyString))
+			return util.NewTopicError(sarama.ErrTopicAlreadyExists, fmt.Sprintf("custom sidecar topic '%s' operation returned status code '%d' and body '%s'", operation, statusCode, responseBodyString))
 		default:
-			return adminutil.NewTopicError(sarama.ErrInvalidRequest, fmt.Sprintf("custom sidecar topic '%s' operation failed with status code '%d' and body '%s'", operation, statusCode, responseBodyString))
+			return util.NewTopicError(sarama.ErrInvalidRequest, fmt.Sprintf("custom sidecar topic '%s' operation failed with status code '%d' and body '%s'", operation, statusCode, responseBodyString))
 		}
 
 	} else {
 
 		// No Response - Return Error
-		return adminutil.NewTopicError(sarama.ErrUnknown, "received nil http response")
+		return util.NewTopicError(sarama.ErrUnknown, "received nil http response")
 	}
 }

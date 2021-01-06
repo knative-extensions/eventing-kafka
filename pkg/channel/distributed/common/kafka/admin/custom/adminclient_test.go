@@ -14,9 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package admin
+package custom
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io/ioutil"
@@ -28,35 +29,20 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
-
-	"k8s.io/client-go/kubernetes/fake"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/custom"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
-	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
 )
 
-// Test The NewCustomAdminClient() Functionality - Success Path
-func TestNewCustomAdminClientSuccess(t *testing.T) {
+// Test The NewAdminClient() Functionality
+func TestNewAdminClient(t *testing.T) {
 
-	// Test Data
-	namespace := "TestNamespace"
-	kafkaSecretName := "TestKafkaSecretName"
-	kafkaSecretBrokers := "TestKafkaSecretBrokers"
-	kafkaSecretUsername := "TestKafkaSecretUsername"
-	kafkaSecretPassword := "TestKafkaSecretPassword"
-
-	// Create Test Kafka Secret
-	kafkaSecret := createKafkaSecret(kafkaSecretName, namespace, kafkaSecretBrokers, kafkaSecretUsername, kafkaSecretPassword)
-
-	// Create A Context With Test Logger & K8S Client
+	// Create A Context With Test Logger
 	logger := logtesting.TestLogger(t)
 	ctx := logging.WithLogger(context.TODO(), logger)
-	ctx = context.WithValue(ctx, injectionclient.Key{}, fake.NewSimpleClientset(kafkaSecret))
 
 	// Perform The Test
-	adminClient, err := NewCustomAdminClient(ctx, namespace)
+	adminClient, err := NewAdminClient(ctx)
 
 	// Verify The Result
 	assert.Nil(t, err)
@@ -65,55 +51,13 @@ func TestNewCustomAdminClientSuccess(t *testing.T) {
 	assert.True(t, ok)
 	assert.NotNil(t, customAdminClient)
 	assert.NotEqual(t, logger, customAdminClient.logger)
-	assert.NotEqual(t, namespace, customAdminClient.logger)
-	assert.Equal(t, kafkaSecretName, customAdminClient.kafkaSecret)
 	assert.NotNil(t, customAdminClient.httpClient)
 }
 
-// Test The NewCustomAdminClient() Constructor - No Kafka Secrets
-func TestNewCustomAdminClientNoKafkaSecret(t *testing.T) {
+// Test The CreateTopic() Functionality
+func TestCreateTopic(t *testing.T) {
 
 	// Test Data
-	namespace := "TestNamespace"
-
-	// Create A Context With Test Logger & K8S Client
-	ctx := logging.WithLogger(context.TODO(), logtesting.TestLogger(t))
-	ctx = context.WithValue(ctx, injectionclient.Key{}, fake.NewSimpleClientset())
-
-	// Perform The Test
-	adminClient, err := NewCustomAdminClient(ctx, namespace)
-
-	// Verify The Result
-	assert.Nil(t, err)
-	assert.Nil(t, adminClient)
-}
-
-// Test The NewCustomAdminClient() Constructor - Invalid Kafka Secrets
-func TestNewCustomAdminClientInvalidKafkaSecret(t *testing.T) {
-
-	// Test Data
-	namespace := "TestNamespace"
-
-	// Create Test Kafka Secret With Invalid Data
-	kafkaSecret := createKafkaSecret("Name", namespace, "", "", "")
-
-	// Create A Context With Test Logger & K8S Client
-	ctx := logging.WithLogger(context.TODO(), logtesting.TestLogger(t))
-	ctx = context.WithValue(ctx, injectionclient.Key{}, fake.NewSimpleClientset(kafkaSecret))
-
-	// Perform The Test
-	adminClient, err := NewCustomAdminClient(ctx, namespace)
-
-	// Verify The Result
-	assert.NotNil(t, err)
-	assert.Nil(t, adminClient)
-}
-
-// Test The Custom AdminClient CreateTopic() Functionality
-func TestCustomAdminClientCreateTopic(t *testing.T) {
-
-	// Test Data
-	namespace := "TestNamespace"
 	topicName := "TestTopicName"
 	topicNumPartitions := int32(4)
 	topicReplicationFactor := int16(2)
@@ -126,13 +70,9 @@ func TestCustomAdminClientCreateTopic(t *testing.T) {
 	mockSidecarServer.Start()
 	defer mockSidecarServer.Close()
 
-	// Create Test Kafka Secret With Sample (But Valid) Data
-	kafkaSecret := createKafkaSecret("Name", namespace, "Brokers", "Username", "Password")
-
-	// Create A Context With Test Logger & K8S Client
+	// Create A Context With Test Logger
 	logger := logtesting.TestLogger(t)
 	ctx := logging.WithLogger(context.TODO(), logger)
-	ctx = context.WithValue(ctx, injectionclient.Key{}, fake.NewSimpleClientset(kafkaSecret))
 
 	// Create The Sarama TopicDetail For The Topic/EventHub To Be Created
 	topicDetail := &sarama.TopicDetail{
@@ -142,7 +82,7 @@ func TestCustomAdminClientCreateTopic(t *testing.T) {
 	}
 
 	// Create A New Custom AdminClient
-	adminClient, err := NewCustomAdminClient(ctx, namespace)
+	adminClient, err := NewAdminClient(ctx)
 	assert.Nil(t, err)
 	assert.NotNil(t, adminClient)
 
@@ -159,11 +99,10 @@ func TestCustomAdminClientCreateTopic(t *testing.T) {
 	}
 }
 
-// Test The Custom AdminClient DeleteTopic() Functionality
-func TestCustomAdminClientDeleteTopic(t *testing.T) {
+// Test The DeleteTopic() Functionality
+func TestDeleteTopic(t *testing.T) {
 
 	// Test Data
-	namespace := "TestNamespace"
 	topicName := "TestTopicName"
 
 	// Create & Start The Test Sidecar HTTP Server (Success Response) & Defer Close
@@ -171,16 +110,12 @@ func TestCustomAdminClientDeleteTopic(t *testing.T) {
 	mockSidecarServer.Start()
 	defer mockSidecarServer.Close()
 
-	// Create Test Kafka Secret With Sample (But Valid) Data
-	kafkaSecret := createKafkaSecret("Name", namespace, "Brokers", "Username", "Password")
-
-	// Create A Context With Test Logger & K8S Client
+	// Create A Context With Test Logger
 	logger := logtesting.TestLogger(t)
 	ctx := logging.WithLogger(context.TODO(), logger)
-	ctx = context.WithValue(ctx, injectionclient.Key{}, fake.NewSimpleClientset(kafkaSecret))
 
 	// Create A New Custom AdminClient
-	adminClient, err := NewCustomAdminClient(ctx, namespace)
+	adminClient, err := NewAdminClient(ctx)
 	assert.Nil(t, err)
 	assert.NotNil(t, adminClient)
 
@@ -197,8 +132,8 @@ func TestCustomAdminClientDeleteTopic(t *testing.T) {
 	}
 }
 
-// Test The Custom AdminClient Close() Functionality
-func TestCustomAdminClientClose(t *testing.T) {
+// Test The Close() Functionality
+func TestClose(t *testing.T) {
 
 	// Create A New Custom AdminClient To Test
 	adminClient := &CustomAdminClient{}
@@ -210,24 +145,121 @@ func TestCustomAdminClientClose(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-// Test The Custom AdminClient GetKafkaSecretName() Functionality
-func TestCustomAdminClientGetKafkaSecretName(t *testing.T) {
+// Test The mapHttpResponse() Functionality
+func TestMapHttpResponse(t *testing.T) {
 
 	// Test Data
-	topicName := "TestTopicName"
-	secretName := "TestSecretName"
+	bodyString := "TestBody"
+	bodyBytes := []byte(bodyString)
 
-	// Test Logger
-	logger := logtesting.TestLogger(t).Desugar()
+	// Define The TestCase
+	type testCase struct {
+		only      bool
+		name      string
+		operation string
+		response  *http.Response
+		expected  *sarama.TopicError
+	}
+
+	// Define The TestCases
+	testCases := []testCase{
+		{
+			name:      "Create 100",
+			operation: "create",
+			response:  &http.Response{StatusCode: 100, Body: ioutil.NopCloser(bytes.NewReader(bodyBytes))},
+			expected:  &sarama.TopicError{Err: sarama.ErrInvalidRequest},
+		},
+		{
+			name:      "Delete 100",
+			operation: "delete",
+			response:  &http.Response{StatusCode: 100, Body: ioutil.NopCloser(bytes.NewReader(bodyBytes))},
+			expected:  &sarama.TopicError{Err: sarama.ErrInvalidRequest},
+		},
+		{
+			name:      "Create 200",
+			operation: "create",
+			response:  &http.Response{StatusCode: 200, Body: ioutil.NopCloser(bytes.NewReader(bodyBytes))},
+			expected:  &sarama.TopicError{Err: sarama.ErrNoError},
+		},
+		{
+			name:      "Delete 200",
+			operation: "delete",
+			response:  &http.Response{StatusCode: 200, Body: ioutil.NopCloser(bytes.NewReader(bodyBytes))},
+			expected:  &sarama.TopicError{Err: sarama.ErrNoError},
+		},
+		{
+			name:      "Create 300",
+			operation: "create",
+			response:  &http.Response{StatusCode: 300, Body: ioutil.NopCloser(bytes.NewReader(bodyBytes))},
+			expected:  &sarama.TopicError{Err: sarama.ErrInvalidRequest},
+		},
+		{
+			name:      "Delete 300",
+			operation: "delete",
+			response:  &http.Response{StatusCode: 300, Body: ioutil.NopCloser(bytes.NewReader(bodyBytes))},
+			expected:  &sarama.TopicError{Err: sarama.ErrInvalidRequest},
+		},
+		{
+			name:      "Create 404",
+			operation: "create",
+			response:  &http.Response{StatusCode: 404, Body: ioutil.NopCloser(bytes.NewReader(bodyBytes))},
+			expected:  &sarama.TopicError{Err: sarama.ErrInvalidRequest},
+		},
+		{
+			name:      "Delete 404",
+			operation: "delete",
+			response:  &http.Response{StatusCode: 404, Body: ioutil.NopCloser(bytes.NewReader(bodyBytes))},
+			expected:  &sarama.TopicError{Err: sarama.ErrUnknownTopicOrPartition},
+		},
+		{
+			name:      "Create 409",
+			operation: "create",
+			response:  &http.Response{StatusCode: 409, Body: ioutil.NopCloser(bytes.NewReader(bodyBytes))},
+			expected:  &sarama.TopicError{Err: sarama.ErrTopicAlreadyExists},
+		},
+		{
+			name:      "Delete 409",
+			operation: "delete",
+			response:  &http.Response{StatusCode: 409, Body: ioutil.NopCloser(bytes.NewReader(bodyBytes))},
+			expected:  &sarama.TopicError{Err: sarama.ErrInvalidRequest},
+		},
+		{
+			name:      "Create 500",
+			operation: "create",
+			response:  &http.Response{StatusCode: 500, Body: ioutil.NopCloser(bytes.NewReader(bodyBytes))},
+			expected:  &sarama.TopicError{Err: sarama.ErrInvalidRequest},
+		},
+		{
+			name:      "Delete 500",
+			operation: "delete",
+			response:  &http.Response{StatusCode: 500, Body: ioutil.NopCloser(bytes.NewReader(bodyBytes))},
+			expected:  &sarama.TopicError{Err: sarama.ErrInvalidRequest},
+		},
+	}
+
+	// Filter To Those With "only" Flag (If Any Specified)
+	filteredTestCases := make([]testCase, 0)
+	for _, testCase := range testCases {
+		if testCase.only {
+			filteredTestCases = append(filteredTestCases, testCase)
+		}
+	}
+	if len(filteredTestCases) == 0 {
+		filteredTestCases = testCases
+	}
 
 	// Create A New Custom AdminClient To Test
-	adminClient := &CustomAdminClient{logger: logger, kafkaSecret: secretName}
+	adminClient := &CustomAdminClient{}
 
-	// Perform The Test
-	actualSecretName := adminClient.GetKafkaSecretName(topicName)
+	// Loop Over The Filtered TestCases
+	for _, testCase := range filteredTestCases {
+		t.Run(testCase.name, func(t *testing.T) {
 
-	// Verify The Results
-	assert.Equal(t, secretName, actualSecretName)
+			// Perform The Individual TestCase
+			actual := adminClient.mapHttpResponse(testCase.operation, testCase.response)
+			assert.Equal(t, testCase.expected.Err, actual.Err)
+		})
+	}
 }
 
 //
@@ -253,7 +285,7 @@ func NewMockSidecarServer(t *testing.T, statusCode int) *MockSidecarServer {
 	}
 
 	// Create A Custom TCP Listener On The Expected Sidecar Host:Port
-	listener, err := net.Listen("tcp", custom.SidecarHost+":"+custom.SidecarPort)
+	listener, err := net.Listen("tcp", SidecarHost+":"+SidecarPort)
 	assert.Nil(t, err)
 	assert.NotNil(t, listener)
 
@@ -297,15 +329,15 @@ func (s *MockSidecarServer) ServeHTTP(responseWriter http.ResponseWriter, reques
 func verifySidecarRequest(t *testing.T, request *http.Request, body []byte, topicName string, saramaTopicDetail *sarama.TopicDetail) {
 
 	// Verify Common Request Data
-	assert.Equal(t, custom.SidecarHost+":"+custom.SidecarPort, request.Host)
+	assert.Equal(t, SidecarHost+":"+SidecarPort, request.Host)
 
 	// Verify Method Specific Request Data
 	switch request.Method {
 
 	case http.MethodPost:
-		assert.Equal(t, custom.TopicsPath, request.URL.Path)
-		assert.Equal(t, topicName, request.Header.Get(custom.TopicNameHeader))
-		customTopicDetail := &custom.TopicDetail{}
+		assert.Equal(t, TopicsPath, request.URL.Path)
+		assert.Equal(t, topicName, request.Header.Get(TopicNameHeader))
+		customTopicDetail := &TopicDetail{}
 		err := json.Unmarshal(body, customTopicDetail)
 		assert.Nil(t, err)
 		assert.NotNil(t, customTopicDetail)
@@ -315,8 +347,8 @@ func verifySidecarRequest(t *testing.T, request *http.Request, body []byte, topi
 		assert.Equal(t, saramaTopicDetail.ReplicaAssignment, customTopicDetail.ReplicaAssignment)
 
 	case http.MethodDelete:
-		assert.Equal(t, custom.TopicsPath+"/"+topicName, request.URL.Path)
-		assert.Equal(t, "", request.Header.Get(custom.TopicNameHeader))
+		assert.Equal(t, TopicsPath+"/"+topicName, request.URL.Path)
+		assert.Equal(t, "", request.Header.Get(TopicNameHeader))
 		assert.Empty(t, body)
 
 	default:

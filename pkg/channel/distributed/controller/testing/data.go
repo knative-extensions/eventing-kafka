@@ -21,8 +21,6 @@ import (
 	"strconv"
 	"time"
 
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -36,6 +34,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/health"
 	kafkaconstants "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 	kafkautil "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/util"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
@@ -241,7 +240,7 @@ func NewConfig(options ...KafkaConfigOption) *config.EventingKafkaConfig {
 		},
 	}
 
-	// Apply The Specified Kafka secret Customizations
+	// Apply The Specified Kafka Config Customizations
 	for _, option := range options {
 		option(kafkaConfig)
 	}
@@ -284,6 +283,7 @@ func NewKafkaSecret(options ...KafkaSecretOption) *corev1.Secret {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      KafkaSecretName,
 			Namespace: KafkaSecretNamespace,
+			Labels:    map[string]string{kafkaconstants.KafkaSecretLabel: "true"},
 		},
 		Data: map[string][]byte{
 			constants.KafkaSecretDataKeyBrokers:  []byte(KafkaSecretDataValueBrokers),

@@ -19,9 +19,8 @@ package kafkachannel
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
-
-	"knative.dev/pkg/logging"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
@@ -32,9 +31,10 @@ import (
 	"k8s.io/client-go/tools/cache"
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
-	kafkaadmin "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin"
+	configconstants "knative.dev/eventing-kafka/pkg/channel/distributed/common/config/constants"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/types"
 	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
@@ -44,6 +44,7 @@ import (
 	kafkalisters "knative.dev/eventing-kafka/pkg/client/listers/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/common/client"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
+	"knative.dev/pkg/logging"
 	"knative.dev/pkg/reconciler"
 )
 
@@ -51,8 +52,8 @@ import (
 type Reconciler struct {
 	kubeClientset        kubernetes.Interface
 	kafkaClientSet       kafkaclientset.Interface
-	adminClientType      kafkaadmin.AdminClientType
-	adminClient          kafkaadmin.AdminClientInterface
+	adminClientType      types.AdminClientType
+	adminClient          types.AdminClientInterface
 	environment          *env.Environment
 	config               *config.EventingKafkaConfig
 	saramaConfig         *sarama.Config
@@ -62,6 +63,10 @@ type Reconciler struct {
 	serviceLister        corev1listers.ServiceLister
 	configObserver       config.LoggingObserver
 	adminMutex           *sync.Mutex
+	kafkaSecret          string
+	kafkaBrokers         string
+	kafkaUsername        string
+	kafkaPassword        string
 }
 
 var (
@@ -83,23 +88,22 @@ var (
 // not have to support both use cases.
 //
 func (r *Reconciler) SetKafkaAdminClient(ctx context.Context) {
-	logger := logging.FromContext(ctx)
-
 	r.ClearKafkaAdminClient(ctx)
 	var err error
-	r.adminClient, err = kafkaadmin.CreateAdminClient(ctx, r.saramaConfig, constants.ControllerComponentName, r.adminClientType)
+	brokers := strings.Split(r.kafkaBrokers, ",")
+	r.adminClient, err = admin.CreateAdminClient(ctx, brokers, r.saramaConfig, r.adminClientType)
 	if err != nil {
+		logger := logging.FromContext(ctx)
 		logger.Error("Failed To Create Kafka AdminClient", zap.Error(err))
 	}
 }
 
 // Clear (Close) The Reconciler's Kafka AdminClient
 func (r *Reconciler) ClearKafkaAdminClient(ctx context.Context) {
-	logger := logging.FromContext(ctx)
-
 	if r.adminClient != nil {
 		err := r.adminClient.Close()
 		if err != nil {
+			logger := logging.FromContext(ctx)
 			logger.Error("Failed To Close Kafka AdminClient", zap.Error(err))
 		}
 		r.adminClient = nil
@@ -196,12 +200,12 @@ func (r *Reconciler) reconcile(ctx context.Context, channel *kafkav1beta1.KafkaC
 
 	//
 	// This implementation is based on the "consolidated" KafkaChannel, and thus we're using
-	// their Status tracking even though it does not align with our architecture.  We get our
-	// Kafka configuration from the "Kafka Secrets" and not a ConfigMap.  Therefore, we will
-	// instead check the Kafka Secret associated with the KafkaChannel here.
+	// their Status tracking even though it does not align with the distributed channel's
+	// architecture.  We get our Kafka configuration from the "Kafka Secrets" and not a
+	// ConfigMap.  Therefore, we will instead check the Kafka Secret associated with the
+	// KafkaChannel here.
 	//
-
-	if len(r.adminClient.GetKafkaSecretName(util.TopicName(channel))) > 0 {
+	if len(r.kafkaSecret) > 0 {
 		channel.Status.MarkConfigTrue()
 	} else {
 		channel.Status.MarkConfigFailed(event.KafkaSecretReconciled.String(), "No Kafka Secret For KafkaChannel")
@@ -260,20 +264,29 @@ func (r *Reconciler) configMapObserver(logger *zap.SugaredLogger, configMap *cor
 		return
 	}
 
-	// Merge The ConfigMap Settings Into The Provided Config
-	saramaSettingsYamlString := configMap.Data[testing.SaramaSettingsConfigKey]
+	// Get The Sarama Config Yaml From The ConfigMap
+	saramaSettingsYamlString := configMap.Data[configconstants.SaramaSettingsConfigKey]
 
-	// Load the Sarama settings from our configmap, ignoring the eventing-kafka result.
+	// Create A Kafka Auth Config From Current Credentials (EnvVars From Secret Take Precedence Over ConfigMap)
+	var kafkaAuthCfg *client.KafkaAuthConfig
+	if r.kafkaUsername != "" {
+		kafkaAuthCfg = &client.KafkaAuthConfig{
+			SASL: &client.KafkaSaslConfig{
+				User:     r.kafkaUsername,
+				Password: r.kafkaPassword,
+			},
+		}
+	}
+
+	// Build A New Sarama Config With Auth From Secret And YAML Config From ConfigMap
 	saramaConfig, err := client.NewConfigBuilder().
 		WithDefaults().
+		WithAuth(kafkaAuthCfg).
 		FromYaml(saramaSettingsYamlString).
 		Build()
 	if err != nil {
 		logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Any("configMap", configMap), zap.Error(err))
 	}
-
-	// Note - We're not calling UpdateSaramaConfig() here because we load the Kafka Secret
-	//        from inside the AdminClient, which is currently done for every reconciliation.
 
 	logger.Info("ConfigMap Changed; Updating Sarama Configuration")
 	r.saramaConfig = saramaConfig

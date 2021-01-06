@@ -17,12 +17,15 @@ limitations under the License.
 package util
 
 import (
+	"context"
 	"fmt"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/kubernetes"
+	clientconstants "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 )
 
@@ -50,4 +53,75 @@ func NewSecretOwnerReference(secret *corev1.Secret) metav1.OwnerReference {
 		BlockOwnerDeletion: &blockOwnerDeletion,
 		Controller:         &controller,
 	}
+}
+
+//
+// Temporary Kafka Secret Utilities
+//
+// The following logic used to live in distributed/common/kafka/ and was used by the various
+// AdminClientInterface implementations to dynamically load "Kafka" Secrets by label.  That
+// code has been refactored into pkg/common/kafka/ and no longer loads Kafka Secrets, instead
+// relying on being passed a complete Sarama Config with any necessary auth included.
+//
+// This functionality has been temporarily placed here for use in the Controller until further
+// refactoring takes place to remove the Kafka Secret labels, and instead rely upon the
+// ConfigMap for identification of the Secret.
+//
+
+// Utility Function For Returning The Labelled Kafka Secret (Error If Not Exactly 1 Kafka Secret)
+func GetKafkaSecret(ctx context.Context, k8sClient kubernetes.Interface, k8sNamespace string) (*corev1.Secret, error) {
+
+	// Get A List Of "Kafka" Secrets
+	secretList, err := k8sClient.CoreV1().Secrets(k8sNamespace).List(ctx, metav1.ListOptions{
+		LabelSelector: clientconstants.KafkaSecretLabel + "=" + "true",
+		Limit:         10,
+	})
+	if err != nil {
+		return nil, err
+	} else if secretList == nil || len(secretList.Items) < 1 {
+		return nil, nil
+	} else if len(secretList.Items) > 1 {
+		return nil, fmt.Errorf("found multiple kafka secrets - only one is allowed")
+	} else {
+		return &secretList.Items[0], nil
+	}
+}
+
+// Utility Function For Validating Kafka Secret
+func ValidateKafkaSecret(logger *zap.Logger, secret *corev1.Secret) bool {
+
+	// Assume Invalid Until Proven Otherwise
+	valid := false
+
+	// Validate The Kafka Secret
+	if secret != nil {
+
+		// Extract The Relevant Data From The Kafka Secret
+		brokers := string(secret.Data[clientconstants.KafkaSecretKeyBrokers])
+		username := string(secret.Data[clientconstants.KafkaSecretKeyUsername])
+		password := string(secret.Data[clientconstants.KafkaSecretKeyPassword])
+
+		// Validate Kafka Secret Data (Allowing for Kafka not having Authentication enabled)
+		if len(brokers) > 0 && len(username) >= 0 && len(password) >= 0 {
+
+			// Mark Kafka Secret As Valid
+			valid = true
+
+		} else {
+
+			// Invalid Kafka Secret - Log State
+			pwdString := ""
+			if len(password) > 0 {
+				pwdString = "********"
+			}
+			logger.Error("Kafka Secret Contains Invalid Data",
+				zap.String("Name", secret.Name),
+				zap.String("Brokers", brokers),
+				zap.String("Username", username),
+				zap.String("Password", pwdString))
+		}
+	}
+
+	// Return Kafka Secret Validity
+	return valid
 }
