@@ -18,7 +18,7 @@ package types
 
 import (
 	"context"
-	
+
 	"github.com/Shopify/sarama"
 )
 
