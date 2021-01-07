@@ -45,13 +45,13 @@ as follows...
 ```
 data:
   sarama: |
-    ChannelBufferSize: 128    
+    ChannelBufferSize: 128
 ```
 
 To provide an imprecise example of the memory usage consider the following...
 
 ```
-10 Subscriptions * 4 Partitions * 256 Msgs * 10kB Msg Size = ~100mB HEAP 
+10 Subscriptions * 4 Partitions * 256 Msgs * 10kB Msg Size = ~100mB HEAP
 ```
 
 ...which is only HEAP memory and does not include the Stack and other overhead.
