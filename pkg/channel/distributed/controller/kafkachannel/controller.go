@@ -84,7 +84,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	kafkaUsername := string(kafkaSecret.Data[clientconstants.KafkaSecretKeyUsername])
 	kafkaPassword := string(kafkaSecret.Data[clientconstants.KafkaSecretKeyPassword])
 
-	// Create A Kafka Auth Config From Current Credentials (EnvVars From Secret Take Precedence Over ConfigMap)
+	// Create A Kafka Auth Config From Current Credentials (Secret Data Takes Precedence Over ConfigMap)
 	var kafkaAuthCfg *commonclient.KafkaAuthConfig
 	if kafkaUsername != "" {
 		kafkaAuthCfg = &commonclient.KafkaAuthConfig{

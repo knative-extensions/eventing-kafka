@@ -267,7 +267,7 @@ func (r *Reconciler) configMapObserver(logger *zap.SugaredLogger, configMap *cor
 	// Get The Sarama Config Yaml From The ConfigMap
 	saramaSettingsYamlString := configMap.Data[configconstants.SaramaSettingsConfigKey]
 
-	// Create A Kafka Auth Config From Current Credentials (EnvVars From Secret Take Precedence Over ConfigMap)
+	// Create A Kafka Auth Config From Current Credentials (Secret Data Takes Precedence Over ConfigMap)
 	var kafkaAuthCfg *client.KafkaAuthConfig
 	if r.kafkaUsername != "" {
 		kafkaAuthCfg = &client.KafkaAuthConfig{

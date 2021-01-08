@@ -51,7 +51,7 @@ type EventHubAdminClient struct {
 }
 
 // EventHub ErrorCode RegExp - For Extracting Azure ErrorCodes From Error Messages
-var eventHubErrorCodeRegexp = *regexp.MustCompile(`^.*error code: (-?)(\d+),.*$`)
+var eventHubErrorCodeRegexp = *regexp.MustCompile(`^.*error code: (-?\d+),.*$`)
 
 // Create A New Azure EventHub AdminClient Based On Kafka Secrets In The Specified K8S Namespace
 func NewAdminClient(ctx context.Context, config *sarama.Config) (types.AdminClientInterface, error) {
@@ -131,7 +131,7 @@ func (c *EventHubAdminClient) CreateTopic(ctx context.Context, topicName string,
 		}
 	}
 
-	// Increment Count & Return Success!
+	// Return Success!
 	return util.NewTopicError(sarama.ErrNoError, "successfully created topic")
 }
 
@@ -191,14 +191,9 @@ func getEventHubErrorCode(err error) int {
 		if len(matches) > 0 {
 
 			// Then Get The SubMatch (Regexp Group) & Convert To Int
-			errorCode, err = strconv.Atoi(matches[2])
+			errorCode, err = strconv.Atoi(matches[1])
 			if err != nil {
 				errorCode = constants.EventHubErrorCodeParseFailure
-			}
-
-			// Apply Negation If Present
-			if matches[1] == "-" {
-				errorCode = errorCode * -1
 			}
 		}
 	}

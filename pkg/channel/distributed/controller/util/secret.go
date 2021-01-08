@@ -60,8 +60,8 @@ func NewSecretOwnerReference(secret *corev1.Secret) metav1.OwnerReference {
 //
 // The following logic used to live in distributed/common/kafka/ and was used by the various
 // AdminClientInterface implementations to dynamically load "Kafka" Secrets by label.  That
-// code has been refactored into pkg/common/kafka/ and no longer loads Kafka Secrets, instead
-// relying on being passed a complete Sarama Config with any necessary auth included.
+// code has been refactored and no longer loads Kafka Secrets, instead relying on being passed
+// a complete Sarama Config with any necessary auth included.
 //
 // This functionality has been temporarily placed here for use in the Controller until further
 // refactoring takes place to remove the Kafka Secret labels, and instead rely upon the
@@ -72,10 +72,7 @@ func NewSecretOwnerReference(secret *corev1.Secret) metav1.OwnerReference {
 func GetKafkaSecret(ctx context.Context, k8sClient kubernetes.Interface, k8sNamespace string) (*corev1.Secret, error) {
 
 	// Get A List Of "Kafka" Secrets
-	secretList, err := k8sClient.CoreV1().Secrets(k8sNamespace).List(ctx, metav1.ListOptions{
-		LabelSelector: clientconstants.KafkaSecretLabel + "=" + "true",
-		Limit:         10,
-	})
+	secretList, err := k8sClient.CoreV1().Secrets(k8sNamespace).List(ctx, metav1.ListOptions{LabelSelector: clientconstants.KafkaSecretLabel + "=" + "true"})
 	if err != nil {
 		return nil, err
 	} else if secretList == nil || len(secretList.Items) < 1 {
@@ -98,11 +95,9 @@ func ValidateKafkaSecret(logger *zap.Logger, secret *corev1.Secret) bool {
 
 		// Extract The Relevant Data From The Kafka Secret
 		brokers := string(secret.Data[clientconstants.KafkaSecretKeyBrokers])
-		username := string(secret.Data[clientconstants.KafkaSecretKeyUsername])
-		password := string(secret.Data[clientconstants.KafkaSecretKeyPassword])
 
-		// Validate Kafka Secret Data (Allowing for Kafka not having Authentication enabled)
-		if len(brokers) > 0 && len(username) >= 0 && len(password) >= 0 {
+		// Validate Kafka Secret Data
+		if len(brokers) > 0 {
 
 			// Mark Kafka Secret As Valid
 			valid = true
@@ -110,15 +105,7 @@ func ValidateKafkaSecret(logger *zap.Logger, secret *corev1.Secret) bool {
 		} else {
 
 			// Invalid Kafka Secret - Log State
-			pwdString := ""
-			if len(password) > 0 {
-				pwdString = "********"
-			}
-			logger.Error("Kafka Secret Contains Invalid Data",
-				zap.String("Name", secret.Name),
-				zap.String("Brokers", brokers),
-				zap.String("Username", username),
-				zap.String("Password", pwdString))
+			logger.Error("Invalid Kafka Secret - Missing Brokers", zap.String("Secret", fmt.Sprintf("%s/%s", secret.Namespace, secret.Name)))
 		}
 	}
 

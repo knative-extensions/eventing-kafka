@@ -34,7 +34,6 @@ func TestCreateSyncProducer(t *testing.T) {
 	// Create A Mock SyncProducer, Stub NewSyncProducerWrapper() & Restore After Test
 	mockSyncProducer := producertesting.NewMockSyncProducer()
 	producertesting.StubNewSyncProducerFn(producertesting.ValidatingNewSyncProducerFn(t, brokers, config, mockSyncProducer))
-	producertesting.StubNewSyncProducerFn(producertesting.ValidatingNewSyncProducerFn(t, brokers, config, mockSyncProducer))
 	defer producertesting.RestoreNewSyncProducerFn()
 
 	// Perform The Test

@@ -105,16 +105,11 @@ func NewKafkaConfigMap(options ...KafkaConfigMapOption) *corev1.ConfigMap {
 	return configMap
 }
 
-// Remove The Entire Sarama Configuration
-func WithoutSaramaConfiguration(configMap *corev1.ConfigMap) {
-	delete(configMap.Data, constants.SaramaSettingsConfigKey)
-}
-
 // Modify The Default "Admin" Section Of The Sarama Config YAML
 func WithModifiedSaramaAdmin(configMap *corev1.ConfigMap) {
 	timeoutRegExp := regexp.MustCompile(`Timeout: 10000000000`)
 	currentSaramaString := configMap.Data[constants.SaramaSettingsConfigKey]
-	updatedSaramaString := string(timeoutRegExp.ReplaceAll([]byte(currentSaramaString), []byte("Timeout: 20000000000")))
+	updatedSaramaString := timeoutRegExp.ReplaceAllString(currentSaramaString, "Timeout: 20000000000")
 	configMap.Data[constants.SaramaSettingsConfigKey] = updatedSaramaString
 }
 
@@ -122,7 +117,7 @@ func WithModifiedSaramaAdmin(configMap *corev1.ConfigMap) {
 func WithModifiedSaramaNet(configMap *corev1.ConfigMap) {
 	maxOpenRequestsRegExp := regexp.MustCompile(`MaxOpenRequests: 1`)
 	currentSaramaString := configMap.Data[constants.SaramaSettingsConfigKey]
-	updatedSaramaString := string(maxOpenRequestsRegExp.ReplaceAll([]byte(currentSaramaString), []byte("MaxOpenRequests: 2")))
+	updatedSaramaString := maxOpenRequestsRegExp.ReplaceAllString(currentSaramaString, "MaxOpenRequests: 2")
 	configMap.Data[constants.SaramaSettingsConfigKey] = updatedSaramaString
 }
 
@@ -130,7 +125,7 @@ func WithModifiedSaramaNet(configMap *corev1.ConfigMap) {
 func WithModifiedSaramaMetadata(configMap *corev1.ConfigMap) {
 	refreshFrequencyRegExp := regexp.MustCompile(`RefreshFrequency: 300000000000`)
 	currentSaramaString := configMap.Data[constants.SaramaSettingsConfigKey]
-	updatedSaramaString := string(refreshFrequencyRegExp.ReplaceAll([]byte(currentSaramaString), []byte("RefreshFrequency: 400000000000")))
+	updatedSaramaString := refreshFrequencyRegExp.ReplaceAllString(currentSaramaString, "RefreshFrequency: 400000000000")
 	configMap.Data[constants.SaramaSettingsConfigKey] = updatedSaramaString
 }
 
@@ -138,7 +133,7 @@ func WithModifiedSaramaMetadata(configMap *corev1.ConfigMap) {
 func WithModifiedSaramaConsumer(configMap *corev1.ConfigMap) {
 	intervalRegExp := regexp.MustCompile(`Interval: 5000000000`)
 	currentSaramaString := configMap.Data[constants.SaramaSettingsConfigKey]
-	updatedSaramaString := string(intervalRegExp.ReplaceAll([]byte(currentSaramaString), []byte("Interval: 6000000000")))
+	updatedSaramaString := intervalRegExp.ReplaceAllString(currentSaramaString, "Interval: 6000000000")
 	configMap.Data[constants.SaramaSettingsConfigKey] = updatedSaramaString
 }
 
@@ -146,7 +141,7 @@ func WithModifiedSaramaConsumer(configMap *corev1.ConfigMap) {
 func WithModifiedSaramaProducer(configMap *corev1.ConfigMap) {
 	requiredAcksRegExp := regexp.MustCompile(`RequiredAcks: -1`)
 	currentSaramaString := configMap.Data[constants.SaramaSettingsConfigKey]
-	updatedSaramaString := string(requiredAcksRegExp.ReplaceAll([]byte(currentSaramaString), []byte("RequiredAcks: 0")))
+	updatedSaramaString := requiredAcksRegExp.ReplaceAllString(currentSaramaString, "RequiredAcks: 0")
 	configMap.Data[constants.SaramaSettingsConfigKey] = updatedSaramaString
 }
 

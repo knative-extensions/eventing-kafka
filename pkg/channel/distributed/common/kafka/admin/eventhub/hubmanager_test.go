@@ -83,8 +83,8 @@ func NewMockHubManager(options ...MockHubManagerOption) *MockHubManager {
 func WithMockedPut(ctx context.Context, topic string, returnErr bool, errCode int) func(mockHubManager *MockHubManager) {
 	return func(mockHubManager *MockHubManager) {
 		if returnErr {
-			errString := fmt.Errorf("error code: %d, etc", errCode)
-			mockHubManager.On("Put", ctx, topic, mock.Anything).Return(nil, errString)
+			err := fmt.Errorf("error code: %d, etc", errCode)
+			mockHubManager.On("Put", ctx, topic, mock.Anything).Return(nil, err)
 		} else {
 			mockHubManager.On("Put", ctx, topic, mock.Anything).Return(nil, nil)
 		}
