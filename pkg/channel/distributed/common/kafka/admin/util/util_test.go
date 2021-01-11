@@ -23,9 +23,6 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 )
 
 // Test The PromoteErrorToTopicError() Functionality
@@ -94,25 +91,4 @@ func TestNewTopicError(t *testing.T) {
 	assert.NotNil(t, topicError)
 	assert.Equal(t, sarama.ErrInvalidConfig, topicError.Err)
 	assert.Equal(t, errMsg, *topicError.ErrMsg)
-}
-
-//
-// Utilities
-//
-
-// Create K8S Kafka Secret With Specified Config
-func createKafkaSecret(name string, namespace string) *corev1.Secret {
-	return &corev1.Secret{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Secret",
-			APIVersion: corev1.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Labels: map[string]string{
-				constants.KafkaSecretLabel: "true",
-			},
-		},
-	}
 }
