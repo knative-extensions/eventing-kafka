@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/kubernetes/fake"
 	commonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config/constants"
 	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 )
@@ -148,7 +149,7 @@ func TestLoadEventingKafkaSettings(t *testing.T) {
 	assert.Equal(t, commontesting.DispatcherReplicas, fmt.Sprint(eventingKafkaConfig.Dispatcher.Replicas))
 
 	// Verify that invalid YAML returns an error
-	configMap.Data[commonconfig.EventingKafkaSettingsConfigKey] = "\tinvalidYAML"
+	configMap.Data[constants.EventingKafkaSettingsConfigKey] = "\tinvalidYAML"
 	eventingKafkaConfig, err = LoadEventingKafkaSettings(configMap)
 	assert.Nil(t, eventingKafkaConfig)
 	assert.NotNil(t, err)
@@ -190,7 +191,7 @@ func TestLoadSettings(t *testing.T) {
 
 	// Verify that a configmap with invalid YAML returns an error
 	configMap = commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, "")
-	configMap.Data[commontesting.EventingKafkaSettingsConfigKey] = "\tinvalidYaml"
+	configMap.Data[constants.EventingKafkaSettingsConfigKey] = "\tinvalidYaml"
 	ctx = context.WithValue(context.Background(), injectionclient.Key{}, fake.NewSimpleClientset(configMap))
 	saramaConfig, eventingKafkaConfig, err = LoadSettings(ctx, "", nil)
 	assert.Nil(t, saramaConfig)

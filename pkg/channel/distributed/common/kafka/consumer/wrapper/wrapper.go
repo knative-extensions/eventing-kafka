@@ -14,17 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package admin
+package wrapper
 
 import (
-	"context"
-
 	"github.com/Shopify/sarama"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/types"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/wrapper"
 )
 
-// Create A New Kafka AdminClient Of Specified Type - Based On Specified Sarama Config
-func CreateAdminClient(ctx context.Context, brokers []string, config *sarama.Config, adminClientType types.AdminClientType) (types.AdminClientInterface, error) {
-	return wrapper.NewAdminClientFn(ctx, brokers, config, adminClientType)
+// Define Function Types For Wrapper Variables (Typesafe Stubbing For Tests)
+type NewConsumerGroupFnType = func(brokers []string, groupId string, config *sarama.Config) (sarama.ConsumerGroup, error)
+
+// Function Variables To Facilitate Mocking Of Sarama Functionality In Unit Tests
+var NewConsumerGroupFn = SaramaNewConsumerGroupWrapper
+
+// The Production Sarama NewConsumerGroup Wrapper Function
+func SaramaNewConsumerGroupWrapper(brokers []string, groupId string, config *sarama.Config) (sarama.ConsumerGroup, error) {
+	return sarama.NewConsumerGroup(brokers, groupId, config)
 }

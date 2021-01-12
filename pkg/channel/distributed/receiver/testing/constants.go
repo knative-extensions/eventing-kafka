@@ -18,11 +18,7 @@ package testing
 
 // Test Data
 const (
-	ClientId = "TestClientId"
-
-	KafkaBrokers  = "TestBrokers"
-	KafkaUsername = "TestUsername"
-	KafkaPassword = "TestPassword"
+	KafkaBroker = "TestBroker"
 
 	ChannelName      = "TestChannelName"
 	ChannelNamespace = "TestChannelNamespace"

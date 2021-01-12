@@ -18,123 +18,63 @@ package producer
 
 import (
 	"context"
-	"encoding/json"
+	"testing"
 
 	"github.com/Shopify/sarama"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
-	"github.com/ghodss/yaml"
-	gometrics "github.com/rcrowley/go-metrics"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	commonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
+	commonconfigtesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/config/testing"
+	configtesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/config/testing"
+	producertesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/producer/testing"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/metrics"
 	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/constants"
 	channelhealth "knative.dev/eventing-kafka/pkg/channel/distributed/receiver/health"
 	receivertesting "knative.dev/eventing-kafka/pkg/channel/distributed/receiver/testing"
+	commonclient "knative.dev/eventing-kafka/pkg/common/client"
 	logtesting "knative.dev/pkg/logging/testing"
-	"knative.dev/pkg/system"
-
-	"testing"
-)
-
-const (
-	TestConfigAdmin = `
-Admin:
-  Timeout: 10000000000
-`
-
-	TestConfigNet = `
-Net:
-  TLS:
-    Config:
-      ClientAuth: 0
-  SASL:
-    Mechanism: PLAIN
-    Version: 1
-`
-	TestConfigConsumer = `
-Consumer:
-  Offsets:
-    AutoCommit:
-        Interval: 5000000000
-    Retention: 604800000000000
-  Return:
-    Errors: true
-`
-
-	TestConfigProducer = `
-Producer:
-  Idempotent: false
-  RequiredAcks: -1
-  Return:
-    Successes: true
-`
-
-	TestConfigMeta = `
-Metadata:
-  RefreshFrequency: 300000000000`
-
-	TestConfigBase = TestConfigAdmin + TestConfigNet + TestConfigMeta + TestConfigConsumer + TestConfigProducer
-
-	TestConfigMetadataChange = TestConfigAdmin + TestConfigNet + `
-Metadata:
-  RefreshFrequency: 200000` + TestConfigConsumer + TestConfigProducer
-
-	TestConfigProducerChange = TestConfigAdmin + TestConfigNet + TestConfigMeta + TestConfigProducer + `
-Producer:
-  MaxMessageBytes: 300` + TestConfigConsumer
-
-	TestConfigConsumerChange = TestConfigAdmin + TestConfigNet + TestConfigMeta + TestConfigProducer + TestConfigConsumer + `
-  Fetch:
-    Min: 200
-`
-
-	TestConfigAdminChange = `
-Admin:
-  Retry:
-    Max: 100` + TestConfigNet + TestConfigMeta + TestConfigProducer + TestConfigConsumer
-
-	TestSaramaConfigYaml = TestConfigAdmin + `
-Net:
-  TLS:
-    Config:
-      ClientAuth: 0
-  SASL:
-    Mechanism: PLAIN
-    Version: 1
-    User: ` + receivertesting.KafkaUsername + `
-    Password: ` + receivertesting.KafkaPassword + TestConfigMeta + TestConfigConsumer + `
-ClientID: ` + receivertesting.ClientId + `
-`
-
-	TestEventingKafka = `
-kafka:
-  enableSaramaLogging: true`
 )
 
 // Test The NewProducer Constructor
 func TestNewProducer(t *testing.T) {
 
+	// Test Data
+	brokers := []string{receivertesting.KafkaBroker}
+	config := sarama.NewConfig()
+
 	// Create A Mock Kafka SyncProducer
-	mockSyncProducer := receivertesting.NewMockSyncProducer()
+	mockSyncProducer := producertesting.NewMockSyncProducer()
 
-	// Create A Test Producer
-	producer := createTestProducer(t, mockSyncProducer)
+	// Stub NewSyncProducerWrapper() For Testing And Restore After Test
+	producertesting.StubNewSyncProducerFn(producertesting.ValidatingNewSyncProducerFn(t, brokers, config, mockSyncProducer))
+	defer producertesting.RestoreNewSyncProducerFn()
 
-	// Verify The Results
-	assert.True(t, producer.healthServer.ProducerReady())
+	// Create And Validate A Test Producer
+	createTestProducer(t, brokers, config, mockSyncProducer)
+
+	// Verify The Mock SyncProducer State
+	assert.False(t, mockSyncProducer.Closed())
 }
 
 // Test The ProduceKafkaMessage() Functionality For Event With PartitionKey
 func TestProduceKafkaMessage(t *testing.T) {
 
-	// Create Test Data
-	mockSyncProducer := receivertesting.NewMockSyncProducer()
-	producer := createTestProducer(t, mockSyncProducer)
+	// Test Data
+	brokers := []string{receivertesting.KafkaBroker}
+	config := sarama.NewConfig()
 	channelReference := receivertesting.CreateChannelReference(receivertesting.ChannelName, receivertesting.ChannelNamespace)
 	bindingMessage := receivertesting.CreateBindingMessage(cloudevents.VersionV1)
+
+	// Create A Mock Kafka SyncProducer
+	mockSyncProducer := producertesting.NewMockSyncProducer()
+
+	// Stub NewSyncProducerWrapper() For Testing And Restore After Test
+	producertesting.StubNewSyncProducerFn(producertesting.ValidatingNewSyncProducerFn(t, brokers, config, mockSyncProducer))
+	defer producertesting.RestoreNewSyncProducerFn()
+
+	// Create Producer To Test
+	producer := createTestProducer(t, brokers, config, mockSyncProducer)
 
 	// Perform The Test & Verify Results
 	err := producer.ProduceKafkaMessage(context.Background(), channelReference, bindingMessage)
@@ -160,89 +100,121 @@ func TestProduceKafkaMessage(t *testing.T) {
 	receivertesting.ValidateProducerMessageHeader(t, producerMessage.Headers, constants.CeKafkaHeaderKeyPartitionKey, receivertesting.PartitionKey)
 }
 
-func getBaseConfigMap() *corev1.ConfigMap {
-	return &corev1.ConfigMap{
-		TypeMeta: v1.TypeMeta{
-			Kind:       "ConfigMap",
-			APIVersion: corev1.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: v1.ObjectMeta{
-			Name:      commonconfig.SettingsConfigMapName,
-			Namespace: system.Namespace(),
-		},
-		Data: map[string]string{
-			commonconfig.SaramaSettingsConfigKey: TestConfigBase,
-		},
-	}
-}
-
 // Test The Producer's ConfigChanged Functionality
 func TestConfigChanged(t *testing.T) {
-	// Stub The Kafka Producer Creation Wrapper With Test Version Returning Specified SyncProducer
-	createSyncProducerWrapperPlaceholder := createSyncProducerWrapper
-	createSyncProducerWrapper = func(config *sarama.Config, brokers []string) (sarama.SyncProducer, gometrics.Registry, error) {
-		registry := gometrics.NewRegistry()
-		return receivertesting.NewMockSyncProducer(), registry, nil
-	}
-	defer func() { createSyncProducerWrapper = createSyncProducerWrapperPlaceholder }()
 
-	// Setup Environment
+	// Setup Test Environment Namespaces
 	commontesting.SetTestEnvironment(t)
-	// Create Mocks
-	mockSyncProducer := receivertesting.NewMockSyncProducer()
-	producer := createTestProducer(t, mockSyncProducer)
 
-	// Apply a change to the Producer config
-	producer = runConfigChangedTest(t, producer, getBaseConfigMap(), TestConfigProducerChange, "", true)
+	// Test Data
+	brokers := []string{receivertesting.KafkaBroker}
+	baseSaramaConfig, err := commonclient.NewConfigBuilder().WithDefaults().FromYaml(commonconfigtesting.DefaultSaramaConfigYaml).Build()
+	assert.Nil(t, err)
 
-	// Apply a metadata change
-	producer = runConfigChangedTest(t, producer, getBaseConfigMap(), TestConfigMetadataChange, "", true)
-
-	// Verify that Admin changes do not cause Reconfigure to be called
-	producer = runConfigChangedTest(t, producer, getBaseConfigMap(), TestConfigAdminChange, "", false)
-	// Verify that Consumer changes do not cause Reconfigure to be called
-	producer = runConfigChangedTest(t, producer, getBaseConfigMap(), TestConfigConsumerChange, "", false)
-
-	// Verify that having eventing-kafka settings in the configmap doesn't cause trouble
-	producer = runConfigChangedTest(t, producer, getBaseConfigMap(), TestConfigBase, TestEventingKafka, false)
-	assert.NotNil(t, producer)
-}
-
-func runConfigChangedTest(t *testing.T, originalProducer *Producer, base *corev1.ConfigMap, changed string, eventingKafka string, expectedNewProducer bool) *Producer {
-
-	// Change the Producer settings to the base config
-	newProducer := originalProducer.ConfigChanged(base)
-	if newProducer != nil {
-		// Simulate what happens in main() when the producer changes
-		originalProducer = newProducer
+	// Define The TestCase Struct
+	type TestCase struct {
+		only              bool
+		name              string
+		newConfigMap      *corev1.ConfigMap
+		expectNewProducer bool
 	}
 
-	// Alter the configmap to use the changed settings
-	newConfig := base
-	newConfig.Data[commonconfig.SaramaSettingsConfigKey] = changed
-	newConfig.Data[commonconfig.EventingKafkaSettingsConfigKey] = eventingKafka
-
-	// Inform the Producer that the config has changed to the new settings
-	newProducer = originalProducer.ConfigChanged(newConfig)
-
-	// Verify that a new producer was created or not, as expected
-	assert.Equal(t, expectedNewProducer, newProducer != nil)
-
-	// Return either the new or original producer for use by the rest of the TestConfigChanged test
-	if expectedNewProducer {
-		return newProducer
+	// Create The TestCases
+	testCases := []TestCase{
+		{
+			name:              "No Changes (Same Producer)",
+			newConfigMap:      configtesting.NewKafkaConfigMap(),
+			expectNewProducer: false,
+		},
+		{
+			name:              "No EventingKafka Config (Same Producer)",
+			newConfigMap:      configtesting.NewKafkaConfigMap(configtesting.WithoutEventingKafkaConfiguration),
+			expectNewProducer: false,
+		},
+		{
+			name:              "Admin Change (Same Producer)",
+			newConfigMap:      configtesting.NewKafkaConfigMap(configtesting.WithModifiedSaramaAdmin),
+			expectNewProducer: false,
+		},
+		{
+			name:              "Net Change (New Producer)",
+			newConfigMap:      configtesting.NewKafkaConfigMap(configtesting.WithModifiedSaramaNet),
+			expectNewProducer: true,
+		},
+		{
+			name:              "Metadata Change (New Producer)",
+			newConfigMap:      configtesting.NewKafkaConfigMap(configtesting.WithModifiedSaramaMetadata),
+			expectNewProducer: true,
+		},
+		{
+			name:              "Consumer Change (Same Producer)",
+			newConfigMap:      configtesting.NewKafkaConfigMap(configtesting.WithModifiedSaramaConsumer),
+			expectNewProducer: false,
+		},
+		{
+			name:              "Producer Change (New Producer)",
+			newConfigMap:      configtesting.NewKafkaConfigMap(configtesting.WithModifiedSaramaProducer),
+			expectNewProducer: true,
+		},
 	}
-	return originalProducer
+
+	// Filter To Those With "only" Flag (If Any Specified)
+	filteredTestCases := make([]TestCase, 0)
+	for _, testCase := range testCases {
+		if testCase.only {
+			filteredTestCases = append(filteredTestCases, testCase)
+		}
+	}
+	if len(filteredTestCases) == 0 {
+		filteredTestCases = testCases
+	}
+
+	// Make Sure To Restore The NewSyncProducer Wrapper After The Test
+	defer producertesting.RestoreNewSyncProducerFn()
+
+	// Run The Filtered TestCases
+	for _, testCase := range filteredTestCases {
+		t.Run(testCase.name, func(t *testing.T) {
+
+			// Mock The SyncProducer & Stub The NewSyncProducerWrapper()
+			mockSyncProducer := producertesting.NewMockSyncProducer()
+			producertesting.StubNewSyncProducerFn(producertesting.NonValidatingNewSyncProducerFn(mockSyncProducer))
+
+			// Create A Test Producer To Perform Tests Against
+			producer := createTestProducer(t, brokers, baseSaramaConfig, mockSyncProducer)
+
+			// Perform The Test
+			newProducer := producer.ConfigChanged(testCase.newConfigMap)
+
+			// Verify Expected State
+			assert.Equal(t, testCase.expectNewProducer, newProducer != nil)
+			assert.Equal(t, testCase.expectNewProducer, mockSyncProducer.Closed())
+			if newProducer != nil {
+				assert.Equal(t, producer.brokers, newProducer.brokers)
+				assert.Equal(t, producer.statsReporter, newProducer.statsReporter)
+				assert.Equal(t, producer.healthServer, newProducer.healthServer)
+				assert.NotEqual(t, producer.configuration, newProducer.configuration)
+			}
+		})
+	}
 }
 
 // Test The Producer's Close() Functionality
 func TestClose(t *testing.T) {
 
+	// Test Data
+	brokers := []string{receivertesting.KafkaBroker}
+	config := sarama.NewConfig()
+
 	// Create A Mock Kafka SyncProducer
-	mockSyncProducer := receivertesting.NewMockSyncProducer()
+	mockSyncProducer := producertesting.NewMockSyncProducer()
+
+	// Stub NewSyncProducerWrapper() For Testing And Restore After Test
+	producertesting.StubNewSyncProducerFn(producertesting.ValidatingNewSyncProducerFn(t, brokers, config, mockSyncProducer))
+	defer producertesting.RestoreNewSyncProducerFn()
 
 	// Create A Test Producer
-	producer := createTestProducer(t, mockSyncProducer)
+	producer := createTestProducer(t, brokers, config, mockSyncProducer)
 
 	// Perform The Test
 	producer.Close()
@@ -252,28 +224,8 @@ func TestClose(t *testing.T) {
 	assert.True(t, mockSyncProducer.Closed())
 }
 
-func getSaramaConfigFromYaml(t *testing.T, saramaYaml string) *sarama.Config {
-	var config *sarama.Config
-	jsonSettings, err := yaml.YAMLToJSON([]byte(saramaYaml))
-	assert.Nil(t, err)
-	assert.Nil(t, json.Unmarshal(jsonSettings, &config))
-	return config
-}
-
-// Create A Producer With Specified KafkaProducer For Testing
-func createTestProducer(t *testing.T, kafkaSyncProducer sarama.SyncProducer) *Producer {
-
-	testConfig := getSaramaConfigFromYaml(t, TestSaramaConfigYaml)
-
-	// Stub The Kafka Producer Creation Wrapper With Test Version Returning Specified SyncProducer
-	createSyncProducerWrapperPlaceholder := createSyncProducerWrapper
-	createSyncProducerWrapper = func(config *sarama.Config, brokers []string) (sarama.SyncProducer, gometrics.Registry, error) {
-		assert.Equal(t, testConfig, config)
-		assert.Equal(t, []string{receivertesting.KafkaBrokers}, brokers)
-		registry := gometrics.NewRegistry()
-		return kafkaSyncProducer, registry, nil
-	}
-	defer func() { createSyncProducerWrapper = createSyncProducerWrapperPlaceholder }()
+// Utility Function For Creating A Producer With Specified Configuration
+func createTestProducer(t *testing.T, brokers []string, config *sarama.Config, syncProducer sarama.SyncProducer) *Producer {
 
 	// Create A Test Logger
 	logger := logtesting.TestLogger(t).Desugar()
@@ -283,11 +235,22 @@ func createTestProducer(t *testing.T, kafkaSyncProducer sarama.SyncProducer) *Pr
 	statsReporter := metrics.NewStatsReporter(logger)
 
 	// Create The Producer
-	producer, err := NewProducer(logger, testConfig, []string{receivertesting.KafkaBrokers}, statsReporter, healthServer)
+	producer, err := NewProducer(logger, config, brokers, statsReporter, healthServer)
+
+	// Verify Expected State
 	assert.Nil(t, err)
-	assert.Equal(t, kafkaSyncProducer, producer.kafkaProducer)
+	assert.NotNil(t, producer)
+	assert.Equal(t, logger, producer.logger)
+	assert.Equal(t, config, producer.configuration)
+	assert.Equal(t, brokers, producer.brokers)
+	assert.Equal(t, syncProducer, producer.kafkaProducer)
 	assert.Equal(t, healthServer, producer.healthServer)
 	assert.Equal(t, statsReporter, producer.statsReporter)
+	assert.Equal(t, config.MetricRegistry, producer.metricsRegistry)
+	assert.NotNil(t, producer.metricsStopChan)
+	assert.NotNil(t, producer.metricsStoppedChan)
+	assert.True(t, producer.healthServer.ProducerReady())
+	assert.False(t, producer.healthServer.ChannelReady())
 
 	// Return The Producer
 	return producer

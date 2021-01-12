@@ -20,8 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"knative.dev/pkg/logging"
-
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
@@ -29,6 +27,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
 	"knative.dev/eventing/pkg/apis/messaging"
+	"knative.dev/pkg/logging"
 )
 
 // Reconcile The KafkaChannel Itself - After Channel Reconciliation (Add MetaData)
@@ -129,7 +128,7 @@ func (r *Reconciler) reconcileLabels(channel *kafkav1beta1.KafkaChannel) bool {
 	}
 
 	// Add Kafka Secret Label If Missing
-	safeSecretName := commonk8s.TruncateLabelValue(r.kafkaSecretName(channel)) // Can Only Be Called AFTER Topic Reconciliation !!!
+	safeSecretName := commonk8s.TruncateLabelValue(r.kafkaSecret)
 	if labels[constants.KafkaSecretLabel] != safeSecretName {
 		labels[constants.KafkaSecretLabel] = safeSecretName
 		modified = true

@@ -14,17 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package admin
+package constants
 
-import (
-	"context"
-
-	"github.com/Shopify/sarama"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/types"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/wrapper"
+// Package Constants
+const (
+	// The name of the configmap used to hold eventing-kafka settings
+	SettingsConfigMapName = "config-kafka"
+	// The name of the keys in the Data section of the eventing-kafka configmap that holds Sarama and Eventing-Kafka configuration YAML
+	SaramaSettingsConfigKey        = "sarama"
+	EventingKafkaSettingsConfigKey = "eventing-kafka"
 )
-
-// Create A New Kafka AdminClient Of Specified Type - Based On Specified Sarama Config
-func CreateAdminClient(ctx context.Context, brokers []string, config *sarama.Config, adminClientType types.AdminClientType) (types.AdminClientInterface, error) {
-	return wrapper.NewAdminClientFn(ctx, brokers, config, adminClientType)
-}

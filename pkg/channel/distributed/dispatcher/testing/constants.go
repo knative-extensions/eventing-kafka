@@ -14,13 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package config
+package testing
 
-// Package Constants
+// Test Data
 const (
-	// The name of the configmap used to hold eventing-kafka settings
-	SettingsConfigMapName = "config-kafka"
-	// The name of the keys in the Data section of the eventing-kafka configmap that holds Sarama and Eventing-Kafka configuration YAML
-	SaramaSettingsConfigKey        = "sarama"
-	EventingKafkaSettingsConfigKey = "eventing-kafka"
+	KafkaBroker = "TestBroker"
 )

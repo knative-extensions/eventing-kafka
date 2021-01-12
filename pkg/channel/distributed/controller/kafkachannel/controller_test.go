@@ -59,7 +59,8 @@ func TestNewController(t *testing.T) {
 
 	// Add The Fake K8S Clientset To The Context (Populated With ConfigMap)
 	configMap := commontesting.GetTestSaramaConfigMap(controllertesting.SaramaConfigYaml, controllertesting.ControllerConfigYaml)
-	ctx, fakeClientset := fake.With(ctx, configMap)
+	secret := controllertesting.NewKafkaSecret(controllertesting.WithKafkaSecretFinalizer)
+	ctx, fakeClientset := fake.With(ctx, configMap, secret)
 	assert.NotNil(t, fakeClientset)
 
 	// Add The Fake Kafka Clientset To The Context (Empty)

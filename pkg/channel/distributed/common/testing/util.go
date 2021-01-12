@@ -17,62 +17,39 @@ limitations under the License.
 package testing
 
 import (
-	"net/http"
 	"os"
 	"testing"
-	"time"
-
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/system"
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config/constants"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/system"
 )
 
 // Returns A ConfigMap Containing The Desired Sarama Config YAML
 func GetTestSaramaConfigMap(saramaConfig string, configuration string) *corev1.ConfigMap {
-	return GetTestSaramaConfigMapNamespaced(SettingsConfigMapName, system.Namespace(), saramaConfig, configuration)
+	return GetTestSaramaConfigMapNamespaced(constants.SettingsConfigMapName, system.Namespace(), saramaConfig, configuration)
 }
 
 // Returns A ConfigMap Containing The Desired Sarama Config YAML, Name And Namespace
 func GetTestSaramaConfigMapNamespaced(name, namespace, saramaConfig, configuration string) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
-		TypeMeta: v1.TypeMeta{
+		TypeMeta: metav1.TypeMeta{
 			Kind:       "ConfigMap",
 			APIVersion: corev1.SchemeGroupVersion.String(),
 		},
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
 		Data: map[string]string{
-			SaramaSettingsConfigKey:        saramaConfig,
-			EventingKafkaSettingsConfigKey: configuration,
+			constants.SaramaSettingsConfigKey:        saramaConfig,
+			constants.EventingKafkaSettingsConfigKey: configuration,
 		},
 	}
-}
-
-// Retries an HTTP GET request a specified number of times before giving up.
-// The retry is triggered if the GET response is either and error or the "retryAgain" value.  Passing in -1
-// will retry only on errors (as -1 is not a possible HTTP response).
-func RetryGet(url string, pause time.Duration, retryCount int, retryAgain int) (*http.Response, error) {
-	var resp *http.Response
-	var err error
-
-	// Retry up to "retryCount" number of attempts, waiting for "pause" duration between tries.
-	for tryCounter := 0; tryCounter < retryCount; tryCounter++ {
-		if resp, err = http.Get(url); err == nil {
-			// GET request succeeded; return immediately unless this is the "retryAgain" value (e.g. a 404)
-			if retryAgain != resp.StatusCode {
-				return resp, err
-			}
-		}
-		time.Sleep(pause)
-	}
-	// Request failed too many times; return the error for caller to process
-	return resp, err
 }
 
 // Sets the environment variables that are necessary for common components

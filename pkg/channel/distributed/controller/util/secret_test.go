@@ -17,11 +17,14 @@ limitations under the License.
 package util
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
+	clientconstants "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	logtesting "knative.dev/pkg/logging/testing"
 )
@@ -63,4 +66,119 @@ func TestNewSecretOwnerReference(t *testing.T) {
 	assert.Equal(t, secret.ObjectMeta.Name, controllerRef.Name)
 	assert.True(t, *controllerRef.BlockOwnerDeletion)
 	assert.True(t, *controllerRef.Controller)
+}
+
+// Test The GetKafkaSecrets() Functionality
+func TestGetKafkaSecret(t *testing.T) {
+
+	// Test Data
+	k8sNamespace1 := "TestK8SNamespace1"
+	k8sNamespace2 := "TestK8SNamespace2"
+	k8sNamespace3 := "TestK8SNamespace3"
+
+	kafkaSecretName1 := "TestKafkaSecretName1"
+	kafkaSecretName2 := "TestKafkaSecretName2"
+	kafkaSecretName3 := "TestKafkaSecretName3"
+
+	kafkaSecret1 := createKafkaSecret(kafkaSecretName1, k8sNamespace1)
+	kafkaSecret2 := createKafkaSecret(kafkaSecretName2, k8sNamespace2)
+	kafkaSecret3 := createKafkaSecret(kafkaSecretName3, k8sNamespace2)
+
+	// Get The Test K8S Client
+	k8sClient := fake.NewSimpleClientset(kafkaSecret1, kafkaSecret2, kafkaSecret3)
+
+	// Perform The Success Test
+	result, err := GetKafkaSecret(context.Background(), k8sClient, k8sNamespace1)
+	assert.Nil(t, err)
+	assert.Equal(t, kafkaSecret1, result)
+
+	// Perform The Multiple Secrets Error Test
+	result, err = GetKafkaSecret(context.Background(), k8sClient, k8sNamespace2)
+	assert.NotNil(t, err)
+	assert.Nil(t, result)
+
+	// Perform The No Secrets Error Test
+	result, err = GetKafkaSecret(context.Background(), k8sClient, k8sNamespace3)
+	assert.Nil(t, err)
+	assert.Nil(t, result)
+}
+
+// Test The ValidateKafkaSecret() Functionality
+func TestValidateKafkaSecret(t *testing.T) {
+
+	// Test Data
+	brokers := "TestBrokers"
+	username := "TestUsername"
+	password := "TestPassword"
+
+	// Create A Test Logger
+	logger := logtesting.TestLogger(t).Desugar()
+
+	// Define & Create The Test Cases
+	tests := []struct {
+		name string
+		data map[string][]byte
+		want bool
+	}{
+		{
+			name: "Valid Kafka Secret (No Auth)",
+			data: map[string][]byte{
+				clientconstants.KafkaSecretKeyBrokers:  []byte(brokers),
+				clientconstants.KafkaSecretKeyUsername: []byte(""),
+				clientconstants.KafkaSecretKeyPassword: []byte(""),
+			},
+			want: true,
+		},
+		{
+			name: "Valid Kafka Secret (Auth)",
+			data: map[string][]byte{
+				clientconstants.KafkaSecretKeyBrokers:  []byte(brokers),
+				clientconstants.KafkaSecretKeyUsername: []byte(username),
+				clientconstants.KafkaSecretKeyPassword: []byte(password),
+			},
+			want: true,
+		},
+		{
+			name: "Invalid Kafka Secret (No Brokers)",
+			data: map[string][]byte{
+				clientconstants.KafkaSecretKeyUsername: []byte(username),
+				clientconstants.KafkaSecretKeyPassword: []byte(password),
+			},
+			want: false,
+		},
+	}
+
+	// Loop Over The Test Cases
+	for _, tt := range tests {
+
+		// Run Each Test Case
+		t.Run(tt.name, func(t *testing.T) {
+
+			// Kafka Secret To Test
+			secret := &corev1.Secret{Data: tt.data}
+
+			// Perform The Test
+			result := ValidateKafkaSecret(logger, secret)
+
+			// Verify The Results
+			assert.Equal(t, tt.want, result)
+		})
+	}
+}
+
+// Create K8S Kafka Secret With Specified Config
+func createKafkaSecret(name string, namespace string) *corev1.Secret {
+	return &corev1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: corev1.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			Labels: map[string]string{
+				clientconstants.KafkaSecretLabel: "true",
+			},
+		},
+	}
 }

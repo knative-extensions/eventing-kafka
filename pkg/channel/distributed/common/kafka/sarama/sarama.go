@@ -28,7 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	commonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config/constants"
 	"knative.dev/eventing-kafka/pkg/common/client"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/system"
@@ -50,7 +50,7 @@ func LoadSettings(ctx context.Context, clientId string, kafkaAuthConfig *client.
 		return nil, nil, fmt.Errorf("attempted to load settings from a nil context")
 	}
 
-	configMap, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, commonconfig.SettingsConfigMapName, metav1.GetOptions{})
+	configMap, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, constants.SettingsConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -62,11 +62,11 @@ func LoadSettings(ctx context.Context, clientId string, kafkaAuthConfig *client.
 
 	// Validate The ConfigMap Data
 	if configMap.Data == nil {
-		return nil, nil, fmt.Errorf("Attempted to merge sarama settings with empty configmap")
+		return nil, nil, fmt.Errorf("attempted to merge sarama settings with empty configmap")
 	}
 
 	// Merge The ConfigMap Settings Into The Provided Config
-	saramaSettingsYamlString := configMap.Data[testing.SaramaSettingsConfigKey]
+	saramaSettingsYamlString := configMap.Data[constants.SaramaSettingsConfigKey]
 
 	// Merge The Sarama Settings In The ConfigMap Into A New Base Sarama Config
 	saramaConfig, err := client.NewConfigBuilder().
@@ -87,9 +87,9 @@ func LoadEventingKafkaSettings(configMap *corev1.ConfigMap) (*commonconfig.Event
 
 	// Unmarshal The Eventing-Kafka ConfigMap YAML Into A EventingKafkaSettings Struct
 	eventingKafkaConfig := &commonconfig.EventingKafkaConfig{}
-	err := yaml.Unmarshal([]byte(configMap.Data[commonconfig.EventingKafkaSettingsConfigKey]), &eventingKafkaConfig)
+	err := yaml.Unmarshal([]byte(configMap.Data[constants.EventingKafkaSettingsConfigKey]), &eventingKafkaConfig)
 	if err != nil {
-		return nil, fmt.Errorf("ConfigMap's eventing-kafka value could not be converted to an EventingKafkaConfig struct: %s : %v", err, configMap.Data[commonconfig.EventingKafkaSettingsConfigKey])
+		return nil, fmt.Errorf("ConfigMap's eventing-kafka value could not be converted to an EventingKafkaConfig struct: %s : %v", err, configMap.Data[constants.EventingKafkaSettingsConfigKey])
 	}
 
 	return eventingKafkaConfig, nil

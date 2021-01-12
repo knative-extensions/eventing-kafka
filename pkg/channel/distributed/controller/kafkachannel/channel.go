@@ -20,8 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"knative.dev/pkg/logging"
-
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -33,6 +31,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 	"knative.dev/pkg/network"
 )
 
@@ -130,7 +129,7 @@ func (r *Reconciler) newKafkaChannelService(channel *kafkav1beta1.KafkaChannel) 
 	serviceName := kafkautil.AppendKafkaChannelServiceNameSuffix(channel.Name)
 
 	// Get The Receiver Service Name For The Kafka Secret (One Receiver Service Per Kafka Secret)
-	deploymentName := util.ReceiverDnsSafeName(r.kafkaSecretName(channel))
+	deploymentName := util.ReceiverDnsSafeName(r.kafkaSecret)
 	serviceAddress := network.GetServiceHostname(deploymentName, r.environment.SystemNamespace)
 
 	// Create & Return The Service Model
@@ -157,13 +156,4 @@ func (r *Reconciler) newKafkaChannelService(channel *kafkav1beta1.KafkaChannel) 
 			ExternalName: serviceAddress,
 		},
 	}
-}
-
-//
-// Utility Functions (Uses AdminClient)
-//
-
-// Get The Kafka Auth Secret Corresponding To The Specified KafkaChannel
-func (r *Reconciler) kafkaSecretName(channel *kafkav1beta1.KafkaChannel) string {
-	return r.adminClient.GetKafkaSecretName(util.TopicName(channel))
 }

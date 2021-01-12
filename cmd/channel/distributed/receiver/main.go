@@ -19,14 +19,14 @@ package main
 import (
 	"context"
 	"flag"
-	nethttp "net/http"
+	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/cloudevents/sdk-go/v2/binding"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	commonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	commonk8s "knative.dev/eventing-kafka/pkg/channel/distributed/common/k8s"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
@@ -167,7 +167,7 @@ func flush(logger *zap.Logger) {
 }
 
 // CloudEvent Message Handler - Converts To KafkaMessage And Produces To Channel's Kafka Topic
-func handleMessage(ctx context.Context, channelReference eventingchannel.ChannelReference, message binding.Message, transformers []binding.Transformer, _ nethttp.Header) error {
+func handleMessage(ctx context.Context, channelReference eventingchannel.ChannelReference, message binding.Message, transformers []binding.Transformer, _ http.Header) error {
 
 	// Note - The context provided here is a different context from the one created in main() and does not have our logger instance.
 	if logger.Core().Enabled(zap.DebugLevel) {
@@ -198,7 +198,8 @@ func handleMessage(ctx context.Context, channelReference eventingchannel.Channel
 }
 
 // configMapObserver is the callback function that handles changes to our ConfigMap
-func configMapObserver(logger *zap.SugaredLogger, configMap *v1.ConfigMap) {
+func configMapObserver(logger *zap.SugaredLogger, configMap *corev1.ConfigMap) {
+
 	if configMap == nil {
 		logger.Warn("Nil ConfigMap passed to configMapObserver; ignoring")
 		return

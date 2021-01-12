@@ -14,17 +14,36 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package admin
+package testing
 
 import (
 	"context"
 
 	"github.com/Shopify/sarama"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/types"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/wrapper"
 )
 
-// Create A New Kafka AdminClient Of Specified Type - Based On Specified Sarama Config
-func CreateAdminClient(ctx context.Context, brokers []string, config *sarama.Config, adminClientType types.AdminClientType) (types.AdminClientInterface, error) {
-	return wrapper.NewAdminClientFn(ctx, brokers, config, adminClientType)
+//
+// Mock AdminClient
+//
+
+var _ types.AdminClientInterface = &MockAdminClient{}
+
+type MockAdminClient struct {
+}
+
+func NewMockAdminClient() types.AdminClientInterface {
+	return &MockAdminClient{}
+}
+
+func (c MockAdminClient) CreateTopic(context.Context, string, *sarama.TopicDetail) *sarama.TopicError {
+	return nil
+}
+
+func (c MockAdminClient) DeleteTopic(context.Context, string) *sarama.TopicError {
+	return nil
+}
+
+func (c MockAdminClient) Close() error {
+	return nil
 }

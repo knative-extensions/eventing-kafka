@@ -14,17 +14,27 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package admin
+package types
 
 import (
 	"context"
 
 	"github.com/Shopify/sarama"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/types"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/wrapper"
 )
 
-// Create A New Kafka AdminClient Of Specified Type - Based On Specified Sarama Config
-func CreateAdminClient(ctx context.Context, brokers []string, config *sarama.Config, adminClientType types.AdminClientType) (types.AdminClientInterface, error) {
-	return wrapper.NewAdminClientFn(ctx, brokers, config, adminClientType)
+// AdminClient Type Enumeration
+type AdminClientType int
+
+const (
+	Kafka AdminClientType = iota
+	EventHub
+	Custom
+	Unknown
+)
+
+// Sarama ClusterAdmin Wrapping Interface To Facilitate Other Implementations (e.g. Azure EventHubs)
+type AdminClientInterface interface {
+	CreateTopic(context.Context, string, *sarama.TopicDetail) *sarama.TopicError
+	DeleteTopic(context.Context, string) *sarama.TopicError
+	Close() error
 }

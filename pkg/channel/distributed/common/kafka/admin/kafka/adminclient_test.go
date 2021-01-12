@@ -14,124 +14,55 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package admin
+package kafka
 
 import (
 	"context"
+	"strconv"
+	"testing"
 
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/fake"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
-	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
-	"knative.dev/eventing-kafka/pkg/common/client"
-	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
-	"knative.dev/pkg/system"
-
-	"strconv"
-	"testing"
 )
 
-// Test The NewKafkaAdminClient() Constructor - Success Path
-func TestNewKafkaAdminClientSuccess(t *testing.T) {
+// Test The NewAdminClient() Functionality
+func TestNewAdminClient(t *testing.T) {
 
 	// Test Data
-	clientId := "TestClientId"
-	namespace := "TestNamespace"
-	kafkaSecretName := "TestKafkaSecretName"
-	kafkaSecretBrokers := "TestKafkaSecretBrokers"
-	kafkaSecretUsername := "TestKafkaSecretUsername"
-	kafkaSecretPassword := "TestKafkaSecretPassword"
-	saramaSettings := `
-Net:
-  TLS:
-    Enable: true
-  SASL:
-    Enable: true
-    Mechanism: PLAIN
-    Version: 1
-Metadata:
-  RefreshFrequency: 300000000000
-`
+	brokers := []string{"TestBroker"}
+	config := sarama.NewConfig()
 
-	// Setup Environment
-	commontesting.SetTestEnvironment(t)
-
-	// Create Test Kafka Secret And ConfigMap
-	kafkaSecret := createKafkaSecret(kafkaSecretName, namespace, kafkaSecretBrokers, kafkaSecretUsername, kafkaSecretPassword)
-	kafkaConfig := createKafkaConfig(config.SettingsConfigMapName, system.Namespace(), saramaSettings)
-
-	// Create A Context With Test Logger & K8S Client
+	// Create A Context With Test Logger
 	ctx := logging.WithLogger(context.TODO(), logtesting.TestLogger(t))
-	ctx = context.WithValue(ctx, injectionclient.Key{}, fake.NewSimpleClientset(kafkaSecret, kafkaConfig))
 
 	// Create A Mock Sarama ClusterAdmin To Test Against
 	mockClusterAdmin := &MockClusterAdmin{}
 
 	// Mock The Sarama ClusterAdmin Creation For Testing
-	newClusterAdminWrapperPlaceholder := NewClusterAdminWrapper
-	NewClusterAdminWrapper = func(brokers []string, config *sarama.Config) (sarama.ClusterAdmin, error) {
-		assert.Len(t, brokers, 1)
-		assert.Equal(t, kafkaSecretBrokers, brokers[0])
-		assert.NotNil(t, config)
-		assert.Equal(t, clientId, config.ClientID)
-		assert.Equal(t, constants.ConfigKafkaVersionDefault, config.Version)
-		assert.True(t, config.Net.SASL.Enable)
-		assert.Equal(t, kafkaSecretUsername, config.Net.SASL.User)
-		assert.Equal(t, kafkaSecretPassword, config.Net.SASL.Password)
+	newClusterAdminFnPlaceholder := NewClusterAdminFn
+	NewClusterAdminFn = func(brokersArg []string, configArg *sarama.Config) (sarama.ClusterAdmin, error) {
+		assert.Equal(t, brokers, brokersArg)
+		assert.Equal(t, config, configArg)
 		return mockClusterAdmin, nil
 	}
 	defer func() {
-		NewClusterAdminWrapper = newClusterAdminWrapperPlaceholder
+		NewClusterAdminFn = newClusterAdminFnPlaceholder
 	}()
 
-	saramaConfig, err := client.NewConfigBuilder().
-		WithDefaults().
-		FromYaml(commontesting.SaramaDefaultConfigYaml).
-		Build()
-	assert.Nil(t, err)
-
 	// Perform The Test
-	adminClient, err := NewKafkaAdminClient(ctx, saramaConfig, clientId, namespace)
+	adminClient, err := NewAdminClient(ctx, brokers, config)
 
 	// Verify The Results
 	assert.Nil(t, err)
 	assert.NotNil(t, adminClient)
 }
 
-// Test The NewKafkaAdminClient() Constructor - No Kafka Secrets Path
-func TestNewKafkaAdminClientNoSecrets(t *testing.T) {
-
-	// Test Data
-	clientId := "TestClientId"
-	namespace := "TestNamespace"
-
-	// Create A Context With Test Logger & K8S Client
-	ctx := logging.WithLogger(context.TODO(), logtesting.TestLogger(t))
-	ctx = context.WithValue(ctx, injectionclient.Key{}, fake.NewSimpleClientset())
-
-	saramaConfig, err := client.NewConfigBuilder().
-		WithDefaults().
-		FromYaml(commontesting.SaramaDefaultConfigYaml).
-		Build()
-	assert.Nil(t, err)
-
-	// Perform The Test
-	adminClient, err := NewKafkaAdminClient(ctx, saramaConfig, clientId, namespace)
-
-	// Verify The Results
-	assert.Nil(t, err)
-	assert.NotNil(t, adminClient)
-}
-
-// Test The Kafka AdminClient CreateTopic() Functionality
-func TestKafkaAdminClientCreateTopic(t *testing.T) {
+// Test The CreateTopic() Functionality
+func TestCreateTopic(t *testing.T) {
 
 	// Test Data
 	ctx := context.TODO()
@@ -177,8 +108,8 @@ func TestKafkaAdminClientCreateTopic(t *testing.T) {
 	mockClusterAdmin.AssertExpectations(t)
 }
 
-// Test The Kafka AdminClient CreateTopic() Without ClusterAdmin Functionality
-func TestKafkaAdminClientCreateTopicInvalidAdminClient(t *testing.T) {
+// Test The CreateTopic() Without ClusterAdmin Functionality
+func TestCreateTopicInvalidAdminClient(t *testing.T) {
 
 	// Test Data
 	ctx := context.TODO()
@@ -212,8 +143,8 @@ func TestKafkaAdminClientCreateTopicInvalidAdminClient(t *testing.T) {
 	assert.Equal(t, errMsg, *resultTopicError.ErrMsg)
 }
 
-// Test The Kafka AdminClient DeleteTopic() Functionality
-func TestKafkaAdminClientDeleteTopic(t *testing.T) {
+// Test The DeleteTopic() Functionality
+func TestDeleteTopic(t *testing.T) {
 
 	// Test Data
 	ctx := context.TODO()
@@ -249,8 +180,8 @@ func TestKafkaAdminClientDeleteTopic(t *testing.T) {
 	mockClusterAdmin.AssertExpectations(t)
 }
 
-// Test The Kafka AdminClient DeleteTopic() Without AdminClient Functionality
-func TestKafkaAdminClientDeleteTopicInvalidAdminClient(t *testing.T) {
+// Test The DeleteTopic() Without AdminClient Functionality
+func TestDeleteTopicInvalidAdminClient(t *testing.T) {
 
 	// Test Data
 	ctx := context.TODO()
@@ -274,8 +205,8 @@ func TestKafkaAdminClientDeleteTopicInvalidAdminClient(t *testing.T) {
 	assert.Equal(t, errMsg, *resultTopicError.ErrMsg)
 }
 
-// Test The Kafka AdminClient Close() Functionality
-func TestKafkaAdminClientClose(t *testing.T) {
+// Test The Close() Functionality
+func TestClose(t *testing.T) {
 
 	// Create A Mock Sarama ClusterAdmin To Test Against
 	mockClusterAdmin := &MockClusterAdmin{}
@@ -298,8 +229,8 @@ func TestKafkaAdminClientClose(t *testing.T) {
 	mockClusterAdmin.AssertExpectations(t)
 }
 
-// Test The Kafka AdminClient Close() Without AdminClient Functionality
-func TestKafkaAdminClientCloseInvalidAdminClient(t *testing.T) {
+// Test The Close() Without AdminClient Functionality
+func TestCloseInvalidAdminClient(t *testing.T) {
 
 	// Test Logger
 	logger := logtesting.TestLogger(t).Desugar()
@@ -313,57 +244,6 @@ func TestKafkaAdminClientCloseInvalidAdminClient(t *testing.T) {
 
 	// Verify The Results
 	assert.Equal(t, "unable to close invalid ClusterAdmin - check Kafka authorization secrets", err.Error())
-}
-
-// Test The Kafka AdminClient GetKafkaSecretName() Functionality
-func TestKafkaAdminClientGetKafkaSecretName(t *testing.T) {
-
-	// Test Data
-	topicName := "TestTopicName"
-	secretName := "TestSecretName"
-
-	// Test Logger
-	logger := logtesting.TestLogger(t).Desugar()
-
-	// Create A New Kafka AdminClient To Test
-	adminClient := &KafkaAdminClient{logger: logger, kafkaSecret: secretName}
-
-	// Perform The Test
-	actualSecretName := adminClient.GetKafkaSecretName(topicName)
-
-	// Verify The Results
-	assert.Equal(t, secretName, actualSecretName)
-}
-
-//
-// Utilities
-//
-
-// Create K8S Kafka Secret With Specified Config
-func createKafkaSecret(name string, namespace string, brokers string, username string, password string) *corev1.Secret {
-	return &corev1.Secret{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Secret",
-			APIVersion: corev1.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Labels: map[string]string{
-				constants.KafkaSecretLabel: "true",
-			},
-		},
-		Data: map[string][]byte{
-			constants.KafkaSecretKeyBrokers:  []byte(brokers),
-			constants.KafkaSecretKeyUsername: []byte(username),
-			constants.KafkaSecretKeyPassword: []byte(password),
-		},
-	}
-}
-
-// Create K8S Kafka ConfigMap With Specified Config
-func createKafkaConfig(name string, namespace string, saramaConfig string) *corev1.ConfigMap {
-	return commontesting.GetTestSaramaConfigMapNamespaced(name, namespace, saramaConfig, "")
 }
 
 //

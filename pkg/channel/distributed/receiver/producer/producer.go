@@ -21,24 +21,22 @@ import (
 	"errors"
 	"time"
 
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
-	"knative.dev/eventing-kafka/pkg/common/client"
-	"knative.dev/eventing-kafka/pkg/common/tracing"
-
-	"go.opencensus.io/trace"
-
 	"github.com/Shopify/sarama"
 	kafkasaramaprotocol "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"github.com/cloudevents/sdk-go/v2/binding"
 	gometrics "github.com/rcrowley/go-metrics"
+	"go.opencensus.io/trace"
 	"go.uber.org/zap"
-	v1 "k8s.io/api/core/v1"
-	kafkaproducer "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/producer"
+	corev1 "k8s.io/api/core/v1"
+	constants2 "knative.dev/eventing-kafka/pkg/channel/distributed/common/config/constants"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/producer"
 	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/metrics"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/health"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/util"
+	"knative.dev/eventing-kafka/pkg/common/client"
+	"knative.dev/eventing-kafka/pkg/common/tracing"
 	eventingChannel "knative.dev/eventing/pkg/channel"
 )
 
@@ -64,7 +62,7 @@ func NewProducer(logger *zap.Logger,
 
 	// Create The Kafka Producer Using The Specified Kafka Authentication
 	logger.Info("Creating Kafka SyncProducer")
-	kafkaProducer, metricsRegistry, err := createSyncProducerWrapper(config, brokers)
+	kafkaProducer, err := producer.CreateSyncProducer(brokers, config)
 	if err != nil {
 		logger.Error("Failed To Create Kafka SyncProducer - Exiting", zap.Error(err), zap.Any("Brokers", brokers))
 		return nil, err
@@ -78,7 +76,7 @@ func NewProducer(logger *zap.Logger,
 		kafkaProducer:      kafkaProducer,
 		healthServer:       healthServer,
 		statsReporter:      statsReporter,
-		metricsRegistry:    metricsRegistry,
+		metricsRegistry:    config.MetricRegistry,
 		metricsStopChan:    make(chan struct{}),
 		metricsStoppedChan: make(chan struct{}),
 		configuration:      config,
@@ -94,11 +92,6 @@ func NewProducer(logger *zap.Logger,
 	// Return The New Producer
 	logger.Info("Successfully Started Kafka Producer")
 	return producer, nil
-}
-
-// Wrapper Around Common Kafka SyncProducer Creation To Facilitate Unit Testing
-var createSyncProducerWrapper = func(config *sarama.Config, brokers []string) (sarama.SyncProducer, gometrics.Registry, error) {
-	return kafkaproducer.CreateSyncProducer(brokers, config)
 }
 
 // Produce A KafkaMessage From The Specified CloudEvent To The Specified Topic And Wait For The Delivery Report
@@ -169,25 +162,6 @@ func (p *Producer) ObserveMetrics(interval time.Duration) {
 	}()
 }
 
-// Close The Producer (Stop Processing)
-func (p *Producer) Close() {
-
-	// Mark The Producer As No Longer Ready
-	p.healthServer.SetProducerReady(false)
-
-	// Stop Observing Metrics
-	close(p.metricsStopChan)
-	<-p.metricsStoppedChan
-
-	// Close The Kafka Producer & Log Results
-	err := p.kafkaProducer.Close()
-	if err != nil {
-		p.logger.Error("Failed To Close Kafka Producer", zap.Error(err))
-	} else {
-		p.logger.Info("Successfully Closed Kafka Producer")
-	}
-}
-
 // ConfigChanged is called by the configMapObserver handler function in main() so that
 // settings specific to the producer may be extracted and the producer restarted if necessary.
 // The new configmap could technically have changes to the eventing-kafka section as well as the sarama
@@ -196,9 +170,9 @@ func (p *Producer) Close() {
 // are needed in the future, the environment will also need to be re-parsed here.
 // If there aren't any producer-specific differences between the current config and the new one,
 // then just log that and move on; do not restart the Producer unnecessarily.
-func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
+func (p *Producer) ConfigChanged(configMap *corev1.ConfigMap) *Producer {
 
-	// Create A New Sarama Config (Carrying Forward The Kafka Secret Auth)
+	// Debug Log The ConfigMap Change
 	p.logger.Debug("New ConfigMap Received", zap.String("configMap.Name", configMap.ObjectMeta.Name))
 
 	// Validate The ConfigMap Data
@@ -208,7 +182,7 @@ func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 	}
 
 	// Merge The ConfigMap Settings Into The Provided Config
-	saramaSettingsYamlString := configMap.Data[testing.SaramaSettingsConfigKey]
+	saramaSettingsYamlString := configMap.Data[constants2.SaramaSettingsConfigKey]
 
 	// Merge The Sarama Config From ConfigMap Into New Sarama Config
 	configBuilder := client.NewConfigBuilder().
@@ -265,4 +239,23 @@ func (p *Producer) ConfigChanged(configMap *v1.ConfigMap) *Producer {
 	// Successfully Created New Producer - Close Old One And Return New One
 	p.logger.Info("Successfully Created New Producer")
 	return reconfiguredKafkaProducer
+}
+
+// Close The Producer (Stop Processing)
+func (p *Producer) Close() {
+
+	// Mark The Producer As No Longer Ready
+	p.healthServer.SetProducerReady(false)
+
+	// Stop Observing Metrics
+	close(p.metricsStopChan)
+	<-p.metricsStoppedChan
+
+	// Close The Kafka Producer & Log Results
+	err := p.kafkaProducer.Close()
+	if err != nil {
+		p.logger.Error("Failed To Close Kafka Producer", zap.Error(err))
+	} else {
+		p.logger.Info("Successfully Closed Kafka Producer")
+	}
 }

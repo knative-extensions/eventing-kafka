@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	"go.uber.org/zap"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -71,8 +71,8 @@ func main() {
 		logger.Fatal("Failed To Load Environment Variables - Terminating!", zap.Error(err))
 	}
 
-	var kafkaAuthCfg *client.KafkaAuthConfig
 	// Update The Sarama Config - Username/Password Overrides (EnvVars From Secret Take Precedence Over ConfigMap)
+	var kafkaAuthCfg *client.KafkaAuthConfig
 	if environment.KafkaUsername != "" {
 		kafkaAuthCfg = &client.KafkaAuthConfig{
 			SASL: &client.KafkaSaslConfig{
@@ -193,7 +193,8 @@ func flush(logger *zap.Logger) {
 }
 
 // configMapObserver is the callback function that handles changes to our ConfigMap
-func configMapObserver(logger *zap.SugaredLogger, configMap *v1.ConfigMap) {
+func configMapObserver(logger *zap.SugaredLogger, configMap *corev1.ConfigMap) {
+
 	if configMap == nil {
 		logger.Warn("Nil ConfigMap passed to configMapObserver; ignoring")
 		return
