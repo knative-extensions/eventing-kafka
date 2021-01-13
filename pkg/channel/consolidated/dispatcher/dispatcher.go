@@ -90,8 +90,9 @@ func (sub Subscription) String() string {
 func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispatcher, error) {
 	conf, err := client.NewConfigBuilder().
 		WithClientId(args.ClientID).
-		WithVersion(&sarama.V2_0_0_0).
+		WithVersion(&sarama.V2_0_0_0). // TODO
 		WithDefaults().
+		FromYaml(args.SaramaSettingsYamlString).
 		WithAuth(args.KafkaAuthConfig).
 		Build()
 
@@ -163,12 +164,13 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 type TopicFunc func(separator, namespace, name string) string
 
 type KafkaDispatcherArgs struct {
-	KnCEConnectionArgs *kncloudevents.ConnectionArgs
-	ClientID           string
-	Brokers            []string
-	KafkaAuthConfig    *client.KafkaAuthConfig
-	TopicFunc          TopicFunc
-	Logger             *zap.SugaredLogger
+	KnCEConnectionArgs       *kncloudevents.ConnectionArgs
+	ClientID                 string
+	Brokers                  []string
+	KafkaAuthConfig          *client.KafkaAuthConfig
+	SaramaSettingsYamlString string
+	TopicFunc                TopicFunc
+	Logger                   *zap.SugaredLogger
 }
 
 type consumerMessageHandler struct {

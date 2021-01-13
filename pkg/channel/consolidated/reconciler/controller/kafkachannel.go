@@ -532,7 +532,7 @@ func (r *Reconciler) createClient() (sarama.ClusterAdmin, error) {
 	kafkaClusterAdmin := r.kafkaClusterAdmin
 	if kafkaClusterAdmin == nil {
 		var err error
-		kafkaClusterAdmin, err = source.MakeAdminClient(controllerAgentName, r.kafkaAuthConfig, r.kafkaConfig.Brokers)
+		kafkaClusterAdmin, err = source.MakeAdminClient(controllerAgentName, r.kafkaAuthConfig, r.kafkaConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -592,7 +592,7 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 	r.kafkaConfig = kafkaConfig
 	r.kafkaConfigError = err
 	ac, err := kafka.NewAdminClient(ctx, func() (sarama.ClusterAdmin, error) {
-		return source.MakeAdminClient(controllerAgentName, r.kafkaAuthConfig, kafkaConfig.Brokers)
+		return source.MakeAdminClient(controllerAgentName, r.kafkaAuthConfig, kafkaConfig)
 	})
 
 	if err != nil {
