@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/Shopify/sarama"
+	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
 
 	"github.com/stretchr/testify/require"
 )
@@ -195,7 +196,7 @@ func TestAdminClient(t *testing.T) {
 	})
 
 	// mock broker does not support TLS ...
-	admin, err := MakeAdminClient("test-client", nil, []string{seedBroker.Addr()})
+	admin, err := MakeAdminClient("test-client", nil, &utils.KafkaConfig{Brokers: []string{seedBroker.Addr()}}) // TODO
 	if err != nil {
 		t.Fatal(err)
 	}
