@@ -196,7 +196,7 @@ func TestAdminClient(t *testing.T) {
 	})
 
 	// mock broker does not support TLS ...
-	admin, err := MakeAdminClient("test-client", nil, &utils.KafkaConfig{Brokers: []string{seedBroker.Addr()}}) // TODO
+	admin, err := MakeAdminClient("test-client", nil, &utils.KafkaConfig{Brokers: []string{seedBroker.Addr()}})
 	if err != nil {
 		t.Fatal(err)
 	}
