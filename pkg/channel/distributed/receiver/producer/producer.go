@@ -28,7 +28,6 @@ import (
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
-	constants2 "knative.dev/eventing-kafka/pkg/channel/distributed/common/config/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/producer"
 	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/metrics"
@@ -36,6 +35,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/health"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/util"
 	"knative.dev/eventing-kafka/pkg/common/client"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/eventing-kafka/pkg/common/tracing"
 	eventingChannel "knative.dev/eventing/pkg/channel"
 )
@@ -182,7 +182,7 @@ func (p *Producer) ConfigChanged(configMap *corev1.ConfigMap) *Producer {
 	}
 
 	// Merge The ConfigMap Settings Into The Provided Config
-	saramaSettingsYamlString := configMap.Data[constants2.SaramaSettingsConfigKey]
+	saramaSettingsYamlString := configMap.Data[commonconstants.SaramaSettingsConfigKey]
 
 	// Merge The Sarama Config From ConfigMap Into New Sarama Config
 	configBuilder := client.NewConfigBuilder().

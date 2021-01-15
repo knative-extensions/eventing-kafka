@@ -23,8 +23,8 @@ import (
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config/constants" // TODO: move to common place
 	"knative.dev/eventing-kafka/pkg/common/client"
+	"knative.dev/eventing-kafka/pkg/common/constants"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
 

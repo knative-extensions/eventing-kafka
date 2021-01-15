@@ -31,7 +31,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
-	configconstants "knative.dev/eventing-kafka/pkg/channel/distributed/common/config/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/types"
 	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
@@ -43,6 +42,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
 	kafkalisters "knative.dev/eventing-kafka/pkg/client/listers/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/common/client"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/reconciler"
@@ -265,7 +265,7 @@ func (r *Reconciler) configMapObserver(logger *zap.SugaredLogger, configMap *cor
 	}
 
 	// Get The Sarama Config Yaml From The ConfigMap
-	saramaSettingsYamlString := configMap.Data[configconstants.SaramaSettingsConfigKey]
+	saramaSettingsYamlString := configMap.Data[commonconstants.SaramaSettingsConfigKey]
 
 	// Create A Kafka Auth Config From Current Credentials (Secret Data Takes Precedence Over ConfigMap)
 	var kafkaAuthCfg *client.KafkaAuthConfig

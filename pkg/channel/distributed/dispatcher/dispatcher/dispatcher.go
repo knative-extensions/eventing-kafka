@@ -25,11 +25,11 @@ import (
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer"
 	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/metrics"
 	"knative.dev/eventing-kafka/pkg/common/client"
+	"knative.dev/eventing-kafka/pkg/common/constants"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/channel"
 )
