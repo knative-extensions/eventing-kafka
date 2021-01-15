@@ -1,5 +1,5 @@
-//+build e2e
-//+build source
+// +build e2e
+// +build source
 
 /*
 Copyright 2019 The Knative Authors
@@ -30,7 +30,12 @@ import (
 	. "github.com/cloudevents/sdk-go/v2/test"
 	cetypes "github.com/cloudevents/sdk-go/v2/types"
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/eventing/pkg/apis/eventing"
+	messagingv1 "knative.dev/eventing/pkg/apis/messaging/v1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 
 	"knative.dev/eventing/pkg/utils"
 	testlib "knative.dev/eventing/test/lib"
@@ -421,4 +426,101 @@ func mustJsonMarshal(t *testing.T, val interface{}) string {
 		t.Errorf("unexpected error, %v", err)
 	}
 	return string(data)
+}
+
+func TestKafkaSourceToNamespacedScopeIMC(t *testing.T) {
+
+	ctx := context.Background()
+
+	const (
+		imcName            = "imc"
+		recordEventPodName = "record-event"
+		sourceName         = "source"
+		topicName          = "source-to-namespace-scope-imc"
+		consumerGroup      = "source-to-namespaced-scope-imc"
+		subscriptionName   = "tracker"
+	)
+
+	client := testlib.Setup(t, false)
+	defer testlib.TearDown(client)
+
+	imc := &messagingv1.InMemoryChannel{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: client.Namespace,
+			Name:      imcName,
+			Annotations: map[string]string{
+				eventing.ScopeAnnotationKey: eventing.ScopeNamespace,
+			},
+		},
+	}
+
+	imcRef := &corev1.ObjectReference{
+		APIVersion: "v1",
+		Kind:       "messaging.knative.dev",
+		Name:       imc.Name,
+	}
+
+	helpers.MustCreateTopic(client, kafkaClusterName, kafkaClusterNamespace, topicName)
+	eventTracker, _ := recordevents.StartEventRecordOrFail(context.Background(), client, recordEventPodName)
+
+	imc, err := client.Eventing.MessagingV1().InMemoryChannels(client.Namespace).Create(ctx, imc, metav1.CreateOptions{})
+	require.Nil(t, err)
+	client.Tracker.AddObj(imc)
+
+	subscription := &messagingv1.Subscription{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: client.Namespace,
+			Name:      subscriptionName,
+		},
+		Spec: messagingv1.SubscriptionSpec{
+			Channel: *imcRef,
+			Subscriber: &duckv1.Destination{
+				Ref: resources.ServiceKRef(recordEventPodName),
+			},
+		},
+	}
+
+	subscription, err = client.Eventing.MessagingV1().Subscriptions(client.Namespace).Create(ctx, subscription, metav1.CreateOptions{})
+	require.Nil(t, err)
+	client.Tracker.AddObj(subscription)
+
+	contribtestlib.CreateKafkaSourceV1Beta1OrFail(client, contribresources.KafkaSourceV1Beta1(
+		kafkaBootstrapUrlPlain,
+		topicName,
+		imcRef,
+		contribresources.WithNameV1Beta1(sourceName),
+		contribresources.WithConsumerGroupV1Beta1(consumerGroup),
+	))
+
+	client.WaitForAllTestResourcesReadyOrFail(ctx)
+
+	time, _ := cetypes.ParseTime("2018-04-05T17:31:00Z")
+
+	messageHeaders := map[string]string{
+		"ce_specversion":          "1.0",
+		"ce_type":                 "com.github.pull.create",
+		"ce_source":               "https://github.com/cloudevents/spec/pull",
+		"ce_subject":              "123",
+		"ce_id":                   "A234-1234-1234",
+		"ce_time":                 "2018-04-05T17:31:00Z",
+		"content-type":            "application/json",
+		"ce_comexampleextension1": "value",
+		"ce_comexampleothervalue": "5",
+	}
+	messagePayload := mustJsonMarshal(t, map[string]string{"hello": "Francesco"})
+
+	helpers.MustPublishKafkaMessage(client, kafkaBootstrapUrlPlain, topicName, "", messageHeaders, messagePayload)
+
+	eventTracker.AssertAtLeast(1, recordevents.MatchEvent(
+		HasSpecVersion(cloudevents.VersionV1),
+		HasType("com.github.pull.create"),
+		HasSource("https://github.com/cloudevents/spec/pull"),
+		HasSubject("123"),
+		HasId("A234-1234-1234"),
+		HasTime(time),
+		HasDataContentType("application/json"),
+		HasData([]byte(`{"hello":"Francesco"}`)),
+		HasExtension("comexampleextension1", "value"),
+		HasExtension("comexampleothervalue", "5"),
+	))
 }
