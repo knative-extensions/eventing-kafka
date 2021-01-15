@@ -105,7 +105,6 @@ func MakeAdminClient(clientID string, kafkaAuthCfg *client.KafkaAuthConfig, kafk
 	saramaConf, err := client.NewConfigBuilder().
 		WithDefaults().
 		WithAuth(kafkaAuthCfg).
-		WithVersion(&sarama.V2_0_0_0).
 		WithClientId(clientID).
 		Build()
 	if err != nil {
