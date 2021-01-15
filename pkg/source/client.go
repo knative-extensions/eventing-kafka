@@ -79,8 +79,7 @@ func NewConfig(ctx context.Context) ([]string, *sarama.Config, error) {
 	cfg, err := client.NewConfigBuilder().
 		WithDefaults().
 		WithAuth(kafkaAuthConfig).
-		WithVersion(&sarama.V2_0_0_0). // TODO
-		//FromYaml(saramaSettingsYamlString). // TODO
+		WithVersion(&sarama.V2_0_0_0).
 		Build()
 	if err != nil {
 		return nil, nil, fmt.Errorf("error creating Sarama config: %w", err)
@@ -106,9 +105,8 @@ func MakeAdminClient(clientID string, kafkaAuthCfg *client.KafkaAuthConfig, kafk
 	saramaConf, err := client.NewConfigBuilder().
 		WithDefaults().
 		WithAuth(kafkaAuthCfg).
-		WithVersion(&sarama.V2_0_0_0). // TODO
+		WithVersion(&sarama.V2_0_0_0).
 		WithClientId(clientID).
-		FromYaml(kafkaConfig.SaramaSettingsYamlString).
 		Build()
 	if err != nil {
 		return nil, fmt.Errorf("error creating admin client Sarama config: %w", err)
