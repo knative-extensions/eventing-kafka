@@ -26,6 +26,7 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"go.uber.org/zap"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 )
 
@@ -81,7 +82,7 @@ type ConfigBuilder interface {
 	WithClientId(clientId string) ConfigBuilder
 
 	// Build builds the Sarama config with the given builder config
-	Build() (*sarama.Config, error)
+	Build(logger *zap.SugaredLogger) (*sarama.Config, error)
 }
 
 func NewConfigBuilder() ConfigBuilder {
@@ -127,7 +128,10 @@ func (b *configBuilder) WithAuth(kafkaAuthCfg *KafkaAuthConfig) ConfigBuilder {
 	return b
 }
 
-func (b *configBuilder) Build() (*sarama.Config, error) {
+// Build builds the Sarama config.
+// If the passed logger is not nil, it is used to log a debug message with
+// the final config.
+func (b *configBuilder) Build(logger *zap.SugaredLogger) (*sarama.Config, error) {
 	var config *sarama.Config
 
 	// check if there's existing first
@@ -220,6 +224,8 @@ func (b *configBuilder) Build() (*sarama.Config, error) {
 	if b.clientId != "" {
 		config.ClientID = b.clientId
 	}
+
+	logger.Debugf("Built Sarama config: %+v", config)
 
 	return config, nil
 }

@@ -204,7 +204,7 @@ func (p *Producer) ConfigChanged(configMap *corev1.ConfigMap) *Producer {
 		}
 	}
 
-	newConfig, err := configBuilder.Build()
+	newConfig, err := configBuilder.Build(p.logger.Sugar())
 	if err != nil {
 		p.logger.Error("Unable to merge sarama settings", zap.Error(err))
 		return nil

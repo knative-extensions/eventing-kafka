@@ -115,17 +115,18 @@ func TestShutdown(t *testing.T) {
 // Test The UpdateSubscriptions() Functionality
 func TestUpdateSubscriptions(t *testing.T) {
 
+	logger := logtesting.TestLogger(t)
+
 	// Restore Any Stubbing Of NewConsumerGroupWrapper After Test Is Finished
 	defer consumertesting.RestoreNewConsumerGroupFn()
 
 	// Test Data
 	brokers := []string{dispatchertesting.KafkaBroker}
-	config, err := commonclient.NewConfigBuilder().WithDefaults().FromYaml(commonconfigtesting.DefaultSaramaConfigYaml).Build()
+	config, err := commonclient.NewConfigBuilder().WithDefaults().FromYaml(commonconfigtesting.DefaultSaramaConfigYaml).Build(logger)
 	assert.Nil(t, err)
 
-	logger := logtesting.TestLogger(t).Desugar()
 	dispatcherConfig := DispatcherConfig{
-		Logger:       logger,
+		Logger:       logger.Desugar(),
 		Brokers:      brokers,
 		SaramaConfig: config,
 	}
@@ -281,6 +282,8 @@ func TestUpdateSubscriptions(t *testing.T) {
 // Test The Dispatcher's ConfigChanged Functionality
 func TestConfigChanged(t *testing.T) {
 
+	logger := logtesting.TestLogger(t)
+
 	// Setup Test Environment Namespaces
 	commontesting.SetTestEnvironment(t)
 
@@ -290,7 +293,7 @@ func TestConfigChanged(t *testing.T) {
 		WithDefaults().
 		FromYaml(commonconfigtesting.DefaultSaramaConfigYaml).
 		WithVersion(&sarama.V2_0_0_0).
-		Build()
+		Build(logger)
 	assert.Nil(t, err)
 
 	// Define The TestCase Struct

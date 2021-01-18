@@ -20,8 +20,10 @@ import (
 	"context"
 	"fmt"
 
+	"go.uber.org/zap"
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
 	"knative.dev/eventing-kafka/pkg/common/client"
+	"knative.dev/pkg/logging"
 
 	"github.com/Shopify/sarama"
 	"github.com/kelseyhightower/envconfig"
@@ -80,7 +82,7 @@ func NewConfig(ctx context.Context) ([]string, *sarama.Config, error) {
 		WithDefaults().
 		WithAuth(kafkaAuthConfig).
 		WithVersion(&sarama.V2_0_0_0).
-		Build()
+		Build(logging.FromContext(ctx))
 	if err != nil {
 		return nil, nil, fmt.Errorf("error creating Sarama config: %w", err)
 	}
@@ -101,12 +103,12 @@ func NewProducer(ctx context.Context) (sarama.Client, error) {
 	return sarama.NewClient(bs, cfg)
 }
 
-func MakeAdminClient(clientID string, kafkaAuthCfg *client.KafkaAuthConfig, kafkaConfig *utils.KafkaConfig) (sarama.ClusterAdmin, error) {
+func MakeAdminClient(clientID string, kafkaAuthCfg *client.KafkaAuthConfig, kafkaConfig *utils.KafkaConfig, logger *zap.SugaredLogger) (sarama.ClusterAdmin, error) {
 	saramaConf, err := client.NewConfigBuilder().
 		WithDefaults().
 		WithAuth(kafkaAuthCfg).
 		WithClientId(clientID).
-		Build()
+		Build(logger)
 	if err != nil {
 		return nil, fmt.Errorf("error creating admin client Sarama config: %w", err)
 	}

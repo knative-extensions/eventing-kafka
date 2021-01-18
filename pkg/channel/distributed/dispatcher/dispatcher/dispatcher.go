@@ -303,7 +303,7 @@ func (d *DispatcherImpl) ConfigChanged(configMap *corev1.ConfigMap) Dispatcher {
 		}
 	}
 
-	newConfig, err := configBuilder.Build()
+	newConfig, err := configBuilder.Build(d.Logger.Sugar())
 	if err != nil {
 		d.Logger.Error("Unable to build sarama settings", zap.Error(err))
 		return nil

@@ -103,12 +103,14 @@ func TestProduceKafkaMessage(t *testing.T) {
 // Test The Producer's ConfigChanged Functionality
 func TestConfigChanged(t *testing.T) {
 
+	logger := logtesting.TestLogger(t)
+
 	// Setup Test Environment Namespaces
 	commontesting.SetTestEnvironment(t)
 
 	// Test Data
 	brokers := []string{receivertesting.KafkaBroker}
-	baseSaramaConfig, err := commonclient.NewConfigBuilder().WithDefaults().FromYaml(commonconfigtesting.DefaultSaramaConfigYaml).Build()
+	baseSaramaConfig, err := commonclient.NewConfigBuilder().WithDefaults().FromYaml(commonconfigtesting.DefaultSaramaConfigYaml).Build(logger)
 	assert.Nil(t, err)
 
 	// Define The TestCase Struct

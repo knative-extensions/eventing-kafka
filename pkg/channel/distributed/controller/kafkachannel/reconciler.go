@@ -283,7 +283,7 @@ func (r *Reconciler) configMapObserver(logger *zap.SugaredLogger, configMap *cor
 		WithDefaults().
 		WithAuth(kafkaAuthCfg).
 		FromYaml(saramaSettingsYamlString).
-		Build()
+		Build(logger)
 	if err != nil {
 		logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Any("configMap", configMap), zap.Error(err))
 	}

@@ -88,12 +88,15 @@ func (sub Subscription) String() string {
 }
 
 func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispatcher, error) {
+	args.Logger.Debugf("XXX Sarama settings yaml : %s", args.SaramaSettingsYamlString)
+	args.Logger.Debugf("XXX Kafka auth cfg : %+v", args.KafkaAuthConfig)
+
 	conf, err := client.NewConfigBuilder().
 		WithClientId(args.ClientID).
 		WithDefaults().
 		FromYaml(args.SaramaSettingsYamlString).
 		WithAuth(args.KafkaAuthConfig).
-		Build()
+		Build(args.Logger)
 
 	if err != nil {
 		return nil, fmt.Errorf("Error updating the Sarama Auth config: %w", err)

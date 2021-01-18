@@ -33,6 +33,7 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
+	logtesting "knative.dev/pkg/logging/testing"
 )
 
 const (
@@ -115,6 +116,8 @@ Consumer:
 
 // Verify that the JSON fragment can be loaded into a sarama.Config struct
 func TestBuildSaramaConfig(t *testing.T) {
+	logger := logtesting.TestLogger(t)
+
 	// Setup Environment
 	commontesting.SetTestEnvironment(t)
 
@@ -126,7 +129,7 @@ func TestBuildSaramaConfig(t *testing.T) {
 	config, err := NewConfigBuilder().
 		WithDefaults().
 		FromYaml(commontesting.OldSaramaConfig).
-		Build()
+		Build(logger)
 	assert.Nil(t, err)
 	assert.NotNil(t, config)
 	assert.True(t, config.Net.SASL.Enable)
@@ -137,7 +140,7 @@ func TestBuildSaramaConfig(t *testing.T) {
 	config, err = NewConfigBuilder().
 		WithDefaults().
 		FromYaml(commontesting.NewSaramaConfig).
-		Build()
+		Build(logger)
 	assert.Nil(t, err)
 	assert.NotNil(t, config)
 	assert.Equal(t, sarama.V2_3_0_0, config.Version)
@@ -151,21 +154,21 @@ func TestBuildSaramaConfig(t *testing.T) {
 	_, err = NewConfigBuilder().
 		WithDefaults().
 		FromYaml(regexVersion.ReplaceAllString(commontesting.NewSaramaConfig, "Version: INVALID")).
-		Build()
+		Build(logger)
 	assert.NotNil(t, err)
 
 	// Verify error when an invalid RootPEMs is provided
 	_, err = NewConfigBuilder().
 		WithDefaults().
 		FromYaml(strings.Replace(EKDefaultSaramaConfigWithRootCert, "-----BEGIN CERTIFICATE-----", "INVALID CERT DATA", -1)).
-		Build()
+		Build(logger)
 	assert.NotNil(t, err)
 
 	// Verify that the RootPEMs section is merged properly
 	config, err = NewConfigBuilder().
 		WithDefaults().
 		FromYaml(EKDefaultSaramaConfigWithRootCert).
-		Build()
+		Build(logger)
 	assert.Nil(t, err)
 	assert.NotNil(t, config.Net.TLS.Config.RootCAs)
 
@@ -173,7 +176,7 @@ func TestBuildSaramaConfig(t *testing.T) {
 	config, err = NewConfigBuilder().
 		WithDefaults().
 		FromYaml(EKDefaultSaramaConfigWithInsecureSkipVerify).
-		Build()
+		Build(logger)
 	assert.Nil(t, err)
 	assert.True(t, config.Net.TLS.Config.InsecureSkipVerify)
 
@@ -192,7 +195,7 @@ func TestBuildSaramaConfig(t *testing.T) {
 		}).
 		WithVersion(&sarama.V2_0_0_0).
 		WithClientId("newClientId").
-		Build()
+		Build(logger)
 	assert.Nil(t, err)
 	assert.Equal(t, "foo", config.Net.SASL.User)
 	assert.Equal(t, "newClientId", config.ClientID)
@@ -200,6 +203,8 @@ func TestBuildSaramaConfig(t *testing.T) {
 }
 
 func TestBuildSaramaConfigWithTLSAuth(t *testing.T) {
+	logger := logtesting.TestLogger(t)
+
 	// Setup Environment
 	commontesting.SetTestEnvironment(t)
 
@@ -273,7 +278,7 @@ sny569QyyWHk2+FZoWDfjxFZ7CvIdgLJBHc3qUXLsg==
 		WithDefaults().
 		FromYaml(noAuthSaramaYaml).
 		WithAuth(kafkaAuthCfg).
-		Build()
+		Build(logger)
 	assert.Nil(t, err)
 
 	// Make sure TLS settings are applied from the KafkaAuthConfig
@@ -289,6 +294,8 @@ sny569QyyWHk2+FZoWDfjxFZ7CvIdgLJBHc3qUXLsg==
 }
 
 func TestBuildSaramaConfigWithSASLAuth(t *testing.T) {
+	logger := logtesting.TestLogger(t)
+
 	// Setup Environment
 	commontesting.SetTestEnvironment(t)
 
@@ -316,7 +323,7 @@ Metadata:
 		WithDefaults().
 		FromYaml(noAuthSaramaYaml).
 		WithAuth(kafkaAuthCfg).
-		Build()
+		Build(logger)
 	assert.Nil(t, err)
 
 	// Make sure SASL settings are applied from the KafkaAuthConfig
@@ -332,6 +339,8 @@ Metadata:
 
 // Verify that comparisons of sarama config structs function as expected
 func TestSaramaConfigEqual(t *testing.T) {
+	logger := logtesting.TestLogger(t)
+
 	config1 := sarama.NewConfig()
 	config2 := sarama.NewConfig()
 
@@ -387,12 +396,12 @@ func TestSaramaConfigEqual(t *testing.T) {
 	config1, err := NewConfigBuilder().
 		WithDefaults().
 		FromYaml(EKDefaultSaramaConfigWithRootCert).
-		Build()
+		Build(logger)
 	assert.Nil(t, err)
 	config2, err = NewConfigBuilder().
 		WithDefaults().
 		FromYaml(EKDefaultSaramaConfigWithRootCert).
-		Build()
+		Build(logger)
 	assert.Nil(t, err)
 	assert.True(t, ConfigEqual(config1, config2))
 }
@@ -490,11 +499,12 @@ func TestUpdateSaramaConfigWithKafkaAuthConfig(t *testing.T) {
 
 	for n, tc := range testCases {
 		t.Run(n, func(t *testing.T) {
+			logger := logtesting.TestLogger(t)
 
 			// Perform The Test
 			config, err := NewConfigBuilder().
 				WithAuth(tc.kafkaAuthCfg).
-				Build()
+				Build(logger)
 
 			if err != nil {
 				t.Errorf("error configuring Sarama config with auth :%e", err)
