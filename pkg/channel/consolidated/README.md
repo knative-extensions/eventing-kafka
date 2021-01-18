@@ -146,7 +146,7 @@ the annotation is set (or not set), its value is immutable.
 You can configure the Sarama instance used in the KafkaChannel by defining a
 `sarama` field inside the `config-kafka` configmap.
 
-```yaml 
+```yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -188,7 +188,7 @@ where you should make sure to use the YAML string syntax of "|-" in order to
 prevent trailing linefeed. The indentation of the PEM content is also important
 and must be aligned as shown.
 
-```yaml 
+```yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -209,4 +209,4 @@ data:
             2wk9rLRZaQnhspt6MhlmU0qkaEZpYND3emR2XZ07m51jXqDUgTjXYCSggImUsARs
             NAehp9bMeco=
             -----END CERTIFICATE-----
-``` 
+```
