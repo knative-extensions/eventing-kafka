@@ -143,7 +143,7 @@ the annotation is set (or not set), its value is immutable.
 
 ### Configuring Kafka client, Sarama
 
-You can configure the Sarama instance used in the KafkaChannel by defining a 
+You can configure the Sarama instance used in the KafkaChannel by defining a
 `sarama` field inside the `config-kafka` configmap.
 
 ```yaml 
@@ -173,17 +173,17 @@ data:
       RequiredAcks: -1  # -1 = WaitForAll, Most stringent option for "at-least-once" delivery.
 ```
 
-Settings defined here are used as the defaults by the KafkaChannel. The additional settings defined in the 
+Settings defined here are used as the defaults by the KafkaChannel. The additional settings defined in the
 channel CR, such as authentication, are applied on top of these defaults.
 
 Also, some Sarama settings are required for the channel to work, such as `Consumer.Return.Errors`
 and `Producer.Return.Successes`, so the value for these in the `config-kafka` is ignored.
 
-Value of the `sarama` key must be valid YAML string. The string is marshalled into a 
-[Sarama config struct](https://github.com/Shopify/sarama/blob/master/config.go), with a few 
+Value of the `sarama` key must be valid YAML string. The string is marshalled into a
+[Sarama config struct](https://github.com/Shopify/sarama/blob/master/config.go), with a few
 exceptions (`Version` and certificates).
 
-To specify a certificate, you can use the following format 
+To specify a certificate, you can use the following format
 where you should make sure to use the YAML string syntax of "|-" in order to
 prevent trailing linefeed. The indentation of the PEM content is also important
 and must be aligned as shown.
