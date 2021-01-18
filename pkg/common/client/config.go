@@ -225,7 +225,9 @@ func (b *configBuilder) Build(logger *zap.SugaredLogger) (*sarama.Config, error)
 		config.ClientID = b.clientId
 	}
 
-	logger.Debugf("Built Sarama config: %+v", config)
+	if logger != nil {
+		logger.Debugf("Built Sarama config: %+v", config)
+	}
 
 	return config, nil
 }
