@@ -165,7 +165,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel
 		return r.kafkaConfigError
 	}
 
-	kafkaClusterAdmin, err := r.createClient(logger)
+	kafkaClusterAdmin, err := r.createClient(ctx)
 	if err != nil {
 		kc.Status.MarkConfigFailed("InvalidConfiguration", "Unable to build Kafka admin client for channel %s: %v", kc.Name, err)
 		return err
@@ -524,7 +524,7 @@ func (r *Reconciler) reconcileChannelService(ctx context.Context, dispatcherName
 	return svc, nil
 }
 
-func (r *Reconciler) createClient(logger *zap.SugaredLogger) (sarama.ClusterAdmin, error) {
+func (r *Reconciler) createClient(ctx context.Context) (sarama.ClusterAdmin, error) {
 	// We don't currently initialize r.kafkaClusterAdmin, hence we end up creating the cluster admin client every time.
 	// This is because of an issue with Shopify/sarama. See https://github.com/Shopify/sarama/issues/1162.
 	// Once the issue is fixed we should use a shared cluster admin client. Also, r.kafkaClusterAdmin is currently
@@ -532,7 +532,7 @@ func (r *Reconciler) createClient(logger *zap.SugaredLogger) (sarama.ClusterAdmi
 	kafkaClusterAdmin := r.kafkaClusterAdmin
 	if kafkaClusterAdmin == nil {
 		var err error
-		kafkaClusterAdmin, err = source.MakeAdminClient(controllerAgentName, r.kafkaAuthConfig, r.kafkaConfig, logger)
+		kafkaClusterAdmin, err = source.MakeAdminClient(ctx, controllerAgentName, r.kafkaAuthConfig, r.kafkaConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -592,7 +592,7 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 	r.kafkaConfig = kafkaConfig
 	r.kafkaConfigError = err
 	ac, err := kafka.NewAdminClient(ctx, func() (sarama.ClusterAdmin, error) {
-		return source.MakeAdminClient(controllerAgentName, r.kafkaAuthConfig, kafkaConfig, logger)
+		return source.MakeAdminClient(ctx, controllerAgentName, r.kafkaAuthConfig, kafkaConfig)
 	})
 
 	if err != nil {
@@ -610,11 +610,9 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 }
 
 func (r *Reconciler) FinalizeKind(ctx context.Context, kc *v1beta1.KafkaChannel) pkgreconciler.Event {
-	logger := logging.FromContext(ctx)
-
 	// Do not attempt retrying creating the client because it might be a permanent error
 	// in which case the finalizer will never get removed.
-	if kafkaClusterAdmin, err := r.createClient(logger); err == nil && r.kafkaConfig != nil {
+	if kafkaClusterAdmin, err := r.createClient(ctx); err == nil && r.kafkaConfig != nil {
 		if err := r.deleteTopic(ctx, kc, kafkaClusterAdmin); err != nil {
 			return err
 		}

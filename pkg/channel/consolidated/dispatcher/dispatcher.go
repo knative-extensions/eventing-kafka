@@ -93,7 +93,7 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 		WithDefaults().
 		FromYaml(args.SaramaSettingsYamlString).
 		WithAuth(args.KafkaAuthConfig).
-		Build(args.Logger)
+		Build(ctx)
 
 	if err != nil {
 		return nil, fmt.Errorf("Error updating the Sarama Auth config: %w", err)

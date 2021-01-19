@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"strconv"
 	"strings"
@@ -193,7 +194,8 @@ func flush(logger *zap.Logger) {
 }
 
 // configMapObserver is the callback function that handles changes to our ConfigMap
-func configMapObserver(logger *zap.SugaredLogger, configMap *corev1.ConfigMap) {
+func configMapObserver(ctx context.Context, configMap *corev1.ConfigMap) {
+	logger := logging.FromContext(ctx)
 
 	if configMap == nil {
 		logger.Warn("Nil ConfigMap passed to configMapObserver; ignoring")

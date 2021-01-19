@@ -30,7 +30,7 @@ import (
 )
 
 // This function type is for a shim so that we can pass our own logger to the Observer function
-type LoggingObserver func(*zap.SugaredLogger, *corev1.ConfigMap)
+type LoggingObserver func(ctx context.Context, configMap *corev1.ConfigMap)
 
 // The EventingKafkaConfig and these EK sub-structs contain our custom configuration settings,
 // stored in the config-kafka configmap.  The sub-structs are explicitly declared so that they
@@ -88,7 +88,7 @@ func InitializeConfigWatcher(ctx context.Context, logger *zap.SugaredLogger, han
 	// Start The ConfigMap Watcher
 	// Taken from knative.dev/pkg/injection/sharedmain/main.go::WatchObservabilityConfigOrDie
 	if _, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(namespace).Get(ctx, constants.SettingsConfigMapName, metav1.GetOptions{}); err == nil {
-		watcher.Watch(constants.SettingsConfigMapName, func(configmap *corev1.ConfigMap) { handler(logger, configmap) })
+		watcher.Watch(constants.SettingsConfigMapName, func(configmap *corev1.ConfigMap) { handler(ctx, configmap) })
 	} else if !apierrors.IsNotFound(err) {
 		logger.Error("Error reading ConfigMap "+constants.SettingsConfigMapName, zap.Error(err))
 		return err

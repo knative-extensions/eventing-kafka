@@ -33,6 +33,7 @@ import (
 	channelhealth "knative.dev/eventing-kafka/pkg/channel/distributed/receiver/health"
 	receivertesting "knative.dev/eventing-kafka/pkg/channel/distributed/receiver/testing"
 	commonclient "knative.dev/eventing-kafka/pkg/common/client"
+	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
 )
 
@@ -104,13 +105,14 @@ func TestProduceKafkaMessage(t *testing.T) {
 func TestConfigChanged(t *testing.T) {
 
 	logger := logtesting.TestLogger(t)
+	ctx := logging.WithLogger(context.TODO(), logger)
 
 	// Setup Test Environment Namespaces
 	commontesting.SetTestEnvironment(t)
 
 	// Test Data
 	brokers := []string{receivertesting.KafkaBroker}
-	baseSaramaConfig, err := commonclient.NewConfigBuilder().WithDefaults().FromYaml(commonconfigtesting.DefaultSaramaConfigYaml).Build(logger)
+	baseSaramaConfig, err := commonclient.NewConfigBuilder().WithDefaults().FromYaml(commonconfigtesting.DefaultSaramaConfigYaml).Build(ctx)
 	assert.Nil(t, err)
 
 	// Define The TestCase Struct
@@ -186,7 +188,7 @@ func TestConfigChanged(t *testing.T) {
 			producer := createTestProducer(t, brokers, baseSaramaConfig, mockSyncProducer)
 
 			// Perform The Test
-			newProducer := producer.ConfigChanged(testCase.newConfigMap)
+			newProducer := producer.ConfigChanged(ctx, testCase.newConfigMap)
 
 			// Verify Expected State
 			assert.Equal(t, testCase.expectNewProducer, newProducer != nil)

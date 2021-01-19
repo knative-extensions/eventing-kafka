@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
@@ -106,7 +105,7 @@ func setWatchedMap(configMap *corev1.ConfigMap) {
 }
 
 // Handler function for the ConfigMap watcher
-func configWatcherHandler(_ *zap.SugaredLogger, configMap *corev1.ConfigMap) {
+func configWatcherHandler(ctx context.Context, configMap *corev1.ConfigMap) {
 	// Set the package variable to indicate that the test watcher was called
 	setWatchedMap(configMap)
 }

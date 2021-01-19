@@ -31,7 +31,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/common/client"
 	"knative.dev/eventing-kafka/pkg/common/constants"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
 )
 
@@ -75,7 +74,7 @@ func LoadSettings(ctx context.Context, clientId string, kafkaAuthConfig *client.
 		FromYaml(saramaSettingsYamlString).
 		WithAuth(kafkaAuthConfig).
 		WithClientId(clientId).
-		Build(logging.FromContext(ctx))
+		Build(ctx)
 
 	return saramaConfig, eventingKafkaConfig, err
 }

@@ -20,6 +20,29 @@ metadata:
 data:
   # Broker URL. Replace this with the URLs for your kafka cluster,
   # which is in the format of my-cluster-kafka-bootstrap.my-kafka-namespace:9092.
-  bootstrapServers: REPLACE_WITH_CLUSTER_URL
+  bootstrapServers: my-cluster-kafka-bootstrap.kafka:9092
   #authSecretName: name-of-your-secret-for-kafka-auth
   #authSecretNamespace: namespace-of-your-secret-for-kafka-auth
+  sarama: |
+    Version: 2.0.0 # Kafka Version Compatibility From Sarama's Supported List (Major.Minor.Patch)
+    Admin:
+      Timeout: 10000000000  # 10 seconds
+    Net:
+      KeepAlive: 30000000000  # 30 seconds
+      MaxOpenRequests: 1 # Set to 1 for use with Idempotent Producer
+      TLS:
+        Enable: false
+      SASL:
+        Enable: false
+        Mechanism: PLAIN
+        Version: 1
+    Metadata:
+      RefreshFrequency: 300000000000  # 5 minutes
+    Consumer:
+      Offsets:
+        AutoCommit:
+          Interval: 5000000000  # 5 seconds
+        Retention: 604800000000000  # 1 week
+    Producer:
+      Idempotent: true  # Must be false for Azure EventHubs
+      RequiredAcks: -1  # -1 = WaitForAll, Most stringent option for "at-least-once" delivery.

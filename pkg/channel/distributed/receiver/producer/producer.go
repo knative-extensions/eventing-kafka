@@ -170,7 +170,7 @@ func (p *Producer) ObserveMetrics(interval time.Duration) {
 // are needed in the future, the environment will also need to be re-parsed here.
 // If there aren't any producer-specific differences between the current config and the new one,
 // then just log that and move on; do not restart the Producer unnecessarily.
-func (p *Producer) ConfigChanged(configMap *corev1.ConfigMap) *Producer {
+func (p *Producer) ConfigChanged(ctx context.Context, configMap *corev1.ConfigMap) *Producer {
 
 	// Debug Log The ConfigMap Change
 	p.logger.Debug("New ConfigMap Received", zap.String("configMap.Name", configMap.ObjectMeta.Name))
@@ -204,7 +204,7 @@ func (p *Producer) ConfigChanged(configMap *corev1.ConfigMap) *Producer {
 		}
 	}
 
-	newConfig, err := configBuilder.Build(p.logger.Sugar())
+	newConfig, err := configBuilder.Build(ctx)
 	if err != nil {
 		p.logger.Error("Unable to merge sarama settings", zap.Error(err))
 		return nil

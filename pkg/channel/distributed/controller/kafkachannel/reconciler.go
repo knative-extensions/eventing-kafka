@@ -230,7 +230,8 @@ func (r *Reconciler) reconcile(ctx context.Context, channel *kafkav1beta1.KafkaC
 }
 
 // configMapObserver is the callback function that handles changes to our ConfigMap
-func (r *Reconciler) configMapObserver(logger *zap.SugaredLogger, configMap *corev1.ConfigMap) {
+func (r *Reconciler) configMapObserver(ctx context.Context, configMap *corev1.ConfigMap) {
+	logger := logging.FromContext(ctx)
 
 	if r == nil {
 		// This typically happens during startup and can be ignored
@@ -283,7 +284,7 @@ func (r *Reconciler) configMapObserver(logger *zap.SugaredLogger, configMap *cor
 		WithDefaults().
 		WithAuth(kafkaAuthCfg).
 		FromYaml(saramaSettingsYamlString).
-		Build(logger)
+		Build(ctx)
 	if err != nil {
 		logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Any("configMap", configMap), zap.Error(err))
 	}
