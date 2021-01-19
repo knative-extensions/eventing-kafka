@@ -209,7 +209,7 @@ func configMapObserver(ctx context.Context, configMap *corev1.ConfigMap) {
 	}
 
 	// Toss the new config map to the dispatcher for inspection and action
-	newDispatcher := dispatcher.ConfigChanged(configMap)
+	newDispatcher := dispatcher.ConfigChanged(ctx, configMap)
 	if newDispatcher != nil {
 		// The configuration change caused a new dispatcher to be created, so switch to that one
 		dispatcher = newDispatcher
