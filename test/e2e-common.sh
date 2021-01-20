@@ -104,7 +104,7 @@ readonly KAFKA_SOURCE_CRD_CONFIG_DIR="$(mktemp -d)"
 trap "{ for dirrm in \"${KAFKA_CRD_CONFIG_DIR}\" \"${KAFKA_SOURCE_CRD_CONFIG_DIR}\"; do rm \"\${dirrm}\"/*; rmdir \"\${dirrm}\"; done }" EXIT
 
 # Kafka channel CRD config template directory.
-readonly KAFKA_SOURCE_TEMPLATE_DIR="config/source"
+readonly KAFKA_SOURCE_TEMPLATE_DIR="config/source/single"
 
 # Namespaces where we install Eventing components
 # This is the namespace of knative-eventing itself
