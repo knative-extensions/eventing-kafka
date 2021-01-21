@@ -90,10 +90,10 @@ func (sub Subscription) String() string {
 func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispatcher, error) {
 	conf, err := client.NewConfigBuilder().
 		WithClientId(args.ClientID).
-		WithVersion(&sarama.V2_0_0_0).
 		WithDefaults().
+		FromYaml(args.SaramaSettingsYamlString).
 		WithAuth(args.KafkaAuthConfig).
-		Build()
+		Build(ctx)
 
 	if err != nil {
 		return nil, fmt.Errorf("Error updating the Sarama Auth config: %w", err)
@@ -163,12 +163,13 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 type TopicFunc func(separator, namespace, name string) string
 
 type KafkaDispatcherArgs struct {
-	KnCEConnectionArgs *kncloudevents.ConnectionArgs
-	ClientID           string
-	Brokers            []string
-	KafkaAuthConfig    *client.KafkaAuthConfig
-	TopicFunc          TopicFunc
-	Logger             *zap.SugaredLogger
+	KnCEConnectionArgs       *kncloudevents.ConnectionArgs
+	ClientID                 string
+	Brokers                  []string
+	KafkaAuthConfig          *client.KafkaAuthConfig
+	SaramaSettingsYamlString string
+	TopicFunc                TopicFunc
+	Logger                   *zap.SugaredLogger
 }
 
 type consumerMessageHandler struct {

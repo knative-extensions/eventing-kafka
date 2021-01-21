@@ -17,6 +17,7 @@ limitations under the License.
 package controller
 
 import (
+	"context"
 	"os"
 	"testing"
 	"time"
@@ -216,6 +217,6 @@ func (m MockDispatcher) UpdateSubscriptions(_ []eventingduck.SubscriberSpec) map
 	return nil
 }
 
-func (m MockDispatcher) ConfigChanged(*corev1.ConfigMap) dispatcher.Dispatcher {
+func (m MockDispatcher) ConfigChanged(context.Context, *corev1.ConfigMap) dispatcher.Dispatcher {
 	return nil
 }

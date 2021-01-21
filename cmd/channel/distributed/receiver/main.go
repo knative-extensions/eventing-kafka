@@ -198,7 +198,8 @@ func handleMessage(ctx context.Context, channelReference eventingchannel.Channel
 }
 
 // configMapObserver is the callback function that handles changes to our ConfigMap
-func configMapObserver(logger *zap.SugaredLogger, configMap *corev1.ConfigMap) {
+func configMapObserver(ctx context.Context, configMap *corev1.ConfigMap) {
+	logger := logging.FromContext(ctx)
 
 	if configMap == nil {
 		logger.Warn("Nil ConfigMap passed to configMapObserver; ignoring")
@@ -211,7 +212,7 @@ func configMapObserver(logger *zap.SugaredLogger, configMap *corev1.ConfigMap) {
 	}
 
 	// Toss the new config map to the producer for inspection and action
-	newProducer := kafkaProducer.ConfigChanged(configMap)
+	newProducer := kafkaProducer.ConfigChanged(ctx, configMap)
 	if newProducer != nil {
 		// The configuration change caused a new producer to be created, so switch to that one
 		logger.Info("Producer Reconfigured; Switching To New Producer")

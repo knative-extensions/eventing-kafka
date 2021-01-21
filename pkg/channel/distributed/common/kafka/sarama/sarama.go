@@ -28,8 +28,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	commonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config/constants"
 	"knative.dev/eventing-kafka/pkg/common/client"
+	"knative.dev/eventing-kafka/pkg/common/constants"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/system"
 )
@@ -74,7 +74,7 @@ func LoadSettings(ctx context.Context, clientId string, kafkaAuthConfig *client.
 		FromYaml(saramaSettingsYamlString).
 		WithAuth(kafkaAuthConfig).
 		WithClientId(clientId).
-		Build()
+		Build(ctx)
 
 	return saramaConfig, eventingKafkaConfig, err
 }

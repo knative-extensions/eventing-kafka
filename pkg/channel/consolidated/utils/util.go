@@ -24,6 +24,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/eventing-kafka/pkg/common/client"
+	"knative.dev/eventing-kafka/pkg/common/constants"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
 
@@ -56,11 +57,12 @@ const (
 )
 
 type KafkaConfig struct {
-	Brokers             []string
-	MaxIdleConns        int32
-	MaxIdleConnsPerHost int32
-	AuthSecretName      string
-	AuthSecretNamespace string
+	Brokers                  []string
+	MaxIdleConns             int32
+	MaxIdleConnsPerHost      int32
+	AuthSecretName           string
+	AuthSecretNamespace      string
+	SaramaSettingsYamlString string
 }
 
 func GetKafkaAuthData(ctx context.Context, secretname string, secretNS string) *client.KafkaAuthConfig {
@@ -116,6 +118,7 @@ func GetKafkaConfig(configMap map[string]string) (*KafkaConfig, error) {
 		configmap.AsString(AuthSecretNamespace, &authSecretNamespace),
 		configmap.AsInt32(MaxIdleConnectionsKey, &config.MaxIdleConns),
 		configmap.AsInt32(MaxIdleConnectionsPerHostKey, &config.MaxIdleConnsPerHost),
+		configmap.AsString(constants.SaramaSettingsConfigKey, &config.SaramaSettingsYamlString),
 	)
 	if err != nil {
 		return nil, err

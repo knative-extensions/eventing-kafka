@@ -21,7 +21,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config/constants"
+	"knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/pkg/system"
 )
 

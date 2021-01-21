@@ -28,7 +28,6 @@ import (
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
-	constants2 "knative.dev/eventing-kafka/pkg/channel/distributed/common/config/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/producer"
 	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/metrics"
@@ -36,6 +35,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/health"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/util"
 	"knative.dev/eventing-kafka/pkg/common/client"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/eventing-kafka/pkg/common/tracing"
 	eventingChannel "knative.dev/eventing/pkg/channel"
 )
@@ -170,7 +170,7 @@ func (p *Producer) ObserveMetrics(interval time.Duration) {
 // are needed in the future, the environment will also need to be re-parsed here.
 // If there aren't any producer-specific differences between the current config and the new one,
 // then just log that and move on; do not restart the Producer unnecessarily.
-func (p *Producer) ConfigChanged(configMap *corev1.ConfigMap) *Producer {
+func (p *Producer) ConfigChanged(ctx context.Context, configMap *corev1.ConfigMap) *Producer {
 
 	// Debug Log The ConfigMap Change
 	p.logger.Debug("New ConfigMap Received", zap.String("configMap.Name", configMap.ObjectMeta.Name))
@@ -182,7 +182,7 @@ func (p *Producer) ConfigChanged(configMap *corev1.ConfigMap) *Producer {
 	}
 
 	// Merge The ConfigMap Settings Into The Provided Config
-	saramaSettingsYamlString := configMap.Data[constants2.SaramaSettingsConfigKey]
+	saramaSettingsYamlString := configMap.Data[commonconstants.SaramaSettingsConfigKey]
 
 	// Merge The Sarama Config From ConfigMap Into New Sarama Config
 	configBuilder := client.NewConfigBuilder().
@@ -204,7 +204,7 @@ func (p *Producer) ConfigChanged(configMap *corev1.ConfigMap) *Producer {
 		}
 	}
 
-	newConfig, err := configBuilder.Build()
+	newConfig, err := configBuilder.Build(ctx)
 	if err != nil {
 		p.logger.Error("Unable to merge sarama settings", zap.Error(err))
 		return nil

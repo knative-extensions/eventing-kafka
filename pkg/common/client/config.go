@@ -17,6 +17,7 @@ limitations under the License.
 package client
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -27,6 +28,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
+	"knative.dev/pkg/logging"
 )
 
 type KafkaAuthConfig struct {
@@ -80,8 +82,9 @@ type ConfigBuilder interface {
 	// (if provided) or in the YAML-string
 	WithClientId(clientId string) ConfigBuilder
 
-	// Build builds the Sarama config with the given builder config
-	Build() (*sarama.Config, error)
+	// Build builds the Sarama config with the given context.
+	// Context is used for getting the config at the moment.
+	Build(ctx context.Context) (*sarama.Config, error)
 }
 
 func NewConfigBuilder() ConfigBuilder {
@@ -127,7 +130,8 @@ func (b *configBuilder) WithAuth(kafkaAuthCfg *KafkaAuthConfig) ConfigBuilder {
 	return b
 }
 
-func (b *configBuilder) Build() (*sarama.Config, error) {
+// Build builds the Sarama config.
+func (b *configBuilder) Build(ctx context.Context) (*sarama.Config, error) {
 	var config *sarama.Config
 
 	// check if there's existing first
@@ -219,6 +223,11 @@ func (b *configBuilder) Build() (*sarama.Config, error) {
 	}
 	if b.clientId != "" {
 		config.ClientID = b.clientId
+	}
+
+	if ctx != nil {
+		logger := logging.FromContext(ctx)
+		logger.Debugf("Built Sarama config: %+v", config)
 	}
 
 	return config, nil

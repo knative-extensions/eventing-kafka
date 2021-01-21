@@ -95,12 +95,13 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 
 	kafkaChannelInformer := kafkachannel.Get(ctx)
 	args := &dispatcher.KafkaDispatcherArgs{
-		KnCEConnectionArgs: connectionArgs,
-		ClientID:           "kafka-ch-dispatcher",
-		Brokers:            kafkaConfig.Brokers,
-		KafkaAuthConfig:    kafkaAuthCfg,
-		TopicFunc:          utils.TopicName,
-		Logger:             logger,
+		KnCEConnectionArgs:       connectionArgs,
+		ClientID:                 "kafka-ch-dispatcher",
+		Brokers:                  kafkaConfig.Brokers,
+		KafkaAuthConfig:          kafkaAuthCfg,
+		SaramaSettingsYamlString: kafkaConfig.SaramaSettingsYamlString,
+		TopicFunc:                utils.TopicName,
+		Logger:                   logger,
 	}
 	kafkaDispatcher, err := dispatcher.NewDispatcher(ctx, args)
 	if err != nil {

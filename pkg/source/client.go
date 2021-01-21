@@ -20,10 +20,10 @@ import (
 	"context"
 	"fmt"
 
-	"knative.dev/eventing-kafka/pkg/common/client"
-
 	"github.com/Shopify/sarama"
 	"github.com/kelseyhightower/envconfig"
+	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
+	"knative.dev/eventing-kafka/pkg/common/client"
 )
 
 type AdapterSASL struct {
@@ -79,7 +79,7 @@ func NewConfig(ctx context.Context) ([]string, *sarama.Config, error) {
 		WithDefaults().
 		WithAuth(kafkaAuthConfig).
 		WithVersion(&sarama.V2_0_0_0).
-		Build()
+		Build(ctx)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error creating Sarama config: %w", err)
 	}
@@ -100,16 +100,15 @@ func NewProducer(ctx context.Context) (sarama.Client, error) {
 	return sarama.NewClient(bs, cfg)
 }
 
-func MakeAdminClient(clientID string, kafkaAuthCfg *client.KafkaAuthConfig, bootstrapServers []string) (sarama.ClusterAdmin, error) {
+func MakeAdminClient(ctx context.Context, clientID string, kafkaAuthCfg *client.KafkaAuthConfig, kafkaConfig *utils.KafkaConfig) (sarama.ClusterAdmin, error) {
 	saramaConf, err := client.NewConfigBuilder().
 		WithDefaults().
 		WithAuth(kafkaAuthCfg).
-		WithVersion(&sarama.V2_0_0_0).
 		WithClientId(clientID).
-		Build()
+		Build(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error creating admin client Sarama config: %w", err)
 	}
 
-	return sarama.NewClusterAdmin(bootstrapServers, saramaConf)
+	return sarama.NewClusterAdmin(kafkaConfig.Brokers, saramaConf)
 }

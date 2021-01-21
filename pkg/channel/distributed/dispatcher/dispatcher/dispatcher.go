@@ -25,11 +25,11 @@ import (
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer"
 	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/metrics"
 	"knative.dev/eventing-kafka/pkg/common/client"
+	"knative.dev/eventing-kafka/pkg/common/constants"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/channel"
 )
@@ -63,7 +63,7 @@ func NewSubscriberWrapper(subscriberSpec eventingduck.SubscriberSpec, groupId st
 
 //  Dispatcher Interface
 type Dispatcher interface {
-	ConfigChanged(*corev1.ConfigMap) Dispatcher
+	ConfigChanged(ctx context.Context, configMap *corev1.ConfigMap) Dispatcher
 	Shutdown()
 	UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error
 }
@@ -269,7 +269,7 @@ func (d *DispatcherImpl) closeConsumerGroup(subscriber *SubscriberWrapper) {
 // are needed in the future, the environment will also need to be re-parsed here.
 // If there aren't any consumer-specific differences between the current config and the new one,
 // then just log that and move on; do not restart the ConsumerGroups unnecessarily.
-func (d *DispatcherImpl) ConfigChanged(configMap *corev1.ConfigMap) Dispatcher {
+func (d *DispatcherImpl) ConfigChanged(ctx context.Context, configMap *corev1.ConfigMap) Dispatcher {
 
 	d.Logger.Debug("New ConfigMap Received", zap.String("configMap.Name", configMap.ObjectMeta.Name))
 
@@ -303,7 +303,7 @@ func (d *DispatcherImpl) ConfigChanged(configMap *corev1.ConfigMap) Dispatcher {
 		}
 	}
 
-	newConfig, err := configBuilder.Build()
+	newConfig, err := configBuilder.Build(ctx)
 	if err != nil {
 		d.Logger.Error("Unable to build sarama settings", zap.Error(err))
 		return nil

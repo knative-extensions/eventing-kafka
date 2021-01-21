@@ -140,3 +140,73 @@ kubectl get deployment -n <YOUR_NAMESPACE> kafka-ch-dispatcher
 
 Both cluster-scoped and namespace-scoped dispatcher can coexist. However once
 the annotation is set (or not set), its value is immutable.
+
+### Configuring Kafka client, Sarama
+
+You can configure the Sarama instance used in the KafkaChannel by defining a
+`sarama` field inside the `config-kafka` configmap.
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-kafka
+  namespace: knative-eventing
+data:
+  bootstrapServers: ...
+  ...
+  sarama: |
+    Version: 2.0.0 # Kafka Version Compatibility From Sarama's Supported List (Major.Minor.Patch)
+    Admin:
+      Timeout: 10000000000  # 10 seconds
+    Net:
+      KeepAlive: 30000000000  # 30 seconds
+    Metadata:
+      RefreshFrequency: 300000000000  # 5 minutes
+    Consumer:
+      Offsets:
+        AutoCommit:
+          Interval: 5000000000  # 5 seconds
+        Retention: 604800000000000  # 1 week
+    Producer:
+      Idempotent: true  # Must be false for Azure EventHubs
+      RequiredAcks: -1  # -1 = WaitForAll, Most stringent option for "at-least-once" delivery.
+```
+
+Settings defined here are used as the defaults by the KafkaChannel. The additional settings defined in the
+channel CR, such as authentication, are applied on top of these defaults.
+
+Also, some Sarama settings are required for the channel to work, such as `Consumer.Return.Errors`
+and `Producer.Return.Successes`, so the value for these in the `config-kafka` is ignored.
+
+Value of the `sarama` key must be valid YAML string. The string is marshalled into a
+[Sarama config struct](https://github.com/Shopify/sarama/blob/master/config.go), with a few
+exceptions (`Version` and certificates).
+
+To specify a certificate, you can use the following format
+where you should make sure to use the YAML string syntax of "|-" in order to
+prevent trailing linefeed. The indentation of the PEM content is also important
+and must be aligned as shown.
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-kafka
+  namespace: knative-eventing
+data:
+  sarama: |
+    ...
+    Net:
+      TLS:
+        ...
+        Config:
+          RootCaPems:
+          - |-
+            -----BEGIN CERTIFICATE-----
+            MIIGBDCCA+ygAwIBAgIJAKi1aEV58cQ1MA0GCSqGSIb3DQEBCwUAMIGOMQswCQYD
+            ...
+            2wk9rLRZaQnhspt6MhlmU0qkaEZpYND3emR2XZ07m51jXqDUgTjXYCSggImUsARs
+            NAehp9bMeco=
+            -----END CERTIFICATE-----
+```

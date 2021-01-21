@@ -17,6 +17,7 @@ limitations under the License.
 package dispatcher
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -35,6 +36,7 @@ import (
 	receivertesting "knative.dev/eventing-kafka/pkg/channel/distributed/receiver/testing"
 	commonclient "knative.dev/eventing-kafka/pkg/common/client"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
+	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
 )
 
@@ -115,17 +117,19 @@ func TestShutdown(t *testing.T) {
 // Test The UpdateSubscriptions() Functionality
 func TestUpdateSubscriptions(t *testing.T) {
 
+	logger := logtesting.TestLogger(t)
+	ctx := logging.WithLogger(context.TODO(), logger)
+
 	// Restore Any Stubbing Of NewConsumerGroupWrapper After Test Is Finished
 	defer consumertesting.RestoreNewConsumerGroupFn()
 
 	// Test Data
 	brokers := []string{dispatchertesting.KafkaBroker}
-	config, err := commonclient.NewConfigBuilder().WithDefaults().FromYaml(commonconfigtesting.DefaultSaramaConfigYaml).Build()
+	config, err := commonclient.NewConfigBuilder().WithDefaults().FromYaml(commonconfigtesting.DefaultSaramaConfigYaml).Build(ctx)
 	assert.Nil(t, err)
 
-	logger := logtesting.TestLogger(t).Desugar()
 	dispatcherConfig := DispatcherConfig{
-		Logger:       logger,
+		Logger:       logger.Desugar(),
 		Brokers:      brokers,
 		SaramaConfig: config,
 	}
@@ -281,6 +285,9 @@ func TestUpdateSubscriptions(t *testing.T) {
 // Test The Dispatcher's ConfigChanged Functionality
 func TestConfigChanged(t *testing.T) {
 
+	logger := logtesting.TestLogger(t)
+	ctx := logging.WithLogger(context.TODO(), logger)
+
 	// Setup Test Environment Namespaces
 	commontesting.SetTestEnvironment(t)
 
@@ -290,7 +297,7 @@ func TestConfigChanged(t *testing.T) {
 		WithDefaults().
 		FromYaml(commonconfigtesting.DefaultSaramaConfigYaml).
 		WithVersion(&sarama.V2_0_0_0).
-		Build()
+		Build(ctx)
 	assert.Nil(t, err)
 
 	// Define The TestCase Struct
@@ -366,7 +373,7 @@ func TestConfigChanged(t *testing.T) {
 			dispatcher := createTestDispatcher(t, brokers, baseSaramaConfig)
 
 			// Perform The Test
-			newDispatcher := dispatcher.ConfigChanged(testCase.newConfigMap)
+			newDispatcher := dispatcher.ConfigChanged(ctx, testCase.newConfigMap)
 
 			// Verify Expected State (Not Much To Verify Due To Interface)
 			assert.Equal(t, testCase.expectNewDispatcher, newDispatcher != nil)
