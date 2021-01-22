@@ -64,7 +64,7 @@ with `test/e2e-tests.sh --run-tests --skip-knative-setup`.
 You can also use `go test` command to run unit tests:
 
 ```shell
-go test -v ./...
+SYSTEM_NAMESPACE=knative-eventing go test -v ./...
 ```
 
 _By default `go test` will not run [the e2e tests](#running-end-to-end-tests),
@@ -75,10 +75,10 @@ which needs [`-tags=e2e`](#running-end-to-end-tests) to be enabled._
 To run [the e2e tests](e2e) with `go test` command, you need to have a running
 environment that meets
 [the e2e test environment requirements](#environment-requirements), and you need
-to specify the build tag `e2e`.
+to specify the build tags `e2e` and `source`.
 
 ```bash
-go test -v -tags=e2e -count=1 ./test/e2e
+SYSTEM_NAMESPACE=knative-eventing go test -v -tags=e2e,source -count=1 ./test/e2e
 ```
 
 By default, it will run all applicable tests against the cluster's default
@@ -88,14 +88,14 @@ If you want to run tests against other `channels`, you can specify them through
 `-channels`.
 
 ```bash
-go test -v -tags=e2e -count=1 ./test/e2e -channels=InMemoryChannel,KafkaChannel
+SYSTEM_NAMESPACE=knative-eventing go test -v -tags=e2e,source -count=1 ./test/e2e -channels=InMemoryChannel,KafkaChannel
 ```
 
 By default, tests run against images with the `latest` tag. To override this
 bevavior you can specify a different tag through `-tag`:
 
 ```bash
-go test -v -tags=e2e -count=1 ./test/e2e -tag e2e
+SYSTEM_NAMESPACE=knative-eventing go test -v -tags=e2e,source -count=1 ./test/e2e -tag e2e
 ```
 
 #### One test case
@@ -104,7 +104,7 @@ To run one e2e test case, e.g. `TestSingleBinaryEventForChannel`, use
 [the `-run` flag with `go test`](https://golang.org/cmd/go/#hdr-Testing_flags):
 
 ```bash
-go test -v -tags=e2e -count=1 ./test/e2e -run ^TestSingleBinaryEventForChannel$
+SYSTEM_NAMESPACE=knative-eventing go test -v -tags=e2e,source -count=1 ./test/e2e -run ^TestSingleBinaryEventForChannel$
 ```
 
 By default, it will run the test against the default `channel`.
@@ -113,7 +113,15 @@ If you want to run it against another `channel`, you can specify it through
 `-channels`.
 
 ```bash
-go test -v -tags=e2e -count=1 ./test/e2e -run ^TestSingleBinaryEventForChannel$ -channels=InMemoryChannel
+SYSTEM_NAMESPACE=knative-eventing go test -v -tags=e2e,source -count=1 ./test/e2e -run ^TestSingleBinaryEventForChannel$ -channels=InMemoryChannel
+```
+
+#### Only channel test cases
+
+To run only the channel e2e tests, use only the `e2e` tag:
+
+```bash
+SYSTEM_NAMESPACE=knative-eventing go test -v -tags=e2e -count=1 ./test/e2e
 ```
 
 ## Environment requirements
@@ -143,14 +151,16 @@ and push the test images used by the e2e tests. It requires:
 To run the script for all end to end test images:
 
 ```bash
-./test/upload-test-images.sh
+./test/upload-test-images.sh ./vendor/knative.dev/eventing/test/test_images
+./test/upload-test-images.sh ./test/test_images
 ```
 
 For images deployed in GCR, a docker tag is mandatory to avoid issues with using
 `latest` tag:
 
 ```bash
-./test/upload-test-images.sh e2e
+./test/upload-test-images.sh ./vendor/knative.dev/eventing/test/test_images e2e
+./test/upload-test-images.sh ./test/test_images e2e
 ```
 
 ### Adding new test images
@@ -163,6 +173,21 @@ uploading test images, `ko` will build an image from this folder.
 
 If you need to add a new test image imported from eventing, import it in
 `hack/tools.go`
+
+## Tracing
+
+The following command installs Zipkin:
+
+```bash
+sed "s/\${SYSTEM_NAMESPACE}/knative-eventing/g" < "test/config/monitoring.yaml" | kubectl apply -f -
+
+```
+
+Run this command to tell Knative to send traces to Zipkin:
+
+```bash
+sed "s/\${SYSTEM_NAMESPACE}/knative-eventing/g" < "test/config/config-tracing.yaml" | kubectl apply -f -
+```
 
 ## Flags
 
