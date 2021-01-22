@@ -22,6 +22,9 @@ import (
 	"fmt"
 	"strings"
 
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/kmeta"
+
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -32,8 +35,6 @@ import (
 	"knative.dev/eventing/pkg/utils"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/kmeta"
 
 	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 	"knative.dev/eventing-kafka/pkg/source/reconciler/source/resources"
@@ -47,7 +48,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	reconcilerkafkasource "knative.dev/eventing-kafka/pkg/client/injection/reconciler/sources/v1beta1/kafkasource"
 	listers "knative.dev/eventing-kafka/pkg/client/listers/sources/v1beta1"
-	"knative.dev/eventing-kafka/pkg/common/scheduler"
 )
 
 const (
@@ -58,7 +58,6 @@ const (
 	kafkaSourceDeploymentFailed  = "KafkaSourceDeploymentFailed"
 	kafkaSourceDeploymentDeleted = "KafkaSourceDeploymentDeleted"
 	component                    = "kafkasource"
-	mtadapterName                = "kafkasource-mt-adapter"
 )
 
 // newDeploymentCreated makes a new reconciler event with event type Normal, and
@@ -100,8 +99,6 @@ type Reconciler struct {
 	sinkResolver *resolver.URIResolver
 
 	configs source.ConfigAccessor
-
-	scheduler scheduler.Scheduler
 }
 
 // Check that our Reconciler implements Interface
@@ -152,32 +149,26 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 	}
 
 	// TODO(mattmoor): create KafkaBinding for the receive adapter.
-	if r.receiveAdapterImage == "" {
-		// mt mode
-		if err := r.reconcileMTReceiveAdapter(ctx, src); err != nil {
+
+	ra, err := r.createReceiveAdapter(ctx, src, sinkURI)
+	if err != nil {
+		var event *pkgreconciler.ReconcilerEvent
+		isReconcilerEvent := pkgreconciler.EventAs(err, &event)
+		if isReconcilerEvent && event.EventType != corev1.EventTypeNormal {
+			logging.FromContext(ctx).Error("Unable to create the receive adapter. Reconciler error", zap.Error(err))
+			return err
+		} else if !isReconcilerEvent {
+			logging.FromContext(ctx).Error("Unable to create the receive adapter. Generic error", zap.Error(err))
 			return err
 		}
-	} else {
-		ra, err := r.reconcileSTReceiveAdapter(ctx, src, sinkURI)
-		if err != nil {
-			var event *pkgreconciler.ReconcilerEvent
-			isReconcilerEvent := pkgreconciler.EventAs(err, &event)
-			if isReconcilerEvent && event.EventType != corev1.EventTypeNormal {
-				logging.FromContext(ctx).Error("Unable to create the receive adapter. Reconciler error", zap.Error(err))
-				return err
-			} else if !isReconcilerEvent {
-				logging.FromContext(ctx).Error("Unable to create the receive adapter. Generic error", zap.Error(err))
-				return err
-			}
-		}
-		src.Status.MarkDeployed(ra)
 	}
+	src.Status.MarkDeployed(ra)
 	src.Status.CloudEventAttributes = r.createCloudEventAttributes(src)
 
 	return nil
 }
 
-func (r *Reconciler) reconcileSTReceiveAdapter(ctx context.Context, src *v1beta1.KafkaSource, sinkURI *apis.URL) (*appsv1.Deployment, error) {
+func (r *Reconciler) createReceiveAdapter(ctx context.Context, src *v1beta1.KafkaSource, sinkURI *apis.URL) (*appsv1.Deployment, error) {
 	raArgs := resources.ReceiveAdapterArgs{
 		Image:          r.receiveAdapterImage,
 		Source:         src,

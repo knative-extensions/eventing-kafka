@@ -14,12 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package source
+package mtsource
 
 import (
 	"context"
-	"os"
-
 	"k8s.io/client-go/tools/cache"
 
 	"knative.dev/eventing/pkg/apis/sources/v1alpha1"
@@ -31,38 +29,39 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/resolver"
+	"knative.dev/pkg/system"
 
+	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 	kafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client"
 	kafkainformer "knative.dev/eventing-kafka/pkg/client/injection/informers/sources/v1beta1/kafkasource"
 	"knative.dev/eventing-kafka/pkg/client/injection/reconciler/sources/v1beta1/kafkasource"
+	scheduler "knative.dev/eventing-kafka/pkg/common/scheduler/statefulset"
 )
 
 func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
 ) *controller.Impl {
-
-	raImage, defined := os.LookupEnv(raImageEnvVar)
-	if !defined {
-		logging.FromContext(ctx).Errorf("required environment variable '%s' not defined", raImageEnvVar)
-		return nil
-	}
-
 	kafkaInformer := kafkainformer.Get(ctx)
 	deploymentInformer := deploymentinformer.Get(ctx)
 
 	c := &Reconciler{
-		KubeClientSet:       kubeclient.Get(ctx),
-		kafkaClientSet:      kafkaclient.Get(ctx),
-		kafkaLister:         kafkaInformer.Lister(),
-		deploymentLister:    deploymentInformer.Lister(),
-		receiveAdapterImage: raImage,
-		loggingContext:      ctx,
-		configs:             source.WatchConfigurations(ctx, component, cmw),
+		KubeClientSet:    kubeclient.Get(ctx),
+		kafkaClientSet:   kafkaclient.Get(ctx),
+		kafkaLister:      kafkaInformer.Lister(),
+		deploymentLister: deploymentInformer.Lister(),
+		loggingContext:   ctx,
+		configs:          source.WatchConfigurations(ctx, component, cmw),
 	}
 
 	impl := kafkasource.NewImpl(ctx, c)
+
 	c.sinkResolver = resolver.NewURIResolver(ctx, impl.EnqueueKey)
+
+	// Use a different set of conditions
+	sourcesv1beta1.RegisterAlternateKafkaConditionSet(sourcesv1beta1.KafkaMTSourceCondSet)
+
+	c.scheduler = scheduler.NewStatefulSetScheduler(ctx, system.Namespace(), mtadapterName, c.vpodLister, impl.EnqueueKey)
 
 	logging.FromContext(ctx).Info("Setting up kafka event handlers")
 

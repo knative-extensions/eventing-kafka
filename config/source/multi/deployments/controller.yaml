@@ -32,7 +32,7 @@ spec:
       serviceAccountName: kafka-controller-manager
       containers:
       - name: manager
-        image: ko://knative.dev/eventing-kafka/cmd/source/controller
+        image: ko://knative.dev/eventing-kafka/cmd/source/mt_controller
         env:
         - name: SYSTEM_NAMESPACE
           valueFrom:
@@ -44,8 +44,6 @@ spec:
           value: config-observability
         - name: CONFIG_LEADERELECTION_NAME
           value: config-leader-election
-        - name: KAFKA_RA_IMAGE
-          value: ko://knative.dev/eventing-kafka/cmd/source/receive_adapter
         volumeMounts:
         resources:
           requests:
