@@ -18,13 +18,9 @@ package mtsource
 
 import (
 	"context"
-	"k8s.io/client-go/tools/cache"
-
-	"knative.dev/eventing/pkg/apis/sources/v1alpha1"
 	"knative.dev/eventing/pkg/reconciler/source"
 
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	deploymentinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -43,15 +39,12 @@ func NewController(
 	cmw configmap.Watcher,
 ) *controller.Impl {
 	kafkaInformer := kafkainformer.Get(ctx)
-	deploymentInformer := deploymentinformer.Get(ctx)
 
 	c := &Reconciler{
-		KubeClientSet:    kubeclient.Get(ctx),
-		kafkaClientSet:   kafkaclient.Get(ctx),
-		kafkaLister:      kafkaInformer.Lister(),
-		deploymentLister: deploymentInformer.Lister(),
-		loggingContext:   ctx,
-		configs:          source.WatchConfigurations(ctx, component, cmw),
+		KubeClientSet:  kubeclient.Get(ctx),
+		kafkaClientSet: kafkaclient.Get(ctx),
+		kafkaLister:    kafkaInformer.Lister(),
+		configs:        source.WatchConfigurations(ctx, component, cmw),
 	}
 
 	impl := kafkasource.NewImpl(ctx, c)
@@ -66,11 +59,6 @@ func NewController(
 	logging.FromContext(ctx).Info("Setting up kafka event handlers")
 
 	kafkaInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
-
-	deploymentInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterControllerGK(v1alpha1.Kind("KafkaSource")),
-		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
-	})
 
 	return impl
 }

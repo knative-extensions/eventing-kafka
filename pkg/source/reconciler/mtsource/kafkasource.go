@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	"k8s.io/client-go/kubernetes"
-	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 	"knative.dev/eventing/pkg/reconciler/source"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
@@ -44,20 +43,13 @@ const (
 )
 
 type Reconciler struct {
-	// KubeClientSet allows us to talk to the k8s for core APIs
-	KubeClientSet kubernetes.Interface
-
-	kafkaLister      listers.KafkaSourceLister
-	deploymentLister appsv1listers.DeploymentLister
-
+	KubeClientSet  kubernetes.Interface
+	kafkaLister    listers.KafkaSourceLister
 	kafkaClientSet versioned.Interface
-	loggingContext context.Context
 
 	sinkResolver *resolver.URIResolver
-
-	configs source.ConfigAccessor
-
-	scheduler scheduler.Scheduler
+	configs      source.ConfigAccessor
+	scheduler    scheduler.Scheduler
 }
 
 // Check that our Reconciler implements Interface
