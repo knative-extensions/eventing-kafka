@@ -32,9 +32,9 @@ require (
 	k8s.io/apimachinery v0.18.12
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/utils v0.0.0-20200603063816-c1c6865ac451
-	knative.dev/eventing v0.20.1-0.20210115015220-1c94ef83b6b5
+	knative.dev/eventing v0.20.1-0.20210120133253-5dc363dcb5be
 	knative.dev/hack v0.0.0-20210114150620-4422dcadb3c8
-	knative.dev/pkg v0.0.0-20210114223020-f0ea5e6b9c4e
+	knative.dev/pkg v0.0.0-20210119162123-1bbf0a6436c3
 )
 
 replace (
