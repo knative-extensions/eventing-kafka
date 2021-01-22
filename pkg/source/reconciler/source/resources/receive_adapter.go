@@ -107,6 +107,7 @@ func MakeReceiveAdapter(args *ReceiveAdapterArgs) *v1.Deployment {
 							Ports: []corev1.ContainerPort{
 								{Name: "metrics", ContainerPort: 9090},
 								{Name: "profiling", ContainerPort: 8008},
+								{Name: "control", ContainerPort: 9000},
 							},
 						},
 					},

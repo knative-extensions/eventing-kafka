@@ -33,6 +33,7 @@ import (
 	kafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client"
 	kafkainformer "knative.dev/eventing-kafka/pkg/client/injection/informers/sources/v1beta1/kafkasource"
 	"knative.dev/eventing-kafka/pkg/client/injection/reconciler/sources/v1beta1/kafkasource"
+	ctrlprotocol "knative.dev/eventing-kafka/pkg/source/control/protocol"
 )
 
 func NewController(
@@ -56,6 +57,7 @@ func NewController(
 		deploymentLister:    deploymentInformer.Lister(),
 		receiveAdapterImage: raImage,
 		loggingContext:      ctx,
+		connectionPool:      ctrlprotocol.NewControlPlaneConnectionPool(),
 		configs:             WatchConfigurations(ctx, component, cmw),
 	}
 

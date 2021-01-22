@@ -25,6 +25,9 @@ import (
 	"strings"
 
 	"golang.org/x/time/rate"
+	"knative.dev/eventing-kafka/pkg/source"
+	ctrlmessage "knative.dev/eventing-kafka/pkg/source/control/message"
+	ctrlprotocol "knative.dev/eventing-kafka/pkg/source/control/protocol"
 
 	"github.com/Shopify/sarama"
 	"go.opencensus.io/trace"
@@ -60,6 +63,8 @@ func NewEnvConfig() adapter.EnvConfigAccessor {
 
 type Adapter struct {
 	config            *AdapterConfig
+	controlService ctrlprotocol.Service
+
 	httpMessageSender *kncloudevents.HTTPMessageSender
 	reporter          pkgsource.StatsReporter
 	logger            *zap.SugaredLogger
@@ -68,6 +73,8 @@ type Adapter struct {
 }
 
 var _ adapter.MessageAdapter = (*Adapter)(nil)
+var _ consumer.KafkaConsumerHandler = (*Adapter)(nil)
+var _ consumer.SaramaConsumerLifecycleListener = (*Adapter)(nil)
 var _ adapter.MessageAdapterConstructor = NewAdapter
 
 func NewAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, httpMessageSender *kncloudevents.HTTPMessageSender, reporter pkgsource.StatsReporter) adapter.MessageAdapter {
@@ -86,7 +93,7 @@ func (a *Adapter) GetConsumerGroup() string {
 	return a.config.ConsumerGroup
 }
 
-func (a *Adapter) Start(ctx context.Context) error {
+func (a *Adapter) Start(ctx context.Context) (err error) {
 	a.logger.Infow("Starting with config: ",
 		zap.String("Topics", strings.Join(a.config.Topics, ",")),
 		zap.String("ConsumerGroup", a.config.ConsumerGroup),
@@ -95,6 +102,13 @@ func (a *Adapter) Start(ctx context.Context) error {
 		zap.String("Namespace", a.config.Namespace),
 	)
 
+	// Init control service
+	a.controlService, err = ctrlprotocol.StartControlServer(ctx)
+	if err != nil {
+		return err
+	}
+	a.controlService.InboundMessageHandler(a)
+
 	// init consumer group
 	addrs, config, err := client.NewConfigWithEnv(context.Background(), &a.config.KafkaEnvConfig)
 	if err != nil {
@@ -102,7 +116,13 @@ func (a *Adapter) Start(ctx context.Context) error {
 	}
 
 	consumerGroupFactory := consumer.NewConsumerGroupFactory(addrs, config)
-	group, err := consumerGroupFactory.StartConsumerGroup(a.config.ConsumerGroup, a.config.Topics, a.logger, a)
+	group, err := consumerGroupFactory.StartConsumerGroup(
+		a.config.ConsumerGroup,
+		a.config.Topics,
+		a.logger,
+		a,
+		consumer.WithSaramaConsumerLifecycleListener(a),
+	)
 	if err != nil {
 		panic(err)
 	}

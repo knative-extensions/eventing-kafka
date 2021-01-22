@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
 
@@ -36,6 +37,7 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 
 	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
+	ctrlprotocol "knative.dev/eventing-kafka/pkg/source/control/protocol"
 	"knative.dev/eventing-kafka/pkg/source/reconciler/source/resources"
 
 	"k8s.io/client-go/kubernetes"
@@ -98,6 +100,9 @@ type Reconciler struct {
 	sinkResolver *resolver.URIResolver
 
 	configs KafkaSourceConfigAccessor
+
+	connectionPool    *ctrlprotocol.ControlPlaneConnectionPool
+	statusUpdateStore *StatusUpdateStore
 }
 
 // Check that our Reconciler implements Interface
@@ -170,6 +175,72 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 	src.Status.MarkDeployed(ra)
 	src.Status.CloudEventAttributes = r.createCloudEventAttributes(src)
 
+	logging.FromContext(ctx).Debugf("we have a RA deployment")
+
+	// We need to get all the pods for that ra deployment
+	pods, err := r.KubeClientSet.CoreV1().Pods(src.Namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: resources.LabelSelector(src.Name),
+	})
+	if err != nil {
+		return fmt.Errorf("error getting receive adapter pods %q: %v", ra.Name, err)
+	}
+
+	// Check if all the pods are up as they should be
+	if len(pods.Items) == 0 {
+		logging.FromContext(ctx).Infof("returning because there is still no pod up for the deployment '%s'", ra.Name)
+		return nil
+	}
+	if derefReplicas(ra.Spec.Replicas) != int32(len(pods.Items)) {
+		return fmt.Errorf("returning because the numbers of pods deployed doesn't match the expected: %d", len(pods.Items))
+	}
+
+	// Reconcile connections
+	if err := r.reconcileConnections(ctx, src, pods.Items); err != nil {
+		return fmt.Errorf("error while reconciling connections: %w", err)
+	}
+
+	logging.FromContext(ctx).Debugf("Control connections reconciled")
+
+	// Update consumer group status
+	if lastClaimStatus, ok := r.statusUpdateStore.GetLastClaimsUpdate(types.NamespacedName{Name: src.Name, Namespace: src.Namespace}); ok {
+		src.Status.UpdateConsumerGroupStatus(lastClaimStatus.String())
+	}
+
+	return nil
+}
+
+func (r *Reconciler) reconcileConnections(ctx context.Context, src *v1beta1.KafkaSource, pods []corev1.Pod) error {
+	existingConnections := r.connectionPool.GetAvailableConnections(string(src.UID))
+	wantConnections := getPodIPs(pods)
+
+	newConnections := setDifference(wantConnections, existingConnections)
+	oldConnections := setDifference(existingConnections, wantConnections)
+
+	logging.FromContext(ctx).Debugf("New connections: %v", newConnections)
+	logging.FromContext(ctx).Debugf("Old connections: %v", oldConnections)
+
+	for _, newConn := range newConnections {
+		logging.FromContext(ctx).Debugf("Creating a new control connection: %s", newConn)
+
+		// Dial the service
+		_, ctrl, err := r.connectionPool.DialControlService(ctx, string(src.UID), newConn)
+		if err != nil {
+			return fmt.Errorf("cannot connect to the pod: %w", err)
+		}
+
+		// We need to start the message listener for this control interface
+		srcNamespacedName := types.NamespacedName{Name: src.Name, Namespace: src.Namespace}
+		ctrl.InboundMessageHandler(ctrlprotocol.ControlMessageHandlerFunc(func(ctx context.Context, message ctrlprotocol.ControlMessage) {
+			message.Ack()
+			r.statusUpdateStore.ControlMessageHandler(ctx, message.Headers().OpCode(), message.Payload(), newConn, srcNamespacedName)
+		}))
+	}
+
+	for _, oldConn := range oldConnections {
+		logging.FromContext(ctx).Debugf("Cleaning up old connection: %s", oldConn)
+		r.connectionPool.RemoveConnection(ctx, string(src.UID), oldConn)
+	}
+
 	return nil
 }
 
@@ -209,7 +280,7 @@ func (r *Reconciler) createReceiveAdapter(ctx context.Context, src *v1beta1.Kafk
 			return ra, err
 		}
 		return ra, deploymentUpdated(ra.Namespace, ra.Name)
-	} else if deref(ra.Spec.Replicas) != deref(expected.Spec.Replicas) {
+	} else if derefReplicas(ra.Spec.Replicas) != derefReplicas(expected.Spec.Replicas) {
 		ra.Spec.Replicas = expected.Spec.Replicas
 		if ra, err = r.KubeClientSet.AppsV1().Deployments(src.Namespace).Update(ctx, ra, metav1.UpdateOptions{}); err != nil {
 			return ra, err
@@ -257,9 +328,32 @@ func (r *Reconciler) createCloudEventAttributes(src *v1beta1.KafkaSource) []duck
 	return ceAttributes
 }
 
-func deref(i *int32) int32 {
+func derefReplicas(i *int32) int32 {
 	if i == nil {
 		return 1
 	}
 	return *i
+}
+
+func setDifference(a, b []string) (diff []string) {
+	m := make(map[string]bool)
+
+	for _, item := range b {
+		m[item] = true
+	}
+
+	for _, item := range a {
+		if _, ok := m[item]; !ok {
+			diff = append(diff, item)
+		}
+	}
+	return
+}
+
+func getPodIPs(pods []corev1.Pod) []string {
+	ips := make([]string, len(pods))
+	for i, pod := range pods {
+		ips[i] = pod.Status.PodIP
+	}
+	return ips
 }
