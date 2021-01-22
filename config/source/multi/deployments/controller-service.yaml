@@ -13,9 +13,16 @@
 # limitations under the License.
 
 apiVersion: v1
-kind: ServiceAccount
+kind: Service
 metadata:
-  name: kafka-webhook
+  name: kafka-controller
   namespace: knative-eventing
   labels:
     kafka.eventing.knative.dev/release: devel
+    control-plane: kafka-controller-manager
+spec:
+  selector:
+    control-plane: kafka-controller-manager
+  ports:
+  - name: https-kafka
+    port: 443

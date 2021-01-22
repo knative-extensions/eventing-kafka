@@ -17,7 +17,7 @@ kind: ClusterRole
 metadata:
   name: eventing-sources-kafka-adapter
   labels:
-    contrib.eventing.knative.dev/release: devel
+    kafka.eventing.knative.dev/release: devel
 rules:
 - apiGroups:
   - sources.knative.dev

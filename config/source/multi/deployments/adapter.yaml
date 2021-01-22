@@ -1,0 +1,68 @@
+# Copyright 2020 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kafkasource-mt-adapter
+  namespace: knative-eventing
+  labels:
+    kafka.eventing.knative.dev/release: devel
+spec:
+  replicas: 1 # TODO: set to 0
+  selector:
+    matchLabels: &labels
+      control-plane: kafkasource-mt-adapter
+  serviceName: kafkasource-mt-adapter
+  template:
+    metadata:
+      labels: *labels
+    spec:
+      serviceAccountName: kafkasource-mt-adapter
+      containers:
+      - image: ko://knative.dev/eventing-kafka/cmd/source/mt_receive_adapter
+        name: receive-adapter
+        env:
+        - name: SYSTEM_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+
+        # DO NOT MODIFY: The values below are being filled by the kafka source controller
+        # See 500-controller.yaml
+        - name: K_METRICS_CONFIG
+          value: '{"profiling.enable":"true"}'
+        - name: K_LOGGING_CONFIG
+          value: '{}'
+        - name: K_LEADER_ELECTION_CONFIG
+          value: ''
+        - name: METRICS_DOMAIN
+          value: knative.dev/sources
+
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+
+        ports:
+        - name: metrics
+          containerPort: 9090
+        - name: profiling
+          containerPort: 8008
+
+      terminationGracePeriodSeconds: 10
