@@ -24,6 +24,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"knative.dev/eventing-kafka/pkg/common/client"
 	"knative.dev/eventing-kafka/pkg/common/tracing"
 
@@ -44,6 +46,14 @@ import (
 	"knative.dev/eventing-kafka/pkg/common/consumer"
 )
 
+type ConsumerCallback func()
+
+type KafkaSubscription struct {
+	subs                      []types.UID
+	channelReadySubscriptions sets.String
+	consumerWatchers          []ConsumerCallback
+}
+
 type KafkaDispatcher struct {
 	hostToChannelMap atomic.Value
 	// hostToChannelMapLock is used to update hostToChannelMap
@@ -53,7 +63,7 @@ type KafkaDispatcher struct {
 	dispatcher *eventingchannels.MessageDispatcherImpl
 
 	kafkaSyncProducer    sarama.SyncProducer
-	channelSubscriptions map[eventingchannels.ChannelReference][]types.UID
+	channelSubscriptions map[eventingchannels.ChannelReference]*KafkaSubscription
 	subsConsumerGroups   map[types.UID]sarama.ConsumerGroup
 	subscriptions        map[types.UID]Subscription
 	// consumerUpdateLock must be used to update kafkaConsumers
@@ -114,7 +124,7 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 	dispatcher := &KafkaDispatcher{
 		dispatcher:           eventingchannels.NewMessageDispatcher(args.Logger.Desugar()),
 		kafkaConsumerFactory: consumer.NewConsumerGroupFactory(args.Brokers, conf),
-		channelSubscriptions: make(map[eventingchannels.ChannelReference][]types.UID),
+		channelSubscriptions: make(map[eventingchannels.ChannelReference]*KafkaSubscription),
 		subsConsumerGroups:   make(map[types.UID]sarama.ConsumerGroup),
 		subscriptions:        make(map[types.UID]Subscription),
 		kafkaSyncProducer:    producer,
@@ -256,9 +266,17 @@ func (d *KafkaDispatcher) UpdateKafkaConsumers(config *Config) (map[types.UID]er
 
 			// Check if sub already exists
 			exists := false
-			for _, s := range d.channelSubscriptions[channelRef] {
-				if s == subSpec.UID {
-					exists = true
+			if _, ok := d.channelSubscriptions[channelRef]; ok {
+				for _, s := range d.channelSubscriptions[channelRef].subs {
+					if s == subSpec.UID {
+						exists = true
+					}
+				}
+			} else { //ensure the pointer is populated
+				d.channelSubscriptions[channelRef] = &KafkaSubscription{
+					subs:                      []types.UID{},
+					channelReadySubscriptions: sets.String{},
+					consumerWatchers:          []ConsumerCallback{},
 				}
 			}
 
@@ -278,7 +296,7 @@ func (d *KafkaDispatcher) UpdateKafkaConsumers(config *Config) (map[types.UID]er
 	// Unsubscribe and close consumer for any deleted subscriptions
 	subsToRemove := make(map[eventingchannels.ChannelReference][]types.UID)
 	for channelRef, actualSubs := range d.channelSubscriptions {
-		subsToRemove[channelRef] = uidSetDifference(actualSubs, newSubs)
+		subsToRemove[channelRef] = uidSetDifference(actualSubs.subs, newSubs)
 	}
 
 	for channelRef, subs := range subsToRemove {
@@ -287,7 +305,7 @@ func (d *KafkaDispatcher) UpdateKafkaConsumers(config *Config) (map[types.UID]er
 				return nil, err
 			}
 		}
-		d.channelSubscriptions[channelRef] = newSubs
+		d.channelSubscriptions[channelRef].subs = newSubs
 	}
 
 	return failedToSubscribe, nil
@@ -378,7 +396,7 @@ func (d *KafkaDispatcher) subscribe(channelRef eventingchannels.ChannelReference
 		}
 	}()
 
-	d.channelSubscriptions[channelRef] = append(d.channelSubscriptions[channelRef], sub.UID)
+	d.channelSubscriptions[channelRef].subs = append(d.channelSubscriptions[channelRef].subs, sub.UID)
 	d.subscriptions[sub.UID] = sub
 	d.subsConsumerGroups[sub.UID] = consumerGroup
 
@@ -390,14 +408,14 @@ func (d *KafkaDispatcher) subscribe(channelRef eventingchannels.ChannelReference
 func (d *KafkaDispatcher) unsubscribe(channel eventingchannels.ChannelReference, sub Subscription) error {
 	d.logger.Infow("Unsubscribing from channel", zap.Any("channel", channel), zap.String("subscription", sub.String()))
 	delete(d.subscriptions, sub.UID)
-	if subsSlice, ok := d.channelSubscriptions[channel]; ok {
+	if subsSlice := d.channelSubscriptions[channel].subs; subsSlice != nil {
 		var newSlice []types.UID
 		for _, oldSub := range subsSlice {
 			if oldSub != sub.UID {
 				newSlice = append(newSlice, oldSub)
 			}
 		}
-		d.channelSubscriptions[channel] = newSlice
+		d.channelSubscriptions[channel].subs = newSlice
 	}
 	if consumer, ok := d.subsConsumerGroups[sub.UID]; ok {
 		delete(d.subsConsumerGroups, sub.UID)
