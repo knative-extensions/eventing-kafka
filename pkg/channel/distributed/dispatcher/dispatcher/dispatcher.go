@@ -297,6 +297,7 @@ func (d *DispatcherImpl) ConfigChanged(ctx context.Context, configMap *corev1.Co
 				SASL: &client.KafkaSaslConfig{
 					User:     d.SaramaConfig.Net.SASL.User,
 					Password: d.SaramaConfig.Net.SASL.Password,
+					SaslType: string(d.SaramaConfig.Net.SASL.Mechanism),
 				},
 			}
 			configBuilder = configBuilder.WithAuth(kafkaAuthCfg)

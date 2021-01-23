@@ -51,6 +51,7 @@ const (
 	KafkaSecretDataKeyBrokers  = "brokers"
 	KafkaSecretDataKeyUsername = "username"
 	KafkaSecretDataKeyPassword = "password"
+	KafkaSecretDataKeySaslType = "sasltype"
 
 	// Prometheus MetricsPort
 	MetricsPortName = "metrics"

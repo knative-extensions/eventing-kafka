@@ -52,6 +52,7 @@ type Environment struct {
 	// Kafka Authorization
 	KafkaUsername string // Optional
 	KafkaPassword string // Optional
+	KafkaSaslType string // Optional
 }
 
 // Get The Environment
@@ -127,6 +128,9 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 
 	// Get The Optional KafkaPassword Config Value
 	environment.KafkaPassword = env.GetOptionalConfigValue(logger, env.KafkaPasswordEnvVarKey, "")
+
+	// Get the Optional KafkaSaslType Config value
+	environment.KafkaSaslType = env.GetOptionalConfigValue(logger, env.KafkaSaslTypeEnvVarKey, "")
 
 	// Clone The Environment & Mask The Password For Safe Logging
 	safeEnvironment := *environment

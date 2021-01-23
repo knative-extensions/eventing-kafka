@@ -442,6 +442,18 @@ func (r *Reconciler) receiverDeploymentEnvVars(secret *corev1.Secret) ([]corev1.
 		},
 	})
 
+	optional := true
+	envVars = append(envVars, corev1.EnvVar{
+		Name: commonenv.KafkaSaslTypeEnvVarKey,
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{Name: secret.Name},
+				Key:                  constants.KafkaSecretDataKeySaslType,
+				Optional:             &optional,
+			},
+		},
+	})
+
 	// Return The Receiver Deployment EnvVars Array
 	return envVars, nil
 }

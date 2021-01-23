@@ -80,6 +80,7 @@ const (
 	KafkaSecretDataValueBrokers  = "TestKafkaSecretDataBrokers"
 	KafkaSecretDataValueUsername = "TestKafkaSecretDataUsername"
 	KafkaSecretDataValuePassword = "TestKafkaSecretDataPassword"
+	KafkaSecretDataValueSaslType = "PLAIN"
 
 	// ChannelSpec Test Data
 	NumPartitions     = 123
@@ -289,6 +290,7 @@ func NewKafkaSecret(options ...KafkaSecretOption) *corev1.Secret {
 			constants.KafkaSecretDataKeyBrokers:  []byte(KafkaSecretDataValueBrokers),
 			constants.KafkaSecretDataKeyUsername: []byte(KafkaSecretDataValueUsername),
 			constants.KafkaSecretDataKeyPassword: []byte(KafkaSecretDataValuePassword),
+			constants.KafkaSecretDataKeySaslType: []byte(KafkaSecretDataValueSaslType),
 		},
 		Type: "opaque",
 	}
@@ -577,6 +579,9 @@ func NewKafkaChannelReceiverDeployment(options ...DeploymentOption) *appsv1.Depl
 	// Replicas Int Reference
 	replicas := int32(ReceiverReplicas)
 
+	// Optional EnvVar
+	optional := true
+
 	// Create The Receiver Deployment
 	deployment := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
@@ -707,6 +712,16 @@ func NewKafkaChannelReceiverDeployment(options ...DeploymentOption) *appsv1.Depl
 										},
 									},
 								},
+								{
+									Name: commonenv.KafkaSaslTypeEnvVarKey,
+									ValueFrom: &corev1.EnvVarSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{Name: KafkaSecretName},
+											Key:                  constants.KafkaSecretDataKeySaslType,
+											Optional:             &optional,
+										},
+									},
+								},
 							},
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Resources: corev1.ResourceRequirements{
@@ -791,6 +806,7 @@ func NewKafkaChannelDispatcherDeployment(options ...DeploymentOption) *appsv1.De
 	dispatcherName := util.DispatcherDnsSafeName(sparseKafkaChannel)
 	topicName := util.TopicName(sparseKafkaChannel)
 	systemNamespace := system.Namespace()
+	optional := true
 
 	// Replicas Int Reference
 	replicas := int32(DispatcherReplicas)
@@ -923,6 +939,16 @@ func NewKafkaChannelDispatcherDeployment(options ...DeploymentOption) *appsv1.De
 										SecretKeyRef: &corev1.SecretKeySelector{
 											LocalObjectReference: corev1.LocalObjectReference{Name: KafkaSecretName},
 											Key:                  constants.KafkaSecretDataKeyPassword,
+										},
+									},
+								},
+								{
+									Name: commonenv.KafkaSaslTypeEnvVarKey,
+									ValueFrom: &corev1.EnvVarSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{Name: KafkaSecretName},
+											Key:                  constants.KafkaSecretDataKeySaslType,
+											Optional:             &optional,
 										},
 									},
 								},

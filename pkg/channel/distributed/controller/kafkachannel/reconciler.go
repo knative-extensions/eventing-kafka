@@ -67,6 +67,7 @@ type Reconciler struct {
 	kafkaBrokers         string
 	kafkaUsername        string
 	kafkaPassword        string
+	kafkaSaslType        string
 }
 
 var (
@@ -275,6 +276,7 @@ func (r *Reconciler) configMapObserver(ctx context.Context, configMap *corev1.Co
 			SASL: &client.KafkaSaslConfig{
 				User:     r.kafkaUsername,
 				Password: r.kafkaPassword,
+				SaslType: r.kafkaSaslType,
 			},
 		}
 	}

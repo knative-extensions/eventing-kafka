@@ -126,6 +126,10 @@ your Kafka cluster.
   - **Net.SASL.Password:** If you specify the password in the ConfigMap it will
     be overridden by the values from the
     [kafka-secret.yaml](300-kafka-secret.yaml) file!
+  - **Net.SASL.Mechanism:** If you specify the Mechanism in the ConfigMap it
+    will be overridden by the value of `sasltype` from the
+    [kafka-secret.yaml](300-kafka-secret.yaml) or default to `PLAIN`.
+    Optional values are `SCRAM-SHA-256` and `SCRAM-SHA-512`.
   - **Net.TLS.Enable** Enable (true) / disable (false) according to your
     authentication needs.
   - **Net.TLS.Config:** The Golang

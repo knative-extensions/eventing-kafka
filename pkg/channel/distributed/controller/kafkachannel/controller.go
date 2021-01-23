@@ -83,6 +83,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	kafkaBrokers := string(kafkaSecret.Data[clientconstants.KafkaSecretKeyBrokers])
 	kafkaUsername := string(kafkaSecret.Data[clientconstants.KafkaSecretKeyUsername])
 	kafkaPassword := string(kafkaSecret.Data[clientconstants.KafkaSecretKeyPassword])
+	kafkaSaslType := string(kafkaSecret.Data[clientconstants.KafkaSecretKeySaslType])
 
 	// Create A Kafka Auth Config From Current Credentials (Secret Data Takes Precedence Over ConfigMap)
 	var kafkaAuthCfg *commonclient.KafkaAuthConfig
@@ -91,6 +92,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 			SASL: &commonclient.KafkaSaslConfig{
 				User:     kafkaUsername,
 				Password: kafkaPassword,
+				SaslType: kafkaSaslType,
 			},
 		}
 	}
@@ -137,6 +139,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 		kafkaBrokers:         kafkaBrokers,
 		kafkaUsername:        kafkaUsername,
 		kafkaPassword:        kafkaPassword,
+		kafkaSaslType:        kafkaSaslType,
 	}
 
 	// Watch The Settings ConfigMap For Changes
