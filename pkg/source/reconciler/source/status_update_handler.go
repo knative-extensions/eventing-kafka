@@ -45,11 +45,15 @@ func (sus *StatusUpdateStore) ControlMessageHandler(ctx context.Context, opcode 
 
 		// Register the update
 		sus.claimsLock.Lock()
-		claimsStatus, ok := sus.claims[srcName]
-		if !ok {
+		claimsStatus := sus.claims[srcName]
+		if claimsStatus == nil {
 			claimsStatus = make(ClaimsStatus)
 		}
+		if claimsStatus[podIp] == nil {
+			claimsStatus[podIp] = make(ctrlmessage.Claims)
+		}
 		mergeClaimsStatus(claimsStatus[podIp], claims)
+		sus.claims[srcName] = claimsStatus
 		sus.claimsLock.Unlock()
 
 		logger.Infof("Registered new claims for '%v', pod '%s': %v", srcName, podIp, claims)
@@ -65,13 +69,18 @@ func (sus *StatusUpdateStore) ControlMessageHandler(ctx context.Context, opcode 
 
 		// Register the update
 		sus.claimsLock.Lock()
-		claimsStatus, ok := sus.claims[srcName]
-		if !ok {
+		claimsStatus := sus.claims[srcName]
+		if claimsStatus == nil {
 			claimsStatus = make(ClaimsStatus)
 		}
 		removeClaimsStatus(claimsStatus[podIp], claims)
 		if len(claimsStatus[podIp]) == 0 {
 			delete(claimsStatus, podIp)
+		}
+		if len(claimsStatus) == 0 {
+			delete(sus.claims, srcName)
+		} else {
+			sus.claims[srcName] = claimsStatus
 		}
 		sus.claimsLock.Unlock()
 

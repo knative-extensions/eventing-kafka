@@ -66,6 +66,19 @@ func (cc *ControlPlaneConnectionPool) RemoveConnection(ctx context.Context, key 
 	}
 }
 
+func (cc *ControlPlaneConnectionPool) RemoveAllConnections(ctx context.Context, key string) {
+	cc.connsLock.Lock()
+	defer cc.connsLock.Unlock()
+	m, ok := cc.conns[key]
+	if !ok {
+		return
+	}
+	for _, holder := range m {
+		holder.cancelFn()
+	}
+	delete(cc.conns, key)
+}
+
 func (cc *ControlPlaneConnectionPool) DialControlService(ctx context.Context, key string, host string) (string, Service, error) {
 	// Need to start new conn
 	ctx, cancelFn := context.WithCancel(ctx)

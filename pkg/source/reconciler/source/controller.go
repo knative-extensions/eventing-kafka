@@ -20,6 +20,7 @@ import (
 	"context"
 	"os"
 
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
 	"knative.dev/eventing/pkg/apis/sources/v1alpha1"
@@ -63,6 +64,11 @@ func NewController(
 
 	impl := kafkasource.NewImpl(ctx, c)
 	c.sinkResolver = resolver.NewURIResolver(ctx, impl.EnqueueKey)
+
+	c.statusUpdateStore = &StatusUpdateStore{
+		claims:     make(map[types.NamespacedName]ClaimsStatus),
+		enqueueKey: impl.EnqueueKey,
+	}
 
 	logging.FromContext(ctx).Info("Setting up kafka event handlers")
 

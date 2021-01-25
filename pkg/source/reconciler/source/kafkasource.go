@@ -203,6 +203,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 
 	// Update consumer group status
 	if lastClaimStatus, ok := r.statusUpdateStore.GetLastClaimsUpdate(types.NamespacedName{Name: src.Name, Namespace: src.Namespace}); ok {
+		logging.FromContext(ctx).Debugf("Updating consumer group claims status: %s", lastClaimStatus)
 		src.Status.UpdateConsumerGroupStatus(lastClaimStatus.String())
 	}
 
@@ -231,8 +232,8 @@ func (r *Reconciler) reconcileConnections(ctx context.Context, src *v1beta1.Kafk
 		// We need to start the message listener for this control interface
 		srcNamespacedName := types.NamespacedName{Name: src.Name, Namespace: src.Namespace}
 		ctrl.InboundMessageHandler(ctrlprotocol.ControlMessageHandlerFunc(func(ctx context.Context, message ctrlprotocol.ControlMessage) {
-			message.Ack()
 			r.statusUpdateStore.ControlMessageHandler(ctx, message.Headers().OpCode(), message.Payload(), newConn, srcNamespacedName)
+			message.Ack()
 		}))
 	}
 
@@ -241,6 +242,14 @@ func (r *Reconciler) reconcileConnections(ctx context.Context, src *v1beta1.Kafk
 		r.connectionPool.RemoveConnection(ctx, string(src.UID), oldConn)
 	}
 
+	logging.FromContext(ctx).Debugf("Now connected to: %v", r.connectionPool.GetAvailableConnections(string(src.UID)))
+
+	return nil
+}
+
+func (r *Reconciler) FinalizeKind(ctx context.Context, src *v1beta1.KafkaSource) pkgreconciler.Event {
+	// Cleanup all the connections in the connection pool associated to src
+	r.connectionPool.RemoveAllConnections(ctx, string(src.UID))
 	return nil
 }
 
