@@ -25,7 +25,6 @@ data:
         Enable: true
       SASL:
         Enable: true
-        Mechanism: PLAIN
         Version: 1
     Metadata:
       RefreshFrequency: 300000000000  # 5 minutes

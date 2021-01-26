@@ -44,6 +44,7 @@ const (
 	serviceName     = "TestServiceName"
 	kafkaUsername   = "TestKafkaUsername"
 	kafkaPassword   = "TestKafkaPassword"
+	kafkaSaslType   = "SCRAM-SHA-512"
 	podName         = "TestPod"
 	containerName   = "TestContainer"
 )
@@ -62,6 +63,7 @@ type TestCase struct {
 	serviceName          string
 	kafkaUsername        string
 	kafkaPassword        string
+	kafkaSaslType        string
 	podName              string
 	containerName        string
 	expectedError        error
@@ -166,6 +168,7 @@ func TestGetEnvironment(t *testing.T) {
 			assertSetenv(t, commonenv.ServiceNameEnvVarKey, testCase.serviceName)
 			assertSetenv(t, commonenv.KafkaUsernameEnvVarKey, testCase.kafkaUsername)
 			assertSetenv(t, commonenv.KafkaPasswordEnvVarKey, testCase.kafkaPassword)
+			assertSetenv(t, commonenv.KafkaSaslTypeEnvVarKey, testCase.kafkaSaslType)
 			assertSetenv(t, commonenv.PodNameEnvVarKey, testCase.podName)
 			assertSetenv(t, commonenv.ContainerNameEnvVarKey, testCase.containerName)
 
@@ -186,6 +189,7 @@ func TestGetEnvironment(t *testing.T) {
 				assert.Equal(t, testCase.serviceName, environment.ServiceName)
 				assert.Equal(t, testCase.kafkaUsername, environment.KafkaUsername)
 				assert.Equal(t, testCase.kafkaPassword, environment.KafkaPassword)
+				assert.Equal(t, testCase.kafkaSaslType, environment.KafkaSaslType)
 				assert.Equal(t, testCase.podName, environment.PodName)
 				assert.Equal(t, testCase.containerName, environment.ContainerName)
 				assert.Equal(t, testCase.expectedResyncPeriod, strconv.Itoa(int(environment.ResyncPeriod/time.Minute)))
@@ -223,6 +227,7 @@ func getValidTestCase(name string) TestCase {
 		serviceName:          serviceName,
 		kafkaUsername:        kafkaUsername,
 		kafkaPassword:        kafkaPassword,
+		kafkaSaslType:        kafkaSaslType,
 		podName:              podName,
 		containerName:        containerName,
 		expectedError:        nil,

@@ -198,6 +198,7 @@ func (p *Producer) ConfigChanged(ctx context.Context, configMap *corev1.ConfigMa
 				SASL: &client.KafkaSaslConfig{
 					User:     p.configuration.Net.SASL.User,
 					Password: p.configuration.Net.SASL.Password,
+					SaslType: string(p.configuration.Net.SASL.Mechanism),
 				},
 			}
 			configBuilder = configBuilder.WithAuth(kafkaAuthCfg)

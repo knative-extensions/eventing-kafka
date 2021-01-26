@@ -32,6 +32,7 @@ const (
 	KafkaBrokerEnvVarKey   = "KAFKA_BROKERS"
 	KafkaUsernameEnvVarKey = "KAFKA_USERNAME"
 	KafkaPasswordEnvVarKey = "KAFKA_PASSWORD"
+	KafkaSaslTypeEnvVarKey = "KAKFA_SASL_TYPE"
 
 	// Kafka Configuration
 	KafkaTopicEnvVarKey = "KAFKA_TOPIC"

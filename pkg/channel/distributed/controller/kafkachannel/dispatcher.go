@@ -581,6 +581,19 @@ func (r *Reconciler) dispatcherDeploymentEnvVars(channel *kafkav1beta1.KafkaChan
 				},
 			},
 		})
+
+		// Append The Kafka SaslType As Env Var
+		optional := true
+		envVars = append(envVars, corev1.EnvVar{
+			Name: commonenv.KafkaSaslTypeEnvVarKey,
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{Name: kafkaSecret},
+					Key:                  constants.KafkaSecretDataKeySaslType,
+					Optional:             &optional,
+				},
+			},
+		})
 	}
 
 	// Return The Dispatcher Deployment EnvVars Array

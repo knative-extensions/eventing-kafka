@@ -79,6 +79,7 @@ func main() {
 			SASL: &client.KafkaSaslConfig{
 				User:     environment.KafkaUsername,
 				Password: environment.KafkaPassword,
+				SaslType: environment.KafkaSaslType,
 			},
 		}
 	}
