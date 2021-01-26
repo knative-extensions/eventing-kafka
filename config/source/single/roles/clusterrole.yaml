@@ -76,14 +76,6 @@ rules:
 
 
 - apiGroups:
-  - apps
-  resources:
-  - statefulsets
-  verbs:
-  - list
-
-
-- apiGroups:
   - ""
   resources:
   - pods
