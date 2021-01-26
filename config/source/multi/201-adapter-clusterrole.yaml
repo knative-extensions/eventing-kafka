@@ -54,3 +54,15 @@ rules:
   - get
   - list
   - watch
+
+- apiGroups:
+   - ""
+  resources:
+  - events
+  verbs:
+  - get
+  - list
+  - watch
+  - patch
+  - create
+  - update
