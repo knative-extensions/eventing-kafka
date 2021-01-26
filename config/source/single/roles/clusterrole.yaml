@@ -74,7 +74,6 @@ rules:
   - deployments
   verbs: *everything
 
-
 - apiGroups:
   - ""
   resources:
