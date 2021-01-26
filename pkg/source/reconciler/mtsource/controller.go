@@ -18,7 +18,6 @@ package mtsource
 
 import (
 	"context"
-	"knative.dev/eventing/pkg/reconciler/source"
 
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/configmap"
@@ -26,6 +25,8 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/resolver"
 	"knative.dev/pkg/system"
+
+	"knative.dev/eventing/pkg/reconciler/source"
 
 	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 	kafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client"
