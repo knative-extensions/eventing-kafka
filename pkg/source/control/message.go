@@ -1,10 +1,14 @@
-package protocol
+package control
 
 import (
-	"fmt"
 	"io"
 
 	"github.com/google/uuid"
+)
+
+const (
+	maximumSupportedVersion uint16 = 0
+	outboundMessageVersion         = maximumSupportedVersion
 )
 
 type InboundMessage struct {
@@ -51,10 +55,7 @@ func (msg *OutboundMessage) WriteTo(w io.Writer) (count int64, err error) {
 	return count, err
 }
 
-func NewOutboundMessage(opcode uint8, payload []byte) (OutboundMessage, error) {
-	if opcode == AckOpCode {
-		return OutboundMessage{}, fmt.Errorf("you cannot send an ack manually")
-	}
+func NewOutboundMessage(opcode uint8, payload []byte) OutboundMessage {
 	return OutboundMessage{
 		MessageHeader: MessageHeader{
 			version: outboundMessageVersion,
@@ -64,18 +65,18 @@ func NewOutboundMessage(opcode uint8, payload []byte) (OutboundMessage, error) {
 			length:  uint32(len(payload)),
 		},
 		payload: payload,
-	}, nil
+	}
 }
 
-func newAckMessage(uuid [16]byte) OutboundMessage {
+func NewOutboundMessageWithUUID(uuid [16]byte, opcode uint8, payload []byte) OutboundMessage {
 	return OutboundMessage{
 		MessageHeader: MessageHeader{
 			version: outboundMessageVersion,
 			flags:   0,
-			opcode:  AckOpCode,
+			opcode:  opcode,
 			uuid:    uuid,
-			length:  0,
+			length:  uint32(len(payload)),
 		},
-		payload: nil,
+		payload: payload,
 	}
 }

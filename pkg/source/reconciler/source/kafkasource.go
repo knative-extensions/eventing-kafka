@@ -37,7 +37,9 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 
 	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
-	ctrlprotocol "knative.dev/eventing-kafka/pkg/source/control/protocol"
+	ctrlkafkasource "knative.dev/eventing-kafka/pkg/source/control/kafkasource"
+	ctrlreconciler "knative.dev/eventing-kafka/pkg/source/control/reconciler"
+	ctrlservice "knative.dev/eventing-kafka/pkg/source/control/service"
 	"knative.dev/eventing-kafka/pkg/source/reconciler/source/resources"
 
 	"k8s.io/client-go/kubernetes"
@@ -101,8 +103,8 @@ type Reconciler struct {
 
 	configs KafkaSourceConfigAccessor
 
-	connectionPool    *ctrlprotocol.ControlPlaneConnectionPool
-	statusUpdateStore *StatusUpdateStore
+	connectionPool          *ctrlreconciler.ControlPlaneConnectionPool
+	claimsNotificationStore *ctrlreconciler.NotificationStore
 }
 
 // Check that our Reconciler implements Interface
@@ -195,54 +197,42 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 	}
 
 	// Reconcile connections
-	if err := r.reconcileConnections(ctx, src, pods.Items); err != nil {
+	srcNamespacedName := types.NamespacedName{Name: src.Name, Namespace: src.Namespace}
+	_, err = r.connectionPool.ReconcileConnections(
+		ctx,
+		string(src.UID),
+		getPodIPs(pods.Items),
+		func(newHost string, service ctrlservice.Service) {
+			service.InboundMessageHandler(
+				ctrlreconciler.NewMessageRouter(map[uint8]ctrlservice.ControlMessageHandler{
+					ctrlkafkasource.NotifySetupClaimsOpCode: r.claimsNotificationStore.ControlMessageHandler(
+						srcNamespacedName,
+						newHost,
+						ctrlkafkasource.ClaimsMerger,
+					),
+					ctrlkafkasource.NotifyCleanupClaimsOpCode: r.claimsNotificationStore.ControlMessageHandler(
+						srcNamespacedName,
+						newHost,
+						ctrlkafkasource.ClaimsDifference,
+					),
+				}),
+			)
+		},
+		func(oldHost string) {
+			r.claimsNotificationStore.CleanPodNotification(srcNamespacedName, oldHost)
+		},
+	)
+	if err != nil {
 		return fmt.Errorf("error while reconciling connections: %w", err)
 	}
 
 	logging.FromContext(ctx).Debugf("Control connections reconciled")
 
 	// Update consumer group status
-	if lastClaimStatus, ok := r.statusUpdateStore.GetLastClaimsUpdate(types.NamespacedName{Name: src.Name, Namespace: src.Namespace}); ok {
-		logging.FromContext(ctx).Debugf("Updating consumer group claims status: %s", lastClaimStatus)
-		src.Status.UpdateConsumerGroupStatus(lastClaimStatus.String())
+	lastClaimStatus, ok := r.claimsNotificationStore.GetPodsNotifications(srcNamespacedName)
+	if ok {
+		src.Status.UpdateConsumerGroupStatus(stringifyClaimsStatus(lastClaimStatus))
 	}
-
-	return nil
-}
-
-func (r *Reconciler) reconcileConnections(ctx context.Context, src *v1beta1.KafkaSource, pods []corev1.Pod) error {
-	existingConnections := r.connectionPool.GetAvailableConnections(string(src.UID))
-	wantConnections := getPodIPs(pods)
-
-	newConnections := setDifference(wantConnections, existingConnections)
-	oldConnections := setDifference(existingConnections, wantConnections)
-
-	logging.FromContext(ctx).Debugf("New connections: %v", newConnections)
-	logging.FromContext(ctx).Debugf("Old connections: %v", oldConnections)
-
-	for _, newConn := range newConnections {
-		logging.FromContext(ctx).Debugf("Creating a new control connection: %s", newConn)
-
-		// Dial the service
-		_, ctrl, err := r.connectionPool.DialControlService(ctx, string(src.UID), newConn)
-		if err != nil {
-			return fmt.Errorf("cannot connect to the pod: %w", err)
-		}
-
-		// We need to start the message listener for this control interface
-		srcNamespacedName := types.NamespacedName{Name: src.Name, Namespace: src.Namespace}
-		ctrl.InboundMessageHandler(ctrlprotocol.ControlMessageHandlerFunc(func(ctx context.Context, message ctrlprotocol.ControlMessage) {
-			r.statusUpdateStore.ControlMessageHandler(ctx, message.Headers().OpCode(), message.Payload(), newConn, srcNamespacedName)
-			message.Ack()
-		}))
-	}
-
-	for _, oldConn := range oldConnections {
-		logging.FromContext(ctx).Debugf("Cleaning up old connection: %s", oldConn)
-		r.connectionPool.RemoveConnection(ctx, string(src.UID), oldConn)
-	}
-
-	logging.FromContext(ctx).Debugf("Now connected to: %v", r.connectionPool.GetAvailableConnections(string(src.UID)))
 
 	return nil
 }
@@ -250,6 +240,11 @@ func (r *Reconciler) reconcileConnections(ctx context.Context, src *v1beta1.Kafk
 func (r *Reconciler) FinalizeKind(ctx context.Context, src *v1beta1.KafkaSource) pkgreconciler.Event {
 	// Cleanup all the connections in the connection pool associated to src
 	r.connectionPool.RemoveAllConnections(ctx, string(src.UID))
+
+	r.claimsNotificationStore.CleanPodsNotifications(types.NamespacedName{
+		Namespace: src.Namespace,
+		Name:      src.Name,
+	})
 	return nil
 }
 
@@ -344,25 +339,18 @@ func derefReplicas(i *int32) int32 {
 	return *i
 }
 
-func setDifference(a, b []string) (diff []string) {
-	m := make(map[string]bool)
-
-	for _, item := range b {
-		m[item] = true
-	}
-
-	for _, item := range a {
-		if _, ok := m[item]; !ok {
-			diff = append(diff, item)
-		}
-	}
-	return
-}
-
 func getPodIPs(pods []corev1.Pod) []string {
 	ips := make([]string, len(pods))
 	for i, pod := range pods {
 		ips[i] = pod.Status.PodIP
 	}
 	return ips
+}
+
+func stringifyClaimsStatus(status map[string]interface{}) string {
+	var strs []string
+	for podIp, claims := range status {
+		strs = append(strs, fmt.Sprintf("Pod %s: %v", podIp, claims))
+	}
+	return strings.Join(strs, "\n")
 }

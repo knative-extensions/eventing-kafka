@@ -20,7 +20,6 @@ import (
 	"context"
 	"os"
 
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
 	"knative.dev/eventing/pkg/apis/sources/v1alpha1"
@@ -34,7 +33,8 @@ import (
 	kafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client"
 	kafkainformer "knative.dev/eventing-kafka/pkg/client/injection/informers/sources/v1beta1/kafkasource"
 	"knative.dev/eventing-kafka/pkg/client/injection/reconciler/sources/v1beta1/kafkasource"
-	ctrlprotocol "knative.dev/eventing-kafka/pkg/source/control/protocol"
+	ctrlkafkasource "knative.dev/eventing-kafka/pkg/source/control/kafkasource"
+	ctrlreconciler "knative.dev/eventing-kafka/pkg/source/control/reconciler"
 )
 
 func NewController(
@@ -58,17 +58,14 @@ func NewController(
 		deploymentLister:    deploymentInformer.Lister(),
 		receiveAdapterImage: raImage,
 		loggingContext:      ctx,
-		connectionPool:      ctrlprotocol.NewControlPlaneConnectionPool(),
 		configs:             WatchConfigurations(ctx, component, cmw),
+		connectionPool:      ctrlreconciler.NewInsecureControlPlaneConnectionPool(),
 	}
 
 	impl := kafkasource.NewImpl(ctx, c)
 	c.sinkResolver = resolver.NewURIResolver(ctx, impl.EnqueueKey)
 
-	c.statusUpdateStore = &StatusUpdateStore{
-		claims:     make(map[types.NamespacedName]ClaimsStatus),
-		enqueueKey: impl.EnqueueKey,
-	}
+	c.claimsNotificationStore = ctrlreconciler.NewNotificationStore(impl.EnqueueKey, ctrlkafkasource.ClaimsParser)
 
 	logging.FromContext(ctx).Info("Setting up kafka event handlers")
 

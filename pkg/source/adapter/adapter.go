@@ -26,8 +26,9 @@ import (
 
 	"golang.org/x/time/rate"
 	"knative.dev/eventing-kafka/pkg/source"
-	ctrlmessage "knative.dev/eventing-kafka/pkg/source/control/message"
-	ctrlprotocol "knative.dev/eventing-kafka/pkg/source/control/protocol"
+	ctrlmessage "knative.dev/eventing-kafka/pkg/source/control/kafkasource"
+	ctrlnetwork "knative.dev/eventing-kafka/pkg/source/control/network"
+	ctrlservice "knative.dev/eventing-kafka/pkg/source/control/service"
 
 	"github.com/Shopify/sarama"
 	"go.opencensus.io/trace"
@@ -103,7 +104,7 @@ func (a *Adapter) Start(ctx context.Context) (err error) {
 	)
 
 	// Init control service
-	a.controlService, err = ctrlprotocol.StartControlServer(ctx)
+	a.controlService, _, err = ctrlnetwork.StartInsecureControlServer(ctx)
 	if err != nil {
 		return err
 	}
@@ -193,6 +194,23 @@ func (a *Adapter) Handle(ctx context.Context, msg *sarama.ConsumerMessage) (bool
 	return true, nil
 }
 
+func (a *Adapter) HandleControlMessage(ctx context.Context, message ctrlservice.ControlMessage) {
+	// In this first PR, there is only the RA sending messages to control plane,
+	// there is no message the control plane should send to the RA
+	a.logger.Info("Received unexpected control message")
+	message.Ack()
+}
+
+func (a *Adapter) Setup(sess sarama.ConsumerGroupSession) {
+	if err := a.controlService.SendAndWaitForAck(ctrlmessage.NotifySetupClaimsOpCode, ctrlmessage.Claims(sess.Claims())); err != nil {
+		a.logger.Warnf("Cannot send the claims update: %v", err)
+	}
+}
+
+func (a *Adapter) Cleanup(sess sarama.ConsumerGroupSession) {
+	if err := a.controlService.SendAndWaitForAck(ctrlmessage.NotifyCleanupClaimsOpCode, ctrlmessage.Claims(sess.Claims())); err != nil {
+		a.logger.Warnf("Cannot send the claims update: %v", err)
+	}
 // SetRateLimiter sets the global consumer rate limiter
 func (a *Adapter) SetRateLimits(r rate.Limit, b int) {
 	a.rateLimiter = rate.NewLimiter(r, b)

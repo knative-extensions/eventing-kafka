@@ -1,4 +1,4 @@
-package protocol
+package service
 
 import (
 	"context"
@@ -9,71 +9,32 @@ import (
 
 	"github.com/google/uuid"
 	"knative.dev/pkg/logging"
+
+	ctrl "knative.dev/eventing-kafka/pkg/source/control"
 )
 
-type ControlMessage struct {
-	inboundMessage *InboundMessage
-	ackFunc        func()
-}
+const (
+	AckOpCode uint8 = 0
 
-func (c ControlMessage) Headers() MessageHeader {
-	return c.inboundMessage.MessageHeader
-}
-
-func (c ControlMessage) Payload() []byte {
-	return c.inboundMessage.Payload
-}
-
-func (c ControlMessage) Ack() {
-	c.ackFunc()
-}
-
-type ControlMessageHandler interface {
-	HandleControlMessage(ctx context.Context, message ControlMessage)
-}
-
-type ControlMessageHandlerFunc func(ctx context.Context, message ControlMessage)
-
-func (c ControlMessageHandlerFunc) HandleControlMessage(ctx context.Context, message ControlMessage) {
-	c(ctx, message)
-}
-
-var NoopControlMessageHandler ControlMessageHandlerFunc = func(ctx context.Context, message ControlMessage) {
-	logging.FromContext(ctx).Warnf("Discarding control message '%s'", message.Headers().UUID())
-	message.Ack()
-}
-
-type ErrorHandler interface {
-	HandleServiceError(ctx context.Context, err error)
-}
-
-type ErrorHandlerFunc func(ctx context.Context, err error)
-
-func (c ErrorHandlerFunc) HandleServiceError(ctx context.Context, err error) {
-	c(ctx, err)
-}
-
-var LoggerErrorHandler ErrorHandlerFunc = func(ctx context.Context, err error) {
-	logging.FromContext(ctx).Warnf("Error from the connection: %s", err)
-}
+	controlServiceSendTimeout = 15 * time.Second
+)
 
 // Service is the high level interface that handles send with retries and acks
 type Service interface {
-	SendSignalAndWaitForAck(opcode uint8) error
-
 	SendAndWaitForAck(opcode uint8, payload encoding.BinaryMarshaler) error
-
-	SendBinaryAndWaitForAck(opcode uint8, payload []byte) error
 	// This is non blocking, because a polling loop is already running inside.
 	InboundMessageHandler(handler ControlMessageHandler)
 	// This is non blocking, because a polling loop is already running inside.
 	ErrorHandler(handler ErrorHandler)
 }
 
+// ServiceWrapper wraps a service in another service to offer additional functionality
+type ServiceWrapper func(Service) Service
+
 type service struct {
 	ctx context.Context
 
-	connection Connection
+	connection ctrl.Connection
 
 	waitingAcksMutex sync.Mutex
 	waitingAcks      map[uuid.UUID]chan interface{}
@@ -85,7 +46,7 @@ type service struct {
 	errorHandler      ErrorHandler
 }
 
-func newService(ctx context.Context, connection Connection) *service {
+func NewService(ctx context.Context, connection ctrl.Connection) *service {
 	cs := &service{
 		ctx:          ctx,
 		connection:   connection,
@@ -97,35 +58,31 @@ func newService(ctx context.Context, connection Connection) *service {
 	return cs
 }
 
-func (c *service) SendSignalAndWaitForAck(opcode uint8) error {
-	return c.SendBinaryAndWaitForAck(opcode, nil)
-}
-
 func (c *service) SendAndWaitForAck(opcode uint8, payload encoding.BinaryMarshaler) error {
 	b, err := payload.MarshalBinary()
 	if err != nil {
 		return err
 	}
-	return c.SendBinaryAndWaitForAck(opcode, b)
+	return c.sendBinaryAndWaitForAck(opcode, b)
 }
 
-func (c *service) SendBinaryAndWaitForAck(opcode uint8, payload []byte) error {
-	msg, err := NewOutboundMessage(opcode, payload)
-	if err != nil {
-		return err
+func (c *service) sendBinaryAndWaitForAck(opcode uint8, payload []byte) error {
+	if opcode == AckOpCode {
+		return fmt.Errorf("you cannot send an ack manually")
 	}
+	msg := ctrl.NewOutboundMessage(opcode, payload)
 
 	logging.FromContext(c.ctx).Debugf("Going to send message with opcode %d and uuid %s", msg.OpCode(), msg.UUID().String())
 
 	// Register the ack between the waiting acks
 	ackCh := make(chan interface{}, 1)
 	c.waitingAcksMutex.Lock()
-	c.waitingAcks[msg.uuid] = ackCh
+	c.waitingAcks[msg.UUID()] = ackCh
 	c.waitingAcksMutex.Unlock()
 
 	defer func() {
 		c.waitingAcksMutex.Lock()
-		delete(c.waitingAcks, msg.uuid)
+		delete(c.waitingAcks, msg.UUID())
 		c.waitingAcksMutex.Unlock()
 	}()
 
@@ -164,16 +121,12 @@ func (c *service) startPolling() {
 					logging.FromContext(c.ctx).Debugf("InboundMessages channel closed, closing the polling")
 					return
 				}
-				go func() {
-					c.accept(msg)
-				}()
+				go c.accept(msg)
 			case err, ok := <-c.connection.Errors():
 				if !ok {
 					logging.FromContext(c.ctx).Debugf("Errors channel closed")
 				}
-				go func() {
-					c.acceptError(err)
-				}()
+				go c.acceptError(err)
 			case <-c.ctx.Done():
 				logging.FromContext(c.ctx).Debugf("Context closed, closing polling loop of control service")
 				return
@@ -182,11 +135,11 @@ func (c *service) startPolling() {
 	}()
 }
 
-func (c *service) accept(msg *InboundMessage) {
-	if msg.opcode == AckOpCode {
+func (c *service) accept(msg *ctrl.InboundMessage) {
+	if msg.OpCode() == AckOpCode {
 		// Propagate the ack
 		c.waitingAcksMutex.Lock()
-		ackCh := c.waitingAcks[msg.uuid]
+		ackCh := c.waitingAcks[msg.UUID()]
 		c.waitingAcksMutex.Unlock()
 		if ackCh != nil {
 			close(ackCh)
@@ -196,7 +149,7 @@ func (c *service) accept(msg *InboundMessage) {
 		}
 	} else {
 		ackFunc := func() {
-			ackMsg := newAckMessage(msg.uuid)
+			ackMsg := newAckMessage(msg.UUID())
 			// Before resending, check if context is not closed
 			select {
 			case <-c.ctx.Done():
@@ -215,4 +168,8 @@ func (c *service) acceptError(err error) {
 	c.errorHandlerMutex.RLock()
 	c.errorHandler.HandleServiceError(c.ctx, err)
 	c.errorHandlerMutex.RUnlock()
+}
+
+func newAckMessage(uuid [16]byte) ctrl.OutboundMessage {
+	return ctrl.NewOutboundMessageWithUUID(uuid, AckOpCode, nil)
 }

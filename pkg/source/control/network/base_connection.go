@@ -1,4 +1,4 @@
-package protocol
+package network
 
 import (
 	"context"
@@ -6,36 +6,31 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"strings"
+	"regexp"
 	"sync"
 
 	"go.uber.org/zap"
-)
 
-// Connection handles the low level stuff, reading and writing to the wire
-type Connection interface {
-	OutboundMessages() chan<- *OutboundMessage
-	InboundMessages() <-chan *InboundMessage
-	// On this channel we get only very bad, usually fatal, errors (like cannot re-establish the connection after several attempts)
-	Errors() <-chan error
-}
+	ctrl "knative.dev/eventing-kafka/pkg/source/control"
+)
 
 type baseTcpConnection struct {
 	ctx    context.Context
 	logger *zap.SugaredLogger
 
-	conn net.Conn
+	conn      net.Conn
+	connMutex sync.RWMutex
 
-	outboundMessageChannel chan *OutboundMessage
-	inboundMessageChannel  chan *InboundMessage
+	outboundMessageChannel chan *ctrl.OutboundMessage
+	inboundMessageChannel  chan *ctrl.InboundMessage
 	errors                 chan error
 }
 
-func (t *baseTcpConnection) OutboundMessages() chan<- *OutboundMessage {
+func (t *baseTcpConnection) OutboundMessages() chan<- *ctrl.OutboundMessage {
 	return t.outboundMessageChannel
 }
 
-func (t *baseTcpConnection) InboundMessages() <-chan *InboundMessage {
+func (t *baseTcpConnection) InboundMessages() <-chan *ctrl.InboundMessage {
 	return t.inboundMessageChannel
 }
 
@@ -44,8 +39,10 @@ func (t *baseTcpConnection) Errors() <-chan error {
 }
 
 func (t *baseTcpConnection) read() error {
-	msg := &InboundMessage{}
+	msg := &ctrl.InboundMessage{}
+	t.connMutex.RLock()
 	n, err := msg.ReadFrom(t.conn)
+	t.connMutex.RUnlock()
 	if err != nil {
 		return err
 	}
@@ -57,8 +54,10 @@ func (t *baseTcpConnection) read() error {
 	return nil
 }
 
-func (t *baseTcpConnection) write(msg *OutboundMessage) error {
+func (t *baseTcpConnection) write(msg *ctrl.OutboundMessage) error {
+	t.connMutex.RLock()
 	n, err := msg.WriteTo(t.conn)
+	t.connMutex.RUnlock()
 	if err != nil {
 		return err
 	}
@@ -70,7 +69,9 @@ func (t *baseTcpConnection) write(msg *OutboundMessage) error {
 
 func (t *baseTcpConnection) consumeConnection(conn net.Conn) {
 	t.logger.Infof("Setting new conn: %s", conn.RemoteAddr())
+	t.connMutex.Lock()
 	t.conn = conn
+	t.connMutex.Unlock()
 
 	closedConnCtx, closedConnCancel := context.WithCancel(t.ctx)
 
@@ -91,20 +92,16 @@ func (t *baseTcpConnection) consumeConnection(conn net.Conn) {
 				}
 				err := t.write(msg)
 				if err != nil {
-					if isDisconnection(err) {
-						return
-					} else if !isTransientError(err) {
-						// We don't retry for non transient errors
-						t.errors <- err
+					if isEOF(err) {
+						return // Closed conn
+					}
+					t.tryPropagateError(closedConnCtx, err)
+					if !isTransientError(err) {
+						return // Broken conn
 					}
 
 					// Try to send to outboundMessageChannel if context not closed
-					select {
-					case <-t.ctx.Done():
-						return
-					default:
-						t.outboundMessageChannel <- msg
-					}
+					t.tryPushOutboundChannel(closedConnCtx, msg)
 				}
 			case <-closedConnCtx.Done():
 				return
@@ -118,11 +115,12 @@ func (t *baseTcpConnection) consumeConnection(conn net.Conn) {
 			// Blocking read
 			err := t.read()
 			if err != nil {
-				if isDisconnection(err) {
-					return
-				} else if !isTransientError(err) {
-					// Everything is bad except transient errors and io.EOF
-					t.errors <- err
+				if isEOF(err) {
+					return // Closed conn
+				}
+				t.tryPropagateError(closedConnCtx, err)
+				if !isTransientError(err) {
+					return // Broken conn
 				}
 			}
 
@@ -138,19 +136,44 @@ func (t *baseTcpConnection) consumeConnection(conn net.Conn) {
 	wg.Wait()
 
 	t.logger.Debugf("Stopped consuming connection with local %s and remote %s", conn.LocalAddr().String(), conn.RemoteAddr().String())
+	t.connMutex.RLock()
 	err := t.conn.Close()
-	if err != nil && !isDisconnection(err) {
+	t.connMutex.RUnlock()
+	if err != nil && !isEOF(err) && !isUseOfClosedConnection(err) {
 		t.logger.Warnf("Error while closing the previous connection: %s", err)
 	}
 }
 
+func (t *baseTcpConnection) tryPropagateError(ctx context.Context, err error) {
+	select {
+	case <-ctx.Done():
+		return
+	default:
+		t.errors <- err
+	}
+}
+
+func (t *baseTcpConnection) tryPushOutboundChannel(ctx context.Context, msg *ctrl.OutboundMessage) {
+	select {
+	case <-ctx.Done():
+		return
+	default:
+		t.outboundMessageChannel <- msg
+	}
+}
+
 func (t *baseTcpConnection) close() (err error) {
+	t.connMutex.RLock()
 	if t.conn != nil {
 		err = t.conn.Close()
 	}
+	t.connMutex.RUnlock()
 	close(t.inboundMessageChannel)
 	close(t.outboundMessageChannel)
 	close(t.errors)
+	if err == nil || isEOF(err) || isUseOfClosedConnection(err) {
+		return nil
+	}
 	return err
 }
 
@@ -164,15 +187,13 @@ func isTransientError(err error) bool {
 	return false
 }
 
-// Check connection closed https://stackoverflow.com/questions/12741386/how-to-know-tcp-connection-is-closed-in-net-package
-func isDisconnection(err error) bool {
-	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
-		return true
-	}
+func isEOF(err error) bool {
+	return errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)
+}
 
-	if neterr, ok := err.(*net.OpError); ok && strings.Contains(neterr.Error(), "close") {
-		return true
-	}
+var isUseOfClosedConnectionRegex = regexp.MustCompile("use of closed.* connection")
 
-	return false
+func isUseOfClosedConnection(err error) bool {
+	// Don't rely on this check, it's just used to reduce logging noise, it shouldn't be used as assertion
+	return isUseOfClosedConnectionRegex.MatchString(err.Error())
 }
