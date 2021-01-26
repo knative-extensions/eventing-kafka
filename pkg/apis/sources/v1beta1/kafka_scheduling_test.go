@@ -17,12 +17,13 @@ limitations under the License.
 package v1beta1
 
 import (
+	"reflect"
+	"testing"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
 	"knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
-	"reflect"
-	"testing"
 )
 
 func TestScheduling(t *testing.T) {

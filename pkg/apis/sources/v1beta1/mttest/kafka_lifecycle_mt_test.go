@@ -18,12 +18,13 @@ package mttest
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 	"knative.dev/pkg/apis"
-	"testing"
 )
 
 func TestMTKafkaSourceStatusGetCondition(t *testing.T) {
