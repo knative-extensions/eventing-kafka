@@ -294,7 +294,7 @@ func TestCheckRetry(t *testing.T) {
 		{
 			name:     "Http StatusCode 400",
 			response: &http.Response{StatusCode: http.StatusBadRequest},
-			result:   true,
+			result:   false,
 		},
 		{
 			name:     "Http StatusCode 401",
