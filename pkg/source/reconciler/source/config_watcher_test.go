@@ -12,10 +12,10 @@ func TestKafkaConfigToJSON(t *testing.T) {
 	}{{
 		name: "simple marshal",
 		cfg: KafkaConfig{
-			SaramaJsonString: `{"foo":"bar"}`,
+			SaramaYamlString: `foo: bar`,
 		},
 		success:  true,
-		expected: "asdasd",
+		expected: `{"SaramaYamlString":"foo: bar"}`,
 	}}
 
 	for _, tc := range testCases {
