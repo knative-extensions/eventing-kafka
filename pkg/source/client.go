@@ -18,6 +18,7 @@ package source
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/Shopify/sarama"
@@ -25,6 +26,7 @@ import (
 
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
 	"knative.dev/eventing-kafka/pkg/common/client"
+	"knative.dev/eventing-kafka/pkg/source/reconciler/source"
 )
 
 type AdapterSASL struct {
@@ -47,10 +49,13 @@ type AdapterNet struct {
 }
 
 type KafkaEnvConfig struct {
+	// TODO: docs
+	KafkaConfigJson  string   `envconfig:"K_KAFKA_CONFIG"`
 	BootstrapServers []string `envconfig:"KAFKA_BOOTSTRAP_SERVERS" required:"true"`
 	Net              AdapterNet
 }
 
+// TODO: rename to NewConfig from env
 // NewConfig extracts the Kafka configuration from the environment.
 func NewConfig(ctx context.Context) ([]string, *sarama.Config, error) {
 	var env KafkaEnvConfig
@@ -81,11 +86,21 @@ func NewConfigWithEnv(ctx context.Context, env *KafkaEnvConfig) ([]string, *sara
 		}
 	}
 
-	cfg, err := client.NewConfigBuilder().
+	configBuilder := client.NewConfigBuilder().
 		WithDefaults().
-		WithAuth(kafkaAuthConfig).
-		WithVersion(&sarama.V2_0_0_0).
-		Build(ctx)
+		WithAuth(kafkaAuthConfig)
+
+	if env.KafkaConfigJson != "" {
+		kafkaCfg := &source.KafkaConfig{}
+		err := json.Unmarshal([]byte(env.KafkaConfigJson), kafkaCfg)
+		if err != nil {
+			return nil, nil, fmt.Errorf("error parsing Kafka config from environment: %w", err)
+		}
+
+		configBuilder = configBuilder.FromYaml(kafkaCfg.SaramaYamlString)
+	}
+
+	cfg, err := configBuilder.Build(ctx)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error creating Sarama config: %w", err)
 	}
@@ -111,6 +126,7 @@ func MakeAdminClient(ctx context.Context, clientID string, kafkaAuthCfg *client.
 		WithDefaults().
 		WithAuth(kafkaAuthCfg).
 		WithClientId(clientID).
+		FromYaml(kafkaConfig.SaramaSettingsYamlString).
 		Build(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error creating admin client Sarama config: %w", err)
