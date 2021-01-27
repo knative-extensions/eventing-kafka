@@ -47,8 +47,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/common/consumer"
 )
 
-type ConsumerCallback func()
-
 type KafkaSubscription struct {
 	channelRef eventingchannels.ChannelReference
 	subs       []types.UID
@@ -56,10 +54,6 @@ type KafkaSubscription struct {
 	// readySubscriptionsLock must be used to synchronize access to channelReadySubscriptions
 	readySubscriptionsLock    sync.RWMutex
 	channelReadySubscriptions sets.String
-
-	// watchersLock must be used to synchronize access to consumerWatchers
-	watchersLock     sync.RWMutex
-	consumerWatchers []ConsumerCallback
 }
 
 type KafkaDispatcher struct {
@@ -327,7 +321,6 @@ func (d *KafkaDispatcher) UpdateKafkaConsumers(config *Config) (map[types.UID]er
 					channelRef:                channelRef,
 					subs:                      []types.UID{},
 					channelReadySubscriptions: sets.String{},
-					consumerWatchers:          []ConsumerCallback{},
 				}
 				go func() {
 					nethttp.HandleFunc(fmt.Sprintf("/%s/%s", cc.Namespace, cc.Name), d.channelSubscriptions[channelRef].HandleReadySubsStatusRequest)
