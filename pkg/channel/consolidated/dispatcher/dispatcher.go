@@ -456,6 +456,9 @@ func (d *KafkaDispatcher) subscribe(channelRef eventingchannels.ChannelReference
 func (d *KafkaDispatcher) unsubscribe(channel eventingchannels.ChannelReference, sub Subscription) error {
 	d.logger.Infow("Unsubscribing from channel", zap.Any("channel", channel), zap.String("subscription", sub.String()))
 	delete(d.subscriptions, sub.UID)
+	if _, ok := d.channelSubscriptions[channel]; !ok {
+		return nil
+	}
 	if subsSlice := d.channelSubscriptions[channel].subs; subsSlice != nil {
 		var newSlice []types.UID
 		for _, oldSub := range subsSlice {

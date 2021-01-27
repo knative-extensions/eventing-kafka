@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors
+Copyright 2020 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -320,7 +320,7 @@ func TestDispatcher_UpdateConfig(t *testing.T) {
 			t.Logf("Running %s", t.Name())
 			d := &KafkaDispatcher{
 				kafkaConsumerFactory: &mockKafkaConsumerFactory{},
-				channelSubscriptions: make(map[eventingchannels.ChannelReference][]types.UID),
+				channelSubscriptions: make(map[eventingchannels.ChannelReference]*KafkaSubscription),
 				subsConsumerGroups:   make(map[types.UID]sarama.ConsumerGroup),
 				subscriptions:        make(map[types.UID]Subscription),
 				topicFunc:            utils.TopicName,
