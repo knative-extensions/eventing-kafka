@@ -26,8 +26,10 @@ import (
 )
 
 // KafkaSourceLister helps list KafkaSources.
+// All objects returned here must be treated as read-only.
 type KafkaSourceLister interface {
 	// List lists all KafkaSources in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.KafkaSource, err error)
 	// KafkaSources returns an object that can list and get KafkaSources.
 	KafkaSources(namespace string) KafkaSourceNamespaceLister
@@ -58,10 +60,13 @@ func (s *kafkaSourceLister) KafkaSources(namespace string) KafkaSourceNamespaceL
 }
 
 // KafkaSourceNamespaceLister helps list and get KafkaSources.
+// All objects returned here must be treated as read-only.
 type KafkaSourceNamespaceLister interface {
 	// List lists all KafkaSources in the indexer for a given namespace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.KafkaSource, err error)
 	// Get retrieves the KafkaSource from the indexer for a given namespace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha1.KafkaSource, error)
 	KafkaSourceNamespaceListerExpansion
 }

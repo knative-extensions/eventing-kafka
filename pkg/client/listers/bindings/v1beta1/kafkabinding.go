@@ -26,8 +26,10 @@ import (
 )
 
 // KafkaBindingLister helps list KafkaBindings.
+// All objects returned here must be treated as read-only.
 type KafkaBindingLister interface {
 	// List lists all KafkaBindings in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1beta1.KafkaBinding, err error)
 	// KafkaBindings returns an object that can list and get KafkaBindings.
 	KafkaBindings(namespace string) KafkaBindingNamespaceLister
@@ -58,10 +60,13 @@ func (s *kafkaBindingLister) KafkaBindings(namespace string) KafkaBindingNamespa
 }
 
 // KafkaBindingNamespaceLister helps list and get KafkaBindings.
+// All objects returned here must be treated as read-only.
 type KafkaBindingNamespaceLister interface {
 	// List lists all KafkaBindings in the indexer for a given namespace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1beta1.KafkaBinding, err error)
 	// Get retrieves the KafkaBinding from the indexer for a given namespace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1beta1.KafkaBinding, error)
 	KafkaBindingNamespaceListerExpansion
 }

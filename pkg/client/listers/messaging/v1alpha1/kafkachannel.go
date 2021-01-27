@@ -26,8 +26,10 @@ import (
 )
 
 // KafkaChannelLister helps list KafkaChannels.
+// All objects returned here must be treated as read-only.
 type KafkaChannelLister interface {
 	// List lists all KafkaChannels in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.KafkaChannel, err error)
 	// KafkaChannels returns an object that can list and get KafkaChannels.
 	KafkaChannels(namespace string) KafkaChannelNamespaceLister
@@ -58,10 +60,13 @@ func (s *kafkaChannelLister) KafkaChannels(namespace string) KafkaChannelNamespa
 }
 
 // KafkaChannelNamespaceLister helps list and get KafkaChannels.
+// All objects returned here must be treated as read-only.
 type KafkaChannelNamespaceLister interface {
 	// List lists all KafkaChannels in the indexer for a given namespace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.KafkaChannel, err error)
 	// Get retrieves the KafkaChannel from the indexer for a given namespace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha1.KafkaChannel, error)
 	KafkaChannelNamespaceListerExpansion
 }

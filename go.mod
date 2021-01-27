@@ -1,6 +1,6 @@
 module knative.dev/eventing-kafka
 
-go 1.14
+go 1.15
 
 require (
 	github.com/Azure/azure-event-hubs-go/v3 v3.3.2
@@ -30,17 +30,9 @@ require (
 	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a
 	k8s.io/api v0.19.7
 	k8s.io/apimachinery v0.19.7
-	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
-	k8s.io/utils v0.0.0-20200603063816-c1c6865ac451
-	knative.dev/eventing v0.20.1-0.20210125061954-340f07f40bda
+	k8s.io/client-go v0.19.7
+	k8s.io/utils v0.0.0-20200729134348-d5654de09c73
+	knative.dev/eventing v0.20.1-0.20210126110930-81ce89802f86
 	knative.dev/hack v0.0.0-20210120165453-8d623a0af457
-	knative.dev/pkg v0.0.0-20210124203454-7101e9d4f6c6
-)
-
-replace (
-	k8s.io/api => k8s.io/api v0.18.8
-	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.18.8
-	k8s.io/apimachinery => k8s.io/apimachinery v0.18.8
-	k8s.io/client-go => k8s.io/client-go v0.18.8
-	k8s.io/code-generator => k8s.io/code-generator v0.18.8
+	knative.dev/pkg v0.0.0-20210125222030-6040b3af4803
 )
