@@ -17,6 +17,7 @@ package dispatcher
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	nethttp "net/http"
@@ -49,9 +50,16 @@ import (
 type ConsumerCallback func()
 
 type KafkaSubscription struct {
-	subs                      []types.UID
+	channelRef eventingchannels.ChannelReference
+	subs       []types.UID
+
+	// readySubscriptionsLock must be used to synchronize access to channelReadySubscriptions
+	readySubscriptionsLock    sync.RWMutex
 	channelReadySubscriptions sets.String
-	consumerWatchers          []ConsumerCallback
+
+	// watchersLock must be used to synchronize access to consumerWatchers
+	watchersLock     sync.RWMutex
+	consumerWatchers []ConsumerCallback
 }
 
 type KafkaDispatcher struct {
@@ -190,9 +198,14 @@ type KafkaDispatcherArgs struct {
 }
 
 type consumerMessageHandler struct {
-	logger     *zap.SugaredLogger
-	sub        Subscription
-	dispatcher *eventingchannels.MessageDispatcherImpl
+	logger            *zap.SugaredLogger
+	sub               Subscription
+	dispatcher        *eventingchannels.MessageDispatcherImpl
+	kafkaSubscription *KafkaSubscription
+}
+
+func (c consumerMessageHandler) SetReady(ready bool) {
+	c.kafkaSubscription.SetReady(c.sub.UID, ready)
 }
 
 func (c consumerMessageHandler) Handle(ctx context.Context, consumerMessage *sarama.ConsumerMessage) (bool, error) {
@@ -245,6 +258,43 @@ type ChannelConfig struct {
 	Subscriptions []Subscription
 }
 
+// SetReady will mark the subid in the KafkaSubscription and call any registered callbacks
+func (ks *KafkaSubscription) SetReady(subID types.UID, ready bool) {
+	ks.readySubscriptionsLock.Lock()
+	defer ks.readySubscriptionsLock.Unlock()
+	if ready {
+		if !ks.channelReadySubscriptions.Has(string(subID)) {
+			ks.channelReadySubscriptions.Insert(string(subID))
+		}
+	} else {
+		if ks.channelReadySubscriptions.Has(string(subID)) {
+			ks.channelReadySubscriptions.Delete(string(subID))
+		}
+	}
+
+}
+
+func (ks *KafkaSubscription) HandleReadySubsStatusRequest(w nethttp.ResponseWriter, r *nethttp.Request) {
+
+	if r.Method != nethttp.MethodGet {
+		w.WriteHeader(nethttp.StatusMethodNotAllowed)
+		return
+	}
+	ks.readySubscriptionsLock.RLock()
+	defer ks.readySubscriptionsLock.RUnlock()
+	var subscriptions = make(map[string][]string)
+	chanRef := fmt.Sprintf("%s/%s", ks.channelRef.Namespace, ks.channelRef.Name)
+
+	w.Header().Set("K-Subscriber-Status", chanRef)
+	subscriptions[chanRef] = ks.channelReadySubscriptions.List()
+	jsonResult, err := json.Marshal(subscriptions)
+	if err != nil {
+		return // we should probably log instead, pass logger via context?
+	}
+	fmt.Fprintf(w, string(jsonResult))
+	w.WriteHeader(nethttp.StatusOK)
+}
+
 // UpdateKafkaConsumers will be called by new CRD based kafka channel dispatcher controller.
 func (d *KafkaDispatcher) UpdateKafkaConsumers(config *Config) (map[types.UID]error, error) {
 	if config == nil {
@@ -272,12 +322,17 @@ func (d *KafkaDispatcher) UpdateKafkaConsumers(config *Config) (map[types.UID]er
 						exists = true
 					}
 				}
-			} else { //ensure the pointer is populated
+			} else { //ensure the pointer is populated or things go boom
 				d.channelSubscriptions[channelRef] = &KafkaSubscription{
+					channelRef:                channelRef,
 					subs:                      []types.UID{},
 					channelReadySubscriptions: sets.String{},
 					consumerWatchers:          []ConsumerCallback{},
 				}
+				go func() {
+					nethttp.HandleFunc(fmt.Sprintf("/%s/%s", cc.Namespace, cc.Name), d.channelSubscriptions[channelRef].HandleReadySubsStatusRequest)
+					d.logger.Fatal(nethttp.ListenAndServe(":", nil))
+				}()
 			}
 
 			if !exists {
@@ -378,7 +433,7 @@ func (d *KafkaDispatcher) subscribe(channelRef eventingchannels.ChannelReference
 	topicName := d.topicFunc(utils.KafkaChannelSeparator, channelRef.Namespace, channelRef.Name)
 	groupID := fmt.Sprintf("kafka.%s.%s.%s", channelRef.Namespace, channelRef.Name, string(sub.UID))
 
-	handler := &consumerMessageHandler{d.logger, sub, d.dispatcher}
+	handler := &consumerMessageHandler{d.logger, sub, d.dispatcher, d.channelSubscriptions[channelRef]}
 
 	consumerGroup, err := d.kafkaConsumerFactory.StartConsumerGroup(groupID, []string{topicName}, d.logger, handler)
 

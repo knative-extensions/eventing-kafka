@@ -151,11 +151,6 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel
 	return r.syncDispatcher(ctx)
 }
 
-func (r *Reconciler) ObserveKind(ctx context.Context, kc *v1beta1.KafkaChannel) pkgreconciler.Event {
-	logging.FromContext(ctx).Debugw("ObserveKind for channel", zap.String("channel", kc.Name))
-	return r.syncDispatcher(ctx)
-}
-
 func (r *Reconciler) syncDispatcher(ctx context.Context) pkgreconciler.Event {
 	channels, err := r.kafkachannelLister.List(labels.Everything())
 	if err != nil {
