@@ -134,6 +134,41 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 		topicFunc:            args.TopicFunc,
 	}
 
+	subsStatusHandler := nethttp.HandlerFunc(func(w nethttp.ResponseWriter, r *nethttp.Request) {
+		if r.Method != nethttp.MethodGet {
+			w.WriteHeader(nethttp.StatusMethodNotAllowed)
+			return
+		}
+		uriSplit := strings.Split(r.RequestURI, "/")
+		if len(uriSplit) != 3 {
+			w.WriteHeader(nethttp.StatusBadRequest)
+			return
+		}
+		channelRef := eventingchannels.ChannelReference{
+			Name:      uriSplit[2],
+			Namespace: uriSplit[1],
+		}
+		if _, ok := dispatcher.channelSubscriptions[channelRef]; !ok {
+			w.WriteHeader(nethttp.StatusBadRequest)
+			return
+		}
+		dispatcher.channelSubscriptions[channelRef].readySubscriptionsLock.RLock()
+		defer dispatcher.channelSubscriptions[channelRef].readySubscriptionsLock.RUnlock()
+		var subscriptions = make(map[string][]string)
+		w.Header().Set("K-Subscriber-Status", uriSPlit[2])
+		subscriptions[uriSplit[2]] = dispatcher.channelSubscriptions[channelRef].channelReadySubscriptions.List()
+		jsonResult, err := json.Marshal(subscriptions)
+		if err != nil {
+			return // we should probably log instead, pass logger via context?
+		}
+		fmt.Fprintf(w, string(jsonResult))
+		w.WriteHeader(nethttp.StatusOK)
+	})
+
+	go func() {
+		dispatcher.logger.Fatal(nethttp.ListenAndServe(":", subsStatusHandler))
+	}()
+
 	podName, err := env.GetRequiredConfigValue(args.Logger.Desugar(), env.PodNameEnvVarKey)
 	if err != nil {
 		return nil, err
@@ -270,23 +305,6 @@ func (ks *KafkaSubscription) SetReady(subID types.UID, ready bool) {
 
 func (ks *KafkaSubscription) HandleReadySubsStatusRequest(w nethttp.ResponseWriter, r *nethttp.Request) {
 
-	if r.Method != nethttp.MethodGet {
-		w.WriteHeader(nethttp.StatusMethodNotAllowed)
-		return
-	}
-	ks.readySubscriptionsLock.RLock()
-	defer ks.readySubscriptionsLock.RUnlock()
-	var subscriptions = make(map[string][]string)
-	chanRef := fmt.Sprintf("%s/%s", ks.channelRef.Namespace, ks.channelRef.Name)
-
-	w.Header().Set("K-Subscriber-Status", chanRef)
-	subscriptions[chanRef] = ks.channelReadySubscriptions.List()
-	jsonResult, err := json.Marshal(subscriptions)
-	if err != nil {
-		return // we should probably log instead, pass logger via context?
-	}
-	fmt.Fprintf(w, string(jsonResult))
-	w.WriteHeader(nethttp.StatusOK)
 }
 
 // UpdateKafkaConsumers will be called by new CRD based kafka channel dispatcher controller.
@@ -322,10 +340,6 @@ func (d *KafkaDispatcher) UpdateKafkaConsumers(config *Config) (map[types.UID]er
 					subs:                      []types.UID{},
 					channelReadySubscriptions: sets.String{},
 				}
-				go func() {
-					nethttp.HandleFunc(fmt.Sprintf("/%s/%s", cc.Namespace, cc.Name), d.channelSubscriptions[channelRef].HandleReadySubsStatusRequest)
-					d.logger.Fatal(nethttp.ListenAndServe(":", nil))
-				}()
 			}
 
 			if !exists {
