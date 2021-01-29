@@ -47,6 +47,10 @@ import (
 	"knative.dev/eventing-kafka/pkg/common/consumer"
 )
 
+const (
+	dispatcherReadySubHeader = "K-Subscriber-Status"
+)
+
 type KafkaSubscription struct {
 	channelRef eventingchannels.ChannelReference
 	subs       []types.UID
@@ -155,7 +159,7 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 		dispatcher.channelSubscriptions[channelRef].readySubscriptionsLock.RLock()
 		defer dispatcher.channelSubscriptions[channelRef].readySubscriptionsLock.RUnlock()
 		var subscriptions = make(map[string][]string)
-		w.Header().Set("K-Subscriber-Status", uriSplit[2])
+		w.Header().Set(dispatcherReadySubHeader, uriSplit[2])
 		subscriptions[uriSplit[2]] = dispatcher.channelSubscriptions[channelRef].channelReadySubscriptions.List()
 		jsonResult, err := json.Marshal(subscriptions)
 		if err != nil {
