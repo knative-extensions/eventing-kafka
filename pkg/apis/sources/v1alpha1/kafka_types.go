@@ -103,6 +103,12 @@ type KafkaSourceSpec struct {
 	// For round-tripping only.
 	// +optional
 	Consumers *int32 `json:"consumers,omitempty"`
+
+	// Config is a KReference to the configuration that specifies
+	// configuration options for this Channel. For example, this could be
+	// a pointer to a ConfigMap.
+	// +optional
+	Config *duckv1.KReference `json:"config,omitempty"`
 }
 
 const (

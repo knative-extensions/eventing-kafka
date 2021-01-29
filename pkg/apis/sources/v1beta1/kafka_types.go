@@ -75,6 +75,12 @@ type KafkaSourceSpec struct {
 	// * CloudEventOverrides - defines overrides to control the output format
 	//   and modifications of the event sent to the sink.
 	duckv1.SourceSpec `json:",inline"`
+
+	// Config is a KReference to the configuration that specifies
+	// configuration options for this Source. For example, this could be
+	// a pointer to a ConfigMap.
+	// +optional
+	Config *duckv1.KReference `json:"config,omitempty"`
 }
 
 const (

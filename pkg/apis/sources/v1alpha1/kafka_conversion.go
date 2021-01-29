@@ -45,6 +45,10 @@ func (source *KafkaSource) ConvertTo(ctx context.Context, obj apis.Convertible) 
 			ConsumerGroup: source.Spec.ConsumerGroup,
 			Consumers:     source.Spec.Consumers,
 		}
+		if source.Spec.Config != nil {
+			sink.Spec.Config = source.Spec.Config.DeepCopy()
+		}
+
 		source.Status.Status.DeepCopyInto(&sink.Status.Status)
 		sink.Status.Consumers = source.Status.Consumers
 
@@ -90,6 +94,9 @@ func (sink *KafkaSource) ConvertFrom(ctx context.Context, obj apis.Convertible) 
 		}
 		if reflect.DeepEqual(*sink.Spec.Sink, duckv1.Destination{}) {
 			sink.Spec.Sink = nil
+		}
+		if source.Spec.Config != nil {
+			sink.Spec.Config = source.Spec.Config.DeepCopy()
 		}
 
 		source.Status.Status.DeepCopyInto(&sink.Status.Status)

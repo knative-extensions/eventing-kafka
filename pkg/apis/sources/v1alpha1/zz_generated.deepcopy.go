@@ -161,6 +161,11 @@ func (in *KafkaSourceSpec) DeepCopyInto(out *KafkaSourceSpec) {
 		*out = new(int32)
 		**out = **in
 	}
+	if in.Config != nil {
+		in, out := &in.Config, &out.Config
+		*out = new(v1.KReference)
+		**out = **in
+	}
 	return
 }
 

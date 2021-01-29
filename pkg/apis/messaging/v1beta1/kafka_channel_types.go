@@ -69,6 +69,12 @@ type KafkaChannelSpec struct {
 
 	// Channel conforms to Duck type Channelable.
 	eventingduck.ChannelableSpec `json:",inline"`
+
+	// Config is a KReference to the configuration that specifies
+	// configuration options for this Channel. For example, this could be
+	// a pointer to a ConfigMap.
+	// +optional
+	Config *duckv1.KReference `json:"config,omitempty"`
 }
 
 // KafkaChannelStatus represents the current state of a KafkaChannel.
