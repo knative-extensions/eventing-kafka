@@ -172,13 +172,19 @@ func (h *Handler) checkRetry(_ context.Context, response *http.Response, err err
 	statusCode := response.StatusCode
 	logger := h.Logger.With(zap.Int("StatusCode", statusCode))
 
+	// Note - Normally we would NOT want to retry 4xx responses, BUT there are a few
+	//        known areas of knative-eventing that return codes in this range which
+	//        require retries.  Reasons for particular codes are as follows:
 	//
-	// Note - Normally we would NOT want to retry 400 responses, BUT the knative-eventing
-	//        filter handler (due to CloudEvents SDK V1 usage) is swallowing the actual
-	//        status codes from the subscriber and returning 400s instead.  Once this has,
-	//        been resolved we can remove 400 from the list of codes to retry.
-	//
-	if statusCode >= 500 || statusCode == 400 || statusCode == 404 || statusCode == 429 || statusCode == 409 {
+	// 404  Although we would ideally not want to retry a permanent "Not Found"
+	//      response, a 404 can be returned when a pod is in the process of becoming
+	//      ready, so a retry can be a useful thing in this situation.
+	// 409  Returned by the E2E tests, so we must retry when "Conflict" is received, or the
+	//      tests will fail (see knative.dev/eventing/test/lib/recordevents/receiver/receiver.go)
+	// 429  Since retry typically involves a delay (usually an exponential backoff),
+	//      retrying after receiving a "Too Many Requests" response is useful.
+
+	if statusCode >= 500 || statusCode == 404 || statusCode == 429 || statusCode == 409 {
 		logger.Warn("Failed To Send Message To Subscriber Service - Retrying")
 		return true, nil
 	} else if statusCode >= 300 && statusCode <= 399 {
