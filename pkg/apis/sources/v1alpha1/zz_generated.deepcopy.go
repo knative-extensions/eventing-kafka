@@ -178,6 +178,7 @@ func (in *KafkaSourceSpec) DeepCopy() *KafkaSourceSpec {
 func (in *KafkaSourceStatus) DeepCopyInto(out *KafkaSourceStatus) {
 	*out = *in
 	in.SourceStatus.DeepCopyInto(&out.SourceStatus)
+	in.Placeable.DeepCopyInto(&out.Placeable)
 	return
 }
 

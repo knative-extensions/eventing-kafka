@@ -27,6 +27,7 @@ COMPONENTS=(
   ["channel-consolidated.yaml"]="config/channel/consolidated"
   ["channel-distributed.yaml"]="config/channel/distributed"
   ["source.yaml"]="config/source/single"
+  ["mt-source.yaml"]="config/source/multi"
 )
 readonly COMPONENTS
 

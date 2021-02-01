@@ -22,6 +22,7 @@ import (
 	"context"
 	"time"
 
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -47,6 +48,8 @@ type KafkaSourceInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*v1beta1.KafkaSourceList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.KafkaSource, err error)
+	GetScale(ctx context.Context, kafkaSourceName string, options v1.GetOptions) (*autoscalingv1.Scale, error)
+
 	KafkaSourceExpansion
 }
 
@@ -189,6 +192,20 @@ func (c *kafkaSources) Patch(ctx context.Context, name string, pt types.PatchTyp
 		SubResource(subresources...).
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(data).
+		Do(ctx).
+		Into(result)
+	return
+}
+
+// GetScale takes name of the kafkaSource, and returns the corresponding autoscalingv1.Scale object, and an error if there is any.
+func (c *kafkaSources) GetScale(ctx context.Context, kafkaSourceName string, options v1.GetOptions) (result *autoscalingv1.Scale, err error) {
+	result = &autoscalingv1.Scale{}
+	err = c.client.Get().
+		Namespace(c.ns).
+		Resource("kafkasources").
+		Name(kafkaSourceName).
+		SubResource("scale").
+		VersionedParams(&options, scheme.ParameterCodec).
 		Do(ctx).
 		Into(result)
 	return

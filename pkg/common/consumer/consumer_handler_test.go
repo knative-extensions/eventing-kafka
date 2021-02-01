@@ -69,7 +69,7 @@ func (m *mockConsumerGroupSession) MarkMessage(msg *sarama.ConsumerMessage, meta
 }
 
 func (m *mockConsumerGroupSession) Context() context.Context {
-	return nil
+	return context.Background()
 }
 
 var _ sarama.ConsumerGroupSession = (*mockConsumerGroupSession)(nil)

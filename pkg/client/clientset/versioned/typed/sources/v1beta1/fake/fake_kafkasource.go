@@ -21,6 +21,7 @@ package fake
 import (
 	"context"
 
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -139,4 +140,15 @@ func (c *FakeKafkaSources) Patch(ctx context.Context, name string, pt types.Patc
 		return nil, err
 	}
 	return obj.(*v1beta1.KafkaSource), err
+}
+
+// GetScale takes name of the kafkaSource, and returns the corresponding scale object, and an error if there is any.
+func (c *FakeKafkaSources) GetScale(ctx context.Context, kafkaSourceName string, options v1.GetOptions) (result *autoscalingv1.Scale, err error) {
+	obj, err := c.Fake.
+		Invokes(testing.NewGetSubresourceAction(kafkasourcesResource, c.ns, "scale", kafkaSourceName), &autoscalingv1.Scale{})
+
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*autoscalingv1.Scale), err
 }

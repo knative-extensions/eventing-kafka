@@ -36,6 +36,13 @@ ${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
 "sources:v1alpha1 sources:v1beta1 bindings:v1alpha1 bindings:v1beta1 messaging:v1alpha1 messaging:v1beta1" \
 --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate.go.txt
 
+# Only deepcopy the Duck types, as they are not real resources.
+chmod +x ${CODEGEN_PKG}/generate-groups.sh
+${CODEGEN_PKG}/generate-groups.sh "deepcopy" \
+  knative.dev/eventing-kafka/pkg/client knative.dev/eventing-kafka/pkg/apis \
+  "duck:v1alpha1" \
+  --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate.go.txt
+
 group "Knative Codegen"
 
 # Knative Injection

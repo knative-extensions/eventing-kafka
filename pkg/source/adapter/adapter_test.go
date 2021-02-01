@@ -341,7 +341,7 @@ func TestPostMessage_ServeHTTP_binary_mode(t *testing.T) {
 			}
 
 			a := &Adapter{
-				config: &adapterConfig{
+				config: &AdapterConfig{
 					EnvConfig: adapter.EnvConfig{
 						Sink:      sinkServer.URL,
 						Namespace: "test",
