@@ -103,8 +103,9 @@ readonly KAFKA_SOURCE_CRD_CONFIG_DIR="$(mktemp -d)"
 # Remove the temporary directories on exit (avoiding "rm -rf" to prevent disaster if something is wrong with the variables)
 trap "{ for dirrm in \"${KAFKA_CRD_CONFIG_DIR}\" \"${KAFKA_SOURCE_CRD_CONFIG_DIR}\"; do rm \"\${dirrm}\"/*; rmdir \"\${dirrm}\"; done }" EXIT
 
-# Kafka channel CRD config template directory.
+# Kafka ST and MT Source CRD config template directory
 readonly KAFKA_SOURCE_TEMPLATE_DIR="config/source/single"
+readonly KAFKA_MT_SOURCE_TEMPLATE_DIR="config/source/multi"
 
 # Namespaces where we install Eventing components
 # This is the namespace of knative-eventing itself
@@ -317,6 +318,20 @@ function install_distributed_channel_crds() {
   wait_until_pods_running "${SYSTEM_NAMESPACE}" || fail_test "Failed to install the distributed Kafka Channel CRD"
 }
 
+function install_mt_source() {
+  echo "Installing multi-tenant Kafka Source"
+  rm "${KAFKA_SOURCE_CRD_CONFIG_DIR}/"*yaml
+  cp "${KAFKA_MT_SOURCE_TEMPLATE_DIR}/"*yaml "${KAFKA_SOURCE_CRD_CONFIG_DIR}"
+  sed -i "s/namespace: knative-eventing/namespace: ${SYSTEM_NAMESPACE}/g" "${KAFKA_SOURCE_CRD_CONFIG_DIR}/"*yaml
+  ko apply -f "${KAFKA_SOURCE_CRD_CONFIG_DIR}" || return 1
+  wait_until_pods_running "${EVENTING_NAMESPACE}" || fail_test "Failed to install the multi-tenant Kafka Source"
+}
+
+function uninstall_mt_source() {
+  echo "Uninstalling  multi-tenant Kafka Source CRD"
+  ko delete --ignore-not-found=true --now --timeout 180s -f "${KAFKA_SOURCE_CRD_CONFIG_DIR}"
+}
+
 function kafka_setup() {
   # Create The Namespace Where Strimzi Kafka Will Be Installed
   echo "Installing Kafka Cluster"
@@ -436,6 +451,17 @@ function test_distributed_channel() {
   uninstall_channel_crds || return 1
 }
 
+# Installs the resources necessary to test the multi-tenant source, runs those tests, and then cleans up those resources
+function test_mt_source() {
+  echo "Testing the multi-tenant source"
+  install_mt_source || return 1
+
+  go_test_e2e -tags=mtsource -timeout=5m -test.parallel=${TEST_PARALLEL} ./test/...  || fail_test
+
+  uninstall_mt_source || return 1
+}
+
+
 function parse_flags() {
   # This function will be called repeatedly by initialize() with one fewer
   # argument each time and expects a return value of "the number of arguments to skip"
@@ -456,6 +482,10 @@ function parse_flags() {
       ;;
     --consolidated-sasl)
       TEST_CONSOLIDATED_CHANNEL_SASL=1
+      return 1
+      ;;
+    --mt-source)
+      TEST_MT_SOURCE=1
       return 1
       ;;
   esac
