@@ -104,6 +104,12 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 		return nil, fmt.Errorf("unable to create kafka producer against Kafka bootstrap servers %v : %v", args.Brokers, err)
 	}
 
+	// Configured with the same connection arguments of IMC
+	kncloudevents.ConfigureConnectionArgs(&kncloudevents.ConnectionArgs{
+		MaxIdleConns:        1000,
+		MaxIdleConnsPerHost: 100,
+	})
+
 	dispatcher := &KafkaDispatcher{
 		dispatcher:           eventingchannels.NewMessageDispatcher(args.Logger.Desugar()),
 		kafkaConsumerFactory: consumer.NewConsumerGroupFactory(args.Brokers, conf),
