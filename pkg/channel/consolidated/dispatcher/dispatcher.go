@@ -113,9 +113,10 @@ func (d *KafkaDispatcher) ServeHTTP(w nethttp.ResponseWriter, r *nethttp.Request
 		w.WriteHeader(nethttp.StatusNotFound)
 		return
 	}
+	channelRefNamespace, channelRefName := uriSplit[1], uriSplit[2]
 	channelRef := eventingchannels.ChannelReference{
-		Name:      uriSplit[2],
-		Namespace: uriSplit[1],
+		Name:      channelRefName,
+		Namespace: channelRefNamespace,
 	}
 	if _, ok := d.channelSubscriptions[channelRef]; !ok {
 		w.WriteHeader(nethttp.StatusNotFound)
@@ -125,7 +126,7 @@ func (d *KafkaDispatcher) ServeHTTP(w nethttp.ResponseWriter, r *nethttp.Request
 	defer d.channelSubscriptions[channelRef].readySubscriptionsLock.RUnlock()
 	var subscriptions = make(map[string][]string)
 	w.Header().Set(dispatcherReadySubHeader, uriSplit[2])
-	subscriptions[uriSplit[1]+"/"+uriSplit[2]] = d.channelSubscriptions[channelRef].channelReadySubscriptions.List()
+	subscriptions[channelRefNamespace+"/"+channelRefName] = d.channelSubscriptions[channelRef].channelReadySubscriptions.List()
 	jsonResult, err := json.Marshal(subscriptions)
 	if err != nil {
 		return // we should probably log instead, pass logger via context?
