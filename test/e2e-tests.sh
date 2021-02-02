@@ -51,6 +51,7 @@ TEST_CONSOLIDATED_CHANNEL=${TEST_CONSOLIDATED_CHANNEL:-0}
 TEST_CONSOLIDATED_CHANNEL_TLS=${TEST_CONSOLIDATED_CHANNEL_TLS:-0}
 TEST_CONSOLIDATED_CHANNEL_SASL=${TEST_CONSOLIDATED_CHANNEL_SASL:-0}
 TEST_DISTRIBUTED_CHANNEL=${TEST_DISTRIBUTED_CHANNEL:-0}
+TEST_MT_SOURCE=${TEST_MT_SOURCE:-0}
 
 echo "e2e-tests.sh command line: $@"
 
@@ -71,9 +72,10 @@ echo "TEST_CONSOLIDATED_CHANNEL: ${TEST_CONSOLIDATED_CHANNEL}"
 echo "TEST_DISTRIBUTED_CHANNEL: ${TEST_DISTRIBUTED_CHANNEL}"
 echo "TEST_CONSOLIDATED_CHANNEL_TLS: ${TEST_CONSOLIDATED_CHANNEL_TLS}"
 echo "TEST_CONSOLIDATED_CHANNEL_SASL: ${TEST_CONSOLIDATED_CHANNEL_SASL}"
+echo "TEST_MT_SOURCE: ${TEST_MT_SOURCE}"
 
 # If none of the tests were explicitly specified, run both plain tests
-if [[ $TEST_CONSOLIDATED_CHANNEL != 1 ]] && [[ $TEST_CONSOLIDATED_CHANNEL_TLS != 1 ]] && [[ $TEST_CONSOLIDATED_CHANNEL_SASL != 1 ]] && [[ $TEST_DISTRIBUTED_CHANNEL != 1 ]]; then
+if [[ $TEST_CONSOLIDATED_CHANNEL != 1 ]] && [[ $TEST_CONSOLIDATED_CHANNEL_TLS != 1 ]] && [[ $TEST_CONSOLIDATED_CHANNEL_SASL != 1 ]] && [[ $TEST_DISTRIBUTED_CHANNEL != 1 ]] && [[ $TEST_MT_SOURCE != 1 ]]; then
   TEST_DISTRIBUTED_CHANNEL=1
   TEST_CONSOLIDATED_CHANNEL=1
 fi
@@ -101,6 +103,11 @@ ps -e -o pid,command | grep 'kubectl port-forward zipkin[^*]*9411:9411 -n' | sed
 
 if [[ $TEST_DISTRIBUTED_CHANNEL == 1 ]]; then
   test_distributed_channel || exit 1
+fi
+
+if [[ $TEST_MT_SOURCE == 1 ]]; then
+  echo "Launching the multi-tenant source TESTS:"
+  test_mt_source || exit 1
 fi
 
 # If you wish to use this script just as test setup, *without* teardown, just uncomment this line and comment all go_test_e2e commands
