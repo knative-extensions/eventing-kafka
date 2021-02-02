@@ -118,7 +118,7 @@ func (d *KafkaDispatcher) ServeHTTP(w nethttp.ResponseWriter, r *nethttp.Request
 		Namespace: uriSplit[1],
 	}
 	if _, ok := d.channelSubscriptions[channelRef]; !ok {
-		w.WriteHeader(nethttp.StatusBadRequest)
+		w.WriteHeader(nethttp.StatusNotFound)
 		return
 	}
 	d.channelSubscriptions[channelRef].readySubscriptionsLock.RLock()
