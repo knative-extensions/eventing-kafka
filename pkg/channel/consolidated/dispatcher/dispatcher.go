@@ -104,6 +104,37 @@ func (sub Subscription) String() string {
 	return s.String()
 }
 
+func (d *KafkaDispatcher) ServeHTTP(w nethttp.ResponseWriter, r *nethttp.Request) {
+	if r.Method != nethttp.MethodGet {
+		w.WriteHeader(nethttp.StatusMethodNotAllowed)
+		return
+	}
+	uriSplit := strings.Split(r.RequestURI, "/")
+	if len(uriSplit) != 3 {
+		w.WriteHeader(nethttp.StatusNotFound)
+		return
+	}
+	channelRef := eventingchannels.ChannelReference{
+		Name:      uriSplit[2],
+		Namespace: uriSplit[1],
+	}
+	if _, ok := d.channelSubscriptions[channelRef]; !ok {
+		w.WriteHeader(nethttp.StatusBadRequest)
+		return
+	}
+	d.channelSubscriptions[channelRef].readySubscriptionsLock.RLock()
+	defer d.channelSubscriptions[channelRef].readySubscriptionsLock.RUnlock()
+	var subscriptions = make(map[string][]string)
+	w.Header().Set(dispatcherReadySubHeader, uriSplit[2])
+	subscriptions[uriSplit[2]] = d.channelSubscriptions[channelRef].channelReadySubscriptions.List()
+	jsonResult, err := json.Marshal(subscriptions)
+	if err != nil {
+		return // we should probably log instead, pass logger via context?
+	}
+	fmt.Fprintf(w, string(jsonResult))
+	w.WriteHeader(nethttp.StatusOK)
+}
+
 func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispatcher, error) {
 	conf, err := client.NewConfigBuilder().
 		WithClientId(args.ClientID).
@@ -138,39 +169,8 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 		topicFunc:            args.TopicFunc,
 	}
 
-	subsStatusHandler := nethttp.HandlerFunc(func(w nethttp.ResponseWriter, r *nethttp.Request) {
-		if r.Method != nethttp.MethodGet {
-			w.WriteHeader(nethttp.StatusMethodNotAllowed)
-			return
-		}
-		uriSplit := strings.Split(r.RequestURI, "/")
-		if len(uriSplit) != 3 {
-			w.WriteHeader(nethttp.StatusBadRequest)
-			return
-		}
-		channelRef := eventingchannels.ChannelReference{
-			Name:      uriSplit[2],
-			Namespace: uriSplit[1],
-		}
-		if _, ok := dispatcher.channelSubscriptions[channelRef]; !ok {
-			w.WriteHeader(nethttp.StatusBadRequest)
-			return
-		}
-		dispatcher.channelSubscriptions[channelRef].readySubscriptionsLock.RLock()
-		defer dispatcher.channelSubscriptions[channelRef].readySubscriptionsLock.RUnlock()
-		var subscriptions = make(map[string][]string)
-		w.Header().Set(dispatcherReadySubHeader, uriSplit[2])
-		subscriptions[uriSplit[2]] = dispatcher.channelSubscriptions[channelRef].channelReadySubscriptions.List()
-		jsonResult, err := json.Marshal(subscriptions)
-		if err != nil {
-			return // we should probably log instead, pass logger via context?
-		}
-		fmt.Fprintf(w, string(jsonResult))
-		w.WriteHeader(nethttp.StatusOK)
-	})
-
 	go func() {
-		dispatcher.logger.Fatal(nethttp.ListenAndServe(":", subsStatusHandler))
+		dispatcher.logger.Fatal(nethttp.ListenAndServe(":", dispatcher))
 	}()
 
 	podName, err := env.GetRequiredConfigValue(args.Logger.Desugar(), env.PodNameEnvVarKey)
@@ -304,10 +304,6 @@ func (ks *KafkaSubscription) SetReady(subID types.UID, ready bool) {
 			ks.channelReadySubscriptions.Delete(string(subID))
 		}
 	}
-
-}
-
-func (ks *KafkaSubscription) HandleReadySubsStatusRequest(w nethttp.ResponseWriter, r *nethttp.Request) {
 
 }
 
