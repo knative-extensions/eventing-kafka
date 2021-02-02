@@ -41,6 +41,7 @@ const (
 	MaxIdleConnectionsKey        = "maxIdleConns"
 	MaxIdleConnectionsPerHostKey = "maxIdleConnsPerHost"
 
+	Tls          = "tls"
 	TlsCacert    = "ca.crt"
 	TlsUsercert  = "user.crt"
 	TlsUserkey   = "user.key"
@@ -76,16 +77,24 @@ func GetKafkaAuthData(ctx context.Context, secretname string, secretNS string) *
 	}
 
 	kafkaAuthConfig := &client.KafkaAuthConfig{}
-	// check for TLS
+
+	// TLS
 	if string(secret.Data[TlsCacert]) != "" {
+		// We have a self-signed TLS cert
 		tls := &client.KafkaTlsConfig{
 			Cacert:   string(secret.Data[TlsCacert]),
 			Usercert: string(secret.Data[TlsUsercert]),
 			Userkey:  string(secret.Data[TlsUserkey]),
 		}
 		kafkaAuthConfig.TLS = tls
+	} else if strings.ToLower(string(secret.Data[Tls])) == strings.ToLower("enabled") {
+		// we have a public Cert from a proper CA
+		// so we just need to enable TLS
+		tls := &client.KafkaTlsConfig{}
+		kafkaAuthConfig.TLS = tls
 	}
 
+	// SASL
 	if string(secret.Data[SaslUser]) != "" {
 		sasl := &client.KafkaSaslConfig{
 			User:     string(secret.Data[SaslUser]),
