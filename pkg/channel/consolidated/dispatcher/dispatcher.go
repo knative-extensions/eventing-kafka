@@ -52,8 +52,7 @@ const (
 )
 
 type KafkaSubscription struct {
-	channelRef eventingchannels.ChannelReference
-	subs       []types.UID
+	subs []types.UID
 
 	// readySubscriptionsLock must be used to synchronize access to channelReadySubscriptions
 	readySubscriptionsLock    sync.RWMutex
@@ -336,7 +335,6 @@ func (d *KafkaDispatcher) UpdateKafkaConsumers(config *Config) (map[types.UID]er
 				}
 			} else { //ensure the pointer is populated or things go boom
 				d.channelSubscriptions[channelRef] = &KafkaSubscription{
-					channelRef:                channelRef,
 					subs:                      []types.UID{},
 					channelReadySubscriptions: sets.String{},
 				}
