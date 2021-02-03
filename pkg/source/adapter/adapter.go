@@ -25,10 +25,10 @@ import (
 	"strings"
 
 	"golang.org/x/time/rate"
-	"knative.dev/eventing-kafka/pkg/source"
+
+	ctrl "knative.dev/eventing-kafka/pkg/source/control"
 	ctrlmessage "knative.dev/eventing-kafka/pkg/source/control/kafkasource"
 	ctrlnetwork "knative.dev/eventing-kafka/pkg/source/control/network"
-	ctrlservice "knative.dev/eventing-kafka/pkg/source/control/service"
 
 	"github.com/Shopify/sarama"
 	"go.opencensus.io/trace"
@@ -63,8 +63,8 @@ func NewEnvConfig() adapter.EnvConfigAccessor {
 }
 
 type Adapter struct {
-	config            *AdapterConfig
-	controlService ctrlprotocol.Service
+	config         *AdapterConfig
+	controlService ctrl.Service
 
 	httpMessageSender *kncloudevents.HTTPMessageSender
 	reporter          pkgsource.StatsReporter
@@ -108,7 +108,7 @@ func (a *Adapter) Start(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	a.controlService.InboundMessageHandler(a)
+	a.controlService.MessageHandler(a)
 
 	// init consumer group
 	addrs, config, err := client.NewConfigWithEnv(context.Background(), &a.config.KafkaEnvConfig)
@@ -194,7 +194,12 @@ func (a *Adapter) Handle(ctx context.Context, msg *sarama.ConsumerMessage) (bool
 	return true, nil
 }
 
-func (a *Adapter) HandleControlMessage(ctx context.Context, message ctrlservice.ControlMessage) {
+// SetRateLimiter sets the global consumer rate limiter
+func (a *Adapter) SetRateLimits(r rate.Limit, b int) {
+	a.rateLimiter = rate.NewLimiter(r, b)
+}
+
+func (a *Adapter) HandleServiceMessage(ctx context.Context, message ctrl.ServiceMessage) {
 	// In this first PR, there is only the RA sending messages to control plane,
 	// there is no message the control plane should send to the RA
 	a.logger.Info("Received unexpected control message")
@@ -211,7 +216,4 @@ func (a *Adapter) Cleanup(sess sarama.ConsumerGroupSession) {
 	if err := a.controlService.SendAndWaitForAck(ctrlmessage.NotifyCleanupClaimsOpCode, ctrlmessage.Claims(sess.Claims())); err != nil {
 		a.logger.Warnf("Cannot send the claims update: %v", err)
 	}
-// SetRateLimiter sets the global consumer rate limiter
-func (a *Adapter) SetRateLimits(r rate.Limit, b int) {
-	a.rateLimiter = rate.NewLimiter(r, b)
 }

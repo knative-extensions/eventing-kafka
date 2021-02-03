@@ -6,12 +6,14 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/sets"
+
+	ctrl "knative.dev/eventing-kafka/pkg/source/control"
 )
 
 // This just contains the different opcodes
 const (
-	NotifySetupClaimsOpCode   uint8 = 1
-	NotifyCleanupClaimsOpCode uint8 = 2
+	NotifySetupClaimsOpCode   ctrl.OpCode = 1
+	NotifyCleanupClaimsOpCode ctrl.OpCode = 2
 )
 
 type Claims map[string][]int32
