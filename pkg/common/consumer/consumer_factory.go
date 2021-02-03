@@ -47,9 +47,11 @@ func (c *customConsumerGroup) Errors() <-chan error {
 }
 
 func (c *customConsumerGroup) Close() error {
+	err := c.ConsumerGroup.Close()
+	// Canceling the context after the close of consumer group makes sure we cleanup the error channel
+	// after the consumer group is stopped
 	c.cancel()
-	close(c.handlerErrorChannel)
-	return c.ConsumerGroup.Close()
+	return err
 }
 
 var _ sarama.ConsumerGroup = (*customConsumerGroup)(nil)
@@ -64,6 +66,7 @@ func (c kafkaConsumerGroupFactoryImpl) StartConsumerGroup(groupID string, topics
 	ctx, cancel := context.WithCancel(context.Background())
 
 	go func() {
+		defer close(errorCh)
 		for {
 			consumerHandler := NewConsumerHandler(logger, handler, errorCh)
 
