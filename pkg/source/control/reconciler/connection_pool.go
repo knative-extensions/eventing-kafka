@@ -9,8 +9,8 @@ import (
 
 	"knative.dev/pkg/logging"
 
+	"knative.dev/eventing-kafka/pkg/source/control"
 	"knative.dev/eventing-kafka/pkg/source/control/network"
-	ctrlservice "knative.dev/eventing-kafka/pkg/source/control/service"
 )
 
 const (
@@ -18,17 +18,17 @@ const (
 )
 
 type ControlPlaneConnectionPool struct {
-	certificateManager *network.CertificateManager
-	baseDialOptions    *net.Dialer
+	tlsDialerFactory TLSDialerFactory
+	baseDialOptions  *net.Dialer
 
-	serviceWrapperFactories []ctrlservice.ServiceWrapper
+	serviceWrapperFactories []control.ServiceWrapper
 
 	connsLock sync.Mutex
 	conns     map[string]map[string]clientServiceHolder
 }
 
 type clientServiceHolder struct {
-	service  ctrlservice.Service
+	service  control.Service
 	cancelFn context.CancelFunc
 }
 
@@ -36,9 +36,9 @@ func NewInsecureControlPlaneConnectionPool(opts ...ControlPlaneConnectionPoolOpt
 	return NewControlPlaneConnectionPool(nil, opts...)
 }
 
-func NewControlPlaneConnectionPool(certificateManager *network.CertificateManager, opts ...ControlPlaneConnectionPoolOption) *ControlPlaneConnectionPool {
+func NewControlPlaneConnectionPool(tlsDialerFactory TLSDialerFactory, opts ...ControlPlaneConnectionPoolOption) *ControlPlaneConnectionPool {
 	pool := &ControlPlaneConnectionPool{
-		certificateManager: certificateManager,
+		tlsDialerFactory: tlsDialerFactory,
 		baseDialOptions: &net.Dialer{
 			KeepAlive: keepAlive,
 			Deadline:  time.Time{},
@@ -62,13 +62,13 @@ func (cc *ControlPlaneConnectionPool) GetConnectedHosts(key string) []string {
 		return nil
 	}
 	hosts := make([]string, 0, len(m))
-	for k, _ := range m {
+	for k := range m {
 		hosts = append(hosts, k)
 	}
 	return hosts
 }
 
-func (cc *ControlPlaneConnectionPool) GetServices(key string) map[string]ctrlservice.Service {
+func (cc *ControlPlaneConnectionPool) GetServices(key string) map[string]control.Service {
 	cc.connsLock.Lock()
 	defer cc.connsLock.Unlock()
 	var m map[string]clientServiceHolder
@@ -76,14 +76,14 @@ func (cc *ControlPlaneConnectionPool) GetServices(key string) map[string]ctrlser
 	if m, ok = cc.conns[key]; !ok {
 		return nil
 	}
-	svcs := make(map[string]ctrlservice.Service, len(m))
+	svcs := make(map[string]control.Service, len(m))
 	for k, h := range m {
 		svcs[k] = h.service
 	}
 	return svcs
 }
 
-func (cc *ControlPlaneConnectionPool) ResolveControlInterface(key string, host string) (string, ctrlservice.Service) {
+func (cc *ControlPlaneConnectionPool) ResolveControlInterface(key string, host string) (string, control.Service) {
 	cc.connsLock.Lock()
 	defer cc.connsLock.Unlock()
 	if m, ok := cc.conns[key]; !ok {
@@ -138,7 +138,7 @@ func (cc *ControlPlaneConnectionPool) Close(ctx context.Context) {
 	cc.conns = make(map[string]map[string]clientServiceHolder)
 }
 
-func (cc *ControlPlaneConnectionPool) ReconcileConnections(ctx context.Context, key string, wantConnections []string, newServiceCb func(string, ctrlservice.Service), oldServiceCb func(string)) (map[string]ctrlservice.Service, error) {
+func (cc *ControlPlaneConnectionPool) ReconcileConnections(ctx context.Context, key string, wantConnections []string, newServiceCb func(string, control.Service), oldServiceCb func(string)) (map[string]control.Service, error) {
 	existingConnections := cc.GetConnectedHosts(key)
 
 	newConnections := setDifference(wantConnections, existingConnections)
@@ -174,14 +174,14 @@ func (cc *ControlPlaneConnectionPool) ReconcileConnections(ctx context.Context, 
 	return cc.GetServices(key), nil
 }
 
-func (cc *ControlPlaneConnectionPool) DialControlService(ctx context.Context, key string, host string) (string, ctrlservice.Service, error) {
+func (cc *ControlPlaneConnectionPool) DialControlService(ctx context.Context, key string, host string) (string, control.Service, error) {
 	var dialer network.Dialer
 	dialer = cc.baseDialOptions
-	// Check if certificateManager is set up, otherwise connect without tls
-	if cc.certificateManager != nil {
+	// Check if tlsDialerFactory is set up, otherwise connect without tls
+	if cc.tlsDialerFactory != nil {
 		// Create TLS dialer
 		var err error
-		dialer, err = cc.certificateManager.GenerateTLSDialer(cc.baseDialOptions)
+		dialer, err = cc.tlsDialerFactory.GenerateTLSDialer(cc.baseDialOptions)
 		if err != nil {
 			return "", nil, err
 		}

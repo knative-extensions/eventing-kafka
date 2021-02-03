@@ -14,22 +14,8 @@ import (
 )
 
 const (
-	AckOpCode uint8 = 0
-
 	controlServiceSendTimeout = 15 * time.Second
 )
-
-// Service is the high level interface that handles send with retries and acks
-type Service interface {
-	SendAndWaitForAck(opcode uint8, payload encoding.BinaryMarshaler) error
-	// This is non blocking, because a polling loop is already running inside.
-	InboundMessageHandler(handler ControlMessageHandler)
-	// This is non blocking, because a polling loop is already running inside.
-	ErrorHandler(handler ErrorHandler)
-}
-
-// ServiceWrapper wraps a service in another service to offer additional functionality
-type ServiceWrapper func(Service) Service
 
 type service struct {
 	ctx context.Context
@@ -40,10 +26,10 @@ type service struct {
 	waitingAcks      map[uuid.UUID]chan interface{}
 
 	handlerMutex sync.RWMutex
-	handler      ControlMessageHandler
+	handler      ctrl.MessageHandler
 
 	errorHandlerMutex sync.RWMutex
-	errorHandler      ErrorHandler
+	errorHandler      ctrl.ErrorHandler
 }
 
 func NewService(ctx context.Context, connection ctrl.Connection) *service {
@@ -58,7 +44,7 @@ func NewService(ctx context.Context, connection ctrl.Connection) *service {
 	return cs
 }
 
-func (c *service) SendAndWaitForAck(opcode uint8, payload encoding.BinaryMarshaler) error {
+func (c *service) SendAndWaitForAck(opcode ctrl.OpCode, payload encoding.BinaryMarshaler) error {
 	b, err := payload.MarshalBinary()
 	if err != nil {
 		return err
@@ -66,11 +52,11 @@ func (c *service) SendAndWaitForAck(opcode uint8, payload encoding.BinaryMarshal
 	return c.sendBinaryAndWaitForAck(opcode, b)
 }
 
-func (c *service) sendBinaryAndWaitForAck(opcode uint8, payload []byte) error {
-	if opcode == AckOpCode {
+func (c *service) sendBinaryAndWaitForAck(opcode ctrl.OpCode, payload []byte) error {
+	if opcode == ctrl.AckOpCode {
 		return fmt.Errorf("you cannot send an ack manually")
 	}
-	msg := ctrl.NewOutboundMessage(opcode, payload)
+	msg := ctrl.NewOutboundMessage(uint8(opcode), payload)
 
 	logging.FromContext(c.ctx).Debugf("Going to send message with opcode %d and uuid %s", msg.OpCode(), msg.UUID().String())
 
@@ -100,13 +86,13 @@ func (c *service) sendBinaryAndWaitForAck(opcode uint8, payload []byte) error {
 	}
 }
 
-func (c *service) InboundMessageHandler(handler ControlMessageHandler) {
+func (c *service) MessageHandler(handler ctrl.MessageHandler) {
 	c.handlerMutex.Lock()
 	c.handler = handler
 	c.handlerMutex.Unlock()
 }
 
-func (c *service) ErrorHandler(handler ErrorHandler) {
+func (c *service) ErrorHandler(handler ctrl.ErrorHandler) {
 	c.errorHandlerMutex.Lock()
 	c.errorHandler = handler
 	c.errorHandlerMutex.Unlock()
@@ -136,7 +122,7 @@ func (c *service) startPolling() {
 }
 
 func (c *service) accept(msg *ctrl.InboundMessage) {
-	if msg.OpCode() == AckOpCode {
+	if msg.OpCode() == uint8(ctrl.AckOpCode) {
 		// Propagate the ack
 		c.waitingAcksMutex.Lock()
 		ackCh := c.waitingAcks[msg.UUID()]
@@ -159,7 +145,7 @@ func (c *service) accept(msg *ctrl.InboundMessage) {
 			}
 		}
 		c.handlerMutex.RLock()
-		c.handler.HandleControlMessage(c.ctx, ControlMessage{inboundMessage: msg, ackFunc: ackFunc})
+		c.handler.HandleServiceMessage(c.ctx, ctrl.NewServiceMessage(msg, ackFunc))
 		c.handlerMutex.RUnlock()
 	}
 }
@@ -171,5 +157,5 @@ func (c *service) acceptError(err error) {
 }
 
 func newAckMessage(uuid [16]byte) ctrl.OutboundMessage {
-	return ctrl.NewOutboundMessageWithUUID(uuid, AckOpCode, nil)
+	return ctrl.NewOutboundMessageWithUUID(uuid, uint8(ctrl.AckOpCode), nil)
 }

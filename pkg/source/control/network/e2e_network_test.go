@@ -2,6 +2,7 @@ package network
 
 import (
 	"context"
+	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"net"
@@ -14,7 +15,8 @@ import (
 	"go.uber.org/zap"
 	"knative.dev/pkg/logging"
 
-	"knative.dev/eventing-kafka/pkg/source/control/service"
+	"knative.dev/eventing-kafka/pkg/source/control"
+	"knative.dev/eventing-kafka/pkg/source/control/certificates"
 )
 
 type mockMessage string
@@ -64,13 +66,13 @@ func TestServerToClientAndBack(t *testing.T) {
 	wg := sync.WaitGroup{}
 	wg.Add(6)
 
-	server.InboundMessageHandler(service.ControlMessageHandlerFunc(func(ctx context.Context, message service.ControlMessage) {
+	server.MessageHandler(control.MessageHandlerFunc(func(ctx context.Context, message control.ServiceMessage) {
 		require.Equal(t, uint8(2), message.Headers().OpCode())
 		require.Equal(t, "Funky2!", string(message.Payload()))
 		message.Ack()
 		wg.Done()
 	}))
-	client.InboundMessageHandler(service.ControlMessageHandlerFunc(func(ctx context.Context, message service.ControlMessage) {
+	client.MessageHandler(control.MessageHandlerFunc(func(ctx context.Context, message control.ServiceMessage) {
 		require.Equal(t, uint8(1), message.Headers().OpCode())
 		require.Equal(t, "Funky!", string(message.Payload()))
 		message.Ack()
@@ -110,7 +112,7 @@ func TestClientToServerWithClientStop(t *testing.T) {
 	wg := sync.WaitGroup{}
 	wg.Add(2)
 
-	server.InboundMessageHandler(service.ControlMessageHandlerFunc(func(ctx context.Context, message service.ControlMessage) {
+	server.MessageHandler(control.MessageHandlerFunc(func(ctx context.Context, message control.ServiceMessage) {
 		require.Equal(t, uint8(1), message.Headers().OpCode())
 		require.Equal(t, "Funky!", string(message.Payload()))
 		message.Ack()
@@ -154,7 +156,7 @@ func TestClientToServerWithServerStop(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	server.InboundMessageHandler(service.ControlMessageHandlerFunc(func(ctx context.Context, message service.ControlMessage) {
+	server.MessageHandler(control.MessageHandlerFunc(func(ctx context.Context, message control.ServiceMessage) {
 		require.Equal(t, uint8(1), message.Headers().OpCode())
 		require.Equal(t, "Funky!", string(message.Payload()))
 		message.Ack()
@@ -177,7 +179,7 @@ func TestClientToServerWithServerStop(t *testing.T) {
 		<-closedServerSignal
 	})
 
-	server2.InboundMessageHandler(service.ControlMessageHandlerFunc(func(ctx context.Context, message service.ControlMessage) {
+	server2.MessageHandler(control.MessageHandlerFunc(func(ctx context.Context, message control.ServiceMessage) {
 		require.Equal(t, uint8(1), message.Headers().OpCode())
 		require.Equal(t, "Funky!", string(message.Payload()))
 		message.Ack()
@@ -197,14 +199,14 @@ func TestManyMessages(t *testing.T) {
 
 	processed := atomic.NewInt32(0)
 
-	server.InboundMessageHandler(service.ControlMessageHandlerFunc(func(ctx context.Context, message service.ControlMessage) {
+	server.MessageHandler(control.MessageHandlerFunc(func(ctx context.Context, message control.ServiceMessage) {
 		require.Equal(t, uint8(2), message.Headers().OpCode())
 		require.Equal(t, "Funky2!", string(message.Payload()))
 		message.Ack()
 		wg.Done()
 		processed.Inc()
 	}))
-	client.InboundMessageHandler(service.ControlMessageHandlerFunc(func(ctx context.Context, message service.ControlMessage) {
+	client.MessageHandler(control.MessageHandlerFunc(func(ctx context.Context, message control.ServiceMessage) {
 		require.Equal(t, uint8(1), message.Headers().OpCode())
 		require.Equal(t, "Funky!", string(message.Payload()))
 		message.Ack()
@@ -231,38 +233,61 @@ func TestManyMessages(t *testing.T) {
 	logging.FromContext(ctx).Infof("Processed: %d", processed.Load())
 }
 
-func mustGenerateTLSServerConf(t *testing.T, certManager *CertificateManager) *tls.Config {
-	dataPlaneKeyPair, err := certManager.EmitNewDataPlaneCertificate(context.TODO())
-	require.NoError(t, err)
+func mustGenerateTLSServerConf(t *testing.T, ctx context.Context, caKey *rsa.PrivateKey, caCertificate *x509.Certificate) func() (*tls.Config, error) {
+	return func() (*tls.Config, error) {
+		dataPlaneKeyPair, err := certificates.CreateDataPlaneCert(ctx, caKey, caCertificate, 24*time.Hour)
+		require.NoError(t, err)
 
-	dataPlaneCert, err := tls.X509KeyPair(dataPlaneKeyPair.CertBytes(), dataPlaneKeyPair.PrivateKeyBytes())
-	require.NoError(t, err)
+		dataPlaneCert, err := tls.X509KeyPair(dataPlaneKeyPair.CertBytes(), dataPlaneKeyPair.PrivateKeyBytes())
+		require.NoError(t, err)
 
-	certPool := x509.NewCertPool()
-	certPool.AddCert(certManager.caCert)
-	return &tls.Config{
-		Certificates: []tls.Certificate{dataPlaneCert},
-		ClientCAs:    certPool,
-		ClientAuth:   tls.RequireAndVerifyClientCert,
-		ServerName:   certManager.CaCert().DNSNames[0],
+		certPool := x509.NewCertPool()
+		certPool.AddCert(caCertificate)
+		return &tls.Config{
+			Certificates: []tls.Certificate{dataPlaneCert},
+			ClientCAs:    certPool,
+			ClientAuth:   tls.RequireAndVerifyClientCert,
+			ServerName:   caCertificate.DNSNames[0],
+		}, nil
 	}
 }
 
-func testTLSConf(t *testing.T, ctx context.Context) (*tls.Config, *tls.Dialer) {
-	cm, err := NewCertificateManager(ctx)
+func mustGenerateTLSClientConf(t *testing.T, ctx context.Context, caKey *rsa.PrivateKey, caCertificate *x509.Certificate) *tls.Config {
+	controlPlaneKeyPair, err := certificates.CreateControlPlaneCert(ctx, caKey, caCertificate, 24*time.Hour)
 	require.NoError(t, err)
 
-	serverTLSConf := mustGenerateTLSServerConf(t, cm)
-
-	tlsDialer, err := cm.GenerateTLSDialer(&net.Dialer{
-		KeepAlive: keepAlive,
-		Deadline:  time.Time{},
-	})
+	controlPlaneCert, err := tls.X509KeyPair(controlPlaneKeyPair.CertBytes(), controlPlaneKeyPair.PrivateKeyBytes())
 	require.NoError(t, err)
+
+	certPool := x509.NewCertPool()
+	certPool.AddCert(caCertificate)
+	return &tls.Config{
+		Certificates: []tls.Certificate{controlPlaneCert},
+		RootCAs:      certPool,
+		ServerName:   certificates.FakeDnsName,
+	}
+}
+
+func testTLSConf(t *testing.T, ctx context.Context) (func() (*tls.Config, error), *tls.Dialer) {
+	caKP, err := certificates.CreateCACerts(ctx, 24*time.Hour)
+	require.NoError(t, err)
+	caCert, caPrivateKey, err := caKP.Parse()
+	require.NoError(t, err)
+
+	serverTLSConf := mustGenerateTLSServerConf(t, ctx, caPrivateKey, caCert)
+	clientTLSConf := mustGenerateTLSClientConf(t, ctx, caPrivateKey, caCert)
+
+	tlsDialer := &tls.Dialer{
+		NetDialer: &net.Dialer{
+			KeepAlive: keepAlive,
+			Deadline:  time.Time{},
+		},
+		Config: clientTLSConf,
+	}
 	return serverTLSConf, tlsDialer
 }
 
-func mustSetupWithTLS(t *testing.T) (serverCtx context.Context, server service.Service, clientCtx context.Context, client service.Service) {
+func mustSetupWithTLS(t *testing.T) (serverCtx context.Context, server control.Service, clientCtx context.Context, client control.Service) {
 	logger, _ := zap.NewDevelopment()
 	ctx := logging.WithLogger(context.TODO(), logger.Sugar())
 	serverTLSConf, clientTLSDialer := testTLSConf(t, ctx)
@@ -284,7 +309,7 @@ func mustSetupWithTLS(t *testing.T) (serverCtx context.Context, server service.S
 	return serverCtx, server, clientCtx, client
 }
 
-func mustSetupInsecure(t *testing.T) (serverCtx context.Context, server service.Service, clientCtx context.Context, client service.Service) {
+func mustSetupInsecure(t *testing.T) (serverCtx context.Context, server control.Service, clientCtx context.Context, client control.Service) {
 	logger, _ := zap.NewDevelopment()
 	ctx := logging.WithLogger(context.TODO(), logger.Sugar())
 
@@ -308,11 +333,11 @@ func mustSetupInsecure(t *testing.T) (serverCtx context.Context, server service.
 	return serverCtx, server, clientCtx, client
 }
 
-func runSendReceiveTest(t *testing.T, sender service.Service, receiver service.Service) {
+func runSendReceiveTest(t *testing.T, sender control.Service, receiver control.Service) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 
-	receiver.InboundMessageHandler(service.ControlMessageHandlerFunc(func(ctx context.Context, message service.ControlMessage) {
+	receiver.MessageHandler(control.MessageHandlerFunc(func(ctx context.Context, message control.ServiceMessage) {
 		require.Equal(t, uint8(1), message.Headers().OpCode())
 		require.Equal(t, "Funky!", string(message.Payload()))
 		message.Ack()

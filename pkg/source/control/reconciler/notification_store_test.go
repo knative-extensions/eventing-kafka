@@ -7,10 +7,10 @@ import (
 	"go.uber.org/atomic"
 	"k8s.io/apimachinery/pkg/types"
 
-	ctrlservice "knative.dev/eventing-kafka/pkg/source/control/service"
+	"knative.dev/eventing-kafka/pkg/source/control"
 )
 
-func setupNotificationStoreTest(t *testing.T) (ctrlservice.Service, *atomic.Int32, *NotificationStore, types.NamespacedName, string) {
+func setupNotificationStoreTest(t *testing.T) (control.Service, *atomic.Int32, *NotificationStore, types.NamespacedName, string) {
 	expectedNamespacedName := types.NamespacedName{Namespace: "hello", Name: "world"}
 	expectedPodIp := "127.0.0.1"
 
@@ -23,7 +23,7 @@ func setupNotificationStoreTest(t *testing.T) (ctrlservice.Service, *atomic.Int3
 		enqueueKeyInvoked.Inc()
 	}, parseMockMessage)
 
-	dataPlane.InboundMessageHandler(notificationsStore.ControlMessageHandler(expectedNamespacedName, expectedPodIp, mockValueMerger))
+	dataPlane.MessageHandler(notificationsStore.ControlMessageHandler(expectedNamespacedName, expectedPodIp, mockValueMerger))
 
 	return controlPlane, enqueueKeyInvoked, notificationsStore, expectedNamespacedName, expectedPodIp
 }
@@ -56,7 +56,7 @@ func TestNotificationStore_DontReconcileTwice(t *testing.T) {
 		enqueueKeyInvoked.Inc()
 	}, parseMockMessage)
 
-	dataPlane.InboundMessageHandler(notificationsStore.ControlMessageHandler(expectedNamespacedName, expectedPodIp, PassNewValue))
+	dataPlane.MessageHandler(notificationsStore.ControlMessageHandler(expectedNamespacedName, expectedPodIp, PassNewValue))
 
 	require.NoError(t, controlPlane.SendAndWaitForAck(1, mockMessage("Funky!")))
 	require.NoError(t, controlPlane.SendAndWaitForAck(1, mockMessage("Funky!")))

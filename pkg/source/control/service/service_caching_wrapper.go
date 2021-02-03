@@ -1,4 +1,4 @@
-package reconciler
+package service
 
 import (
 	"context"
@@ -8,33 +8,33 @@ import (
 
 	"knative.dev/pkg/logging"
 
-	ctrlservice "knative.dev/eventing-kafka/pkg/source/control/service"
+	"knative.dev/eventing-kafka/pkg/source/control"
 )
 
 type cachingService struct {
-	ctrlservice.Service
+	control.Service
 
 	ctx context.Context
 
 	sentMessageMutex sync.RWMutex
-	sentMessages     map[uint8]interface{}
+	sentMessages     map[control.OpCode]interface{}
 }
 
-var _ ctrlservice.Service = (*cachingService)(nil)
+var _ control.Service = (*cachingService)(nil)
 
 // WithCachingService will cache last message sent for each opcode and, in case you try to send a message again with the same opcode and payload, the message
 // won't be sent again
-func WithCachingService(ctx context.Context) ctrlservice.ServiceWrapper {
-	return func(service ctrlservice.Service) ctrlservice.Service {
+func WithCachingService(ctx context.Context) control.ServiceWrapper {
+	return func(service control.Service) control.Service {
 		return &cachingService{
 			Service:      service,
 			ctx:          ctx,
-			sentMessages: make(map[uint8]interface{}),
+			sentMessages: make(map[control.OpCode]interface{}),
 		}
 	}
 }
 
-func (c *cachingService) SendAndWaitForAck(opcode uint8, payload encoding.BinaryMarshaler) error {
+func (c *cachingService) SendAndWaitForAck(opcode control.OpCode, payload encoding.BinaryMarshaler) error {
 	c.sentMessageMutex.RLock()
 	lastPayload, ok := c.sentMessages[opcode]
 	c.sentMessageMutex.RUnlock()

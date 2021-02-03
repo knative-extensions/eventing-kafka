@@ -38,6 +38,7 @@ import (
 
 	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 	ctrlkafkasource "knative.dev/eventing-kafka/pkg/source/control/kafkasource"
+	"knative.dev/eventing-kafka/pkg/source/control"
 	ctrlreconciler "knative.dev/eventing-kafka/pkg/source/control/reconciler"
 	ctrlservice "knative.dev/eventing-kafka/pkg/source/control/service"
 	"knative.dev/eventing-kafka/pkg/source/reconciler/source/resources"
@@ -202,21 +203,19 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 		ctx,
 		string(src.UID),
 		getPodIPs(pods.Items),
-		func(newHost string, service ctrlservice.Service) {
-			service.InboundMessageHandler(
-				ctrlreconciler.NewMessageRouter(map[uint8]ctrlservice.ControlMessageHandler{
-					ctrlkafkasource.NotifySetupClaimsOpCode: r.claimsNotificationStore.ControlMessageHandler(
-						srcNamespacedName,
-						newHost,
-						ctrlkafkasource.ClaimsMerger,
-					),
-					ctrlkafkasource.NotifyCleanupClaimsOpCode: r.claimsNotificationStore.ControlMessageHandler(
-						srcNamespacedName,
-						newHost,
-						ctrlkafkasource.ClaimsDifference,
-					),
-				}),
-			)
+		func(newHost string, service control.Service) {
+			service.MessageHandler(ctrlservice.MessageRouter{
+				ctrlkafkasource.NotifySetupClaimsOpCode: r.claimsNotificationStore.ControlMessageHandler(
+					srcNamespacedName,
+					newHost,
+					ctrlkafkasource.ClaimsMerger,
+				),
+				ctrlkafkasource.NotifyCleanupClaimsOpCode: r.claimsNotificationStore.ControlMessageHandler(
+					srcNamespacedName,
+					newHost,
+					ctrlkafkasource.ClaimsDifference,
+				),
+			})
 		},
 		func(oldHost string) {
 			r.claimsNotificationStore.CleanPodNotification(srcNamespacedName, oldHost)

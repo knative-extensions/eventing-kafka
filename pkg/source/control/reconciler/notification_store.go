@@ -8,7 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/logging"
 
-	ctrlservice "knative.dev/eventing-kafka/pkg/source/control/service"
+	"knative.dev/eventing-kafka/pkg/source/control"
 )
 
 type NotificationStore struct {
@@ -37,8 +37,8 @@ func NewNotificationStore(enqueueKey func(name types.NamespacedName), parser Pay
 	}
 }
 
-func (n *NotificationStore) ControlMessageHandler(srcName types.NamespacedName, pod string, valueMerger ValueMerger) ctrlservice.ControlMessageHandler {
-	return ctrlservice.ControlMessageHandlerFunc(func(ctx context.Context, message ctrlservice.ControlMessage) {
+func (n *NotificationStore) ControlMessageHandler(srcName types.NamespacedName, pod string, valueMerger ValueMerger) control.MessageHandler {
+	return control.MessageHandlerFunc(func(ctx context.Context, message control.ServiceMessage) {
 		// Parse the payload
 		parsedPayload, err := n.payloadParser(message.Payload())
 		if err != nil {

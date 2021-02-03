@@ -2,16 +2,21 @@ package reconciler
 
 import (
 	"context"
+	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"net"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"knative.dev/pkg/logging"
 
+	"knative.dev/eventing-kafka/pkg/source/control"
+	"knative.dev/eventing-kafka/pkg/source/control/certificates"
 	"knative.dev/eventing-kafka/pkg/source/control/network"
 	"knative.dev/eventing-kafka/pkg/source/control/service"
 )
@@ -43,22 +48,26 @@ func mockValueMerger(old interface{}, new interface{}) interface{} {
 	return &merged
 }
 
-var serverConnectionPoolSetupTestCases = map[string]func(t *testing.T, ctx context.Context, opts ...ControlPlaneConnectionPoolOption) (service.Service, *ControlPlaneConnectionPool){
+var serverConnectionPoolSetupTestCases = map[string]func(t *testing.T, ctx context.Context, opts ...ControlPlaneConnectionPoolOption) (control.Service, *ControlPlaneConnectionPool){
 	"InsecureConnectionPool": setupInsecureServerAndConnectionPool,
-	"TLSConnectionPool": func(t *testing.T, ctx context.Context, opts ...ControlPlaneConnectionPoolOption) (service.Service, *ControlPlaneConnectionPool) {
+	"TLSConnectionPool": func(t *testing.T, ctx context.Context, opts ...ControlPlaneConnectionPoolOption) (control.Service, *ControlPlaneConnectionPool) {
 		serverCtx, serverCancelFn := context.WithCancel(ctx)
 
-		certManager, err := network.NewCertificateManager(ctx)
+		caKP, err := certificates.CreateCACerts(ctx, 24*time.Hour)
+		require.NoError(t, err)
+		caCert, caPrivateKey, err := caKP.Parse()
 		require.NoError(t, err)
 
-		server, closedServerSignal, err := network.StartControlServer(serverCtx, mustGenerateTLSServerConf(t, certManager))
+		clientTLSDialerFactory := mustGenerateTLSClientConf(t, ctx, caPrivateKey, caCert)
+
+		server, closedServerSignal, err := network.StartControlServer(serverCtx, mustGenerateTLSServerConf(t, ctx, caPrivateKey, caCert))
 		require.NoError(t, err)
 		t.Cleanup(func() {
 			serverCancelFn()
 			<-closedServerSignal
 		})
 
-		connectionPool := NewControlPlaneConnectionPool(certManager, opts...)
+		connectionPool := NewControlPlaneConnectionPool(clientTLSDialerFactory, opts...)
 		t.Cleanup(func() {
 			connectionPool.Close(ctx)
 		})
@@ -78,7 +87,7 @@ func TestReconcileConnections(t *testing.T) {
 			newServiceInvokedCounter := atomic.NewInt32(0)
 			oldServiceInvokedCounter := atomic.NewInt32(0)
 
-			conns, err := connectionPool.ReconcileConnections(context.TODO(), "hello", []string{"127.0.0.1"}, func(string, service.Service) {
+			conns, err := connectionPool.ReconcileConnections(context.TODO(), "hello", []string{"127.0.0.1"}, func(string, control.Service) {
 				newServiceInvokedCounter.Inc()
 			}, func(string) {
 				oldServiceInvokedCounter.Inc()
@@ -93,7 +102,7 @@ func TestReconcileConnections(t *testing.T) {
 			newServiceInvokedCounter.Store(0)
 			oldServiceInvokedCounter.Store(0)
 
-			conns, err = connectionPool.ReconcileConnections(context.TODO(), "hello", []string{}, func(string, service.Service) {
+			conns, err = connectionPool.ReconcileConnections(context.TODO(), "hello", []string{}, func(string, control.Service) {
 				newServiceInvokedCounter.Inc()
 			}, func(string) {
 				oldServiceInvokedCounter.Inc()
@@ -112,7 +121,7 @@ func TestCachingWrapper(t *testing.T) {
 	ctx := logging.WithLogger(context.TODO(), logger.Sugar())
 	for name, setupFn := range serverConnectionPoolSetupTestCases {
 		t.Run(name, func(t *testing.T) {
-			dataPlane, connectionPool := setupFn(t, ctx, WithServiceWrapper(WithCachingService(ctx)))
+			dataPlane, connectionPool := setupFn(t, ctx, WithServiceWrapper(service.WithCachingService(ctx)))
 
 			conns, err := connectionPool.ReconcileConnections(context.TODO(), "hello", []string{"127.0.0.1"}, nil, nil)
 			require.NoError(t, err)
@@ -122,7 +131,7 @@ func TestCachingWrapper(t *testing.T) {
 
 			messageReceivedCounter := atomic.NewInt32(0)
 
-			dataPlane.InboundMessageHandler(service.ControlMessageHandlerFunc(func(ctx context.Context, message service.ControlMessage) {
+			dataPlane.MessageHandler(control.MessageHandlerFunc(func(ctx context.Context, message control.ServiceMessage) {
 				require.Equal(t, uint8(1), message.Headers().OpCode())
 				require.Equal(t, "Funky!", string(message.Payload()))
 				message.Ack()
@@ -138,28 +147,58 @@ func TestCachingWrapper(t *testing.T) {
 	}
 }
 
-func mustGenerateTLSServerConf(t *testing.T, certManager *network.CertificateManager) *tls.Config {
-	dataPlaneKeyPair, err := certManager.EmitNewDataPlaneCertificate(context.TODO())
-	require.NoError(t, err)
+func mustGenerateTLSServerConf(t *testing.T, ctx context.Context, caKey *rsa.PrivateKey, caCertificate *x509.Certificate) func() (*tls.Config, error) {
+	return func() (*tls.Config, error) {
+		dataPlaneKeyPair, err := certificates.CreateDataPlaneCert(ctx, caKey, caCertificate, 24*time.Hour)
+		require.NoError(t, err)
 
-	dataPlaneCert, err := tls.X509KeyPair(dataPlaneKeyPair.CertBytes(), dataPlaneKeyPair.PrivateKeyBytes())
-	require.NoError(t, err)
+		dataPlaneCert, err := tls.X509KeyPair(dataPlaneKeyPair.CertBytes(), dataPlaneKeyPair.PrivateKeyBytes())
+		require.NoError(t, err)
 
-	certPool := x509.NewCertPool()
-	certPool.AddCert(certManager.CaCert())
-	return &tls.Config{
-		Certificates: []tls.Certificate{dataPlaneCert},
-		ClientCAs:    certPool,
-		ClientAuth:   tls.RequireAndVerifyClientCert,
-		ServerName:   certManager.CaCert().DNSNames[0],
+		certPool := x509.NewCertPool()
+		certPool.AddCert(caCertificate)
+		return &tls.Config{
+			Certificates: []tls.Certificate{dataPlaneCert},
+			ClientCAs:    certPool,
+			ClientAuth:   tls.RequireAndVerifyClientCert,
+			ServerName:   caCertificate.DNSNames[0],
+		}, nil
 	}
 }
 
-func runSendReceiveTest(t *testing.T, sender service.Service, receiver service.Service) {
+type mockTLSDialerFactory tls.Config
+
+func (m *mockTLSDialerFactory) GenerateTLSDialer(baseDialOptions *net.Dialer) (*tls.Dialer, error) {
+	// Copy from base dial options
+	dialOptions := *baseDialOptions
+
+	return &tls.Dialer{
+		NetDialer: &dialOptions,
+		Config:    (*tls.Config)(m),
+	}, nil
+}
+
+func mustGenerateTLSClientConf(t *testing.T, ctx context.Context, caKey *rsa.PrivateKey, caCertificate *x509.Certificate) TLSDialerFactory {
+	controlPlaneKeyPair, err := certificates.CreateControlPlaneCert(ctx, caKey, caCertificate, 24*time.Hour)
+	require.NoError(t, err)
+
+	controlPlaneCert, err := tls.X509KeyPair(controlPlaneKeyPair.CertBytes(), controlPlaneKeyPair.PrivateKeyBytes())
+	require.NoError(t, err)
+
+	certPool := x509.NewCertPool()
+	certPool.AddCert(caCertificate)
+	return &mockTLSDialerFactory{
+		Certificates: []tls.Certificate{controlPlaneCert},
+		RootCAs:      certPool,
+		ServerName:   certificates.FakeDnsName,
+	}
+}
+
+func runSendReceiveTest(t *testing.T, sender control.Service, receiver control.Service) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 
-	receiver.InboundMessageHandler(service.ControlMessageHandlerFunc(func(ctx context.Context, message service.ControlMessage) {
+	receiver.MessageHandler(control.MessageHandlerFunc(func(ctx context.Context, message control.ServiceMessage) {
 		require.Equal(t, uint8(1), message.Headers().OpCode())
 		require.Equal(t, "Funky!", string(message.Payload()))
 		message.Ack()
@@ -171,7 +210,7 @@ func runSendReceiveTest(t *testing.T, sender service.Service, receiver service.S
 	wg.Wait()
 }
 
-func setupInsecureServerAndConnectionPool(t *testing.T, ctx context.Context, opts ...ControlPlaneConnectionPoolOption) (service.Service, *ControlPlaneConnectionPool) {
+func setupInsecureServerAndConnectionPool(t *testing.T, ctx context.Context, opts ...ControlPlaneConnectionPoolOption) (control.Service, *ControlPlaneConnectionPool) {
 	serverCtx, serverCancelFn := context.WithCancel(ctx)
 
 	server, closedServerSignal, err := network.StartInsecureControlServer(serverCtx)

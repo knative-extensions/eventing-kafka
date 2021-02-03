@@ -16,7 +16,7 @@ type Dialer interface {
 	DialContext(ctx context.Context, network, addr string) (net.Conn, error)
 }
 
-func StartControlClient(ctx context.Context, dialOptions Dialer, target string) (ctrlservice.Service, error) {
+func StartControlClient(ctx context.Context, dialOptions Dialer, target string) (ctrl.Service, error) {
 	target = target + ":9000"
 	logging.FromContext(ctx).Infof("Starting control client to %s", target)
 
