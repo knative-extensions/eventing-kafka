@@ -510,76 +510,69 @@ func TestSetReady(t *testing.T) {
 
 func TestServeHTTP(t *testing.T) {
 
+	httpGet := "GET"
+	httpPost := "POST"
 	testCases := []struct {
 		name               string
 		responseReturnCode int
 		desiredJson        []byte
-		channelRef         eventingchannels.ChannelReference
 		channelSubs        map[eventingchannels.ChannelReference]*KafkaSubscription
+		requestURI         string
+		httpMethod         string
 	}{
 		{
 			name:               "channelref not found",
+			httpMethod:         httpGet,
 			responseReturnCode: http.StatusNotFound,
 			desiredJson:        []byte{},
-			channelRef: eventingchannels.ChannelReference{
-				Name:      "doesnt",
-				Namespace: "exist",
-			},
+			requestURI:         "/exist/thisDoesNot",
 		}, {
 			name:               "nop",
+			httpMethod:         httpGet,
 			responseReturnCode: http.StatusNotFound,
 			desiredJson:        []byte{},
-			channelRef:         eventingchannels.ChannelReference{},
+			requestURI:         "///",
 		}, {
 			name:               "no ready subscribers",
+			httpMethod:         httpGet,
 			responseReturnCode: http.StatusOK,
 			desiredJson:        []byte(`{"bar/foo":[]}`),
-			channelRef: eventingchannels.ChannelReference{
-				Name:      "foo",
-				Namespace: "bar",
-			},
 			channelSubs: map[eventingchannels.ChannelReference]*KafkaSubscription{
 				{Name: "foo", Namespace: "bar"}: {
 					subs:                      []types.UID{},
 					channelReadySubscriptions: sets.String{},
 				},
 			},
+			requestURI: "/bar/foo",
 		}, {
 			name:               "different channelref called from populated channref (different ns)",
+			httpMethod:         httpGet,
 			desiredJson:        []byte{},
 			responseReturnCode: http.StatusNotFound,
-			channelRef: eventingchannels.ChannelReference{
-				Name:      "foo",
-				Namespace: "bar",
-			},
 			channelSubs: map[eventingchannels.ChannelReference]*KafkaSubscription{
 				{Name: "foo", Namespace: "baz"}: {
 					subs:                      []types.UID{"a", "b"},
 					channelReadySubscriptions: sets.String{"a": sets.Empty{}, "b": sets.Empty{}},
 				},
 			},
+			requestURI: "/bar/foo",
 		}, {
 			name:               "return correct subscription",
+			httpMethod:         httpGet,
 			desiredJson:        []byte(`{"bar/foo":["a","b"]}`),
 			responseReturnCode: http.StatusOK,
-			channelRef: eventingchannels.ChannelReference{
-				Name:      "foo",
-				Namespace: "bar",
-			},
 			channelSubs: map[eventingchannels.ChannelReference]*KafkaSubscription{
 				{Name: "foo", Namespace: "bar"}: {
 					subs:                      []types.UID{"a", "b"},
 					channelReadySubscriptions: sets.String{"a": sets.Empty{}, "b": sets.Empty{}},
 				},
 			},
+			requestURI: "/bar/foo",
 		}, {
 			name:               "return correct subscription from multiple chanrefs",
+			httpMethod:         httpGet,
 			desiredJson:        []byte(`{"bar/foo":["a","b"]}`),
 			responseReturnCode: http.StatusOK,
-			channelRef: eventingchannels.ChannelReference{
-				Name:      "foo",
-				Namespace: "bar",
-			},
 			channelSubs: map[eventingchannels.ChannelReference]*KafkaSubscription{
 				{Name: "table", Namespace: "flip"}: {
 					subs:                      []types.UID{"c", "d"},
@@ -590,6 +583,18 @@ func TestServeHTTP(t *testing.T) {
 					channelReadySubscriptions: sets.String{"a": sets.Empty{}, "b": sets.Empty{}},
 				},
 			},
+			requestURI: "/bar/foo",
+		}, {
+			name:               "bad request uri",
+			httpMethod:         httpGet,
+			desiredJson:        []byte{},
+			responseReturnCode: http.StatusNotFound,
+			requestURI:         "/here/be/dragons/there/are/too/many/slashes",
+		}, {
+			name:               "bad request method (POST)",
+			httpMethod:         httpPost,
+			desiredJson:        []byte{},
+			responseReturnCode: http.StatusMethodNotAllowed,
 		},
 	}
 	d := &KafkaDispatcher{
@@ -603,7 +608,9 @@ func TestServeHTTP(t *testing.T) {
 			t.Logf("Running %s", t.Name())
 			d.channelSubscriptions = tc.channelSubs
 
-			resp, err := http.Get(fmt.Sprintf("%s/%s/%s", ts.URL, tc.channelRef.Namespace, tc.channelRef.Name))
+			request, _ := http.NewRequest(tc.httpMethod, fmt.Sprintf("%s%s", ts.URL, tc.requestURI), nil)
+			//			resp, err := http.Get(fmt.Sprintf("%s%s", ts.URL, tc.requestURI))
+			resp, err := http.DefaultClient.Do(request)
 			if err != nil {
 				t.Errorf("Could not send request to subscriber endpoint: %v", err)
 			}
