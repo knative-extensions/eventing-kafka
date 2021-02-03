@@ -47,11 +47,8 @@ func (c *customConsumerGroup) Errors() <-chan error {
 }
 
 func (c *customConsumerGroup) Close() error {
-	err := c.ConsumerGroup.Close()
-	// Canceling the context after the close of consumer group makes sure we cleanup the error channel
-	// after the consumer group is stopped
 	c.cancel()
-	return err
+	return c.ConsumerGroup.Close()
 }
 
 var _ sarama.ConsumerGroup = (*customConsumerGroup)(nil)
