@@ -106,11 +106,13 @@ func (sub Subscription) String() string {
 func (d *KafkaDispatcher) ServeHTTP(w nethttp.ResponseWriter, r *nethttp.Request) {
 	if r.Method != nethttp.MethodGet {
 		w.WriteHeader(nethttp.StatusMethodNotAllowed)
+		d.logger.Errorf("Received request method that wasn't GET: %s", r.Method)
 		return
 	}
 	uriSplit := strings.Split(r.RequestURI, "/")
 	if len(uriSplit) != 3 {
 		w.WriteHeader(nethttp.StatusNotFound)
+		d.logger.Errorf("Unable to process request: %s", r.RequestURI)
 		return
 	}
 	channelRefNamespace, channelRefName := uriSplit[1], uriSplit[2]
@@ -129,7 +131,8 @@ func (d *KafkaDispatcher) ServeHTTP(w nethttp.ResponseWriter, r *nethttp.Request
 	subscriptions[channelRefNamespace+"/"+channelRefName] = d.channelSubscriptions[channelRef].channelReadySubscriptions.List()
 	jsonResult, err := json.Marshal(subscriptions)
 	if err != nil {
-		return // we should probably log instead, pass logger via context?
+		d.logger.Errorf("Error marshalling json for sub-status channelref: %s/%s, %w", channelRefNamespace, channelRefName, err)
+		return
 	}
 	fmt.Fprintf(w, string(jsonResult))
 	w.WriteHeader(nethttp.StatusOK)
