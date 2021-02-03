@@ -134,8 +134,10 @@ func (d *KafkaDispatcher) ServeHTTP(w nethttp.ResponseWriter, r *nethttp.Request
 		d.logger.Errorf("Error marshalling json for sub-status channelref: %s/%s, %w", channelRefNamespace, channelRefName, err)
 		return
 	}
-	fmt.Fprintf(w, string(jsonResult))
-	w.WriteHeader(nethttp.StatusOK)
+	_, err = w.Write(jsonResult)
+	if err != nil {
+		d.logger.Errorf("Error writing jsonResult to serveHTTP writer: %w", err)
+	}
 }
 
 func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispatcher, error) {
