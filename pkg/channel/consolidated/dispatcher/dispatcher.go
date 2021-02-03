@@ -127,7 +127,7 @@ func (d *KafkaDispatcher) ServeHTTP(w nethttp.ResponseWriter, r *nethttp.Request
 	d.channelSubscriptions[channelRef].readySubscriptionsLock.RLock()
 	defer d.channelSubscriptions[channelRef].readySubscriptionsLock.RUnlock()
 	var subscriptions = make(map[string][]string)
-	w.Header().Set(dispatcherReadySubHeader, uriSplit[2])
+	w.Header().Set(dispatcherReadySubHeader, channelRefName)
 	subscriptions[channelRefNamespace+"/"+channelRefName] = d.channelSubscriptions[channelRef].channelReadySubscriptions.List()
 	jsonResult, err := json.Marshal(subscriptions)
 	if err != nil {
