@@ -19,6 +19,7 @@ package main
 import (
 	"context"
 	"flag"
+	"knative.dev/eventing/pkg/kncloudevents"
 	"strconv"
 	"strings"
 
@@ -113,6 +114,12 @@ func main() {
 	}
 
 	statsReporter := metrics.NewStatsReporter(logger)
+
+	// Increase The Idle Connection Limits From Transport Defaults (see net/http/DefaultTransport)
+	kncloudevents.ConfigureConnectionArgs(&kncloudevents.ConnectionArgs{
+		MaxIdleConns:        constants.DefaultMaxIdleConns,
+		MaxIdleConnsPerHost: constants.DefaultMaxIdleConnsPerHost,
+	})
 
 	// Create The Dispatcher With Specified Configuration
 	dispatcherConfig := dispatch.DispatcherConfig{
