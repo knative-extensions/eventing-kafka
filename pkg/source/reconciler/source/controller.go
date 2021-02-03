@@ -25,6 +25,7 @@ import (
 	"knative.dev/eventing/pkg/apis/sources/v1alpha1"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	deploymentinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
+	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -50,6 +51,7 @@ func NewController(
 
 	kafkaInformer := kafkainformer.Get(ctx)
 	deploymentInformer := deploymentinformer.Get(ctx)
+	podInformer := podinformer.Get(ctx)
 
 	c := &Reconciler{
 		KubeClientSet:       kubeclient.Get(ctx),
@@ -59,6 +61,7 @@ func NewController(
 		receiveAdapterImage: raImage,
 		loggingContext:      ctx,
 		configs:             WatchConfigurations(ctx, component, cmw),
+		podIpGetter:         ctrlreconciler.PodIpGetter{Lister: podInformer.Lister()},
 		connectionPool:      ctrlreconciler.NewInsecureControlPlaneConnectionPool(),
 	}
 

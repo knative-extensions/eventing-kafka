@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
@@ -37,8 +38,8 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 
 	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
-	ctrlkafkasource "knative.dev/eventing-kafka/pkg/source/control/kafkasource"
 	"knative.dev/eventing-kafka/pkg/source/control"
+	ctrlkafkasource "knative.dev/eventing-kafka/pkg/source/control/kafkasource"
 	ctrlreconciler "knative.dev/eventing-kafka/pkg/source/control/reconciler"
 	ctrlservice "knative.dev/eventing-kafka/pkg/source/control/service"
 	"knative.dev/eventing-kafka/pkg/source/reconciler/source/resources"
@@ -104,6 +105,7 @@ type Reconciler struct {
 
 	configs KafkaSourceConfigAccessor
 
+	podIpGetter             ctrlreconciler.PodIpGetter
 	connectionPool          *ctrlreconciler.ControlPlaneConnectionPool
 	claimsNotificationStore *ctrlreconciler.NotificationStore
 }
@@ -181,20 +183,14 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 	logging.FromContext(ctx).Debugf("we have a RA deployment")
 
 	// We need to get all the pods for that ra deployment
-	pods, err := r.KubeClientSet.CoreV1().Pods(src.Namespace).List(ctx, metav1.ListOptions{
-		LabelSelector: resources.LabelSelector(src.Name),
-	})
+	podIPs, err := r.podIpGetter.GetAllPodsIp(src.Namespace, labels.Set(resources.GetLabels(src.Name)).AsSelector())
 	if err != nil {
 		return fmt.Errorf("error getting receive adapter pods %q: %v", ra.Name, err)
 	}
 
 	// Check if all the pods are up as they should be
-	if len(pods.Items) == 0 {
-		logging.FromContext(ctx).Infof("returning because there is still no pod up for the deployment '%s'", ra.Name)
-		return nil
-	}
-	if derefReplicas(ra.Spec.Replicas) != int32(len(pods.Items)) {
-		return fmt.Errorf("returning because the numbers of pods deployed doesn't match the expected: %d", len(pods.Items))
+	if derefReplicas(ra.Spec.Replicas) != int32(len(podIPs)) {
+		return fmt.Errorf("returning because the numbers of pods deployed doesn't match the expected: %d", len(podIPs))
 	}
 
 	// Reconcile connections
@@ -202,7 +198,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 	_, err = r.connectionPool.ReconcileConnections(
 		ctx,
 		string(src.UID),
-		getPodIPs(pods.Items),
+		podIPs,
 		func(newHost string, service control.Service) {
 			service.MessageHandler(ctrlservice.MessageRouter{
 				ctrlkafkasource.NotifySetupClaimsOpCode: r.claimsNotificationStore.ControlMessageHandler(
@@ -336,14 +332,6 @@ func derefReplicas(i *int32) int32 {
 		return 1
 	}
 	return *i
-}
-
-func getPodIPs(pods []corev1.Pod) []string {
-	ips := make([]string, len(pods))
-	for i, pod := range pods {
-		ips[i] = pod.Status.PodIP
-	}
-	return ips
 }
 
 func stringifyClaimsStatus(status map[string]interface{}) string {
