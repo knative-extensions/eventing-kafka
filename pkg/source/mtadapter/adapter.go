@@ -108,6 +108,7 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) {
 	config := stadapter.AdapterConfig{
 		EnvConfig: adapter.EnvConfig{
 			Component: "kafkasource",
+			Namespace: obj.Namespace,
 		},
 		KafkaEnvConfig: source.KafkaEnvConfig{
 			BootstrapServers: obj.Spec.BootstrapServers,
