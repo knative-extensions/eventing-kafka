@@ -170,7 +170,7 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 	}
 
 	go func() {
-		dispatcher.logger.Fatal(nethttp.ListenAndServe(":", dispatcher))
+		dispatcher.logger.Fatal(nethttp.ListenAndServe(":8081", dispatcher))
 	}()
 
 	podName, err := env.GetRequiredConfigValue(args.Logger.Desugar(), env.PodNameEnvVarKey)
