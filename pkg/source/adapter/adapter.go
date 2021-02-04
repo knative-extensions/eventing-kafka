@@ -117,6 +117,8 @@ func (a *Adapter) start(stopCh <-chan struct{}) error {
 	return nil
 }
 
+func (a *Adapter) SetReady(_ bool) {}
+
 func (a *Adapter) Handle(ctx context.Context, msg *sarama.ConsumerMessage) (bool, error) {
 	ctx, span := trace.StartSpan(ctx, "kafka-source")
 	defer span.End()

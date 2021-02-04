@@ -114,6 +114,9 @@ func (m mockMessageHandler) Handle(ctx context.Context, message *sarama.Consumer
 	}
 }
 
+func (m mockMessageHandler) SetReady(ready bool) {
+}
+
 //------ Tests
 
 func Test(t *testing.T) {

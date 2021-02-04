@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors
+Copyright 2021 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ type KafkaConsumerHandler interface {
 	// When this function returns true, the consumer group offset is marked as consumed.
 	// The returned error is enqueued in errors channel.
 	Handle(context context.Context, message *sarama.ConsumerMessage) (bool, error)
+	SetReady(ready bool)
 }
 
 // ConsumerHandler implements sarama.ConsumerGroupHandler and provides some glue code to simplify message handling
@@ -59,6 +60,7 @@ func (consumer *SaramaConsumerHandler) Setup(sarama.ConsumerGroupSession) error 
 // Cleanup is run at the end of a session, once all ConsumeClaim goroutines have exited
 func (consumer *SaramaConsumerHandler) Cleanup(session sarama.ConsumerGroupSession) error {
 	consumer.logger.Info("cleanup handler")
+	consumer.handler.SetReady(false)
 	return nil
 }
 
@@ -82,6 +84,7 @@ func (consumer *SaramaConsumerHandler) ConsumeClaim(session sarama.ConsumerGroup
 		if err != nil {
 			consumer.logger.Infow("Failure while handling a message", zap.String("topic", message.Topic), zap.Int32("partition", message.Partition), zap.Int64("offset", message.Offset), zap.Error(err))
 			consumer.errors <- err
+			consumer.handler.SetReady(false)
 		}
 
 		if mustMark {
@@ -89,6 +92,7 @@ func (consumer *SaramaConsumerHandler) ConsumeClaim(session sarama.ConsumerGroup
 			if ce := consumer.logger.Desugar().Check(zap.DebugLevel, "debugging"); ce != nil {
 				consumer.logger.Debugw("Message marked", zap.String("topic", message.Topic), zap.Binary("value", message.Value))
 			}
+			consumer.handler.SetReady(true)
 		}
 
 	}
