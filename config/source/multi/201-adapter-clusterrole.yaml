@@ -56,6 +56,13 @@ rules:
   - watch
 
 - apiGroups:
+    - ""
+  resources:
+    - secrets
+  verbs:
+    - get
+
+- apiGroups:
    - ""
   resources:
   - events
