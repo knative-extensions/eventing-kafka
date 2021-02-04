@@ -67,7 +67,6 @@ func (consumer *SaramaConsumerHandler) Cleanup(session sarama.ConsumerGroupSessi
 // ConsumeClaim must start a consumer loop of ConsumerGroupClaim's Messages().
 func (consumer *SaramaConsumerHandler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	consumer.logger.Info(fmt.Sprintf("Starting partition consumer, topic: %s, partition: %d, initialOffset: %d", claim.Topic(), claim.Partition(), claim.InitialOffset()))
-	consumer.handler.SetReady(true)
 
 	// NOTE:
 	// Do not move the code below to a goroutine.
@@ -86,6 +85,7 @@ func (consumer *SaramaConsumerHandler) ConsumeClaim(session sarama.ConsumerGroup
 		if err != nil {
 			consumer.logger.Infow("Failure while handling a message", zap.String("topic", message.Topic), zap.Int32("partition", message.Partition), zap.Int64("offset", message.Offset), zap.Error(err))
 			consumer.errors <- err
+			consumer.handler.SetReady(false)
 		}
 
 		if mustMark {
@@ -93,6 +93,7 @@ func (consumer *SaramaConsumerHandler) ConsumeClaim(session sarama.ConsumerGroup
 			if ce := consumer.logger.Desugar().Check(zap.DebugLevel, "debugging"); ce != nil {
 				consumer.logger.Debugw("Message marked", zap.String("topic", message.Topic), zap.Binary("value", message.Value))
 			}
+			consumer.handler.SetReady(true)
 		}
 
 	}
