@@ -20,16 +20,18 @@ import (
 	"context"
 	"sync"
 
-	"golang.org/x/time/rate"
-
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"go.uber.org/zap"
-
-	"knative.dev/pkg/logging"
-	pkgsource "knative.dev/pkg/source"
+	"golang.org/x/time/rate"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 
 	"knative.dev/eventing/pkg/adapter/v2"
 	"knative.dev/eventing/pkg/kncloudevents"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
+	"knative.dev/pkg/logging"
+	pkgsource "knative.dev/pkg/source"
 
 	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 	"knative.dev/eventing-kafka/pkg/common/scheduler"
@@ -52,6 +54,7 @@ type Adapter struct {
 	logger      *zap.SugaredLogger
 	client      cloudevents.Client
 	adapterCtor adapter.MessageAdapterConstructor
+	kubeClient  kubernetes.Interface
 
 	sourcesMu sync.RWMutex
 	sources   map[string]context.CancelFunc
@@ -72,6 +75,7 @@ func newAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, ceClie
 		config:      config,
 		logger:      logger,
 		adapterCtor: adapterCtor,
+		kubeClient:  kubeclient.Get(ctx),
 		sourcesMu:   sync.RWMutex{},
 		sources:     make(map[string]context.CancelFunc),
 	}
@@ -112,6 +116,20 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) {
 		},
 		KafkaEnvConfig: source.KafkaEnvConfig{
 			BootstrapServers: obj.Spec.BootstrapServers,
+			Net: source.AdapterNet{
+				SASL: source.AdapterSASL{
+					Enable:   obj.Spec.Net.SASL.Enable,
+					User:     a.ResolveSecret(ctx, obj.Namespace, obj.Spec.Net.SASL.User.SecretKeyRef),
+					Password: a.ResolveSecret(ctx, obj.Namespace, obj.Spec.Net.SASL.Password.SecretKeyRef),
+					Type:     a.ResolveSecret(ctx, obj.Namespace, obj.Spec.Net.SASL.Type.SecretKeyRef),
+				},
+				TLS: source.AdapterTLS{
+					Enable: obj.Spec.Net.TLS.Enable,
+					Cert:   a.ResolveSecret(ctx, obj.Namespace, obj.Spec.Net.TLS.Cert.SecretKeyRef),
+					Key:    a.ResolveSecret(ctx, obj.Namespace, obj.Spec.Net.TLS.Key.SecretKeyRef),
+					CACert: a.ResolveSecret(ctx, obj.Namespace, obj.Spec.Net.TLS.CACert.SecretKeyRef),
+				},
+			},
 		},
 		Topics:        obj.Spec.Topics,
 		ConsumerGroup: obj.Spec.ConsumerGroup,
@@ -129,7 +147,7 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) {
 
 	httpBindingsSender, err := kncloudevents.NewHTTPMessageSenderWithTarget(obj.Status.SinkURI.String())
 	if err != nil {
-		a.logger.Fatal("error building cloud event client", zap.Error(err))
+		a.logger.Fatalw("error building cloud event client", zap.Error(err))
 	}
 
 	adapter := a.adapterCtor(ctx, &config, httpBindingsSender, reporter)
@@ -143,7 +161,7 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) {
 	go func(ctx context.Context) {
 		err := adapter.Start(ctx)
 		if err != nil {
-			a.logger.Error("adapter failed to start", zap.Error(err))
+			a.logger.Errorw("adapter failed to start", zap.Error(err))
 		}
 
 	}(ctx)
@@ -169,4 +187,18 @@ func (a *Adapter) Remove(ctx context.Context, obj *v1beta1.KafkaSource) {
 	a.sourcesMu.Lock()
 	delete(a.sources, key)
 	a.sourcesMu.Unlock()
+}
+
+// ResolveSecret resolves the secret reference
+func (a *Adapter) ResolveSecret(ctx context.Context, ns string, ref *corev1.SecretKeySelector) string {
+	if ref == nil {
+		return ""
+	}
+	secret, err := a.kubeClient.CoreV1().Secrets(ns).Get(ctx, ref.Name, metav1.GetOptions{})
+	if err != nil {
+		a.logger.Fatalw("failed to read secret", zap.String("secretname", ref.Name), zap.Error(err))
+		return ""
+	}
+
+	return string(secret.Data[ref.Key])
 }

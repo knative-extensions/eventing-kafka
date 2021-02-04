@@ -25,6 +25,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	_ "knative.dev/pkg/client/injection/kube/client/fake"
 	pkgtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/pkg/source"
 
