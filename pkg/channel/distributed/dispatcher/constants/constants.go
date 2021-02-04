@@ -18,5 +18,9 @@ package constants
 
 // Global Constants
 const (
+	// Values Used When Creating A New Dispatcher
+	DefaultMaxIdleConns        = 1000
+	DefaultMaxIdleConnsPerHost = 100
+
 	Component = "eventing-kafka-channel-dispatcher"
 )

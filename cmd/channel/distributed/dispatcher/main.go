@@ -22,6 +22,8 @@ import (
 	"strconv"
 	"strings"
 
+	"knative.dev/eventing/pkg/kncloudevents"
+
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -113,6 +115,12 @@ func main() {
 	}
 
 	statsReporter := metrics.NewStatsReporter(logger)
+
+	// Increase The Idle Connection Limits From Transport Defaults (see net/http/DefaultTransport)
+	kncloudevents.ConfigureConnectionArgs(&kncloudevents.ConnectionArgs{
+		MaxIdleConns:        constants.DefaultMaxIdleConns,
+		MaxIdleConnsPerHost: constants.DefaultMaxIdleConnsPerHost,
+	})
 
 	// Create The Dispatcher With Specified Configuration
 	dispatcherConfig := dispatch.DispatcherConfig{
