@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"sync"
 
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
+
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -64,6 +66,7 @@ func NewSubscriberWrapper(subscriberSpec eventingduck.SubscriberSpec, groupId st
 //  Dispatcher Interface
 type Dispatcher interface {
 	ConfigChanged(ctx context.Context, configMap *corev1.ConfigMap) Dispatcher
+	SecretChanged(ctx context.Context, secret *corev1.Secret) Dispatcher
 	Shutdown()
 	UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error
 }
@@ -329,6 +332,11 @@ func (d *DispatcherImpl) ConfigChanged(ctx context.Context, configMap *corev1.Co
 
 	// Create A New Dispatcher With The New Configuration (Reusing All Other Existing Config)
 	d.Logger.Info("Consumer Changes Detected In New Configuration - Recreating Dispatcher")
+	return d.reconfigure(newConfig)
+}
+
+// Shut down the current dispatcher and recreate it with new settings
+func (d *DispatcherImpl) reconfigure(newConfig *sarama.Config) Dispatcher {
 	d.Shutdown()
 	d.DispatcherConfig.SaramaConfig = newConfig
 	newDispatcher := NewDispatcher(d.DispatcherConfig)
@@ -338,4 +346,35 @@ func (d *DispatcherImpl) ConfigChanged(ctx context.Context, configMap *corev1.Co
 		return nil
 	}
 	return newDispatcher
+}
+
+// SecretChanged is called by the secretObserver handler function in main() so that
+// settings specific to the dispatcher may be extracted and the dispatcher restarted if necessary.
+func (d *DispatcherImpl) SecretChanged(ctx context.Context, secret *corev1.Secret) Dispatcher {
+
+	// Debug Log The Secret Change
+	d.Logger.Debug("New Secret Received", zap.String("secret.Name", secret.ObjectMeta.Name))
+
+	kafkaAuthCfg := config.GetConfigFromSecret(secret)
+	if kafkaAuthCfg == nil {
+		d.Logger.Warn("No auth config found in secret; ignoring update")
+		return nil
+	}
+
+	// Don't Restart Dispatcher If All Auth Settings Identical
+	if kafkaAuthCfg.SASL.HasSameSettings(d.SaramaConfig) {
+		d.Logger.Info("No relevant changes in Secret; ignoring update")
+		return nil
+	}
+
+	// Build New Config Using Existing Config And New Auth Settings
+	newConfig, err := client.NewConfigBuilder().WithExisting(d.SaramaConfig).WithAuth(kafkaAuthCfg).Build(ctx)
+	if err != nil {
+		d.Logger.Error("Unable to merge new auth into sarama settings", zap.Error(err))
+		return nil
+	}
+
+	// Create A New Producer With The New Configuration (Reusing All Other Existing Config)
+	d.Logger.Info("Changes Detected In New Secret - Closing & Recreating Producer")
+	return d.reconfigure(newConfig)
 }

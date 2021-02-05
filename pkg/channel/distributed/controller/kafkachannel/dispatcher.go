@@ -22,6 +22,8 @@ import (
 	"strconv"
 	"time"
 
+	kafkaconstants "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
+
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -555,7 +557,7 @@ func (r *Reconciler) dispatcherDeploymentEnvVars(channel *kafkav1beta1.KafkaChan
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{Name: kafkaSecret},
-					Key:                  constants.KafkaSecretDataKeyBrokers,
+					Key:                  kafkaconstants.KafkaSecretKeyBrokers,
 				},
 			},
 		})
@@ -566,7 +568,7 @@ func (r *Reconciler) dispatcherDeploymentEnvVars(channel *kafkav1beta1.KafkaChan
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{Name: kafkaSecret},
-					Key:                  constants.KafkaSecretDataKeyUsername,
+					Key:                  kafkaconstants.KafkaSecretKeyUsername,
 				},
 			},
 		})
@@ -577,7 +579,7 @@ func (r *Reconciler) dispatcherDeploymentEnvVars(channel *kafkav1beta1.KafkaChan
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{Name: kafkaSecret},
-					Key:                  constants.KafkaSecretDataKeyPassword,
+					Key:                  kafkaconstants.KafkaSecretKeyPassword,
 				},
 			},
 		})
@@ -589,7 +591,7 @@ func (r *Reconciler) dispatcherDeploymentEnvVars(channel *kafkav1beta1.KafkaChan
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{Name: kafkaSecret},
-					Key:                  constants.KafkaSecretDataKeySaslType,
+					Key:                  kafkaconstants.KafkaSecretKeySaslType,
 					Optional:             &optional,
 				},
 			},

@@ -35,9 +35,6 @@ const (
 	KafkaSecretKeyPassword  = "password"
 	KafkaSecretKeySaslType  = "sasltype"
 
-	// Kafka Admin/Consumer/Producer Config Values
-	ConfigNetSaslVersion = sarama.SASLHandshakeV1 // Latest version, seems to work with EventHubs as well.
-
 	// Kafka Topic Config Keys
 	TopicDetailConfigRetentionMs = "retention.ms"
 
@@ -46,9 +43,6 @@ const (
 	EventHubErrorCodeParseFailure  = -1
 	EventHubErrorCodeCapacityLimit = 403
 	EventHubErrorCodeConflict      = 409
-
-	// EventHub Constraints
-	MaxEventHubNamespaces = 100
 
 	// KafkaChannel Constants
 	KafkaChannelServiceNameSuffix = "kn-channel" // Specific Value For Use With Knative e2e Tests!

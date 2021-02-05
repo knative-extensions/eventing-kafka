@@ -21,6 +21,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kafkaconstants "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 	"knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/pkg/system"
 )
@@ -72,6 +73,12 @@ kafka:
     defaultRetentionMillis: 604800000
     adminType: kafka
 `
+
+	DefaultSecretUsername  = "TestUsername"
+	DefaultSecretBrokers   = "TestBrokers"
+	DefaultSecretPassword  = "TestPassword"
+	DefaultSecretSaslType  = "PLAIN"
+	DefaultSecretNamespace = "TestNamespace"
 )
 
 // KafkaConfigMapOption Enables Customization Of An Eventing-Kafka ConfigMap
@@ -148,4 +155,63 @@ func WithModifiedSaramaProducer(configMap *corev1.ConfigMap) {
 // Remove The Entire Eventing-Kafka Configuration
 func WithoutEventingKafkaConfiguration(configMap *corev1.ConfigMap) {
 	delete(configMap.Data, constants.EventingKafkaSettingsConfigKey)
+}
+
+// KafkaConfigMapOption Enables Customization Of An Eventing-Kafka Secret
+type KafkaSecretOption func(secret *corev1.Secret)
+
+// Create A New Eventing-Kafka Secret For Testing
+func NewKafkaSecret(options ...KafkaSecretOption) *corev1.Secret {
+
+	// Create A Base Kafka Secret With Default Auth Configuration
+	secret := &corev1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: corev1.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.SettingsSecretName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string][]byte{
+			kafkaconstants.KafkaSecretKeyBrokers:   []byte(DefaultSecretBrokers),
+			kafkaconstants.KafkaSecretKeyPassword:  []byte(DefaultSecretPassword),
+			kafkaconstants.KafkaSecretKeySaslType:  []byte(DefaultSecretSaslType),
+			kafkaconstants.KafkaSecretKeyUsername:  []byte(DefaultSecretUsername),
+			kafkaconstants.KafkaSecretKeyNamespace: []byte(DefaultSecretNamespace),
+		},
+	}
+
+	// Apply The Specified Eventing-Kafka ConfigMap Options
+	for _, option := range options {
+		option(secret)
+	}
+
+	// Return The Custom Eventing-Kafka Secret
+	return secret
+}
+
+// Modify The Default Password Section Of The Secret Data
+func WithModifiedPassword(secret *corev1.Secret) {
+	secret.Data[kafkaconstants.KafkaSecretKeyPassword] = []byte("TestModifiedPassword")
+}
+
+// Modify The Default Username Section Of The Secret Data
+func WithModifiedUsername(secret *corev1.Secret) {
+	secret.Data[kafkaconstants.KafkaSecretKeyUsername] = []byte("TestModifiedUsername")
+}
+
+// Modify The Default SaslType Section Of The Secret Data
+func WithModifiedSaslType(secret *corev1.Secret) {
+	secret.Data[kafkaconstants.KafkaSecretKeySaslType] = []byte("TestModifiedSaslType")
+}
+
+// Modify The Default Namespace Section Of The Secret Data
+func WithModifiedNamespace(secret *corev1.Secret) {
+	secret.Data[kafkaconstants.KafkaSecretKeyNamespace] = []byte("TestModifiedNamespace")
+}
+
+// Modify The Default Brokers Section Of The Secret Data
+func WithModifiedBrokers(secret *corev1.Secret) {
+	secret.Data[kafkaconstants.KafkaSecretKeyBrokers] = []byte("TestModifiedPBrokers")
 }

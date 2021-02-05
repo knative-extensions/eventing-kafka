@@ -22,6 +22,8 @@ import (
 	"strconv"
 	"time"
 
+	kafkaconstants "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
+
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"go.uber.org/zap"
@@ -415,7 +417,7 @@ func (r *Reconciler) receiverDeploymentEnvVars(secret *corev1.Secret) ([]corev1.
 		ValueFrom: &corev1.EnvVarSource{
 			SecretKeyRef: &corev1.SecretKeySelector{
 				LocalObjectReference: corev1.LocalObjectReference{Name: secret.Name},
-				Key:                  constants.KafkaSecretDataKeyBrokers,
+				Key:                  kafkaconstants.KafkaSecretKeyBrokers,
 			},
 		},
 	})
@@ -426,7 +428,7 @@ func (r *Reconciler) receiverDeploymentEnvVars(secret *corev1.Secret) ([]corev1.
 		ValueFrom: &corev1.EnvVarSource{
 			SecretKeyRef: &corev1.SecretKeySelector{
 				LocalObjectReference: corev1.LocalObjectReference{Name: secret.Name},
-				Key:                  constants.KafkaSecretDataKeyUsername,
+				Key:                  kafkaconstants.KafkaSecretKeyUsername,
 			},
 		},
 	})
@@ -437,18 +439,19 @@ func (r *Reconciler) receiverDeploymentEnvVars(secret *corev1.Secret) ([]corev1.
 		ValueFrom: &corev1.EnvVarSource{
 			SecretKeyRef: &corev1.SecretKeySelector{
 				LocalObjectReference: corev1.LocalObjectReference{Name: secret.Name},
-				Key:                  constants.KafkaSecretDataKeyPassword,
+				Key:                  kafkaconstants.KafkaSecretKeyPassword,
 			},
 		},
 	})
 
+	// Append The Kafka SASL Type As Env Var
 	optional := true
 	envVars = append(envVars, corev1.EnvVar{
 		Name: commonenv.KafkaSaslTypeEnvVarKey,
 		ValueFrom: &corev1.EnvVarSource{
 			SecretKeyRef: &corev1.SecretKeySelector{
 				LocalObjectReference: corev1.LocalObjectReference{Name: secret.Name},
-				Key:                  constants.KafkaSecretDataKeySaslType,
+				Key:                  kafkaconstants.KafkaSecretKeySaslType,
 				Optional:             &optional,
 			},
 		},

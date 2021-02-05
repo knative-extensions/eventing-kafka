@@ -19,7 +19,6 @@ package testing
 const (
 	SystemNamespace = "eventing-test-ns"
 
-	OldClientId = "TestOldClientId"
 	NewClientId = "TestNewClientId"
 	OldUsername = "TestOldUsername"
 	NewUsername = "TestNewUsername"
@@ -29,16 +28,6 @@ const (
 	DispatcherReplicas     = "3"
 	DispatcherRetryInitial = "5000"
 	DispatcherRetry        = "500000"
-
-	// These constants are used here to make sure that the CreateConsumerGroup() call doesn't have problems,
-	// but they aren't non-testing defaults since most settings are now in 200-eventing-kafka-configmap.yaml
-	ConfigAdminTimeout                      = "10000000000"
-	ConfigNetKeepAlive                      = "30000000000"
-	ConfigMetadataRefreshFrequency          = "300000000000"
-	ConfigConsumerOffsetsAutoCommitInterval = "5000000000"
-	ConfigConsumerOffsetsRetention          = "604800000000000"
-	ConfigProducerIdempotent                = "false"
-	ConfigProducerRequiredAcks              = "-1"
 
 	TestEKConfig = `
 dispatcher:
@@ -82,24 +71,15 @@ Metadata:
 ClientID: ` + NewClientId + `
 `
 
-	SaramaDefaultConfigYaml = `
-Admin:
-  Timeout: ` + ConfigAdminTimeout + `
-Net:
-  KeepAlive: ` + ConfigNetKeepAlive + `
-Metadata:
-  RefreshFrequency: ` + ConfigMetadataRefreshFrequency + `
-Consumer:
-  Offsets:
-    AutoCommit:
-      Interval: ` + ConfigConsumerOffsetsAutoCommitInterval + `
-    Retention: ` + ConfigConsumerOffsetsRetention + `
-  Return:
-    Errors: true
-Producer:
-  Idempotent: ` + ConfigProducerIdempotent + `
-  RequiredAcks: ` + ConfigProducerRequiredAcks + `
-  Return:
-    Successes: true
-`
+	OldAuthBrokers   = "TestOldBrokers"
+	OldAuthNamespace = "TestOldNamespace"
+	OldAuthPassword  = "TestOldPassword"
+	OldAuthSaslType  = "TestOldAuthSaslType"
+	OldAuthUsername  = "TestOldAuthUsername"
+
+	NewAuthBrokers   = "TestNewBrokers"
+	NewAuthNamespace = "TestNewNamespace"
+	NewAuthPassword  = "TestNewPassword"
+	NewAuthSaslType  = "TestNewAuthSaslType"
+	NewAuthUsername  = "TestNewAuthUsername"
 )

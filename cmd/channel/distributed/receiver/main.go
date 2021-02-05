@@ -130,6 +130,12 @@ func main() {
 		logger.Fatal("Failed To Initialize ConfigMap Watcher", zap.Error(err))
 	}
 
+	// Watch The Secret For Changes
+	err = commonconfig.InitializeSecretWatcher(ctx, environment.SystemNamespace, secretObserver)
+	if err != nil {
+		logger.Fatal("Failed To Start Secret Watcher", zap.Error(err))
+	}
+
 	// Initialize The Kafka Producer In Order To Start Processing Status Events
 	kafkaProducer, err = producer.NewProducer(logger, saramaConfig, strings.Split(environment.KafkaBrokers, ","), statsReporter, healthServer)
 	if err != nil {
@@ -214,6 +220,28 @@ func configMapObserver(ctx context.Context, configMap *corev1.ConfigMap) {
 
 	// Toss the new config map to the producer for inspection and action
 	newProducer := kafkaProducer.ConfigChanged(ctx, configMap)
+	if newProducer != nil {
+		// The configuration change caused a new producer to be created, so switch to that one
+		logger.Info("Producer Reconfigured; Switching To New Producer")
+		kafkaProducer = newProducer
+	}
+}
+
+func secretObserver(ctx context.Context, secret *corev1.Secret) {
+	logger := logging.FromContext(ctx)
+
+	if secret == nil {
+		logger.Warn("Nil Secret passed to secretObserver; ignoring")
+		return
+	}
+	if kafkaProducer == nil {
+		// This typically happens during startup
+		logger.Debug("Producer is nil during call to secretObserver; ignoring changes")
+		return
+	}
+
+	// Toss the new secret to the producer for inspection and action
+	newProducer := kafkaProducer.SecretChanged(ctx, secret)
 	if newProducer != nil {
 		// The configuration change caused a new producer to be created, so switch to that one
 		logger.Info("Producer Reconfigured; Switching To New Producer")

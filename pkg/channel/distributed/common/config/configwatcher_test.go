@@ -39,7 +39,7 @@ var (
 	configMapMutex   = sync.Mutex{} // Don't trip up the data race examiner during tests
 )
 
-// Test The InitializeObservability() Functionality
+// Test The InitializeConfigWatcher() Functionality
 func TestInitializeConfigWatcher(t *testing.T) {
 
 	// Obtain a Test Logger (Required By be InitializeConfigWatcher function)
@@ -48,13 +48,13 @@ func TestInitializeConfigWatcher(t *testing.T) {
 	// Setup Environment
 	commontesting.SetTestEnvironment(t)
 
-	// Create A Test Observability ConfigMap For The InitializeObservability() Call To Watch
+	// Create A Test Sarama ConfigMap For The InitializeConfigWatcher() Call To Watch
 	configMap := commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, commontesting.TestEKConfig)
 
 	// Create The Fake K8S Client And Add It To The ConfigMap
 	fakeK8sClient := fake.NewSimpleClientset(configMap)
 
-	// Add The Fake K8S Client To The Context (Required By InitializeObservability)
+	// Add The Fake K8S Client To The Context (Required By InitializeConfigWatcher)
 	ctx := context.WithValue(context.TODO(), injectionclient.Key{}, fakeK8sClient)
 
 	// The configWatcherHandler should change the nil "watchedConfigMap" to a valid ConfigMap when the watcher triggers
@@ -63,7 +63,7 @@ func TestInitializeConfigWatcher(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, testConfigMap.Data["sarama"], commontesting.OldSaramaConfig)
 
-	// Perform The Test (Initialize The Observability Watcher)
+	// Perform The Test (Initialize The Config Watcher)
 	err = InitializeConfigWatcher(ctx, logger, configWatcherHandler, system.Namespace())
 	assert.Nil(t, err)
 
@@ -105,7 +105,7 @@ func setWatchedMap(configMap *corev1.ConfigMap) {
 }
 
 // Handler function for the ConfigMap watcher
-func configWatcherHandler(ctx context.Context, configMap *corev1.ConfigMap) {
+func configWatcherHandler(_ context.Context, configMap *corev1.ConfigMap) {
 	// Set the package variable to indicate that the test watcher was called
 	setWatchedMap(configMap)
 }

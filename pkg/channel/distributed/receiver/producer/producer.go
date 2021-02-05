@@ -21,6 +21,8 @@ import (
 	"errors"
 	"time"
 
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
+
 	"github.com/Shopify/sarama"
 	kafkasaramaprotocol "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"github.com/cloudevents/sdk-go/v2/binding"
@@ -71,7 +73,7 @@ func NewProducer(logger *zap.Logger,
 	}
 
 	// Create A New Producer
-	producer := &Producer{
+	newProducer := &Producer{
 		logger:             logger,
 		kafkaProducer:      kafkaProducer,
 		healthServer:       healthServer,
@@ -84,14 +86,14 @@ func NewProducer(logger *zap.Logger,
 	}
 
 	// Start Observing Metrics
-	producer.ObserveMetrics(constants.MetricsInterval)
+	newProducer.ObserveMetrics(constants.MetricsInterval)
 
 	// Mark The Producer As Ready
 	healthServer.SetProducerReady(true)
 
 	// Return The New Producer
 	logger.Info("Successfully Started Kafka Producer")
-	return producer, nil
+	return newProducer, nil
 }
 
 // Produce A KafkaMessage From The Specified CloudEvent To The Specified Topic And Wait For The Delivery Report
@@ -230,6 +232,11 @@ func (p *Producer) ConfigChanged(ctx context.Context, configMap *corev1.ConfigMa
 
 	// Create A New Producer With The New Configuration (Reusing All Other Existing Config)
 	p.logger.Info("Producer Changes Detected In New Configuration - Closing & Recreating Producer")
+	return p.reconfigure(newConfig)
+}
+
+// Shut down the current producer and recreate it with new settings
+func (p *Producer) reconfigure(newConfig *sarama.Config) *Producer {
 	p.Close()
 	reconfiguredKafkaProducer, err := NewProducer(p.logger, newConfig, p.brokers, p.statsReporter, p.healthServer)
 	if err != nil {
@@ -240,6 +247,37 @@ func (p *Producer) ConfigChanged(ctx context.Context, configMap *corev1.ConfigMa
 	// Successfully Created New Producer - Close Old One And Return New One
 	p.logger.Info("Successfully Created New Producer")
 	return reconfiguredKafkaProducer
+}
+
+// SecretChanged is called by the secretObserver handler function in main() so that
+// settings specific to the producer may be extracted and the producer restarted if necessary.
+func (p *Producer) SecretChanged(ctx context.Context, secret *corev1.Secret) *Producer {
+
+	// Debug Log The Secret Change
+	p.logger.Debug("New Secret Received", zap.String("secret.Name", secret.ObjectMeta.Name))
+
+	kafkaAuthCfg := config.GetConfigFromSecret(secret)
+	if kafkaAuthCfg == nil {
+		p.logger.Warn("No auth config found in secret; ignoring update")
+		return nil
+	}
+
+	// Don't Restart Producer If All Auth Settings Identical
+	if kafkaAuthCfg.SASL.HasSameSettings(p.configuration) {
+		p.logger.Info("No relevant changes in Secret; ignoring update")
+		return nil
+	}
+
+	// Build New Config Using Existing Config And New Auth Settings
+	newConfig, err := client.NewConfigBuilder().WithExisting(p.configuration).WithAuth(kafkaAuthCfg).Build(ctx)
+	if err != nil {
+		p.logger.Error("Unable to merge new auth into sarama settings", zap.Error(err))
+		return nil
+	}
+
+	// Create A New Producer With The New Configuration (Reusing All Other Existing Config)
+	p.logger.Info("Changes Detected In New Secret - Closing & Recreating Producer")
+	return p.reconfigure(newConfig)
 }
 
 // Close The Producer (Stop Processing)

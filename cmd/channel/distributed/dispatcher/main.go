@@ -142,6 +142,12 @@ func main() {
 		logger.Fatal("Failed To Initialize ConfigMap Watcher", zap.Error(err))
 	}
 
+	// Watch The Secret For Changes
+	err = commonconfig.InitializeSecretWatcher(ctx, environment.SystemNamespace, secretObserver)
+	if err != nil {
+		logger.Fatal("Failed To Start Secret Watcher", zap.Error(err))
+	}
+
 	config, err := clientcmd.BuildConfigFromFlags(*serverURL, *kubeconfig)
 	if err != nil {
 		logger.Fatal("Error building kubeconfig", zap.Error(err))
@@ -221,6 +227,29 @@ func configMapObserver(ctx context.Context, configMap *corev1.ConfigMap) {
 	newDispatcher := dispatcher.ConfigChanged(ctx, configMap)
 	if newDispatcher != nil {
 		// The configuration change caused a new dispatcher to be created, so switch to that one
+		dispatcher = newDispatcher
+	}
+}
+
+func secretObserver(ctx context.Context, secret *corev1.Secret) {
+	logger := logging.FromContext(ctx)
+
+	if secret == nil {
+		logger.Warn("Nil Secret passed to secretObserver; ignoring")
+		return
+	}
+
+	if dispatcher == nil {
+		// This typically happens during startup
+		logger.Debug("Dispatcher is nil during call to secretObserver; ignoring changes")
+		return
+	}
+
+	// Toss the new secret to the dispatcher for inspection and action
+	newDispatcher := dispatcher.SecretChanged(ctx, secret)
+	if newDispatcher != nil {
+		// The configuration change caused a new dispatcher to be created, so switch to that one
+		logger.Info("Producer Reconfigured; Switching To New Producer")
 		dispatcher = newDispatcher
 	}
 }

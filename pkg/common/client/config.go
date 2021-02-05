@@ -48,6 +48,12 @@ type KafkaSaslConfig struct {
 	SaslType string
 }
 
+func (c *KafkaSaslConfig) HasSameSettings(saramaConfig *sarama.Config) bool {
+	return saramaConfig.Net.SASL.User == c.User &&
+		saramaConfig.Net.SASL.Password == c.Password &&
+		string(saramaConfig.Net.SASL.Mechanism) == c.SaslType
+}
+
 // ConfigBuilder builds the Sarama config using multiple options.
 // Precedence for the options is following:
 // - get existing config if provided, create a new one otherwise
@@ -191,7 +197,7 @@ func (b *configBuilder) Build(ctx context.Context) (*sarama.Config, error) {
 			config.Net.TLS.Enable = true
 			tlsConfig, err := newTLSConfig(b.auth.TLS.Usercert, b.auth.TLS.Userkey, b.auth.TLS.Cacert)
 			if err != nil {
-				return nil, fmt.Errorf("Error creating TLS config: %w", err)
+				return nil, fmt.Errorf("error creating TLS config: %w", err)
 			}
 			config.Net.TLS.Config = tlsConfig
 		}
