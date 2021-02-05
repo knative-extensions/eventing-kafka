@@ -48,7 +48,6 @@ func (c *customConsumerGroup) Errors() <-chan error {
 
 func (c *customConsumerGroup) Close() error {
 	c.cancel()
-	close(c.handlerErrorChannel)
 	return c.ConsumerGroup.Close()
 }
 
@@ -64,6 +63,7 @@ func (c kafkaConsumerGroupFactoryImpl) StartConsumerGroup(groupID string, topics
 	ctx, cancel := context.WithCancel(context.Background())
 
 	go func() {
+		defer close(errorCh)
 		for {
 			consumerHandler := NewConsumerHandler(logger, handler, errorCh)
 
