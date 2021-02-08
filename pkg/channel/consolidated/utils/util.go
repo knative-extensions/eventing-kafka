@@ -42,7 +42,7 @@ const (
 	MaxIdleConnectionsKey        = "maxIdleConns"
 	MaxIdleConnectionsPerHostKey = "maxIdleConnsPerHost"
 
-	TlsEnabled  = "tls.enabled"
+	TlsEnabled   = "tls.enabled"
 	TlsCacert    = "ca.crt"
 	TlsUsercert  = "user.crt"
 	TlsUserkey   = "user.key"
@@ -81,7 +81,7 @@ func parseTls(secret *corev1.Secret, kafkaAuthConfig *client.KafkaAuthConfig) {
 	} else {
 		// Public CERTS from a proper CA do not need this,
 		// we can just say `tls.enabled: true`
-		tlsEnabled, err :=  strconv.ParseBool(string(secret.Data[TlsEnabled]))
+		tlsEnabled, err := strconv.ParseBool(string(secret.Data[TlsEnabled]))
 		if err != nil {
 			tlsEnabled = false
 		}
