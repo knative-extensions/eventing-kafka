@@ -31,7 +31,7 @@ spec:
     spec:
       serviceAccountName: kafkasource-mt-adapter
       containers:
-      - image: ko://knative.dev/eventing-kafka/cmd/source/mt_receive_adapter
+      - image: ko://knative.dev/eventing-kafka/cmd/source/mtreceive_adapter
         name: receive-adapter
         env:
         - name: SYSTEM_NAMESPACE
