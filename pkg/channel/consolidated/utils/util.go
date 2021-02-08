@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,7 +42,7 @@ const (
 	MaxIdleConnectionsKey        = "maxIdleConns"
 	MaxIdleConnectionsPerHostKey = "maxIdleConnsPerHost"
 
-	Tls          = "tls"
+	TlsEnabled  = "tls.enabled"
 	TlsCacert    = "ca.crt"
 	TlsUsercert  = "user.crt"
 	TlsUserkey   = "user.key"
@@ -66,6 +67,42 @@ type KafkaConfig struct {
 	SaramaSettingsYamlString string
 }
 
+func parseTls(secret *corev1.Secret, kafkaAuthConfig *client.KafkaAuthConfig) {
+
+	// self-signed CERTs we need CA CERT, USER CERT and KEy
+	if string(secret.Data[TlsCacert]) != "" {
+		// We have a self-signed TLS cert
+		tls := &client.KafkaTlsConfig{
+			Cacert:   string(secret.Data[TlsCacert]),
+			Usercert: string(secret.Data[TlsUsercert]),
+			Userkey:  string(secret.Data[TlsUserkey]),
+		}
+		kafkaAuthConfig.TLS = tls
+	} else {
+		// Public CERTS from a proper CA do not need this,
+		// we can just say `tls.enabled: true`
+		tlsEnabled, err :=  strconv.ParseBool(string(secret.Data[TlsEnabled]))
+		if err != nil {
+			tlsEnabled = false
+		}
+		if tlsEnabled {
+			// Looks like TLS is desired/enabled:
+			kafkaAuthConfig.TLS = &client.KafkaTlsConfig{}
+		}
+	}
+}
+
+func parseSasl(secret *corev1.Secret, kafkaAuthConfig *client.KafkaAuthConfig) {
+	if string(secret.Data[SaslUser]) != "" {
+		sasl := &client.KafkaSaslConfig{
+			User:     string(secret.Data[SaslUser]),
+			Password: string(secret.Data[SaslPassword]),
+			SaslType: string(secret.Data[SaslType]),
+		}
+		kafkaAuthConfig.SASL = sasl
+	}
+}
+
 func GetKafkaAuthData(ctx context.Context, secretname string, secretNS string) *client.KafkaAuthConfig {
 
 	k8sClient := kubeclient.Get(ctx)
@@ -78,31 +115,10 @@ func GetKafkaAuthData(ctx context.Context, secretname string, secretNS string) *
 
 	kafkaAuthConfig := &client.KafkaAuthConfig{}
 
-	// TLS
-	if string(secret.Data[TlsCacert]) != "" {
-		// We have a self-signed TLS cert
-		tls := &client.KafkaTlsConfig{
-			Cacert:   string(secret.Data[TlsCacert]),
-			Usercert: string(secret.Data[TlsUsercert]),
-			Userkey:  string(secret.Data[TlsUserkey]),
-		}
-		kafkaAuthConfig.TLS = tls
-	} else if strings.ToLower(string(secret.Data[Tls])) == strings.ToLower("enabled") {
-		// we have a public Cert from a proper CA
-		// so we just need to enable TLS
-		tls := &client.KafkaTlsConfig{}
-		kafkaAuthConfig.TLS = tls
-	}
+	// check for TLS and SASL options
+	parseTls(secret, kafkaAuthConfig)
+	parseSasl(secret, kafkaAuthConfig)
 
-	// SASL
-	if string(secret.Data[SaslUser]) != "" {
-		sasl := &client.KafkaSaslConfig{
-			User:     string(secret.Data[SaslUser]),
-			Password: string(secret.Data[SaslPassword]),
-			SaslType: string(secret.Data[SaslType]),
-		}
-		kafkaAuthConfig.SASL = sasl
-	}
 	return kafkaAuthConfig
 }
 
