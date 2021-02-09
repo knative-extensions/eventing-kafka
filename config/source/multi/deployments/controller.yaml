@@ -32,7 +32,7 @@ spec:
       serviceAccountName: kafka-controller-manager
       containers:
       - name: manager
-        image: ko://knative.dev/eventing-kafka/cmd/source/mt_controller
+        image: ko://knative.dev/eventing-kafka/cmd/source/mtcontroller
         env:
         - name: SYSTEM_NAMESPACE
           valueFrom:

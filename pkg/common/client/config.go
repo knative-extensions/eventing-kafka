@@ -193,14 +193,18 @@ func (b *configBuilder) Build(ctx context.Context) (*sarama.Config, error) {
 
 	// then apply auth settings
 	if b.auth != nil {
-		// tls
+		// TLS
 		if b.auth.TLS != nil {
 			config.Net.TLS.Enable = true
-			tlsConfig, err := newTLSConfig(b.auth.TLS.Usercert, b.auth.TLS.Userkey, b.auth.TLS.Cacert)
-			if err != nil {
-				return nil, fmt.Errorf("error creating TLS config: %w", err)
+
+			// if we have TLS, we might want to use the certs for self-signed CERTs
+			if b.auth.TLS.Cacert != "" {
+				tlsConfig, err := newTLSConfig(b.auth.TLS.Usercert, b.auth.TLS.Userkey, b.auth.TLS.Cacert)
+				if err != nil {
+					return nil, fmt.Errorf("Error creating TLS config: %w", err)
+				}
+				config.Net.TLS.Config = tlsConfig
 			}
-			config.Net.TLS.Config = tlsConfig
 		}
 		// SASL
 		if b.auth.SASL != nil {

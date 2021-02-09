@@ -121,6 +121,8 @@ func (a *Adapter) start(stopCh <-chan struct{}) error {
 	return nil
 }
 
+func (a *Adapter) SetReady(_ bool) {}
+
 func (a *Adapter) Handle(ctx context.Context, msg *sarama.ConsumerMessage) (bool, error) {
 	if a.rateLimiter != nil {
 		a.rateLimiter.Wait(ctx)
