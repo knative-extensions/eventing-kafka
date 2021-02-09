@@ -20,6 +20,8 @@ import (
 	"context"
 	"time"
 
+	"k8s.io/apimachinery/pkg/fields"
+
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,11 +37,11 @@ type SecretObserver func(ctx context.Context, secret *corev1.Secret)
 //
 // Initialize The Specified Context With A Secret Watcher
 //
-func InitializeSecretWatcher(ctx context.Context, namespace string, observer SecretObserver) error {
+func InitializeSecretWatcher(ctx context.Context, namespace string, name string, observer SecretObserver) error {
 
 	logger := logging.FromContext(ctx)
 	secrets := kubeclient.Get(ctx).CoreV1().Secrets(namespace)
-	watcher, err := secrets.Watch(ctx, metav1.ListOptions{LabelSelector: constants.KafkaSecretLabel + "=" + "true"})
+	watcher, err := secrets.Watch(ctx, metav1.ListOptions{FieldSelector: fields.OneTermEqualSelector("metadata.name", name).String()})
 	if err != nil {
 		logger.Error("Failed to start secret watcher", zap.Error(err))
 	}

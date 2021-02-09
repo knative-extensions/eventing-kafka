@@ -136,7 +136,7 @@ func main() {
 	}
 
 	// Watch The Secret For Changes
-	err = commonconfig.InitializeSecretWatcher(ctx, environment.SystemNamespace, secretObserver)
+	err = commonconfig.InitializeSecretWatcher(ctx, environment.KafkaSecretNamespace, environment.KafkaSecretName, secretObserver)
 	if err != nil {
 		logger.Fatal("Failed To Start Secret Watcher", zap.Error(err))
 	}
