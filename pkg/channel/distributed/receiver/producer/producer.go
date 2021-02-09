@@ -262,7 +262,8 @@ func (p *Producer) SecretChanged(ctx context.Context, secret *corev1.Secret) *Pr
 		return nil
 	}
 
-	// Don't Restart Producer If All Auth Settings Identical
+	// Don't Restart Producer If All Auth Settings Identical.
+	// Note:  Changes to the Brokers are not permitted at the moment.
 	if kafkaAuthCfg.SASL.HasSameSettings(p.configuration) {
 		p.logger.Info("No relevant changes in Secret; ignoring update")
 		return nil

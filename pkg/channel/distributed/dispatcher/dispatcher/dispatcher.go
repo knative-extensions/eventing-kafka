@@ -361,7 +361,8 @@ func (d *DispatcherImpl) SecretChanged(ctx context.Context, secret *corev1.Secre
 		return nil
 	}
 
-	// Don't Restart Dispatcher If All Auth Settings Identical
+	// Don't Restart Dispatcher If All Auth Settings Identical.
+	// Note:  Changes to the Brokers are not permitted at the moment.
 	if kafkaAuthCfg.SASL.HasSameSettings(d.SaramaConfig) {
 		d.Logger.Info("No relevant changes in Secret; ignoring update")
 		return nil
