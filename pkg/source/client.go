@@ -49,15 +49,15 @@ type AdapterNet struct {
 }
 
 type KafkaEnvConfig struct {
-	// TODO: docs
+	// KafkaConfigJson is the environment variable that's passed to adapter by the controller.
+	// It contains configuration from the Kafka configmap.
 	KafkaConfigJson  string   `envconfig:"K_KAFKA_CONFIG"`
 	BootstrapServers []string `envconfig:"KAFKA_BOOTSTRAP_SERVERS" required:"true"`
 	Net              AdapterNet
 }
 
-// TODO: rename to NewConfig from env
 // NewConfig extracts the Kafka configuration from the environment.
-func NewConfig(ctx context.Context) ([]string, *sarama.Config, error) {
+func NewConfigFromEnv(ctx context.Context) ([]string, *sarama.Config, error) {
 	var env KafkaEnvConfig
 	if err := envconfig.Process("", &env); err != nil {
 		return nil, nil, err
@@ -110,7 +110,7 @@ func NewConfigWithEnv(ctx context.Context, env *KafkaEnvConfig) ([]string, *sara
 
 // NewProducer is a helper method for constructing a client for producing kafka methods.
 func NewProducer(ctx context.Context) (sarama.Client, error) {
-	bs, cfg, err := NewConfig(ctx)
+	bs, cfg, err := NewConfigFromEnv(ctx)
 	if err != nil {
 		return nil, err
 	}

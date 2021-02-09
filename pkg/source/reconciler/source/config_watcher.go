@@ -3,11 +3,13 @@ package source
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/eventing/pkg/reconciler/source"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/logging"
@@ -63,10 +65,9 @@ type KafkaSourceConfigWatcher struct {
 	kafkaCfg *KafkaConfig
 }
 
-// TODO: docs
 // WatchConfigurations returns a ConfigWatcher initialized with the given
 // options. If no option is passed, the ConfigWatcher observes ConfigMaps for
-// logging, metrics and tracing.
+// logging, metrics, tracing and Kafka.
 func WatchConfigurations(loggingCtx context.Context, component string,
 	cmw configmap.Watcher) *KafkaSourceConfigWatcher {
 
@@ -102,15 +103,9 @@ func watchConfigMap(cmw configmap.Watcher, cmName string, obs configmap.Observer
 }
 
 func (cw *KafkaSourceConfigWatcher) updateFromKafkaConfigMap(cfg *corev1.ConfigMap) {
-	if cfg == nil {
-		return
-	}
-
-	delete(cfg.Data, "_example")
-
 	kafkaCfg, err := NewKafkaConfigFromConfigMap(cfg)
 	if err != nil {
-		cw.logger.Warnw("failed to create kafka config from ConfigMap", zap.String("cfg.Name", cfg.Name))
+		cw.logger.Warnw("ignoring configuration in Kafka configmap ", zap.String("cfg.Name", cfg.Name), zap.Error(err))
 		return
 	}
 
@@ -121,10 +116,15 @@ func (cw *KafkaSourceConfigWatcher) updateFromKafkaConfigMap(cfg *corev1.ConfigM
 }
 
 func NewKafkaConfigFromConfigMap(cfg *corev1.ConfigMap) (*KafkaConfig, error) {
-	// TODO: think when sarama key doesn't exist or it is empty
-	// TODO: error handling
+	if cfg == nil {
+		return nil, fmt.Errorf("kafka configmap does not exist")
+	}
+	if _, ok := cfg.Data[constants.SaramaSettingsConfigKey]; !ok {
+		return nil, fmt.Errorf("'%s' key does not exist in Kafka configmap", constants.SaramaSettingsConfigKey)
+	}
+	delete(cfg.Data, "_example")
 	return &KafkaConfig{
-		SaramaYamlString: cfg.Data["sarama"],
+		SaramaYamlString: cfg.Data[constants.SaramaSettingsConfigKey],
 	}, nil
 }
 

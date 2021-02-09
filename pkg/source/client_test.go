@@ -155,7 +155,7 @@ func TestNewConfig(t *testing.T) {
 			for k, v := range tc.env {
 				_ = os.Setenv(k, v)
 			}
-			servers, config, err := NewConfig(context.Background())
+			servers, config, err := NewConfigFromEnv(context.Background())
 			if err != nil && tc.wantErr != true {
 				t.Fatal(err)
 			}
