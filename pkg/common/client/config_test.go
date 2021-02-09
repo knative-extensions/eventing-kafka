@@ -666,6 +666,29 @@ func TestVerifyCertSkipHostname(t *testing.T) {
 	}
 }
 
+func TestHasSameSettings(t *testing.T) {
+	authConfig := &KafkaAuthConfig{SASL: &KafkaSaslConfig{User: "user1", Password: "password1", SaslType: sarama.SASLTypeOAuth}}
+	saramaConfig := sarama.NewConfig()
+
+	assert.False(t, authConfig.SASL.HasSameSettings(saramaConfig))
+	saramaConfig.Net.SASL.User = "user1"
+	assert.False(t, authConfig.SASL.HasSameSettings(saramaConfig))
+	saramaConfig.Net.SASL.Password = "password1"
+	assert.False(t, authConfig.SASL.HasSameSettings(saramaConfig))
+	saramaConfig.Net.SASL.Mechanism = sarama.SASLTypeOAuth
+	assert.True(t, authConfig.SASL.HasSameSettings(saramaConfig))
+}
+
+func TestHasSameBrokers(t *testing.T) {
+	authConfig := &KafkaAuthConfig{Brokers: "broker1,broker2,broker3"}
+	assert.True(t, authConfig.HasSameBrokers([]string{"broker1", "broker2", "broker3"}))
+	assert.False(t, authConfig.HasSameBrokers([]string{}))
+	assert.False(t, authConfig.HasSameBrokers([]string{"broker1"}))
+	assert.False(t, authConfig.HasSameBrokers([]string{"broker1", "broker2"}))
+	assert.False(t, authConfig.HasSameBrokers([]string{"broker1", "broker2", "broker3", "broker4"}))
+	assert.False(t, authConfig.HasSameBrokers([]string{"broker3", "broker2", "broker1"}))
+}
+
 // Lifted from the RSA path of https://golang.org/src/crypto/tls/generate_cert.go.
 func generateCert(t *testing.T) (string, string) {
 	t.Helper()

@@ -19,6 +19,7 @@ package dispatcher
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
@@ -361,14 +362,18 @@ func (d *DispatcherImpl) SecretChanged(ctx context.Context, secret *corev1.Secre
 		return nil
 	}
 
-	// Don't Restart Dispatcher If All Auth Settings Identical.
-	// Note:  Changes to the Brokers are not permitted at the moment.
-	if kafkaAuthCfg.SASL.HasSameSettings(d.SaramaConfig) {
+	// Don't Restart Dispatcher If All Auth Settings Identical
+	if kafkaAuthCfg.SASL.HasSameSettings(d.SaramaConfig) && kafkaAuthCfg.HasSameBrokers(d.DispatcherConfig.Brokers) {
 		d.Logger.Info("No relevant changes in Secret; ignoring update")
 		return nil
 	}
+	d.DispatcherConfig.Brokers = strings.Split(kafkaAuthCfg.Brokers, ",")
 
 	// Build New Config Using Existing Config And New Auth Settings
+	if kafkaAuthCfg.SASL.User == "" {
+		// The config builder expects the entire config object to be nil if not using auth
+		kafkaAuthCfg = nil
+	}
 	newConfig, err := client.NewConfigBuilder().WithExisting(d.SaramaConfig).WithAuth(kafkaAuthCfg).Build(ctx)
 	if err != nil {
 		d.Logger.Error("Unable to merge new auth into sarama settings", zap.Error(err))

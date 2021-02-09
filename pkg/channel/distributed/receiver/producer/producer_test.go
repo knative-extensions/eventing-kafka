@@ -213,7 +213,7 @@ func TestSecretChanged(t *testing.T) {
 	commontesting.SetTestEnvironment(t)
 
 	// Test Data
-	brokers := []string{receivertesting.KafkaBroker}
+	brokers := []string{commonconfigtesting.DefaultSecretBrokers}
 	auth := &commonclient.KafkaAuthConfig{
 		SASL: &commonclient.KafkaSaslConfig{
 			User:     commonconfigtesting.DefaultSecretUsername,
@@ -260,9 +260,9 @@ func TestSecretChanged(t *testing.T) {
 			expectNewProducer: false,
 		},
 		{
-			name:              "Brokers Change (Same Producer)",
+			name:              "Brokers Change (New Producer)",
 			newSecret:         configtesting.NewKafkaSecret(configtesting.WithModifiedBrokers),
-			expectNewProducer: false,
+			expectNewProducer: true,
 		},
 	}
 

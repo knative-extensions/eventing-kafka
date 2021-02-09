@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Shopify/sarama"
@@ -49,10 +50,33 @@ type KafkaSaslConfig struct {
 	SaslType string
 }
 
+// HasSameSettings returns true if all of the SASL settings in the provided config are the same as in this struct
 func (c *KafkaSaslConfig) HasSameSettings(saramaConfig *sarama.Config) bool {
 	return saramaConfig.Net.SASL.User == c.User &&
 		saramaConfig.Net.SASL.Password == c.Password &&
 		string(saramaConfig.Net.SASL.Mechanism) == c.SaslType
+}
+
+// HasSameBrokers returns true if all of the brokers in the provided slice are present and in the same order as
+// the ones in the Brokers field of this KafkaAuthConfig struct
+func (c *KafkaAuthConfig) HasSameBrokers(brokers []string) bool {
+	splitBrokers := strings.Split(c.Brokers, ",")
+
+	// Not the same if there aren't the same number of brokers
+	if len(splitBrokers) != len(brokers) {
+		return false
+	}
+
+	// Not the same if any of the individual brokers are different
+	// Note that brokers must be in the same order in the string and the slice in order to be considered equal
+	for index := range brokers {
+		if splitBrokers[index] != brokers[index] {
+			return false
+		}
+	}
+
+	// Same number and values of brokers
+	return true
 }
 
 // ConfigBuilder builds the Sarama config using multiple options.
