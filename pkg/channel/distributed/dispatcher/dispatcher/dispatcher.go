@@ -355,7 +355,7 @@ func (d *DispatcherImpl) SecretChanged(ctx context.Context, secret *corev1.Secre
 	// Debug Log The Secret Change
 	d.Logger.Debug("New Secret Received", zap.String("secret.Name", secret.ObjectMeta.Name))
 
-	kafkaAuthCfg := config.GetConfigFromSecret(secret)
+	kafkaAuthCfg := config.GetAuthConfigFromSecret(secret)
 	if kafkaAuthCfg == nil {
 		d.Logger.Warn("No auth config found in secret; ignoring update")
 		return nil

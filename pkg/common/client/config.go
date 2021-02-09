@@ -32,8 +32,9 @@ import (
 )
 
 type KafkaAuthConfig struct {
-	TLS  *KafkaTlsConfig
-	SASL *KafkaSaslConfig
+	Brokers string
+	TLS     *KafkaTlsConfig
+	SASL    *KafkaSaslConfig
 }
 
 type KafkaTlsConfig struct {

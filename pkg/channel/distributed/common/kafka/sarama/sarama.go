@@ -68,6 +68,12 @@ func LoadSettings(ctx context.Context, clientId string, kafkaAuthConfig *client.
 	// Merge The ConfigMap Settings Into The Provided Config
 	saramaSettingsYamlString := configMap.Data[constants.SaramaSettingsConfigKey]
 
+	if kafkaAuthConfig != nil && kafkaAuthConfig.SASL.User == "" {
+		// The config builder expects the entire config object to be nil if not using auth
+		// (Otherwise it will end up with "PLAIN" SASL by default and fail due to having no user/password)
+		kafkaAuthConfig = nil
+	}
+
 	// Merge The Sarama Settings In The ConfigMap Into A New Base Sarama Config
 	saramaConfig, err := client.NewConfigBuilder().
 		WithDefaults().

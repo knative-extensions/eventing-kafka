@@ -36,14 +36,14 @@ func GetTestSaramaConfigMap(saramaConfig string, configuration string) *corev1.C
 }
 
 // Returns A Secret Containing The Desired Fields
-func GetTestSaramaSecret(brokers string, username string, password string, namespace string, saslType string) *corev1.Secret {
+func GetTestSaramaSecret(name string, brokers string, username string, password string, namespace string, saslType string) *corev1.Secret {
 	return &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
 			APIVersion: corev1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.SettingsSecretName,
+			Name:      name,
 			Namespace: system.Namespace(),
 			Labels:    map[string]string{kafkaconstants.KafkaSecretLabel: "true"},
 		},

@@ -22,8 +22,6 @@ import (
 	"strconv"
 	"time"
 
-	kafkaconstants "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
-
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"go.uber.org/zap"
@@ -411,50 +409,16 @@ func (r *Reconciler) receiverDeploymentEnvVars(secret *corev1.Secret) ([]corev1.
 		},
 	}
 
-	// Append The Kafka Brokers As Env Var
+	// Append The Secret Namespace As Env Var
 	envVars = append(envVars, corev1.EnvVar{
-		Name: commonenv.KafkaBrokerEnvVarKey,
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{Name: secret.Name},
-				Key:                  kafkaconstants.KafkaSecretKeyBrokers,
-			},
-		},
+		Name:  commonenv.KafkaSecretNamespaceEnvVarKey,
+		Value: r.environment.SystemNamespace,
 	})
 
-	// Append The Kafka Username As Env Var
+	// Append The Secret Name As Env Var
 	envVars = append(envVars, corev1.EnvVar{
-		Name: commonenv.KafkaUsernameEnvVarKey,
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{Name: secret.Name},
-				Key:                  kafkaconstants.KafkaSecretKeyUsername,
-			},
-		},
-	})
-
-	// Append The Kafka Password As Env Var
-	envVars = append(envVars, corev1.EnvVar{
-		Name: commonenv.KafkaPasswordEnvVarKey,
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{Name: secret.Name},
-				Key:                  kafkaconstants.KafkaSecretKeyPassword,
-			},
-		},
-	})
-
-	// Append The Kafka SASL Type As Env Var
-	optional := true
-	envVars = append(envVars, corev1.EnvVar{
-		Name: commonenv.KafkaSaslTypeEnvVarKey,
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{Name: secret.Name},
-				Key:                  kafkaconstants.KafkaSecretKeySaslType,
-				Optional:             &optional,
-			},
-		},
+		Name:  commonenv.KafkaSecretNameEnvVarKey,
+		Value: secret.Name,
 	})
 
 	// Return The Receiver Deployment EnvVars Array

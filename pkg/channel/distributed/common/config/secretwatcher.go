@@ -18,6 +18,8 @@ package config
 
 import (
 	"context"
+	"time"
+
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,7 +28,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/common/client"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
-	"time"
 )
 
 type SecretObserver func(ctx context.Context, secret *corev1.Secret)
@@ -48,7 +49,7 @@ func InitializeSecretWatcher(ctx context.Context, namespace string, observer Sec
 
 		for {
 			select {
-			case <- ctx.Done():
+			case <-ctx.Done():
 				logger.Info("Stopped Secret Watcher")
 				return
 			case event := <-watcher.ResultChan():
@@ -70,11 +71,24 @@ func InitializeSecretWatcher(ctx context.Context, namespace string, observer Sec
 	return nil
 }
 
-func GetConfigFromSecret(secret *corev1.Secret) *client.KafkaAuthConfig {
+// Look Up And Return Kafka Auth Config From Named Secret
+func GetAuthConfigFromKubernetes(ctx context.Context, secretName string, secretNamespace string) (*client.KafkaAuthConfig, error) {
+	secrets := kubeclient.Get(ctx).CoreV1().Secrets(secretNamespace)
+	secret, err := secrets.Get(ctx, secretName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return GetAuthConfigFromSecret(secret), nil
+}
+
+// Look Up And Return Kafka Auth Config From Provided Secret
+func GetAuthConfigFromSecret(secret *corev1.Secret) *client.KafkaAuthConfig {
 	if secret == nil || secret.Data == nil {
 		return nil
 	}
+
 	return &client.KafkaAuthConfig{
+		Brokers: string(secret.Data[constants.KafkaSecretKeyBrokers]),
 		SASL: &client.KafkaSaslConfig{
 			User:     string(secret.Data[constants.KafkaSecretKeyUsername]),
 			Password: string(secret.Data[constants.KafkaSecretKeyPassword]),

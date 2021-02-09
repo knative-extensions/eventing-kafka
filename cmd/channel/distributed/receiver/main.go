@@ -37,7 +37,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/env"
 	channelhealth "knative.dev/eventing-kafka/pkg/channel/distributed/receiver/health"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/producer"
-	"knative.dev/eventing-kafka/pkg/common/client"
 	eventingchannel "knative.dev/eventing/pkg/channel"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
@@ -74,17 +73,10 @@ func main() {
 		logger.Fatal("Invalid / Missing Environment Variables - Terminating", zap.Error(err))
 	}
 
-	var kafkaAuthCfg *client.KafkaAuthConfig
-
-	if environment.KafkaUsername != "" {
-		// Update The Sarama Config - Username/Password Overrides (EnvVars From Secret Take Precedence Over ConfigMap)
-		kafkaAuthCfg = &client.KafkaAuthConfig{
-			SASL: &client.KafkaSaslConfig{
-				User:     environment.KafkaUsername,
-				Password: environment.KafkaPassword,
-				SaslType: environment.KafkaSaslType,
-			},
-		}
+	// Update The Sarama Config - Username/Password Overrides (Values From Secret Take Precedence Over ConfigMap)
+	kafkaAuthCfg, err := commonconfig.GetAuthConfigFromKubernetes(ctx, environment.KafkaSecretName, environment.KafkaSecretNamespace)
+	if err != nil {
+		logger.Fatal("Failed To Load Auth Config", zap.Error(err))
 	}
 
 	// Load The Sarama & Eventing-Kafka Configuration From The ConfigMap
@@ -137,7 +129,7 @@ func main() {
 	}
 
 	// Initialize The Kafka Producer In Order To Start Processing Status Events
-	kafkaProducer, err = producer.NewProducer(logger, saramaConfig, strings.Split(environment.KafkaBrokers, ","), statsReporter, healthServer)
+	kafkaProducer, err = producer.NewProducer(logger, saramaConfig, strings.Split(kafkaAuthCfg.Brokers, ","), statsReporter, healthServer)
 	if err != nil {
 		logger.Fatal("Failed To Initialize Kafka Producer", zap.Error(err))
 	}
@@ -228,6 +220,7 @@ func configMapObserver(ctx context.Context, configMap *corev1.ConfigMap) {
 }
 
 func secretObserver(ctx context.Context, secret *corev1.Secret) {
+
 	logger := logging.FromContext(ctx)
 
 	if secret == nil {

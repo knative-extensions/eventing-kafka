@@ -33,17 +33,16 @@ import (
 
 // Test Constants
 const (
-	systemNamespace     = "test-system-namespace"
-	metricsPort         = "9999"
-	metricsDomain       = "kafka-eventing"
-	healthPort          = "1234"
-	resyncPeriodMinutes = "3600"
-	kafkaBrokers        = "TestKafkaBrokers"
-	serviceName         = "TestServiceName"
-	kafkaUsername       = "TestKafkaUsername"
-	kafkaPassword       = "TestKafkaPassword"
-	podName             = "TestPod"
-	containerName       = "TestContainer"
+	systemNamespace      = "test-system-namespace"
+	metricsPort          = "9999"
+	metricsDomain        = "kafka-eventing"
+	healthPort           = "1234"
+	resyncPeriodMinutes  = "3600"
+	serviceName          = "TestServiceName"
+	kafkaSecretName      = "TestKafkaSecretName"
+	kafkaSecretNamespace = "TestKafkaSecretNamespace"
+	podName              = "TestPod"
+	containerName        = "TestContainer"
 )
 
 // Define The TestCase Struct
@@ -54,10 +53,9 @@ type TestCase struct {
 	metricsDomain        string
 	healthPort           string
 	resyncPeriodMinutes  string
-	kafkaBrokers         string
 	serviceName          string
-	kafkaUsername        string
-	kafkaPassword        string
+	kafkaSecretName      string
+	kafkaSecretNamespace string
 	podName              string
 	containerName        string
 	expectedError        error
@@ -115,9 +113,14 @@ func TestGetEnvironment(t *testing.T) {
 	testCase.expectedResyncPeriod = "600" // 10 hours - default value
 	testCases = append(testCases, testCase)
 
-	testCase = getValidTestCase("Missing Required Config - KafkaBrokers")
-	testCase.kafkaBrokers = ""
-	testCase.expectedError = getMissingRequiredEnvironmentVariableError(env.KafkaBrokerEnvVarKey)
+	testCase = getValidTestCase("Missing Required Config - KafkaSecretName")
+	testCase.kafkaSecretName = ""
+	testCase.expectedError = getMissingRequiredEnvironmentVariableError(env.KafkaSecretNameEnvVarKey)
+	testCases = append(testCases, testCase)
+
+	testCase = getValidTestCase("Missing Required Config - KafkaSecretNamespace")
+	testCase.kafkaSecretNamespace = ""
+	testCase.expectedError = getMissingRequiredEnvironmentVariableError(env.KafkaSecretNamespaceEnvVarKey)
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Missing Required Config - ServiceName")
@@ -145,10 +148,9 @@ func TestGetEnvironment(t *testing.T) {
 			assertSetenv(t, env.MetricsDomainEnvVarKey, testCase.metricsDomain)
 			assertSetenvNonempty(t, env.MetricsPortEnvVarKey, testCase.metricsPort)
 			assertSetenvNonempty(t, env.HealthPortEnvVarKey, testCase.healthPort)
-			assertSetenv(t, env.KafkaBrokerEnvVarKey, testCase.kafkaBrokers)
+			assertSetenv(t, env.KafkaSecretNameEnvVarKey, testCase.kafkaSecretName)
+			assertSetenv(t, env.KafkaSecretNamespaceEnvVarKey, testCase.kafkaSecretNamespace)
 			assertSetenv(t, env.ServiceNameEnvVarKey, testCase.serviceName)
-			assertSetenv(t, env.KafkaUsernameEnvVarKey, testCase.kafkaUsername)
-			assertSetenv(t, env.KafkaPasswordEnvVarKey, testCase.kafkaPassword)
 			assertSetenv(t, env.PodNameEnvVarKey, testCase.podName)
 			assertSetenv(t, env.ContainerNameEnvVarKey, testCase.containerName)
 			assertSetenvNonempty(t, env.ResyncPeriodMinutesEnvVarKey, testCase.resyncPeriodMinutes)
@@ -164,10 +166,9 @@ func TestGetEnvironment(t *testing.T) {
 				assert.Equal(t, testCase.systemNamespace, environment.SystemNamespace)
 				assert.Equal(t, testCase.metricsPort, strconv.Itoa(environment.MetricsPort))
 				assert.Equal(t, testCase.healthPort, strconv.Itoa(environment.HealthPort))
-				assert.Equal(t, testCase.kafkaBrokers, environment.KafkaBrokers)
 				assert.Equal(t, testCase.serviceName, environment.ServiceName)
-				assert.Equal(t, testCase.kafkaUsername, environment.KafkaUsername)
-				assert.Equal(t, testCase.kafkaPassword, environment.KafkaPassword)
+				assert.Equal(t, testCase.kafkaSecretName, environment.KafkaSecretName)
+				assert.Equal(t, testCase.kafkaSecretNamespace, environment.KafkaSecretNamespace)
 				assert.Equal(t, testCase.podName, environment.PodName)
 				assert.Equal(t, testCase.containerName, environment.ContainerName)
 				assert.Equal(t, testCase.expectedResyncPeriod, strconv.Itoa(int(environment.ResyncPeriod/time.Minute)))
@@ -199,10 +200,9 @@ func getValidTestCase(name string) TestCase {
 		metricsDomain:        metricsDomain,
 		healthPort:           healthPort,
 		resyncPeriodMinutes:  resyncPeriodMinutes,
-		kafkaBrokers:         kafkaBrokers,
 		serviceName:          serviceName,
-		kafkaUsername:        kafkaUsername,
-		kafkaPassword:        kafkaPassword,
+		kafkaSecretName:      kafkaSecretName,
+		kafkaSecretNamespace: kafkaSecretNamespace,
 		podName:              podName,
 		containerName:        containerName,
 		expectedResyncPeriod: resyncPeriodMinutes,

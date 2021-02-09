@@ -18,6 +18,7 @@ package testing
 
 const (
 	SystemNamespace = "eventing-test-ns"
+	SecretName      = "test-secret-name"
 
 	NewClientId = "TestNewClientId"
 	OldUsername = "TestOldUsername"

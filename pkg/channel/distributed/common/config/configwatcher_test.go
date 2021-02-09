@@ -67,6 +67,10 @@ func TestInitializeConfigWatcher(t *testing.T) {
 	err = InitializeConfigWatcher(ctx, logger, configWatcherHandler, system.Namespace())
 	assert.Nil(t, err)
 
+	// Note that this initial change to the watched map is not part of the default Kubernetes watching logic.
+	// The underlying KNative InformedWatcher Start() function that is called as part of the
+	// SetupConfigMapWatchOrDie code "pretends" that all watched resources were just created.
+
 	// Wait for the configWatcherHandler to be called (happens pretty quickly; loop usually only runs once)
 	for try := 0; getWatchedMap() == nil && try < 100; try++ {
 		time.Sleep(5 * time.Millisecond)
