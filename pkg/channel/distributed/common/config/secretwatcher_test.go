@@ -88,7 +88,7 @@ func TestInitializeSecretWatcher(t *testing.T) {
 	assert.Equal(t, string(testSecret.Data[kafkaconstants.KafkaSecretKeySaslType]), commontesting.OldAuthSaslType)
 
 	// Perform The Test (Initialize The Secret Watcher)
-	err = InitializeSecretWatcher(ctx, system.Namespace(), secretWatcherHandler)
+	err = InitializeSecretWatcher(ctx, system.Namespace(), constants.SettingsSecretName, secretWatcherHandler)
 	assert.Nil(t, err)
 
 	// Change the secret and verify the handler is called
