@@ -224,6 +224,7 @@ func configMapObserver(ctx context.Context, configMap *corev1.ConfigMap) {
 	}
 }
 
+// secretObserver is the callback function that handles changes to our Secret
 func secretObserver(ctx context.Context, secret *corev1.Secret) {
 	logger := logging.FromContext(ctx)
 
