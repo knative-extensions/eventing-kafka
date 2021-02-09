@@ -409,16 +409,16 @@ func (r *Reconciler) receiverDeploymentEnvVars(secret *corev1.Secret) ([]corev1.
 		},
 	}
 
-	// Append The Secret Namespace As Env Var
-	envVars = append(envVars, corev1.EnvVar{
-		Name:  commonenv.KafkaSecretNamespaceEnvVarKey,
-		Value: r.environment.SystemNamespace,
-	})
-
 	// Append The Secret Name As Env Var
 	envVars = append(envVars, corev1.EnvVar{
 		Name:  commonenv.KafkaSecretNameEnvVarKey,
 		Value: secret.Name,
+	})
+
+	// Append The Secret Namespace As Env Var
+	envVars = append(envVars, corev1.EnvVar{
+		Name:  commonenv.KafkaSecretNamespaceEnvVarKey,
+		Value: r.environment.SystemNamespace,
 	})
 
 	// Return The Receiver Deployment EnvVars Array

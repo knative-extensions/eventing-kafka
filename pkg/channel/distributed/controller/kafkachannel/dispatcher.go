@@ -546,16 +546,16 @@ func (r *Reconciler) dispatcherDeploymentEnvVars(channel *kafkav1beta1.KafkaChan
 
 	} else {
 
-		// Append The Secret Namespace As Env Var
-		envVars = append(envVars, corev1.EnvVar{
-			Name:  commonenv.KafkaSecretNamespaceEnvVarKey,
-			Value: r.environment.SystemNamespace,
-		})
-
 		// Append The Secret Name As Env Var
 		envVars = append(envVars, corev1.EnvVar{
 			Name:  commonenv.KafkaSecretNameEnvVarKey,
 			Value: r.kafkaSecret,
+		})
+
+		// Append The Secret Namespace As Env Var
+		envVars = append(envVars, corev1.EnvVar{
+			Name:  commonenv.KafkaSecretNamespaceEnvVarKey,
+			Value: r.environment.SystemNamespace,
 		})
 
 	}
