@@ -376,6 +376,6 @@ func (d *DispatcherImpl) SecretChanged(ctx context.Context, secret *corev1.Secre
 	}
 
 	// Create A New Producer With The New Configuration (Reusing All Other Existing Config)
-	d.Logger.Info("Changes Detected In New Secret - Closing & Recreating Producer")
+	d.Logger.Info("Changes Detected In New Secret - Closing & Recreating Dispatcher")
 	return d.reconfigure(newConfig)
 }
