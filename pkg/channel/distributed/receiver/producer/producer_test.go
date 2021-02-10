@@ -250,6 +250,11 @@ func TestSecretChanged(t *testing.T) {
 			expectNewProducer: true,
 		},
 		{
+			name:              "Empty Username Change (New Producer)",
+			newSecret:         configtesting.NewKafkaSecret(configtesting.WithEmptyUsername),
+			expectNewProducer: true,
+		},
+		{
 			name:              "SaslType Change (New Producer)",
 			newSecret:         configtesting.NewKafkaSecret(configtesting.WithModifiedSaslType),
 			expectNewProducer: true,
@@ -263,6 +268,11 @@ func TestSecretChanged(t *testing.T) {
 			name:              "Brokers Change (New Producer)",
 			newSecret:         configtesting.NewKafkaSecret(configtesting.WithModifiedBrokers),
 			expectNewProducer: true,
+		},
+		{
+			name:              "No Auth Config In Secret (Same Producer)",
+			newSecret:         configtesting.NewKafkaSecret(configtesting.WithMissingConfig),
+			expectNewProducer: false,
 		},
 	}
 

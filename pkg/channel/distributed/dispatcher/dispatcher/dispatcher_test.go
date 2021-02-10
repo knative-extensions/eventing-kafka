@@ -433,6 +433,11 @@ func TestSecretChanged(t *testing.T) {
 			expectNewDispatcher: true,
 		},
 		{
+			name:                "Empty Username Change (New Dispatcher)",
+			newSecret:           configtesting.NewKafkaSecret(configtesting.WithEmptyUsername),
+			expectNewDispatcher: true,
+		},
+		{
 			name:                "SaslType Change (New Dispatcher)",
 			newSecret:           configtesting.NewKafkaSecret(configtesting.WithModifiedSaslType),
 			expectNewDispatcher: true,
@@ -446,6 +451,11 @@ func TestSecretChanged(t *testing.T) {
 			name:                "Brokers Change (New Dispatcher)",
 			newSecret:           configtesting.NewKafkaSecret(configtesting.WithModifiedBrokers),
 			expectNewDispatcher: true,
+		},
+		{
+			name:                "No Auth Config In Secret (Same Dispatcher)",
+			newSecret:           configtesting.NewKafkaSecret(configtesting.WithMissingConfig),
+			expectNewDispatcher: false,
 		},
 	}
 

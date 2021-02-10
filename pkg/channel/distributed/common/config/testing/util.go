@@ -201,6 +201,11 @@ func WithModifiedUsername(secret *corev1.Secret) {
 	secret.Data[kafkaconstants.KafkaSecretKeyUsername] = []byte("TestModifiedUsername")
 }
 
+// Empty The Default Username Section Of The Secret Data
+func WithEmptyUsername(secret *corev1.Secret) {
+	secret.Data[kafkaconstants.KafkaSecretKeyUsername] = []byte("")
+}
+
 // Modify The Default SaslType Section Of The Secret Data
 func WithModifiedSaslType(secret *corev1.Secret) {
 	secret.Data[kafkaconstants.KafkaSecretKeySaslType] = []byte("TestModifiedSaslType")
@@ -214,4 +219,9 @@ func WithModifiedNamespace(secret *corev1.Secret) {
 // Modify The Default Brokers Section Of The Secret Data
 func WithModifiedBrokers(secret *corev1.Secret) {
 	secret.Data[kafkaconstants.KafkaSecretKeyBrokers] = []byte("TestModifiedPBrokers")
+}
+
+// Remove the Data From The Secret
+func WithMissingConfig(secret *corev1.Secret) {
+	secret.Data = nil
 }
