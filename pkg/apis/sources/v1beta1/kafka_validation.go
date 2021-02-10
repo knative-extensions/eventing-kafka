@@ -19,6 +19,8 @@ package v1beta1
 import (
 	"context"
 
+	"github.com/google/go-cmp/cmp/cmpopts"
+
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/kmp"
 )
@@ -27,7 +29,9 @@ import (
 func (r *KafkaSource) Validate(ctx context.Context) *apis.FieldError {
 	if apis.IsInUpdate(ctx) {
 		original := apis.GetBaseline(ctx).(*KafkaSource)
-		if diff, err := kmp.ShortDiff(original.Spec, r.Spec); err != nil {
+		// Ignore diffs in bootstrapServers and topics
+		ignoreArgs := cmpopts.IgnoreFields(KafkaSourceSpec{}, "Topics", "BootstrapServers")
+		if diff, err := kmp.ShortDiff(original.Spec, r.Spec, ignoreArgs); err != nil {
 			return &apis.FieldError{
 				Message: "Failed to diff KafkaSource",
 				Paths:   []string{"spec"},

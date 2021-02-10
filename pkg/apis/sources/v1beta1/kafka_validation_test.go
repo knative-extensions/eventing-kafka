@@ -57,10 +57,11 @@ func TestKafkaSourceCheckImmutableFields(t *testing.T) {
 		"Topic changed": {
 			orig: &fullSpec,
 			updated: KafkaSourceSpec{
-				Topics:     []string{"some-other-topic"},
-				SourceSpec: fullSpec.SourceSpec,
+				Topics:        []string{"some-other-topic"},
+				ConsumerGroup: fullSpec.ConsumerGroup,
+				SourceSpec:    fullSpec.SourceSpec,
 			},
-			allowed: false,
+			allowed: true,
 		},
 		"Bootstrap servers changed": {
 			orig: &fullSpec,
@@ -68,9 +69,10 @@ func TestKafkaSourceCheckImmutableFields(t *testing.T) {
 				KafkaAuthSpec: bindingsv1beta1.KafkaAuthSpec{
 					BootstrapServers: []string{"server1,server2"},
 				},
-				SourceSpec: fullSpec.SourceSpec,
+				ConsumerGroup: fullSpec.ConsumerGroup,
+				SourceSpec:    fullSpec.SourceSpec,
 			},
-			allowed: false,
+			allowed: true,
 		},
 		"Sink.APIVersion changed": {
 			orig: &fullSpec,
