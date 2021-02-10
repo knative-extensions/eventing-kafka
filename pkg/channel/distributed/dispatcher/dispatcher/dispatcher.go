@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors
+Copyright 2021 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -332,7 +332,43 @@ func (d *DispatcherImpl) ConfigChanged(ctx context.Context, configMap *corev1.Co
 	}
 
 	// Create A New Dispatcher With The New Configuration (Reusing All Other Existing Config)
-	d.Logger.Info("Consumer Changes Detected In New Configuration - Recreating Dispatcher")
+	d.Logger.Info("Consumer Changes Detected In New Configuration - Closing & Recreating Consumer Groups")
+	return d.reconfigure(newConfig)
+}
+
+// SecretChanged is called by the secretObserver handler function in main() so that
+// settings specific to the dispatcher may be extracted and the dispatcher restarted if necessary.
+func (d *DispatcherImpl) SecretChanged(ctx context.Context, secret *corev1.Secret) Dispatcher {
+
+	// Debug Log The Secret Change
+	d.Logger.Debug("New Secret Received", zap.String("secret.Name", secret.ObjectMeta.Name))
+
+	kafkaAuthCfg, newBrokers := config.GetAuthConfigFromSecret(secret)
+	if kafkaAuthCfg == nil {
+		d.Logger.Warn("No auth config found in secret; ignoring update")
+		return nil
+	}
+
+	// Don't Restart Dispatcher If All Auth Settings Identical
+	if kafkaAuthCfg.SASL.HasSameSettings(d.SaramaConfig) && client.HasSameBrokers(newBrokers, d.DispatcherConfig.Brokers) {
+		d.Logger.Info("No relevant changes in Secret; ignoring update")
+		return nil
+	}
+	d.DispatcherConfig.Brokers = strings.Split(newBrokers, ",")
+
+	// Build New Config Using Existing Config And New Auth Settings
+	if kafkaAuthCfg.SASL.User == "" {
+		// The config builder expects the entire config object to be nil if not using auth
+		kafkaAuthCfg = nil
+	}
+	newConfig, err := client.NewConfigBuilder().WithExisting(d.SaramaConfig).WithAuth(kafkaAuthCfg).Build(ctx)
+	if err != nil {
+		d.Logger.Error("Unable to merge new auth into sarama settings", zap.Error(err))
+		return nil
+	}
+
+	// Create A New Dispatcher With The New Configuration (Reusing All Other Existing Config)
+	d.Logger.Info("Changes Detected In New Secret - Closing & Recreating Consumer Groups")
 	return d.reconfigure(newConfig)
 }
 
@@ -347,40 +383,4 @@ func (d *DispatcherImpl) reconfigure(newConfig *sarama.Config) Dispatcher {
 		return nil
 	}
 	return newDispatcher
-}
-
-// SecretChanged is called by the secretObserver handler function in main() so that
-// settings specific to the dispatcher may be extracted and the dispatcher restarted if necessary.
-func (d *DispatcherImpl) SecretChanged(ctx context.Context, secret *corev1.Secret) Dispatcher {
-
-	// Debug Log The Secret Change
-	d.Logger.Debug("New Secret Received", zap.String("secret.Name", secret.ObjectMeta.Name))
-
-	kafkaAuthCfg := config.GetAuthConfigFromSecret(secret)
-	if kafkaAuthCfg == nil {
-		d.Logger.Warn("No auth config found in secret; ignoring update")
-		return nil
-	}
-
-	// Don't Restart Dispatcher If All Auth Settings Identical
-	if kafkaAuthCfg.SASL.HasSameSettings(d.SaramaConfig) && kafkaAuthCfg.HasSameBrokers(d.DispatcherConfig.Brokers) {
-		d.Logger.Info("No relevant changes in Secret; ignoring update")
-		return nil
-	}
-	d.DispatcherConfig.Brokers = strings.Split(kafkaAuthCfg.Brokers, ",")
-
-	// Build New Config Using Existing Config And New Auth Settings
-	if kafkaAuthCfg.SASL.User == "" {
-		// The config builder expects the entire config object to be nil if not using auth
-		kafkaAuthCfg = nil
-	}
-	newConfig, err := client.NewConfigBuilder().WithExisting(d.SaramaConfig).WithAuth(kafkaAuthCfg).Build(ctx)
-	if err != nil {
-		d.Logger.Error("Unable to merge new auth into sarama settings", zap.Error(err))
-		return nil
-	}
-
-	// Create A New Producer With The New Configuration (Reusing All Other Existing Config)
-	d.Logger.Info("Changes Detected In New Secret - Closing & Recreating Dispatcher")
-	return d.reconfigure(newConfig)
 }

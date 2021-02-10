@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors
+Copyright 2021 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -33,9 +33,8 @@ import (
 )
 
 type KafkaAuthConfig struct {
-	Brokers string
-	TLS     *KafkaTlsConfig
-	SASL    *KafkaSaslConfig
+	TLS  *KafkaTlsConfig
+	SASL *KafkaSaslConfig
 }
 
 type KafkaTlsConfig struct {
@@ -57,10 +56,10 @@ func (c *KafkaSaslConfig) HasSameSettings(saramaConfig *sarama.Config) bool {
 		string(saramaConfig.Net.SASL.Mechanism) == c.SaslType
 }
 
-// HasSameBrokers returns true if all of the brokers in the provided slice are present and in the same order as
-// the ones in the Brokers field of this KafkaAuthConfig struct
-func (c *KafkaAuthConfig) HasSameBrokers(brokers []string) bool {
-	splitBrokers := strings.Split(c.Brokers, ",")
+// HasSameBrokers returns true if all of the brokers in the slice are present and in the same order as
+// the ones in the consolidated brokerString
+func HasSameBrokers(brokerString string, brokers []string) bool {
+	splitBrokers := strings.Split(brokerString, ",")
 
 	// Not the same if there aren't the same number of brokers
 	if len(splitBrokers) != len(brokers) {

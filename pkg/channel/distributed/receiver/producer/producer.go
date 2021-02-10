@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors
+Copyright 2021 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,8 +22,6 @@ import (
 	"strings"
 	"time"
 
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
-
 	"github.com/Shopify/sarama"
 	kafkasaramaprotocol "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"github.com/cloudevents/sdk-go/v2/binding"
@@ -31,6 +29,7 @@ import (
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/producer"
 	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/metrics"
@@ -236,20 +235,6 @@ func (p *Producer) ConfigChanged(ctx context.Context, configMap *corev1.ConfigMa
 	return p.reconfigure(newConfig)
 }
 
-// Shut down the current producer and recreate it with new settings
-func (p *Producer) reconfigure(newConfig *sarama.Config) *Producer {
-	p.Close()
-	reconfiguredKafkaProducer, err := NewProducer(p.logger, newConfig, p.brokers, p.statsReporter, p.healthServer)
-	if err != nil {
-		p.logger.Fatal("Failed To Create Kafka Producer With New Configuration", zap.Error(err))
-		return nil
-	}
-
-	// Successfully Created New Producer - Close Old One And Return New One
-	p.logger.Info("Successfully Created New Producer")
-	return reconfiguredKafkaProducer
-}
-
 // SecretChanged is called by the secretObserver handler function in main() so that
 // settings specific to the producer may be extracted and the producer restarted if necessary.
 func (p *Producer) SecretChanged(ctx context.Context, secret *corev1.Secret) *Producer {
@@ -257,18 +242,18 @@ func (p *Producer) SecretChanged(ctx context.Context, secret *corev1.Secret) *Pr
 	// Debug Log The Secret Change
 	p.logger.Debug("New Secret Received", zap.String("secret.Name", secret.ObjectMeta.Name))
 
-	kafkaAuthCfg := config.GetAuthConfigFromSecret(secret)
+	kafkaAuthCfg, newBrokers := config.GetAuthConfigFromSecret(secret)
 	if kafkaAuthCfg == nil {
 		p.logger.Warn("No auth config found in secret; ignoring update")
 		return nil
 	}
 
 	// Don't Restart Producer If All Auth Settings Identical.
-	if kafkaAuthCfg.SASL.HasSameSettings(p.configuration) && kafkaAuthCfg.HasSameBrokers(p.brokers) {
+	if kafkaAuthCfg.SASL.HasSameSettings(p.configuration) && client.HasSameBrokers(newBrokers, p.brokers) {
 		p.logger.Info("No relevant changes in Secret; ignoring update")
 		return nil
 	}
-	p.brokers = strings.Split(kafkaAuthCfg.Brokers, ",")
+	p.brokers = strings.Split(newBrokers, ",")
 
 	// Build New Config Using Existing Config And New Auth Settings
 	if kafkaAuthCfg.SASL.User == "" {
@@ -303,4 +288,18 @@ func (p *Producer) Close() {
 	} else {
 		p.logger.Info("Successfully Closed Kafka Producer")
 	}
+}
+
+// Shut down the current producer and recreate it with new settings
+func (p *Producer) reconfigure(newConfig *sarama.Config) *Producer {
+	p.Close()
+	reconfiguredKafkaProducer, err := NewProducer(p.logger, newConfig, p.brokers, p.statsReporter, p.healthServer)
+	if err != nil {
+		p.logger.Fatal("Failed To Create Kafka Producer With New Configuration", zap.Error(err))
+		return nil
+	}
+
+	// Successfully Created New Producer - Close Old One And Return New One
+	p.logger.Info("Successfully Created New Producer")
+	return reconfiguredKafkaProducer
 }

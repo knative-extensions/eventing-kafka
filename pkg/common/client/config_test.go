@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors
+Copyright 2021 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -680,13 +680,12 @@ func TestHasSameSettings(t *testing.T) {
 }
 
 func TestHasSameBrokers(t *testing.T) {
-	authConfig := &KafkaAuthConfig{Brokers: "broker1,broker2,broker3"}
-	assert.True(t, authConfig.HasSameBrokers([]string{"broker1", "broker2", "broker3"}))
-	assert.False(t, authConfig.HasSameBrokers([]string{}))
-	assert.False(t, authConfig.HasSameBrokers([]string{"broker1"}))
-	assert.False(t, authConfig.HasSameBrokers([]string{"broker1", "broker2"}))
-	assert.False(t, authConfig.HasSameBrokers([]string{"broker1", "broker2", "broker3", "broker4"}))
-	assert.False(t, authConfig.HasSameBrokers([]string{"broker3", "broker2", "broker1"}))
+	assert.True(t, HasSameBrokers("broker1,broker2,broker3", []string{"broker1", "broker2", "broker3"}))
+	assert.False(t, HasSameBrokers("broker1,broker2,broker3", []string{}))
+	assert.False(t, HasSameBrokers("broker1,broker2,broker3", []string{"broker1"}))
+	assert.False(t, HasSameBrokers("broker1,broker2,broker3", []string{"broker1", "broker2"}))
+	assert.False(t, HasSameBrokers("broker1,broker2,broker3", []string{"broker1", "broker2", "broker3", "broker4"}))
+	assert.False(t, HasSameBrokers("broker1,broker2,broker3", []string{"broker3", "broker2", "broker1"}))
 }
 
 // Lifted from the RSA path of https://golang.org/src/crypto/tls/generate_cert.go.

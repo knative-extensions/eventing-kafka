@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors
+Copyright 2021 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -74,7 +74,7 @@ func main() {
 	}
 
 	// Update The Sarama Config - Username/Password Overrides (Values From Secret Take Precedence Over ConfigMap)
-	kafkaAuthCfg, err := commonconfig.GetAuthConfigFromKubernetes(ctx, environment.KafkaSecretName, environment.KafkaSecretNamespace)
+	kafkaAuthCfg, brokers, err := commonconfig.GetAuthConfigFromKubernetes(ctx, environment.KafkaSecretName, environment.KafkaSecretNamespace)
 	if err != nil {
 		logger.Fatal("Failed To Load Auth Config", zap.Error(err))
 	}
@@ -129,7 +129,7 @@ func main() {
 	}
 
 	// Initialize The Kafka Producer In Order To Start Processing Status Events
-	kafkaProducer, err = producer.NewProducer(logger, saramaConfig, strings.Split(kafkaAuthCfg.Brokers, ","), statsReporter, healthServer)
+	kafkaProducer, err = producer.NewProducer(logger, saramaConfig, strings.Split(brokers, ","), statsReporter, healthServer)
 	if err != nil {
 		logger.Fatal("Failed To Initialize Kafka Producer", zap.Error(err))
 	}
@@ -204,6 +204,7 @@ func configMapObserver(ctx context.Context, configMap *corev1.ConfigMap) {
 		logger.Warn("Nil ConfigMap passed to configMapObserver; ignoring")
 		return
 	}
+
 	if kafkaProducer == nil {
 		// This typically happens during startup
 		logger.Debug("Producer is nil during call to configMapObserver; ignoring changes")
@@ -214,20 +215,20 @@ func configMapObserver(ctx context.Context, configMap *corev1.ConfigMap) {
 	newProducer := kafkaProducer.ConfigChanged(ctx, configMap)
 	if newProducer != nil {
 		// The configuration change caused a new producer to be created, so switch to that one
-		logger.Info("Producer Reconfigured; Switching To New Producer")
+		logger.Info("Config Changed; Receiver Reconfigured")
 		kafkaProducer = newProducer
 	}
 }
 
 // secretObserver is the callback function that handles changes to our Secret
 func secretObserver(ctx context.Context, secret *corev1.Secret) {
-
 	logger := logging.FromContext(ctx)
 
 	if secret == nil {
 		logger.Warn("Nil Secret passed to secretObserver; ignoring")
 		return
 	}
+
 	if kafkaProducer == nil {
 		// This typically happens during startup
 		logger.Debug("Producer is nil during call to secretObserver; ignoring changes")
@@ -238,7 +239,7 @@ func secretObserver(ctx context.Context, secret *corev1.Secret) {
 	newProducer := kafkaProducer.SecretChanged(ctx, secret)
 	if newProducer != nil {
 		// The configuration change caused a new producer to be created, so switch to that one
-		logger.Info("Producer Reconfigured; Switching To New Producer")
+		logger.Info("Secret Changed; Receiver Reconfigured")
 		kafkaProducer = newProducer
 	}
 }

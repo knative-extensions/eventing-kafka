@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors
+Copyright 2021 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -74,7 +74,7 @@ func main() {
 	}
 
 	// Update The Sarama Config - Username/Password Overrides (Values From Secret Take Precedence Over ConfigMap)
-	kafkaAuthCfg, err := commonconfig.GetAuthConfigFromKubernetes(ctx, environment.KafkaSecretName, environment.KafkaSecretNamespace)
+	kafkaAuthCfg, brokers, err := commonconfig.GetAuthConfigFromKubernetes(ctx, environment.KafkaSecretName, environment.KafkaSecretNamespace)
 	if err != nil {
 		logger.Fatal("Failed To Load Auth Config", zap.Error(err))
 	}
@@ -119,7 +119,7 @@ func main() {
 	dispatcherConfig := dispatch.DispatcherConfig{
 		Logger:        logger,
 		ClientId:      constants.Component,
-		Brokers:       strings.Split(kafkaAuthCfg.Brokers, ","),
+		Brokers:       strings.Split(brokers, ","),
 		Topic:         environment.KafkaTopic,
 		Username:      kafkaAuthCfg.SASL.User,
 		Password:      kafkaAuthCfg.SASL.Password,
@@ -220,6 +220,7 @@ func configMapObserver(ctx context.Context, configMap *corev1.ConfigMap) {
 	newDispatcher := dispatcher.ConfigChanged(ctx, configMap)
 	if newDispatcher != nil {
 		// The configuration change caused a new dispatcher to be created, so switch to that one
+		logger.Info("Config Changed; Dispatcher Reconfigured")
 		dispatcher = newDispatcher
 	}
 }
@@ -243,7 +244,7 @@ func secretObserver(ctx context.Context, secret *corev1.Secret) {
 	newDispatcher := dispatcher.SecretChanged(ctx, secret)
 	if newDispatcher != nil {
 		// The configuration change caused a new dispatcher to be created, so switch to that one
-		logger.Info("Producer Reconfigured; Switching To New Producer")
+		logger.Info("Secret Changed; Dispatcher Reconfigured")
 		dispatcher = newDispatcher
 	}
 }

@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors
+Copyright 2021 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -74,27 +74,29 @@ func InitializeSecretWatcher(ctx context.Context, namespace string, name string,
 }
 
 // Look Up And Return Kafka Auth Config From Named Secret
-func GetAuthConfigFromKubernetes(ctx context.Context, secretName string, secretNamespace string) (*client.KafkaAuthConfig, error) {
+func GetAuthConfigFromKubernetes(ctx context.Context, secretName string, secretNamespace string) (*client.KafkaAuthConfig, string, error) {
 	secrets := kubeclient.Get(ctx).CoreV1().Secrets(secretNamespace)
 	secret, err := secrets.Get(ctx, secretName, metav1.GetOptions{})
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	return GetAuthConfigFromSecret(secret), nil
+	kafkaAuthCfg, brokers := GetAuthConfigFromSecret(secret)
+	return kafkaAuthCfg, brokers, nil
 }
 
-// Look Up And Return Kafka Auth Config From Provided Secret
-func GetAuthConfigFromSecret(secret *corev1.Secret) *client.KafkaAuthConfig {
+// Look Up And Return Kafka Auth Config And Brokers From Provided Secret
+func GetAuthConfigFromSecret(secret *corev1.Secret) (*client.KafkaAuthConfig, string) {
 	if secret == nil || secret.Data == nil {
-		return nil
+		return nil, ""
 	}
 
 	return &client.KafkaAuthConfig{
-		Brokers: string(secret.Data[constants.KafkaSecretKeyBrokers]),
 		SASL: &client.KafkaSaslConfig{
 			User:     string(secret.Data[constants.KafkaSecretKeyUsername]),
 			Password: string(secret.Data[constants.KafkaSecretKeyPassword]),
 			SaslType: string(secret.Data[constants.KafkaSecretKeySaslType]),
 		},
-	}
+	},
+	string(secret.Data[constants.KafkaSecretKeyBrokers])
+
 }
