@@ -680,12 +680,35 @@ func TestHasSameSettings(t *testing.T) {
 }
 
 func TestHasSameBrokers(t *testing.T) {
-	assert.True(t, HasSameBrokers("broker1,broker2,broker3", []string{"broker1", "broker2", "broker3"}))
-	assert.False(t, HasSameBrokers("broker1,broker2,broker3", []string{}))
-	assert.False(t, HasSameBrokers("broker1,broker2,broker3", []string{"broker1"}))
-	assert.False(t, HasSameBrokers("broker1,broker2,broker3", []string{"broker1", "broker2"}))
-	assert.False(t, HasSameBrokers("broker1,broker2,broker3", []string{"broker1", "broker2", "broker3", "broker4"}))
-	assert.False(t, HasSameBrokers("broker1,broker2,broker3", []string{"broker3", "broker2", "broker1"}))
+
+	// Define The TestCase Struct
+	type TestCase struct {
+		name  string
+		str   string
+		slice []string
+		same  bool
+	}
+
+	const brokers123 = "broker1,broker2,broker3"
+
+	// Create The TestCases
+	testCases := []TestCase{
+		{name: "3 vs. Identical Slice", str: brokers123, slice: []string{"broker1", "broker2", "broker3"}, same: true},
+		{name: "3 vs. Empty Slice", str: brokers123, slice: []string{}},
+		{name: "3 vs. 1-element Slice", str: brokers123, slice: []string{"broker1"}},
+		{name: "3 vs. 2-element Slice", str: brokers123, slice: []string{"broker1", "broker2"}},
+		{name: "3 vs. 4-element Slice", str: brokers123, slice: []string{"broker1", "broker2", "broker3", "broker4"}},
+		{name: "3 vs. Reversed Slice", str: brokers123, slice: []string{"broker3", "broker2", "broker1"}},
+		{name: "1 vs. 1-element Slice", str: "broker1", slice: []string{"broker1"}, same: true},
+		{name: "0 vs. Empty Slice", str: "", slice: []string{}, same: true},
+	}
+
+	// Run The TestCases
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			assert.Equal(t, testCase.same, HasSameBrokers(testCase.str, testCase.slice))
+		})
+	}
 }
 
 // Lifted from the RSA path of https://golang.org/src/crypto/tls/generate_cert.go.

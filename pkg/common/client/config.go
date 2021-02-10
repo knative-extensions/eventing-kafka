@@ -57,8 +57,14 @@ func (c *KafkaSaslConfig) HasSameSettings(saramaConfig *sarama.Config) bool {
 }
 
 // HasSameBrokers returns true if all of the brokers in the slice are present and in the same order as
-// the ones in the consolidated brokerString
+// the ones in the consolidated str
 func HasSameBrokers(brokerString string, brokers []string) bool {
+
+	// Special case for empty string and slice, because Split() always returns at least one element
+	if brokerString == "" && len(brokers) == 0 {
+		return true
+	}
+
 	splitBrokers := strings.Split(brokerString, ",")
 
 	// Not the same if there aren't the same number of brokers

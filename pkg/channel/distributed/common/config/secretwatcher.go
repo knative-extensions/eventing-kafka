@@ -73,7 +73,7 @@ func InitializeSecretWatcher(ctx context.Context, namespace string, name string,
 	return nil
 }
 
-// Look Up And Return Kafka Auth Config From Named Secret
+// Look Up And Return Kafka Auth ConfigAnd Brokers From Named Secret
 func GetAuthConfigFromKubernetes(ctx context.Context, secretName string, secretNamespace string) (*client.KafkaAuthConfig, string, error) {
 	secrets := kubeclient.Get(ctx).CoreV1().Secrets(secretNamespace)
 	secret, err := secrets.Get(ctx, secretName, metav1.GetOptions{})
@@ -91,12 +91,12 @@ func GetAuthConfigFromSecret(secret *corev1.Secret) (*client.KafkaAuthConfig, st
 	}
 
 	return &client.KafkaAuthConfig{
-		SASL: &client.KafkaSaslConfig{
-			User:     string(secret.Data[constants.KafkaSecretKeyUsername]),
-			Password: string(secret.Data[constants.KafkaSecretKeyPassword]),
-			SaslType: string(secret.Data[constants.KafkaSecretKeySaslType]),
+			SASL: &client.KafkaSaslConfig{
+				User:     string(secret.Data[constants.KafkaSecretKeyUsername]),
+				Password: string(secret.Data[constants.KafkaSecretKeyPassword]),
+				SaslType: string(secret.Data[constants.KafkaSecretKeySaslType]),
+			},
 		},
-	},
-	string(secret.Data[constants.KafkaSecretKeyBrokers])
+		string(secret.Data[constants.KafkaSecretKeyBrokers])
 
 }
