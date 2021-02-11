@@ -79,13 +79,13 @@ func WatchConfigurations(loggingCtx context.Context, component string,
 		kafkaCfg:      nil,
 	}
 
-	WithKafka(cw, cmw)
+	WatchConfigMapWithKafka(cw, cmw)
 
 	return cw
 }
 
-// WithKafka observes a Kafka ConfigMap.
-func WithKafka(cw *KafkaSourceConfigWatcher, cmw configmap.Watcher) {
+// WatchConfigMapWithKafka observes a Kafka ConfigMap.
+func WatchConfigMapWithKafka(cw *KafkaSourceConfigWatcher, cmw configmap.Watcher) {
 	cw.kafkaCfg = &KafkaConfig{}
 	watchConfigMap(cmw, KafkaConfigMapName(), cw.updateFromKafkaConfigMap)
 }
@@ -156,5 +156,5 @@ func KafkaConfigMapName() string {
 	if cm := os.Getenv(kafkaConfigMapNameEnv); cm != "" {
 		return cm
 	}
-	return "config-kafka"
+	return constants.SettingsConfigMapName
 }
