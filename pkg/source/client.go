@@ -158,14 +158,18 @@ func MakeAdminClient(clientID string, kafkaAuthCfg *utils.KafkaAuthConfig, boots
 
 func UpdateSaramaConfigWithKafkaAuthConfig(saramaConf *sarama.Config, kafkaAuthCfg *utils.KafkaAuthConfig) error {
 	if kafkaAuthCfg != nil {
-		// tls
+		// TLS
 		if kafkaAuthCfg.TLS != nil {
 			saramaConf.Net.TLS.Enable = true
-			tlsConfig, err := NewTLSConfig(kafkaAuthCfg.TLS.Usercert, kafkaAuthCfg.TLS.Userkey, kafkaAuthCfg.TLS.Cacert)
-			if err != nil {
-				return fmt.Errorf("Error creating TLS config: %w", err)
+
+			// if we have TLS, we might want to use the certs for self-signed CERTs
+			if kafkaAuthCfg.TLS.Cacert != "" {
+				tlsConfig, err := NewTLSConfig(kafkaAuthCfg.TLS.Usercert, kafkaAuthCfg.TLS.Userkey, kafkaAuthCfg.TLS.Cacert)
+				if err != nil {
+					return fmt.Errorf("Error creating TLS config: %w", err)
+				}
+				saramaConf.Net.TLS.Config = tlsConfig
 			}
-			saramaConf.Net.TLS.Config = tlsConfig
 		}
 		// SASL
 		if kafkaAuthCfg.SASL != nil {
