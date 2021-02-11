@@ -287,7 +287,6 @@ func NewKafkaSecret(options ...KafkaSecretOption) *corev1.Secret {
 			Labels:    map[string]string{kafkaconstants.KafkaSecretLabel: "true"},
 		},
 		Data: map[string][]byte{
-			kafkaconstants.KafkaSecretKeyBrokers:  []byte(KafkaSecretDataValueBrokers),
 			kafkaconstants.KafkaSecretKeyUsername: []byte(KafkaSecretDataValueUsername),
 			kafkaconstants.KafkaSecretKeyPassword: []byte(KafkaSecretDataValuePassword),
 			kafkaconstants.KafkaSecretKeySaslType: []byte(KafkaSecretDataValueSaslType),

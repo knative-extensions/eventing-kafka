@@ -46,7 +46,6 @@ func TestGetAuthConfigFromKubernetes(t *testing.T) {
 	// Test Data
 	oldAuthSecret := getSaramaTestSecret(t,
 		commontesting.SecretName,
-		commontesting.OldAuthBrokers,
 		commontesting.OldAuthUsername,
 		commontesting.OldAuthPassword,
 		commontesting.OldAuthNamespace,
@@ -80,11 +79,10 @@ func TestGetAuthConfigFromKubernetes(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			ctx := context.WithValue(context.TODO(), injectionclient.Key{}, fake.NewSimpleClientset(testCase.secret))
-			kafkaAuth, brokers, err := GetAuthConfigFromKubernetes(ctx, testCase.askName, commontesting.SystemNamespace)
+			kafkaAuth, err := GetAuthConfigFromKubernetes(ctx, testCase.askName, commontesting.SystemNamespace)
 			if !testCase.wantErr {
 				assert.Nil(t, err)
 				assert.NotNil(t, kafkaAuth)
-				assert.Equal(t, commontesting.OldAuthBrokers, brokers)
 				assert.Equal(t, commontesting.OldAuthUsername, kafkaAuth.SASL.User)
 				assert.Equal(t, commontesting.OldAuthPassword, kafkaAuth.SASL.Password)
 				assert.Equal(t, commontesting.OldAuthSaslType, kafkaAuth.SASL.SaslType)
@@ -98,29 +96,25 @@ func TestGetAuthConfigFromKubernetes(t *testing.T) {
 func TestGetConfigFromSecret_Valid(t *testing.T) {
 	secret := getSaramaTestSecret(t,
 		commontesting.SecretName,
-		commontesting.OldAuthBrokers,
 		commontesting.OldAuthUsername,
 		commontesting.OldAuthPassword,
 		commontesting.OldAuthNamespace,
 		commontesting.OldAuthSaslType)
-	kafkaAuth, brokers := GetAuthConfigFromSecret(secret)
-	assert.Equal(t, commontesting.OldAuthBrokers, brokers)
+	kafkaAuth := GetAuthConfigFromSecret(secret)
 	assert.Equal(t, commontesting.OldAuthUsername, kafkaAuth.SASL.User)
 	assert.Equal(t, commontesting.OldAuthPassword, kafkaAuth.SASL.Password)
 	assert.Equal(t, commontesting.OldAuthSaslType, kafkaAuth.SASL.SaslType)
 }
 
 func TestGetConfigFromSecret_Invalid(t *testing.T) {
-	authCfg, brokers := GetAuthConfigFromSecret(nil)
+	authCfg := GetAuthConfigFromSecret(nil)
 	assert.Nil(t, authCfg)
-	assert.Equal(t, "", brokers)
 }
 
 // Test The InitializeSecretWatcher() Functionality
 func TestInitializeSecretWatcher(t *testing.T) {
 	secret := getSaramaTestSecret(t,
 		constants.SettingsSecretName,
-		commontesting.OldAuthBrokers,
 		commontesting.OldAuthUsername,
 		commontesting.OldAuthPassword,
 		commontesting.OldAuthNamespace,
@@ -133,7 +127,6 @@ func TestInitializeSecretWatcher(t *testing.T) {
 
 	testSecret, err := fakeK8sClient.CoreV1().Secrets(system.Namespace()).Get(ctx, constants.SettingsSecretName, metav1.GetOptions{})
 	assert.Nil(t, err)
-	assert.Equal(t, string(testSecret.Data[kafkaconstants.KafkaSecretKeyBrokers]), commontesting.OldAuthBrokers)
 	assert.Equal(t, string(testSecret.Data[kafkaconstants.KafkaSecretKeyUsername]), commontesting.OldAuthUsername)
 	assert.Equal(t, string(testSecret.Data[kafkaconstants.KafkaSecretKeyPassword]), commontesting.OldAuthPassword)
 	assert.Equal(t, string(testSecret.Data[kafkaconstants.KafkaSecretKeyNamespace]), commontesting.OldAuthNamespace)
@@ -147,7 +140,6 @@ func TestInitializeSecretWatcher(t *testing.T) {
 	setWatchedSecret(nil)
 
 	// Change the data in the secret
-	testSecret.Data[kafkaconstants.KafkaSecretKeyBrokers] = []byte(commontesting.NewAuthBrokers)
 	testSecret.Data[kafkaconstants.KafkaSecretKeyUsername] = []byte(commontesting.NewAuthUsername)
 	testSecret.Data[kafkaconstants.KafkaSecretKeyPassword] = []byte(commontesting.NewAuthPassword)
 	testSecret.Data[kafkaconstants.KafkaSecretKeyNamespace] = []byte(commontesting.NewAuthNamespace)
@@ -163,7 +155,6 @@ func TestInitializeSecretWatcher(t *testing.T) {
 		time.Sleep(5 * time.Millisecond)
 	}
 	assert.NotNil(t, getWatchedSecret())
-	assert.Equal(t, string(testSecret.Data[kafkaconstants.KafkaSecretKeyBrokers]), commontesting.NewAuthBrokers)
 	assert.Equal(t, string(testSecret.Data[kafkaconstants.KafkaSecretKeyUsername]), commontesting.NewAuthUsername)
 	assert.Equal(t, string(testSecret.Data[kafkaconstants.KafkaSecretKeyPassword]), commontesting.NewAuthPassword)
 	assert.Equal(t, string(testSecret.Data[kafkaconstants.KafkaSecretKeyNamespace]), commontesting.NewAuthNamespace)
@@ -192,7 +183,7 @@ func secretWatcherHandler(_ context.Context, secret *corev1.Secret) {
 }
 
 func getSaramaTestSecret(t *testing.T, name string,
-	brokers string, username string, password string, namespace string, saslType string) *corev1.Secret {
+	username string, password string, namespace string, saslType string) *corev1.Secret {
 	commontesting.SetTestEnvironment(t)
-	return commontesting.GetTestSaramaSecret(name, brokers, username, password, namespace, saslType)
+	return commontesting.GetTestSaramaSecret(name, username, password, namespace, saslType)
 }

@@ -36,7 +36,7 @@ func GetTestSaramaConfigMap(saramaConfig string, configuration string) *corev1.C
 }
 
 // Returns A Secret Containing The Desired Fields
-func GetTestSaramaSecret(name string, brokers string, username string, password string, namespace string, saslType string) *corev1.Secret {
+func GetTestSaramaSecret(name string, username string, password string, namespace string, saslType string) *corev1.Secret {
 	return &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
@@ -48,7 +48,6 @@ func GetTestSaramaSecret(name string, brokers string, username string, password 
 			Labels:    map[string]string{kafkaconstants.KafkaSecretLabel: "true"},
 		},
 		Data: map[string][]byte{
-			kafkaconstants.KafkaSecretKeyBrokers:   []byte(brokers),
 			kafkaconstants.KafkaSecretKeyUsername:  []byte(username),
 			kafkaconstants.KafkaSecretKeyPassword:  []byte(password),
 			kafkaconstants.KafkaSecretKeyNamespace: []byte(namespace),

@@ -67,15 +67,15 @@ dispatcher:
   replicas: 1
 kafka:
   enableSaramaLogging: false
+  brokers: ` + DefaultKafkaBroker + `
   topic:
     defaultNumPartitions: 4
     defaultReplicationFactor: 1
     defaultRetentionMillis: 604800000
     adminType: kafka
 `
-
+	DefaultKafkaBroker     = "TestBroker"
 	DefaultSecretUsername  = "TestUsername"
-	DefaultSecretBrokers   = "TestBrokers"
 	DefaultSecretPassword  = "TestPassword"
 	DefaultSecretSaslType  = "PLAIN"
 	DefaultSecretNamespace = "TestNamespace"
@@ -174,7 +174,6 @@ func NewKafkaSecret(options ...KafkaSecretOption) *corev1.Secret {
 			Namespace: system.Namespace(),
 		},
 		Data: map[string][]byte{
-			kafkaconstants.KafkaSecretKeyBrokers:   []byte(DefaultSecretBrokers),
 			kafkaconstants.KafkaSecretKeyPassword:  []byte(DefaultSecretPassword),
 			kafkaconstants.KafkaSecretKeySaslType:  []byte(DefaultSecretSaslType),
 			kafkaconstants.KafkaSecretKeyUsername:  []byte(DefaultSecretUsername),
@@ -214,11 +213,6 @@ func WithModifiedSaslType(secret *corev1.Secret) {
 // Modify The Default Namespace Section Of The Secret Data
 func WithModifiedNamespace(secret *corev1.Secret) {
 	secret.Data[kafkaconstants.KafkaSecretKeyNamespace] = []byte("TestModifiedNamespace")
-}
-
-// Modify The Default Brokers Section Of The Secret Data
-func WithModifiedBrokers(secret *corev1.Secret) {
-	secret.Data[kafkaconstants.KafkaSecretKeyBrokers] = []byte("TestModifiedPBrokers")
 }
 
 // Remove the Data From The Secret

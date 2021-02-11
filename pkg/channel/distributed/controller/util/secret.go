@@ -83,32 +83,3 @@ func GetKafkaSecret(ctx context.Context, k8sClient kubernetes.Interface, k8sName
 		return &secretList.Items[0], nil
 	}
 }
-
-// Utility Function For Validating Kafka Secret
-func ValidateKafkaSecret(logger *zap.Logger, secret *corev1.Secret) bool {
-
-	// Assume Invalid Until Proven Otherwise
-	valid := false
-
-	// Validate The Kafka Secret
-	if secret != nil {
-
-		// Extract The Relevant Data From The Kafka Secret
-		brokers := string(secret.Data[clientconstants.KafkaSecretKeyBrokers])
-
-		// Validate Kafka Secret Data
-		if len(brokers) > 0 {
-
-			// Mark Kafka Secret As Valid
-			valid = true
-
-		} else {
-
-			// Invalid Kafka Secret - Log State
-			logger.Error("Invalid Kafka Secret - Missing Brokers", zap.String("Secret", fmt.Sprintf("%s/%s", secret.Namespace, secret.Name)))
-		}
-	}
-
-	// Return Kafka Secret Validity
-	return valid
-}

@@ -29,7 +29,6 @@ const (
 	KafkaSecretLabel = "eventing-kafka.knative.dev/kafka-secret"
 
 	// Kafka Secret Keys
-	KafkaSecretKeyBrokers   = "brokers"
 	KafkaSecretKeyNamespace = "namespace"
 	KafkaSecretKeyUsername  = "username"
 	KafkaSecretKeyPassword  = "password"

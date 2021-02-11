@@ -277,6 +277,12 @@ func (d *DispatcherImpl) ConfigChanged(ctx context.Context, configMap *corev1.Co
 
 	d.Logger.Debug("New ConfigMap Received", zap.String("configMap.Name", configMap.ObjectMeta.Name))
 
+	// Validate Configuration (Should Always Be Present)
+	if d.SaramaConfig == nil {
+		d.Logger.Error("Dispatcher configuration is nil; cannot reconfigure")
+		return nil
+	}
+
 	// Validate The ConfigMap Data
 	if configMap.Data == nil {
 		d.Logger.Error("Attempted to merge sarama settings with empty configmap")
@@ -291,22 +297,8 @@ func (d *DispatcherImpl) ConfigChanged(ctx context.Context, configMap *corev1.Co
 		WithDefaults().
 		FromYaml(saramaSettingsYamlString)
 
-	// Validate Configuration (Should Always Be Present)
-	if d.SaramaConfig != nil {
-		configBuilder = configBuilder.WithClientId(d.SaramaConfig.ClientID)
-
-		// Some of the current config settings may not be overridden by the configmap (username, password, etc.)
-		if d.SaramaConfig.Net.SASL.User != "" {
-			kafkaAuthCfg := &client.KafkaAuthConfig{
-				SASL: &client.KafkaSaslConfig{
-					User:     d.SaramaConfig.Net.SASL.User,
-					Password: d.SaramaConfig.Net.SASL.Password,
-					SaslType: string(d.SaramaConfig.Net.SASL.Mechanism),
-				},
-			}
-			configBuilder = configBuilder.WithAuth(kafkaAuthCfg)
-		}
-	}
+	// Some of the current config settings may not be overridden by the configmap (username, password, etc.)
+	configBuilder = configBuilder.WithClientId(d.SaramaConfig.ClientID).WithAuthFromSarama(d.SaramaConfig)
 
 	newConfig, err := configBuilder.Build(ctx)
 	if err != nil {
@@ -314,26 +306,26 @@ func (d *DispatcherImpl) ConfigChanged(ctx context.Context, configMap *corev1.Co
 		return nil
 	}
 
-	// Validate Configuration (Should Always Be Present)
-	if d.SaramaConfig != nil {
-		// Enable Sarama Logging If Specified In ConfigMap
-		if ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap); err == nil && ekConfig != nil {
-			kafkasarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)
-			d.Logger.Debug("Updated Sarama logging", zap.Bool("Kafka.EnableSaramaLogging", ekConfig.Kafka.EnableSaramaLogging))
-		} else {
-			d.Logger.Error("Could Not Extract Eventing-Kafka Setting From Updated ConfigMap", zap.Error(err))
-		}
+	ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap)
+	if err != nil || ekConfig == nil {
+		d.Logger.Error("Could Not Extract Eventing-Kafka Setting From Updated ConfigMap", zap.Error(err))
+		return nil
+	}
 
-		// Ignore the "Producer" section as changes to that do not require recreating the Dispatcher
-		if client.ConfigEqual(newConfig, d.SaramaConfig, newConfig.Producer) {
-			d.Logger.Info("No Consumer Changes Detected In New Configuration - Ignoring")
-			return nil
-		}
+	// Enable Sarama Logging If Specified In ConfigMap
+	kafkasarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)
+	d.Logger.Debug("Updated Sarama logging", zap.Bool("Kafka.EnableSaramaLogging", ekConfig.Kafka.EnableSaramaLogging))
+
+	// Ignore the "Producer" section as changes to that do not require recreating the Dispatcher
+	if client.ConfigEqual(newConfig, d.SaramaConfig, newConfig.Producer) &&
+		client.HasSameBrokers(ekConfig.Kafka.Brokers, d.Brokers) {
+		d.Logger.Info("No Consumer Changes Detected In New Configuration - Ignoring")
+		return nil
 	}
 
 	// Create A New Dispatcher With The New Configuration (Reusing All Other Existing Config)
 	d.Logger.Info("Consumer Changes Detected In New Configuration - Closing & Recreating Consumer Groups")
-	return d.reconfigure(newConfig)
+	return d.reconfigure(newConfig, ekConfig)
 }
 
 // SecretChanged is called by the secretObserver handler function in main() so that
@@ -343,18 +335,17 @@ func (d *DispatcherImpl) SecretChanged(ctx context.Context, secret *corev1.Secre
 	// Debug Log The Secret Change
 	d.Logger.Debug("New Secret Received", zap.String("secret.Name", secret.ObjectMeta.Name))
 
-	kafkaAuthCfg, newBrokers := config.GetAuthConfigFromSecret(secret)
+	kafkaAuthCfg := config.GetAuthConfigFromSecret(secret)
 	if kafkaAuthCfg == nil {
 		d.Logger.Warn("No auth config found in secret; ignoring update")
 		return nil
 	}
 
 	// Don't Restart Dispatcher If All Auth Settings Identical
-	if kafkaAuthCfg.SASL.HasSameSettings(d.SaramaConfig) && client.HasSameBrokers(newBrokers, d.DispatcherConfig.Brokers) {
+	if kafkaAuthCfg.SASL.HasSameSettings(d.SaramaConfig) {
 		d.Logger.Info("No relevant changes in Secret; ignoring update")
 		return nil
 	}
-	d.DispatcherConfig.Brokers = strings.Split(newBrokers, ",")
 
 	// Build New Config Using Existing Config And New Auth Settings
 	if kafkaAuthCfg.SASL.User == "" {
@@ -369,13 +360,17 @@ func (d *DispatcherImpl) SecretChanged(ctx context.Context, secret *corev1.Secre
 
 	// Create A New Dispatcher With The New Configuration (Reusing All Other Existing Config)
 	d.Logger.Info("Changes Detected In New Secret - Closing & Recreating Consumer Groups")
-	return d.reconfigure(newConfig)
+	return d.reconfigure(newConfig, nil)
 }
 
 // Shut down the current dispatcher and recreate it with new settings
-func (d *DispatcherImpl) reconfigure(newConfig *sarama.Config) Dispatcher {
+func (d *DispatcherImpl) reconfigure(newConfig *sarama.Config, ekConfig *config.EventingKafkaConfig) Dispatcher {
 	d.Shutdown()
 	d.DispatcherConfig.SaramaConfig = newConfig
+	if ekConfig != nil {
+		// Currently the only thing that a new dispatcher might care about in the EventingKafkaConfig is the Brokers
+		d.DispatcherConfig.Brokers = strings.Split(ekConfig.Kafka.Brokers, ",")
+	}
 	newDispatcher := NewDispatcher(d.DispatcherConfig)
 	failedSubscriptions := newDispatcher.UpdateSubscriptions(d.SubscriberSpecs)
 	if len(failedSubscriptions) > 0 {

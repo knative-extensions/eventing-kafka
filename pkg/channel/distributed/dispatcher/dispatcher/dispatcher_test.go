@@ -32,8 +32,6 @@ import (
 	consumerwrapper "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer/wrapper"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/metrics"
 	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
-	dispatchertesting "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/testing"
-	receivertesting "knative.dev/eventing-kafka/pkg/channel/distributed/receiver/testing"
 	commonclient "knative.dev/eventing-kafka/pkg/common/client"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/pkg/logging"
@@ -124,7 +122,7 @@ func TestUpdateSubscriptions(t *testing.T) {
 	defer consumertesting.RestoreNewConsumerGroupFn()
 
 	// Test Data
-	brokers := []string{dispatchertesting.KafkaBroker}
+	brokers := []string{commonconfigtesting.DefaultKafkaBroker}
 	config, err := commonclient.NewConfigBuilder().WithDefaults().FromYaml(commonconfigtesting.DefaultSaramaConfigYaml).Build(ctx)
 	assert.Nil(t, err)
 
@@ -282,6 +280,9 @@ func TestUpdateSubscriptions(t *testing.T) {
 	}
 }
 
+func thing() {
+}
+
 // Test The Dispatcher's ConfigChanged Functionality
 func TestConfigChanged(t *testing.T) {
 
@@ -292,7 +293,7 @@ func TestConfigChanged(t *testing.T) {
 	commontesting.SetTestEnvironment(t)
 
 	// Test Data
-	brokers := []string{receivertesting.KafkaBroker}
+	brokers := []string{commonconfigtesting.DefaultKafkaBroker}
 	baseSaramaConfig, err := commonclient.NewConfigBuilder().
 		WithDefaults().
 		FromYaml(commonconfigtesting.DefaultSaramaConfigYaml).
@@ -391,7 +392,7 @@ func TestSecretChanged(t *testing.T) {
 	commontesting.SetTestEnvironment(t)
 
 	// Test Data
-	brokers := []string{commonconfigtesting.DefaultSecretBrokers}
+	brokers := []string{commonconfigtesting.DefaultKafkaBroker}
 	auth := &commonclient.KafkaAuthConfig{
 		SASL: &commonclient.KafkaSaslConfig{
 			User:     commonconfigtesting.DefaultSecretUsername,
@@ -446,11 +447,6 @@ func TestSecretChanged(t *testing.T) {
 			name:                "Namespace Change (Same Dispatcher)",
 			newSecret:           configtesting.NewKafkaSecret(configtesting.WithModifiedNamespace),
 			expectNewDispatcher: false,
-		},
-		{
-			name:                "Brokers Change (New Dispatcher)",
-			newSecret:           configtesting.NewKafkaSecret(configtesting.WithModifiedBrokers),
-			expectNewDispatcher: true,
 		},
 		{
 			name:                "No Auth Config In Secret (Same Dispatcher)",

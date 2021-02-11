@@ -174,8 +174,13 @@ func (p *Producer) ObserveMetrics(interval time.Duration) {
 // then just log that and move on; do not restart the Producer unnecessarily.
 func (p *Producer) ConfigChanged(ctx context.Context, configMap *corev1.ConfigMap) *Producer {
 
-	// Debug Log The ConfigMap Change
 	p.logger.Debug("New ConfigMap Received", zap.String("configMap.Name", configMap.ObjectMeta.Name))
+
+	// Validate Configuration (Should Always Be Present)
+	if p.configuration == nil {
+		p.logger.Error("Producer configuration is nil; cannot reconfigure")
+		return nil
+	}
 
 	// Validate The ConfigMap Data
 	if configMap.Data == nil {
@@ -191,21 +196,8 @@ func (p *Producer) ConfigChanged(ctx context.Context, configMap *corev1.ConfigMa
 		WithDefaults().
 		FromYaml(saramaSettingsYamlString)
 
-	if p.configuration != nil {
-		configBuilder = configBuilder.WithClientId(p.configuration.ClientID)
-
-		// Some of the current config settings may not be overridden by the configmap (username, password, etc.)
-		if p.configuration.Net.SASL.User != "" {
-			kafkaAuthCfg := &client.KafkaAuthConfig{
-				SASL: &client.KafkaSaslConfig{
-					User:     p.configuration.Net.SASL.User,
-					Password: p.configuration.Net.SASL.Password,
-					SaslType: string(p.configuration.Net.SASL.Mechanism),
-				},
-			}
-			configBuilder = configBuilder.WithAuth(kafkaAuthCfg)
-		}
-	}
+	// Some of the current config settings may not be overridden by the configmap (username, password, etc.)
+	configBuilder = configBuilder.WithClientId(p.configuration.ClientID).WithAuthFromSarama(p.configuration)
 
 	newConfig, err := configBuilder.Build(ctx)
 	if err != nil {
@@ -213,26 +205,26 @@ func (p *Producer) ConfigChanged(ctx context.Context, configMap *corev1.ConfigMa
 		return nil
 	}
 
-	// Validate Configuration (Should Always Be Present)
-	if p.configuration != nil {
-		// Enable Sarama Logging If Specified In ConfigMap
-		if ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap); err == nil && ekConfig != nil {
-			kafkasarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)
-			p.logger.Debug("Updated Sarama logging", zap.Bool("Kafka.EnableSaramaLogging", ekConfig.Kafka.EnableSaramaLogging))
-		} else {
-			p.logger.Error("Could Not Extract Eventing-Kafka Setting From Updated ConfigMap", zap.Error(err))
-		}
+	ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap)
+	if err != nil || ekConfig == nil {
+		p.logger.Error("Could Not Extract Eventing-Kafka Setting From Updated ConfigMap", zap.Error(err))
+		return nil
+	}
 
-		// Ignore the "Admin" and "Consumer" sections when comparing, as changes to those do not require restarting the Producer
-		if client.ConfigEqual(newConfig, p.configuration, newConfig.Admin, newConfig.Consumer) {
-			p.logger.Info("No Producer Changes Detected In New Configuration - Ignoring")
-			return nil
-		}
+	// Enable Sarama Logging If Specified In ConfigMap
+	kafkasarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)
+	p.logger.Debug("Updated Sarama logging", zap.Bool("Kafka.EnableSaramaLogging", ekConfig.Kafka.EnableSaramaLogging))
+
+	// Ignore the "Admin" and "Consumer" sections when comparing, as changes to those do not require restarting the Producer
+	if client.ConfigEqual(newConfig, p.configuration, newConfig.Admin, newConfig.Consumer) &&
+		client.HasSameBrokers(ekConfig.Kafka.Brokers, p.brokers) {
+		p.logger.Info("No Producer Changes Detected In New Configuration - Ignoring")
+		return nil
 	}
 
 	// Create A New Producer With The New Configuration (Reusing All Other Existing Config)
 	p.logger.Info("Producer Changes Detected In New Configuration - Closing & Recreating Producer")
-	return p.reconfigure(newConfig)
+	return p.reconfigure(newConfig, ekConfig)
 }
 
 // SecretChanged is called by the secretObserver handler function in main() so that
@@ -242,18 +234,17 @@ func (p *Producer) SecretChanged(ctx context.Context, secret *corev1.Secret) *Pr
 	// Debug Log The Secret Change
 	p.logger.Debug("New Secret Received", zap.String("secret.Name", secret.ObjectMeta.Name))
 
-	kafkaAuthCfg, newBrokers := config.GetAuthConfigFromSecret(secret)
+	kafkaAuthCfg := config.GetAuthConfigFromSecret(secret)
 	if kafkaAuthCfg == nil {
 		p.logger.Warn("No auth config found in secret; ignoring update")
 		return nil
 	}
 
 	// Don't Restart Producer If All Auth Settings Identical.
-	if kafkaAuthCfg.SASL.HasSameSettings(p.configuration) && client.HasSameBrokers(newBrokers, p.brokers) {
+	if kafkaAuthCfg.SASL.HasSameSettings(p.configuration) {
 		p.logger.Info("No relevant changes in Secret; ignoring update")
 		return nil
 	}
-	p.brokers = strings.Split(newBrokers, ",")
 
 	// Build New Config Using Existing Config And New Auth Settings
 	if kafkaAuthCfg.SASL.User == "" {
@@ -268,7 +259,7 @@ func (p *Producer) SecretChanged(ctx context.Context, secret *corev1.Secret) *Pr
 
 	// Create A New Producer With The New Configuration (Reusing All Other Existing Config)
 	p.logger.Info("Changes Detected In New Secret - Closing & Recreating Producer")
-	return p.reconfigure(newConfig)
+	return p.reconfigure(newConfig, nil)
 }
 
 // Close The Producer (Stop Processing)
@@ -291,8 +282,12 @@ func (p *Producer) Close() {
 }
 
 // Shut down the current producer and recreate it with new settings
-func (p *Producer) reconfigure(newConfig *sarama.Config) *Producer {
+func (p *Producer) reconfigure(newConfig *sarama.Config, ekConfig *config.EventingKafkaConfig) *Producer {
 	p.Close()
+	if ekConfig != nil {
+		// Currently the only thing that a new producer might care about in the EventingKafkaConfig is the Brokers
+		p.brokers = strings.Split(ekConfig.Kafka.Brokers, ",")
+	}
 	reconfiguredKafkaProducer, err := NewProducer(p.logger, newConfig, p.brokers, p.statsReporter, p.healthServer)
 	if err != nil {
 		p.logger.Fatal("Failed To Create Kafka Producer With New Configuration", zap.Error(err))

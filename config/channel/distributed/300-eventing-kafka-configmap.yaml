@@ -46,6 +46,7 @@ data:
       memoryRequest: 50Mi
       replicas: 1
     kafka:
+      brokers: REPLACE_WITH_CLUSTER_URL
       enableSaramaLogging: false
       topic:
         defaultNumPartitions: 4

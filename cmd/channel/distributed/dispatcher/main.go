@@ -74,7 +74,7 @@ func main() {
 	}
 
 	// Update The Sarama Config - Username/Password Overrides (Values From Secret Take Precedence Over ConfigMap)
-	kafkaAuthCfg, brokers, err := commonconfig.GetAuthConfigFromKubernetes(ctx, environment.KafkaSecretName, environment.KafkaSecretNamespace)
+	kafkaAuthCfg, err := commonconfig.GetAuthConfigFromKubernetes(ctx, environment.KafkaSecretName, environment.KafkaSecretNamespace)
 	if err != nil {
 		logger.Fatal("Failed To Load Auth Config", zap.Error(err))
 	}
@@ -119,7 +119,7 @@ func main() {
 	dispatcherConfig := dispatch.DispatcherConfig{
 		Logger:        logger,
 		ClientId:      constants.Component,
-		Brokers:       strings.Split(brokers, ","),
+		Brokers:       strings.Split(ekConfig.Kafka.Brokers, ","),
 		Topic:         environment.KafkaTopic,
 		Username:      kafkaAuthCfg.SASL.User,
 		Password:      kafkaAuthCfg.SASL.Password,

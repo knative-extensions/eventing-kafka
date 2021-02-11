@@ -72,13 +72,11 @@ Metadata:
 ClientID: ` + NewClientId + `
 `
 
-	OldAuthBrokers   = "TestOldBrokers"
 	OldAuthNamespace = "TestOldNamespace"
 	OldAuthPassword  = "TestOldPassword"
 	OldAuthSaslType  = "TestOldAuthSaslType"
 	OldAuthUsername  = "TestOldAuthUsername"
 
-	NewAuthBrokers   = "TestNewBrokers"
 	NewAuthNamespace = "TestNewNamespace"
 	NewAuthPassword  = "TestNewPassword"
 	NewAuthSaslType  = "TestNewAuthSaslType"

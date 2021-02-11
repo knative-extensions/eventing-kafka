@@ -540,6 +540,61 @@ func TestUpdateSaramaConfigWithKafkaAuthConfig(t *testing.T) {
 	}
 }
 
+func TestWithAuthFromSarama(t *testing.T) {
+
+	// Define The TestCase Struct
+	type TestCase struct {
+		name             string
+		existingUser     string
+		existingPassword string
+		existingSaslType sarama.SASLMechanism
+		expectedUser     string
+		expectedPassword string
+		expectedSaslType sarama.SASLMechanism
+	}
+
+	ctx := context.TODO()
+
+	// Create The TestCases
+	testCases := []TestCase{
+		{
+			name:             "Empty User",
+			existingUser:     "",
+			existingPassword: "testPassword",
+			existingSaslType: sarama.SASLTypeOAuth,
+			expectedUser:     "",
+			expectedPassword: "",
+			expectedSaslType: sarama.SASLMechanism(""),
+		},
+		{
+			name:             "Existing User",
+			existingUser:     "testUser",
+			existingPassword: "testPassword",
+			existingSaslType: sarama.SASLTypePlaintext,
+			expectedUser:     "testUser",
+			expectedPassword: "testPassword",
+			expectedSaslType: sarama.SASLTypePlaintext,
+		},
+	}
+
+	// Run The TestCases
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			existingConfig := sarama.NewConfig()
+			existingConfig.Net.SASL.User = testCase.existingUser
+			existingConfig.Net.SASL.Password = testCase.existingPassword
+			existingConfig.Net.SASL.Mechanism = testCase.existingSaslType
+			config, err := NewConfigBuilder().
+				WithAuthFromSarama(existingConfig).
+				Build(ctx)
+			assert.Nil(t, err)
+			assert.Equal(t, testCase.expectedUser, config.Net.SASL.User)
+			assert.Equal(t, testCase.expectedPassword, config.Net.SASL.Password)
+			assert.Equal(t, testCase.expectedSaslType, config.Net.SASL.Mechanism)
+		})
+	}
+}
+
 func TestNewTLSConfig(t *testing.T) {
 	cert, key := generateCert(t)
 

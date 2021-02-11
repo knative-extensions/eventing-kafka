@@ -41,7 +41,7 @@ import (
 func TestNewProducer(t *testing.T) {
 
 	// Test Data
-	brokers := []string{receivertesting.KafkaBroker}
+	brokers := []string{commonconfigtesting.DefaultKafkaBroker}
 	config := sarama.NewConfig()
 
 	// Create A Mock Kafka SyncProducer
@@ -62,7 +62,7 @@ func TestNewProducer(t *testing.T) {
 func TestProduceKafkaMessage(t *testing.T) {
 
 	// Test Data
-	brokers := []string{receivertesting.KafkaBroker}
+	brokers := []string{commonconfigtesting.DefaultKafkaBroker}
 	config := sarama.NewConfig()
 	channelReference := receivertesting.CreateChannelReference(receivertesting.ChannelName, receivertesting.ChannelNamespace)
 	bindingMessage := receivertesting.CreateBindingMessage(cloudevents.VersionV1)
@@ -111,7 +111,7 @@ func TestConfigChanged(t *testing.T) {
 	commontesting.SetTestEnvironment(t)
 
 	// Test Data
-	brokers := []string{receivertesting.KafkaBroker}
+	brokers := []string{commonconfigtesting.DefaultKafkaBroker}
 	baseSaramaConfig, err := commonclient.NewConfigBuilder().WithDefaults().FromYaml(commonconfigtesting.DefaultSaramaConfigYaml).Build(ctx)
 	assert.Nil(t, err)
 
@@ -213,7 +213,7 @@ func TestSecretChanged(t *testing.T) {
 	commontesting.SetTestEnvironment(t)
 
 	// Test Data
-	brokers := []string{commonconfigtesting.DefaultSecretBrokers}
+	brokers := []string{commonconfigtesting.DefaultKafkaBroker}
 	auth := &commonclient.KafkaAuthConfig{
 		SASL: &commonclient.KafkaSaslConfig{
 			User:     commonconfigtesting.DefaultSecretUsername,
@@ -263,11 +263,6 @@ func TestSecretChanged(t *testing.T) {
 			name:              "Namespace Change (Same Producer)",
 			newSecret:         configtesting.NewKafkaSecret(configtesting.WithModifiedNamespace),
 			expectNewProducer: false,
-		},
-		{
-			name:              "Brokers Change (New Producer)",
-			newSecret:         configtesting.NewKafkaSecret(configtesting.WithModifiedBrokers),
-			expectNewProducer: true,
 		},
 		{
 			name:              "No Auth Config In Secret (Same Producer)",
@@ -320,7 +315,7 @@ func TestSecretChanged(t *testing.T) {
 func TestClose(t *testing.T) {
 
 	// Test Data
-	brokers := []string{receivertesting.KafkaBroker}
+	brokers := []string{commonconfigtesting.DefaultKafkaBroker}
 	config := sarama.NewConfig()
 
 	// Create A Mock Kafka SyncProducer
