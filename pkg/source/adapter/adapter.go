@@ -84,10 +84,6 @@ func NewAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, httpMe
 }
 
 func (a *Adapter) Start(ctx context.Context) error {
-	return a.start(ctx.Done())
-}
-
-func (a *Adapter) start(stopCh <-chan struct{}) error {
 	a.logger.Infow("Starting with config: ",
 		zap.String("Topics", strings.Join(a.config.Topics, ",")),
 		zap.String("ConsumerGroup", a.config.ConsumerGroup),
@@ -107,7 +103,12 @@ func (a *Adapter) start(stopCh <-chan struct{}) error {
 	if err != nil {
 		panic(err)
 	}
-	defer func() { _ = group.Close() }()
+	defer func() {
+		err := group.Close()
+		if err != nil {
+			a.logger.Errorw("Failed to close consumer group", zap.Error(err))
+		}
+	}()
 
 	// Track errors
 	go func() {
@@ -116,7 +117,7 @@ func (a *Adapter) start(stopCh <-chan struct{}) error {
 		}
 	}()
 
-	<-stopCh
+	<-ctx.Done()
 	a.logger.Info("Shutting down...")
 	return nil
 }

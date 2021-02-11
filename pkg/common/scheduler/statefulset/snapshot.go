@@ -22,6 +22,10 @@ import "go.uber.org/zap"
 type Snapshot struct {
 	// free tracks the free capacity of each pod.
 	free map[string]int32
+
+	// lastOrdinal is the ordinal index corresponding to the last statefulset replica
+	// with placed vpods.
+	lastOrdinal int32
 }
 
 func (s *StatefulSetScheduler) snapshot(logger *zap.SugaredLogger) (*Snapshot, error) {
@@ -36,6 +40,8 @@ func (s *StatefulSetScheduler) snapshot(logger *zap.SugaredLogger) (*Snapshot, e
 		free[podName] = s.capacity
 	}
 
+	last := int32(0)
+
 	for _, vpod := range vpods {
 		ps := vpod.GetPlacements()
 
@@ -49,7 +55,12 @@ func (s *StatefulSetScheduler) snapshot(logger *zap.SugaredLogger) (*Snapshot, e
 				// Over committed. The autoscaler will fix it.
 				logger.Infow("pod is overcommitted", zap.String("podName", podName))
 			}
+
+			ordinal := ordinalFromPodName(podName)
+			if ordinal > last {
+				last = ordinal
+			}
 		}
 	}
-	return &Snapshot{free: free}, nil
+	return &Snapshot{free: free, lastOrdinal: last}, nil
 }
