@@ -55,7 +55,7 @@ one of `kafka`, `azure`, or `custom` as follows...
 
 ### Install & Label Kafka Credentials In Knative-Eventing Namespace
 
-The Kafka brokers are specified in a configmap provided in the config 
+The Kafka brokers are specified in a configmap provided in the config
 directory, [eventing-kafka-configmap.yaml](300-eventing-kafka-configmap.yaml), under
 the kafka.brokers entry of the eventing-kafka field.  The text "REPLACE_WITH_CLUSTER_URL"
 should be replaced with a real broker string.  An example of such a string might be:
@@ -189,3 +189,4 @@ your Kafka cluster.
     `kafka`, `azure`, or `custom`. The default is `kakfa` and will be used by
     most users.
   - **kafka.brokers:** This field must be set to your kafka brokers string (see above)
+  

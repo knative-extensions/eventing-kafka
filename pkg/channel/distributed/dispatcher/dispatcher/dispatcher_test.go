@@ -280,9 +280,6 @@ func TestUpdateSubscriptions(t *testing.T) {
 	}
 }
 
-func thing() {
-}
-
 // Test The Dispatcher's ConfigChanged Functionality
 func TestConfigChanged(t *testing.T) {
 
