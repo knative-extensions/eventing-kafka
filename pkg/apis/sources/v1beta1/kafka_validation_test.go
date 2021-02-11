@@ -29,6 +29,14 @@ var (
 	fullSpec = KafkaSourceSpec{
 		KafkaAuthSpec: bindingsv1beta1.KafkaAuthSpec{
 			BootstrapServers: []string{"servers"},
+			Net: bindingsv1beta1.KafkaNetSpec{
+				SASL: bindingsv1beta1.KafkaSASLSpec{
+					Enable: false,
+				},
+				TLS: bindingsv1beta1.KafkaTLSSpec{
+					Enable: false,
+				},
+			},
 		},
 		Topics:        []string{"topics"},
 		ConsumerGroup: "group",
@@ -224,6 +232,45 @@ func TestKafkaSourceCheckImmutableFields(t *testing.T) {
 		"no change": {
 			orig:    &fullSpec,
 			updated: fullSpec,
+			allowed: true,
+		},
+		"consumerGroup changed": {
+			orig: &fullSpec,
+			updated: KafkaSourceSpec{
+				ConsumerGroup: "no-way",
+			},
+			allowed: false,
+		},
+		"Kafka TLS Spec changed": {
+			orig: &fullSpec,
+			updated: KafkaSourceSpec{
+				ConsumerGroup: fullSpec.ConsumerGroup,
+				SourceSpec:    fullSpec.SourceSpec,
+				Topics:        fullSpec.Topics,
+				KafkaAuthSpec: bindingsv1beta1.KafkaAuthSpec{
+					Net: bindingsv1beta1.KafkaNetSpec{
+						TLS: bindingsv1beta1.KafkaTLSSpec{
+							Enable: true,
+						},
+					},
+				},
+			},
+			allowed: true,
+		},
+		"Kafka SASL Spec changed": {
+			orig: &fullSpec,
+			updated: KafkaSourceSpec{
+				ConsumerGroup: fullSpec.ConsumerGroup,
+				SourceSpec:    fullSpec.SourceSpec,
+				Topics:        fullSpec.Topics,
+				KafkaAuthSpec: bindingsv1beta1.KafkaAuthSpec{
+					Net: bindingsv1beta1.KafkaNetSpec{
+						SASL: bindingsv1beta1.KafkaSASLSpec{
+							Enable: true,
+						},
+					},
+				},
+			},
 			allowed: true,
 		},
 	}
