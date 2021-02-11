@@ -189,4 +189,4 @@ your Kafka cluster.
     `kafka`, `azure`, or `custom`. The default is `kakfa` and will be used by
     most users.
   - **kafka.brokers:** This field must be set to your kafka brokers string (see above)
-  
+
