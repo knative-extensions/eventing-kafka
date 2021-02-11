@@ -81,12 +81,12 @@ type KafkaSaslConfig struct {
 	SaslType string
 }
 
-func parseTls(secret *corev1.Secret, kafkaAuthConfig *client.KafkaAuthConfig) {
+func parseTls(secret *corev1.Secret, kafkaAuthConfig *KafkaAuthConfig) {
 
 	// self-signed CERTs we need CA CERT, USER CERT and KEy
 	if string(secret.Data[TlsCacert]) != "" {
 		// We have a self-signed TLS cert
-		tls := &client.KafkaTlsConfig{
+		tls := &KafkaTlsConfig{
 			Cacert:   string(secret.Data[TlsCacert]),
 			Usercert: string(secret.Data[TlsUsercert]),
 			Userkey:  string(secret.Data[TlsUserkey]),
@@ -101,14 +101,14 @@ func parseTls(secret *corev1.Secret, kafkaAuthConfig *client.KafkaAuthConfig) {
 		}
 		if tlsEnabled {
 			// Looks like TLS is desired/enabled:
-			kafkaAuthConfig.TLS = &client.KafkaTlsConfig{}
+			kafkaAuthConfig.TLS = &KafkaTlsConfig{}
 		}
 	}
 }
 
-func parseSasl(secret *corev1.Secret, kafkaAuthConfig *client.KafkaAuthConfig) {
+func parseSasl(secret *corev1.Secret, kafkaAuthConfig *KafkaAuthConfig) {
 	if string(secret.Data[SaslUser]) != "" {
-		sasl := &client.KafkaSaslConfig{
+		sasl := &KafkaSaslConfig{
 			User:     string(secret.Data[SaslUser]),
 			Password: string(secret.Data[SaslPassword]),
 			SaslType: string(secret.Data[SaslType]),
