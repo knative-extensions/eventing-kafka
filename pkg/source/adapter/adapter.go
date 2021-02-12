@@ -37,7 +37,7 @@ import (
 	"knative.dev/eventing/pkg/kncloudevents"
 
 	"knative.dev/eventing-kafka/pkg/common/consumer"
-	kafkasource "knative.dev/eventing-kafka/pkg/source"
+	"knative.dev/eventing-kafka/pkg/source/client"
 )
 
 const (
@@ -46,7 +46,7 @@ const (
 
 type AdapterConfig struct {
 	adapter.EnvConfig
-	kafkasource.KafkaEnvConfig
+	client.KafkaEnvConfig
 
 	Topics        []string `envconfig:"KAFKA_TOPICS" required:"true"`
 	ConsumerGroup string   `envconfig:"KAFKA_CONSUMER_GROUP" required:"true"`
@@ -97,7 +97,7 @@ func (a *Adapter) start(stopCh <-chan struct{}) error {
 	)
 
 	// init consumer group
-	addrs, config, err := kafkasource.NewConfigWithEnv(context.Background(), &a.config.KafkaEnvConfig)
+	addrs, config, err := client.NewConfigWithEnv(context.Background(), &a.config.KafkaEnvConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create the config: %w", err)
 	}
