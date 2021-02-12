@@ -456,7 +456,7 @@ function test_mt_source() {
   echo "Testing the multi-tenant source"
   install_mt_source || return 1
 
-  go_test_e2e -tags=source,mtsource -timeout=5m -test.parallel=${TEST_PARALLEL} ./test/...  || fail_test
+  go_test_e2e -tags=source,mtsource -timeout=20m -test.parallel=${TEST_PARALLEL} ./test/e2e/...  || fail_test
 
   uninstall_mt_source || return 1
 }
