@@ -61,7 +61,7 @@ func (ks *KafkaSource) CheckImmutableFields(ctx context.Context, original *Kafka
 	var errs *apis.FieldError
 
 	// Ignore diffs in bootstrapServers and topics
-	ignoreArgs := cmpopts.IgnoreFields(KafkaSourceSpec{}, "Topics", "BootstrapServers", "Sink", "Net")
+	ignoreArgs := cmpopts.IgnoreFields(KafkaSourceSpec{}, "Topics", "BootstrapServers", "Sink", "Net", "CloudEventOverrides")
 	if diff, err := kmp.ShortDiff(original.Spec, ks.Spec, ignoreArgs); err != nil {
 		errs = errs.Also(&apis.FieldError{
 			Message: "Failed to diff KafkaSource",
