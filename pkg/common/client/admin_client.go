@@ -5,19 +5,18 @@ import (
 	"fmt"
 
 	"github.com/Shopify/sarama"
-	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
 )
 
-func MakeAdminClient(ctx context.Context, clientID string, kafkaAuthCfg *KafkaAuthConfig, kafkaConfig *utils.KafkaConfig) (sarama.ClusterAdmin, error) {
+func MakeAdminClient(ctx context.Context, clientID string, kafkaAuthCfg *KafkaAuthConfig, saramaSettingsYamlString string, brokers []string) (sarama.ClusterAdmin, error) {
 	saramaConf, err := NewConfigBuilder().
 		WithDefaults().
 		WithAuth(kafkaAuthCfg).
 		WithClientId(clientID).
-		FromYaml(kafkaConfig.SaramaSettingsYamlString).
+		FromYaml(saramaSettingsYamlString).
 		Build(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error creating admin client Sarama config: %w", err)
 	}
 
-	return sarama.NewClusterAdmin(kafkaConfig.Brokers, saramaConf)
+	return sarama.NewClusterAdmin(brokers, saramaConf)
 }
