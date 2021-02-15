@@ -35,8 +35,8 @@ import (
 
 	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 	"knative.dev/eventing-kafka/pkg/common/scheduler"
-	"knative.dev/eventing-kafka/pkg/source"
 	stadapter "knative.dev/eventing-kafka/pkg/source/adapter"
+	"knative.dev/eventing-kafka/pkg/source/client"
 )
 
 type AdapterConfig struct {
@@ -117,16 +117,16 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) {
 			Component: "kafkasource",
 			Namespace: obj.Namespace,
 		},
-		KafkaEnvConfig: source.KafkaEnvConfig{
+		KafkaEnvConfig: client.KafkaEnvConfig{
 			BootstrapServers: obj.Spec.BootstrapServers,
-			Net: source.AdapterNet{
-				SASL: source.AdapterSASL{
+			Net: client.AdapterNet{
+				SASL: client.AdapterSASL{
 					Enable:   obj.Spec.Net.SASL.Enable,
 					User:     a.ResolveSecret(ctx, obj.Namespace, obj.Spec.Net.SASL.User.SecretKeyRef),
 					Password: a.ResolveSecret(ctx, obj.Namespace, obj.Spec.Net.SASL.Password.SecretKeyRef),
 					Type:     a.ResolveSecret(ctx, obj.Namespace, obj.Spec.Net.SASL.Type.SecretKeyRef),
 				},
-				TLS: source.AdapterTLS{
+				TLS: client.AdapterTLS{
 					Enable: obj.Spec.Net.TLS.Enable,
 					Cert:   a.ResolveSecret(ctx, obj.Namespace, obj.Spec.Net.TLS.Cert.SecretKeyRef),
 					Key:    a.ResolveSecret(ctx, obj.Namespace, obj.Spec.Net.TLS.Key.SecretKeyRef),

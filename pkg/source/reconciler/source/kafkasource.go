@@ -31,7 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/eventing/pkg/reconciler/source"
 	"knative.dev/eventing/pkg/utils"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
@@ -98,7 +97,7 @@ type Reconciler struct {
 
 	sinkResolver *resolver.URIResolver
 
-	configs source.ConfigAccessor
+	configs KafkaSourceConfigAccessor
 }
 
 // Check that our Reconciler implements Interface

@@ -50,7 +50,6 @@ import (
 	kafkaScheme "knative.dev/eventing-kafka/pkg/client/clientset/versioned/scheme"
 	kafkaChannelReconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
 	listers "knative.dev/eventing-kafka/pkg/client/listers/messaging/v1beta1"
-	"knative.dev/eventing-kafka/pkg/source"
 	v1 "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/apis/eventing"
 	eventingclientset "knative.dev/eventing/pkg/client/clientset/versioned"
@@ -532,7 +531,7 @@ func (r *Reconciler) createClient(ctx context.Context) (sarama.ClusterAdmin, err
 	kafkaClusterAdmin := r.kafkaClusterAdmin
 	if kafkaClusterAdmin == nil {
 		var err error
-		kafkaClusterAdmin, err = source.MakeAdminClient(ctx, controllerAgentName, r.kafkaAuthConfig, r.kafkaConfig)
+		kafkaClusterAdmin, err = client.MakeAdminClient(ctx, controllerAgentName, r.kafkaAuthConfig, r.kafkaConfig.SaramaSettingsYamlString, r.kafkaConfig.Brokers)
 		if err != nil {
 			return nil, err
 		}
@@ -592,7 +591,7 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 	r.kafkaConfig = kafkaConfig
 	r.kafkaConfigError = err
 	ac, err := kafka.NewAdminClient(ctx, func() (sarama.ClusterAdmin, error) {
-		return source.MakeAdminClient(ctx, controllerAgentName, r.kafkaAuthConfig, kafkaConfig)
+		return client.MakeAdminClient(ctx, controllerAgentName, r.kafkaAuthConfig, kafkaConfig.SaramaSettingsYamlString, kafkaConfig.Brokers)
 	})
 
 	if err != nil {

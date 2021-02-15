@@ -14,17 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package source
+package client
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/Shopify/sarama"
 	"github.com/kelseyhightower/envconfig"
 
-	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
 	"knative.dev/eventing-kafka/pkg/common/client"
+	"knative.dev/eventing-kafka/pkg/source/reconciler/source"
 )
 
 type AdapterSASL struct {
@@ -47,12 +48,15 @@ type AdapterNet struct {
 }
 
 type KafkaEnvConfig struct {
+	// KafkaConfigJson is the environment variable that's passed to adapter by the controller.
+	// It contains configuration from the Kafka configmap.
+	KafkaConfigJson  string   `envconfig:"K_KAFKA_CONFIG"`
 	BootstrapServers []string `envconfig:"KAFKA_BOOTSTRAP_SERVERS" required:"true"`
 	Net              AdapterNet
 }
 
 // NewConfig extracts the Kafka configuration from the environment.
-func NewConfig(ctx context.Context) ([]string, *sarama.Config, error) {
+func NewConfigFromEnv(ctx context.Context) ([]string, *sarama.Config, error) {
 	var env KafkaEnvConfig
 	if err := envconfig.Process("", &env); err != nil {
 		return nil, nil, err
@@ -81,11 +85,21 @@ func NewConfigWithEnv(ctx context.Context, env *KafkaEnvConfig) ([]string, *sara
 		}
 	}
 
-	cfg, err := client.NewConfigBuilder().
+	configBuilder := client.NewConfigBuilder().
 		WithDefaults().
-		WithAuth(kafkaAuthConfig).
-		WithVersion(&sarama.V2_0_0_0).
-		Build(ctx)
+		WithAuth(kafkaAuthConfig)
+
+	if env.KafkaConfigJson != "" {
+		kafkaCfg := &source.KafkaConfig{}
+		err := json.Unmarshal([]byte(env.KafkaConfigJson), kafkaCfg)
+		if err != nil {
+			return nil, nil, fmt.Errorf("error parsing Kafka config from environment: %w", err)
+		}
+
+		configBuilder = configBuilder.FromYaml(kafkaCfg.SaramaYamlString)
+	}
+
+	cfg, err := configBuilder.Build(ctx)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error creating Sarama config: %w", err)
 	}
@@ -95,7 +109,7 @@ func NewConfigWithEnv(ctx context.Context, env *KafkaEnvConfig) ([]string, *sara
 
 // NewProducer is a helper method for constructing a client for producing kafka methods.
 func NewProducer(ctx context.Context) (sarama.Client, error) {
-	bs, cfg, err := NewConfig(ctx)
+	bs, cfg, err := NewConfigFromEnv(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -104,17 +118,4 @@ func NewProducer(ctx context.Context) (sarama.Client, error) {
 	cfg.Producer.Return.Errors = true
 
 	return sarama.NewClient(bs, cfg)
-}
-
-func MakeAdminClient(ctx context.Context, clientID string, kafkaAuthCfg *client.KafkaAuthConfig, kafkaConfig *utils.KafkaConfig) (sarama.ClusterAdmin, error) {
-	saramaConf, err := client.NewConfigBuilder().
-		WithDefaults().
-		WithAuth(kafkaAuthCfg).
-		WithClientId(clientID).
-		Build(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("error creating admin client Sarama config: %w", err)
-	}
-
-	return sarama.NewClusterAdmin(kafkaConfig.Brokers, saramaConf)
 }
