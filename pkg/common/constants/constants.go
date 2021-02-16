@@ -23,9 +23,9 @@ const (
 	DefaultReplicationFactor = 1
 
 	// The name of the configmap used to hold eventing-kafka settings
-	SettingsConfigMapName    = "config-kafka"
-	SettingsSecretName       = "kafka-cluster"
-	
+	SettingsConfigMapName = "config-kafka"
+	SettingsSecretName    = "kafka-cluster"
+
 	// Mount path of the configmap used to hold eventing-kafka settings
 	SettingsConfigMapMountPath = "/etc/" + SettingsConfigMapName
 
