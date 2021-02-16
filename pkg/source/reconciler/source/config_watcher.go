@@ -50,18 +50,11 @@ type KafkaSourceConfigAccessor interface {
 func (cw *KafkaSourceConfigWatcher) ToEnvVars() []corev1.EnvVar {
 	envs := cw.ConfigWatcher.ToEnvVars()
 
-	envs = maybeAppendEnvVar(envs, cw.kafkaConfigEnvVar(), cw.KafkaConfig() != nil)
-
-	return envs
-}
-
-// maybeAppendEnvVar appends an EnvVar only if the condition boolean is true.
-func maybeAppendEnvVar(envs []corev1.EnvVar, env corev1.EnvVar, cond bool) []corev1.EnvVar {
-	if !cond {
-		return envs
+	if cw.KafkaConfig() != nil {
+		envs = append(envs, cw.kafkaConfigEnvVar())
 	}
 
-	return append(envs, env)
+	return envs
 }
 
 // KafkaConfig returns the logging configuration from the ConfigWatcher.
