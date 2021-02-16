@@ -20,6 +20,7 @@ import (
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/pkg/system"
 )
 
@@ -77,7 +78,7 @@ func MakeDispatcher(args DispatcherArgs) *v1.Deployment {
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "config-kafka",
-									MountPath: "/etc/config-kafka",
+									MountPath: constants.SettingsConfigMapMountPath,
 								},
 							},
 						},
@@ -88,7 +89,7 @@ func MakeDispatcher(args DispatcherArgs) *v1.Deployment {
 							VolumeSource: corev1.VolumeSource{
 								ConfigMap: &corev1.ConfigMapVolumeSource{
 									LocalObjectReference: corev1.LocalObjectReference{
-										Name: "config-kafka",
+										Name: constants.SettingsConfigMapName,
 									},
 								},
 							},

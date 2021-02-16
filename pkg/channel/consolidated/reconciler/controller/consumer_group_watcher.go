@@ -145,7 +145,9 @@ func (w *WatcherImpl) Terminate() {
 
 	w.watchers = nil
 	w.cachedConsumerGroups = nil
-	w.done <- struct{}{}
+	if w.done != nil {
+		w.done <- struct{}{}
+	}
 }
 
 // TODO explore returning a channel instead of a taking callback
