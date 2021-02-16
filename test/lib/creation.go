@@ -58,6 +58,33 @@ func CreateKafkaSourceV1Beta1OrFail(c *testlib.Client, kafkaSource *sourcesv1bet
 	}
 }
 
+func GetKafkaSourceV1Beta1OrFail(c *testlib.Client, kafkaSource string) *sourcesv1beta1.KafkaSource {
+	kafkaSourceClientSet, err := kafkaclientset.NewForConfig(c.Config)
+	if err != nil {
+		c.T.Fatalf("Failed to create v1beta1 KafkaSource client: %v", err)
+	}
+
+	kSources := kafkaSourceClientSet.SourcesV1beta1().KafkaSources(c.Namespace)
+	if ksObj, err := kSources.Get(context.Background(), kafkaSource, metav1.GetOptions{}); err != nil {
+		c.T.Fatalf("Failed to get v1beta1 KafkaSource %q: %v", kafkaSource, err)
+	} else {
+		return ksObj
+	}
+	return nil
+}
+
+func UpdateKafkaSourceV1Beta1OrFail(c *testlib.Client, kafkaSource *sourcesv1beta1.KafkaSource) {
+	kafkaSourceClientSet, err := kafkaclientset.NewForConfig(c.Config)
+	if err != nil {
+		c.T.Fatalf("Failed to create v1beta1 KafkaSource client: %v", err)
+	}
+
+	kSources := kafkaSourceClientSet.SourcesV1beta1().KafkaSources(c.Namespace)
+	if _, err := kSources.Update(context.Background(), kafkaSource, metav1.UpdateOptions{}); err != nil {
+		c.T.Fatalf("Failed to update v1beta1 KafkaSource %q: %v", kafkaSource.Name, err)
+	}
+}
+
 func CreateKafkaBindingV1Alpha1OrFail(c *testlib.Client, kafkaBinding *bindingsv1alpha1.KafkaBinding) {
 	kafkaBindingClientSet, err := kafkaclientset.NewForConfig(c.Config)
 	if err != nil {
