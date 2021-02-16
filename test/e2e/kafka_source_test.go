@@ -535,7 +535,7 @@ func testKafkaSourceUpdate(t *testing.T, name string, test updateTest) {
 	client.WaitForAllTestResourcesReadyOrFail(context.Background())
 
 	t.Logf("Send update event to kafkatopic")
-	helpers.MustPublishKafkaMessage(client, defaultKafkaSource.auth.bootStrapServer,
+	helpers.MustPublishKafkaMessage(client, kafkaBootstrapUrlPlain,
 		defaultKafkaSource.topicName+name,
 		originalMessage.key, originalMessage.headers, string(originalMessage.payload))
 	eventSourceName := sourcesv1beta1.KafkaEventSource(client.Namespace, kafkaSourceName, defaultKafkaSource.topicName+name)
@@ -571,7 +571,7 @@ func testKafkaSourceUpdate(t *testing.T, name string, test updateTest) {
 	client.WaitForAllTestResourcesReadyOrFail(context.Background())
 
 	t.Logf("Send update event to kafkatopic")
-	helpers.MustPublishKafkaMessage(client, test.auth.bootStrapServer,
+	helpers.MustPublishKafkaMessage(client, kafkaBootstrapUrlPlain,
 		test.topicName+name,
 		updateMessage.key, updateMessage.headers, string(updateMessage.payload))
 
