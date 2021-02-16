@@ -64,11 +64,18 @@ should be replaced with a real broker string.  An example of such a string might
     kafka:
       brokers: SASL_SSL://my-cluster.eu-west-1.aws.confluent.cloud:9092
 ```
-Or for Azure Event Hubs:
+Example value for Azure Event Hubs:
 ```
   eventing-kafka: |
     kafka:
       brokers: my-cluster-name-1.servicebus.windows.net:9093
+```
+Example value for a multi-broker Kafka (must be base64 encoded):
+
+```
+  eventing-kafka: |
+    kafka:
+      brokers: 10.254.11.41:9093,10.254.11.42:9093,10.254.11.43:9093
 ```
 
 The associated auth information is specified in a Kubernetes Secret in the
