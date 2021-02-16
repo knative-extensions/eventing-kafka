@@ -601,7 +601,9 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 	}
 
 	if r.consumerGroupWatcher != nil {
+		logger.Info("Terminating consumer group watcher")
 		r.consumerGroupWatcher.Terminate()
+		logger.Info("Terminated consumer group watcher")
 	}
 
 	r.consumerGroupWatcher = NewConsumerGroupWatcher(ctx, ac, pollInterval)
