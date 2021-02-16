@@ -25,6 +25,7 @@ import (
 
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/kafka"
 	"knative.dev/eventing-kafka/pkg/common/client"
+	"knative.dev/eventing-kafka/pkg/common/constants"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
@@ -158,7 +159,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel
 
 	if r.kafkaConfig == nil {
 		if r.kafkaConfigError == nil {
-			r.kafkaConfigError = errors.New("The config map 'config-kafka' does not exist")
+			r.kafkaConfigError = errors.New(fmt.Sprintf("The config map '%s' does not exist", constants.SettingsConfigMapName))
 		}
 		kc.Status.MarkConfigFailed("MissingConfiguration", "%v", r.kafkaConfigError)
 		return r.kafkaConfigError
