@@ -26,7 +26,7 @@ const (
 	SettingsConfigMapName = "config-kafka"
 
 	// Mount path of the configmap used to hold eventing-kafka settings
-	SettingsConfigMapMountPath = "/etc/config-kafka"
+	SettingsConfigMapMountPath = "/etc/" + SettingsConfigMapName
 
 	// Config key of the config in the configmap used to hold eventing-kafka settings
 	EventingKafkaSettingsConfigKey = "eventing-kafka"
