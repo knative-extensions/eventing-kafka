@@ -23,8 +23,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"knative.dev/eventing/pkg/apis/sources/v1alpha1"
-	"knative.dev/eventing/pkg/reconciler/source"
-
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	deploymentinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
 	"knative.dev/pkg/configmap"
@@ -58,7 +56,7 @@ func NewController(
 		deploymentLister:    deploymentInformer.Lister(),
 		receiveAdapterImage: raImage,
 		loggingContext:      ctx,
-		configs:             source.WatchConfigurations(ctx, component, cmw),
+		configs:             WatchConfigurations(ctx, component, cmw),
 	}
 
 	impl := kafkasource.NewImpl(ctx, c)

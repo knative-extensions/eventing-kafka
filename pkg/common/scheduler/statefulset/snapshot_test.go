@@ -45,19 +45,19 @@ func TestSnapshot(t *testing.T) {
 			name:     "no vpods, no replicas",
 			vpods:    [][]duckv1alpha1.Placement{},
 			replicas: int32(0),
-			expected: Snapshot{free: map[string]int32{}},
+			expected: Snapshot{free: map[string]int32{}, lastOrdinal: 0},
 		},
 		{
 			name:     "no vpods, one replica",
 			vpods:    [][]duckv1alpha1.Placement{},
 			replicas: int32(1),
-			expected: Snapshot{free: map[string]int32{"statefulset-name-0": int32(10)}},
+			expected: Snapshot{free: map[string]int32{"statefulset-name-0": int32(10)}, lastOrdinal: 0},
 		},
 		{
 			name:     "one vpods, one replica",
 			vpods:    [][]duckv1alpha1.Placement{{{PodName: "statefulset-name-0", VReplicas: 1}}},
 			replicas: int32(1),
-			expected: Snapshot{free: map[string]int32{"statefulset-name-0": int32(9)}},
+			expected: Snapshot{free: map[string]int32{"statefulset-name-0": int32(9)}, lastOrdinal: 0},
 		},
 		{
 			name: "many vpods, many replicas",
@@ -71,7 +71,7 @@ func TestSnapshot(t *testing.T) {
 				"statefulset-name-0": int32(8),
 				"statefulset-name-1": int32(5),
 				"statefulset-name-2": int32(5),
-				"statefulset-name-3": int32(10)}},
+				"statefulset-name-3": int32(10)}, lastOrdinal: 2},
 		},
 	}
 

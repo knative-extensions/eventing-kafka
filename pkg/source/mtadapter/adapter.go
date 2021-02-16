@@ -35,8 +35,8 @@ import (
 
 	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 	"knative.dev/eventing-kafka/pkg/common/scheduler"
-	"knative.dev/eventing-kafka/pkg/source"
 	stadapter "knative.dev/eventing-kafka/pkg/source/adapter"
+	"knative.dev/eventing-kafka/pkg/source/client"
 )
 
 type AdapterConfig struct {
@@ -90,16 +90,19 @@ func (a *Adapter) Start(ctx context.Context) error {
 // Implements MTAdapter
 
 func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) {
+	a.sourcesMu.Lock()
+	defer a.sourcesMu.Unlock()
+
 	key := obj.Namespace + "/" + obj.Name
 
-	a.sourcesMu.RLock()
-	cancel, ok := a.sources[key]
-	a.sourcesMu.RUnlock()
+	_, ok := a.sources[key]
 
 	if ok {
+		// TODO: see https://github.com/knative-sandbox/eventing-kafka/issues/382
+		return
 		// TODO: do not stop if the only thing that changes is the number of vreplicas
-		a.logger.Info("stopping adapter", zap.String("key", key))
-		cancel()
+		//a.logger.Info("stopping adapter", zap.String("key", key))
+		//cancel()
 	}
 
 	placement := scheduler.GetPlacementForPod(obj.GetPlacements(), a.config.PodName)
@@ -114,16 +117,16 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) {
 			Component: "kafkasource",
 			Namespace: obj.Namespace,
 		},
-		KafkaEnvConfig: source.KafkaEnvConfig{
+		KafkaEnvConfig: client.KafkaEnvConfig{
 			BootstrapServers: obj.Spec.BootstrapServers,
-			Net: source.AdapterNet{
-				SASL: source.AdapterSASL{
+			Net: client.AdapterNet{
+				SASL: client.AdapterSASL{
 					Enable:   obj.Spec.Net.SASL.Enable,
 					User:     a.ResolveSecret(ctx, obj.Namespace, obj.Spec.Net.SASL.User.SecretKeyRef),
 					Password: a.ResolveSecret(ctx, obj.Namespace, obj.Spec.Net.SASL.Password.SecretKeyRef),
 					Type:     a.ResolveSecret(ctx, obj.Namespace, obj.Spec.Net.SASL.Type.SecretKeyRef),
 				},
-				TLS: source.AdapterTLS{
+				TLS: client.AdapterTLS{
 					Enable: obj.Spec.Net.TLS.Enable,
 					Cert:   a.ResolveSecret(ctx, obj.Namespace, obj.Spec.Net.TLS.Cert.SecretKeyRef),
 					Key:    a.ResolveSecret(ctx, obj.Namespace, obj.Spec.Net.TLS.Key.SecretKeyRef),
@@ -166,17 +169,16 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) {
 
 	}(ctx)
 
-	a.sourcesMu.Lock()
 	a.sources[key] = cancelFn
-	a.sourcesMu.Unlock()
 }
 
 func (a *Adapter) Remove(ctx context.Context, obj *v1beta1.KafkaSource) {
+	a.sourcesMu.Lock()
+	defer a.sourcesMu.Unlock()
+
 	key := obj.Namespace + "/" + obj.Name
 
-	a.sourcesMu.RLock()
 	cancel, ok := a.sources[key]
-	a.sourcesMu.RUnlock()
 
 	if !ok {
 		return
@@ -184,9 +186,7 @@ func (a *Adapter) Remove(ctx context.Context, obj *v1beta1.KafkaSource) {
 
 	cancel()
 
-	a.sourcesMu.Lock()
 	delete(a.sources, key)
-	a.sourcesMu.Unlock()
 }
 
 // ResolveSecret resolves the secret reference

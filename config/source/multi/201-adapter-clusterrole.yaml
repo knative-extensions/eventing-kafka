@@ -56,14 +56,27 @@ rules:
   - watch
 
 - apiGroups:
-    - ""
+  - apps
   resources:
-    - secrets
+  - deployments
   verbs:
-    - get
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
 
 - apiGroups:
-   - ""
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+
+- apiGroups:
+  - ""
   resources:
   - events
   verbs:

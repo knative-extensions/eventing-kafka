@@ -18,13 +18,13 @@ package controller
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/kafka"
 	"knative.dev/eventing-kafka/pkg/common/client"
+	"knative.dev/eventing-kafka/pkg/common/constants"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
@@ -50,7 +50,6 @@ import (
 	kafkaScheme "knative.dev/eventing-kafka/pkg/client/clientset/versioned/scheme"
 	kafkaChannelReconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
 	listers "knative.dev/eventing-kafka/pkg/client/listers/messaging/v1beta1"
-	"knative.dev/eventing-kafka/pkg/source"
 	v1 "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/apis/eventing"
 	eventingclientset "knative.dev/eventing/pkg/client/clientset/versioned"
@@ -159,7 +158,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel
 
 	if r.kafkaConfig == nil {
 		if r.kafkaConfigError == nil {
-			r.kafkaConfigError = errors.New("The config map 'config-kafka' does not exist")
+			r.kafkaConfigError = fmt.Errorf("the config map '%s' does not exist", constants.SettingsConfigMapName)
 		}
 		kc.Status.MarkConfigFailed("MissingConfiguration", "%v", r.kafkaConfigError)
 		return r.kafkaConfigError
@@ -532,7 +531,7 @@ func (r *Reconciler) createClient(ctx context.Context) (sarama.ClusterAdmin, err
 	kafkaClusterAdmin := r.kafkaClusterAdmin
 	if kafkaClusterAdmin == nil {
 		var err error
-		kafkaClusterAdmin, err = source.MakeAdminClient(ctx, controllerAgentName, r.kafkaAuthConfig, r.kafkaConfig)
+		kafkaClusterAdmin, err = client.MakeAdminClient(ctx, controllerAgentName, r.kafkaAuthConfig, r.kafkaConfig.SaramaSettingsYamlString, r.kafkaConfig.Brokers)
 		if err != nil {
 			return nil, err
 		}
@@ -592,7 +591,7 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 	r.kafkaConfig = kafkaConfig
 	r.kafkaConfigError = err
 	ac, err := kafka.NewAdminClient(ctx, func() (sarama.ClusterAdmin, error) {
-		return source.MakeAdminClient(ctx, controllerAgentName, r.kafkaAuthConfig, kafkaConfig)
+		return client.MakeAdminClient(ctx, controllerAgentName, r.kafkaAuthConfig, kafkaConfig.SaramaSettingsYamlString, kafkaConfig.Brokers)
 	})
 
 	if err != nil {
@@ -601,7 +600,9 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 	}
 
 	if r.consumerGroupWatcher != nil {
+		logger.Info("terminating consumer group watcher")
 		r.consumerGroupWatcher.Terminate()
+		logger.Info("terminated consumer group watcher")
 	}
 
 	r.consumerGroupWatcher = NewConsumerGroupWatcher(ctx, ac, pollInterval)
@@ -617,6 +618,8 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, kc *v1beta1.KafkaChannel)
 			return err
 		}
 	}
-	r.consumerGroupWatcher.Forget(string(kc.ObjectMeta.UID))
+	if r.consumerGroupWatcher != nil {
+		r.consumerGroupWatcher.Forget(string(kc.ObjectMeta.UID))
+	}
 	return newReconciledNormal(kc.Namespace, kc.Name) //ok to remove finalizer
 }

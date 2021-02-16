@@ -19,7 +19,7 @@ package main
 import (
 	"log"
 
-	"knative.dev/eventing-kafka/pkg/source"
+	kafkasourceclient "knative.dev/eventing-kafka/pkg/source/client"
 
 	"github.com/Shopify/sarama"
 	"github.com/kelseyhightower/envconfig"
@@ -45,7 +45,7 @@ func main() {
 	log.Printf("GOT: %v", s)
 
 	// Create a Kafka client from our Binding.
-	client, err := source.NewProducer(ctx)
+	client, err := kafkasourceclient.NewProducer(ctx)
 	if err != nil {
 		log.Fatal(err.Error())
 	}

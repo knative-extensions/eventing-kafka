@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package source
+package client
 
 import (
 	"context"
@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	"github.com/Shopify/sarama"
-	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
+	"knative.dev/eventing-kafka/pkg/common/client"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
 
@@ -155,7 +155,7 @@ func TestNewConfig(t *testing.T) {
 			for k, v := range tc.env {
 				_ = os.Setenv(k, v)
 			}
-			servers, config, err := NewConfig(context.Background())
+			servers, config, err := NewConfigFromEnv(context.Background())
 			if err != nil && tc.wantErr != true {
 				t.Fatal(err)
 			}
@@ -200,7 +200,7 @@ func TestAdminClient(t *testing.T) {
 	})
 
 	// mock broker does not support TLS ...
-	admin, err := MakeAdminClient(ctx, "test-client", nil, &utils.KafkaConfig{Brokers: []string{seedBroker.Addr()}})
+	admin, err := client.MakeAdminClient(ctx, "test-client", nil, "", []string{seedBroker.Addr()})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"github.com/kelseyhightower/envconfig"
+	"knative.dev/eventing-kafka/pkg/common/constants"
 
 	"go.uber.org/zap"
 
@@ -87,12 +88,12 @@ func NewController(
 	impl := kafkaChannelReconciler.NewImpl(ctx, r)
 
 	// Get and Watch the Kakfa config map and dynamically update Kafka configuration.
-	if _, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, "config-kafka", metav1.GetOptions{}); err == nil {
-		cmw.Watch("config-kafka", func(configMap *v1.ConfigMap) {
+	if _, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, constants.SettingsConfigMapName, metav1.GetOptions{}); err == nil {
+		cmw.Watch(constants.SettingsConfigMapName, func(configMap *v1.ConfigMap) {
 			r.updateKafkaConfig(ctx, configMap)
 		})
 	} else if !apierrors.IsNotFound(err) {
-		logging.FromContext(ctx).With(zap.Error(err)).Fatal("Error reading ConfigMap 'config-kafka'")
+		logging.FromContext(ctx).With(zap.Error(err)).Fatalf("Error reading ConfigMap '%s'", constants.SettingsConfigMapName)
 	}
 
 	logging.FromContext(ctx).Info("Setting up event handlers")

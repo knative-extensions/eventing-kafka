@@ -37,7 +37,7 @@ import (
 	"knative.dev/eventing/pkg/kncloudevents"
 
 	"knative.dev/eventing-kafka/pkg/common/consumer"
-	kafkasource "knative.dev/eventing-kafka/pkg/source"
+	"knative.dev/eventing-kafka/pkg/source/client"
 )
 
 const (
@@ -46,7 +46,7 @@ const (
 
 type AdapterConfig struct {
 	adapter.EnvConfig
-	kafkasource.KafkaEnvConfig
+	client.KafkaEnvConfig
 
 	Topics        []string `envconfig:"KAFKA_TOPICS" required:"true"`
 	ConsumerGroup string   `envconfig:"KAFKA_CONSUMER_GROUP" required:"true"`
@@ -84,10 +84,6 @@ func NewAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, httpMe
 }
 
 func (a *Adapter) Start(ctx context.Context) error {
-	return a.start(ctx.Done())
-}
-
-func (a *Adapter) start(stopCh <-chan struct{}) error {
 	a.logger.Infow("Starting with config: ",
 		zap.String("Topics", strings.Join(a.config.Topics, ",")),
 		zap.String("ConsumerGroup", a.config.ConsumerGroup),
@@ -97,7 +93,7 @@ func (a *Adapter) start(stopCh <-chan struct{}) error {
 	)
 
 	// init consumer group
-	addrs, config, err := kafkasource.NewConfigWithEnv(context.Background(), &a.config.KafkaEnvConfig)
+	addrs, config, err := client.NewConfigWithEnv(context.Background(), &a.config.KafkaEnvConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create the config: %w", err)
 	}
@@ -107,7 +103,12 @@ func (a *Adapter) start(stopCh <-chan struct{}) error {
 	if err != nil {
 		panic(err)
 	}
-	defer func() { _ = group.Close() }()
+	defer func() {
+		err := group.Close()
+		if err != nil {
+			a.logger.Errorw("Failed to close consumer group", zap.Error(err))
+		}
+	}()
 
 	// Track errors
 	go func() {
@@ -116,7 +117,7 @@ func (a *Adapter) start(stopCh <-chan struct{}) error {
 		}
 	}()
 
-	<-stopCh
+	<-ctx.Done()
 	a.logger.Info("Shutting down...")
 	return nil
 }

@@ -57,6 +57,8 @@ If you have set up a running environment that meets
 [the e2e test environment requirements](#environment-requirements), you can run
 with `test/e2e-tests.sh --run-tests --skip-knative-setup`.
 
+If you want to skip tearing down your cluster, add the `--skip-teardowns` flag.
+
 ## Running tests with `go test` command
 
 ### Running unit tests
@@ -96,6 +98,13 @@ bevavior you can specify a different tag through `-tag`:
 
 ```bash
 SYSTEM_NAMESPACE=knative-eventing go test -v -tags=e2e,source -count=1 ./test/e2e -tag e2e
+```
+
+To run the e2e source tests against the multi-tenant source adapter you need to
+specify the build tags `source` and `mtsource`:
+
+```bash
+SYSTEM_NAMESPACE=knative-eventing go test -v -tags=source,mtsource  ./test/e2e
 ```
 
 #### One test case
