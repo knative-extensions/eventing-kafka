@@ -18,7 +18,6 @@ package controller
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -159,7 +158,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel
 
 	if r.kafkaConfig == nil {
 		if r.kafkaConfigError == nil {
-			r.kafkaConfigError = errors.New(fmt.Sprintf("The config map '%s' does not exist", constants.SettingsConfigMapName))
+			r.kafkaConfigError = fmt.Errorf("the config map '%s' does not exist", constants.SettingsConfigMapName)
 		}
 		kc.Status.MarkConfigFailed("MissingConfiguration", "%v", r.kafkaConfigError)
 		return r.kafkaConfigError
