@@ -617,6 +617,8 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, kc *v1beta1.KafkaChannel)
 			return err
 		}
 	}
-	r.consumerGroupWatcher.Forget(string(kc.ObjectMeta.UID))
+	if r.consumerGroupWatcher != nil {
+		r.consumerGroupWatcher.Forget(string(kc.ObjectMeta.UID))
+	}
 	return newReconciledNormal(kc.Namespace, kc.Name) //ok to remove finalizer
 }
