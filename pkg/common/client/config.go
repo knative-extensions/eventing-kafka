@@ -108,10 +108,6 @@ type ConfigBuilder interface {
 	// on the config for the given KafkaAuthConfig
 	WithAuth(kafkaAuthConfig *KafkaAuthConfig) ConfigBuilder
 
-	// WithAuthFromSarama explicitly uses the SASL settings from
-	// a given Sarama config (and nothing else)
-	WithAuthFromSarama(config *sarama.Config) ConfigBuilder
-
 	// WithVersion makes the builder set the version
 	// explicitly, regardless what's set in the existing config
 	// (if provided) or in the YAML-string
@@ -167,24 +163,6 @@ func (b *configBuilder) FromYaml(saramaSettingsYamlString string) ConfigBuilder 
 
 func (b *configBuilder) WithAuth(kafkaAuthCfg *KafkaAuthConfig) ConfigBuilder {
 	b.auth = kafkaAuthCfg
-	return b
-}
-
-func (b *configBuilder) WithAuthFromSarama(config *sarama.Config) ConfigBuilder {
-	// Use the SASL settings from the provided Sarama config only if the user is non-empty
-	if config.Net.SASL.User != "" {
-		kafkaAuthCfg := &KafkaAuthConfig{
-			SASL: &KafkaSaslConfig{
-				User:     config.Net.SASL.User,
-				Password: config.Net.SASL.Password,
-				SaslType: string(config.Net.SASL.Mechanism),
-			},
-		}
-		b.auth = kafkaAuthCfg
-	} else {
-		// If the user is empty, explicitly set the authentication to nil
-		b.auth = nil
-	}
 	return b
 }
 

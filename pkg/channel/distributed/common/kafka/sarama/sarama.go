@@ -100,3 +100,21 @@ func LoadEventingKafkaSettings(configMap *corev1.ConfigMap) (*commonconfig.Event
 
 	return eventingKafkaConfig, nil
 }
+
+// AuthFromSarama creates a KafkaAuthConfig using the SASL settings from
+// a given Sarama config, or nil if there is no SASL user in that config
+func AuthFromSarama(config *sarama.Config) *client.KafkaAuthConfig {
+	// Use the SASL settings from the provided Sarama config only if the user is non-empty
+	if config.Net.SASL.User != "" {
+		return &client.KafkaAuthConfig{
+			SASL: &client.KafkaSaslConfig{
+				User:     config.Net.SASL.User,
+				Password: config.Net.SASL.Password,
+				SaslType: string(config.Net.SASL.Mechanism),
+			},
+		}
+	} else {
+		// If the user is empty, return explicitly nil authentication
+		return nil
+	}
+}

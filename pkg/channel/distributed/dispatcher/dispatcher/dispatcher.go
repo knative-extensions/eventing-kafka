@@ -298,7 +298,9 @@ func (d *DispatcherImpl) ConfigChanged(ctx context.Context, configMap *corev1.Co
 		FromYaml(saramaSettingsYamlString)
 
 	// Some of the current config settings may not be overridden by the configmap (username, password, etc.)
-	configBuilder = configBuilder.WithClientId(d.SaramaConfig.ClientID).WithAuthFromSarama(d.SaramaConfig)
+	configBuilder = configBuilder.
+		WithClientId(d.SaramaConfig.ClientID).
+		WithAuth(kafkasarama.AuthFromSarama(d.SaramaConfig))
 
 	newConfig, err := configBuilder.Build(ctx)
 	if err != nil {
