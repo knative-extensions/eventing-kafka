@@ -18,8 +18,6 @@ package testing
 
 // Test Data
 const (
-	KafkaBroker = "TestBroker"
-
 	ChannelName      = "TestChannelName"
 	ChannelNamespace = "TestChannelNamespace"
 

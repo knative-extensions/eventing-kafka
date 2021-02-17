@@ -538,62 +538,26 @@ func (r *Reconciler) dispatcherDeploymentEnvVars(channel *kafkav1beta1.KafkaChan
 		},
 	}
 
-	// Get The Kafka Secret From The Reconciler
-	kafkaSecret := r.kafkaSecret
-
 	// If The Kafka Secret Env Var Is Specified Then Append Relevant Env Vars
-	if len(kafkaSecret) <= 0 {
+	if len(r.kafkaSecret) <= 0 {
 
 		// Received Invalid Kafka Secret - Cannot Proceed
 		return nil, fmt.Errorf("invalid kafkaSecret for topic '%s'", topicName)
 
 	} else {
 
-		// Append The Kafka Brokers As Env Var
+		// Append The Secret Name As Env Var
 		envVars = append(envVars, corev1.EnvVar{
-			Name: commonenv.KafkaBrokerEnvVarKey,
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{Name: kafkaSecret},
-					Key:                  constants.KafkaSecretDataKeyBrokers,
-				},
-			},
+			Name:  commonenv.KafkaSecretNameEnvVarKey,
+			Value: r.kafkaSecret,
 		})
 
-		// Append The Kafka Username As Env Var
+		// Append The Secret Namespace As Env Var
 		envVars = append(envVars, corev1.EnvVar{
-			Name: commonenv.KafkaUsernameEnvVarKey,
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{Name: kafkaSecret},
-					Key:                  constants.KafkaSecretDataKeyUsername,
-				},
-			},
+			Name:  commonenv.KafkaSecretNamespaceEnvVarKey,
+			Value: r.environment.SystemNamespace,
 		})
 
-		// Append The Kafka Password As Env Var
-		envVars = append(envVars, corev1.EnvVar{
-			Name: commonenv.KafkaPasswordEnvVarKey,
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{Name: kafkaSecret},
-					Key:                  constants.KafkaSecretDataKeyPassword,
-				},
-			},
-		})
-
-		// Append The Kafka SaslType As Env Var
-		optional := true
-		envVars = append(envVars, corev1.EnvVar{
-			Name: commonenv.KafkaSaslTypeEnvVarKey,
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{Name: kafkaSecret},
-					Key:                  constants.KafkaSecretDataKeySaslType,
-					Optional:             &optional,
-				},
-			},
-		})
 	}
 
 	// Return The Dispatcher Deployment EnvVars Array

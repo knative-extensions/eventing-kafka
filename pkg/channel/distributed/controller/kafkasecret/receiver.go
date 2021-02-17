@@ -409,49 +409,16 @@ func (r *Reconciler) receiverDeploymentEnvVars(secret *corev1.Secret) ([]corev1.
 		},
 	}
 
-	// Append The Kafka Brokers As Env Var
+	// Append The Secret Name As Env Var
 	envVars = append(envVars, corev1.EnvVar{
-		Name: commonenv.KafkaBrokerEnvVarKey,
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{Name: secret.Name},
-				Key:                  constants.KafkaSecretDataKeyBrokers,
-			},
-		},
+		Name:  commonenv.KafkaSecretNameEnvVarKey,
+		Value: secret.Name,
 	})
 
-	// Append The Kafka Username As Env Var
+	// Append The Secret Namespace As Env Var
 	envVars = append(envVars, corev1.EnvVar{
-		Name: commonenv.KafkaUsernameEnvVarKey,
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{Name: secret.Name},
-				Key:                  constants.KafkaSecretDataKeyUsername,
-			},
-		},
-	})
-
-	// Append The Kafka Password As Env Var
-	envVars = append(envVars, corev1.EnvVar{
-		Name: commonenv.KafkaPasswordEnvVarKey,
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{Name: secret.Name},
-				Key:                  constants.KafkaSecretDataKeyPassword,
-			},
-		},
-	})
-
-	optional := true
-	envVars = append(envVars, corev1.EnvVar{
-		Name: commonenv.KafkaSaslTypeEnvVarKey,
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{Name: secret.Name},
-				Key:                  constants.KafkaSecretDataKeySaslType,
-				Optional:             &optional,
-			},
-		},
+		Name:  commonenv.KafkaSecretNamespaceEnvVarKey,
+		Value: r.environment.SystemNamespace,
 	})
 
 	// Return The Receiver Deployment EnvVars Array

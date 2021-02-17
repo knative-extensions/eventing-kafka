@@ -47,12 +47,6 @@ const (
 	// Refer to: https://knative.dev/eventing-kafka/blob/master/cmd/channel/main.go
 	HttpContainerPortNumber = 8080
 
-	// Kafka Secret Data Keys
-	KafkaSecretDataKeyBrokers  = "brokers"
-	KafkaSecretDataKeyUsername = "username"
-	KafkaSecretDataKeyPassword = "password"
-	KafkaSecretDataKeySaslType = "sasltype"
-
 	// Prometheus MetricsPort
 	MetricsPortName = "metrics"
 

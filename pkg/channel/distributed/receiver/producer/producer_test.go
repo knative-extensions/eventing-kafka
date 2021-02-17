@@ -41,7 +41,7 @@ import (
 func TestNewProducer(t *testing.T) {
 
 	// Test Data
-	brokers := []string{receivertesting.KafkaBroker}
+	brokers := []string{commonconfigtesting.DefaultKafkaBroker}
 	config := sarama.NewConfig()
 
 	// Create A Mock Kafka SyncProducer
@@ -62,7 +62,7 @@ func TestNewProducer(t *testing.T) {
 func TestProduceKafkaMessage(t *testing.T) {
 
 	// Test Data
-	brokers := []string{receivertesting.KafkaBroker}
+	brokers := []string{commonconfigtesting.DefaultKafkaBroker}
 	config := sarama.NewConfig()
 	channelReference := receivertesting.CreateChannelReference(receivertesting.ChannelName, receivertesting.ChannelNamespace)
 	bindingMessage := receivertesting.CreateBindingMessage(cloudevents.VersionV1)
@@ -111,7 +111,7 @@ func TestConfigChanged(t *testing.T) {
 	commontesting.SetTestEnvironment(t)
 
 	// Test Data
-	brokers := []string{receivertesting.KafkaBroker}
+	brokers := []string{commonconfigtesting.DefaultKafkaBroker}
 	baseSaramaConfig, err := commonclient.NewConfigBuilder().WithDefaults().FromYaml(commonconfigtesting.DefaultSaramaConfigYaml).Build(ctx)
 	assert.Nil(t, err)
 
@@ -203,11 +203,119 @@ func TestConfigChanged(t *testing.T) {
 	}
 }
 
+// Test The Producer's ConfigChanged Functionality
+func TestSecretChanged(t *testing.T) {
+
+	logger := logtesting.TestLogger(t)
+	ctx := logging.WithLogger(context.TODO(), logger)
+
+	// Setup Test Environment Namespaces
+	commontesting.SetTestEnvironment(t)
+
+	// Test Data
+	brokers := []string{commonconfigtesting.DefaultKafkaBroker}
+	auth := &commonclient.KafkaAuthConfig{
+		SASL: &commonclient.KafkaSaslConfig{
+			User:     commonconfigtesting.DefaultSecretUsername,
+			Password: commonconfigtesting.DefaultSecretPassword,
+			SaslType: commonconfigtesting.DefaultSecretSaslType,
+		},
+	}
+	baseSaramaConfig, err := commonclient.NewConfigBuilder().WithDefaults().FromYaml(commonconfigtesting.DefaultSaramaConfigYaml).WithAuth(auth).Build(ctx)
+	assert.Nil(t, err)
+
+	// Define The TestCase Struct
+	type TestCase struct {
+		only              bool
+		name              string
+		newSecret         *corev1.Secret
+		expectNewProducer bool
+	}
+
+	// Create The TestCases
+	testCases := []TestCase{
+		{
+			name:              "No Changes (Same Producer)",
+			newSecret:         configtesting.NewKafkaSecret(),
+			expectNewProducer: false,
+		},
+		{
+			name:              "Password Change (New Producer)",
+			newSecret:         configtesting.NewKafkaSecret(configtesting.WithModifiedPassword),
+			expectNewProducer: true,
+		},
+		{
+			name:              "Username Change (New Producer)",
+			newSecret:         configtesting.NewKafkaSecret(configtesting.WithModifiedUsername),
+			expectNewProducer: true,
+		},
+		{
+			name:              "Empty Username Change (New Producer)",
+			newSecret:         configtesting.NewKafkaSecret(configtesting.WithEmptyUsername),
+			expectNewProducer: true,
+		},
+		{
+			name:              "SaslType Change (New Producer)",
+			newSecret:         configtesting.NewKafkaSecret(configtesting.WithModifiedSaslType),
+			expectNewProducer: true,
+		},
+		{
+			name:              "Namespace Change (Same Producer)",
+			newSecret:         configtesting.NewKafkaSecret(configtesting.WithModifiedNamespace),
+			expectNewProducer: false,
+		},
+		{
+			name:              "No Auth Config In Secret (Same Producer)",
+			newSecret:         configtesting.NewKafkaSecret(configtesting.WithMissingConfig),
+			expectNewProducer: false,
+		},
+	}
+
+	// Filter To Those With "only" Flag (If Any Specified)
+	filteredTestCases := make([]TestCase, 0)
+	for _, testCase := range testCases {
+		if testCase.only {
+			filteredTestCases = append(filteredTestCases, testCase)
+		}
+	}
+	if len(filteredTestCases) == 0 {
+		filteredTestCases = testCases
+	}
+
+	// Make Sure To Restore The NewSyncProducer Wrapper After The Test
+	defer producertesting.RestoreNewSyncProducerFn()
+
+	// Run The Filtered TestCases
+	for _, testCase := range filteredTestCases {
+		t.Run(testCase.name, func(t *testing.T) {
+
+			// Mock The SyncProducer & Stub The NewSyncProducerWrapper()
+			mockSyncProducer := producertesting.NewMockSyncProducer()
+			producertesting.StubNewSyncProducerFn(producertesting.NonValidatingNewSyncProducerFn(mockSyncProducer))
+
+			// Create A Test Producer To Perform Tests Against
+			producer := createTestProducer(t, brokers, baseSaramaConfig, mockSyncProducer)
+
+			// Perform The Test
+			newProducer := producer.SecretChanged(ctx, testCase.newSecret)
+
+			// Verify Expected State
+			assert.Equal(t, testCase.expectNewProducer, newProducer != nil)
+			assert.Equal(t, testCase.expectNewProducer, mockSyncProducer.Closed())
+			if newProducer != nil {
+				assert.Equal(t, producer.brokers, newProducer.brokers)
+				assert.Equal(t, producer.statsReporter, newProducer.statsReporter)
+				assert.Equal(t, producer.healthServer, newProducer.healthServer)
+			}
+		})
+	}
+}
+
 // Test The Producer's Close() Functionality
 func TestClose(t *testing.T) {
 
 	// Test Data
-	brokers := []string{receivertesting.KafkaBroker}
+	brokers := []string{commonconfigtesting.DefaultKafkaBroker}
 	config := sarama.NewConfig()
 
 	// Create A Mock Kafka SyncProducer

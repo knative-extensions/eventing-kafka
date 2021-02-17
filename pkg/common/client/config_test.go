@@ -666,6 +666,51 @@ func TestVerifyCertSkipHostname(t *testing.T) {
 	}
 }
 
+func TestHasSameSettings(t *testing.T) {
+	authConfig := &KafkaAuthConfig{SASL: &KafkaSaslConfig{User: "user1", Password: "password1", SaslType: sarama.SASLTypeOAuth}}
+	saramaConfig := sarama.NewConfig()
+
+	assert.False(t, authConfig.SASL.HasSameSettings(saramaConfig))
+	saramaConfig.Net.SASL.User = "user1"
+	assert.False(t, authConfig.SASL.HasSameSettings(saramaConfig))
+	saramaConfig.Net.SASL.Password = "password1"
+	assert.False(t, authConfig.SASL.HasSameSettings(saramaConfig))
+	saramaConfig.Net.SASL.Mechanism = sarama.SASLTypeOAuth
+	assert.True(t, authConfig.SASL.HasSameSettings(saramaConfig))
+}
+
+func TestHasSameBrokers(t *testing.T) {
+
+	// Define The TestCase Struct
+	type TestCase struct {
+		name  string
+		str   string
+		slice []string
+		same  bool
+	}
+
+	const brokers123 = "broker1,broker2,broker3"
+
+	// Create The TestCases
+	testCases := []TestCase{
+		{name: "3 vs. Identical Slice", str: brokers123, slice: []string{"broker1", "broker2", "broker3"}, same: true},
+		{name: "3 vs. Empty Slice", str: brokers123, slice: []string{}},
+		{name: "3 vs. 1-element Slice", str: brokers123, slice: []string{"broker1"}},
+		{name: "3 vs. 2-element Slice", str: brokers123, slice: []string{"broker1", "broker2"}},
+		{name: "3 vs. 4-element Slice", str: brokers123, slice: []string{"broker1", "broker2", "broker3", "broker4"}},
+		{name: "3 vs. Reversed Slice", str: brokers123, slice: []string{"broker3", "broker2", "broker1"}},
+		{name: "1 vs. 1-element Slice", str: "broker1", slice: []string{"broker1"}, same: true},
+		{name: "0 vs. Empty Slice", str: "", slice: []string{}, same: true},
+	}
+
+	// Run The TestCases
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			assert.Equal(t, testCase.same, HasSameBrokers(testCase.str, testCase.slice))
+		})
+	}
+}
+
 // Lifted from the RSA path of https://golang.org/src/crypto/tls/generate_cert.go.
 func generateCert(t *testing.T) (string, string) {
 	t.Helper()

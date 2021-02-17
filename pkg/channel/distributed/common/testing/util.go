@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
+	kafkaconstants "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 	"knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
@@ -32,6 +33,27 @@ import (
 // Returns A ConfigMap Containing The Desired Sarama Config YAML
 func GetTestSaramaConfigMap(saramaConfig string, configuration string) *corev1.ConfigMap {
 	return GetTestSaramaConfigMapNamespaced(constants.SettingsConfigMapName, system.Namespace(), saramaConfig, configuration)
+}
+
+// Returns A Secret Containing The Desired Fields
+func GetTestSaramaSecret(name string, username string, password string, namespace string, saslType string) *corev1.Secret {
+	return &corev1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: corev1.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: system.Namespace(),
+			Labels:    map[string]string{kafkaconstants.KafkaSecretLabel: "true"},
+		},
+		Data: map[string][]byte{
+			kafkaconstants.KafkaSecretKeyUsername:  []byte(username),
+			kafkaconstants.KafkaSecretKeyPassword:  []byte(password),
+			kafkaconstants.KafkaSecretKeyNamespace: []byte(namespace),
+			kafkaconstants.KafkaSecretKeySaslType:  []byte(saslType),
+		},
+	}
 }
 
 // Returns A ConfigMap Containing The Desired Sarama Config YAML, Name And Namespace

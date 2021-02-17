@@ -59,7 +59,6 @@ readonly CONFIG_TRACING_CONFIG="test/config/config-tracing.yaml"
 # Strimzi Kafka Cluster Brokers URL (base64 encoded value for k8s secret)
 readonly STRIMZI_KAFKA_NAMESPACE="kafka" # Installation Namespace
 readonly STRIMZI_KAFKA_CLUSTER_BROKERS="my-cluster-kafka-bootstrap.kafka.svc:9092"
-readonly STRIMZI_KAFKA_CLUSTER_BROKERS_ENCODED="bXktY2x1c3Rlci1rYWZrYS1ib290c3RyYXAua2Fma2Euc3ZjOjkwOTI=" # Simple base64 encoding of STRIMZI_KAFKA_CLUSTER_BROKERS
 
 # Eventing Kafka main config path from HEAD.
 readonly KAFKA_CRD_CONFIG_TEMPLATE_DIR="./config/channel"
@@ -303,8 +302,8 @@ function install_distributed_channel_crds() {
   cp "${DISTRIBUTED_TEMPLATE_DIR}/"*yaml "${KAFKA_CRD_CONFIG_DIR}"
   sed -i "s/namespace: knative-eventing/namespace: ${SYSTEM_NAMESPACE}/g" "${KAFKA_CRD_CONFIG_DIR}/"*yaml
 
-  # Update The Kafka Secret With Strimzi Kafka Cluster Brokers (No Authentication)
-  sed -i "s/brokers: \"\"/brokers: ${STRIMZI_KAFKA_CLUSTER_BROKERS_ENCODED}/" "${KAFKA_CRD_CONFIG_DIR}/${EVENTING_KAFKA_SECRET_TEMPLATE}"
+  # Update The ConfigMap With Strimzi Kafka Cluster Brokers (No Authentication)
+  sed -i "s/REPLACE_WITH_CLUSTER_URL/${KAFKA_CLUSTER_URL}/" ${KAFKA_CRD_CONFIG_DIR}/${EVENTING_KAFKA_CONFIG_TEMPLATE}
 
   # Update the config-kafka configmap to disable SASL/TLS for the tests
   sed -i '/^ *TLS:/{n;s/true/false/};/^ *SASL:/{n;s/true/false/}' "${KAFKA_CRD_CONFIG_DIR}/${EVENTING_KAFKA_CONFIG_TEMPLATE}"

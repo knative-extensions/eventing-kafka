@@ -287,10 +287,9 @@ func NewKafkaSecret(options ...KafkaSecretOption) *corev1.Secret {
 			Labels:    map[string]string{kafkaconstants.KafkaSecretLabel: "true"},
 		},
 		Data: map[string][]byte{
-			constants.KafkaSecretDataKeyBrokers:  []byte(KafkaSecretDataValueBrokers),
-			constants.KafkaSecretDataKeyUsername: []byte(KafkaSecretDataValueUsername),
-			constants.KafkaSecretDataKeyPassword: []byte(KafkaSecretDataValuePassword),
-			constants.KafkaSecretDataKeySaslType: []byte(KafkaSecretDataValueSaslType),
+			kafkaconstants.KafkaSecretKeyUsername: []byte(KafkaSecretDataValueUsername),
+			kafkaconstants.KafkaSecretKeyPassword: []byte(KafkaSecretDataValuePassword),
+			kafkaconstants.KafkaSecretKeySaslType: []byte(KafkaSecretDataValueSaslType),
 		},
 		Type: "opaque",
 	}
@@ -471,7 +470,7 @@ func WithReceiverDeploymentFinalized(kafkachannel *kafkav1beta1.KafkaChannel) {
 }
 
 // Set The KafkaChannel's Dispatcher Deployment As READY
-func WithDispatcherDeploymentReady(kafkachannel *kafkav1beta1.KafkaChannel) {
+func WithDispatcherDeploymentReady(_ *kafkav1beta1.KafkaChannel) {
 	// TODO - This is unnecessary since the testing framework doesn't return any Status Conditions from the K8S commands (Create, Get)
 	//        which means the propagate function doesn't do anything.  This is a testing gap with the framework and propagateDispatcherStatus()
 	// kafkachannel.Status.PropagateDispatcherStatus()
@@ -579,9 +578,6 @@ func NewKafkaChannelReceiverDeployment(options ...DeploymentOption) *appsv1.Depl
 	// Replicas Int Reference
 	replicas := int32(ReceiverReplicas)
 
-	// Optional EnvVar
-	optional := true
-
 	// Create The Receiver Deployment
 	deployment := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
@@ -686,41 +682,12 @@ func NewKafkaChannelReceiverDeployment(options ...DeploymentOption) *appsv1.Depl
 									Value: strconv.Itoa(int(ResyncPeriod / time.Minute)),
 								},
 								{
-									Name: commonenv.KafkaBrokerEnvVarKey,
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{Name: KafkaSecretName},
-											Key:                  constants.KafkaSecretDataKeyBrokers,
-										},
-									},
+									Name:  commonenv.KafkaSecretNameEnvVarKey,
+									Value: KafkaSecretName,
 								},
 								{
-									Name: commonenv.KafkaUsernameEnvVarKey,
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{Name: KafkaSecretName},
-											Key:                  constants.KafkaSecretDataKeyUsername,
-										},
-									},
-								},
-								{
-									Name: commonenv.KafkaPasswordEnvVarKey,
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{Name: KafkaSecretName},
-											Key:                  constants.KafkaSecretDataKeyPassword,
-										},
-									},
-								},
-								{
-									Name: commonenv.KafkaSaslTypeEnvVarKey,
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{Name: KafkaSecretName},
-											Key:                  constants.KafkaSecretDataKeySaslType,
-											Optional:             &optional,
-										},
-									},
+									Name:  commonenv.KafkaSecretNamespaceEnvVarKey,
+									Value: KafkaSecretNamespace,
 								},
 							},
 							ImagePullPolicy: corev1.PullIfNotPresent,
@@ -806,7 +773,6 @@ func NewKafkaChannelDispatcherDeployment(options ...DeploymentOption) *appsv1.De
 	dispatcherName := util.DispatcherDnsSafeName(sparseKafkaChannel)
 	topicName := util.TopicName(sparseKafkaChannel)
 	systemNamespace := system.Namespace()
-	optional := true
 
 	// Replicas Int Reference
 	replicas := int32(DispatcherReplicas)
@@ -916,41 +882,12 @@ func NewKafkaChannelDispatcherDeployment(options ...DeploymentOption) *appsv1.De
 									Value: strconv.Itoa(int(ResyncPeriod / time.Minute)),
 								},
 								{
-									Name: commonenv.KafkaBrokerEnvVarKey,
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{Name: KafkaSecretName},
-											Key:                  constants.KafkaSecretDataKeyBrokers,
-										},
-									},
+									Name:  commonenv.KafkaSecretNameEnvVarKey,
+									Value: KafkaSecretName,
 								},
 								{
-									Name: commonenv.KafkaUsernameEnvVarKey,
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{Name: KafkaSecretName},
-											Key:                  constants.KafkaSecretDataKeyUsername,
-										},
-									},
-								},
-								{
-									Name: commonenv.KafkaPasswordEnvVarKey,
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{Name: KafkaSecretName},
-											Key:                  constants.KafkaSecretDataKeyPassword,
-										},
-									},
-								},
-								{
-									Name: commonenv.KafkaSaslTypeEnvVarKey,
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{Name: KafkaSecretName},
-											Key:                  constants.KafkaSecretDataKeySaslType,
-											Optional:             &optional,
-										},
-									},
+									Name:  commonenv.KafkaSecretNamespaceEnvVarKey,
+									Value: KafkaSecretNamespace,
 								},
 							},
 							ImagePullPolicy: corev1.PullIfNotPresent,

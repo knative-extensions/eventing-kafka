@@ -32,8 +32,6 @@ import (
 	consumerwrapper "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer/wrapper"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/metrics"
 	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
-	dispatchertesting "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/testing"
-	receivertesting "knative.dev/eventing-kafka/pkg/channel/distributed/receiver/testing"
 	commonclient "knative.dev/eventing-kafka/pkg/common/client"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/pkg/logging"
@@ -124,7 +122,7 @@ func TestUpdateSubscriptions(t *testing.T) {
 	defer consumertesting.RestoreNewConsumerGroupFn()
 
 	// Test Data
-	brokers := []string{dispatchertesting.KafkaBroker}
+	brokers := []string{commonconfigtesting.DefaultKafkaBroker}
 	config, err := commonclient.NewConfigBuilder().WithDefaults().FromYaml(commonconfigtesting.DefaultSaramaConfigYaml).Build(ctx)
 	assert.Nil(t, err)
 
@@ -292,7 +290,7 @@ func TestConfigChanged(t *testing.T) {
 	commontesting.SetTestEnvironment(t)
 
 	// Test Data
-	brokers := []string{receivertesting.KafkaBroker}
+	brokers := []string{commonconfigtesting.DefaultKafkaBroker}
 	baseSaramaConfig, err := commonclient.NewConfigBuilder().
 		WithDefaults().
 		FromYaml(commonconfigtesting.DefaultSaramaConfigYaml).
@@ -374,6 +372,113 @@ func TestConfigChanged(t *testing.T) {
 
 			// Perform The Test
 			newDispatcher := dispatcher.ConfigChanged(ctx, testCase.newConfigMap)
+
+			// Verify Expected State (Not Much To Verify Due To Interface)
+			assert.Equal(t, testCase.expectNewDispatcher, newDispatcher != nil)
+		})
+	}
+}
+
+// Test The Dispatcher's SecretChanged Functionality
+func TestSecretChanged(t *testing.T) {
+
+	logger := logtesting.TestLogger(t)
+	ctx := logging.WithLogger(context.TODO(), logger)
+
+	// Setup Test Environment Namespaces
+	commontesting.SetTestEnvironment(t)
+
+	// Test Data
+	brokers := []string{commonconfigtesting.DefaultKafkaBroker}
+	auth := &commonclient.KafkaAuthConfig{
+		SASL: &commonclient.KafkaSaslConfig{
+			User:     commonconfigtesting.DefaultSecretUsername,
+			Password: commonconfigtesting.DefaultSecretPassword,
+			SaslType: commonconfigtesting.DefaultSecretSaslType,
+		},
+	}
+	baseSaramaConfig, err := commonclient.NewConfigBuilder().
+		WithDefaults().
+		FromYaml(commonconfigtesting.DefaultSaramaConfigYaml).
+		WithVersion(&sarama.V2_0_0_0).
+		WithAuth(auth).
+		Build(ctx)
+	assert.Nil(t, err)
+
+	// Define The TestCase Struct
+	type TestCase struct {
+		only                bool
+		name                string
+		newSecret           *corev1.Secret
+		expectNewDispatcher bool
+	}
+
+	// Create The TestCases
+	testCases := []TestCase{
+		{
+			name:                "No Changes (Same Dispatcher)",
+			newSecret:           configtesting.NewKafkaSecret(),
+			expectNewDispatcher: false,
+		},
+		{
+			name:                "Password Change (New Dispatcher)",
+			newSecret:           configtesting.NewKafkaSecret(configtesting.WithModifiedPassword),
+			expectNewDispatcher: true,
+		},
+		{
+			name:                "Username Change (New Dispatcher)",
+			newSecret:           configtesting.NewKafkaSecret(configtesting.WithModifiedUsername),
+			expectNewDispatcher: true,
+		},
+		{
+			name:                "Empty Username Change (New Dispatcher)",
+			newSecret:           configtesting.NewKafkaSecret(configtesting.WithEmptyUsername),
+			expectNewDispatcher: true,
+		},
+		{
+			name:                "SaslType Change (New Dispatcher)",
+			newSecret:           configtesting.NewKafkaSecret(configtesting.WithModifiedSaslType),
+			expectNewDispatcher: true,
+		},
+		{
+			name:                "Namespace Change (Same Dispatcher)",
+			newSecret:           configtesting.NewKafkaSecret(configtesting.WithModifiedNamespace),
+			expectNewDispatcher: false,
+		},
+		{
+			name:                "No Auth Config In Secret (Same Dispatcher)",
+			newSecret:           configtesting.NewKafkaSecret(configtesting.WithMissingConfig),
+			expectNewDispatcher: false,
+		},
+	}
+
+	// Filter To Those With "only" Flag (If Any Specified)
+	filteredTestCases := make([]TestCase, 0)
+	for _, testCase := range testCases {
+		if testCase.only {
+			filteredTestCases = append(filteredTestCases, testCase)
+		}
+	}
+	if len(filteredTestCases) == 0 {
+		filteredTestCases = testCases
+	}
+
+	// Make Sure To Restore The NewConsumerGroup Wrapper After The Test
+	defer consumertesting.RestoreNewConsumerGroupFn()
+
+	// Run The Filtered TestCases
+	for _, testCase := range filteredTestCases {
+		t.Run(testCase.name, func(t *testing.T) {
+
+			// Mock The SyncProducer & Stub The NewConsumerGroupWrapper()
+			mockConsumerGroup := consumertesting.NewMockConsumerGroup()
+			consumertesting.StubNewConsumerGroupFn(consumertesting.NonValidatingNewConsumerGroupFn(mockConsumerGroup))
+
+			// Create A Test Dispatcher To Perform Tests Against
+			dispatcher := createTestDispatcher(t, brokers, baseSaramaConfig)
+
+			// Perform The Test
+			newDispatcher := dispatcher.SecretChanged(ctx, testCase.newSecret)
 
 			// Verify Expected State (Not Much To Verify Due To Interface)
 			assert.Equal(t, testCase.expectNewDispatcher, newDispatcher != nil)

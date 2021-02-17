@@ -29,10 +29,8 @@ const (
 	ResyncPeriodMinutesEnvVarKey = "RESYNC_PERIOD_MINUTES"
 
 	// Kafka Authorization
-	KafkaBrokerEnvVarKey   = "KAFKA_BROKERS"
-	KafkaUsernameEnvVarKey = "KAFKA_USERNAME"
-	KafkaPasswordEnvVarKey = "KAFKA_PASSWORD"
-	KafkaSaslTypeEnvVarKey = "KAKFA_SASL_TYPE"
+	KafkaSecretNamespaceEnvVarKey = "KAFKA_SECRET_NAMESPACE"
+	KafkaSecretNameEnvVarKey      = "KAFKA_SECRET_NAME"
 
 	// Kafka Configuration
 	KafkaTopicEnvVarKey = "KAFKA_TOPIC"

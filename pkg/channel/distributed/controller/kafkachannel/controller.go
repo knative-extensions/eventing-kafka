@@ -72,15 +72,12 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 		logger.Fatal("Failed To Load Kafka Auth Secret", zap.Error(err))
 	} else if kafkaSecret == nil {
 		logger.Fatal("No Kafka Auth Secret Found")
-	} else if !util.ValidateKafkaSecret(logger, kafkaSecret) {
-		logger.Fatal("Found Invalid Kafka Auth Secret")
 	} else {
 		logger.Info("Found Valid Kafka Auth Secret")
 	}
 
 	// Extract The Relevant Data From The Kafka Secret
 	kafkaSecretName := kafkaSecret.Name
-	kafkaBrokers := string(kafkaSecret.Data[clientconstants.KafkaSecretKeyBrokers])
 	kafkaUsername := string(kafkaSecret.Data[clientconstants.KafkaSecretKeyUsername])
 	kafkaPassword := string(kafkaSecret.Data[clientconstants.KafkaSecretKeyPassword])
 	kafkaSaslType := string(kafkaSecret.Data[clientconstants.KafkaSecretKeySaslType])
@@ -136,7 +133,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 		adminMutex:           &sync.Mutex{},
 		configObserver:       rec.configMapObserver, // Maintains a reference so that the ConfigWatcher can call it
 		kafkaSecret:          kafkaSecretName,
-		kafkaBrokers:         kafkaBrokers,
+		kafkaBrokers:         configuration.Kafka.Brokers,
 		kafkaUsername:        kafkaUsername,
 		kafkaPassword:        kafkaPassword,
 		kafkaSaslType:        kafkaSaslType,

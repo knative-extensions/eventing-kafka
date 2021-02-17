@@ -45,16 +45,14 @@ type Environment struct {
 	HealthPort int // Required
 
 	// Kafka Configuration
-	KafkaBrokers string        // Required
 	KafkaTopic   string        // Required
 	ChannelKey   string        // Required
 	ServiceName  string        // Required
 	ResyncPeriod time.Duration // Optional
 
 	// Kafka Authorization
-	KafkaUsername string // Optional
-	KafkaPassword string // Optional
-	KafkaSaslType string // Optional
+	KafkaSecretName      string // Required
+	KafkaSecretNamespace string // Required
 }
 
 // Get The Environment
@@ -102,8 +100,14 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 		return nil, err
 	}
 
-	// Get The Required K8S KafkaBrokers Config Value
-	environment.KafkaBrokers, err = env.GetRequiredConfigValue(logger, env.KafkaBrokerEnvVarKey)
+	// Get The Required K8S KafkaSecretName Config Value
+	environment.KafkaSecretName, err = env.GetRequiredConfigValue(logger, env.KafkaSecretNameEnvVarKey)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get The Required K8S KafkaSecretNamespace Config Value
+	environment.KafkaSecretNamespace, err = env.GetRequiredConfigValue(logger, env.KafkaSecretNamespaceEnvVarKey)
 	if err != nil {
 		return nil, err
 	}
@@ -137,23 +141,8 @@ func GetEnvironment(logger *zap.Logger) (*Environment, error) {
 	}
 	environment.ResyncPeriod = time.Duration(resyncMinutes) * time.Minute
 
-	// Get The Optional KafkaUsername Config Value
-	environment.KafkaUsername = env.GetOptionalConfigValue(logger, env.KafkaUsernameEnvVarKey, "")
-
-	// Get The Optional KafkaPassword Config Value
-	environment.KafkaPassword = env.GetOptionalConfigValue(logger, env.KafkaPasswordEnvVarKey, "")
-
-	// Get The Optional KafkaSaslType Config Value
-	environment.KafkaSaslType = env.GetOptionalConfigValue(logger, env.KafkaSaslTypeEnvVarKey, "")
-
-	// Clone The Environment & Mask The Password For Safe Logging
-	safeEnvironment := *environment
-	if len(safeEnvironment.KafkaPassword) > 0 {
-		safeEnvironment.KafkaPassword = "*************"
-	}
-
 	// Log The Dispatcher Configuration Loaded From Environment Variables
-	logger.Info("Environment Variables", zap.Any("Environment", safeEnvironment))
+	logger.Info("Environment Variables", zap.Any("Environment", environment))
 
 	// Return The Populated Dispatcher Configuration Environment Structure
 	return environment, nil

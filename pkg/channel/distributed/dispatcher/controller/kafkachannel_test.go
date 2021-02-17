@@ -187,7 +187,8 @@ func populateEnvironmentVariables(t *testing.T) {
 	assert.Nil(t, os.Setenv(commonenv.PodNameEnvVarKey, "testPodName"))
 	assert.Nil(t, os.Setenv(commonenv.ContainerNameEnvVarKey, "testContainerName"))
 	assert.Nil(t, os.Setenv(commonenv.HealthPortEnvVarKey, "5678"))
-	assert.Nil(t, os.Setenv(commonenv.KafkaBrokerEnvVarKey, "testKafkaBroker"))
+	assert.Nil(t, os.Setenv(commonenv.KafkaSecretNameEnvVarKey, "testKafkaSecretName"))
+	assert.Nil(t, os.Setenv(commonenv.KafkaSecretNamespaceEnvVarKey, "testKafkaSecretNamespace"))
 	assert.Nil(t, os.Setenv(commonenv.KafkaTopicEnvVarKey, "testKafkaTopic"))
 	assert.Nil(t, os.Setenv(commonenv.ChannelKeyEnvVarKey, "testChannelKey"))
 	assert.Nil(t, os.Setenv(commonenv.ServiceNameEnvVarKey, "testServiceName"))
@@ -217,6 +218,10 @@ func (m MockDispatcher) UpdateSubscriptions(_ []eventingduck.SubscriberSpec) map
 	return nil
 }
 
-func (m MockDispatcher) ConfigChanged(context.Context, *corev1.ConfigMap) dispatcher.Dispatcher {
+func (m MockDispatcher) ConfigChanged(_ context.Context, _ *corev1.ConfigMap) dispatcher.Dispatcher {
+	return nil
+}
+
+func (m MockDispatcher) SecretChanged(_ context.Context, _ *corev1.Secret) dispatcher.Dispatcher {
 	return nil
 }

@@ -68,6 +68,12 @@ func LoadSettings(ctx context.Context, clientId string, kafkaAuthConfig *client.
 	// Merge The ConfigMap Settings Into The Provided Config
 	saramaSettingsYamlString := configMap.Data[constants.SaramaSettingsConfigKey]
 
+	if kafkaAuthConfig != nil && kafkaAuthConfig.SASL.User == "" {
+		// The config builder expects the entire config object to be nil if not using auth
+		// (Otherwise it will end up with "PLAIN" SASL by default and fail due to having no user/password)
+		kafkaAuthConfig = nil
+	}
+
 	// Merge The Sarama Settings In The ConfigMap Into A New Base Sarama Config
 	saramaConfig, err := client.NewConfigBuilder().
 		WithDefaults().
@@ -93,4 +99,22 @@ func LoadEventingKafkaSettings(configMap *corev1.ConfigMap) (*commonconfig.Event
 	}
 
 	return eventingKafkaConfig, nil
+}
+
+// AuthFromSarama creates a KafkaAuthConfig using the SASL settings from
+// a given Sarama config, or nil if there is no SASL user in that config
+func AuthFromSarama(config *sarama.Config) *client.KafkaAuthConfig {
+	// Use the SASL settings from the provided Sarama config only if the user is non-empty
+	if config.Net.SASL.User != "" {
+		return &client.KafkaAuthConfig{
+			SASL: &client.KafkaSaslConfig{
+				User:     config.Net.SASL.User,
+				Password: config.Net.SASL.Password,
+				SaslType: string(config.Net.SASL.Mechanism),
+			},
+		}
+	} else {
+		// If the user is empty, return explicitly nil authentication
+		return nil
+	}
 }

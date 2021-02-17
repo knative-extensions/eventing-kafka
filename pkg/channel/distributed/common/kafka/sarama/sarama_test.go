@@ -199,6 +199,59 @@ func TestLoadSettings(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
+func TestAuthFromSarama(t *testing.T) {
+
+	// Define The TestCase Struct
+	type TestCase struct {
+		name             string
+		existingUser     string
+		existingPassword string
+		existingSaslType sarama.SASLMechanism
+		expectNil        bool
+		expectedUser     string
+		expectedPassword string
+		expectedSaslType string
+	}
+
+	// Create The TestCases
+	testCases := []TestCase{
+		{
+			name:             "Empty User",
+			existingUser:     "",
+			existingPassword: "testPassword",
+			existingSaslType: sarama.SASLTypeOAuth,
+			expectNil:        true,
+		},
+		{
+			name:             "Existing User",
+			existingUser:     "testUser",
+			existingPassword: "testPassword",
+			existingSaslType: sarama.SASLTypePlaintext,
+			expectedUser:     "testUser",
+			expectedPassword: "testPassword",
+			expectedSaslType: sarama.SASLTypePlaintext,
+		},
+	}
+
+	// Run The TestCases
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			existingConfig := sarama.NewConfig()
+			existingConfig.Net.SASL.User = testCase.existingUser
+			existingConfig.Net.SASL.Password = testCase.existingPassword
+			existingConfig.Net.SASL.Mechanism = testCase.existingSaslType
+			config := AuthFromSarama(existingConfig)
+			if testCase.expectNil {
+				assert.Nil(t, config)
+			} else {
+				assert.Equal(t, testCase.expectedUser, config.SASL.User)
+				assert.Equal(t, testCase.expectedPassword, config.SASL.Password)
+				assert.Equal(t, testCase.expectedSaslType, config.SASL.SaslType)
+			}
+		})
+	}
+}
+
 func verifyTestEKConfigSettings(t *testing.T, saramaConfig *sarama.Config, eventingKafkaConfig *commonconfig.EventingKafkaConfig) {
 	// Quick checks to make sure the loaded configs aren't complete junk
 	assert.Equal(t, commontesting.OldUsername, saramaConfig.Net.SASL.User)

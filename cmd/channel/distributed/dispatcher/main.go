@@ -40,7 +40,6 @@ import (
 	dispatcherhealth "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/health"
 	"knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	"knative.dev/eventing-kafka/pkg/client/informers/externalversions"
-	"knative.dev/eventing-kafka/pkg/common/client"
 	kncontroller "knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	eventingmetrics "knative.dev/pkg/metrics"
@@ -74,16 +73,10 @@ func main() {
 		logger.Fatal("Failed To Load Environment Variables - Terminating!", zap.Error(err))
 	}
 
-	// Update The Sarama Config - Username/Password Overrides (EnvVars From Secret Take Precedence Over ConfigMap)
-	var kafkaAuthCfg *client.KafkaAuthConfig
-	if environment.KafkaUsername != "" {
-		kafkaAuthCfg = &client.KafkaAuthConfig{
-			SASL: &client.KafkaSaslConfig{
-				User:     environment.KafkaUsername,
-				Password: environment.KafkaPassword,
-				SaslType: environment.KafkaSaslType,
-			},
-		}
+	// Update The Sarama Config - Username/Password Overrides (Values From Secret Take Precedence Over ConfigMap)
+	kafkaAuthCfg, err := commonconfig.GetAuthConfigFromKubernetes(ctx, environment.KafkaSecretName, environment.KafkaSecretNamespace)
+	if err != nil {
+		logger.Fatal("Failed To Load Auth Config", zap.Error(err))
 	}
 
 	// Load The Sarama & Eventing-Kafka Configuration From The ConfigMap
@@ -126,10 +119,10 @@ func main() {
 	dispatcherConfig := dispatch.DispatcherConfig{
 		Logger:        logger,
 		ClientId:      constants.Component,
-		Brokers:       strings.Split(environment.KafkaBrokers, ","),
+		Brokers:       strings.Split(ekConfig.Kafka.Brokers, ","),
 		Topic:         environment.KafkaTopic,
-		Username:      environment.KafkaUsername,
-		Password:      environment.KafkaPassword,
+		Username:      kafkaAuthCfg.SASL.User,
+		Password:      kafkaAuthCfg.SASL.Password,
 		ChannelKey:    environment.ChannelKey,
 		StatsReporter: statsReporter,
 		SaramaConfig:  saramaConfig,
@@ -140,6 +133,12 @@ func main() {
 	err = commonconfig.InitializeConfigWatcher(ctx, logger.Sugar(), configMapObserver, environment.SystemNamespace)
 	if err != nil {
 		logger.Fatal("Failed To Initialize ConfigMap Watcher", zap.Error(err))
+	}
+
+	// Watch The Secret For Changes
+	err = commonconfig.InitializeSecretWatcher(ctx, environment.KafkaSecretNamespace, environment.KafkaSecretName, secretObserver)
+	if err != nil {
+		logger.Fatal("Failed To Start Secret Watcher", zap.Error(err))
 	}
 
 	config, err := clientcmd.BuildConfigFromFlags(*serverURL, *kubeconfig)
@@ -221,6 +220,31 @@ func configMapObserver(ctx context.Context, configMap *corev1.ConfigMap) {
 	newDispatcher := dispatcher.ConfigChanged(ctx, configMap)
 	if newDispatcher != nil {
 		// The configuration change caused a new dispatcher to be created, so switch to that one
+		logger.Info("Config Changed; Dispatcher Reconfigured")
+		dispatcher = newDispatcher
+	}
+}
+
+// secretObserver is the callback function that handles changes to our Secret
+func secretObserver(ctx context.Context, secret *corev1.Secret) {
+	logger := logging.FromContext(ctx)
+
+	if secret == nil {
+		logger.Warn("Nil Secret passed to secretObserver; ignoring")
+		return
+	}
+
+	if dispatcher == nil {
+		// This typically happens during startup
+		logger.Debug("Dispatcher is nil during call to secretObserver; ignoring changes")
+		return
+	}
+
+	// Toss the new secret to the dispatcher for inspection and action
+	newDispatcher := dispatcher.SecretChanged(ctx, secret)
+	if newDispatcher != nil {
+		// The configuration change caused a new dispatcher to be created, so switch to that one
+		logger.Info("Secret Changed; Dispatcher Reconfigured")
 		dispatcher = newDispatcher
 	}
 }

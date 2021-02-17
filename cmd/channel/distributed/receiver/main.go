@@ -37,7 +37,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/env"
 	channelhealth "knative.dev/eventing-kafka/pkg/channel/distributed/receiver/health"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/producer"
-	"knative.dev/eventing-kafka/pkg/common/client"
 	eventingchannel "knative.dev/eventing/pkg/channel"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
@@ -74,17 +73,10 @@ func main() {
 		logger.Fatal("Invalid / Missing Environment Variables - Terminating", zap.Error(err))
 	}
 
-	var kafkaAuthCfg *client.KafkaAuthConfig
-
-	if environment.KafkaUsername != "" {
-		// Update The Sarama Config - Username/Password Overrides (EnvVars From Secret Take Precedence Over ConfigMap)
-		kafkaAuthCfg = &client.KafkaAuthConfig{
-			SASL: &client.KafkaSaslConfig{
-				User:     environment.KafkaUsername,
-				Password: environment.KafkaPassword,
-				SaslType: environment.KafkaSaslType,
-			},
-		}
+	// Update The Sarama Config - Username/Password Overrides (Values From Secret Take Precedence Over ConfigMap)
+	kafkaAuthCfg, err := commonconfig.GetAuthConfigFromKubernetes(ctx, environment.KafkaSecretName, environment.KafkaSecretNamespace)
+	if err != nil {
+		logger.Fatal("Failed To Load Auth Config", zap.Error(err))
 	}
 
 	// Load The Sarama & Eventing-Kafka Configuration From The ConfigMap
@@ -130,8 +122,14 @@ func main() {
 		logger.Fatal("Failed To Initialize ConfigMap Watcher", zap.Error(err))
 	}
 
+	// Watch The Secret For Changes
+	err = commonconfig.InitializeSecretWatcher(ctx, environment.KafkaSecretNamespace, environment.KafkaSecretName, secretObserver)
+	if err != nil {
+		logger.Fatal("Failed To Start Secret Watcher", zap.Error(err))
+	}
+
 	// Initialize The Kafka Producer In Order To Start Processing Status Events
-	kafkaProducer, err = producer.NewProducer(logger, saramaConfig, strings.Split(environment.KafkaBrokers, ","), statsReporter, healthServer)
+	kafkaProducer, err = producer.NewProducer(logger, saramaConfig, strings.Split(ekConfig.Kafka.Brokers, ","), statsReporter, healthServer)
 	if err != nil {
 		logger.Fatal("Failed To Initialize Kafka Producer", zap.Error(err))
 	}
@@ -206,6 +204,7 @@ func configMapObserver(ctx context.Context, configMap *corev1.ConfigMap) {
 		logger.Warn("Nil ConfigMap passed to configMapObserver; ignoring")
 		return
 	}
+
 	if kafkaProducer == nil {
 		// This typically happens during startup
 		logger.Debug("Producer is nil during call to configMapObserver; ignoring changes")
@@ -216,7 +215,31 @@ func configMapObserver(ctx context.Context, configMap *corev1.ConfigMap) {
 	newProducer := kafkaProducer.ConfigChanged(ctx, configMap)
 	if newProducer != nil {
 		// The configuration change caused a new producer to be created, so switch to that one
-		logger.Info("Producer Reconfigured; Switching To New Producer")
+		logger.Info("Config Changed; Receiver Reconfigured")
+		kafkaProducer = newProducer
+	}
+}
+
+// secretObserver is the callback function that handles changes to our Secret
+func secretObserver(ctx context.Context, secret *corev1.Secret) {
+	logger := logging.FromContext(ctx)
+
+	if secret == nil {
+		logger.Warn("Nil Secret passed to secretObserver; ignoring")
+		return
+	}
+
+	if kafkaProducer == nil {
+		// This typically happens during startup
+		logger.Debug("Producer is nil during call to secretObserver; ignoring changes")
+		return
+	}
+
+	// Toss the new secret to the producer for inspection and action
+	newProducer := kafkaProducer.SecretChanged(ctx, secret)
+	if newProducer != nil {
+		// The configuration change caused a new producer to be created, so switch to that one
+		logger.Info("Secret Changed; Receiver Reconfigured")
 		kafkaProducer = newProducer
 	}
 }
