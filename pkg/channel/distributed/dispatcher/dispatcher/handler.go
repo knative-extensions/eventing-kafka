@@ -19,7 +19,6 @@ package dispatcher
 import (
 	"context"
 	"errors"
-	"net/http"
 	"net/url"
 
 	"github.com/Shopify/sarama"
@@ -100,7 +99,7 @@ func (h *Handler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama
 			h.Logger.Error("Failed To Parse RetryConfig From DeliverySpec - No Retries Will Occur", zap.Error(err))
 		} else {
 			h.Logger.Info("Successfully Parsed RetryConfig From DeliverySpec", zap.Int("RetryMax", retryConfig.RetryMax))
-			retryConfig.CheckRetry = h.checkRetry // Specify Custom CheckRetry Function
+			retryConfig.CheckRetry = kncloudevents.SelectiveRetry // Specify Custom CheckRetry Function
 		}
 	}
 
@@ -146,55 +145,4 @@ func (h *Handler) consumeMessage(context context.Context, consumerMessage *saram
 	// Dispatch The Message With Configured Retries & Return Any Errors
 	_, dispatchError := h.MessageDispatcher.DispatchMessageWithRetries(ctx, message, nil, destinationURL, replyURL, deadLetterURL, retryConfig)
 	return dispatchError
-}
-
-//
-// Custom Implementation Of RetryConfig.CheckRetry To Determine Whether To Retry Based On Response
-//
-// Note - Returning true indicates a retry should occur.  Returning an error will result in that
-//        error being returned instead of any errors from the Request.
-//
-func (h *Handler) checkRetry(_ context.Context, response *http.Response, err error) (bool, error) {
-
-	// Retry Any Nil HTTP Response
-	if response == nil {
-		h.Logger.Info("Unable To Check Retry State On Nil Response - Retrying")
-		return true, nil
-	}
-
-	// Retry Any Errors
-	if err != nil {
-		h.Logger.Warn("Received Response Error - Retrying", zap.Error(err))
-		return true, nil
-	}
-
-	// Extract The StatusCode From The Response & Add To Logger
-	statusCode := response.StatusCode
-	logger := h.Logger.With(zap.Int("StatusCode", statusCode))
-
-	// Note - Normally we would NOT want to retry 4xx responses, BUT there are a few
-	//        known areas of knative-eventing that return codes in this range which
-	//        require retries.  Reasons for particular codes are as follows:
-	//
-	// 404  Although we would ideally not want to retry a permanent "Not Found"
-	//      response, a 404 can be returned when a pod is in the process of becoming
-	//      ready, so a retry can be a useful thing in this situation.
-	// 409  Returned by the E2E tests, so we must retry when "Conflict" is received, or the
-	//      tests will fail (see knative.dev/eventing/test/lib/recordevents/receiver/receiver.go)
-	// 429  Since retry typically involves a delay (usually an exponential backoff),
-	//      retrying after receiving a "Too Many Requests" response is useful.
-
-	if statusCode >= 500 || statusCode == 404 || statusCode == 429 || statusCode == 409 {
-		logger.Warn("Failed To Send Message To Subscriber Service - Retrying")
-		return true, nil
-	} else if statusCode >= 300 && statusCode <= 399 {
-		logger.Warn("Failed To Send Message To Subscriber Service - Not Retrying")
-		return false, nil
-	} else if statusCode == -1 {
-		logger.Warn("No StatusCode Detected In Error - Retrying")
-		return true, nil
-	}
-
-	// Do Not Retry 1XX, 2XX, & Most 4XX StatusCode Responses
-	return false, nil
 }
