@@ -55,21 +55,26 @@ one of `kafka`, `azure`, or `custom` as follows...
 
 ### Install & Label Kafka Credentials In Knative-Eventing Namespace
 
-The Kafka brokers are specified in a configmap provided in the config
-directory, [eventing-kafka-configmap.yaml](300-eventing-kafka-configmap.yaml), under
-the kafka.brokers entry of the eventing-kafka field.  The text "REPLACE_WITH_CLUSTER_URL"
-should be replaced with a real broker string.  An example of such a string might be:
+The Kafka brokers are specified in a configmap provided in the config directory,
+[eventing-kafka-configmap.yaml](300-eventing-kafka-configmap.yaml), under the
+kafka.brokers entry of the eventing-kafka field. The text
+"REPLACE_WITH_CLUSTER_URL" should be replaced with a real broker string. An
+example of such a string might be:
+
 ```
   eventing-kafka: |
     kafka:
       brokers: SASL_SSL://my-cluster.eu-west-1.aws.confluent.cloud:9092
 ```
+
 Example value for Azure Event Hubs:
+
 ```
   eventing-kafka: |
     kafka:
       brokers: my-cluster-name-1.servicebus.windows.net:9093
 ```
+
 Example value for a multi-broker Kafka (must be base64 encoded):
 
 ```
@@ -80,7 +85,7 @@ Example value for a multi-broker Kafka (must be base64 encoded):
 
 The associated auth information is specified in a Kubernetes Secret in the
 `knative-eventing` namespace which has been labelled as
-`eventing-kafka.knative.dev/kafka-secret="true"`.  For the `kafka` and `custom`
+`eventing-kafka.knative.dev/kafka-secret="true"`. For the `kafka` and `custom`
 Admin Types (see above) there should be exactly 1 such Secret. For the `azure`
 Admin Type (see above) multiple such Secrets are possible, each representing a
 different EventHub Namespace. In that case Topics will be load balanced across
@@ -195,5 +200,5 @@ your Kafka cluster.
   - **kafka.adminType:** As described above this value must be set to one of
     `kafka`, `azure`, or `custom`. The default is `kakfa` and will be used by
     most users.
-  - **kafka.brokers:** This field must be set to your kafka brokers string (see above)
-
+  - **kafka.brokers:** This field must be set to your kafka brokers string (see
+    above)
