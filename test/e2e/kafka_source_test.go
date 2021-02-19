@@ -23,8 +23,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
+	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	. "github.com/cloudevents/sdk-go/v2/test"
@@ -62,6 +64,10 @@ type authSetup struct {
 	SASLEnabled     bool
 	TLSEnabled      bool
 }
+
+var (
+	test_mt_source = os.Getenv("TEST_MT_SOURCE")
+)
 
 func withAuthEnablementV1Beta1(auth authSetup) contribresources.KafkaSourceV1Beta1Option {
 	// We test with sasl512 and enable tls with it, so check tls first
@@ -243,6 +249,11 @@ func testKafkaSource(t *testing.T, name string, version string, messageKey strin
 	}
 
 	client.WaitForAllTestResourcesReadyOrFail(context.Background())
+
+	// See https://github.com/knative-sandbox/eventing-kafka/issues/411
+	if test_mt_source == "1" {
+		time.Sleep(20 * time.Second)
+	}
 
 	helpers.MustPublishKafkaMessage(client, kafkaBootstrapUrlPlain, kafkaTopicName, messageKey, messageHeaders, messagePayload)
 
@@ -534,6 +545,11 @@ func testKafkaSourceUpdate(t *testing.T, name string, test updateTest) {
 	))
 	client.WaitForAllTestResourcesReadyOrFail(context.Background())
 
+	// See https://github.com/knative-sandbox/eventing-kafka/issues/411
+	if test_mt_source == "1" {
+		time.Sleep(20 * time.Second)
+	}
+
 	t.Logf("Send update event to kafkatopic")
 	helpers.MustPublishKafkaMessage(client, kafkaBootstrapUrlPlain,
 		defaultKafkaSource.topicName+name,
@@ -569,6 +585,11 @@ func testKafkaSourceUpdate(t *testing.T, name string, test updateTest) {
 
 	contribtestlib.UpdateKafkaSourceV1Beta1OrFail(client, ksObj)
 	client.WaitForAllTestResourcesReadyOrFail(context.Background())
+
+	// See https://github.com/knative-sandbox/eventing-kafka/issues/411
+	if test_mt_source == "1" {
+		time.Sleep(20 * time.Second)
+	}
 
 	t.Logf("Send update event to kafkatopic")
 	helpers.MustPublishKafkaMessage(client, kafkaBootstrapUrlPlain,
