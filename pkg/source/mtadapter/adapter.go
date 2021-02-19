@@ -92,23 +92,22 @@ func (a *Adapter) Start(ctx context.Context) error {
 func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) {
 	a.sourcesMu.Lock()
 	defer a.sourcesMu.Unlock()
+	a.logger.Infow("adding source", "name", obj.Name)
 
 	key := obj.Namespace + "/" + obj.Name
 
-	_, ok := a.sources[key]
+	cancel, ok := a.sources[key]
 
 	if ok {
-		// TODO: see https://github.com/knative-sandbox/eventing-kafka/issues/382
-		return
 		// TODO: do not stop if the only thing that changes is the number of vreplicas
-		//a.logger.Info("stopping adapter", zap.String("key", key))
-		//cancel()
+		a.logger.Info("stopping adapter", zap.String("key", key))
+		cancel()
 	}
 
 	placement := scheduler.GetPlacementForPod(obj.GetPlacements(), a.config.PodName)
 	if placement == nil || placement.VReplicas == 0 {
 		// this pod does not handle this source. Skipping
-		a.logger.Infow("no replicas assigned to this pod. skipping", zap.String("key", key))
+		a.logger.Infow("no replicas assigned to this source. skipping", zap.String("key", key))
 		return
 	}
 
@@ -166,27 +165,30 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) {
 		if err != nil {
 			a.logger.Errorw("adapter failed to start", zap.Error(err))
 		}
-
 	}(ctx)
 
 	a.sources[key] = cancelFn
+	a.logger.Infow("source added", "name", obj.Name)
 }
 
 func (a *Adapter) Remove(ctx context.Context, obj *v1beta1.KafkaSource) {
 	a.sourcesMu.Lock()
 	defer a.sourcesMu.Unlock()
+	a.logger.Infow("removing source", "name", obj.Name)
 
 	key := obj.Namespace + "/" + obj.Name
 
 	cancel, ok := a.sources[key]
 
 	if !ok {
+		a.logger.Infow("source not found", "name", obj.Name)
 		return
 	}
 
 	cancel()
 
 	delete(a.sources, key)
+	a.logger.Infow("source removed", "name", obj.Name, "count", len(a.sources))
 }
 
 // ResolveSecret resolves the secret reference

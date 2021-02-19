@@ -18,6 +18,7 @@ package mtadapter
 
 import (
 	"context"
+	"strings"
 
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -41,7 +42,7 @@ type MTAdapter interface {
 // NewController initializes the controller and
 // registers event handlers to enqueue events.
 func NewController(ctx context.Context, adapter adapter.Adapter) *controller.Impl {
-	mtadapter, ok := adapter.(MTAdapter)
+	mtadapter, ok := adapter.(*Adapter)
 	if !ok {
 		logging.FromContext(ctx).Fatal("Multi-tenant adapters must implement the MTAdapter interface")
 	}
@@ -50,9 +51,11 @@ func NewController(ctx context.Context, adapter adapter.Adapter) *controller.Imp
 		mtadapter: mtadapter,
 	}
 
+	podName := mtadapter.config.PodName
 	impl := kafkasourcereconciler.NewImpl(ctx, r, func(impl *controller.Impl) controller.Options {
 		return controller.Options{
 			SkipStatusUpdates: true,
+			FinalizerName:     "kafkasources.sources.knative.dev." + podName[strings.LastIndex(podName, "-")+1:],
 		}
 	})
 

@@ -75,12 +75,14 @@ func (s *StatefulSetScheduler) autoscale(ctx context.Context) {
 				// Desired ratio is 0.5 (TODO: configurable)
 				new := int32(math.Ceil(float64(s.usedCapacity(snapshot)+s.pendingVReplicas()) / (float64(s.capacity) * 0.5)))
 
-				// Make sure not to scale down past the last pod with placed vpods
-				if new < snapshot.lastOrdinal+1 {
-					new = snapshot.lastOrdinal + 1
-				}
+				//// Make sure not to scale down past the last pod with placed vpods
+				//if new < snapshot.lastOrdinal+1 {
+				//	new = snapshot.lastOrdinal + 1
+				//}
+				// Disable scaling down until we have a better story with finalizers
+				// See https://github.com/knative-sandbox/eventing-kafka/issues/412
 
-				if new != scale.Spec.Replicas {
+				if new > scale.Spec.Replicas {
 					scale.Spec.Replicas = new
 					s.logger.Infow("updating adapter replicas", zap.Int32("replicas", scale.Spec.Replicas))
 

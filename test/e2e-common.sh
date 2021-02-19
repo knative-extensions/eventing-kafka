@@ -455,7 +455,20 @@ function test_mt_source() {
   echo "Testing the multi-tenant source"
   install_mt_source || return 1
 
+  export TEST_MT_SOURCE
   go_test_e2e -tags=source,mtsource -timeout=20m -test.parallel=${TEST_PARALLEL} ./test/e2e/...  || fail_test
+
+  # wait for all KafkaSources to be deleted
+  local iterations=0
+  local progress="Waiting for KafkaSources to be deleted..."
+  while [[ "$(kubectl get kafkasources --all-namespaces)" != "" && $iterations -lt 60 ]]
+  do
+    echo -ne "${progress}\r"
+    progress="${progress}."
+    iterations=$((iterations + 1))
+    kubectl get kafkasources --all-namespaces -oyaml
+    sleep 3
+  done
 
   uninstall_mt_source || return 1
 }
