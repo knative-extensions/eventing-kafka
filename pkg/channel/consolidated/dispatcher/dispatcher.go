@@ -268,6 +268,9 @@ func (c consumerMessageHandler) Handle(ctx context.Context, consumerMessage *sar
 	ctx, span := tracing.StartTraceFromMessage(c.logger, ctx, message, consumerMessage.Topic)
 	defer span.End()
 
+	// change the retry to be a bit more selective
+	c.sub.RetryConfig.CheckRetry = kncloudevents.SelectiveRetry
+
 	_, err := c.dispatcher.DispatchMessageWithRetries(
 		ctx,
 		message,
