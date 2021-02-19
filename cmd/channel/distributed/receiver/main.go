@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"net/http"
 	"strconv"
 	"strings"
@@ -27,6 +26,7 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes"
 	commonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	commonk8s "knative.dev/eventing-kafka/pkg/channel/distributed/common/k8s"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
@@ -37,28 +37,41 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/env"
 	channelhealth "knative.dev/eventing-kafka/pkg/channel/distributed/receiver/health"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/producer"
+	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	eventingchannel "knative.dev/eventing/pkg/channel"
+	injectionclient "knative.dev/pkg/client/injection/kube/client"
+	"knative.dev/pkg/injection"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	eventingmetrics "knative.dev/pkg/metrics"
+	"knative.dev/pkg/signals"
 )
 
 // Variables
 var (
 	logger        *zap.Logger
-	serverURL     = flag.String("server", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
-	kubeconfig    = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	kafkaProducer *producer.Producer
 )
 
 // The Main Function (Go Command)
 func main() {
 
-	// Parse The Flags For Local Development Usage
-	flag.Parse()
+	ctx := signals.NewContext()
+
+	// Create The K8S Configuration (In-Cluster By Default / Cmd Line Flags For Out-Of-Cluster Usage)
+	k8sConfig := injection.ParseAndGetRESTConfigOrDie()
+
+	// Put The Kubernetes Config Into The Context Where The Injection Framework Expects It
+	ctx = injection.WithConfig(ctx, k8sConfig)
+
+	// Create A New Kubernetes Client From The K8S Configuration
+	k8sClient := kubernetes.NewForConfigOrDie(k8sConfig)
+
+	// Put The Kubernetes Client Into The Context Where The Injection Framework Expects It
+	ctx = context.WithValue(ctx, injectionclient.Key{}, k8sClient)
 
 	// Initialize A Knative Injection Lite Context (K8S Client & Logger)
-	ctx := commonk8s.LoggingContext(context.Background(), constants.Component, *serverURL, *kubeconfig)
+	ctx = commonk8s.LoggingContext(ctx, constants.Component, k8sClient)
 
 	// Get The Logger From The Context & Defer Flushing Any Buffered Log Entries On Exit
 	logger = logging.FromContext(ctx).Desugar()
@@ -106,8 +119,12 @@ func main() {
 	if err != nil {
 		logger.Fatal("Failed To Initialize Health Server - Terminating", zap.Error(err))
 	}
+
+	// Create A New Kafka Client From The K8S Config
+	kafkaClient := kafkaclientset.NewForConfigOrDie(k8sConfig)
+
 	// Initialize The KafkaChannel Lister Used To Validate Events
-	err = channel.InitializeKafkaChannelLister(ctx, *serverURL, *kubeconfig, healthServer, environment.ResyncPeriod)
+	err = channel.InitializeKafkaChannelLister(ctx, kafkaClient, healthServer, environment.ResyncPeriod)
 	if err != nil {
 		logger.Fatal("Failed To Initialize KafkaChannel Lister", zap.Error(err))
 	}

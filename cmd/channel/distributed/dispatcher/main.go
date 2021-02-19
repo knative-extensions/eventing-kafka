@@ -18,11 +18,11 @@ package main
 
 import (
 	"context"
-	"flag"
 	"strconv"
 	"strings"
 
 	"knative.dev/eventing/pkg/kncloudevents"
+	"knative.dev/pkg/injection"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -40,6 +40,7 @@ import (
 	dispatcherhealth "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/health"
 	"knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	"knative.dev/eventing-kafka/pkg/client/informers/externalversions"
+	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	kncontroller "knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	eventingmetrics "knative.dev/pkg/metrics"
@@ -50,18 +51,27 @@ import (
 var (
 	logger     *zap.Logger
 	dispatcher dispatch.Dispatcher
-	serverURL  = flag.String("server", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
-	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 )
 
 // The Main Function (Go Command)
 func main() {
 
-	// Parse The Flags For Local Development Usage
-	flag.Parse()
+	ctx := signals.NewContext()
+
+	// Create The K8S Configuration (In-Cluster By Default / Cmd Line Flags For Out-Of-Cluster Usage)
+	k8sConfig := injection.ParseAndGetRESTConfigOrDie()
+
+	// Put The Kubernetes Config Into The Context Where The Injection Framework Expects It
+	ctx = injection.WithConfig(ctx, k8sConfig)
+
+	// Create A New Kubernetes Client From The K8S Configuration
+	k8sClient := kubernetes.NewForConfigOrDie(k8sConfig)
+
+	// Put The Kubernetes Client Into The Context Where The Injection Framework Expects It
+	ctx = context.WithValue(ctx, injectionclient.Key{}, k8sClient)
 
 	// Initialize A Knative Injection Lite Context (K8S Client & Logger)
-	ctx := commonk8s.LoggingContext(signals.NewContext(), constants.Component, *serverURL, *kubeconfig)
+	ctx = commonk8s.LoggingContext(ctx, constants.Component, k8sClient)
 
 	// Get The Logger From The Context & Defer Flushing Any Buffered Log Entries On Exit
 	logger = logging.FromContext(ctx).Desugar()
