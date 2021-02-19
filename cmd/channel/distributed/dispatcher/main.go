@@ -40,6 +40,7 @@ import (
 	dispatcherhealth "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/health"
 	"knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	"knative.dev/eventing-kafka/pkg/client/informers/externalversions"
+	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	kncontroller "knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	eventingmetrics "knative.dev/pkg/metrics"
@@ -60,8 +61,16 @@ func main() {
 	// Parse The Flags For Local Development Usage
 	flag.Parse()
 
+	ctx := signals.NewContext()
+
+	// Get The K8S Client
+	k8sClient := commonk8s.K8sClientWrapper(*serverURL, *kubeconfig)
+
+	// Put The Kubernetes Client Into The Context Where The Injection Framework Expects It
+	ctx = context.WithValue(ctx, injectionclient.Key{}, k8sClient)
+
 	// Initialize A Knative Injection Lite Context (K8S Client & Logger)
-	ctx := commonk8s.LoggingContext(signals.NewContext(), constants.Component, *serverURL, *kubeconfig)
+	ctx = commonk8s.LoggingContext(ctx, constants.Component, k8sClient)
 
 	// Get The Logger From The Context & Defer Flushing Any Buffered Log Entries On Exit
 	logger = logging.FromContext(ctx).Desugar()
