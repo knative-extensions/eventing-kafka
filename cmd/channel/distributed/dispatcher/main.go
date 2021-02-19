@@ -28,7 +28,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	commonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	commonk8s "knative.dev/eventing-kafka/pkg/channel/distributed/common/k8s"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
@@ -38,7 +37,7 @@ import (
 	dispatch "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/dispatcher"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/env"
 	dispatcherhealth "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/health"
-	"knative.dev/eventing-kafka/pkg/client/clientset/versioned"
+	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	"knative.dev/eventing-kafka/pkg/client/informers/externalversions"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	kncontroller "knative.dev/pkg/controller"
@@ -60,6 +59,11 @@ func main() {
 
 	// Create The K8S Configuration (In-Cluster By Default / Cmd Line Flags For Out-Of-Cluster Usage)
 	k8sConfig := injection.ParseAndGetRESTConfigOrDie()
+
+	// TODO: do we really need these? I moved them up
+	const numControllers = 1
+	k8sConfig.QPS = numControllers * rest.DefaultQPS
+	k8sConfig.Burst = numControllers * rest.DefaultBurst
 
 	// Put The Kubernetes Config Into The Context Where The Injection Framework Expects It
 	ctx = injection.WithConfig(ctx, k8sConfig)
@@ -151,18 +155,9 @@ func main() {
 		logger.Fatal("Failed To Start Secret Watcher", zap.Error(err))
 	}
 
-	config, err := clientcmd.BuildConfigFromFlags(*serverURL, *kubeconfig)
-	if err != nil {
-		logger.Fatal("Error building kubeconfig", zap.Error(err))
-	}
+	kafkaClient := kafkaclientset.NewForConfigOrDie(k8sConfig)
 
-	const numControllers = 1
-	config.QPS = numControllers * rest.DefaultQPS
-	config.Burst = numControllers * rest.DefaultBurst
-	kafkaClientSet := versioned.NewForConfigOrDie(config)
-	kubeClient := kubernetes.NewForConfigOrDie(config)
-
-	kafkaInformerFactory := externalversions.NewSharedInformerFactory(kafkaClientSet, environment.ResyncPeriod)
+	kafkaInformerFactory := externalversions.NewSharedInformerFactory(kafkaClient, environment.ResyncPeriod)
 
 	// Create KafkaChannel Informer
 	kafkaChannelInformer := kafkaInformerFactory.Messaging().V1beta1().KafkaChannels()
@@ -174,8 +169,8 @@ func main() {
 			environment.ChannelKey,
 			dispatcher,
 			kafkaChannelInformer,
-			kubeClient,
-			kafkaClientSet,
+			k8sClient,
+			kafkaClient,
 			ctx.Done(),
 		),
 	}
