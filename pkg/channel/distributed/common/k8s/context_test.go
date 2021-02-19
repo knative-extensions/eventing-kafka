@@ -68,7 +68,7 @@ func TestLoggingContext(t *testing.T) {
 	defer func() { K8sClientWrapper = k8sClientWrapperRef }()
 
 	// Perform The Test (Initialize The Logging Context)
-	resultContext := LoggingContext(ctx, component, "", "")
+	resultContext := LoggingContext(ctx, component, fakeK8sClient)
 
 	// Verify The Results
 	assert.NotNil(t, resultContext)
