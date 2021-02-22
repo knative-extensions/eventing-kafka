@@ -25,7 +25,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	channelhealth "knative.dev/eventing-kafka/pkg/channel/distributed/receiver/health"
 	receivertesting "knative.dev/eventing-kafka/pkg/channel/distributed/receiver/testing"
-	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	fakeclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned/fake"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
@@ -33,18 +32,14 @@ import (
 
 // Test The InitializeKafkaChannelLister() Functionality
 func TestInitializeKafkaChannelLister(t *testing.T) {
-
-	// Stub The K8S Client Creation Wrapper With Test Version Returning The Fake KafkaClient Clientset
-	getKafkaClient = func(ctx context.Context, serverUrl string, kubeconfigPath string) (kafkaclientset.Interface, error) {
-		return fakeclientset.NewSimpleClientset(), nil
-	}
-
 	// Create A Context With Test Logger
 	ctx := logging.WithLogger(context.TODO(), logtesting.TestLogger(t))
 
+	kafkaClient := fakeclientset.NewSimpleClientset()
+
 	// Perform The Test
 	healthServer := channelhealth.NewChannelHealthServer("12345")
-	err := InitializeKafkaChannelLister(ctx, "", "", healthServer, 600*time.Minute)
+	err := InitializeKafkaChannelLister(ctx, kafkaClient, healthServer, 600*time.Minute)
 
 	// Verify The Results
 	assert.Nil(t, err)

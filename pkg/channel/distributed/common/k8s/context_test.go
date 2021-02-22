@@ -21,13 +21,11 @@ import (
 	"testing"
 	"time"
 
-	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
-
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
@@ -58,17 +56,10 @@ func TestLoggingContext(t *testing.T) {
 	// Create The Fake K8S Client
 	fakeK8sClient := fake.NewSimpleClientset(loggingConfigMap)
 
-	// Temporarily Swap The K8S Client Wrapper For Testing
-	k8sClientWrapperRef := K8sClientWrapper
-	K8sClientWrapper = func(serverUrlArg string, kubeconfigPathArg string) kubernetes.Interface {
-		assert.Empty(t, serverUrlArg)
-		assert.Empty(t, kubeconfigPathArg)
-		return fakeK8sClient
-	}
-	defer func() { K8sClientWrapper = k8sClientWrapperRef }()
+	ctx = context.WithValue(ctx, kubeclient.Key{}, fakeK8sClient)
 
 	// Perform The Test (Initialize The Logging Context)
-	resultContext := LoggingContext(ctx, component, "", "")
+	resultContext := LoggingContext(ctx, component, fakeK8sClient)
 
 	// Verify The Results
 	assert.NotNil(t, resultContext)

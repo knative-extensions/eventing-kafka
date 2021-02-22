@@ -18,17 +18,16 @@ package main
 
 import (
 	"context"
-	"flag"
 	"strconv"
 	"strings"
 
 	"knative.dev/eventing/pkg/kncloudevents"
+	"knative.dev/pkg/injection"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	commonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	commonk8s "knative.dev/eventing-kafka/pkg/channel/distributed/common/k8s"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
@@ -38,8 +37,9 @@ import (
 	dispatch "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/dispatcher"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/env"
 	dispatcherhealth "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/health"
-	"knative.dev/eventing-kafka/pkg/client/clientset/versioned"
+	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	"knative.dev/eventing-kafka/pkg/client/informers/externalversions"
+	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	kncontroller "knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	eventingmetrics "knative.dev/pkg/metrics"
@@ -50,18 +50,32 @@ import (
 var (
 	logger     *zap.Logger
 	dispatcher dispatch.Dispatcher
-	serverURL  = flag.String("server", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
-	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 )
 
 // The Main Function (Go Command)
 func main() {
 
-	// Parse The Flags For Local Development Usage
-	flag.Parse()
+	ctx := signals.NewContext()
+
+	// Create The K8S Configuration (In-Cluster By Default / Cmd Line Flags For Out-Of-Cluster Usage)
+	k8sConfig := injection.ParseAndGetRESTConfigOrDie()
+
+	// TODO: do we really need these? I moved them up
+	const numControllers = 1
+	k8sConfig.QPS = numControllers * rest.DefaultQPS
+	k8sConfig.Burst = numControllers * rest.DefaultBurst
+
+	// Put The Kubernetes Config Into The Context Where The Injection Framework Expects It
+	ctx = injection.WithConfig(ctx, k8sConfig)
+
+	// Create A New Kubernetes Client From The K8S Configuration
+	k8sClient := kubernetes.NewForConfigOrDie(k8sConfig)
+
+	// Put The Kubernetes Client Into The Context Where The Injection Framework Expects It
+	ctx = context.WithValue(ctx, injectionclient.Key{}, k8sClient)
 
 	// Initialize A Knative Injection Lite Context (K8S Client & Logger)
-	ctx := commonk8s.LoggingContext(signals.NewContext(), constants.Component, *serverURL, *kubeconfig)
+	ctx = commonk8s.LoggingContext(ctx, constants.Component, k8sClient)
 
 	// Get The Logger From The Context & Defer Flushing Any Buffered Log Entries On Exit
 	logger = logging.FromContext(ctx).Desugar()
@@ -141,18 +155,9 @@ func main() {
 		logger.Fatal("Failed To Start Secret Watcher", zap.Error(err))
 	}
 
-	config, err := clientcmd.BuildConfigFromFlags(*serverURL, *kubeconfig)
-	if err != nil {
-		logger.Fatal("Error building kubeconfig", zap.Error(err))
-	}
+	kafkaClient := kafkaclientset.NewForConfigOrDie(k8sConfig)
 
-	const numControllers = 1
-	config.QPS = numControllers * rest.DefaultQPS
-	config.Burst = numControllers * rest.DefaultBurst
-	kafkaClientSet := versioned.NewForConfigOrDie(config)
-	kubeClient := kubernetes.NewForConfigOrDie(config)
-
-	kafkaInformerFactory := externalversions.NewSharedInformerFactory(kafkaClientSet, environment.ResyncPeriod)
+	kafkaInformerFactory := externalversions.NewSharedInformerFactory(kafkaClient, environment.ResyncPeriod)
 
 	// Create KafkaChannel Informer
 	kafkaChannelInformer := kafkaInformerFactory.Messaging().V1beta1().KafkaChannels()
@@ -164,8 +169,8 @@ func main() {
 			environment.ChannelKey,
 			dispatcher,
 			kafkaChannelInformer,
-			kubeClient,
-			kafkaClientSet,
+			k8sClient,
+			kafkaClient,
 			ctx.Done(),
 		),
 	}

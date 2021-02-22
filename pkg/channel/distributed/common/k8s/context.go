@@ -24,26 +24,11 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	k8sclientcmd "k8s.io/client-go/tools/clientcmd"
-	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	configmap "knative.dev/pkg/configmap/informer"
 	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
 )
-
-// K8sClientWrapper Used To Facilitate Unit Testing
-var K8sClientWrapper = func(serverUrl string, kubeconfigPath string) kubernetes.Interface {
-
-	// Create The K8S Configuration (In-Cluster By Default / Cmd Line Flags For Out-Of-Cluster Usage)
-	k8sConfig, err := k8sclientcmd.BuildConfigFromFlags(serverUrl, kubeconfigPath)
-	if err != nil {
-		log.Fatalf("Failed To Build Kubernetes Config: %v", err)
-	}
-
-	// Create A New Kubernetes Client From The K8S Configuration
-	return kubernetes.NewForConfigOrDie(k8sConfig)
-}
 
 //
 // Initialize The Specified Context With A K8S Client & Logger (ConfigMap Watcher)
@@ -54,14 +39,7 @@ var K8sClientWrapper = func(serverUrl string, kubeconfigPath string) kubernetes.
 //        knative-eventing logging configuration and dynamic updating.  To that end, we are setting up a basic context ourselves
 //        that mirrors what the injection framework would have created.
 //
-func LoggingContext(ctx context.Context, component string, serverUrl string, kubeconfigPath string) context.Context {
-
-	// Get The K8S Client
-	k8sClient := K8sClientWrapper(serverUrl, kubeconfigPath)
-
-	// Put The Kubernetes Client Into The Context Where The Injection Framework Expects It
-	ctx = context.WithValue(ctx, injectionclient.Key{}, k8sClient)
-
+func LoggingContext(ctx context.Context, component string, k8sClient kubernetes.Interface) context.Context {
 	// Get The Logging Config From Knative SharedMain
 	loggingConfig, err := sharedmain.GetLoggingConfig(ctx)
 	if err != nil {

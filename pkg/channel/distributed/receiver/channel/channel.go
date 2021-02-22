@@ -23,7 +23,6 @@ import (
 
 	"go.uber.org/zap"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	k8sclientcmd "k8s.io/client-go/tools/clientcmd"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/health"
 	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	kafkainformers "knative.dev/eventing-kafka/pkg/client/informers/externalversions"
@@ -39,32 +38,10 @@ var (
 	stopChan           chan struct{}
 )
 
-// Wrapper Around Kafka Client Creation To Facilitate Unit Testing
-var getKafkaClient = func(ctx context.Context, serverUrl string, kubeconfigPath string) (kafkaclientset.Interface, error) {
-
-	// Create The K8S Configuration (In-Cluster With Cmd Line Flags For Out-Of-Cluster Usage)
-	k8sConfig, err := k8sclientcmd.BuildConfigFromFlags(serverUrl, kubeconfigPath)
-	if err != nil {
-		logging.FromContext(ctx).Error("Failed To Build Kubernetes Config", zap.Error(err))
-		return nil, err
-	}
-
-	// Create A New Kafka Client From The K8S Config & Return The Result
-	return kafkaclientset.NewForConfigOrDie(k8sConfig), nil
-}
-
 // Initialize The KafkaChannel Lister Singleton
-func InitializeKafkaChannelLister(ctx context.Context, serverUrl string, kubeconfigPath string, healthServer *health.Server, resyncDuration time.Duration) error {
-
+func InitializeKafkaChannelLister(ctx context.Context, client kafkaclientset.Interface, healthServer *health.Server, resyncDuration time.Duration) error {
 	// Get The Logger From The Provided Context
 	logger = logging.FromContext(ctx).Desugar()
-
-	// Get The K8S Kafka Client For KafkaChannels
-	client, err := getKafkaClient(ctx, serverUrl, kubeconfigPath)
-	if err != nil {
-		logger.Error("Failed To Create Kafka Client", zap.Error(err))
-		return err
-	}
 
 	// Create A New KafkaChannel SharedInformerFactory For ALL Namespaces (Default Resync Is 10 Hrs)
 	sharedInformerFactory := kafkainformers.NewSharedInformerFactory(client, resyncDuration)
