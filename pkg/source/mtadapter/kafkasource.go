@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/reconciler"
 
 	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
@@ -34,9 +35,6 @@ type Reconciler struct {
 // Check that our Reconciler implements ReconcileKind.
 var _ kafkasourcereconciler.Interface = (*Reconciler)(nil)
 
-// Check that our Reconciler implements FinalizeKind.
-var _ kafkasourcereconciler.Finalizer = (*Reconciler)(nil)
-
 func (r *Reconciler) ReconcileKind(ctx context.Context, source *v1beta1.KafkaSource) reconciler.Event {
 	if !source.Status.IsReady() {
 		return fmt.Errorf("warning: KafkaSource is not ready")
@@ -48,9 +46,17 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, source *v1beta1.KafkaSou
 	return nil
 }
 
-func (r *Reconciler) FinalizeKind(ctx context.Context, source *v1beta1.KafkaSource) reconciler.Event {
-	// Update the adapter state
-	r.mtadapter.Remove(ctx, source)
-
-	return nil
+func (r *Reconciler) deleteFunc(obj interface{}) {
+	if obj == nil {
+		return
+	}
+	acc, err := kmeta.DeletionHandlingAccessor(obj)
+	if err != nil {
+		return
+	}
+	source, ok := acc.(*v1beta1.KafkaSource)
+	if !ok || source == nil {
+		return
+	}
+	r.mtadapter.Remove(source)
 }

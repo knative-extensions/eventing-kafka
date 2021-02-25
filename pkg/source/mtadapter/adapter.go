@@ -171,7 +171,7 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) {
 	a.logger.Infow("source added", "name", obj.Name)
 }
 
-func (a *Adapter) Remove(ctx context.Context, obj *v1beta1.KafkaSource) {
+func (a *Adapter) Remove(obj *v1beta1.KafkaSource) {
 	a.sourcesMu.Lock()
 	defer a.sourcesMu.Unlock()
 	a.logger.Infow("removing source", "name", obj.Name)
