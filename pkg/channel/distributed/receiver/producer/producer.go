@@ -33,7 +33,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/producer"
 	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/metrics"
-	commonutil "knative.dev/eventing-kafka/pkg/channel/distributed/common/util"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/health"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/util"
@@ -129,7 +128,7 @@ func (p *Producer) ProduceKafkaMessage(ctx context.Context, channelReference eve
 		// There isn't actually any way for the sarama ByteEncoder to return an error and this is debug logging, so ignore the return value
 		msgBytes, _ := producerMessage.Value.Encode()
 		logger.Debug("Producing Kafka Message",
-			zap.Any("Headers", commonutil.StringifyHeaders(producerMessage.Headers)), // Log human-readable strings, not base64
+			zap.Any("Headers", kafkasarama.StringifyHeaders(producerMessage.Headers)), // Log human-readable strings, not base64
 			zap.ByteString("Message", msgBytes))
 	}
 	partition, offset, err := p.kafkaProducer.SendMessage(producerMessage)

@@ -21,7 +21,7 @@ import (
 	"errors"
 	"net/url"
 
-	commonutil "knative.dev/eventing-kafka/pkg/channel/distributed/common/util"
+	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 
 	"github.com/Shopify/sarama"
 	kafkasaramaprotocol "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
@@ -126,7 +126,7 @@ func (h *Handler) consumeMessage(context context.Context, consumerMessage *saram
 	if h.Logger.Core().Enabled(zap.DebugLevel) {
 		// Checked Logging Level First To Avoid Calling StringifyHeaderPtrs In Production
 		h.Logger.Debug("Consuming Kafka Message",
-			zap.Any("Headers", commonutil.StringifyHeaderPtrs(consumerMessage.Headers)), // Log human-readable strings, not base64
+			zap.Any("Headers", kafkasarama.StringifyHeaderPtrs(consumerMessage.Headers)), // Log human-readable strings, not base64
 			zap.ByteString("Key", consumerMessage.Key),
 			zap.ByteString("Value", consumerMessage.Value),
 			zap.String("Topic", consumerMessage.Topic),
