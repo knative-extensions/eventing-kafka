@@ -35,11 +35,17 @@ func NewVPodClient() *VPodClient {
 }
 
 func (s *VPodClient) Create(ns, name string, vreplicas int32, placements []duckv1alpha1.Placement) scheduler.VPod {
-	vpod := newVPod(ns, name, vreplicas, placements)
+	vpod := NewVPod(ns, name, vreplicas, placements)
 	s.store.lock.Lock()
 	defer s.store.lock.Unlock()
 	s.store.vpods = append(s.store.vpods, vpod)
 	return vpod
+}
+
+func (s *VPodClient) Append(vpod scheduler.VPod) {
+	s.store.lock.Lock()
+	defer s.store.lock.Unlock()
+	s.store.vpods = append(s.store.vpods, vpod)
 }
 
 func (s *VPodClient) List() ([]scheduler.VPod, error) {

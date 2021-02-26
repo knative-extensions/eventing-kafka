@@ -18,7 +18,6 @@ package statefulset
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -26,6 +25,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	gtesting "k8s.io/client-go/testing"
@@ -33,6 +33,7 @@ import (
 	kubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/apps/v1/statefulset/fake"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 	rectesting "knative.dev/pkg/reconciler/testing"
 
 	duckv1alpha1 "knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
@@ -45,8 +46,6 @@ const (
 )
 
 func TestStatefulsetScheduler(t *testing.T) {
-	ctx, cancel := setupFakeContext(t)
-
 	testCases := []struct {
 		name       string
 		vpods      []int32
@@ -91,20 +90,21 @@ func TestStatefulsetScheduler(t *testing.T) {
 		},
 	}
 
-	for i, tc := range testCases {
+	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			vpodClient := tscheduler.NewVPodClient()
-			sfsNs := fmt.Sprint("ns-", i)
+			ctx, _ := setupFakeContext(t)
 
-			_, err := kubeclient.Get(ctx).AppsV1().StatefulSets(sfsNs).Create(ctx, makeStatefulset(ctx, sfsNs, sfsName, tc.replicas), metav1.CreateOptions{})
+			vpodClient := tscheduler.NewVPodClient()
+
+			_, err := kubeclient.Get(ctx).AppsV1().StatefulSets(testNs).Create(ctx, makeStatefulset(ctx, testNs, sfsName, tc.replicas), metav1.CreateOptions{})
 			if err != nil {
 				t.Fatal("unexpected error", err)
 			}
+			sa := newStateBuilder(logging.FromContext(ctx), vpodClient.List, 10)
+			s := NewStatefulSetScheduler(ctx, testNs, sfsName, vpodClient.List, sa, nil).(*StatefulSetScheduler)
 
-			s := NewStatefulSetScheduler(ctx, sfsNs, sfsName, vpodClient.List, nil).(*StatefulSetScheduler)
-
-			// Give some time for the informer to notify the scheduler
-			time.Sleep(500 * time.Millisecond)
+			// Give some time for the informer to notify the scheduler and set the number of replicas
+			time.Sleep(200 * time.Millisecond)
 
 			func() {
 				s.lock.Lock()
@@ -135,8 +135,6 @@ func TestStatefulsetScheduler(t *testing.T) {
 			}
 		})
 	}
-	cancel()
-	<-ctx.Done()
 }
 
 func makeStatefulset(ctx context.Context, ns, name string, replicas int32) *appsv1.StatefulSet {
@@ -154,13 +152,67 @@ func makeStatefulset(ctx context.Context, ns, name string, replicas int32) *apps
 	}
 
 	kc := kubeclient.Get(ctx)
+	kc.PrependReactor("create", "statefulsets", func(action gtesting.Action) (handled bool, ret runtime.Object, err error) {
+		createAction := action.(gtesting.CreateActionImpl)
+		sfs := createAction.GetObject().(*appsv1.StatefulSet)
+		scale := &autoscalingv1.Scale{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      sfs.Name,
+				Namespace: sfs.Namespace,
+			},
+			Spec: autoscalingv1.ScaleSpec{
+				Replicas: func() int32 {
+					if sfs.Spec.Replicas == nil {
+						return 1
+					}
+					return *sfs.Spec.Replicas
+				}(),
+			},
+		}
+		kc.Tracker().Add(scale)
+		return false, nil, nil
+	})
+
 	kc.PrependReactor("get", "statefulsets", func(action gtesting.Action) (handled bool, ret runtime.Object, err error) {
+		getAction := action.(gtesting.GetAction)
 		if action.GetSubresource() == "scale" {
-			return true, &autoscalingv1.Scale{
-				Spec: autoscalingv1.ScaleSpec{
-					Replicas: obj.Status.Replicas,
-				},
-			}, nil
+			scale, err := kc.Tracker().Get(autoscalingv1.SchemeGroupVersion.WithResource("scales"), getAction.GetNamespace(), getAction.GetName())
+			return true, scale, err
+
+		}
+		return false, nil, nil
+	})
+
+	kc.PrependReactor("update", "statefulsets", func(action gtesting.Action) (handled bool, ret runtime.Object, err error) {
+		updateAction := action.(gtesting.UpdateActionImpl)
+		if action.GetSubresource() == "scale" {
+			scale := updateAction.GetObject().(*autoscalingv1.Scale)
+
+			err := kc.Tracker().Update(autoscalingv1.SchemeGroupVersion.WithResource("scales"), scale, scale.GetNamespace())
+			if err != nil {
+				return true, nil, err
+			}
+
+			meta, err := meta.Accessor(updateAction.GetObject())
+			if err != nil {
+				return true, nil, err
+			}
+
+			obj, err := kc.Tracker().Get(appsv1.SchemeGroupVersion.WithResource("statefulsets"), meta.GetNamespace(), meta.GetName())
+			if err != nil {
+				return true, nil, err
+			}
+
+			sfs := obj.(*appsv1.StatefulSet)
+			sfs.Spec.Replicas = &scale.Spec.Replicas
+
+			err = kc.Tracker().Update(appsv1.SchemeGroupVersion.WithResource("statefulsets"), sfs, sfs.GetNamespace())
+			if err != nil {
+				return true, nil, err
+			}
+
+			return true, scale, nil
+
 		}
 		return false, nil, nil
 	})
@@ -174,14 +226,6 @@ func setupFakeContext(t *testing.T) (context.Context, context.CancelFunc) {
 	if err != nil {
 		t.Fatal("unexpected error", err)
 	}
-
-	kc := kubeclient.Get(ctx)
-	kc.PrependReactor("get", "statefulsets", func(action gtesting.Action) (handled bool, ret runtime.Object, err error) {
-		if action.GetSubresource() == "scale" {
-			return true, nil, errors.New("object not found")
-		}
-		return false, nil, nil
-	})
 
 	return ctx, cancel
 }
