@@ -33,7 +33,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/producer"
 	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/metrics"
-	commonutil "knative.dev/eventing-kafka/pkg/channel/distributed/common/util"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/health"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/util"
@@ -125,12 +124,8 @@ func (p *Producer) ProduceKafkaMessage(ctx context.Context, channelReference eve
 
 	// Produce The Kafka Message To The Kafka Topic
 	if logger.Core().Enabled(zap.DebugLevel) {
-		// Checked Logging Level First To Avoid Calling StringifyHeaders and Encode Functions In Production
-		// There isn't actually any way for the sarama ByteEncoder to return an error and this is just debug logging, so ignore the return value
-		msgBytes, _ := producerMessage.Value.Encode()
-		logger.Debug("Producing Kafka Message",
-			zap.Any("Headers", commonutil.StringifyHeaders(producerMessage.Headers)), // Log human-readable strings, not base64
-			zap.ByteString("Message", msgBytes))
+		// Checked Logging Level First To Avoid Calling zap.Any In Production
+		logger.Debug("Producing Kafka Message", zap.Any("Headers", producerMessage.Headers), zap.Any("Message", producerMessage.Value))
 	}
 	partition, offset, err := p.kafkaProducer.SendMessage(producerMessage)
 	if err != nil {
