@@ -252,6 +252,95 @@ func TestAuthFromSarama(t *testing.T) {
 	}
 }
 
+func TestStringifyHeaders(t *testing.T) {
+
+	// Define The TestCase Struct
+	type TestCase struct {
+		name     string
+		headers  []sarama.RecordHeader
+		expected map[string][]string
+	}
+
+	// Create The TestCases
+	testCases := []TestCase{
+		{
+			name:     "Nil Slice",
+			headers:  nil,
+			expected: map[string][]string{},
+		},
+		{
+			name:     "Empty Slice",
+			headers:  []sarama.RecordHeader{},
+			expected: map[string][]string{},
+		},
+		{
+			name: "One Header",
+			headers: []sarama.RecordHeader{
+				{
+					Key:   []byte("one-key"),
+					Value: []byte("one-value"),
+				},
+			},
+			expected: map[string][]string{
+				"one-key": {"one-value"},
+			},
+		},
+		{
+			name: "Two Different Headers",
+			headers: []sarama.RecordHeader{
+				{
+					Key:   []byte("one-key"),
+					Value: []byte("one-value"),
+				},
+				{
+					Key:   []byte("two-key"),
+					Value: []byte("two-value"),
+				},
+			},
+			expected: map[string][]string{
+				"one-key": {"one-value"},
+				"two-key": {"two-value"},
+			},
+		},
+		{
+			name: "Two Identical Headers",
+			headers: []sarama.RecordHeader{
+				{
+					Key:   []byte("one-key"),
+					Value: []byte("one-value"),
+				},
+				{
+					Key:   []byte("one-key"),
+					Value: []byte("two-value"),
+				},
+			},
+			expected: map[string][]string{
+				"one-key": {"one-value", "two-value"},
+			},
+		},
+	}
+
+	// Run The TestCases
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+
+			// Perform The Test
+			stringHeaders := StringifyHeaders(testCase.headers)
+
+			// Perform The Test With Pointers (should have same output)
+			ptrs := make([]*sarama.RecordHeader, len(testCase.headers))
+			for index, header := range testCase.headers {
+				ptrs[index] = &sarama.RecordHeader{Key: header.Key, Value: header.Value}
+			}
+			stringHeadersFromPtrs := StringifyHeaderPtrs(ptrs)
+
+			// Verify Expected State
+			assert.Equal(t, testCase.expected, stringHeaders)
+			assert.Equal(t, testCase.expected, stringHeadersFromPtrs)
+		})
+	}
+}
+
 func verifyTestEKConfigSettings(t *testing.T, saramaConfig *sarama.Config, eventingKafkaConfig *commonconfig.EventingKafkaConfig) {
 	// Quick checks to make sure the loaded configs aren't complete junk
 	assert.Equal(t, commontesting.OldUsername, saramaConfig.Net.SASL.User)
