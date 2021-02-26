@@ -4,6 +4,12 @@
 * @knative-sandbox/eventing-writers
 * @knative-sandbox/eventing-kafka-approvers
 
+# mtsource owners
+/cmd/config/source/multi/** @knative-sandbox/eventing-kafka-mtsource-approvers
+/cmd/source/mt* @knative-sandbox/eventing-kafka-mtsource-approvers
+/pkg/common/scheduler/** @knative-sandbox/eventing-kafka-mtsource-approvers
+/pkg/source/** @knative-sandbox/eventing-kafka-mtsource-approvers
+
 # hack and test are owned by productivity
 /hack/* @knative-sandbox/productivity-wg-leads
 /test/* @knative-sandbox/productivity-wg-leads
