@@ -63,7 +63,6 @@ func TestWaitForSignal(t *testing.T) {
 	logger.Info("Done!")
 }
 
-
 func TestStringifyHeaders(t *testing.T) {
 
 	// Define The TestCase Struct
