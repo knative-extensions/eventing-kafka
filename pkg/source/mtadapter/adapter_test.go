@@ -90,7 +90,7 @@ func TestUpdateRemoveSources(t *testing.T) {
 		t.Error("sub-adapter failed to start after 100 ms")
 	}
 
-	adapter.Remove(ctx, &sourcesv1beta1.KafkaSource{
+	adapter.Remove(&sourcesv1beta1.KafkaSource{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-name",
 			Namespace: "test-ns",

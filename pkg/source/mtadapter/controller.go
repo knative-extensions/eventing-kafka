@@ -18,7 +18,8 @@ package mtadapter
 
 import (
 	"context"
-	"strings"
+
+	"k8s.io/client-go/tools/cache"
 
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -36,7 +37,7 @@ type MTAdapter interface {
 	Update(ctx context.Context, source *v1beta1.KafkaSource)
 
 	// Remove is called when the source has been deleted.
-	Remove(ctx context.Context, source *v1beta1.KafkaSource)
+	Remove(source *v1beta1.KafkaSource)
 }
 
 // NewController initializes the controller and
@@ -51,17 +52,20 @@ func NewController(ctx context.Context, adapter adapter.Adapter) *controller.Imp
 		mtadapter: mtadapter,
 	}
 
-	podName := mtadapter.config.PodName
 	impl := kafkasourcereconciler.NewImpl(ctx, r, func(impl *controller.Impl) controller.Options {
 		return controller.Options{
 			SkipStatusUpdates: true,
-			FinalizerName:     "kafkasources.sources.knative.dev." + podName[strings.LastIndex(podName, "-")+1:],
 		}
 	})
 
 	logging.FromContext(ctx).Info("Setting up event handlers")
 	kafkasourceInformer := kakfasourceinformer.Get(ctx)
-	kafkasourceInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
+	kafkasourceInformer.Informer().AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			AddFunc:    impl.Enqueue,
+			UpdateFunc: controller.PassNew(impl.Enqueue),
+			DeleteFunc: r.deleteFunc,
+		})
 
 	return impl
 }
