@@ -118,3 +118,23 @@ func AuthFromSarama(config *sarama.Config) *client.KafkaAuthConfig {
 		return nil
 	}
 }
+
+// Utility function to convert []byte headers to string ones for logging purposes
+func StringifyHeaders(headers []sarama.RecordHeader) map[string][]string {
+	stringHeaders := make(map[string][]string)
+	for _, header := range headers {
+		key := string(header.Key)
+		stringHeaders[key] = append(stringHeaders[key], string(header.Value))
+	}
+	return stringHeaders
+}
+
+// Pointer-version of the StringifyHeaders function
+func StringifyHeaderPtrs(headers []*sarama.RecordHeader) map[string][]string {
+	stringHeaders := make(map[string][]string)
+	for _, header := range headers {
+		key := string(header.Key)
+		stringHeaders[key] = append(stringHeaders[key], string(header.Value))
+	}
+	return stringHeaders
+}
