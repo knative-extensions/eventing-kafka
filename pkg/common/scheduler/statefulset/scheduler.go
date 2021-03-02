@@ -43,6 +43,9 @@ func NewScheduler(ctx context.Context, namespace, name string, lister scheduler.
 
 	stateAccessor := newStateBuilder(logging.FromContext(ctx), lister, capacity)
 	autoscaler := NewAutoscaler(ctx, namespace, name, stateAccessor, 10*time.Second) // TODO: config
+
+	go autoscaler.Start(ctx)
+
 	return NewStatefulSetScheduler(ctx, namespace, name, lister, stateAccessor, autoscaler)
 }
 

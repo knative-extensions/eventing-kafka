@@ -31,8 +31,11 @@ import (
 )
 
 type Autoscaler interface {
+	// Start runs the autoscaler until cancelled.
 	Start(ctx context.Context)
 
+	// Autoscale is used to immediately trigger the autoscaler with the hint
+	// that pending number of vreplicas coudn't be scheduled.
 	Autoscale(pending int32)
 }
 
