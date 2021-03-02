@@ -45,6 +45,10 @@ const (
 	sfsName = "statefulset-name"
 )
 
+func init() {
+
+}
+
 func TestStatefulsetScheduler(t *testing.T) {
 	testCases := []struct {
 		name       string
@@ -151,6 +155,16 @@ func makeStatefulset(ctx context.Context, ns, name string, replicas int32) *apps
 		},
 	}
 
+	return obj
+}
+
+func setupFakeContext(t *testing.T) (context.Context, context.CancelFunc) {
+	ctx, cancel, informers := rectesting.SetupFakeContextWithCancel(t)
+	err := controller.StartInformers(ctx.Done(), informers...)
+	if err != nil {
+		t.Fatal("unexpected error", err)
+	}
+
 	kc := kubeclient.Get(ctx)
 	kc.PrependReactor("create", "statefulsets", func(action gtesting.Action) (handled bool, ret runtime.Object, err error) {
 		createAction := action.(gtesting.CreateActionImpl)
@@ -216,16 +230,6 @@ func makeStatefulset(ctx context.Context, ns, name string, replicas int32) *apps
 		}
 		return false, nil, nil
 	})
-
-	return obj
-}
-
-func setupFakeContext(t *testing.T) (context.Context, context.CancelFunc) {
-	ctx, cancel, informers := rectesting.SetupFakeContextWithCancel(t)
-	err := controller.StartInformers(ctx.Done(), informers...)
-	if err != nil {
-		t.Fatal("unexpected error", err)
-	}
 
 	return ctx, cancel
 }

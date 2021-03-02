@@ -38,7 +38,6 @@ const (
 )
 
 func TestAutoscaler(t *testing.T) {
-
 	testCases := []struct {
 		name         string
 		replicas     int32
@@ -223,6 +222,14 @@ func TestAutoscaler(t *testing.T) {
 func TestAutoscalerScaleDownToZero(t *testing.T) {
 	ctx, cancel := setupFakeContext(t)
 
+	afterUpdate := make(chan bool)
+	kubeclient.Get(ctx).PrependReactor("update", "statefulsets", func(action gtesting.Action) (handled bool, ret runtime.Object, err error) {
+		if action.GetSubresource() == "scale" {
+			afterUpdate <- true
+		}
+		return false, nil, nil
+	})
+
 	vpodClient := tscheduler.NewVPodClient()
 	stateAccessor := newStateBuilder(logging.FromContext(ctx), vpodClient.List, 10)
 
@@ -240,18 +247,10 @@ func TestAutoscalerScaleDownToZero(t *testing.T) {
 		done <- true
 	}()
 
-	afterUpdate := make(chan bool)
-	kubeclient.Get(ctx).PrependReactor("update", "statefulsets", func(action gtesting.Action) (handled bool, ret runtime.Object, err error) {
-		if action.GetSubresource() == "scale" {
-			afterUpdate <- true
-		}
-		return false, nil, nil
-	})
-
 	select {
 	case <-afterUpdate:
-		// case <-time.After(2 * time.Second):
-		// 	t.Fatal("timeout waiting for scale subresource to be updated")
+	case <-time.After(4 * time.Second):
+		t.Fatal("timeout waiting for scale subresource to be updated")
 
 	}
 
