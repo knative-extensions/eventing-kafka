@@ -45,10 +45,6 @@ const (
 	sfsName = "statefulset-name"
 )
 
-func init() {
-
-}
-
 func TestStatefulsetScheduler(t *testing.T) {
 	testCases := []struct {
 		name       string

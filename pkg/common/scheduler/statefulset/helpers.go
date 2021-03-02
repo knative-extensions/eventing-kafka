@@ -32,7 +32,3 @@ func ordinalFromPodName(podName string) int32 {
 	}
 	return int32(ordinal)
 }
-
-func statefulSetName(podName string) string {
-	return podName[:strings.LastIndex(podName, "-")-1]
-}

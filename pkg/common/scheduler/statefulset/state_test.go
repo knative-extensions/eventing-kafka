@@ -27,7 +27,7 @@ import (
 	tscheduler "knative.dev/eventing-kafka/pkg/common/scheduler/testing"
 )
 
-func TeststateBuilder(t *testing.T) {
+func TestStateBuilder(t *testing.T) {
 	ctx, cancel := setupFakeContext(t)
 
 	testCases := []struct {
