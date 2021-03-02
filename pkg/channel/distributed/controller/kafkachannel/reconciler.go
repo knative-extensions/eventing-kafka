@@ -42,6 +42,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
 	kafkalisters "knative.dev/eventing-kafka/pkg/client/listers/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/common/client"
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
@@ -55,7 +56,7 @@ type Reconciler struct {
 	adminClientType      types.AdminClientType
 	adminClient          types.AdminClientInterface
 	environment          *env.Environment
-	config               *distributedcommonconfig.EventingKafkaConfig
+	config               *commonconfig.EventingKafkaConfig
 	saramaConfig         *sarama.Config
 	kafkachannelLister   kafkalisters.KafkaChannelLister
 	kafkachannelInformer cache.SharedIndexInformer

@@ -29,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgotesting "k8s.io/client-go/testing"
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
-	distributedcommonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	commonenv "knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/health"
 	kafkaconstants "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
@@ -39,6 +38,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing/pkg/apis/messaging"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/logging"
@@ -208,13 +208,13 @@ func NewEnvironment() *env.Environment {
 }
 
 // KafkaConfigOption Enables Customization Of An EventingKafkaConfig
-type KafkaConfigOption func(kafkaConfig *distributedcommonconfig.EventingKafkaConfig)
+type KafkaConfigOption func(kafkaConfig *commonconfig.EventingKafkaConfig)
 
 // Set The Required Config Fields
-func NewConfig(options ...KafkaConfigOption) *distributedcommonconfig.EventingKafkaConfig {
-	kafkaConfig := &distributedcommonconfig.EventingKafkaConfig{
-		Dispatcher: distributedcommonconfig.EKDispatcherConfig{
-			EKKubernetesConfig: distributedcommonconfig.EKKubernetesConfig{
+func NewConfig(options ...KafkaConfigOption) *commonconfig.EventingKafkaConfig {
+	kafkaConfig := &commonconfig.EventingKafkaConfig{
+		Dispatcher: commonconfig.EKDispatcherConfig{
+			EKKubernetesConfig: commonconfig.EKKubernetesConfig{
 				Replicas:      DispatcherReplicas,
 				CpuLimit:      resource.MustParse(DispatcherCpuLimit),
 				CpuRequest:    resource.MustParse(DispatcherCpuRequest),
@@ -222,8 +222,8 @@ func NewConfig(options ...KafkaConfigOption) *distributedcommonconfig.EventingKa
 				MemoryRequest: resource.MustParse(DispatcherMemoryRequest),
 			},
 		},
-		Receiver: distributedcommonconfig.EKReceiverConfig{
-			EKKubernetesConfig: distributedcommonconfig.EKKubernetesConfig{
+		Receiver: commonconfig.EKReceiverConfig{
+			EKKubernetesConfig: commonconfig.EKKubernetesConfig{
 				Replicas:      ReceiverReplicas,
 				CpuLimit:      resource.MustParse(ReceiverCpuLimit),
 				CpuRequest:    resource.MustParse(ReceiverCpuRequest),
@@ -231,8 +231,8 @@ func NewConfig(options ...KafkaConfigOption) *distributedcommonconfig.EventingKa
 				MemoryRequest: resource.MustParse(ReceiverMemoryRequest),
 			},
 		},
-		Kafka: distributedcommonconfig.EKKafkaConfig{
-			Topic: distributedcommonconfig.EKKafkaTopicConfig{
+		Kafka: commonconfig.EKKafkaConfig{
+			Topic: commonconfig.EKKafkaTopicConfig{
 				DefaultNumPartitions:     DefaultNumPartitions,
 				DefaultReplicationFactor: DefaultReplicationFactor,
 				DefaultRetentionMillis:   DefaultRetentionMillis,
@@ -250,7 +250,7 @@ func NewConfig(options ...KafkaConfigOption) *distributedcommonconfig.EventingKa
 }
 
 // Remove The Receiver Resource Requests And Limits
-func WithNoReceiverResources(kafkaConfig *distributedcommonconfig.EventingKafkaConfig) {
+func WithNoReceiverResources(kafkaConfig *commonconfig.EventingKafkaConfig) {
 	kafkaConfig.Receiver.EKKubernetesConfig.CpuLimit = resource.Quantity{}
 	kafkaConfig.Receiver.EKKubernetesConfig.CpuRequest = resource.Quantity{}
 	kafkaConfig.Receiver.EKKubernetesConfig.MemoryLimit = resource.Quantity{}
@@ -258,7 +258,7 @@ func WithNoReceiverResources(kafkaConfig *distributedcommonconfig.EventingKafkaC
 }
 
 // Remove The Dispatcher Resource Requests And Limits
-func WithNoDispatcherResources(kafkaConfig *distributedcommonconfig.EventingKafkaConfig) {
+func WithNoDispatcherResources(kafkaConfig *commonconfig.EventingKafkaConfig) {
 	kafkaConfig.Dispatcher.EKKubernetesConfig.CpuLimit = resource.Quantity{}
 	kafkaConfig.Dispatcher.EKKubernetesConfig.CpuRequest = resource.Quantity{}
 	kafkaConfig.Dispatcher.EKKubernetesConfig.MemoryLimit = resource.Quantity{}

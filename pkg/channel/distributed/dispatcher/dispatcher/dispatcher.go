@@ -23,6 +23,7 @@ import (
 	"sync"
 
 	distributedcommonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
@@ -366,7 +367,7 @@ func (d *DispatcherImpl) SecretChanged(ctx context.Context, secret *corev1.Secre
 }
 
 // Shut down the current dispatcher and recreate it with new settings
-func (d *DispatcherImpl) reconfigure(newConfig *sarama.Config, ekConfig *distributedcommonconfig.EventingKafkaConfig) Dispatcher {
+func (d *DispatcherImpl) reconfigure(newConfig *sarama.Config, ekConfig *commonconfig.EventingKafkaConfig) Dispatcher {
 	d.Shutdown()
 	d.DispatcherConfig.SaramaConfig = newConfig
 	if ekConfig != nil {

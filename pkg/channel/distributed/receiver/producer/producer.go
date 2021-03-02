@@ -37,6 +37,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/health"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/util"
 	"knative.dev/eventing-kafka/pkg/common/client"
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/eventing-kafka/pkg/common/tracing"
 	eventingChannel "knative.dev/eventing/pkg/channel"
@@ -288,7 +289,7 @@ func (p *Producer) Close() {
 }
 
 // Shut down the current producer and recreate it with new settings
-func (p *Producer) reconfigure(newConfig *sarama.Config, ekConfig *distributedcommonconfig.EventingKafkaConfig) *Producer {
+func (p *Producer) reconfigure(newConfig *sarama.Config, ekConfig *commonconfig.EventingKafkaConfig) *Producer {
 	p.Close()
 	if ekConfig != nil {
 		// Currently the only thing that a new producer might care about in the EventingKafkaConfig is the Brokers
