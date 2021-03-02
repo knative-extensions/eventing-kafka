@@ -24,7 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
+	distributedcommonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	logtesting "knative.dev/pkg/logging/testing"
 )
@@ -120,7 +120,7 @@ func TestNumPartitions(t *testing.T) {
 	logger := logtesting.TestLogger(t).Desugar()
 
 	// Test Data
-	configuration := &config.EventingKafkaConfig{Kafka: config.EKKafkaConfig{Topic: config.EKKafkaTopicConfig{DefaultNumPartitions: defaultNumPartitions}}}
+	configuration := &distributedcommonconfig.EventingKafkaConfig{Kafka: distributedcommonconfig.EKKafkaConfig{Topic: distributedcommonconfig.EKKafkaTopicConfig{DefaultNumPartitions: defaultNumPartitions}}}
 
 	// Test The Default Failover Use Case
 	channel := &kafkav1beta1.KafkaChannel{}
@@ -140,7 +140,7 @@ func TestReplicationFactor(t *testing.T) {
 	logger := logtesting.TestLogger(t).Desugar()
 
 	// Test Data
-	configuration := &config.EventingKafkaConfig{Kafka: config.EKKafkaConfig{Topic: config.EKKafkaTopicConfig{DefaultReplicationFactor: defaultReplicationFactor}}}
+	configuration := &distributedcommonconfig.EventingKafkaConfig{Kafka: distributedcommonconfig.EKKafkaConfig{Topic: distributedcommonconfig.EKKafkaTopicConfig{DefaultReplicationFactor: defaultReplicationFactor}}}
 
 	// Test The Default Failover Use Case
 	channel := &kafkav1beta1.KafkaChannel{}
@@ -160,7 +160,7 @@ func TestRetentionMillis(t *testing.T) {
 	logger := logtesting.TestLogger(t).Desugar()
 
 	// Test Data
-	configuration := &config.EventingKafkaConfig{Kafka: config.EKKafkaConfig{Topic: config.EKKafkaTopicConfig{DefaultRetentionMillis: defaultRetentionMillis}}}
+	configuration := &distributedcommonconfig.EventingKafkaConfig{Kafka: distributedcommonconfig.EKKafkaConfig{Topic: distributedcommonconfig.EKKafkaTopicConfig{DefaultRetentionMillis: defaultRetentionMillis}}}
 
 	// Test The Default Failover Use Case
 	channel := &kafkav1beta1.KafkaChannel{}

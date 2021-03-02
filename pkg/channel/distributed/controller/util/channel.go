@@ -23,7 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
+	distributedcommonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"knative.dev/pkg/network"
 )
@@ -81,7 +81,7 @@ func ChannelHostName(channelName, channelNamespace string) string {
 }
 
 // Utility Function To Get The NumPartitions - First From Channel Spec And Then From ConfigMap-Provided Settings
-func NumPartitions(channel *kafkav1beta1.KafkaChannel, configuration *config.EventingKafkaConfig, logger *zap.Logger) int32 {
+func NumPartitions(channel *kafkav1beta1.KafkaChannel, configuration *distributedcommonconfig.EventingKafkaConfig, logger *zap.Logger) int32 {
 	value := channel.Spec.NumPartitions
 	if value <= 0 {
 		logger.Debug("Kafka Channel Spec 'NumPartitions' Not Specified - Using Default", zap.Int32("Value", configuration.Kafka.Topic.DefaultNumPartitions))
@@ -91,7 +91,7 @@ func NumPartitions(channel *kafkav1beta1.KafkaChannel, configuration *config.Eve
 }
 
 // Utility Function To Get The ReplicationFactor - First From Channel Spec And Then From ConfigMap-Provided Settings
-func ReplicationFactor(channel *kafkav1beta1.KafkaChannel, configuration *config.EventingKafkaConfig, logger *zap.Logger) int16 {
+func ReplicationFactor(channel *kafkav1beta1.KafkaChannel, configuration *distributedcommonconfig.EventingKafkaConfig, logger *zap.Logger) int16 {
 	value := channel.Spec.ReplicationFactor
 	if value <= 0 {
 		logger.Debug("Kafka Channel Spec 'ReplicationFactor' Not Specified - Using Default", zap.Int16("Value", configuration.Kafka.Topic.DefaultReplicationFactor))
@@ -101,7 +101,7 @@ func ReplicationFactor(channel *kafkav1beta1.KafkaChannel, configuration *config
 }
 
 // Utility Function To Get The RetentionMillis - First From Channel Spec And Then From ConfigMap-Provided Settings
-func RetentionMillis(channel *kafkav1beta1.KafkaChannel, configuration *config.EventingKafkaConfig, logger *zap.Logger) int64 {
+func RetentionMillis(channel *kafkav1beta1.KafkaChannel, configuration *distributedcommonconfig.EventingKafkaConfig, logger *zap.Logger) int64 {
 	//
 	// TODO - The eventing-contrib KafkaChannel CRD does not include RetentionMillis so we're
 	//        currently just using the default value specified in Controller Environment Variables.

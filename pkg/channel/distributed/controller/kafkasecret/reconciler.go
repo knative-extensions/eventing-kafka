@@ -25,7 +25,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
+	distributedcommonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
@@ -39,7 +39,7 @@ import (
 // Reconciler Implements controller.Reconciler for K8S Secrets Containing Kafka Auth (Labelled)
 type Reconciler struct {
 	kubeClientset      kubernetes.Interface
-	config             *config.EventingKafkaConfig
+	config             *distributedcommonconfig.EventingKafkaConfig
 	environment        *env.Environment
 	kafkaChannelClient versioned.Interface
 	kafkachannelLister kafkalisters.KafkaChannelLister

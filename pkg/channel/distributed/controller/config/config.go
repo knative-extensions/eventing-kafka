@@ -19,7 +19,7 @@ package config
 import (
 	"strings"
 
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
+	distributedcommonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 )
 
@@ -33,7 +33,7 @@ func (err ControllerConfigurationError) Error() string {
 
 // VerifyConfiguration returns an error if mandatory fields in the EventingKafkaConfig have not been set either
 // via the external configmap or the internal variables.
-func VerifyConfiguration(configuration *config.EventingKafkaConfig) error {
+func VerifyConfiguration(configuration *distributedcommonconfig.EventingKafkaConfig) error {
 
 	// Verify & Lowercase The Kafka AdminType
 	lowercaseKafkaAdminType := strings.ToLower(configuration.Kafka.AdminType)

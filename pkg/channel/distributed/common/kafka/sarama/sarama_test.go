@@ -28,7 +28,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/kubernetes/fake"
-	commonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
+	distributedcommonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
 	"knative.dev/eventing-kafka/pkg/common/constants"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
@@ -341,7 +341,7 @@ func TestStringifyHeaders(t *testing.T) {
 	}
 }
 
-func verifyTestEKConfigSettings(t *testing.T, saramaConfig *sarama.Config, eventingKafkaConfig *commonconfig.EventingKafkaConfig) {
+func verifyTestEKConfigSettings(t *testing.T, saramaConfig *sarama.Config, eventingKafkaConfig *distributedcommonconfig.EventingKafkaConfig) {
 	// Quick checks to make sure the loaded configs aren't complete junk
 	assert.Equal(t, commontesting.OldUsername, saramaConfig.Net.SASL.User)
 	assert.Equal(t, commontesting.OldPassword, saramaConfig.Net.SASL.Password)

@@ -24,7 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	kafkachannelv1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
-	commonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
+	distributedcommonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/types"
 	clientconstants "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
@@ -140,7 +140,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	}
 
 	// Watch The Settings ConfigMap For Changes
-	err = commonconfig.InitializeConfigWatcher(ctx, logger.Sugar(), rec.configMapObserver, environment.SystemNamespace)
+	err = distributedcommonconfig.InitializeConfigWatcher(ctx, logger.Sugar(), rec.configMapObserver, environment.SystemNamespace)
 	if err != nil {
 		logger.Fatal("Failed To Initialize ConfigMap Watcher", zap.Error(err))
 	}

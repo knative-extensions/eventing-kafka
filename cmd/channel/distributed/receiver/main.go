@@ -27,7 +27,7 @@ import (
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
-	commonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
+	distributedcommonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	commonk8s "knative.dev/eventing-kafka/pkg/channel/distributed/common/k8s"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	kafkautil "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/util"
@@ -87,7 +87,7 @@ func main() {
 	}
 
 	// Update The Sarama Config - Username/Password Overrides (Values From Secret Take Precedence Over ConfigMap)
-	kafkaAuthCfg, err := commonconfig.GetAuthConfigFromKubernetes(ctx, environment.KafkaSecretName, environment.KafkaSecretNamespace)
+	kafkaAuthCfg, err := distributedcommonconfig.GetAuthConfigFromKubernetes(ctx, environment.KafkaSecretName, environment.KafkaSecretNamespace)
 	if err != nil {
 		logger.Fatal("Failed To Load Auth Config", zap.Error(err))
 	}
@@ -102,13 +102,13 @@ func main() {
 	sarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)
 
 	// Initialize Tracing (Watches config-tracing ConfigMap, Assumes Context Came From LoggingContext With Embedded K8S Client Key)
-	err = commonconfig.InitializeTracing(logger.Sugar(), ctx, environment.ServiceName, environment.SystemNamespace)
+	err = distributedcommonconfig.InitializeTracing(logger.Sugar(), ctx, environment.ServiceName, environment.SystemNamespace)
 	if err != nil {
 		logger.Fatal("Could Not Initialize Tracing - Terminating", zap.Error(err))
 	}
 
 	// Initialize Observability (Watches config-observability ConfigMap And Starts Profiling Server)
-	err = commonconfig.InitializeObservability(ctx, logger.Sugar(), environment.MetricsDomain, environment.MetricsPort, environment.SystemNamespace)
+	err = distributedcommonconfig.InitializeObservability(ctx, logger.Sugar(), environment.MetricsDomain, environment.MetricsPort, environment.SystemNamespace)
 	if err != nil {
 		logger.Fatal("Could Not Initialize Observability - Terminating", zap.Error(err))
 	}
@@ -134,13 +134,13 @@ func main() {
 	statsReporter := metrics.NewStatsReporter(logger)
 
 	// Watch The Settings ConfigMap For Changes
-	err = commonconfig.InitializeConfigWatcher(ctx, logger.Sugar(), configMapObserver, environment.SystemNamespace)
+	err = distributedcommonconfig.InitializeConfigWatcher(ctx, logger.Sugar(), configMapObserver, environment.SystemNamespace)
 	if err != nil {
 		logger.Fatal("Failed To Initialize ConfigMap Watcher", zap.Error(err))
 	}
 
 	// Watch The Secret For Changes
-	err = commonconfig.InitializeSecretWatcher(ctx, environment.KafkaSecretNamespace, environment.KafkaSecretName, secretObserver)
+	err = distributedcommonconfig.InitializeSecretWatcher(ctx, environment.KafkaSecretNamespace, environment.KafkaSecretName, secretObserver)
 	if err != nil {
 		logger.Fatal("Failed To Start Secret Watcher", zap.Error(err))
 	}

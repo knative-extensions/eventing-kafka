@@ -30,7 +30,7 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
+	distributedcommonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/types"
 	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
@@ -55,13 +55,13 @@ type Reconciler struct {
 	adminClientType      types.AdminClientType
 	adminClient          types.AdminClientInterface
 	environment          *env.Environment
-	config               *config.EventingKafkaConfig
+	config               *distributedcommonconfig.EventingKafkaConfig
 	saramaConfig         *sarama.Config
 	kafkachannelLister   kafkalisters.KafkaChannelLister
 	kafkachannelInformer cache.SharedIndexInformer
 	deploymentLister     appsv1listers.DeploymentLister
 	serviceLister        corev1listers.ServiceLister
-	configObserver       config.LoggingObserver
+	configObserver       distributedcommonconfig.LoggingObserver
 	adminMutex           *sync.Mutex
 	kafkaSecret          string
 	kafkaBrokers         string
