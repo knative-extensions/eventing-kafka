@@ -22,40 +22,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kafkaconstants "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
+	clienttesting "knative.dev/eventing-kafka/pkg/common/client/testing"
 	"knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/pkg/system"
 )
 
 // Constants
 const (
-	DefaultSaramaConfigYaml = `
-Version: 2.0.0
-Admin:
-  Timeout: 10000000000
-Net:
-  KeepAlive: 30000000000
-  MaxOpenRequests: 1
-  TLS:
-    Enable: true
-  SASL:
-    Enable: true
-    Mechanism: PLAIN
-    Version: 1
-Metadata:
-  RefreshFrequency: 300000000000
-Consumer:
-  Offsets:
-    AutoCommit:
-      Interval: 5000000000
-    Retention: 604800000000000
-  Return:
-    Errors: true
-Producer:
-  Idempotent: true
-  RequiredAcks: -1
-  Return:
-    Successes: true
-`
 	DefaultEventingKafkaConfigYaml = `
 receiver:
   cpuRequest: 100m
@@ -98,7 +71,7 @@ func NewKafkaConfigMap(options ...KafkaConfigMapOption) *corev1.ConfigMap {
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
-			constants.SaramaSettingsConfigKey:        DefaultSaramaConfigYaml,
+			constants.SaramaSettingsConfigKey:        clienttesting.DefaultSaramaConfigYaml,
 			constants.EventingKafkaSettingsConfigKey: DefaultEventingKafkaConfigYaml,
 		},
 	}

@@ -26,11 +26,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	distributedcommonconfigtesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/config/testing"
 	consumertesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer/testing"
 	consumerwrapper "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer/wrapper"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/metrics"
 	commonclient "knative.dev/eventing-kafka/pkg/common/client"
+	clienttesting "knative.dev/eventing-kafka/pkg/common/client/testing"
+	configtesting "knative.dev/eventing-kafka/pkg/common/config/testing"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/pkg/logging"
@@ -121,8 +122,8 @@ func TestUpdateSubscriptions(t *testing.T) {
 	defer consumertesting.RestoreNewConsumerGroupFn()
 
 	// Test Data
-	brokers := []string{distributedcommonconfigtesting.DefaultKafkaBroker}
-	config, err := commonclient.NewConfigBuilder().WithDefaults().FromYaml(distributedcommonconfigtesting.DefaultSaramaConfigYaml).Build(ctx)
+	brokers := []string{configtesting.DefaultKafkaBroker}
+	config, err := commonclient.NewConfigBuilder().WithDefaults().FromYaml(clienttesting.DefaultSaramaConfigYaml).Build(ctx)
 	assert.Nil(t, err)
 
 	dispatcherConfig := DispatcherConfig{
@@ -289,10 +290,10 @@ func TestConfigChanged(t *testing.T) {
 	commontesting.SetTestEnvironment(t)
 
 	// Test Data
-	brokers := []string{distributedcommonconfigtesting.DefaultKafkaBroker}
+	brokers := []string{configtesting.DefaultKafkaBroker}
 	baseSaramaConfig, err := commonclient.NewConfigBuilder().
 		WithDefaults().
-		FromYaml(distributedcommonconfigtesting.DefaultSaramaConfigYaml).
+		FromYaml(clienttesting.DefaultSaramaConfigYaml).
 		WithVersion(&sarama.V2_0_0_0).
 		Build(ctx)
 	assert.Nil(t, err)
@@ -309,37 +310,37 @@ func TestConfigChanged(t *testing.T) {
 	testCases := []TestCase{
 		{
 			name:                "No Changes (Same Dispatcher)",
-			newConfigMap:        distributedcommonconfigtesting.NewKafkaConfigMap(),
+			newConfigMap:        configtesting.NewKafkaConfigMap(),
 			expectNewDispatcher: false,
 		},
 		{
 			name:                "No EventingKafka Config (Same Dispatcher)",
-			newConfigMap:        distributedcommonconfigtesting.NewKafkaConfigMap(distributedcommonconfigtesting.WithoutEventingKafkaConfiguration),
+			newConfigMap:        configtesting.NewKafkaConfigMap(configtesting.WithoutEventingKafkaConfiguration),
 			expectNewDispatcher: false,
 		},
 		{
 			name:                "Admin Change (New Dispatcher)",
-			newConfigMap:        distributedcommonconfigtesting.NewKafkaConfigMap(distributedcommonconfigtesting.WithModifiedSaramaAdmin),
+			newConfigMap:        configtesting.NewKafkaConfigMap(configtesting.WithModifiedSaramaAdmin),
 			expectNewDispatcher: true,
 		},
 		{
 			name:                "Net Change (New Dispatcher)",
-			newConfigMap:        distributedcommonconfigtesting.NewKafkaConfigMap(distributedcommonconfigtesting.WithModifiedSaramaNet),
+			newConfigMap:        configtesting.NewKafkaConfigMap(configtesting.WithModifiedSaramaNet),
 			expectNewDispatcher: true,
 		},
 		{
 			name:                "Metadata Change (New Dispatcher)",
-			newConfigMap:        distributedcommonconfigtesting.NewKafkaConfigMap(distributedcommonconfigtesting.WithModifiedSaramaMetadata),
+			newConfigMap:        configtesting.NewKafkaConfigMap(configtesting.WithModifiedSaramaMetadata),
 			expectNewDispatcher: true,
 		},
 		{
 			name:                "Consumer Change (New Dispatcher)",
-			newConfigMap:        distributedcommonconfigtesting.NewKafkaConfigMap(distributedcommonconfigtesting.WithModifiedSaramaConsumer),
+			newConfigMap:        configtesting.NewKafkaConfigMap(configtesting.WithModifiedSaramaConsumer),
 			expectNewDispatcher: true,
 		},
 		{
 			name:                "Producer Change (Same Dispatcher)",
-			newConfigMap:        distributedcommonconfigtesting.NewKafkaConfigMap(distributedcommonconfigtesting.WithModifiedSaramaProducer),
+			newConfigMap:        configtesting.NewKafkaConfigMap(configtesting.WithModifiedSaramaProducer),
 			expectNewDispatcher: false,
 		},
 	}
@@ -388,17 +389,17 @@ func TestSecretChanged(t *testing.T) {
 	commontesting.SetTestEnvironment(t)
 
 	// Test Data
-	brokers := []string{distributedcommonconfigtesting.DefaultKafkaBroker}
+	brokers := []string{configtesting.DefaultKafkaBroker}
 	auth := &commonclient.KafkaAuthConfig{
 		SASL: &commonclient.KafkaSaslConfig{
-			User:     distributedcommonconfigtesting.DefaultSecretUsername,
-			Password: distributedcommonconfigtesting.DefaultSecretPassword,
-			SaslType: distributedcommonconfigtesting.DefaultSecretSaslType,
+			User:     configtesting.DefaultSecretUsername,
+			Password: configtesting.DefaultSecretPassword,
+			SaslType: configtesting.DefaultSecretSaslType,
 		},
 	}
 	baseSaramaConfig, err := commonclient.NewConfigBuilder().
 		WithDefaults().
-		FromYaml(distributedcommonconfigtesting.DefaultSaramaConfigYaml).
+		FromYaml(clienttesting.DefaultSaramaConfigYaml).
 		WithVersion(&sarama.V2_0_0_0).
 		WithAuth(auth).
 		Build(ctx)
@@ -416,37 +417,37 @@ func TestSecretChanged(t *testing.T) {
 	testCases := []TestCase{
 		{
 			name:                "No Changes (Same Dispatcher)",
-			newSecret:           distributedcommonconfigtesting.NewKafkaSecret(),
+			newSecret:           configtesting.NewKafkaSecret(),
 			expectNewDispatcher: false,
 		},
 		{
 			name:                "Password Change (New Dispatcher)",
-			newSecret:           distributedcommonconfigtesting.NewKafkaSecret(distributedcommonconfigtesting.WithModifiedPassword),
+			newSecret:           configtesting.NewKafkaSecret(configtesting.WithModifiedPassword),
 			expectNewDispatcher: true,
 		},
 		{
 			name:                "Username Change (New Dispatcher)",
-			newSecret:           distributedcommonconfigtesting.NewKafkaSecret(distributedcommonconfigtesting.WithModifiedUsername),
+			newSecret:           configtesting.NewKafkaSecret(configtesting.WithModifiedUsername),
 			expectNewDispatcher: true,
 		},
 		{
 			name:                "Empty Username Change (New Dispatcher)",
-			newSecret:           distributedcommonconfigtesting.NewKafkaSecret(distributedcommonconfigtesting.WithEmptyUsername),
+			newSecret:           configtesting.NewKafkaSecret(configtesting.WithEmptyUsername),
 			expectNewDispatcher: true,
 		},
 		{
 			name:                "SaslType Change (New Dispatcher)",
-			newSecret:           distributedcommonconfigtesting.NewKafkaSecret(distributedcommonconfigtesting.WithModifiedSaslType),
+			newSecret:           configtesting.NewKafkaSecret(configtesting.WithModifiedSaslType),
 			expectNewDispatcher: true,
 		},
 		{
 			name:                "Namespace Change (Same Dispatcher)",
-			newSecret:           distributedcommonconfigtesting.NewKafkaSecret(distributedcommonconfigtesting.WithModifiedNamespace),
+			newSecret:           configtesting.NewKafkaSecret(configtesting.WithModifiedNamespace),
 			expectNewDispatcher: false,
 		},
 		{
 			name:                "No Auth Config In Secret (Same Dispatcher)",
-			newSecret:           distributedcommonconfigtesting.NewKafkaSecret(distributedcommonconfigtesting.WithMissingConfig),
+			newSecret:           configtesting.NewKafkaSecret(configtesting.WithMissingConfig),
 			expectNewDispatcher: false,
 		},
 	}

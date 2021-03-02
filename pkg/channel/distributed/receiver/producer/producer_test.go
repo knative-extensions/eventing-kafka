@@ -24,13 +24,14 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
-	distributedcommonconfigtesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/config/testing"
 	producertesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/producer/testing"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/metrics"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/constants"
 	channelhealth "knative.dev/eventing-kafka/pkg/channel/distributed/receiver/health"
 	receivertesting "knative.dev/eventing-kafka/pkg/channel/distributed/receiver/testing"
 	commonclient "knative.dev/eventing-kafka/pkg/common/client"
+	clienttesting "knative.dev/eventing-kafka/pkg/common/client/testing"
+	configtesting "knative.dev/eventing-kafka/pkg/common/config/testing"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
@@ -40,7 +41,7 @@ import (
 func TestNewProducer(t *testing.T) {
 
 	// Test Data
-	brokers := []string{distributedcommonconfigtesting.DefaultKafkaBroker}
+	brokers := []string{configtesting.DefaultKafkaBroker}
 	config := sarama.NewConfig()
 
 	// Create A Mock Kafka SyncProducer
@@ -61,7 +62,7 @@ func TestNewProducer(t *testing.T) {
 func TestProduceKafkaMessage(t *testing.T) {
 
 	// Test Data
-	brokers := []string{distributedcommonconfigtesting.DefaultKafkaBroker}
+	brokers := []string{configtesting.DefaultKafkaBroker}
 	config := sarama.NewConfig()
 	channelReference := receivertesting.CreateChannelReference(receivertesting.ChannelName, receivertesting.ChannelNamespace)
 	bindingMessage := receivertesting.CreateBindingMessage(cloudevents.VersionV1)
@@ -110,8 +111,8 @@ func TestConfigChanged(t *testing.T) {
 	commontesting.SetTestEnvironment(t)
 
 	// Test Data
-	brokers := []string{distributedcommonconfigtesting.DefaultKafkaBroker}
-	baseSaramaConfig, err := commonclient.NewConfigBuilder().WithDefaults().FromYaml(distributedcommonconfigtesting.DefaultSaramaConfigYaml).Build(ctx)
+	brokers := []string{configtesting.DefaultKafkaBroker}
+	baseSaramaConfig, err := commonclient.NewConfigBuilder().WithDefaults().FromYaml(clienttesting.DefaultSaramaConfigYaml).Build(ctx)
 	assert.Nil(t, err)
 
 	// Define The TestCase Struct
@@ -126,37 +127,37 @@ func TestConfigChanged(t *testing.T) {
 	testCases := []TestCase{
 		{
 			name:              "No Changes (Same Producer)",
-			newConfigMap:      distributedcommonconfigtesting.NewKafkaConfigMap(),
+			newConfigMap:      configtesting.NewKafkaConfigMap(),
 			expectNewProducer: false,
 		},
 		{
 			name:              "No EventingKafka Config (Same Producer)",
-			newConfigMap:      distributedcommonconfigtesting.NewKafkaConfigMap(distributedcommonconfigtesting.WithoutEventingKafkaConfiguration),
+			newConfigMap:      configtesting.NewKafkaConfigMap(configtesting.WithoutEventingKafkaConfiguration),
 			expectNewProducer: false,
 		},
 		{
 			name:              "Admin Change (Same Producer)",
-			newConfigMap:      distributedcommonconfigtesting.NewKafkaConfigMap(distributedcommonconfigtesting.WithModifiedSaramaAdmin),
+			newConfigMap:      configtesting.NewKafkaConfigMap(configtesting.WithModifiedSaramaAdmin),
 			expectNewProducer: false,
 		},
 		{
 			name:              "Net Change (New Producer)",
-			newConfigMap:      distributedcommonconfigtesting.NewKafkaConfigMap(distributedcommonconfigtesting.WithModifiedSaramaNet),
+			newConfigMap:      configtesting.NewKafkaConfigMap(configtesting.WithModifiedSaramaNet),
 			expectNewProducer: true,
 		},
 		{
 			name:              "Metadata Change (New Producer)",
-			newConfigMap:      distributedcommonconfigtesting.NewKafkaConfigMap(distributedcommonconfigtesting.WithModifiedSaramaMetadata),
+			newConfigMap:      configtesting.NewKafkaConfigMap(configtesting.WithModifiedSaramaMetadata),
 			expectNewProducer: true,
 		},
 		{
 			name:              "Consumer Change (Same Producer)",
-			newConfigMap:      distributedcommonconfigtesting.NewKafkaConfigMap(distributedcommonconfigtesting.WithModifiedSaramaConsumer),
+			newConfigMap:      configtesting.NewKafkaConfigMap(configtesting.WithModifiedSaramaConsumer),
 			expectNewProducer: false,
 		},
 		{
 			name:              "Producer Change (New Producer)",
-			newConfigMap:      distributedcommonconfigtesting.NewKafkaConfigMap(distributedcommonconfigtesting.WithModifiedSaramaProducer),
+			newConfigMap:      configtesting.NewKafkaConfigMap(configtesting.WithModifiedSaramaProducer),
 			expectNewProducer: true,
 		},
 	}
@@ -212,15 +213,15 @@ func TestSecretChanged(t *testing.T) {
 	commontesting.SetTestEnvironment(t)
 
 	// Test Data
-	brokers := []string{distributedcommonconfigtesting.DefaultKafkaBroker}
+	brokers := []string{configtesting.DefaultKafkaBroker}
 	auth := &commonclient.KafkaAuthConfig{
 		SASL: &commonclient.KafkaSaslConfig{
-			User:     distributedcommonconfigtesting.DefaultSecretUsername,
-			Password: distributedcommonconfigtesting.DefaultSecretPassword,
-			SaslType: distributedcommonconfigtesting.DefaultSecretSaslType,
+			User:     configtesting.DefaultSecretUsername,
+			Password: configtesting.DefaultSecretPassword,
+			SaslType: configtesting.DefaultSecretSaslType,
 		},
 	}
-	baseSaramaConfig, err := commonclient.NewConfigBuilder().WithDefaults().FromYaml(distributedcommonconfigtesting.DefaultSaramaConfigYaml).WithAuth(auth).Build(ctx)
+	baseSaramaConfig, err := commonclient.NewConfigBuilder().WithDefaults().FromYaml(clienttesting.DefaultSaramaConfigYaml).WithAuth(auth).Build(ctx)
 	assert.Nil(t, err)
 
 	// Define The TestCase Struct
@@ -235,37 +236,37 @@ func TestSecretChanged(t *testing.T) {
 	testCases := []TestCase{
 		{
 			name:              "No Changes (Same Producer)",
-			newSecret:         distributedcommonconfigtesting.NewKafkaSecret(),
+			newSecret:         configtesting.NewKafkaSecret(),
 			expectNewProducer: false,
 		},
 		{
 			name:              "Password Change (New Producer)",
-			newSecret:         distributedcommonconfigtesting.NewKafkaSecret(distributedcommonconfigtesting.WithModifiedPassword),
+			newSecret:         configtesting.NewKafkaSecret(configtesting.WithModifiedPassword),
 			expectNewProducer: true,
 		},
 		{
 			name:              "Username Change (New Producer)",
-			newSecret:         distributedcommonconfigtesting.NewKafkaSecret(distributedcommonconfigtesting.WithModifiedUsername),
+			newSecret:         configtesting.NewKafkaSecret(configtesting.WithModifiedUsername),
 			expectNewProducer: true,
 		},
 		{
 			name:              "Empty Username Change (New Producer)",
-			newSecret:         distributedcommonconfigtesting.NewKafkaSecret(distributedcommonconfigtesting.WithEmptyUsername),
+			newSecret:         configtesting.NewKafkaSecret(configtesting.WithEmptyUsername),
 			expectNewProducer: true,
 		},
 		{
 			name:              "SaslType Change (New Producer)",
-			newSecret:         distributedcommonconfigtesting.NewKafkaSecret(distributedcommonconfigtesting.WithModifiedSaslType),
+			newSecret:         configtesting.NewKafkaSecret(configtesting.WithModifiedSaslType),
 			expectNewProducer: true,
 		},
 		{
 			name:              "Namespace Change (Same Producer)",
-			newSecret:         distributedcommonconfigtesting.NewKafkaSecret(distributedcommonconfigtesting.WithModifiedNamespace),
+			newSecret:         configtesting.NewKafkaSecret(configtesting.WithModifiedNamespace),
 			expectNewProducer: false,
 		},
 		{
 			name:              "No Auth Config In Secret (Same Producer)",
-			newSecret:         distributedcommonconfigtesting.NewKafkaSecret(distributedcommonconfigtesting.WithMissingConfig),
+			newSecret:         configtesting.NewKafkaSecret(configtesting.WithMissingConfig),
 			expectNewProducer: false,
 		},
 	}
@@ -314,7 +315,7 @@ func TestSecretChanged(t *testing.T) {
 func TestClose(t *testing.T) {
 
 	// Test Data
-	brokers := []string{distributedcommonconfigtesting.DefaultKafkaBroker}
+	brokers := []string{configtesting.DefaultKafkaBroker}
 	config := sarama.NewConfig()
 
 	// Create A Mock Kafka SyncProducer
