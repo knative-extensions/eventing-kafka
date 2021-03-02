@@ -38,6 +38,7 @@ import (
 	channelhealth "knative.dev/eventing-kafka/pkg/channel/distributed/receiver/health"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/producer"
 	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	eventingchannel "knative.dev/eventing/pkg/channel"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/injection"
@@ -134,7 +135,7 @@ func main() {
 	statsReporter := metrics.NewStatsReporter(logger)
 
 	// Watch The Settings ConfigMap For Changes
-	err = distributedcommonconfig.InitializeConfigWatcher(ctx, logger.Sugar(), configMapObserver, environment.SystemNamespace)
+	err = commonconfig.InitializeConfigWatcher(ctx, logger.Sugar(), configMapObserver, environment.SystemNamespace)
 	if err != nil {
 		logger.Fatal("Failed To Initialize ConfigMap Watcher", zap.Error(err))
 	}

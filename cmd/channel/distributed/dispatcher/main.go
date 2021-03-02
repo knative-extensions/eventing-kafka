@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing/pkg/kncloudevents"
 	"knative.dev/pkg/injection"
 
@@ -144,7 +145,7 @@ func main() {
 	dispatcher = dispatch.NewDispatcher(dispatcherConfig)
 
 	// Watch The Settings ConfigMap For Changes
-	err = distributedcommonconfig.InitializeConfigWatcher(ctx, logger.Sugar(), configMapObserver, environment.SystemNamespace)
+	err = commonconfig.InitializeConfigWatcher(ctx, logger.Sugar(), configMapObserver, environment.SystemNamespace)
 	if err != nil {
 		logger.Fatal("Failed To Initialize ConfigMap Watcher", zap.Error(err))
 	}
