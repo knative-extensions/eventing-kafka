@@ -20,13 +20,9 @@ import (
 	"context"
 
 	"github.com/kelseyhightower/envconfig"
-	"knative.dev/eventing-kafka/pkg/common/constants"
-
 	"go.uber.org/zap"
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 
-	v1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
@@ -74,13 +70,15 @@ func NewController(
 		roleBindingLister:    roleBindingInformer.Lister(),
 	}
 
+	logger := logging.FromContext(ctx)
+
 	env := &envConfig{}
 	if err := envconfig.Process("", env); err != nil {
-		logging.FromContext(ctx).Panicf("unable to process Kafka channel's required environment variables: %v", err)
+		logger.Panicf("unable to process Kafka channel's required environment variables: %v", err)
 	}
 
 	if env.Image == "" {
-		logging.FromContext(ctx).Panic("unable to process Kafka channel's required environment variables (missing DISPATCHER_IMAGE)")
+		logger.Panic("unable to process Kafka channel's required environment variables (missing DISPATCHER_IMAGE)")
 	}
 
 	r.dispatcherImage = env.Image
@@ -88,15 +86,12 @@ func NewController(
 	impl := kafkaChannelReconciler.NewImpl(ctx, r)
 
 	// Get and Watch the Kakfa config map and dynamically update Kafka configuration.
-	if _, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, constants.SettingsConfigMapName, metav1.GetOptions{}); err == nil {
-		cmw.Watch(constants.SettingsConfigMapName, func(configMap *v1.ConfigMap) {
-			r.updateKafkaConfig(ctx, configMap)
-		})
-	} else if !apierrors.IsNotFound(err) {
-		logging.FromContext(ctx).With(zap.Error(err)).Fatalf("Error reading ConfigMap '%s'", constants.SettingsConfigMapName)
+	err := commonconfig.InitializeKafkaConfigMapWatcher(ctx, logger, r.updateKafkaConfig, system.Namespace())
+	if err != nil {
+		logger.Fatal("Failed To Initialize ConfigMap Watcher", zap.Error(err))
 	}
 
-	logging.FromContext(ctx).Info("Setting up event handlers")
+	logger.Info("Setting up event handlers")
 	kafkaChannelInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	// Set up watches for dispatcher resources we care about, since any changes to these
