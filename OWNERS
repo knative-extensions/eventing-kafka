@@ -1,26 +1,23 @@
-# Initial set of approvers taken from eventing WG leads, Kafka approvers and original developers of the channel added
+# The OWNERS file is used by prow to automatically merge approved PRs.
+
 approvers:
-- vaikas
-- lionelvillard
-- grantr
-- matzew
-- lberk
-- slinkydeveloper
-- davyodom
-- travis-minke-sap
-- phamilton
+- devguyio
+- alanfx
 - aliok
+- lberk
+- markusthoemmes
+- matzew
+- mgencur
+- slinkydeveloper
+- warrenvw
 
 reviewers:
-- vaikas
-- lionelvillard
-- grantr
-- matzew
-- lberk
-- slinkydeveloper
-- steven0711dong
-- davyodom
-- travis-minke-sap
-- phamilton
 - devguyio
+- alanfx
 - aliok
+- lberk
+- markusthoemmes
+- matzew
+- mgencur
+- slinkydeveloper
+- warrenvw

@@ -1,0 +1,628 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: eventing-kafka-addressable-resolver
+  labels:
+    kafka.eventing.knative.dev/release: devel
+    duck.knative.dev/addressable: "true"
+rules:
+- apiGroups:
+  - messaging.knative.dev
+  resources:
+  - kafkachannels
+  - kafkachannels/status
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    duck.knative.dev/channelable: "true"
+    kafka.eventing.knative.dev/release: devel
+  name: kafka-channelable-manipulator
+rules:
+- apiGroups:
+  - messaging.knative.dev
+  resources:
+  - kafkachannels
+  - kafkachannels/status
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+  - update
+  - patch
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: eventing-kafka-channel-controller
+  labels:
+    kafka.eventing.knative.dev/release: devel
+rules:
+- apiGroups:
+  - "" # Core API Group
+  resources:
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - delete
+  - patch
+  - update
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - delete
+  - patch
+  - update
+- apiGroups:
+  - "" # Core API Group.
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+  - update
+- apiGroups:
+  - messaging.knative.dev
+  resources:
+  - channels
+  - channels/status
+  - subscriptions
+  - subscriptions/status
+  verbs:
+  - get
+  - list
+  - watch
+  - patch
+  - update
+- apiGroups:
+  - messaging.knative.dev
+  resources:
+  - kafkachannels
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+- apiGroups:
+  - messaging.knative.dev
+  resources:
+  - kafkachannels/status
+  verbs:
+  - get
+  - update
+  - patch
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: eventing-kafka-channel-controller
+  namespace: knative-eventing
+  labels:
+    kafka.eventing.knative.dev/release: devel
+rules:
+- apiGroups:
+  - "" # Core API Group
+  resources:
+  - configmaps
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: eventing-kafka-channel-controller
+  namespace: knative-eventing
+  labels:
+    kafka.eventing.knative.dev/release: devel
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kafka-webhook
+  labels:
+    kafka.eventing.knative.dev/release: devel
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - "configmaps"
+    verbs:
+      - "get"
+      - "list"
+      - "watch"
+  - apiGroups:
+      - ""
+    resources:
+      - "secrets"
+    verbs:
+      - "get"
+      - "create"
+      - "list"
+      - "watch"
+      - "update"
+  - apiGroups:
+      - "apps"
+    resources:
+      - "deployments"
+    verbs:
+      - "get"
+  - apiGroups:
+      - "apps"
+    resources:
+      - "deployments/finalizers"
+    verbs:
+      - update
+  - apiGroups:
+      - "admissionregistration.k8s.io"
+    resources:
+      - "mutatingwebhookconfigurations"
+      - "validatingwebhookconfigurations"
+    verbs: &everything
+      - "get"
+      - "list"
+      - "create"
+      - "update"
+      - "delete"
+      - "patch"
+      - "watch"
+  - apiGroups:
+      - "messaging.knative.dev"
+    resources:
+      - "kafkachannels"
+      - "kafkachannels/status"
+    verbs:
+      - "get"
+      - "list"
+      - "watch"
+  - apiGroups:
+      - "coordination.k8s.io"
+    resources:
+      - "leases"
+    verbs: *everything
+  - apiGroups:
+      - "apiextensions.k8s.io"
+    resources:
+      - "customresourcedefinitions"
+    verbs:
+      - "get"
+      - "list"
+      - "create"
+      - "update"
+      - "delete"
+      - "patch"
+      - "watch"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kafka-webhook
+  namespace: knative-eventing
+  labels:
+    kafka.eventing.knative.dev/release: devel
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: eventing-kafka-channel-controller
+  namespace: knative-eventing
+  labels:
+    kafka.eventing.knative.dev/release: devel
+subjects:
+- kind: ServiceAccount
+  name: eventing-kafka-channel-controller
+  namespace: knative-eventing
+roleRef:
+  kind: ClusterRole
+  name: eventing-kafka-channel-controller
+  apiGroup: rbac.authorization.k8s.io
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: eventing-kafka-channel-controller
+  namespace: knative-eventing
+  labels:
+    kafka.eventing.knative.dev/release: devel
+subjects:
+- kind: ServiceAccount
+  name: eventing-kafka-channel-controller
+  namespace: knative-eventing
+roleRef:
+  kind: Role
+  name: eventing-kafka-channel-controller
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kafka-webhook
+  labels:
+    kafka.eventing.knative.dev/release: devel
+subjects:
+- kind: ServiceAccount
+  name: kafka-webhook
+  namespace: knative-eventing
+roleRef:
+  kind: ClusterRole
+  name: kafka-webhook
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+data:
+  sarama: |
+    Version: 2.0.0 # Kafka Version Compatibility From Sarama's Supported List (Major.Minor.Patch)
+    Admin:
+      Timeout: 10000000000  # 10 seconds
+    Net:
+      KeepAlive: 30000000000  # 30 seconds
+      MaxOpenRequests: 1 # Set to 1 for use with Idempotent Producer
+      TLS:
+        Enable: true
+      SASL:
+        Enable: true
+        Version: 1
+    Metadata:
+      RefreshFrequency: 300000000000  # 5 minutes
+    Consumer:
+      Offsets:
+        AutoCommit:
+          Interval: 5000000000  # 5 seconds
+        Retention: 604800000000000  # 1 week
+    Producer:
+      Idempotent: true  # Must be false for Azure EventHubs
+      RequiredAcks: -1  # -1 = WaitForAll, Most stringent option for "at-least-once" delivery.
+  eventing-kafka: |
+    receiver:
+      cpuRequest: 100m
+      memoryRequest: 50Mi
+      replicas: 1
+    dispatcher:
+      cpuRequest: 100m
+      memoryRequest: 50Mi
+      replicas: 1
+    kafka:
+      brokers: REPLACE_WITH_CLUSTER_URL
+      enableSaramaLogging: false
+      topic:
+        defaultNumPartitions: 4
+        defaultReplicationFactor: 1 # Cannot exceed the number of Kafka Brokers!
+        defaultRetentionMillis: 604800000  # 1 week
+      adminType: kafka # One of "kafka", "azure", "custom"
+kind: ConfigMap
+metadata:
+  name: config-kafka
+  namespace: knative-eventing
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: kafkachannels.messaging.knative.dev
+  labels:
+    kafka.eventing.knative.dev/release: devel
+    knative.dev/crd-install: "true"
+    messaging.knative.dev/subscribable: "true"
+    duck.knative.dev/addressable: "true"
+spec:
+  group: messaging.knative.dev
+  versions:
+    - &version
+      name: v1alpha1
+      served: true
+      storage: true
+      subresources:
+        status: { }
+      schema:
+        openAPIV3Schema: &openAPIV3Schema
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
+      additionalPrinterColumns:
+        - name: Ready
+          type: string
+          jsonPath: ".status.conditions[?(@.type==\"Ready\")].status"
+        - name: Reason
+          type: string
+          jsonPath: ".status.conditions[?(@.type==\"Ready\")].reason"
+        - name: URL
+          type: string
+          jsonPath: .status.address.url
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+    - <<: *version
+      name: v1beta1
+      served: true
+      storage: false
+      schema:
+        openAPIV3Schema:
+          <<: *openAPIV3Schema
+  names:
+    kind: KafkaChannel
+    plural: kafkachannels
+    singular: kafkachannel
+    categories:
+      - all
+      - knative
+      - messaging
+      - channel
+    shortNames:
+      - kc
+  scope: Namespaced
+  conversion:
+    strategy: Webhook
+    webhook:
+      conversionReviewVersions: [ "v1", "v1beta1" ]
+      clientConfig:
+        service:
+          name: kafka-webhook
+          namespace: knative-eventing
+---
+apiVersion: v1
+data:
+  namespace: ""
+  password: ""
+  username: ""
+  sasltype: ""
+kind: Secret
+metadata:
+  name: kafka-cluster
+  namespace: knative-eventing
+  labels:
+    eventing-kafka.knative.dev/kafka-secret: "true"
+type: Opaque
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: messaging-webhook-certs
+  namespace: knative-eventing
+  labels:
+    kafka.eventing.knative.dev/release: devel
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: eventing-kafka-channel-controller
+  namespace: knative-eventing
+  labels:
+    k8s-app: eventing-kafka-channel-controller
+    kafka.eventing.knative.dev/release: devel
+spec:
+  selector:
+    app: eventing-kafka-channel-controller
+  ports:
+  - name: metrics
+    protocol: TCP
+    port: 8081
+    targetPort: 8081
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-webhook
+  namespace: knative-eventing
+  labels:
+    kafka.eventing.knative.dev/release: devel
+    role: kafka-webhook
+spec:
+  ports:
+    - name: https-webhook
+      port: 443
+      targetPort: 8443
+  selector:
+    role: kafka-webhook
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eventing-kafka-channel-controller
+  namespace: knative-eventing
+  labels:
+    app: eventing-kafka-channel-controller
+    kafka.eventing.knative.dev/release: devel
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: eventing-kafka-channel-controller
+      name: eventing-kafka-channel-controller
+  template:
+    metadata:
+      labels:
+        app: eventing-kafka-channel-controller
+        name: eventing-kafka-channel-controller
+    spec:
+      serviceAccountName: eventing-kafka-channel-controller
+      containers:
+      - name: eventing-kafka
+        image: registry.svc.ci.openshift.org/openshift/knative-v0.21.0:knative-eventing-kafka-distributed-controller
+        imagePullPolicy: IfNotPresent # Must be IfNotPresent or Never if used with ko.local
+        ports:
+        - containerPort: 8081
+          name: metrics
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: SYSTEM_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: CONFIG_LOGGING_NAME
+          value: config-logging
+        - name: CONFIG_LEADERELECTION_NAME
+          value: config-leader-election
+        - name: SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.serviceAccountName
+        - name: METRICS_PORT
+          value: "8081"
+        - name: METRICS_DOMAIN
+          value: "eventing-kafka"
+        - name: RECEIVER_IMAGE
+          value: "registry.svc.ci.openshift.org/openshift/knative-v0.21.0:knative-eventing-kafka-receiver"
+        - name: DISPATCHER_IMAGE
+          value: "registry.svc.ci.openshift.org/openshift/knative-v0.21.0:knative-eventing-kafka-distributed-dispatcher"
+        resources:
+          requests:
+            cpu: 20m
+            memory: 25Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-webhook
+  namespace: knative-eventing
+  labels:
+    kafka.eventing.knative.dev/release: devel
+spec:
+  replicas: 1
+  selector:
+    matchLabels: &labels
+      app: kafka-webhook
+      role: kafka-webhook
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+      labels: *labels
+    spec:
+      serviceAccountName: kafka-webhook
+      containers:
+      - name: kafka-webhook
+        terminationMessagePolicy: FallbackToLogsOnError
+        image: registry.svc.ci.openshift.org/openshift/knative-v0.21.0:knative-eventing-kafka-webhook
+        env:
+        - name: SYSTEM_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: CONFIG_LOGGING_NAME
+          value: config-logging
+        - name: METRICS_DOMAIN
+          value: knative.dev/eventing
+        - name: WEBHOOK_NAME
+          value: kafka-webhook
+        - name: WEBHOOK_PORT
+          value: "8443"
+        ports:
+        - name: https-webhook
+          containerPort: 8443
+        - name: metrics
+          containerPort: 9090
+        - name: profiling
+          containerPort: 8008
+        readinessProbe: &probe
+          periodSeconds: 1
+          httpGet:
+            scheme: HTTPS
+            port: 8443
+            httpHeaders:
+            - name: k-kubelet-probe
+              value: "webhook"
+        livenessProbe:
+          <<: *probe
+          initialDelaySeconds: 20
+      terminationGracePeriodSeconds: 300
+---
+apiVersion: autoscaling/v2beta2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: kafka-webhook
+  namespace: knative-eventing
+  labels:
+    eventing.knative.dev/release: devel
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: kafka-webhook
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 100
+---
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: kafka-webhook
+  namespace: knative-eventing
+  labels:
+    eventing.knative.dev/release: devel
+spec:
+  minAvailable: 80%
+  selector:
+    matchLabels:
+      app: kafka-webhook
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: defaulting.webhook.kafka.messaging.knative.dev
+  labels:
+    kafka.eventing.knative.dev/release: devel
+webhooks:
+- admissionReviewVersions: ["v1", "v1beta1"]
+  clientConfig:
+    service:
+      name: kafka-webhook
+      namespace: knative-eventing
+  sideEffects: None
+  failurePolicy: Fail
+  name: defaulting.webhook.kafka.messaging.knative.dev
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: validation.webhook.kafka.messaging.knative.dev
+  labels:
+    kafka.eventing.knative.dev/release: devel
+webhooks:
+- admissionReviewVersions: ["v1", "v1beta1"]
+  clientConfig:
+    service:
+      name: kafka-webhook
+      namespace: knative-eventing
+  sideEffects: None
+  failurePolicy: Fail
+  name: validation.webhook.kafka.messaging.knative.dev
