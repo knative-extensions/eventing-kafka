@@ -21,15 +21,13 @@ import (
 	"reflect"
 	"testing"
 
-	"knative.dev/pkg/logging"
+	logtesting "knative.dev/pkg/logging/testing"
 
 	duckv1alpha1 "knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
 	tscheduler "knative.dev/eventing-kafka/pkg/common/scheduler/testing"
 )
 
 func TestStateBuilder(t *testing.T) {
-	ctx, cancel := setupFakeContext(t)
-
 	testCases := []struct {
 		name     string
 		vpods    [][]duckv1alpha1.Placement
@@ -67,7 +65,7 @@ func TestStateBuilder(t *testing.T) {
 				{{PodName: "statefulset-name-1", VReplicas: 0}, {PodName: "statefulset-name-3", VReplicas: 0}},
 			},
 			expected: state{capacity: 10, free: []int32{int32(9), int32(10), int32(5), int32(10)}, lastOrdinal: 2},
-			freec:    int32(34),
+			freec:    int32(24),
 		},
 	}
 
@@ -82,7 +80,7 @@ func TestStateBuilder(t *testing.T) {
 				vpodClient.Create(vpodNamespace, vpodName, 1, placements)
 			}
 
-			stateBuilder := newStateBuilder(logging.FromContext(ctx), vpodClient.List, int32(10))
+			stateBuilder := newStateBuilder(logtesting.TestLogger(t), vpodClient.List, int32(10))
 			state, err := stateBuilder.State()
 			if err != nil {
 				t.Fatal("unexpected error", err)
@@ -97,7 +95,4 @@ func TestStateBuilder(t *testing.T) {
 			}
 		})
 	}
-
-	cancel()
-	<-ctx.Done()
 }
