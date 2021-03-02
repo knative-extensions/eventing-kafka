@@ -33,12 +33,12 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/health"
 	kafkaconstants "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 	kafkautil "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/util"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
+	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 	"knative.dev/eventing/pkg/apis/messaging"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/logging"
@@ -197,7 +197,7 @@ func WithoutResources(deployment *appsv1.Deployment) {
 // Set The Required Environment Variables
 func NewEnvironment() *env.Environment {
 	return &env.Environment{
-		SystemNamespace: testing.SystemNamespace,
+		SystemNamespace: commontesting.SystemNamespace,
 		ServiceAccount:  ServiceAccount,
 		MetricsPort:     MetricsPort,
 		MetricsDomain:   MetricsDomain,
