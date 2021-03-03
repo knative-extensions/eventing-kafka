@@ -37,3 +37,5 @@ require (
 	knative.dev/hack v0.0.0-20210203173706-8368e1f6eacf
 	knative.dev/pkg v0.0.0-20210303192215-8fbab7ebb77b
 )
+
+replace knative.dev/eventing => github.com/vaikas/eventing v0.0.0-20210303165102-53f6ff847e4c
