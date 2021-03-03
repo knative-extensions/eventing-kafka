@@ -25,8 +25,7 @@ import (
 )
 
 var (
-	ErrNoReplicas        = errors.New("scheduling failed (no pod replicas available)")
-	ErrNotEnoughReplicas = errors.New("scheduling partially failed (not enough pod replicas)")
+	ErrNotEnoughReplicas = errors.New("scheduling failed (not enough pod replicas)")
 )
 
 // VPodLister is the function signature for returning a list of VPods

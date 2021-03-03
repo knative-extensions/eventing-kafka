@@ -27,7 +27,7 @@ type sampleVPod struct {
 	placements []duckv1alpha1.Placement
 }
 
-func newVPod(ns, name string, vreplicas int32, placements []duckv1alpha1.Placement) *sampleVPod {
+func NewVPod(ns, name string, vreplicas int32, placements []duckv1alpha1.Placement) *sampleVPod {
 	return &sampleVPod{
 		key: types.NamespacedName{
 			Namespace: ns,
