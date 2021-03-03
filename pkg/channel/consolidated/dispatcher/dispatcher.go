@@ -141,7 +141,11 @@ func (d *KafkaDispatcher) ServeHTTP(w nethttp.ResponseWriter, r *nethttp.Request
 }
 
 func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispatcher, error) {
+	confTemplate := sarama.NewConfig()
+	confTemplate.Consumer.Offsets.Initial = sarama.OffsetOldest
+
 	conf, err := client.NewConfigBuilder().
+		WithExisting(confTemplate).
 		WithClientId(args.ClientID).
 		WithDefaults().
 		FromYaml(args.SaramaSettingsYamlString).
