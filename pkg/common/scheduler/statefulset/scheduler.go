@@ -104,18 +104,6 @@ func (s *StatefulSetScheduler) Schedule(vpod scheduler.VPod) ([]duckv1alpha1.Pla
 		return nil, err
 	}
 
-	if s.replicas == 0 {
-		logger.Info("scheduling failed (no replicas available)")
-		s.pending[vpod.GetKey()] = vpod.GetVReplicas()
-
-		// Trigger the autoscaler
-		if s.autoscaler != nil {
-			s.autoscaler.Autoscale(s.pendingVReplicas())
-		}
-
-		return make([]duckv1alpha1.Placement, 0), scheduler.ErrNoReplicas
-	}
-
 	placements := vpod.GetPlacements()
 
 	// The scheduler
@@ -137,7 +125,7 @@ func (s *StatefulSetScheduler) Schedule(vpod scheduler.VPod) ([]duckv1alpha1.Pla
 		logger.Infow("scaling down", zap.Int32("vreplicas", tr), zap.Int32("new vreplicas", vpod.GetVReplicas()))
 		placements := s.removeReplicas(tr-vpod.GetVReplicas(), placements)
 
-		// Do not trigger the autoscaler to avoid churn
+		// Do not trigger the autoscaler to avoid unnecessary churn
 
 		return placements, nil
 	}

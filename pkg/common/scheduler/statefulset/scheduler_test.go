@@ -18,7 +18,6 @@ package statefulset
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -42,50 +41,85 @@ import (
 )
 
 const (
-	sfsName = "statefulset-name"
+	sfsName       = "statefulset-name"
+	vpodName      = "source-name"
+	vpodNamespace = "source-namespace"
 )
 
 func TestStatefulsetScheduler(t *testing.T) {
 	testCases := []struct {
 		name       string
-		vpods      []int32
+		vreplicas  int32
 		replicas   int32
 		placements []duckv1alpha1.Placement
+		expected   []duckv1alpha1.Placement
 		err        error
 	}{
 		{
-			name:       "no replicas",
-			vpods:      []int32{1},
-			replicas:   int32(0),
-			err:        scheduler.ErrNoReplicas,
-			placements: []duckv1alpha1.Placement{},
+			name:      "no replicas, no vreplicas",
+			vreplicas: 0,
+			replicas:  int32(0),
+			expected:  nil,
 		},
 		{
-			name:       "one vpod, one vreplicas",
-			vpods:      []int32{1},
-			replicas:   int32(1),
-			placements: []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 1}},
+			name:      "no replicas, 1 vreplicas, fail.",
+			vreplicas: 1,
+			replicas:  int32(0),
+			err:       scheduler.ErrNotEnoughReplicas,
+			expected:  []duckv1alpha1.Placement{},
 		},
 		{
-			name:       "one vpod, 3 vreplicas",
-			vpods:      []int32{3},
-			replicas:   int32(1),
-			placements: []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 3}},
+			name:      "one replica, one vreplicas",
+			vreplicas: 1,
+			replicas:  int32(1),
+			expected:  []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 1}},
 		},
 		{
-			name:       "one vpod, 15 vreplicas, partial scheduling",
-			vpods:      []int32{15},
-			replicas:   int32(1),
-			err:        scheduler.ErrNotEnoughReplicas,
-			placements: []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 10}},
+			name:      "one replica, 3 vreplicas",
+			vreplicas: 3,
+			replicas:  int32(1),
+			expected:  []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 3}},
 		},
 		{
-			name:     "one vpod, 15 vreplicas, full scheduling",
-			vpods:    []int32{15},
-			replicas: int32(2),
+			name:      "one replica, 15 vreplicas, unschedulable",
+			vreplicas: 15,
+			replicas:  int32(1),
+			err:       scheduler.ErrNotEnoughReplicas,
+			expected:  []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 10}},
+		},
+		{
+			name:      "two replicas, 15 vreplicas, scheduled",
+			vreplicas: 15,
+			replicas:  int32(2),
+			expected: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 10},
+				{PodName: "statefulset-name-1", VReplicas: 5},
+			},
+		},
+		{
+			name:      "two replicas, 15 vreplicas, already scheduled",
+			vreplicas: 15,
+			replicas:  int32(2),
 			placements: []duckv1alpha1.Placement{
 				{PodName: "statefulset-name-0", VReplicas: 10},
 				{PodName: "statefulset-name-1", VReplicas: 5},
+			},
+			expected: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 10},
+				{PodName: "statefulset-name-1", VReplicas: 5},
+			},
+		},
+		{
+			name:      "two replicas, 15 vreplicas, too much scheduled (scale down)",
+			vreplicas: 15,
+			replicas:  int32(2),
+			placements: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 10},
+				{PodName: "statefulset-name-1", VReplicas: 10},
+			},
+			expected: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 5},
+				{PodName: "statefulset-name-1", VReplicas: 10},
 			},
 		},
 	}
@@ -114,25 +148,21 @@ func TestStatefulsetScheduler(t *testing.T) {
 				}
 			}()
 
-			for i, vreplicas := range tc.vpods {
-				vpodName := fmt.Sprint("vpod-name-", i)
-				vpodNamespace := fmt.Sprint("vpod-ns-", i)
+			vpod := vpodClient.Create(vpodNamespace, vpodName, tc.vreplicas, tc.placements)
+			placements, err := s.Schedule(vpod)
 
-				vpod := vpodClient.Create(vpodNamespace, vpodName, vreplicas, nil)
-				placements, err := s.Schedule(vpod)
-
-				if tc.err == nil && err != nil {
-					t.Fatal("unexpected error", err)
-				}
-
-				if tc.err != nil && err == nil {
-					t.Fatal("expected error, got none")
-				}
-
-				if !reflect.DeepEqual(placements, tc.placements) {
-					t.Errorf("got %v, want %v", placements, tc.placements)
-				}
+			if tc.err == nil && err != nil {
+				t.Fatal("unexpected error", err)
 			}
+
+			if tc.err != nil && err == nil {
+				t.Fatal("expected error, got none")
+			}
+
+			if !reflect.DeepEqual(placements, tc.expected) {
+				t.Errorf("got %v, want %v", placements, tc.expected)
+			}
+
 		})
 	}
 }
