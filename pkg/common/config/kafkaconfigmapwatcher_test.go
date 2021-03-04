@@ -23,12 +23,14 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
-	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
 	"knative.dev/eventing-kafka/pkg/common/constants"
+	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
+	"knative.dev/pkg/injection/sharedmain"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/system"
 )
@@ -39,22 +41,22 @@ var (
 	configMapMutex   = sync.Mutex{} // Don't trip up the data race examiner during tests
 )
 
-// Test The InitializeConfigWatcher() Functionality
-func TestInitializeConfigWatcher(t *testing.T) {
+// Test The InitializeKafkaConfigMapWatcher() Functionality
+func TestInitializeKafkaConfigMapWatcher(t *testing.T) {
 
-	// Obtain a Test Logger (Required By be InitializeConfigWatcher function)
+	// Obtain a Test Logger (Required By be InitializeKafkaConfigMapWatcher function)
 	logger := logtesting.TestLogger(t)
 
 	// Setup Environment
 	commontesting.SetTestEnvironment(t)
 
-	// Create A Test Sarama ConfigMap For The InitializeConfigWatcher() Call To Watch
+	// Create A Test Sarama ConfigMap For The InitializeKafkaConfigMapWatcher() Call To Watch
 	configMap := commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, commontesting.TestEKConfig)
 
 	// Create The Fake K8S Client And Add It To The ConfigMap
 	fakeK8sClient := fake.NewSimpleClientset(configMap)
 
-	// Add The Fake K8S Client To The Context (Required By InitializeConfigWatcher)
+	// Add The Fake K8S Client To The Context (Required By InitializeKafkaConfigMapWatcher)
 	ctx := context.WithValue(context.TODO(), injectionclient.Key{}, fakeK8sClient)
 
 	// The configWatcherHandler should change the nil "watchedConfigMap" to a valid ConfigMap when the watcher triggers
@@ -63,9 +65,15 @@ func TestInitializeConfigWatcher(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, testConfigMap.Data["sarama"], commontesting.OldSaramaConfig)
 
+	cmw := sharedmain.SetupConfigMapWatchOrDie(ctx, logger)
+
 	// Perform The Test (Initialize The Config Watcher)
-	err = InitializeConfigWatcher(ctx, logger, configWatcherHandler, system.Namespace())
+	err = InitializeKafkaConfigMapWatcher(ctx, cmw, logger, configWatcherHandler, system.Namespace())
 	assert.Nil(t, err)
+
+	if err := cmw.Start(ctx.Done()); err != nil {
+		logger.Fatal("Failed to start configmap watcher", zap.Error(err))
+	}
 
 	// Note that this initial change to the watched map is not part of the default Kubernetes watching logic.
 	// The underlying KNative InformedWatcher Start() function that is called as part of the

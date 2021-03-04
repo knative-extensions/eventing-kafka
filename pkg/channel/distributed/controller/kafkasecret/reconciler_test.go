@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	clientgotesting "k8s.io/client-go/testing"
-	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
+	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"

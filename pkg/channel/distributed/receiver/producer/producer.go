@@ -29,7 +29,7 @@ import (
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
+	distributedcommonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/producer"
 	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/metrics"
@@ -37,6 +37,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/health"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/util"
 	"knative.dev/eventing-kafka/pkg/common/client"
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/eventing-kafka/pkg/common/tracing"
 	eventingChannel "knative.dev/eventing/pkg/channel"
@@ -240,7 +241,7 @@ func (p *Producer) SecretChanged(ctx context.Context, secret *corev1.Secret) *Pr
 	// Debug Log The Secret Change
 	p.logger.Debug("New Secret Received", zap.String("secret.Name", secret.ObjectMeta.Name))
 
-	kafkaAuthCfg := config.GetAuthConfigFromSecret(secret)
+	kafkaAuthCfg := distributedcommonconfig.GetAuthConfigFromSecret(secret)
 	if kafkaAuthCfg == nil {
 		p.logger.Warn("No auth config found in secret; ignoring update")
 		return nil
@@ -288,7 +289,7 @@ func (p *Producer) Close() {
 }
 
 // Shut down the current producer and recreate it with new settings
-func (p *Producer) reconfigure(newConfig *sarama.Config, ekConfig *config.EventingKafkaConfig) *Producer {
+func (p *Producer) reconfigure(newConfig *sarama.Config, ekConfig *commonconfig.EventingKafkaConfig) *Producer {
 	p.Close()
 	if ekConfig != nil {
 		// Currently the only thing that a new producer might care about in the EventingKafkaConfig is the Brokers
