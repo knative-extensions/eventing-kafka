@@ -47,7 +47,7 @@ import (
 var rec *Reconciler
 
 // Create A New KafkaChannel Controller
-func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
+func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 
 	// Get A Logger
 	logger := logging.FromContext(ctx).Desugar()
@@ -140,7 +140,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	}
 
 	// Watch The Settings ConfigMap For Changes
-	err = commonconfig.InitializeKafkaConfigMapWatcher(ctx, logger.Sugar(), rec.configMapObserver, environment.SystemNamespace)
+	err = commonconfig.InitializeKafkaConfigMapWatcher(ctx, cmw, logger.Sugar(), rec.configMapObserver, environment.SystemNamespace)
 	if err != nil {
 		logger.Fatal("Failed To Initialize ConfigMap Watcher", zap.Error(err))
 	}

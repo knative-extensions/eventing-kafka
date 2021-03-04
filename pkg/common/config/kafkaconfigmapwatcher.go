@@ -25,7 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/eventing-kafka/pkg/common/constants"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	"knative.dev/pkg/injection/sharedmain"
+	"knative.dev/pkg/configmap"
 )
 
 // This function type is for a shim so that we can pass our own logger to the Observer function
@@ -35,13 +35,7 @@ type LoggingObserver func(ctx context.Context, configMap *corev1.ConfigMap)
 // Initialize The Specified Context With A ConfigMap Watcher
 // Much Of This Function Is Taken From The knative.dev sharedmain Package
 //
-func InitializeKafkaConfigMapWatcher(ctx context.Context, logger *zap.SugaredLogger, handler LoggingObserver, namespace string) error {
-
-	// Create A Watcher On The Configuration Settings ConfigMap & Dynamically Update Configuration
-	// Since this is designed to be called by the main() function, the default KNative package behavior here
-	// is a fatal exit if the watch cannot be set up.
-	watcher := sharedmain.SetupConfigMapWatchOrDie(ctx, logger)
-
+func InitializeKafkaConfigMapWatcher(ctx context.Context, watcher configmap.Watcher, logger *zap.SugaredLogger, handler LoggingObserver, namespace string) error {
 	// Start The ConfigMap Watcher
 	// Taken from knative.dev/pkg/injection/sharedmain/main.go::WatchObservabilityConfigOrDie
 	if _, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(namespace).Get(ctx, constants.SettingsConfigMapName, metav1.GetOptions{}); err == nil {

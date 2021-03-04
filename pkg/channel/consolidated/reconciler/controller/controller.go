@@ -86,7 +86,7 @@ func NewController(
 	impl := kafkaChannelReconciler.NewImpl(ctx, r)
 
 	// Get and Watch the Kakfa config map and dynamically update Kafka configuration.
-	err := commonconfig.InitializeKafkaConfigMapWatcher(ctx, logger, r.updateKafkaConfig, system.Namespace())
+	err := commonconfig.InitializeKafkaConfigMapWatcher(ctx, cmw, logger, r.updateKafkaConfig, system.Namespace())
 	if err != nil {
 		logger.Fatal("Failed To Initialize ConfigMap Watcher", zap.Error(err))
 	}

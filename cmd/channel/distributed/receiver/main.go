@@ -42,6 +42,7 @@ import (
 	eventingchannel "knative.dev/eventing/pkg/channel"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/injection"
+	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	eventingmetrics "knative.dev/pkg/metrics"
@@ -134,8 +135,13 @@ func main() {
 	// Create A New Stats StatsReporter
 	statsReporter := metrics.NewStatsReporter(logger)
 
+	// Create A Watcher On The Configuration Settings ConfigMap & Dynamically Update Configuration
+	// Since this is designed to be called by the main() function, the default KNative package behavior here
+	// is a fatal exit if the watch cannot be set up.
+	cmw := sharedmain.SetupConfigMapWatchOrDie(ctx, logger.Sugar())
+
 	// Watch The Settings ConfigMap For Changes
-	err = commonconfig.InitializeKafkaConfigMapWatcher(ctx, logger.Sugar(), configMapObserver, environment.SystemNamespace)
+	err = commonconfig.InitializeKafkaConfigMapWatcher(ctx, cmw, logger.Sugar(), configMapObserver, environment.SystemNamespace)
 	if err != nil {
 		logger.Fatal("Failed To Initialize ConfigMap Watcher", zap.Error(err))
 	}

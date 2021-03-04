@@ -29,6 +29,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/common/constants"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
+	"knative.dev/pkg/injection/sharedmain"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/system"
 )
@@ -63,8 +64,10 @@ func TestInitializeKafkaConfigMapWatcher(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, testConfigMap.Data["sarama"], commontesting.OldSaramaConfig)
 
+	cmw := sharedmain.SetupConfigMapWatchOrDie(ctx, logger)
+
 	// Perform The Test (Initialize The Config Watcher)
-	err = InitializeKafkaConfigMapWatcher(ctx, logger, configWatcherHandler, system.Namespace())
+	err = InitializeKafkaConfigMapWatcher(ctx, cmw, logger, configWatcherHandler, system.Namespace())
 	assert.Nil(t, err)
 
 	// Note that this initial change to the watched map is not part of the default Kubernetes watching logic.

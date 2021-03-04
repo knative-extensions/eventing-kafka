@@ -24,6 +24,7 @@ import (
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing/pkg/kncloudevents"
 	"knative.dev/pkg/injection"
+	"knative.dev/pkg/injection/sharedmain"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -144,8 +145,13 @@ func main() {
 	}
 	dispatcher = dispatch.NewDispatcher(dispatcherConfig)
 
+	// Create A Watcher On The Configuration Settings ConfigMap & Dynamically Update Configuration
+	// Since this is designed to be called by the main() function, the default KNative package behavior here
+	// is a fatal exit if the watch cannot be set up.
+	cmw := sharedmain.SetupConfigMapWatchOrDie(ctx, logger.Sugar())
+
 	// Watch The Settings ConfigMap For Changes
-	err = commonconfig.InitializeKafkaConfigMapWatcher(ctx, logger.Sugar(), configMapObserver, environment.SystemNamespace)
+	err = commonconfig.InitializeKafkaConfigMapWatcher(ctx, cmw, logger.Sugar(), configMapObserver, environment.SystemNamespace)
 	if err != nil {
 		logger.Fatal("Failed To Initialize ConfigMap Watcher", zap.Error(err))
 	}
