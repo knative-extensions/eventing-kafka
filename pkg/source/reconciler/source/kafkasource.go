@@ -37,11 +37,11 @@ import (
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 
+	ctrlreconciler "knative.dev/control-protocol/pkg/reconciler"
+	ctrlservice "knative.dev/control-protocol/pkg/service"
+
 	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
-	"knative.dev/eventing-kafka/pkg/source/control"
 	ctrlkafkasource "knative.dev/eventing-kafka/pkg/source/control/kafkasource"
-	ctrlreconciler "knative.dev/eventing-kafka/pkg/source/control/reconciler"
-	ctrlservice "knative.dev/eventing-kafka/pkg/source/control/service"
 	"knative.dev/eventing-kafka/pkg/source/reconciler/source/resources"
 
 	"k8s.io/client-go/kubernetes"

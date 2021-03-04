@@ -26,9 +26,8 @@ import (
 
 	"golang.org/x/time/rate"
 
-	ctrl "knative.dev/eventing-kafka/pkg/source/control"
-	ctrlmessage "knative.dev/eventing-kafka/pkg/source/control/kafkasource"
-	ctrlnetwork "knative.dev/eventing-kafka/pkg/source/control/network"
+	ctrl "knative.dev/control-protocol/pkg"
+	ctrlnetwork "knative.dev/control-protocol/pkg/network"
 
 	"github.com/Shopify/sarama"
 	"go.opencensus.io/trace"
@@ -42,6 +41,7 @@ import (
 
 	"knative.dev/eventing-kafka/pkg/common/consumer"
 	"knative.dev/eventing-kafka/pkg/source/client"
+	ctrlmessage "knative.dev/eventing-kafka/pkg/source/control/kafkasource"
 )
 
 const (

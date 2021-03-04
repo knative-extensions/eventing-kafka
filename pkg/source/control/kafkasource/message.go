@@ -7,7 +7,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	ctrl "knative.dev/eventing-kafka/pkg/source/control"
+	ctrl "knative.dev/control-protocol/pkg"
 )
 
 // This just contains the different opcodes

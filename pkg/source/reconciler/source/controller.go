@@ -31,11 +31,12 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/resolver"
 
+	ctrlreconciler "knative.dev/control-protocol/pkg/reconciler"
+
 	kafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client"
 	kafkainformer "knative.dev/eventing-kafka/pkg/client/injection/informers/sources/v1beta1/kafkasource"
 	"knative.dev/eventing-kafka/pkg/client/injection/reconciler/sources/v1beta1/kafkasource"
 	ctrlkafkasource "knative.dev/eventing-kafka/pkg/source/control/kafkasource"
-	ctrlreconciler "knative.dev/eventing-kafka/pkg/source/control/reconciler"
 )
 
 func NewController(
