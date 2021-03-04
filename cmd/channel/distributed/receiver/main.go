@@ -146,6 +146,10 @@ func main() {
 		logger.Fatal("Failed To Initialize ConfigMap Watcher", zap.Error(err))
 	}
 
+	if err := cmw.Start(ctx.Done()); err != nil {
+		logger.Fatal("Failed to start configmap watcher", zap.Error(err))
+	}
+
 	// Watch The Secret For Changes
 	err = distributedcommonconfig.InitializeSecretWatcher(ctx, environment.KafkaSecretNamespace, environment.KafkaSecretName, secretObserver)
 	if err != nil {

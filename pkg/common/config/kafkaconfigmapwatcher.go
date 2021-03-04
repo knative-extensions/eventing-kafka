@@ -45,10 +45,5 @@ func InitializeKafkaConfigMapWatcher(ctx context.Context, watcher configmap.Watc
 		return err
 	}
 
-	if err := watcher.Start(ctx.Done()); err != nil {
-		logger.Error("Failed to start configuration watcher", zap.Error(err))
-		return err
-	}
-
 	return nil
 }

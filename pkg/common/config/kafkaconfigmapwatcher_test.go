@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
@@ -69,6 +70,10 @@ func TestInitializeKafkaConfigMapWatcher(t *testing.T) {
 	// Perform The Test (Initialize The Config Watcher)
 	err = InitializeKafkaConfigMapWatcher(ctx, cmw, logger, configWatcherHandler, system.Namespace())
 	assert.Nil(t, err)
+
+	if err := cmw.Start(ctx.Done()); err != nil {
+		logger.Fatal("Failed to start configmap watcher", zap.Error(err))
+	}
 
 	// Note that this initial change to the watched map is not part of the default Kubernetes watching logic.
 	// The underlying KNative InformedWatcher Start() function that is called as part of the
