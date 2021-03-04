@@ -1080,7 +1080,7 @@ k8s.io/utils/buffer
 k8s.io/utils/integer
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# knative.dev/eventing v0.21.1-0.20210303233916-d6d48a74ff55
+# knative.dev/eventing v0.21.1-0.20210304171816-dbf18599e2ef
 ## explicit
 knative.dev/eventing/pkg/adapter/v2
 knative.dev/eventing/pkg/adapter/v2/test
@@ -1323,4 +1323,3 @@ knative.dev/pkg/webhook/resourcesemantics/validation
 sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 sigs.k8s.io/yaml
-# knative.dev/eventing => github.com/vaikas/eventing v0.0.0-20210303165102-53f6ff847e4c
