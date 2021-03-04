@@ -39,6 +39,7 @@ import (
 	_ "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment/fake" // Knative Fake Informer Injection
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"    // Knative Fake Informer Injection
 	"knative.dev/pkg/injection"
+	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
 )
@@ -67,11 +68,14 @@ func TestNewController(t *testing.T) {
 	ctx, fakeKafkaClientset := fakeKafkaClient.With(ctx)
 	assert.NotNil(t, fakeKafkaClientset)
 
+	// Create A Watcher On The Configuration Settings ConfigMap & Dynamically Update Configuration
+	cmw := sharedmain.SetupConfigMapWatchOrDie(ctx, logger)
+
 	// Perform The Test (Create The KafkaChannel Controller)
 	environment, err := controllerenv.GetEnvironment(logger.Desugar())
 	assert.Nil(t, err)
 	ctx = context.WithValue(ctx, controllerenv.Key{}, environment)
-	controller := NewController(ctx, nil)
+	controller := NewController(ctx, cmw)
 
 	// Verify The Results
 	assert.NotNil(t, controller)
