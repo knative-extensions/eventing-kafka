@@ -24,6 +24,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	ctrl "knative.dev/control-protocol/pkg"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
 
@@ -199,7 +200,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 		ctx,
 		string(src.UID),
 		podIPs,
-		func(newHost string, service control.Service) {
+		func(newHost string, service ctrl.Service) {
 			service.MessageHandler(ctrlservice.MessageRouter{
 				ctrlkafkasource.NotifySetupClaimsOpCode: r.claimsNotificationStore.ControlMessageHandler(
 					srcNamespacedName,

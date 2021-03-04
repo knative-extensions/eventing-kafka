@@ -17,8 +17,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	"sync"
-
 	appsv1 "k8s.io/api/apps/v1"
 	"knative.dev/eventing/pkg/apis/duck"
 	"knative.dev/pkg/apis"
