@@ -19,8 +19,9 @@ package controller
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
+
+	"knative.dev/eventing-kafka/pkg/channel/consolidated/status"
 
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/kafka"
 	"knative.dev/eventing-kafka/pkg/common/client"
@@ -93,7 +94,7 @@ func newDispatcherServiceWarn(err error) pkgreconciler.Event {
 }
 
 func newServiceAccountWarn(err error) pkgreconciler.Event {
-	return pkgreconciler.NewEvent(corev1.EventTypeWarning, "DispatcherServiceAccountFailed", "Reconciling dispatcher ServiceAccount failed: %s", err)
+	return pkgreconciler.NewEvent(corev1.EventTypeWarning, "Dispatc erServiceAccountFailed", "Reconciling dispatcher ServiceAccount failed: %s", err)
 }
 
 func newRoleBindingWarn(err error) pkgreconciler.Event {
@@ -130,6 +131,7 @@ type Reconciler struct {
 	endpointsLister      corev1listers.EndpointsLister
 	serviceAccountLister corev1listers.ServiceAccountLister
 	roleBindingLister    rbacv1listers.RoleBindingLister
+	statusManager        *status.Prober
 }
 
 var (
@@ -256,29 +258,12 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel
 	return newReconciledNormal(kc.Namespace, kc.Name)
 }
 
-func (r *Reconciler) setupSubscriptionStatusWatcher(ctx context.Context, channel *v1beta1.KafkaChannel) error {
-	var err error
-	groupIDPrefix := fmt.Sprintf("kafka.%s.%s", channel.Namespace, channel.Name)
-
-	m := func(cg string) bool {
-		return strings.HasPrefix(cg, groupIDPrefix)
-	}
-	err = r.consumerGroupWatcher.Watch(string(channel.ObjectMeta.UID), func() {
-		err := r.markSubscriptionReadiness(ctx, channel, r.consumerGroupWatcher.List(m))
-		if err != nil {
-			logging.FromContext(ctx).Errorw("error updating subscription readiness", zap.Error(err))
-		}
-	})
-	return err
-}
-
-func (r *Reconciler) markSubscriptionReadiness(ctx context.Context, ch *v1beta1.KafkaChannel, cgs []string) error {
+func (r *Reconciler) setupSubscriptionStatusWatcher(ctx context.Context, ch *v1beta1.KafkaChannel) error {
 	after := ch.DeepCopy()
 	after.Status.Subscribers = make([]v1.SubscriberStatus, 0)
 
 	for _, s := range ch.Spec.Subscribers {
-		cg := fmt.Sprintf("kafka.%s.%s.%s", ch.Namespace, ch.Name, s.UID)
-		if Find(cgs, cg) {
+		if r, _ := r.statusManager.IsReady(ctx, *ch, s); r {
 			logging.FromContext(ctx).Debugw("marking subscription", zap.Any("subscription", s))
 			after.Status.Subscribers = append(after.Status.Subscribers, v1.SubscriberStatus{
 				UID:                s.UID,

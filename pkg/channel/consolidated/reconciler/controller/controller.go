@@ -18,6 +18,20 @@ package controller
 
 import (
 	"context"
+	"fmt"
+	"net/url"
+
+	v12 "knative.dev/eventing/pkg/apis/duck/v1"
+
+	"knative.dev/eventing-kafka/pkg/channel/consolidated/status"
+
+	"knative.dev/eventing/pkg/apis/eventing"
+
+	"k8s.io/apimachinery/pkg/types"
+
+	"k8s.io/apimachinery/pkg/util/sets"
+
+	corev1listers "k8s.io/client-go/listers/core/v1"
 
 	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
@@ -36,11 +50,56 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
 
+	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	kafkaChannelClient "knative.dev/eventing-kafka/pkg/client/injection/client"
 	"knative.dev/eventing-kafka/pkg/client/injection/informers/messaging/v1beta1/kafkachannel"
 	kafkaChannelReconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
 	eventingClient "knative.dev/eventing/pkg/client/injection/client"
 )
+
+type TargetLister struct {
+}
+
+func (t *TargetLister) ListProbeTargets(ctx context.Context, kc v1beta1.KafkaChannel) ([]status.ProbeTarget, error) {
+	scope, ok := kc.Annotations[eventing.ScopeAnnotationKey]
+	if !ok {
+		scope = scopeCluster
+	}
+
+	dispatcherNamespace := system.Namespace()
+	if scope == scopeNamespace {
+		dispatcherNamespace = kc.Namespace
+	}
+
+	// Get the Dispatcher Service Endpoints and propagate the status to the Channel
+	// endpoints has the same name as the service, so not a bug.
+	eps, err := endpoints.Get(ctx).Lister().Endpoints(dispatcherNamespace).Get(dispatcherName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get internal service: %w", err)
+	}
+	var readyIPs []string
+
+	for _, sub := range eps.Subsets {
+		for _, address := range sub.Addresses {
+			readyIPs = append(readyIPs, address.IP)
+		}
+	}
+
+	if len(readyIPs) == 0 {
+		return nil, fmt.Errorf("no gateway pods available")
+	}
+
+	u, _ := url.Parse(fmt.Sprintf("http://%s.%s/%s/%s", dispatcherName, dispatcherNamespace, kc.Namespace, kc.Name))
+
+	uls := []*url.URL{u}
+
+	return []status.ProbeTarget{
+		{
+			PodIPs:  sets.NewString(readyIPs...),
+			PodPort: "8080", Port: "8080", URLs: uls,
+		},
+	}, nil
+}
 
 // NewController initializes the controller and is called by the generated code.
 // Registers event handlers to enqueue events.
@@ -48,7 +107,7 @@ func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
 ) *controller.Impl {
-
+	logger := logging.FromContext(ctx)
 	kafkaChannelInformer := kafkachannel.Get(ctx)
 	deploymentInformer := deployment.Get(ctx)
 	endpointsInformer := endpoints.Get(ctx)
@@ -70,8 +129,6 @@ func NewController(
 		roleBindingLister:    roleBindingInformer.Lister(),
 	}
 
-	logger := logging.FromContext(ctx)
-
 	env := &envConfig{}
 	if err := envconfig.Process("", env); err != nil {
 		logger.Panicf("unable to process Kafka channel's required environment variables: %v", err)
@@ -85,6 +142,16 @@ func NewController(
 
 	impl := kafkaChannelReconciler.NewImpl(ctx, r)
 
+	statusProber := status.NewProber(
+		logger.Named("status-manager"),
+		NewProbeTargetLister(logger, endpointsInformer.Lister()),
+		func(c v1beta1.KafkaChannel, s v12.SubscriberSpec) {
+			logger.Debugf("Ready callback triggered for channel: %s/%s subscription: %s", c.Namespace, c.Name, string(s.UID))
+			impl.EnqueueKey(types.NamespacedName{Namespace: c.Namespace, Name: c.Name})
+		},
+	)
+	r.statusManager = statusProber
+	statusProber.Start(ctx.Done())
 	// Get and Watch the Kakfa config map and dynamically update Kafka configuration.
 	err := commonconfig.InitializeKafkaConfigMapWatcher(ctx, cmw, logger, r.updateKafkaConfig, system.Namespace())
 	if err != nil {
@@ -126,4 +193,9 @@ func NewController(
 	})
 
 	return impl
+}
+
+func NewProbeTargetLister(logger *zap.SugaredLogger, lister corev1listers.EndpointsLister) status.ProbeTargetLister {
+	tl := TargetLister{}
+	return &tl
 }
