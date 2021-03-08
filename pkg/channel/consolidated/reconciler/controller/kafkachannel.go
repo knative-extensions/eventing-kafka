@@ -19,7 +19,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
@@ -74,8 +73,6 @@ const (
 	dispatcherRoleBindingCreated    = "DispatcherRoleBindingCreated"
 
 	dispatcherName = "kafka-ch-dispatcher"
-
-	pollInterval = 2 * time.Second
 )
 
 func newReconciledNormal(namespace, name string) pkgreconciler.Event {
@@ -91,7 +88,7 @@ func newDispatcherServiceWarn(err error) pkgreconciler.Event {
 }
 
 func newServiceAccountWarn(err error) pkgreconciler.Event {
-	return pkgreconciler.NewEvent(corev1.EventTypeWarning, "Dispatc erServiceAccountFailed", "Reconciling dispatcher ServiceAccount failed: %s", err)
+	return pkgreconciler.NewEvent(corev1.EventTypeWarning, "DispatcherServiceAccountFailed", "Reconciling dispatcher ServiceAccount failed: %s", err)
 }
 
 func newRoleBindingWarn(err error) pkgreconciler.Event {

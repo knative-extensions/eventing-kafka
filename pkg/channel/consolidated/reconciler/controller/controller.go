@@ -34,7 +34,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/client/injection/informers/messaging/v1beta1/kafkachannel"
 	kafkaChannelReconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
-	v12 "knative.dev/eventing/pkg/apis/duck/v1"
+	eventingduckv1 "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/apis/eventing"
 	eventingClient "knative.dev/eventing/pkg/client/injection/client"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
@@ -138,7 +138,7 @@ func NewController(
 	statusProber := status.NewProber(
 		logger.Named("status-manager"),
 		NewProbeTargetLister(logger, endpointsInformer.Lister()),
-		func(c v1beta1.KafkaChannel, s v12.SubscriberSpec) {
+		func(c v1beta1.KafkaChannel, s eventingduckv1.SubscriberSpec) {
 			logger.Debugf("Ready callback triggered for channel: %s/%s subscription: %s", c.Namespace, c.Name, string(s.UID))
 			impl.EnqueueKey(types.NamespacedName{Namespace: c.Namespace, Name: c.Name})
 		},
