@@ -65,7 +65,7 @@ func ClaimsDifference(old interface{}, new interface{}) interface{} {
 }
 
 func (c Claims) String() string {
-	var strs []string
+	strs := make([]string, 0, len(c))
 	for topic, partitions := range c {
 		strs = append(strs, fmt.Sprintf("'%s': %v", topic, partitions))
 	}

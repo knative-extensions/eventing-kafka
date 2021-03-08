@@ -42,7 +42,7 @@ import (
 	ctrlservice "knative.dev/control-protocol/pkg/service"
 
 	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
-	ctrlkafkasource "knative.dev/eventing-kafka/pkg/source/control/kafkasource"
+	kafkasourcecontrol "knative.dev/eventing-kafka/pkg/source/control"
 	"knative.dev/eventing-kafka/pkg/source/reconciler/source/resources"
 
 	"k8s.io/client-go/kubernetes"
@@ -202,15 +202,15 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 		podIPs,
 		func(newHost string, service ctrl.Service) {
 			service.MessageHandler(ctrlservice.MessageRouter{
-				ctrlkafkasource.NotifySetupClaimsOpCode: r.claimsNotificationStore.ControlMessageHandler(
+				kafkasourcecontrol.NotifySetupClaimsOpCode: r.claimsNotificationStore.ControlMessageHandler(
 					srcNamespacedName,
 					newHost,
-					ctrlkafkasource.ClaimsMerger,
+					kafkasourcecontrol.ClaimsMerger,
 				),
-				ctrlkafkasource.NotifyCleanupClaimsOpCode: r.claimsNotificationStore.ControlMessageHandler(
+				kafkasourcecontrol.NotifyCleanupClaimsOpCode: r.claimsNotificationStore.ControlMessageHandler(
 					srcNamespacedName,
 					newHost,
-					ctrlkafkasource.ClaimsDifference,
+					kafkasourcecontrol.ClaimsDifference,
 				),
 			})
 		},
@@ -336,7 +336,7 @@ func derefReplicas(i *int32) int32 {
 }
 
 func stringifyClaimsStatus(status map[string]interface{}) string {
-	var strs []string
+	strs := make([]string, 0, len(status))
 	for podIp, claims := range status {
 		strs = append(strs, fmt.Sprintf("Pod %s: %v", podIp, claims))
 	}

@@ -41,7 +41,7 @@ import (
 
 	"knative.dev/eventing-kafka/pkg/common/consumer"
 	"knative.dev/eventing-kafka/pkg/source/client"
-	ctrlmessage "knative.dev/eventing-kafka/pkg/source/control/kafkasource"
+	kafkasourcecontrol "knative.dev/eventing-kafka/pkg/source/control"
 )
 
 const (
@@ -207,13 +207,13 @@ func (a *Adapter) HandleServiceMessage(ctx context.Context, message ctrl.Service
 }
 
 func (a *Adapter) Setup(sess sarama.ConsumerGroupSession) {
-	if err := a.controlServer.SendAndWaitForAck(ctrlmessage.NotifySetupClaimsOpCode, ctrlmessage.Claims(sess.Claims())); err != nil {
+	if err := a.controlServer.SendAndWaitForAck(kafkasourcecontrol.NotifySetupClaimsOpCode, kafkasourcecontrol.Claims(sess.Claims())); err != nil {
 		a.logger.Warnf("Cannot send the claims update: %v", err)
 	}
 }
 
 func (a *Adapter) Cleanup(sess sarama.ConsumerGroupSession) {
-	if err := a.controlServer.SendAndWaitForAck(ctrlmessage.NotifyCleanupClaimsOpCode, ctrlmessage.Claims(sess.Claims())); err != nil {
+	if err := a.controlServer.SendAndWaitForAck(kafkasourcecontrol.NotifyCleanupClaimsOpCode, kafkasourcecontrol.Claims(sess.Claims())); err != nil {
 		a.logger.Warnf("Cannot send the claims update: %v", err)
 	}
 }

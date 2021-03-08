@@ -36,7 +36,7 @@ import (
 	kafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client"
 	kafkainformer "knative.dev/eventing-kafka/pkg/client/injection/informers/sources/v1beta1/kafkasource"
 	"knative.dev/eventing-kafka/pkg/client/injection/reconciler/sources/v1beta1/kafkasource"
-	ctrlkafkasource "knative.dev/eventing-kafka/pkg/source/control/kafkasource"
+	kafkasourcecontrol "knative.dev/eventing-kafka/pkg/source/control"
 )
 
 func NewController(
@@ -69,7 +69,7 @@ func NewController(
 	impl := kafkasource.NewImpl(ctx, c)
 	c.sinkResolver = resolver.NewURIResolver(ctx, impl.EnqueueKey)
 
-	c.claimsNotificationStore = ctrlreconciler.NewNotificationStore(impl.EnqueueKey, ctrlkafkasource.ClaimsParser)
+	c.claimsNotificationStore = ctrlreconciler.NewNotificationStore(impl.EnqueueKey, kafkasourcecontrol.ClaimsParser)
 
 	logging.FromContext(ctx).Info("Setting up kafka event handlers")
 
