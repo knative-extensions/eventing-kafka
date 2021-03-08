@@ -20,8 +20,11 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"io/ioutil"
 	"net"
+	"strconv"
+	"strings"
 	"time"
 
 	"knative.dev/pkg/logging"
@@ -66,26 +69,76 @@ func LoadServerTLSConfigFromFile() (*tls.Config, error) {
 	return conf, nil
 }
 
-func StartInsecureControlServer(ctx context.Context) (ctrl.Service, <-chan struct{}, error) {
-	return StartControlServer(ctx, nil)
+type ControlServerOptions struct {
+	port         int
+	listenConfig *net.ListenConfig
 }
 
-func StartControlServer(ctx context.Context, tlsConfigLoader func() (*tls.Config, error)) (ctrl.Service, <-chan struct{}, error) {
-	ln, err := listenConfig.Listen(ctx, "tcp", ":9000")
+type ControlServerOption func(*ControlServerOptions)
+
+func WithPort(port int) ControlServerOption {
+	return func(options *ControlServerOptions) {
+		options.port = port
+	}
+}
+
+type ControlServer struct {
+	ctrl.Service
+	closedCh <-chan struct{}
+	port     int
+}
+
+// ClosedCh returns a channel which is closed after the server stopped listening
+func (cs *ControlServer) ClosedCh() <-chan struct{} {
+	return cs.closedCh
+}
+
+// ListeningPort is the port where the server is actually listening
+func (cs *ControlServer) ListeningPort() int {
+	return cs.port
+}
+
+func StartInsecureControlServer(ctx context.Context, options ...ControlServerOption) (*ControlServer, error) {
+	return StartControlServer(ctx, nil, options...)
+}
+
+func StartControlServer(ctx context.Context, tlsConfigLoader func() (*tls.Config, error), options ...ControlServerOption) (*ControlServer, error) {
+	opts := ControlServerOptions{
+		port:         9000,
+		listenConfig: &listenConfig,
+	}
+
+	for _, fn := range options {
+		fn(&opts)
+	}
+
+	ln, err := opts.listenConfig.Listen(ctx, "tcp", fmt.Sprintf(":%d", opts.port))
 	if err != nil {
-		return nil, nil, err
+		return nil, err
+	}
+	listeningAddress := ln.Addr().String()
+	logging.FromContext(ctx).Infof("Started listener: %s", listeningAddress)
+
+	// Parse the port
+	port, err := strconv.Atoi(listeningAddress[strings.LastIndex(listeningAddress, ":")+1:])
+	if err != nil {
+		return nil, fmt.Errorf("cannot parse the listening port: %w", err)
 	}
 
 	tcpConn := newServerTcpConnection(ctx, ln, tlsConfigLoader)
 	ctrlService := service.NewService(ctx, tcpConn)
 
-	logging.FromContext(ctx).Infof("Started listener: %s", ln.Addr().String())
-
 	closedServerCh := make(chan struct{})
 
 	tcpConn.startAcceptPolling(closedServerCh)
 
-	return ctrlService, closedServerCh, nil
+	ctrlServer := &ControlServer{
+		Service:  ctrlService,
+		closedCh: closedServerCh,
+		port:     port,
+	}
+
+	return ctrlServer, nil
 }
 
 type serverTcpConnection struct {

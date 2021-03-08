@@ -34,6 +34,7 @@ import (
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection"
+	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/leaderelection"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
@@ -211,7 +212,7 @@ func MainWithInformers(ctx context.Context, component string, env EnvConfigAcces
 func ConstructEnvOrDie(ector EnvConfigConstructor) EnvConfigAccessor {
 	env := ector()
 	if err := envconfig.Process("", env); err != nil {
-		log.Panicf("Error processing env var: %s", err)
+		log.Fatalf("Error processing env var: %s", err)
 	}
 	return env
 }
@@ -225,7 +226,7 @@ func SetupInformers(ctx context.Context, logger *zap.SugaredLogger) (context.Con
 		logger.Infof("Registering %d informers", len(injection.Default.GetInformers()))
 		logger.Infof("Registering %d ducks", len(injection.Default.GetDucks()))
 
-		cfg := injection.ParseAndGetRESTConfigOrDie()
+		cfg := sharedmain.ParseAndGetConfigOrDie()
 		return injection.Default.SetupInformers(ctx, cfg)
 	}
 	return ctx, nil

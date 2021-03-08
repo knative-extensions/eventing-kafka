@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"knative.dev/pkg/logging"
@@ -33,7 +34,9 @@ type Dialer interface {
 }
 
 func StartControlClient(ctx context.Context, dialOptions Dialer, target string) (ctrl.Service, error) {
-	target = target + ":9000"
+	if !strings.Contains(target, ":") {
+		target = target + ":9000"
+	}
 	logging.FromContext(ctx).Infof("Starting control client to %s", target)
 
 	// Let's try the dial

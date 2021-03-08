@@ -42,7 +42,9 @@ type MessageAdapter interface {
 type MessageAdapterConstructor func(ctx context.Context, env EnvConfigAccessor, adapter *kncloudevents.HTTPMessageSender, reporter source.StatsReporter) MessageAdapter
 
 func MainMessageAdapter(component string, ector EnvConfigConstructor, ctor MessageAdapterConstructor) {
-	MainMessageAdapterWithContext(signals.NewContext(), component, ector, ctor)
+	ctx := signals.NewContext()
+
+	MainMessageAdapterWithContext(ctx, component, ector, ctor)
 }
 
 func MainMessageAdapterWithContext(ctx context.Context, component string, ector EnvConfigConstructor, ctor MessageAdapterConstructor) {

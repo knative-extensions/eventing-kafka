@@ -63,8 +63,8 @@ func NewEnvConfig() adapter.EnvConfigAccessor {
 }
 
 type Adapter struct {
-	config         *AdapterConfig
-	controlService ctrl.Service
+	config        *AdapterConfig
+	controlServer *ctrlnetwork.ControlServer
 
 	httpMessageSender *kncloudevents.HTTPMessageSender
 	reporter          pkgsource.StatsReporter
@@ -104,11 +104,11 @@ func (a *Adapter) Start(ctx context.Context) (err error) {
 	)
 
 	// Init control service
-	a.controlService, _, err = ctrlnetwork.StartInsecureControlServer(ctx)
+	a.controlServer, err = ctrlnetwork.StartInsecureControlServer(ctx)
 	if err != nil {
 		return err
 	}
-	a.controlService.MessageHandler(a)
+	a.controlServer.MessageHandler(a)
 
 	// init consumer group
 	addrs, config, err := client.NewConfigWithEnv(context.Background(), &a.config.KafkaEnvConfig)
@@ -207,13 +207,13 @@ func (a *Adapter) HandleServiceMessage(ctx context.Context, message ctrl.Service
 }
 
 func (a *Adapter) Setup(sess sarama.ConsumerGroupSession) {
-	if err := a.controlService.SendAndWaitForAck(ctrlmessage.NotifySetupClaimsOpCode, ctrlmessage.Claims(sess.Claims())); err != nil {
+	if err := a.controlServer.SendAndWaitForAck(ctrlmessage.NotifySetupClaimsOpCode, ctrlmessage.Claims(sess.Claims())); err != nil {
 		a.logger.Warnf("Cannot send the claims update: %v", err)
 	}
 }
 
 func (a *Adapter) Cleanup(sess sarama.ConsumerGroupSession) {
-	if err := a.controlService.SendAndWaitForAck(ctrlmessage.NotifyCleanupClaimsOpCode, ctrlmessage.Claims(sess.Claims())); err != nil {
+	if err := a.controlServer.SendAndWaitForAck(ctrlmessage.NotifyCleanupClaimsOpCode, ctrlmessage.Claims(sess.Claims())); err != nil {
 		a.logger.Warnf("Cannot send the claims update: %v", err)
 	}
 }
