@@ -40,7 +40,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
-	"knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
+	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
+
 	"knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/client/injection/kube/informers/core/v1/serviceaccount"
 	"knative.dev/pkg/client/injection/kube/informers/rbac/v1/rolebinding"
@@ -58,6 +59,7 @@ import (
 )
 
 type TargetLister struct {
+	endpointLister corev1listers.EndpointsLister
 }
 
 func (t *TargetLister) ListProbeTargets(ctx context.Context, kc v1beta1.KafkaChannel) ([]status.ProbeTarget, error) {
@@ -73,7 +75,7 @@ func (t *TargetLister) ListProbeTargets(ctx context.Context, kc v1beta1.KafkaCha
 
 	// Get the Dispatcher Service Endpoints and propagate the status to the Channel
 	// endpoints has the same name as the service, so not a bug.
-	eps, err := endpoints.Get(ctx).Lister().Endpoints(dispatcherNamespace).Get(dispatcherName)
+	eps, err := t.endpointLister.Endpoints(dispatcherNamespace).Get(dispatcherName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get internal service: %w", err)
 	}
@@ -96,7 +98,7 @@ func (t *TargetLister) ListProbeTargets(ctx context.Context, kc v1beta1.KafkaCha
 	return []status.ProbeTarget{
 		{
 			PodIPs:  sets.NewString(readyIPs...),
-			PodPort: "8080", Port: "8080", URLs: uls,
+			PodPort: "8081", Port: "8081", URLs: uls,
 		},
 	}, nil
 }
@@ -110,7 +112,7 @@ func NewController(
 	logger := logging.FromContext(ctx)
 	kafkaChannelInformer := kafkachannel.Get(ctx)
 	deploymentInformer := deployment.Get(ctx)
-	endpointsInformer := endpoints.Get(ctx)
+	endpointsInformer := endpointsinformer.Get(ctx)
 	serviceAccountInformer := serviceaccount.Get(ctx)
 	roleBindingInformer := rolebinding.Get(ctx)
 	serviceInformer := service.Get(ctx)
@@ -196,6 +198,8 @@ func NewController(
 }
 
 func NewProbeTargetLister(logger *zap.SugaredLogger, lister corev1listers.EndpointsLister) status.ProbeTargetLister {
-	tl := TargetLister{}
+	tl := TargetLister{
+		endpointLister: lister,
+	}
 	return &tl
 }

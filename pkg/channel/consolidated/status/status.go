@@ -435,16 +435,27 @@ func (m *Prober) onProbingCancellation(subscriptionState *targetState, podState 
 }
 
 func (m *Prober) probeVerifier(item *workItem) prober.Verifier {
-	return func(r *http.Response, _ []byte) (bool, error) {
+	return func(r *http.Response, b []byte) (bool, error) {
 		//TODO Check if we need to use a hash
 		switch r.StatusCode {
 		case http.StatusOK:
 			/**
 			{"my-kafka-channel":["90713ffd-f527-42bf-b158-57630b68ebe2","a2041ec2-3295-4cd8-ac31-e699ab08273e","d3d70a79-8528-4df6-a812-3b559380cf08","db536b74-45f8-41cd-ab3e-7e3f60ed9e35","eb3aeee9-7cb5-4cad-b4c4-424e436dac9f"]}
 			*/
+			m.logger.Debug("Verifying response")
 			var subscriptions = make(map[string][]string)
-			json.NewDecoder(r.Body).Decode(subscriptions)
-			if subs, ok := subscriptions[item.targetStates.ch.Name]; ok && sets.NewString(subs...).Has(string(item.targetStates.sub.UID)) {
+			err := json.Unmarshal(b, &subscriptions)
+			if err != nil {
+				m.logger.Errorw("Error unmarshaling", err)
+				return false, err
+			}
+			m.logger.Debugw("Got response", zap.Any("Response", b))
+			m.logger.Debugw("Got list", zap.Any("Unmarshaled", subscriptions))
+			uid := string(item.targetStates.sub.UID)
+			m.logger.Debugf("want %s", uid)
+			key := fmt.Sprintf("%s/%s", item.targetStates.ch.Namespace, item.targetStates.ch.Name)
+			if subs, ok := subscriptions[key]; ok && sets.NewString(subs...).Has(uid) {
+
 				return true, nil
 			} else {
 				//TODO return and error if the channel doesn't exist?
