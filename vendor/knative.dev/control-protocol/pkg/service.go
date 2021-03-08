@@ -42,7 +42,7 @@ func (c ServiceMessage) Headers() MessageHeader {
 }
 
 func (c ServiceMessage) Payload() []byte {
-	return c.inboundMessage.Payload
+	return c.inboundMessage.payload
 }
 
 // Ack this message to the other end of the connection.

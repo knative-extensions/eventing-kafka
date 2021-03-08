@@ -24,7 +24,8 @@ import (
 )
 
 const (
-	maximumSupportedVersion uint8 = 0
+	ActualProtocolVersion   uint8 = 0
+	maximumSupportedVersion uint8 = ActualProtocolVersion
 	outboundMessageVersion        = maximumSupportedVersion
 )
 
@@ -56,6 +57,18 @@ type MessageHeader struct {
 	uuid    [16]byte
 	// In bytes
 	length uint32
+}
+
+// NewMessageHeader creates a new message header.
+// This is useful when the logic to read the inbound message is different from the ReadFrom implementation provided
+func NewMessageHeader(version uint8, flags uint8, opcode uint8, uuid [16]byte, length uint32) MessageHeader {
+	return MessageHeader{
+		version: version,
+		flags:   flags,
+		opcode:  opcode,
+		uuid:    uuid,
+		length:  length,
+	}
 }
 
 func (m MessageHeader) Version() uint8 {
@@ -116,7 +129,26 @@ func messageHeaderFromBytes(b [24]byte) MessageHeader {
 
 type InboundMessage struct {
 	MessageHeader
-	Payload []byte
+	payload []byte
+}
+
+// NewInboundMessage creates a new inbound message.
+// This is useful when the logic to read the inbound message is different from the provided ReadFrom implementation
+func NewInboundMessage(version uint8, flags uint8, opcode uint8, uuid [16]byte, payload []byte) InboundMessage {
+	length := uint32(0)
+	if payload != nil {
+		length = uint32(len(payload))
+	}
+	return InboundMessage{
+		MessageHeader: MessageHeader{
+			version: version,
+			flags:   flags,
+			opcode:  opcode,
+			uuid:    uuid,
+			length:  length,
+		},
+		payload: payload,
+	}
 }
 
 func (msg *InboundMessage) ReadFrom(r io.Reader) (count int64, err error) {
@@ -131,8 +163,8 @@ func (msg *InboundMessage) ReadFrom(r io.Reader) (count int64, err error) {
 	msg.MessageHeader = messageHeaderFromBytes(b)
 	if msg.Length() != 0 {
 		// We need to read the payload
-		msg.Payload = make([]byte, msg.Length())
-		n, err = io.ReadAtLeast(io.LimitReader(r, int64(msg.Length())), msg.Payload, int(msg.Length()))
+		msg.payload = make([]byte, msg.Length())
+		n, err = io.ReadAtLeast(io.LimitReader(r, int64(msg.Length())), msg.payload, int(msg.Length()))
 		count = count + int64(n)
 	}
 	return count, err
