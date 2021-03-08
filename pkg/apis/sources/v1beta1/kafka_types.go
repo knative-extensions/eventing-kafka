@@ -113,6 +113,10 @@ type KafkaSourceStatus struct {
 	// +optional
 	Selector string `json:"selector,omitempty"`
 
+	// Claims consumed by this KafkaSource instance
+	// +optional
+	Claims string `json:"claims,omitempty"`
+
 	// Implement Placeable.
 	// +optional
 	v1alpha1.Placeable `json:",inline"`

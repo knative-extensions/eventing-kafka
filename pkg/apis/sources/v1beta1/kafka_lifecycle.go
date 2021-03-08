@@ -35,16 +35,11 @@ const (
 	// KafkaConditionKeyType is True when the KafkaSource has been configured with valid key type for
 	// the key deserializer.
 	KafkaConditionKeyType apis.ConditionType = "KeyTypeCorrect"
-
-	// KafkaConditionConsumerGroupRunning is True when the consumer group is started and it's consuming
-	// all the partitions of the subscribed topics
-	KafkaConditionConsumerGroupRunning apis.ConditionType = "ConsumerGroupRunning"
 )
 
 var KafkaSourceCondSet = apis.NewLivingConditionSet(
 	KafkaConditionSinkProvided,
 	KafkaConditionDeployed,
-	KafkaConditionConsumerGroupRunning,
 )
 
 // GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
@@ -124,5 +119,5 @@ func (s *KafkaSourceStatus) MarkKeyTypeIncorrect(reason, messageFormat string, m
 }
 
 func (s *KafkaSourceStatus) UpdateConsumerGroupStatus(status string) {
-	KafkaSourceCondSet.Manage(s).MarkTrueWithReason(KafkaConditionConsumerGroupRunning, "ConsumerGroupStatusUpdated", status)
+	s.Claims = status
 }
