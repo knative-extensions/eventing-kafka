@@ -21,13 +21,8 @@ import (
 	"fmt"
 	"testing"
 
-	eventingduckv1 "knative.dev/eventing/pkg/apis/duck/v1"
-	"knative.dev/pkg/apis"
-
 	"github.com/Shopify/sarama"
-
 	"go.uber.org/zap"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,8 +30,15 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	clientgotesting "k8s.io/client-go/testing"
 
+	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
+	"knative.dev/eventing-kafka/pkg/channel/consolidated/reconciler/controller/resources"
+	reconcilertesting "knative.dev/eventing-kafka/pkg/channel/consolidated/reconciler/testing"
+	. "knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
+	fakekafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client/fake"
+	"knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
+	eventingduckv1 "knative.dev/eventing/pkg/apis/duck/v1"
 	eventingClient "knative.dev/eventing/pkg/client/injection/client"
-
+	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/configmap"
@@ -45,13 +47,6 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/network"
 	. "knative.dev/pkg/reconciler/testing"
-
-	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
-	"knative.dev/eventing-kafka/pkg/channel/consolidated/reconciler/controller/resources"
-	reconcilertesting "knative.dev/eventing-kafka/pkg/channel/consolidated/reconciler/testing"
-	. "knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
-	fakekafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client/fake"
-	"knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
 )
 
 const (

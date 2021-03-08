@@ -21,41 +21,32 @@ import (
 	"fmt"
 	"net/url"
 
-	v12 "knative.dev/eventing/pkg/apis/duck/v1"
-
-	"knative.dev/eventing-kafka/pkg/channel/consolidated/status"
-
-	"knative.dev/eventing/pkg/apis/eventing"
-
-	"k8s.io/apimachinery/pkg/types"
-
-	"k8s.io/apimachinery/pkg/util/sets"
-
-	corev1listers "k8s.io/client-go/listers/core/v1"
-
 	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
-	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
-
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
+
+	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
+	"knative.dev/eventing-kafka/pkg/channel/consolidated/status"
+	kafkaChannelClient "knative.dev/eventing-kafka/pkg/client/injection/client"
+	"knative.dev/eventing-kafka/pkg/client/injection/informers/messaging/v1beta1/kafkachannel"
+	kafkaChannelReconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
+	v12 "knative.dev/eventing/pkg/apis/duck/v1"
+	"knative.dev/eventing/pkg/apis/eventing"
+	eventingClient "knative.dev/eventing/pkg/client/injection/client"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
-
 	"knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/client/injection/kube/informers/core/v1/serviceaccount"
 	"knative.dev/pkg/client/injection/kube/informers/rbac/v1/rolebinding"
-
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
-
-	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
-	kafkaChannelClient "knative.dev/eventing-kafka/pkg/client/injection/client"
-	"knative.dev/eventing-kafka/pkg/client/injection/informers/messaging/v1beta1/kafkachannel"
-	kafkaChannelReconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
-	eventingClient "knative.dev/eventing/pkg/client/injection/client"
 )
 
 type TargetLister struct {
