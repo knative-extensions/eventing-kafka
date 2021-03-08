@@ -129,7 +129,7 @@ type Reconciler struct {
 	endpointsLister      corev1listers.EndpointsLister
 	serviceAccountLister corev1listers.ServiceAccountLister
 	roleBindingLister    rbacv1listers.RoleBindingLister
-	statusManager        *status.Prober
+	statusManager        status.Manager
 }
 
 var (

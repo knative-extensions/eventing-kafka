@@ -29,19 +29,16 @@ import (
 	"sync"
 	"time"
 
-	v12 "knative.dev/eventing/pkg/apis/duck/v1"
-
-	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
-
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/workqueue"
 
+	messagingv1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
+	eventingduckv1 "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/networking/pkg/prober"
 	"knative.dev/pkg/logging"
 )
@@ -61,8 +58,8 @@ var dialContext = (&net.Dialer{Timeout: probeTimeout}).DialContext
 // targetState represents the probing state of a subscription
 type targetState struct {
 	hash string
-	sub  v12.SubscriberSpec
-	ch   v1beta1.KafkaChannel
+	sub  eventingduckv1.SubscriberSpec
+	ch   messagingv1beta1.KafkaChannel
 
 	// pendingCount is the number of pods that haven't been successfully probed yet
 	pendingCount atomic.Int32
@@ -106,7 +103,12 @@ type ProbeTarget struct {
 // ProbeTargetLister lists all the targets that requires probing.
 type ProbeTargetLister interface {
 	// ListProbeTargets returns a list of targets to be probed
-	ListProbeTargets(ctx context.Context, ch v1beta1.KafkaChannel) ([]ProbeTarget, error)
+	ListProbeTargets(ctx context.Context, ch messagingv1beta1.KafkaChannel) ([]ProbeTarget, error)
+}
+
+// Manager provides a way to check if an Ingress is ready
+type Manager interface {
+	IsReady(ctx context.Context, ch messagingv1beta1.KafkaChannel, sub eventingduckv1.SubscriberSpec) (bool, error)
 }
 
 // Prober provides a way to check if a VirtualService is ready by probing the Envoy pods
@@ -123,7 +125,7 @@ type Prober struct {
 
 	targetLister ProbeTargetLister
 
-	readyCallback func(v1beta1.KafkaChannel, v12.SubscriberSpec)
+	readyCallback func(messagingv1beta1.KafkaChannel, eventingduckv1.SubscriberSpec)
 
 	probeConcurrency int
 
@@ -134,7 +136,7 @@ type Prober struct {
 func NewProber(
 	logger *zap.SugaredLogger,
 	targetLister ProbeTargetLister,
-	readyCallback func(v1beta1.KafkaChannel, v12.SubscriberSpec), opts ...interface{}) *Prober {
+	readyCallback func(messagingv1beta1.KafkaChannel, eventingduckv1.SubscriberSpec), opts ...interface{}) *Prober {
 	return &Prober{
 		logger:       logger,
 		targetStates: make(map[types.UID]*targetState),
@@ -154,7 +156,7 @@ func NewProber(
 	}
 }
 
-func computeHash(sub v12.SubscriberSpec) ([sha256.Size]byte, error) {
+func computeHash(sub eventingduckv1.SubscriberSpec) ([sha256.Size]byte, error) {
 	bytes, err := json.Marshal(sub)
 	if err != nil {
 		return [sha256.Size]byte{}, fmt.Errorf("failed to serialize Subscription: %w", err)
@@ -162,7 +164,7 @@ func computeHash(sub v12.SubscriberSpec) ([sha256.Size]byte, error) {
 	return sha256.Sum256(bytes), nil
 }
 
-func (m *Prober) IsReady(ctx context.Context, ch v1beta1.KafkaChannel, sub v12.SubscriberSpec) (bool, error) {
+func (m *Prober) IsReady(ctx context.Context, ch messagingv1beta1.KafkaChannel, sub eventingduckv1.SubscriberSpec) (bool, error) {
 	subscriptionKey := sub.UID
 	logger := logging.FromContext(ctx)
 
@@ -310,7 +312,7 @@ func (m *Prober) Start(done <-chan struct{}) chan struct{} {
 }
 
 // CancelProbing cancels probing of the provided Subscription
-func (m *Prober) CancelProbing(sub v12.SubscriberSpec) {
+func (m *Prober) CancelProbing(sub eventingduckv1.SubscriberSpec) {
 	key := sub.UID
 	m.mu.Lock()
 	defer m.mu.Unlock()
