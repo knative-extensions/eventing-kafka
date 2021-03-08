@@ -18,13 +18,22 @@ package metrics
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
+
+	"go.opencensus.io/stats"
+	"go.opencensus.io/stats/view"
 
 	"github.com/stretchr/testify/assert"
 	ocstats "go.opencensus.io/stats"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
 	logtesting "knative.dev/pkg/logging/testing"
+)
+
+const (
+	// Sarama Metrics
+	RecordSendRateForTopicPrefix = "record-send-rate-for-topic-"
 )
 
 // Test The MetricsServer's Report() Functionality
@@ -44,7 +53,7 @@ func TestMetricsServer_Report(t *testing.T) {
 	statsReporter := NewStatsReporter(logger)
 
 	// Create The Stats / Metrics To Report
-	stats := createTestMetrics(topicName, int64(msgCount))
+	metrics := createTestMetrics(topicName, int64(msgCount))
 
 	measuredMsgCount := 0.0
 
@@ -53,41 +62,188 @@ func TestMetricsServer_Report(t *testing.T) {
 
 	// Set up a mock RecordWrapper() that will capture the produced message count from our stats reporter
 	RecordWrapper = func(ctx context.Context, ms ocstats.Measurement, ros ...ocstats.Options) {
-		if ms.Measure().Name() == "produced_msg_count" {
+		if ms.Measure().Name() == fmt.Sprintf("%s%s.count", RecordSendRateForTopicPrefix, topicName) {
 			measuredMsgCount += ms.Value()
 		}
 	}
 
 	// Perform The Test
-	statsReporter.Report(stats)
+	statsReporter.Report(metrics)
 
 	assert.Equal(t, float64(msgCount), measuredMsgCount)
 }
 
+func Test_getDescription(t *testing.T) {
+	tests := []struct {
+		name string
+		sub  string
+		want string
+	}{
+		{name: "incoming-byte-rate", want: "Incoming Byte Rate: "},
+		{name: "request-rate", want: "Request Rate: "},
+		{name: "request-size", want: "Request Size: "},
+		{name: "request-latency-in-ms", want: "Request Latency (ms): "},
+		{name: "outgoing-byte-rate", want: "Outgoing Byte Rate: "},
+		{name: "response-rate", want: "Response Rate: "},
+		{name: "response-size", want: "Response Size: "},
+		{name: "requests-in-flight", want: "Requests in Flight: "},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getDescription(tt.name, tt.sub); got != tt.want {
+				t.Errorf("getDescription() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getSubDescription(t *testing.T) {
+	tests := []struct {
+		name string
+		want string
+	}{
+		{name: "1m.rate", want: "1-Minute Rate"},
+		{name: "5m.rate", want: "5-Minute Rate"},
+		{name: "15m.rate", want: "15-Minute Rate"},
+		{name: "count", want: "Count"},
+		{name: "max", want: "Maximum"},
+		{name: "mean", want: "Mean"},
+		{name: "mean.rate", want: "Mean Rate"},
+		{name: "median", want: "Median"},
+		{name: "min", want: "Minimum"},
+		{name: "stddev", want: "Standard Deviation"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getSubDescription(tt.name); got != tt.want {
+				t.Errorf("getSubDescription() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestReporter_recordMeasurement(t *testing.T) {
+	tests := []struct {
+		name      string
+		metricKey string
+		saramaKey string
+		value     interface{}
+	}{
+		{name: "Int64 Measure", metricKey: "mkey", saramaKey: "skey", value: int64(12345)},
+		{name: "Int32 Measure", metricKey: "mkey", saramaKey: "skey", value: int32(12345)},
+		{name: "Int Measure", metricKey: "mkey", saramaKey: "skey", value: 12345},
+		{name: "Float64 Measure", metricKey: "mkey", saramaKey: "skey", value: 12.345},
+		{name: "Float32 Measure", metricKey: "mkey", saramaKey: "skey", value: float32(12.345)},
+	}
+
+	RecordWrapperRef := RecordWrapper
+	defer func() { RecordWrapper = RecordWrapperRef }()
+
+	var recordCalled bool
+
+	// Set up a mock RecordWrapper() that will capture the produced message count from our stats reporter
+	RecordWrapper = func(ctx context.Context, ms ocstats.Measurement, ros ...ocstats.Options) {
+		recordCalled = true
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Reset the values to check before each individual test
+			recordCalled = false
+
+			// Create A New Reporter To Test
+			statsReporter := &Reporter{
+				views:        make(map[string]*view.View),
+				logger:       logtesting.TestLogger(t).Desugar(),
+				tagCtx:       context.Background(),
+				measurements: make(map[string]stats.Measure),
+			}
+
+			// Perform the test
+			statsReporter.recordMeasurement(tt.metricKey, tt.saramaKey, tt.value)
+			newView := statsReporter.views[fmt.Sprintf("%s.%s", tt.metricKey, tt.saramaKey)]
+
+			// Verify the results
+			assert.True(t, recordCalled)
+			assert.NotNil(t, newView)
+			view.Unregister(newView)
+		})
+	}
+}
+
+func TestReporter_createView(t *testing.T) {
+
+	intMeasure := stats.Int64("int-name", "int-description", stats.UnitDimensionless)
+	floatMeasure := stats.Float64("float-name", "float-description", stats.UnitDimensionless)
+
+	tests := []struct {
+		name        string
+		ctx         context.Context
+		measure     ocstats.Measure
+		nameArg     string
+		description string
+		expectView  bool
+	}{
+		{name: "Valid Name", ctx: context.TODO(), measure: intMeasure, nameArg: "valid-name", expectView: true},
+		{name: "Invalid Name", ctx: context.TODO(), measure: floatMeasure, nameArg: "invalid-name-�"},
+		{name: "No Measure", ctx: context.TODO(), nameArg: "no-measure"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			// Create A New Reporter To Test
+			statsReporter := &Reporter{
+				views:        make(map[string]*view.View),
+				logger:       logtesting.TestLogger(t).Desugar(),
+				tagCtx:       context.Background(),
+				measurements: make(map[string]stats.Measure),
+			}
+
+			// Perform the test
+			newContext := statsReporter.createView(tt.ctx, tt.measure, tt.nameArg, tt.description)
+			newView := statsReporter.views[tt.nameArg]
+
+			// Verify the results
+			assert.NotNil(t, newContext)
+			if tt.expectView {
+				assert.NotNil(t, newView)
+				view.Unregister(newView)
+			} else {
+				assert.Nil(t, newView)
+			}
+		})
+	}
+
+}
+
 // Utility Function For Creating Sample Test Metrics  (Representative Data From Sarama Metrics Trace - With Custom Test Data)
-func createTestMetrics(topic string, count int64) map[string]map[string]interface{} {
-	testMetrics := make(map[string]map[string]interface{})
-	testMetrics["batch-size"] = map[string]interface{}{"75%": 422, "95%": 422, "99%": 422, "99.9%": 422, "count": 5, "max": 422, "mean": 422, "median": 422, "min": 422, "stddev": 0}
-	testMetrics["batch-size-for-topic-"+topic] = map[string]interface{}{"75%": 422, "95%": 422, "99%": 422, "99.9%": 422, "count": 5, "max": 422, "mean": 422, "median": 422, "min": 422, "stddev": 0}
-	testMetrics["compression-ratio"] = map[string]interface{}{"75%": 100, "95%": 100, "99%": 100, "99.9%": 100, "count": 5, "max": 100, "mean": 100, "median": 100, "min": 100, "stddev": 0}
-	testMetrics["compression-ratio-for-topic-stage_sample-kafka-channel-1"] = map[string]interface{}{"75%": 100, "95%": 100, "99%": 100, "99.9%": 100, "count": 5, "max": 100, "mean": 100, "median": 100, "min": 100, "stddev": 0}
-	testMetrics["incoming-byte-rate"] = map[string]interface{}{"15m.rate": 338.48922714325533, "1m.rate": 148.6636907525621, "5m.rate": 300.3520357972228, "count": 2157, "mean.rate": 36.136821927158024}
-	testMetrics["incoming-byte-rate-for-broker-0"] = map[string]interface{}{"15m.rate": 57.04287862876796, "1m.rate": 49.81665008593679, "5m.rate": 55.94572447585394, "count": 360, "mean.rate": 26.962040661298193}
-	testMetrics["outgoing-byte-rate"] = map[string]interface{}{"15m.rate": 8.542065819239612, "1m.rate": 36.494569810073976, "5m.rate": 13.085405055952117, "count": 2501, "mean.rate": 41.89999208758941}
-	testMetrics["outgoing-byte-rate-for-broker-0"] = map[string]interface{}{"15m.rate": 391.3775283696023, "1m.rate": 341.7975714229552, "5m.rate": 383.8498318204423, "count": 2470, "mean.rate": 184.9934008427559}
-	testMetrics["record-send-rate"] = map[string]interface{}{"15m.rate": 0.7922622031773328, "1m.rate": 0.6918979178602331, "5m.rate": 0.777023951053527, "count": 5, "mean.rate": 0.3744896470537649}
-	testMetrics[RecordSendRateForTopicPrefix+topic] = map[string]interface{}{"15m.rate": 0.7922622031773328, "1m.rate": 0.6918979178602331, "5m.rate": 0.777023951053527, "count": count, "mean.rate": 0.3744894223293246}
-	testMetrics["records-per-request"] = map[string]interface{}{"75%": 1, "95%": 1, "99%": 1, "99.9%": 1, "count": 5, "max": 1, "mean": 1, "median": 1, "min": 1, "stddev": 0}
-	testMetrics["records-per-request-for-topic-stage_sample-kafka-channel-1"] = map[string]interface{}{"75%": 1, "95%": 1, "99%": 1, "99.9%": 1, "count": 5, "max": 1, "mean": 1, "median": 1, "min": 1, "stddev": 0}
-	testMetrics["request-latency-in-ms"] = map[string]interface{}{"75%": 24, "95%": 78, "99%": 78, "99.9%": 78, "count": 6, "max": 78, "mean": 16.666666666666668, "median": 5, "min": 3, "stddev": 27.45096638655105}
-	testMetrics["request-latency-in-ms-for-broker-0"] = map[string]interface{}{"75%": 42, "95%": 78, "99%": 78, "99.9%": 78, "count": 5, "max": 78, "mean": 19.4, "median": 5, "min": 3, "stddev": 29.31620712165883}
-	testMetrics["request-rate"] = map[string]interface{}{"15m.rate": 0.19362878205360173, "1m.rate": 0.1488272222720787, "5m.rate": 0.1825385339752764, "count": 6, "mean.rate": 0.1005196891551448}
-	testMetrics["request-rate-for-broker-0"] = map[string]interface{}{"15m.rate": 0.7922622031773328, "1m.rate": 0.6918979178602331, "5m.rate": 0.777023951053527, "count": 5, "mean.rate": 0.37447298101266696}
-	testMetrics["request-size"] = map[string]interface{}{"75%": 494, "95%": 494, "99%": 494, "99.9%": 494, "count": 6, "max": 494, "mean": 416.8333333333333, "median": 494, "min": 31, "stddev": 172.54991226373375}
-	testMetrics["request-size-for-broker-0"] = map[string]interface{}{"75%": 494, "95%": 494, "99%": 494, "99.9%": 494, "count": 5, "max": 494, "mean": 494, "median": 494, "min": 494, "stddev": 0}
-	testMetrics["response-rate"] = map[string]interface{}{"15m.rate": 0.19362878205360173, "1m.rate": 0.1488272222720787, "5m.rate": 0.1825385339752764, "count": 6, "mean.rate": 0.10051977925613151}
-	testMetrics["response-rate-for-broker-0"] = map[string]interface{}{"15m.rate": 0.7922622031773328, "1m.rate": 0.6918979178602331, "5m.rate": 0.777023951053527, "count": 5, "mean.rate": 0.3744806601376294}
-	testMetrics["response-size"] = map[string]interface{}{"75%": 503.25, "95%": 1797, "99%": 1797, "99.9%": 1797, "count": 6, "max": 1797, "mean": 359.5, "median": 72, "min": 72, "stddev": 642.8695435311895}
-	testMetrics["response-size-for-broker-0"] = map[string]interface{}{"75%": 72, "95%": 72, "99%": 72, "99.9%": 72, "count": 5, "max": 72, "mean": 72, "median": 72, "min": 72, "stddev": 0}
+func createTestMetrics(topic string, count int64) ReportingList {
+	testMetrics := make(ReportingList)
+	testMetrics["batch-size"] = ReportingItem{"75%": 422, "95%": 422, "99%": 422, "99.9%": 422, "count": 5, "max": 422, "mean": 422, "median": 422, "min": 422, "stddev": 0}
+	testMetrics["batch-size-for-topic-"+topic] = ReportingItem{"75%": 422, "95%": 422, "99%": 422, "99.9%": 422, "count": 5, "max": 422, "mean": 422, "median": 422, "min": 422, "stddev": 0}
+	testMetrics["compression-ratio"] = ReportingItem{"75%": 100, "95%": 100, "99%": 100, "99.9%": 100, "count": 5, "max": 100, "mean": 100, "median": 100, "min": 100, "stddev": 0}
+	testMetrics["compression-ratio-for-topic-stage_sample-kafka-channel-1"] = ReportingItem{"75%": 100, "95%": 100, "99%": 100, "99.9%": 100, "count": 5, "max": 100, "mean": 100, "median": 100, "min": 100, "stddev": 0}
+	testMetrics["incoming-byte-rate"] = ReportingItem{"15m.rate": 338.48922714325533, "1m.rate": 148.6636907525621, "5m.rate": 300.3520357972228, "count": 2157, "mean.rate": 36.136821927158024}
+	testMetrics["incoming-byte-rate-for-broker-0"] = ReportingItem{"15m.rate": 57.04287862876796, "1m.rate": 49.81665008593679, "5m.rate": 55.94572447585394, "count": 360, "mean.rate": 26.962040661298193}
+	testMetrics["outgoing-byte-rate"] = ReportingItem{"15m.rate": 8.542065819239612, "1m.rate": 36.494569810073976, "5m.rate": 13.085405055952117, "count": 2501, "mean.rate": 41.89999208758941}
+	testMetrics["outgoing-byte-rate-for-broker-0"] = ReportingItem{"15m.rate": 391.3775283696023, "1m.rate": 341.7975714229552, "5m.rate": 383.8498318204423, "count": 2470, "mean.rate": 184.9934008427559}
+	testMetrics["record-send-rate"] = ReportingItem{"15m.rate": 0.7922622031773328, "1m.rate": 0.6918979178602331, "5m.rate": 0.777023951053527, "count": 5, "mean.rate": 0.3744896470537649}
+	testMetrics[RecordSendRateForTopicPrefix+topic] = ReportingItem{"15m.rate": 0.7922622031773328, "1m.rate": 0.6918979178602331, "5m.rate": 0.777023951053527, "count": count, "mean.rate": 0.3744894223293246}
+	testMetrics["records-per-request"] = ReportingItem{"75%": 1, "95%": 1, "99%": 1, "99.9%": 1, "count": 5, "max": 1, "mean": 1, "median": 1, "min": 1, "stddev": 0}
+	testMetrics["records-per-request-for-topic-stage_sample-kafka-channel-1"] = ReportingItem{"75%": 1, "95%": 1, "99%": 1, "99.9%": 1, "count": 5, "max": 1, "mean": 1, "median": 1, "min": 1, "stddev": 0}
+	testMetrics["request-latency-in-ms"] = ReportingItem{"75%": 24, "95%": 78, "99%": 78, "99.9%": 78, "count": 6, "max": 78, "mean": 16.666666666666668, "median": 5, "min": 3, "stddev": 27.45096638655105}
+	testMetrics["request-latency-in-ms-for-broker-0"] = ReportingItem{"75%": 42, "95%": 78, "99%": 78, "99.9%": 78, "count": 5, "max": 78, "mean": 19.4, "median": 5, "min": 3, "stddev": 29.31620712165883}
+	testMetrics["request-rate"] = ReportingItem{"15m.rate": 0.19362878205360173, "1m.rate": 0.1488272222720787, "5m.rate": 0.1825385339752764, "count": 6, "mean.rate": 0.1005196891551448}
+	testMetrics["request-rate-for-broker-0"] = ReportingItem{"15m.rate": 0.7922622031773328, "1m.rate": 0.6918979178602331, "5m.rate": 0.777023951053527, "count": 5, "mean.rate": 0.37447298101266696}
+	testMetrics["request-size"] = ReportingItem{"75%": 494, "95%": 494, "99%": 494, "99.9%": 494, "count": 6, "max": 494, "mean": 416.8333333333333, "median": 494, "min": 31, "stddev": 172.54991226373375}
+	testMetrics["request-size-for-broker-0"] = ReportingItem{"75%": 494, "95%": 494, "99%": 494, "99.9%": 494, "count": 5, "max": 494, "mean": 494, "median": 494, "min": 494, "stddev": 0}
+	testMetrics["response-rate"] = ReportingItem{"15m.rate": 0.19362878205360173, "1m.rate": 0.1488272222720787, "5m.rate": 0.1825385339752764, "count": 6, "mean.rate": 0.10051977925613151}
+	testMetrics["response-rate-for-broker-0"] = ReportingItem{"15m.rate": 0.7922622031773328, "1m.rate": 0.6918979178602331, "5m.rate": 0.777023951053527, "count": 5, "mean.rate": 0.3744806601376294}
+	testMetrics["response-size"] = ReportingItem{"75%": 503.25, "95%": 1797, "99%": 1797, "99.9%": 1797, "count": 6, "max": 1797, "mean": 359.5, "median": 72, "min": 72, "stddev": 642.8695435311895}
+	testMetrics["response-size-for-broker-0"] = ReportingItem{"75%": 72, "95%": 72, "99%": 72, "99.9%": 72, "count": 5, "max": 72, "mean": 72, "median": 72, "min": 72, "stddev": 0}
+	testMetrics["int32-test-metric"] = ReportingItem{"test-header": int32(1)}
+	testMetrics["float32-test-metric"] = ReportingItem{"test-header": float32(1.2345)}
+	testMetrics["nan-test-metric"] = ReportingItem{"test-header": "not-a-number"}
+	testMetrics["bad-header"] = ReportingItem{"�": 0}
 	return testMetrics
 }

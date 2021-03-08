@@ -18,8 +18,7 @@ package metrics
 
 import (
 	"context"
-	"log"
-	"strings"
+	"fmt"
 
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
@@ -28,49 +27,9 @@ import (
 	"knative.dev/pkg/metrics"
 )
 
-const (
-
-	// LabelTopic is the label for the immutable name of the topic.
-	LabelTopic = "topic"
-
-	// Sarama Metrics
-	RecordSendRateForTopicPrefix = "record-send-rate-for-topic-"
-)
-
-var (
-	// Counter For The Number Of Events Produced To A Kafka Topic
-	producedMessageCount = stats.Int64(
-		"produced_msg_count", // The METRICS_DOMAIN will be prepended to the name.
-		"Produced Message Count",
-		stats.UnitDimensionless,
-	)
-
-	// Create the tag keys that will be used to add tags to our measurements in order to validate
-	// that they conform to the restrictions described in go.opencensus.io/tag/validate.go.
-	// Currently those restrictions are...
-	//   - Length between 1 and 255 inclusive
-	//   - Characters are printable US-ASCII
-	topic = tag.MustNewKey(LabelTopic)
-)
-
-// Register the OpenCensus View Structures
-func init() {
-
-	// Create A View To See Our Metric
-	err := view.Register(&view.View{
-		Description: producedMessageCount.Description(),
-		Measure:     producedMessageCount,
-		Aggregation: view.LastValue(),
-		TagKeys:     []tag.Key{topic},
-	})
-	if err != nil {
-		log.Printf("failed to register opencensus views, %v", err)
-	}
-}
-
 // StatsReporter defines the interface for sending ingress metrics.
 type StatsReporter interface {
-	Report(map[string]map[string]interface{})
+	Report(ReportingList)
 }
 
 // Verify StatsReporter Implements StatsReporter Interface
@@ -78,18 +37,28 @@ var _ StatsReporter = &Reporter{}
 
 // Define StatsReporter Structure
 type Reporter struct {
-	logger *zap.Logger
+	views        map[string]*view.View
+	measurements map[string]stats.Measure
+	logger       *zap.Logger
+	tagCtx       context.Context
 }
 
 // StatsReporter Constructor
 func NewStatsReporter(log *zap.Logger) StatsReporter {
-	return &Reporter{logger: log}
+	return &Reporter{
+		views:        make(map[string]*view.View),
+		logger:       log,
+		tagCtx:       context.Background(),
+		measurements: make(map[string]stats.Measure)}
 }
 
 // Our RecordWrapper, which defaults to the knative metrics.Record()
 // This wrapper function facilitates minimally-invasive unit testing of the
 // Report functionality without requiring live servers to be started.
 var RecordWrapper = metrics.Record
+
+type ReportingItem = map[string]interface{}
+type ReportingList = map[string]ReportingItem
 
 //
 // Report The Sarama Metrics (go-metrics) Via Knative / OpenCensus Metrics
@@ -110,37 +79,133 @@ var RecordWrapper = metrics.Record
 //        to manually track produced/consumed messages at the Topic/Partition/ConsumerGroup
 //        level.
 //
-func (r *Reporter) Report(stats map[string]map[string]interface{}) {
+func (r *Reporter) Report(list ReportingList) {
 
 	// Validate The Metrics
-	if len(stats) > 0 {
+	if len(list) > 0 {
 
 		// Loop Over The Observed Metrics
-		for metricKey, metricValue := range stats {
+		for metricKey, metricValue := range list {
 
-			// Only Handle Specific Metrics
-			if strings.HasPrefix(metricKey, RecordSendRateForTopicPrefix) {
-				topicName := strings.TrimPrefix(metricKey, RecordSendRateForTopicPrefix)
-				msgCount, ok := metricValue["count"].(int64)
-				if ok {
-
-					// Create A New OpenCensus Tag / Context for The Topic
-					ctx, err := tag.New(
-						context.Background(),
-						tag.Insert(topic, topicName),
-					)
-					if err != nil {
-						r.logger.Error("Failed To Create New OpenCensus Tag For Kafka Topic", zap.String("Topic", topicName))
-						return
-					}
-
-					// Record The Produced Message Count Metric
-					RecordWrapper(ctx, producedMessageCount.M(msgCount))
-
-				} else {
-					r.logger.Warn("Encountered Non Int64 'count' Field In Metric", zap.String("Metric", metricKey))
-				}
+			for saramaKey, saramaValue := range metricValue {
+				r.recordMeasurement(metricKey, saramaKey, saramaValue)
 			}
 		}
+	}
+}
+
+// Creates and registers a new view in the OpenCensus context, adding it to the Reporter's known views
+func (r *Reporter) createView(ctx context.Context, measure stats.Measure, name string, description string) context.Context {
+	key, err := tag.NewKey(name)
+	if err != nil {
+		r.logger.Error("Failed To Create New OpenCensus Key For Sarama Metric", zap.String("Key", name), zap.Error(err))
+		return ctx
+	}
+	ctx, err = tag.New(ctx, tag.Insert(key, name))
+	if err != nil {
+		r.logger.Error("Failed To Create New OpenCensus Tag For Sarama Metric", zap.String("Key", name), zap.Error(err))
+		return ctx
+	}
+
+	newView := &view.View{
+		Name:        name,
+		Description: description,
+		Measure:     measure,
+		Aggregation: view.LastValue(),
+	}
+	err = view.Register(newView)
+	if err != nil {
+		r.logger.Error("failed to register opencensus views", zap.Error(err))
+		return ctx
+	}
+	r.views[name] = newView
+	return ctx
+}
+
+// Record a measurement to the metrics backend, creating a new OpenCensus view if this is a new measurement
+func (r *Reporter) recordMeasurement(metricKey string, saramaKey string, value interface{}) {
+
+	name := fmt.Sprintf("%s.%s", metricKey, saramaKey)
+	description := getDescription(metricKey, saramaKey)
+
+	intMeasure := stats.Int64(name, description, stats.UnitDimensionless)
+	floatMeasure := stats.Float64(name, description, stats.UnitDimensionless)
+	var measure stats.Measure
+
+	switch value := value.(type) {
+	case int64:
+		measure = intMeasure
+		RecordWrapper(r.tagCtx, intMeasure.M(value))
+	case int32:
+		measure = intMeasure
+		RecordWrapper(r.tagCtx, intMeasure.M(int64(value)))
+	case int:
+		measure = intMeasure
+		RecordWrapper(r.tagCtx, intMeasure.M(int64(value)))
+	case float64:
+		measure = floatMeasure
+		RecordWrapper(r.tagCtx, floatMeasure.M(value))
+	case float32:
+		measure = floatMeasure
+		RecordWrapper(r.tagCtx, floatMeasure.M(float64(value)))
+	default:
+		r.logger.Warn("Could not interpret measurement as a number", zap.Any("Sarama Value", value))
+	}
+
+	if _, ok := r.views[name]; !ok {
+		// This is the first time this measurement is being taken; add it to the views
+		r.tagCtx = r.createView(r.tagCtx, measure, name, description)
+	}
+}
+
+// Returns pretty descriptions for known Sarama metrics
+func getDescription(main string, sub string) string {
+	switch main {
+	case "incoming-byte-rate":
+		return "Incoming Byte Rate: " + getSubDescription(sub)
+	case "request-rate":
+		return "Request Rate: " + getSubDescription(sub)
+	case "request-size":
+		return "Request Size: " + getSubDescription(sub)
+	case "request-latency-in-ms":
+		return "Request Latency (ms): " + getSubDescription(sub)
+	case "outgoing-byte-rate":
+		return "Outgoing Byte Rate: " + getSubDescription(sub)
+	case "response-rate":
+		return "Response Rate: " + getSubDescription(sub)
+	case "response-size":
+		return "Response Size: " + getSubDescription(sub)
+	case "requests-in-flight":
+		return "Requests in Flight: " + getSubDescription(sub)
+	default:
+		return main + ": " + getSubDescription(sub)
+	}
+}
+
+// Returns pretty descriptions for known Sarama sub-metric categories
+func getSubDescription(sub string) string {
+	switch sub {
+	case "1m.rate":
+		return "1-Minute Rate"
+	case "5m.rate":
+		return "5-Minute Rate"
+	case "15m.rate":
+		return "15-Minute Rate"
+	case "count":
+		return "Count"
+	case "max":
+		return "Maximum"
+	case "mean":
+		return "Mean"
+	case "mean.rate":
+		return "Mean Rate"
+	case "median":
+		return "Median"
+	case "min":
+		return "Minimum"
+	case "stddev":
+		return "Standard Deviation"
+	default:
+		return sub
 	}
 }
