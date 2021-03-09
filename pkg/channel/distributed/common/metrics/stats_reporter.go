@@ -57,19 +57,12 @@ func NewStatsReporter(log *zap.Logger) StatsReporter {
 // Report functionality without requiring live servers to be started.
 var RecordWrapper = metrics.Record
 
+// Some type aliases for the otherwise unwieldy metric collection map-of-maps-to-interfaces
 type ReportingItem = map[string]interface{}
 type ReportingList = map[string]ReportingItem
 
 //
 // Report The Sarama Metrics (go-metrics) Via Knative / OpenCensus Metrics
-//
-// NOTE - Sarama provides lots of metrics which would be good to expose, but for now
-//        we're just quickly parsing out message counts.  This is for rough parity
-//        with the prior Confluent implementation and due to uncertainty around
-//        integrating with Knative Observability and potentially Sarama v2 using
-//        OpenTelemetry directly as described here...
-//
-//			https://github.com/Shopify/sarama/issues/1340
 //
 //        If we do decide to expose all available metrics, the following library might be useful...
 //
