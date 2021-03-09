@@ -16,6 +16,10 @@ limitations under the License.
 
 package k8s
 
+import (
+	"regexp"
+)
+
 const (
 	K8sLabelValueMaxLength = 63
 )
@@ -26,5 +30,7 @@ func TruncateLabelValue(str string) string {
 	if len(str) > K8sLabelValueMaxLength {
 		strCopy = str[0:K8sLabelValueMaxLength]
 	}
+	// Strip any and all trailing '-' characters from the end of the string
+	strCopy = regexp.MustCompile(`^(.*[^-])-*`).ReplaceAllString(strCopy, "${1}")
 	return strCopy
 }
