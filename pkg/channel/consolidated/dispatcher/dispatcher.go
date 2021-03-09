@@ -38,7 +38,7 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
 	eventingchannels "knative.dev/eventing/pkg/channel"
-	"knative.dev/eventing/pkg/channel/fanout"
+	"knative.dev/eventing/pkg/kncloudevents"
 	"knative.dev/pkg/kmeta"
 
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
@@ -50,12 +50,16 @@ const (
 	dispatcherReadySubHeader = "K-Subscriber-Status"
 )
 
-type KafkaSubscription struct {
-	subs []types.UID
+type TopicFunc func(separator, namespace, name string) string
 
-	// readySubscriptionsLock must be used to synchronize access to channelReadySubscriptions
-	readySubscriptionsLock    sync.RWMutex
-	channelReadySubscriptions sets.String
+type KafkaDispatcherArgs struct {
+	KnCEConnectionArgs       *kncloudevents.ConnectionArgs
+	ClientID                 string
+	Brokers                  []string
+	KafkaAuthConfig          *client.KafkaAuthConfig
+	SaramaSettingsYamlString string
+	TopicFunc                TopicFunc
+	Logger                   *zap.SugaredLogger
 }
 
 type KafkaDispatcher struct {
@@ -76,67 +80,6 @@ type KafkaDispatcher struct {
 
 	topicFunc TopicFunc
 	logger    *zap.SugaredLogger
-}
-
-type Subscription struct {
-	UID types.UID
-	fanout.Subscription
-}
-
-func (sub Subscription) String() string {
-	var s strings.Builder
-	s.WriteString("UID: " + string(sub.UID))
-	s.WriteRune('\n')
-	if sub.Subscriber != nil {
-		s.WriteString("Subscriber: " + sub.Subscriber.String())
-		s.WriteRune('\n')
-	}
-	if sub.Reply != nil {
-		s.WriteString("Reply: " + sub.Reply.String())
-		s.WriteRune('\n')
-	}
-	if sub.DeadLetter != nil {
-		s.WriteString("DeadLetter: " + sub.DeadLetter.String())
-		s.WriteRune('\n')
-	}
-	return s.String()
-}
-
-func (d *KafkaDispatcher) ServeHTTP(w nethttp.ResponseWriter, r *nethttp.Request) {
-	if r.Method != nethttp.MethodGet {
-		w.WriteHeader(nethttp.StatusMethodNotAllowed)
-		d.logger.Errorf("Received request method that wasn't GET: %s", r.Method)
-		return
-	}
-	uriSplit := strings.Split(r.RequestURI, "/")
-	if len(uriSplit) != 3 {
-		w.WriteHeader(nethttp.StatusNotFound)
-		d.logger.Errorf("Unable to process request: %s", r.RequestURI)
-		return
-	}
-	channelRefNamespace, channelRefName := uriSplit[1], uriSplit[2]
-	channelRef := eventingchannels.ChannelReference{
-		Name:      channelRefName,
-		Namespace: channelRefNamespace,
-	}
-	if _, ok := d.channelSubscriptions[channelRef]; !ok {
-		w.WriteHeader(nethttp.StatusNotFound)
-		return
-	}
-	d.channelSubscriptions[channelRef].readySubscriptionsLock.RLock()
-	defer d.channelSubscriptions[channelRef].readySubscriptionsLock.RUnlock()
-	var subscriptions = make(map[string][]string)
-	w.Header().Set(dispatcherReadySubHeader, channelRefName)
-	subscriptions[channelRefNamespace+"/"+channelRefName] = d.channelSubscriptions[channelRef].channelReadySubscriptions.List()
-	jsonResult, err := json.Marshal(subscriptions)
-	if err != nil {
-		d.logger.Errorf("Error marshalling json for sub-status channelref: %s/%s, %w", channelRefNamespace, channelRefName, err)
-		return
-	}
-	_, err = w.Write(jsonResult)
-	if err != nil {
-		d.logger.Errorf("Error writing jsonResult to serveHTTP writer: %w", err)
-	}
 }
 
 func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispatcher, error) {
@@ -216,92 +159,50 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 	return dispatcher, nil
 }
 
-type TopicFunc func(separator, namespace, name string) string
-
-type KafkaDispatcherArgs struct {
-	ClientID                 string
-	Brokers                  []string
-	KafkaAuthConfig          *client.KafkaAuthConfig
-	SaramaSettingsYamlString string
-	TopicFunc                TopicFunc
-	Logger                   *zap.SugaredLogger
-}
-
-type consumerMessageHandler struct {
-	logger            *zap.SugaredLogger
-	sub               Subscription
-	dispatcher        *eventingchannels.MessageDispatcherImpl
-	kafkaSubscription *KafkaSubscription
-}
-
-func (c consumerMessageHandler) SetReady(ready bool) {
-	c.kafkaSubscription.SetReady(c.sub.UID, ready)
-}
-
-func (c consumerMessageHandler) Handle(ctx context.Context, consumerMessage *sarama.ConsumerMessage) (bool, error) {
-	defer func() {
-		if r := recover(); r != nil {
-			c.logger.Warn("Panic happened while handling a message",
-				zap.String("topic", consumerMessage.Topic),
-				zap.Any("panic value", r),
-			)
-		}
-	}()
-	message := protocolkafka.NewMessageFromConsumerMessage(consumerMessage)
-	if message.ReadEncoding() == binding.EncodingUnknown {
-		return false, errors.New("received a message with unknown encoding")
+// Start starts the kafka dispatcher's message processing.
+func (d *KafkaDispatcher) Start(ctx context.Context) error {
+	if d.receiver == nil {
+		return fmt.Errorf("message receiver is not set")
 	}
 
-	c.logger.Debug("Going to dispatch the message",
-		zap.String("topic", consumerMessage.Topic),
-		zap.String("subscription", c.sub.String()),
-	)
-
-	ctx, span := tracing.StartTraceFromMessage(c.logger, ctx, message, consumerMessage.Topic)
-	defer span.End()
-
-	_, err := c.dispatcher.DispatchMessageWithRetries(
-		ctx,
-		message,
-		nil,
-		c.sub.Subscriber,
-		c.sub.Reply,
-		c.sub.DeadLetter,
-		c.sub.RetryConfig,
-	)
-
-	// NOTE: only return `true` here if DispatchMessage actually delivered the message.
-	return err == nil, err
+	return d.receiver.Start(ctx)
 }
 
-var _ consumer.KafkaConsumerHandler = (*consumerMessageHandler)(nil)
-
-type Config struct {
-	// The configuration of each channel in this handler.
-	ChannelConfigs []ChannelConfig
-}
-
-type ChannelConfig struct {
-	Namespace     string
-	Name          string
-	HostName      string
-	Subscriptions []Subscription
-}
-
-// SetReady will mark the subid in the KafkaSubscription and call any registered callbacks
-func (ks *KafkaSubscription) SetReady(subID types.UID, ready bool) {
-	ks.readySubscriptionsLock.Lock()
-	defer ks.readySubscriptionsLock.Unlock()
-	if ready {
-		if !ks.channelReadySubscriptions.Has(string(subID)) {
-			ks.channelReadySubscriptions.Insert(string(subID))
-		}
-	} else {
-		if ks.channelReadySubscriptions.Has(string(subID)) {
-			ks.channelReadySubscriptions.Delete(string(subID))
-		}
+func (d *KafkaDispatcher) ServeHTTP(w nethttp.ResponseWriter, r *nethttp.Request) {
+	if r.Method != nethttp.MethodGet {
+		w.WriteHeader(nethttp.StatusMethodNotAllowed)
+		d.logger.Errorf("Received request method that wasn't GET: %s", r.Method)
+		return
 	}
-
+	uriSplit := strings.Split(r.RequestURI, "/")
+	if len(uriSplit) != 3 {
+		w.WriteHeader(nethttp.StatusNotFound)
+		d.logger.Errorf("Unable to process request: %s", r.RequestURI)
+		return
+	}
+	channelRefNamespace, channelRefName := uriSplit[1], uriSplit[2]
+	channelRef := eventingchannels.ChannelReference{
+		Name:      channelRefName,
+		Namespace: channelRefNamespace,
+	}
+	if _, ok := d.channelSubscriptions[channelRef]; !ok {
+		w.WriteHeader(nethttp.StatusNotFound)
+		return
+	}
+	d.channelSubscriptions[channelRef].readySubscriptionsLock.RLock()
+	defer d.channelSubscriptions[channelRef].readySubscriptionsLock.RUnlock()
+	var subscriptions = make(map[string][]string)
+	w.Header().Set(dispatcherReadySubHeader, channelRefName)
+	subscriptions[channelRefNamespace+"/"+channelRefName] = d.channelSubscriptions[channelRef].channelReadySubscriptions.List()
+	jsonResult, err := json.Marshal(subscriptions)
+	if err != nil {
+		d.logger.Errorf("Error marshalling json for sub-status channelref: %s/%s, %w", channelRefNamespace, channelRefName, err)
+		return
+	}
+	_, err = w.Write(jsonResult)
+	if err != nil {
+		d.logger.Errorf("Error writing jsonResult to serveHTTP writer: %w", err)
+	}
 }
 
 // UpdateKafkaConsumers will be called by new CRD based kafka channel dispatcher controller.
@@ -369,21 +270,6 @@ func (d *KafkaDispatcher) UpdateKafkaConsumers(config *Config) (map[types.UID]er
 	return failedToSubscribe, nil
 }
 
-func uidSetDifference(a, b []types.UID) (diff []types.UID) {
-	m := make(map[types.UID]bool)
-
-	for _, item := range b {
-		m[item] = true
-	}
-
-	for _, item := range a {
-		if _, ok := m[item]; !ok {
-			diff = append(diff, item)
-		}
-	}
-	return
-}
-
 // UpdateHostToChannelMap will be called by new CRD based kafka channel dispatcher controller.
 func (d *KafkaDispatcher) UpdateHostToChannelMap(config *Config) error {
 	if config == nil {
@@ -400,32 +286,6 @@ func (d *KafkaDispatcher) UpdateHostToChannelMap(config *Config) error {
 
 	d.setHostToChannelMap(hcMap)
 	return nil
-}
-
-func createHostToChannelMap(config *Config) (map[string]eventingchannels.ChannelReference, error) {
-	hcMap := make(map[string]eventingchannels.ChannelReference, len(config.ChannelConfigs))
-	for _, cConfig := range config.ChannelConfigs {
-		if cr, ok := hcMap[cConfig.HostName]; ok {
-			return nil, fmt.Errorf(
-				"duplicate hostName found. Each channel must have a unique host header. HostName:%s, channel:%s.%s, channel:%s.%s",
-				cConfig.HostName,
-				cConfig.Namespace,
-				cConfig.Name,
-				cr.Namespace,
-				cr.Name)
-		}
-		hcMap[cConfig.HostName] = eventingchannels.ChannelReference{Name: cConfig.Name, Namespace: cConfig.Namespace}
-	}
-	return hcMap, nil
-}
-
-// Start starts the kafka dispatcher's message processing.
-func (d *KafkaDispatcher) Start(ctx context.Context) error {
-	if d.receiver == nil {
-		return fmt.Errorf("message receiver is not set")
-	}
-
-	return d.receiver.Start(ctx)
 }
 
 // subscribe reads kafkaConsumers which gets updated in UpdateConfig in a separate go-routine.
@@ -500,4 +360,36 @@ func (d *KafkaDispatcher) getChannelReferenceFromHost(host string) (eventingchan
 		return cr, eventingchannels.UnknownHostError(host)
 	}
 	return cr, nil
+}
+
+func uidSetDifference(a, b []types.UID) (diff []types.UID) {
+	m := make(map[types.UID]bool)
+
+	for _, item := range b {
+		m[item] = true
+	}
+
+	for _, item := range a {
+		if _, ok := m[item]; !ok {
+			diff = append(diff, item)
+		}
+	}
+	return
+}
+
+func createHostToChannelMap(config *Config) (map[string]eventingchannels.ChannelReference, error) {
+	hcMap := make(map[string]eventingchannels.ChannelReference, len(config.ChannelConfigs))
+	for _, cConfig := range config.ChannelConfigs {
+		if cr, ok := hcMap[cConfig.HostName]; ok {
+			return nil, fmt.Errorf(
+				"duplicate hostName found. Each channel must have a unique host header. HostName:%s, channel:%s.%s, channel:%s.%s",
+				cConfig.HostName,
+				cConfig.Namespace,
+				cConfig.Name,
+				cr.Namespace,
+				cr.Name)
+		}
+		hcMap[cConfig.HostName] = eventingchannels.ChannelReference{Name: cConfig.Name, Namespace: cConfig.Namespace}
+	}
+	return hcMap, nil
 }
