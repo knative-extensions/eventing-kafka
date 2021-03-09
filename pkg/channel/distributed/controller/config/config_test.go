@@ -21,7 +21,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 )
 
 // Test Constants
@@ -163,7 +163,7 @@ func TestVerifyConfiguration(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			testConfig := &config.EventingKafkaConfig{}
+			testConfig := &commonconfig.EventingKafkaConfig{}
 			testConfig.Kafka.Topic.DefaultNumPartitions = testCase.kafkaTopicDefaultNumPartitions
 			testConfig.Kafka.Topic.DefaultReplicationFactor = testCase.kafkaTopicDefaultReplicationFactor
 			testConfig.Kafka.Topic.DefaultRetentionMillis = testCase.kafkaTopicDefaultRetentionMillis

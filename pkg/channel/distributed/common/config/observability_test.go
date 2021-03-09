@@ -30,7 +30,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
-	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
+	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	configmap "knative.dev/pkg/configmap/informer"
 	logtesting "knative.dev/pkg/logging/testing"

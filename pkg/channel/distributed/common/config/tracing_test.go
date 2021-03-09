@@ -20,7 +20,7 @@ import (
 	"context"
 	"testing"
 
-	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
+	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"

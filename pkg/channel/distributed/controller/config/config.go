@@ -19,8 +19,8 @@ package config
 import (
 	"strings"
 
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 )
 
 // ConfigurationError is the type of error returned from VerifyConfiguration
@@ -33,7 +33,7 @@ func (err ControllerConfigurationError) Error() string {
 
 // VerifyConfiguration returns an error if mandatory fields in the EventingKafkaConfig have not been set either
 // via the external configmap or the internal variables.
-func VerifyConfiguration(configuration *config.EventingKafkaConfig) error {
+func VerifyConfiguration(configuration *commonconfig.EventingKafkaConfig) error {
 
 	// Verify & Lowercase The Kafka AdminType
 	lowercaseKafkaAdminType := strings.ToLower(configuration.Kafka.AdminType)

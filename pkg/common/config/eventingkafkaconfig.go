@@ -17,20 +17,8 @@ limitations under the License.
 package config
 
 import (
-	"context"
-
-	"go.uber.org/zap"
-	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/eventing-kafka/pkg/common/constants"
-	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	"knative.dev/pkg/injection/sharedmain"
 )
-
-// This function type is for a shim so that we can pass our own logger to the Observer function
-type LoggingObserver func(ctx context.Context, configMap *corev1.ConfigMap)
 
 // The EventingKafkaConfig and these EK sub-structs contain our custom configuration settings,
 // stored in the config-kafka configmap.  The sub-structs are explicitly declared so that they
@@ -73,32 +61,4 @@ type EventingKafkaConfig struct {
 	Receiver   EKReceiverConfig   `json:"receiver,omitempty"`
 	Dispatcher EKDispatcherConfig `json:"dispatcher,omitempty"`
 	Kafka      EKKafkaConfig      `json:"kafka,omitempty"`
-}
-
-//
-// Initialize The Specified Context With A ConfigMap Watcher
-// Much Of This Function Is Taken From The knative.dev sharedmain Package
-//
-func InitializeConfigWatcher(ctx context.Context, logger *zap.SugaredLogger, handler LoggingObserver, namespace string) error {
-
-	// Create A Watcher On The Configuration Settings ConfigMap & Dynamically Update Configuration
-	// Since this is designed to be called by the main() function, the default KNative package behavior here
-	// is a fatal exit if the watch cannot be set up.
-	watcher := sharedmain.SetupConfigMapWatchOrDie(ctx, logger)
-
-	// Start The ConfigMap Watcher
-	// Taken from knative.dev/pkg/injection/sharedmain/main.go::WatchObservabilityConfigOrDie
-	if _, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(namespace).Get(ctx, constants.SettingsConfigMapName, metav1.GetOptions{}); err == nil {
-		watcher.Watch(constants.SettingsConfigMapName, func(configmap *corev1.ConfigMap) { handler(ctx, configmap) })
-	} else if !apierrors.IsNotFound(err) {
-		logger.Error("Error reading ConfigMap "+constants.SettingsConfigMapName, zap.Error(err))
-		return err
-	}
-
-	if err := watcher.Start(ctx.Done()); err != nil {
-		logger.Error("Failed to start configuration watcher", zap.Error(err))
-		return err
-	}
-
-	return nil
 }

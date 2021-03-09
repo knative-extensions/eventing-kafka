@@ -28,9 +28,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/kubernetes/fake"
-	commonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
-	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/common/constants"
+	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 )
 

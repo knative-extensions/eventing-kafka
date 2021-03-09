@@ -26,13 +26,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	commonconfigtesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/config/testing"
-	configtesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/config/testing"
 	consumertesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer/testing"
 	consumerwrapper "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer/wrapper"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/metrics"
-	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
 	commonclient "knative.dev/eventing-kafka/pkg/common/client"
+	clienttesting "knative.dev/eventing-kafka/pkg/common/client/testing"
+	configtesting "knative.dev/eventing-kafka/pkg/common/config/testing"
+	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
@@ -122,8 +122,8 @@ func TestUpdateSubscriptions(t *testing.T) {
 	defer consumertesting.RestoreNewConsumerGroupFn()
 
 	// Test Data
-	brokers := []string{commonconfigtesting.DefaultKafkaBroker}
-	config, err := commonclient.NewConfigBuilder().WithDefaults().FromYaml(commonconfigtesting.DefaultSaramaConfigYaml).Build(ctx)
+	brokers := []string{configtesting.DefaultKafkaBroker}
+	config, err := commonclient.NewConfigBuilder().WithDefaults().FromYaml(clienttesting.DefaultSaramaConfigYaml).Build(ctx)
 	assert.Nil(t, err)
 
 	dispatcherConfig := DispatcherConfig{
@@ -290,10 +290,10 @@ func TestConfigChanged(t *testing.T) {
 	commontesting.SetTestEnvironment(t)
 
 	// Test Data
-	brokers := []string{commonconfigtesting.DefaultKafkaBroker}
+	brokers := []string{configtesting.DefaultKafkaBroker}
 	baseSaramaConfig, err := commonclient.NewConfigBuilder().
 		WithDefaults().
-		FromYaml(commonconfigtesting.DefaultSaramaConfigYaml).
+		FromYaml(clienttesting.DefaultSaramaConfigYaml).
 		WithVersion(&sarama.V2_0_0_0).
 		Build(ctx)
 	assert.Nil(t, err)
@@ -389,17 +389,17 @@ func TestSecretChanged(t *testing.T) {
 	commontesting.SetTestEnvironment(t)
 
 	// Test Data
-	brokers := []string{commonconfigtesting.DefaultKafkaBroker}
+	brokers := []string{configtesting.DefaultKafkaBroker}
 	auth := &commonclient.KafkaAuthConfig{
 		SASL: &commonclient.KafkaSaslConfig{
-			User:     commonconfigtesting.DefaultSecretUsername,
-			Password: commonconfigtesting.DefaultSecretPassword,
-			SaslType: commonconfigtesting.DefaultSecretSaslType,
+			User:     configtesting.DefaultSecretUsername,
+			Password: configtesting.DefaultSecretPassword,
+			SaslType: configtesting.DefaultSecretSaslType,
 		},
 	}
 	baseSaramaConfig, err := commonclient.NewConfigBuilder().
 		WithDefaults().
-		FromYaml(commonconfigtesting.DefaultSaramaConfigYaml).
+		FromYaml(clienttesting.DefaultSaramaConfigYaml).
 		WithVersion(&sarama.V2_0_0_0).
 		WithAuth(auth).
 		Build(ctx)
