@@ -79,9 +79,6 @@ func main() {
 	logger = logging.FromContext(ctx).Desugar()
 	defer flush(logger)
 
-	// UnComment To Enable Sarama Logging For Local Debug
-	// sarama.EnableSaramaLogging()
-
 	// Load Environment Variables
 	environment, err := env.GetEnvironment(logger)
 	if err != nil {
