@@ -65,11 +65,14 @@ func TestDispatcher(t *testing.T) {
 	})
 
 	dispatcherArgs := KafkaDispatcherArgs{
-		KnCEConnectionArgs: nil,
-		ClientID:           "testing",
-		Brokers:            []string{"localhost:9092"},
-		TopicFunc:          utils.TopicName,
-		Logger:             logger.Sugar(),
+		KnCEConnectionArgs: &kncloudevents.ConnectionArgs{
+			MaxIdleConns:        1000,
+			MaxIdleConnsPerHost: 100,
+		},
+		ClientID:  "testing",
+		Brokers:   []string{"localhost:9092"},
+		TopicFunc: utils.TopicName,
+		Logger:    logger.Sugar(),
 	}
 
 	// Create the dispatcher. At this point, if Kafka is not up, this thing fails
