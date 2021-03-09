@@ -14,18 +14,36 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package testing
 
-import (
-	"context"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+// Constants
+const (
+	DefaultSaramaConfigYaml = `
+Version: 2.0.0
+Admin:
+  Timeout: 10000000000
+Net:
+  KeepAlive: 30000000000
+  MaxOpenRequests: 1
+  TLS:
+    Enable: true
+  SASL:
+    Enable: true
+    Mechanism: PLAIN
+    Version: 1
+Metadata:
+  RefreshFrequency: 300000000000
+Consumer:
+  Offsets:
+    AutoCommit:
+      Interval: 5000000000
+    Retention: 604800000000000
+  Return:
+    Errors: true
+Producer:
+  Idempotent: true
+  RequiredAcks: -1
+  Return:
+    Successes: true
+`
 )
-
-func (cmp *ConfigMapPropagation) SetDefaults(ctx context.Context) {
-	// If we haven't configured the selector,
-	// then set the default selector to be an empty map
-	if cmp != nil && cmp.Spec.Selector == nil {
-		cmp.Spec.Selector = &metav1.LabelSelector{}
-	}
-}

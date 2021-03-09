@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	commontesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/testing"
+	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 
 	"github.com/stretchr/testify/assert"
 	"k8s.io/client-go/kubernetes/fake"
