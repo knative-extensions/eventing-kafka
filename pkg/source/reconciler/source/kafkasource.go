@@ -131,6 +131,12 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 	}
 	src.Status.MarkSink(sinkURI)
 
+	selector, err := resources.GetLabelsAsSelector(src.Name)
+	if err != nil {
+		return fmt.Errorf("getting labels as selector: %v", err)
+	}
+	src.Status.Selector = selector.String()
+
 	if val, ok := src.GetLabels()[v1beta1.KafkaKeyTypeLabel]; ok {
 		found := false
 		for _, allowed := range v1beta1.KafkaKeyTypeAllowed {
