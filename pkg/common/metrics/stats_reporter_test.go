@@ -87,6 +87,7 @@ func Test_getDescription(t *testing.T) {
 		{name: "response-rate", want: "Response Rate: "},
 		{name: "response-size", want: "Response Size: "},
 		{name: "requests-in-flight", want: "Requests in Flight: "},
+		{name: "compression-ratio", want: "Compression Ratio: "},
 		{name: "incoming-byte-rate-for-broker-0", want: "Incoming Byte Rate for Broker 0: "},
 		{name: "outgoing-byte-rate-for-broker-0", want: "Outgoing Byte Rate for Broker 0: "},
 		{name: "request-latency-in-ms-for-broker-1", want: "Request Latency (ms) for Broker 1: "},
@@ -94,7 +95,9 @@ func Test_getDescription(t *testing.T) {
 		{name: "request-size-for-broker-12345", want: "Request Size for Broker 12345: "},
 		{name: "response-rate-for-broker-12345", want: "Response Rate for Broker 12345: "},
 		{name: "response-size-for-broker-12345", want: "Response Size for Broker 12345: "},
-
+		{name: "batch-size-for-topic-test-topic", want: "Batch Size for Topic test-topic: "},
+		{name: "record-send-rate-for-topic-test-topic", want: "Record Send Rate for Topic test-topic: "},
+		{name: "records-per-request-for-topic-test-topic", want: "Records Per Request for Topic test-topic: "},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

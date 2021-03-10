@@ -41,20 +41,24 @@ var _ StatsReporter = &Reporter{}
 // Note that all of the expressions are executed in-order, so a string such as "request-rate-for-broker-0" will
 // first replace "request-rate" with "Request Rate" and then also replace "-for-broker-0" with " for Broker 0"
 var regexDescriptions = []struct {
-	Search *regexp.Regexp
+	Search  *regexp.Regexp
 	Replace string
-} {
-	{ regexp.MustCompile(`incoming-byte-rate`), "Incoming Byte Rate" },
-	{ regexp.MustCompile(`request-rate`), "Request Rate" },
-	{ regexp.MustCompile(`request-size`), "Request Size" },
-	{ regexp.MustCompile(`request-latency-in-ms`), "Request Latency (ms)" },
-	{ regexp.MustCompile(`outgoing-byte-rate`), "Outgoing Byte Rate" },
-	{ regexp.MustCompile(`response-rate`), "Response Rate" },
-	{ regexp.MustCompile(`response-size`), "Response Size" },
-	{ regexp.MustCompile(`requests-in-flight`), "Requests in Flight" },
-	{ regexp.MustCompile(`-for-broker-([0-9]+)`), " for Broker ${1}"},
+}{
+	{regexp.MustCompile(`incoming-byte-rate`), "Incoming Byte Rate"},
+	{regexp.MustCompile(`request-rate`), "Request Rate"},
+	{regexp.MustCompile(`request-size`), "Request Size"},
+	{regexp.MustCompile(`request-latency-in-ms`), "Request Latency (ms)"},
+	{regexp.MustCompile(`outgoing-byte-rate`), "Outgoing Byte Rate"},
+	{regexp.MustCompile(`response-rate`), "Response Rate"},
+	{regexp.MustCompile(`response-size`), "Response Size"},
+	{regexp.MustCompile(`requests-in-flight`), "Requests in Flight"},
+	{regexp.MustCompile(`compression-ratio`), "Compression Ratio"},
+	{regexp.MustCompile(`batch-size`), "Batch Size"},
+	{regexp.MustCompile(`record-send-rate`), "Record Send Rate"},
+	{regexp.MustCompile(`records-per-request`), "Records Per Request"},
+	{regexp.MustCompile(`-for-topic-`), " for Topic "},
+	{regexp.MustCompile(`-for-broker-`), " for Broker "},
 }
-
 
 // Define StatsReporter Structure
 type Reporter struct {
@@ -138,18 +142,30 @@ func (r *Reporter) recordMeasurement(metricKey string, saramaKey string, value i
 	// Type-switches don't support "fallthrough" so each individual possible type must have its own
 	// somewhat-redundant code block
 	switch value := value.(type) {
-	case int:    r.recordInt(int64(value), name, description)
-	case int8:   r.recordInt(int64(value), name, description)
-	case int16:  r.recordInt(int64(value), name, description)
-	case int32:  r.recordInt(int64(value), name, description)
-	case int64:  r.recordInt(value, name, description)
-	case uint:   r.recordInt(int64(value), name, description)
-	case uint8:  r.recordInt(int64(value), name, description)
-	case uint16: r.recordInt(int64(value), name, description)
-	case uint32: r.recordInt(int64(value), name, description)
-	case uint64: r.recordInt(int64(value), name, description)
-	case float64: r.recordFloat(value, name, description)
-	case float32: r.recordFloat(float64(value), name, description)
+	case int:
+		r.recordInt(int64(value), name, description)
+	case int8:
+		r.recordInt(int64(value), name, description)
+	case int16:
+		r.recordInt(int64(value), name, description)
+	case int32:
+		r.recordInt(int64(value), name, description)
+	case int64:
+		r.recordInt(value, name, description)
+	case uint:
+		r.recordInt(int64(value), name, description)
+	case uint8:
+		r.recordInt(int64(value), name, description)
+	case uint16:
+		r.recordInt(int64(value), name, description)
+	case uint32:
+		r.recordInt(int64(value), name, description)
+	case uint64:
+		r.recordInt(int64(value), name, description)
+	case float64:
+		r.recordFloat(value, name, description)
+	case float32:
+		r.recordFloat(float64(value), name, description)
 	default:
 		r.logger.Warn("Could not interpret measurement as a number", zap.Any("Sarama Value", value))
 	}
@@ -188,16 +204,27 @@ func getDescription(main string, sub string) string {
 // Returns pretty descriptions for known Sarama sub-metric categories
 func getSubDescription(sub string) string {
 	switch sub {
-	case "1m.rate": return "1-Minute Rate"
-	case "5m.rate":	return "5-Minute Rate"
-	case "15m.rate": return "15-Minute Rate"
-	case "count": return "Count"
-	case "max": return "Maximum"
-	case "mean": return "Mean"
-	case "mean.rate": return "Mean Rate"
-	case "median": return "Median"
-	case "min": return "Minimum"
-	case "stddev": return "Standard Deviation"
-	default: return sub
+	case "1m.rate":
+		return "1-Minute Rate"
+	case "5m.rate":
+		return "5-Minute Rate"
+	case "15m.rate":
+		return "15-Minute Rate"
+	case "count":
+		return "Count"
+	case "max":
+		return "Maximum"
+	case "mean":
+		return "Mean"
+	case "mean.rate":
+		return "Mean Rate"
+	case "median":
+		return "Median"
+	case "min":
+		return "Minimum"
+	case "stddev":
+		return "Standard Deviation"
+	default:
+		return sub
 	}
 }
