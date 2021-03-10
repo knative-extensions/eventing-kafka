@@ -36,3 +36,18 @@ func TestGetLabels(t *testing.T) {
 		t.Fatalf("%v is not equal to %v", testLabels, wantLabels)
 	}
 }
+
+func TestGetLabelsAsSelector(t *testing.T) {
+
+	testLabels, err := GetLabelsAsSelector("testSourceName")
+	if err != nil {
+		t.Fatalf("Unable to get labels as selector")
+	}
+	testLabelsString := testLabels.String()
+
+	wantLabels := "eventing.knative.dev/source=kafka-source-controller,eventing.knative.dev/sourceName=testSourceName"
+
+	if testLabelsString != wantLabels {
+		t.Fatalf("%v is not equal to %v", testLabels, wantLabels)
+	}
+}
