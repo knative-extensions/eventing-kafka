@@ -109,6 +109,10 @@ type KafkaSourceStatus struct {
 	// +optional
 	Consumers int32 `json:"consumers,omitempty"`
 
+	// Use for labelSelectorPath when scaling Kafka source
+	// +optional
+	Selector string `json:"selector,omitempty"`
+
 	// Implement Placeable.
 	// +optional
 	v1alpha1.Placeable `json:",inline"`

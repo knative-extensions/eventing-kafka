@@ -137,6 +137,10 @@ type KafkaSourceStatus struct {
 	// For round-tripping only.
 	Consumers int32 `json:"consumers,omitempty"`
 
+	// Use for labelSelectorPath when scaling Kafka source
+	// +optional
+	Selector string `json:"selector,omitempty"`
+
 	// Implement Placeable.
 	// For round-tripping only.
 	// +optional
