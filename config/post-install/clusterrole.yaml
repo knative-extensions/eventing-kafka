@@ -36,6 +36,7 @@ rules:
       - "messaging.knative.dev"
     resources:
       - "kafkachannels"
+      - "subscriptions"
     verbs:
       - "get"
       - "list"
