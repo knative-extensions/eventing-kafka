@@ -17,7 +17,7 @@ kind: ClusterRole
 metadata:
   name: knative-kafka-eventing-post-install-job-role
   labels:
-    eventing.knative.dev/release: devel
+    kafka.eventing.knative.dev/release: devel
 rules:
   # Storage version upgrader needs to be able to patch CRDs.
   - apiGroups:

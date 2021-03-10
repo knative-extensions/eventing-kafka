@@ -24,7 +24,7 @@ metadata:
   namespace: knative-eventing
   labels:
     app: "storage-version-migration"
-    eventing.knative.dev/release: devel
+    kafka.eventing.knative.dev/release: devel
 spec:
   ttlSecondsAfterFinished: 600
   backoffLimit: 10
