@@ -39,7 +39,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	eventingchannels "knative.dev/eventing/pkg/channel"
 	"knative.dev/eventing/pkg/channel/fanout"
-	"knative.dev/eventing/pkg/kncloudevents"
 	"knative.dev/pkg/kmeta"
 
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
@@ -157,9 +156,6 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 		return nil, fmt.Errorf("unable to create kafka producer against Kafka bootstrap servers %v : %v", args.Brokers, err)
 	}
 
-	// Configure connection arguments
-	kncloudevents.ConfigureConnectionArgs(args.KnCEConnectionArgs)
-
 	dispatcher := &KafkaDispatcher{
 		dispatcher:           eventingchannels.NewMessageDispatcher(args.Logger.Desugar()),
 		kafkaConsumerFactory: consumer.NewConsumerGroupFactory(args.Brokers, conf),
@@ -223,7 +219,6 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 type TopicFunc func(separator, namespace, name string) string
 
 type KafkaDispatcherArgs struct {
-	KnCEConnectionArgs       *kncloudevents.ConnectionArgs
 	ClientID                 string
 	Brokers                  []string
 	KafkaAuthConfig          *client.KafkaAuthConfig

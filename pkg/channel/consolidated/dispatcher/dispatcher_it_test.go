@@ -64,11 +64,13 @@ func TestDispatcher(t *testing.T) {
 		ZipkinEndpoint: "http://localhost:9411/api/v2/spans",
 	})
 
+	// Configure connection arguments - to be done exactly once per process
+	kncloudevents.ConfigureConnectionArgs(&kncloudevents.ConnectionArgs{
+		MaxIdleConns:        utils.DefaultMaxIdleConns,
+		MaxIdleConnsPerHost: utils.DefaultMaxIdleConnsPerHost,
+	})
+
 	dispatcherArgs := KafkaDispatcherArgs{
-		KnCEConnectionArgs: &kncloudevents.ConnectionArgs{
-			MaxIdleConns:        1000,
-			MaxIdleConnsPerHost: 100,
-		},
 		ClientID:  "testing",
 		Brokers:   []string{"localhost:9092"},
 		TopicFunc: utils.TopicName,
