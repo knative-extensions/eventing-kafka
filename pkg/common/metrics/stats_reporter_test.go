@@ -87,6 +87,14 @@ func Test_getDescription(t *testing.T) {
 		{name: "response-rate", want: "Response Rate: "},
 		{name: "response-size", want: "Response Size: "},
 		{name: "requests-in-flight", want: "Requests in Flight: "},
+		{name: "incoming-byte-rate-for-broker-0", want: "Incoming Byte Rate for Broker 0: "},
+		{name: "outgoing-byte-rate-for-broker-0", want: "Outgoing Byte Rate for Broker 0: "},
+		{name: "request-latency-in-ms-for-broker-1", want: "Request Latency (ms) for Broker 1: "},
+		{name: "request-rate-for-broker-1", want: "Request Rate for Broker 1: "},
+		{name: "request-size-for-broker-12345", want: "Request Size for Broker 12345: "},
+		{name: "response-rate-for-broker-12345", want: "Response Rate for Broker 12345: "},
+		{name: "response-size-for-broker-12345", want: "Response Size for Broker 12345: "},
+
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -124,16 +132,23 @@ func Test_getSubDescription(t *testing.T) {
 
 func TestReporter_recordMeasurement(t *testing.T) {
 	tests := []struct {
-		name      string
-		metricKey string
-		saramaKey string
-		value     interface{}
+		name        string
+		value       interface{}
+		expectError bool
 	}{
-		{name: "Int64 Measure", metricKey: "mkey", saramaKey: "skey", value: int64(12345)},
-		{name: "Int32 Measure", metricKey: "mkey", saramaKey: "skey", value: int32(12345)},
-		{name: "Int Measure", metricKey: "mkey", saramaKey: "skey", value: 12345},
-		{name: "Float64 Measure", metricKey: "mkey", saramaKey: "skey", value: 12.345},
-		{name: "Float32 Measure", metricKey: "mkey", saramaKey: "skey", value: float32(12.345)},
+		{name: "Int64 Measure", value: int64(-12345678901)},
+		{name: "Int32 Measure", value: int32(-123456)},
+		{name: "Int16 Measure", value: int16(-1234)},
+		{name: "Int8 Measure", value: int8(-123)},
+		{name: "Int Measure", value: -12345},
+		{name: "UInt64 Measure", value: uint64(12345678901)},
+		{name: "UInt32 Measure", value: uint32(123456)},
+		{name: "UInt16 Measure", value: uint16(1234)},
+		{name: "UInt8 Measure", value: uint8(123)},
+		{name: "UInt Measure", value: uint(12345)},
+		{name: "Float64 Measure", value: 12.345},
+		{name: "Float32 Measure", value: float32(12.345)},
+		{name: "Invalid Measure", value: "not-a-number", expectError: true},
 	}
 
 	RecordWrapperRef := RecordWrapper
@@ -151,22 +166,21 @@ func TestReporter_recordMeasurement(t *testing.T) {
 			// Reset the values to check before each individual test
 			recordCalled = false
 
-			// Create A New Reporter To Test
-			statsReporter := &Reporter{
-				views:        make(map[string]*view.View),
-				logger:       logtesting.TestLogger(t).Desugar(),
-				tagCtx:       context.Background(),
-				measurements: make(map[string]stats.Measure),
-			}
+			statsReporter := createTestReporter(t)
 
 			// Perform the test
-			statsReporter.recordMeasurement(tt.metricKey, tt.saramaKey, tt.value)
-			newView := statsReporter.views[fmt.Sprintf("%s.%s", tt.metricKey, tt.saramaKey)]
+			statsReporter.recordMeasurement("test-metric-key", "test-sarama-key", tt.value)
+			newView := statsReporter.views["test-metric-key.test-sarama-key"]
 
 			// Verify the results
-			assert.True(t, recordCalled)
-			assert.NotNil(t, newView)
-			view.Unregister(newView)
+			if tt.expectError {
+				assert.False(t, recordCalled)
+				assert.Nil(t, newView)
+			} else {
+				assert.True(t, recordCalled)
+				assert.NotNil(t, newView)
+				view.Unregister(newView)
+			}
 		})
 	}
 }
@@ -191,13 +205,7 @@ func TestReporter_createView(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			// Create A New Reporter To Test
-			statsReporter := &Reporter{
-				views:        make(map[string]*view.View),
-				logger:       logtesting.TestLogger(t).Desugar(),
-				tagCtx:       context.Background(),
-				measurements: make(map[string]stats.Measure),
-			}
+			statsReporter := createTestReporter(t)
 
 			// Perform the test
 			newContext := statsReporter.createView(tt.ctx, tt.measure, tt.nameArg, tt.description)
@@ -214,6 +222,45 @@ func TestReporter_createView(t *testing.T) {
 		})
 	}
 
+}
+
+func TestReporter_recordInt(t *testing.T) {
+	reporter := createTestReporter(t)
+	recordCalled := false
+	RecordWrapper = func(ctx context.Context, ms ocstats.Measurement, ros ...ocstats.Options) { recordCalled = true }
+	reporter.recordInt(12345, "test-name", "test-description")
+	assert.True(t, recordCalled)
+	assert.NotNil(t, reporter.views["test-name"])
+	view.Unregister(reporter.views["test-name"])
+}
+
+func TestReporter_recordFloat(t *testing.T) {
+	reporter := createTestReporter(t)
+	recordCalled := false
+	RecordWrapper = func(ctx context.Context, ms ocstats.Measurement, ros ...ocstats.Options) { recordCalled = true }
+	reporter.recordFloat(12.345, "test-name", "test-description")
+	assert.True(t, recordCalled)
+	assert.NotNil(t, reporter.views["test-name"])
+	view.Unregister(reporter.views["test-name"])
+}
+
+func TestReporter_createViewIfNecessary(t *testing.T) {
+	reporter := createTestReporter(t)
+	measure := stats.Float64("test-name", "test-description", stats.UnitDimensionless)
+	assert.Nil(t, reporter.views["test-name"])
+	reporter.createViewIfNecessary(measure, "test-name", "test-description")
+	assert.NotNil(t, reporter.views["test-name"])
+	view.Unregister(reporter.views["test-name"])
+}
+
+// Utility Function For Creating Test Reporter Struct
+func createTestReporter(t *testing.T) *Reporter {
+	return &Reporter{
+		views:        make(map[string]*view.View),
+		logger:       logtesting.TestLogger(t).Desugar(),
+		tagCtx:       context.Background(),
+		measurements: make(map[string]stats.Measure),
+	}
 }
 
 // Utility Function For Creating Sample Test Metrics  (Representative Data From Sarama Metrics Trace - With Custom Test Data)

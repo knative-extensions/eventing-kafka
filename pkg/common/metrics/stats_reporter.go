@@ -19,6 +19,7 @@ package metrics
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
@@ -34,6 +35,26 @@ type StatsReporter interface {
 
 // Verify StatsReporter Implements StatsReporter Interface
 var _ StatsReporter = &Reporter{}
+
+// Define a list of regular expressions that can be applied to a raw incoming Sarama metric in order to produce
+// text suitable for the "# HELP" section of the metrics endpoint output
+// Note that all of the expressions are executed in-order, so a string such as "request-rate-for-broker-0" will
+// first replace "request-rate" with "Request Rate" and then also replace "-for-broker-0" with " for Broker 0"
+var regexDescriptions = []struct {
+	Search *regexp.Regexp
+	Replace string
+} {
+	{ regexp.MustCompile(`incoming-byte-rate`), "Incoming Byte Rate" },
+	{ regexp.MustCompile(`request-rate`), "Request Rate" },
+	{ regexp.MustCompile(`request-size`), "Request Size" },
+	{ regexp.MustCompile(`request-latency-in-ms`), "Request Latency (ms)" },
+	{ regexp.MustCompile(`outgoing-byte-rate`), "Outgoing Byte Rate" },
+	{ regexp.MustCompile(`response-rate`), "Response Rate" },
+	{ regexp.MustCompile(`response-size`), "Response Size" },
+	{ regexp.MustCompile(`requests-in-flight`), "Requests in Flight" },
+	{ regexp.MustCompile(`-for-broker-([0-9]+)`), " for Broker ${1}"},
+}
+
 
 // Define StatsReporter Structure
 type Reporter struct {
@@ -64,14 +85,6 @@ type ReportingList = map[string]ReportingItem
 //
 // Report The Sarama Metrics (go-metrics) Via Knative / OpenCensus Metrics
 //
-//        If we do decide to expose all available metrics, the following library might be useful...
-//
-//          https://github.com/deathowl/go-metrics-prometheus
-//
-//        Further the Sarama Consumer metrics don't track messages so we might need/want
-//        to manually track produced/consumed messages at the Topic/Partition/ConsumerGroup
-//        level.
-//
 func (r *Reporter) Report(list ReportingList) {
 
 	// Validate The Metrics
@@ -80,6 +93,7 @@ func (r *Reporter) Report(list ReportingList) {
 		// Loop Over The Observed Metrics
 		for metricKey, metricValue := range list {
 
+			// Record Each Individual Metric Item
 			for saramaKey, saramaValue := range metricValue {
 				r.recordMeasurement(metricKey, saramaKey, saramaValue)
 			}
@@ -121,84 +135,69 @@ func (r *Reporter) recordMeasurement(metricKey string, saramaKey string, value i
 	name := fmt.Sprintf("%s.%s", metricKey, saramaKey)
 	description := getDescription(metricKey, saramaKey)
 
-	intMeasure := stats.Int64(name, description, stats.UnitDimensionless)
-	floatMeasure := stats.Float64(name, description, stats.UnitDimensionless)
-	var measure stats.Measure
-
+	// Type-switches don't support "fallthrough" so each individual possible type must have its own
+	// somewhat-redundant code block
 	switch value := value.(type) {
-	case int64:
-		measure = intMeasure
-		RecordWrapper(r.tagCtx, intMeasure.M(value))
-	case int32:
-		measure = intMeasure
-		RecordWrapper(r.tagCtx, intMeasure.M(int64(value)))
-	case int:
-		measure = intMeasure
-		RecordWrapper(r.tagCtx, intMeasure.M(int64(value)))
-	case float64:
-		measure = floatMeasure
-		RecordWrapper(r.tagCtx, floatMeasure.M(value))
-	case float32:
-		measure = floatMeasure
-		RecordWrapper(r.tagCtx, floatMeasure.M(float64(value)))
+	case int:    r.recordInt(int64(value), name, description)
+	case int8:   r.recordInt(int64(value), name, description)
+	case int16:  r.recordInt(int64(value), name, description)
+	case int32:  r.recordInt(int64(value), name, description)
+	case int64:  r.recordInt(value, name, description)
+	case uint:   r.recordInt(int64(value), name, description)
+	case uint8:  r.recordInt(int64(value), name, description)
+	case uint16: r.recordInt(int64(value), name, description)
+	case uint32: r.recordInt(int64(value), name, description)
+	case uint64: r.recordInt(int64(value), name, description)
+	case float64: r.recordFloat(value, name, description)
+	case float32: r.recordFloat(float64(value), name, description)
 	default:
 		r.logger.Warn("Could not interpret measurement as a number", zap.Any("Sarama Value", value))
 	}
+}
 
+// Record a measurement that is represented by an int64 value
+func (r *Reporter) recordInt(value int64, name string, description string) {
+	measure := stats.Int64(name, description, stats.UnitDimensionless)
+	RecordWrapper(r.tagCtx, measure.M(value))
+	r.createViewIfNecessary(measure, name, description)
+}
+
+// Record a measurement that is represented by a float64 value
+func (r *Reporter) recordFloat(value float64, name string, description string) {
+	measure := stats.Float64(name, description, stats.UnitDimensionless)
+	RecordWrapper(r.tagCtx, measure.M(value))
+	r.createViewIfNecessary(measure, name, description)
+}
+
+// Adds a view for this measurement to this Reporter's map of known views, if not already present
+func (r *Reporter) createViewIfNecessary(measure stats.Measure, name string, description string) {
 	if _, ok := r.views[name]; !ok {
-		// This is the first time this measurement is being taken; add it to the views
 		r.tagCtx = r.createView(r.tagCtx, measure, name, description)
 	}
 }
 
 // Returns pretty descriptions for known Sarama metrics
 func getDescription(main string, sub string) string {
-	switch main {
-	case "incoming-byte-rate":
-		return "Incoming Byte Rate: " + getSubDescription(sub)
-	case "request-rate":
-		return "Request Rate: " + getSubDescription(sub)
-	case "request-size":
-		return "Request Size: " + getSubDescription(sub)
-	case "request-latency-in-ms":
-		return "Request Latency (ms): " + getSubDescription(sub)
-	case "outgoing-byte-rate":
-		return "Outgoing Byte Rate: " + getSubDescription(sub)
-	case "response-rate":
-		return "Response Rate: " + getSubDescription(sub)
-	case "response-size":
-		return "Response Size: " + getSubDescription(sub)
-	case "requests-in-flight":
-		return "Requests in Flight: " + getSubDescription(sub)
-	default:
-		return main + ": " + getSubDescription(sub)
+	// Run through the list of known replacements that should be made (multiple replacements may happen)
+	for _, replacement := range regexDescriptions {
+		main = replacement.Search.ReplaceAllString(main, replacement.Replace)
 	}
+	return main + ": " + getSubDescription(sub)
 }
 
 // Returns pretty descriptions for known Sarama sub-metric categories
 func getSubDescription(sub string) string {
 	switch sub {
-	case "1m.rate":
-		return "1-Minute Rate"
-	case "5m.rate":
-		return "5-Minute Rate"
-	case "15m.rate":
-		return "15-Minute Rate"
-	case "count":
-		return "Count"
-	case "max":
-		return "Maximum"
-	case "mean":
-		return "Mean"
-	case "mean.rate":
-		return "Mean Rate"
-	case "median":
-		return "Median"
-	case "min":
-		return "Minimum"
-	case "stddev":
-		return "Standard Deviation"
-	default:
-		return sub
+	case "1m.rate": return "1-Minute Rate"
+	case "5m.rate":	return "5-Minute Rate"
+	case "15m.rate": return "15-Minute Rate"
+	case "count": return "Count"
+	case "max": return "Maximum"
+	case "mean": return "Mean"
+	case "mean.rate": return "Mean Rate"
+	case "median": return "Median"
+	case "min": return "Minimum"
+	case "stddev": return "Standard Deviation"
+	default: return sub
 	}
 }
