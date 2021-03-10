@@ -123,6 +123,7 @@ func TestKafkaSourceCheckImmutableFields(t *testing.T) {
 		"Topic changed": {
 			orig: &fullSpec,
 			updated: KafkaSourceSpec{
+				KafkaAuthSpec: fullSpec.KafkaAuthSpec,
 				Topics:        []string{"some-other-topic"},
 				ConsumerGroup: fullSpec.ConsumerGroup,
 				SourceSpec:    fullSpec.SourceSpec,
@@ -134,7 +135,9 @@ func TestKafkaSourceCheckImmutableFields(t *testing.T) {
 			updated: KafkaSourceSpec{
 				KafkaAuthSpec: bindingsv1beta1.KafkaAuthSpec{
 					BootstrapServers: []string{"server1,server2"},
+					Net:              fullSpec.Net,
 				},
+				Topics:        []string{"some-other-topic"},
 				ConsumerGroup: fullSpec.ConsumerGroup,
 				SourceSpec:    fullSpec.SourceSpec,
 			},
@@ -143,6 +146,7 @@ func TestKafkaSourceCheckImmutableFields(t *testing.T) {
 		"Sink.APIVersion changed": {
 			orig: &fullSpec,
 			updated: KafkaSourceSpec{
+				KafkaAuthSpec: fullSpec.KafkaAuthSpec,
 				Topics:        fullSpec.Topics,
 				ConsumerGroup: fullSpec.ConsumerGroup,
 				SourceSpec: duckv1.SourceSpec{
@@ -161,6 +165,7 @@ func TestKafkaSourceCheckImmutableFields(t *testing.T) {
 		"Sink.Kind changed": {
 			orig: &fullSpec,
 			updated: KafkaSourceSpec{
+				KafkaAuthSpec: fullSpec.KafkaAuthSpec,
 				Topics:        fullSpec.Topics,
 				ConsumerGroup: fullSpec.ConsumerGroup,
 				SourceSpec: duckv1.SourceSpec{
@@ -179,6 +184,8 @@ func TestKafkaSourceCheckImmutableFields(t *testing.T) {
 		"Sink.Namespace changed": {
 			orig: &fullSpec,
 			updated: KafkaSourceSpec{
+
+				KafkaAuthSpec: fullSpec.KafkaAuthSpec,
 				Topics:        fullSpec.Topics,
 				ConsumerGroup: fullSpec.ConsumerGroup,
 				SourceSpec: duckv1.SourceSpec{
@@ -197,6 +204,8 @@ func TestKafkaSourceCheckImmutableFields(t *testing.T) {
 		"Sink.Name changed": {
 			orig: &fullSpec,
 			updated: KafkaSourceSpec{
+
+				KafkaAuthSpec: fullSpec.KafkaAuthSpec,
 				Topics:        fullSpec.Topics,
 				ConsumerGroup: fullSpec.ConsumerGroup,
 				SourceSpec: duckv1.SourceSpec{
@@ -212,23 +221,6 @@ func TestKafkaSourceCheckImmutableFields(t *testing.T) {
 			},
 			allowed: true,
 		},
-		"ServiceAccountName changed": {
-			orig: &fullSpec,
-			updated: KafkaSourceSpec{
-				Topics: fullSpec.Topics,
-				SourceSpec: duckv1.SourceSpec{
-					Sink: duckv1.Destination{
-						Ref: &duckv1.KReference{
-							APIVersion: fullSpec.Sink.Ref.APIVersion,
-							Kind:       fullSpec.Sink.Ref.Kind,
-							Namespace:  fullSpec.Sink.Ref.Namespace,
-							Name:       "some-other-name",
-						},
-					},
-				},
-			},
-			allowed: false,
-		},
 		"no change": {
 			orig:    &fullSpec,
 			updated: fullSpec,
@@ -237,7 +229,10 @@ func TestKafkaSourceCheckImmutableFields(t *testing.T) {
 		"consumerGroup changed": {
 			orig: &fullSpec,
 			updated: KafkaSourceSpec{
+				KafkaAuthSpec: fullSpec.KafkaAuthSpec,
+				Topics:        fullSpec.Topics,
 				ConsumerGroup: "no-way",
+				SourceSpec:    fullSpec.SourceSpec,
 			},
 			allowed: false,
 		},
@@ -248,6 +243,7 @@ func TestKafkaSourceCheckImmutableFields(t *testing.T) {
 				SourceSpec:    fullSpec.SourceSpec,
 				Topics:        fullSpec.Topics,
 				KafkaAuthSpec: bindingsv1beta1.KafkaAuthSpec{
+					BootstrapServers: []string{"servers"},
 					Net: bindingsv1beta1.KafkaNetSpec{
 						TLS: bindingsv1beta1.KafkaTLSSpec{
 							Enable: true,
@@ -264,6 +260,7 @@ func TestKafkaSourceCheckImmutableFields(t *testing.T) {
 				SourceSpec:    fullSpec.SourceSpec,
 				Topics:        fullSpec.Topics,
 				KafkaAuthSpec: bindingsv1beta1.KafkaAuthSpec{
+					BootstrapServers: []string{"servers"},
 					Net: bindingsv1beta1.KafkaNetSpec{
 						SASL: bindingsv1beta1.KafkaSASLSpec{
 							Enable: true,

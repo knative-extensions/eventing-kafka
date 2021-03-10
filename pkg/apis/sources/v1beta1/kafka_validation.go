@@ -19,8 +19,6 @@ package v1beta1
 import (
 	"context"
 
-	"github.com/google/go-cmp/cmp/cmpopts"
-
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/kmp"
 )
@@ -41,14 +39,12 @@ func (kss *KafkaSourceSpec) Validate(ctx context.Context) *apis.FieldError {
 	// Validate sink
 	errs = errs.Also(kss.Sink.Validate(ctx).ViaField("sink"))
 
-	// We want to ensure we have a bootstrapServer & Topics for creation
-	if apis.IsInCreate(ctx) {
-		if len(kss.Topics) <= 0 {
-			errs = errs.Also(apis.ErrMissingField("Topics"))
-		}
-		if len(kss.BootstrapServers) <= 0 {
-			errs = errs.Also(apis.ErrMissingField("bootstrapServer"))
-		}
+	// Check for mandatory fields
+	if len(kss.Topics) <= 0 {
+		errs = errs.Also(apis.ErrMissingField("topics"))
+	}
+	if len(kss.BootstrapServers) <= 0 {
+		errs = errs.Also(apis.ErrMissingField("bootstrapServer"))
 	}
 
 	return errs
@@ -58,26 +54,23 @@ func (ks *KafkaSource) CheckImmutableFields(ctx context.Context, original *Kafka
 	if original == nil {
 		return nil
 	}
-	var errs *apis.FieldError
+	diff, err := kmp.ShortDiff(original.Spec.ConsumerGroup, ks.Spec.ConsumerGroup)
 
-	// Ignore diffs in bootstrapServers and topics
-	ignoreArgs := cmpopts.IgnoreFields(KafkaSourceSpec{}, "Topics", "BootstrapServers", "Sink", "Net", "CloudEventOverrides")
-	if diff, err := kmp.ShortDiff(original.Spec, ks.Spec, ignoreArgs); err != nil {
-		errs = errs.Also(&apis.FieldError{
+	if err != nil {
+		return &apis.FieldError{
 			Message: "Failed to diff KafkaSource",
 			Paths:   []string{"spec"},
 			Details: err.Error(),
-		})
-		return errs
-	} else if diff != "" {
-		errs = errs.Also(
-			&apis.FieldError{
-				Message: "Immutable fields changed (-old +new)",
-				Paths:   []string{"spec"},
-				Details: diff,
-			})
-		return errs
+		}
 	}
 
-	return errs
+	if diff != "" {
+		return &apis.FieldError{
+			Message: "Immutable fields changed (-old +new)",
+			Paths:   []string{"spec"},
+			Details: diff,
+		}
+	}
+
+	return nil
 }
