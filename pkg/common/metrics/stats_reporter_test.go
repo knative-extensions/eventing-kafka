@@ -73,10 +73,9 @@ func TestMetricsServer_Report(t *testing.T) {
 	assert.Equal(t, float64(msgCount), measuredMsgCount)
 }
 
-func Test_getDescription(t *testing.T) {
+func TestGetDescription(t *testing.T) {
 	tests := []struct {
 		name string
-		sub  string
 		want string
 	}{
 		{name: "incoming-byte-rate", want: "Incoming Byte Rate: "},
@@ -101,14 +100,14 @@ func Test_getDescription(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getDescription(tt.name, tt.sub); got != tt.want {
+			if got := getDescription(tt.name, ""); got != tt.want {
 				t.Errorf("getDescription() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func Test_getSubDescription(t *testing.T) {
+func TestGetSubDescription(t *testing.T) {
 	tests := []struct {
 		name string
 		want string
@@ -133,7 +132,7 @@ func Test_getSubDescription(t *testing.T) {
 	}
 }
 
-func TestReporter_recordMeasurement(t *testing.T) {
+func TestReporterRecordMeasurement(t *testing.T) {
 	tests := []struct {
 		name        string
 		value       interface{}
@@ -188,7 +187,7 @@ func TestReporter_recordMeasurement(t *testing.T) {
 	}
 }
 
-func TestReporter_createView(t *testing.T) {
+func TestReporterCreateView(t *testing.T) {
 
 	intMeasure := stats.Int64("int-name", "int-description", stats.UnitDimensionless)
 	floatMeasure := stats.Float64("float-name", "float-description", stats.UnitDimensionless)
@@ -227,7 +226,7 @@ func TestReporter_createView(t *testing.T) {
 
 }
 
-func TestReporter_recordInt(t *testing.T) {
+func TestReporterRecordInt(t *testing.T) {
 	reporter := createTestReporter(t)
 	recordCalled := false
 	RecordWrapper = func(ctx context.Context, ms ocstats.Measurement, ros ...ocstats.Options) { recordCalled = true }
@@ -237,7 +236,7 @@ func TestReporter_recordInt(t *testing.T) {
 	view.Unregister(reporter.views["test-name"])
 }
 
-func TestReporter_recordFloat(t *testing.T) {
+func TestReporterRecordFloat(t *testing.T) {
 	reporter := createTestReporter(t)
 	recordCalled := false
 	RecordWrapper = func(ctx context.Context, ms ocstats.Measurement, ros ...ocstats.Options) { recordCalled = true }
@@ -247,7 +246,7 @@ func TestReporter_recordFloat(t *testing.T) {
 	view.Unregister(reporter.views["test-name"])
 }
 
-func TestReporter_createViewIfNecessary(t *testing.T) {
+func TestReporterCreateViewIfNecessary(t *testing.T) {
 	reporter := createTestReporter(t)
 	measure := stats.Float64("test-name", "test-description", stats.UnitDimensionless)
 	assert.Nil(t, reporter.views["test-name"])
