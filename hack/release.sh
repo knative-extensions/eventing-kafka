@@ -49,6 +49,15 @@ function build_release() {
     ko resolve ${KO_FLAGS} -f ${config}/ | "${LABEL_YAML_CMD[@]}" > ${yaml}
     all_yamls+=(${yaml})
   done
+
+  if [ -d "${YAML_REPO_ROOT}/config/post-install" ]; then
+    echo "Resolving post install manifests"
+
+    local yaml="post-install.yaml"
+    ko resolve ${KO_FLAGS} -f config/post-install/ | "${LABEL_YAML_CMD[@]}" > ${yaml}
+    all_yamls+=(${yaml})
+  fi
+
   ARTIFACTS_TO_PUBLISH="${all_yamls[@]}"
 }
 

@@ -1213,6 +1213,8 @@ knative.dev/eventing/test/test_images/recordevents
 knative.dev/hack
 # knative.dev/pkg v0.0.0-20210309024624-0f8d8de5949d
 ## explicit
+knative.dev/pkg/apiextensions/storageversion
+knative.dev/pkg/apiextensions/storageversion/cmd/migrate
 knative.dev/pkg/apis
 knative.dev/pkg/apis/duck
 knative.dev/pkg/apis/duck/ducktypes
