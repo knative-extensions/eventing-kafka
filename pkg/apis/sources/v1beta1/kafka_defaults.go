@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"k8s.io/utils/pointer"
 )
 
 const (
@@ -28,7 +29,11 @@ const (
 
 // SetDefaults ensures KafkaSource reflects the default values.
 func (k *KafkaSource) SetDefaults(ctx context.Context) {
-	if k != nil && k.Spec.ConsumerGroup == "" {
+	if k.Spec.ConsumerGroup == "" {
 		k.Spec.ConsumerGroup = uuidPrefix + uuid.New().String()
+	}
+
+	if k.Spec.Consumers == nil {
+		k.Spec.Consumers = pointer.Int32Ptr(1)
 	}
 }

@@ -18,11 +18,13 @@ package v1beta1
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
+	"k8s.io/utils/pointer"
 )
 
 type defaultKafkaTestArgs struct {
@@ -45,6 +47,13 @@ func TestSetDefaults(t *testing.T) {
 			t.Fatalf("Unexpected consumerGroup Set (-want, +got): %s", diff)
 		}
 	}
+	assertConsumers := func(t *testing.T, ks KafkaSource, expected string) {
+		i, _ := strconv.Atoi(expected)
+		i32 := int32(i)
+		if diff := cmp.Diff(ks.Spec.Consumers, &i32); diff != "" {
+			t.Fatalf("Unexpected consumers (-want, +got): %s", diff)
+		}
+	}
 	testCases := []defaultKafkaTestArgs{
 		{
 			Name:       "nil spec",
@@ -60,6 +69,18 @@ func TestSetDefaults(t *testing.T) {
 			},
 			Expected:   "foo",
 			AssertFunc: assertGivenGroup,
+		},
+		{
+			Name:       "consumers not set",
+			Initial:    KafkaSource{},
+			Expected:   "1",
+			AssertFunc: assertConsumers,
+		},
+		{
+			Name:       "consumers set",
+			Initial:    KafkaSource{Spec: KafkaSourceSpec{Consumers: pointer.Int32Ptr(4)}},
+			Expected:   "4",
+			AssertFunc: assertConsumers,
 		},
 	}
 
