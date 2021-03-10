@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors
+Copyright 2021 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,23 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package k8s
+package dispatcher
 
-import (
-	"regexp"
-)
+type Config struct {
+	// The configuration of each channel in this handler.
+	ChannelConfigs []ChannelConfig
+}
 
-const (
-	K8sLabelValueMaxLength = 63
-)
-
-// Truncate The Specified K8S Label Value To The Max
-func TruncateLabelValue(str string) string {
-	strCopy := str
-	if len(str) > K8sLabelValueMaxLength {
-		strCopy = str[0:K8sLabelValueMaxLength]
-	}
-	// Strip any and all trailing '-' characters from the end of the string
-	strCopy = regexp.MustCompile(`^(.*[^-])-*`).ReplaceAllString(strCopy, "${1}")
-	return strCopy
+type ChannelConfig struct {
+	Namespace     string
+	Name          string
+	HostName      string
+	Subscriptions []Subscription
 }

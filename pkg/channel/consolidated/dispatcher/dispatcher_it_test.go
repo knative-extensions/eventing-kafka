@@ -64,12 +64,17 @@ func TestDispatcher(t *testing.T) {
 		ZipkinEndpoint: "http://localhost:9411/api/v2/spans",
 	})
 
+	// Configure connection arguments - to be done exactly once per process
+	kncloudevents.ConfigureConnectionArgs(&kncloudevents.ConnectionArgs{
+		MaxIdleConns:        utils.DefaultMaxIdleConns,
+		MaxIdleConnsPerHost: utils.DefaultMaxIdleConnsPerHost,
+	})
+
 	dispatcherArgs := KafkaDispatcherArgs{
-		KnCEConnectionArgs: nil,
-		ClientID:           "testing",
-		Brokers:            []string{"localhost:9092"},
-		TopicFunc:          utils.TopicName,
-		Logger:             logger.Sugar(),
+		ClientID:  "testing",
+		Brokers:   []string{"localhost:9092"},
+		TopicFunc: utils.TopicName,
+		Logger:    logger.Sugar(),
 	}
 
 	// Create the dispatcher. At this point, if Kafka is not up, this thing fails

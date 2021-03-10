@@ -89,14 +89,14 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 
 	kafkaAuthCfg := utils.GetKafkaAuthData(ctx, kafkaConfig.AuthSecretName, kafkaConfig.AuthSecretNamespace)
 
-	connectionArgs := &kncloudevents.ConnectionArgs{
+	// Configure connection arguments - to be done exactly once per process
+	kncloudevents.ConfigureConnectionArgs(&kncloudevents.ConnectionArgs{
 		MaxIdleConns:        int(kafkaConfig.MaxIdleConns),
 		MaxIdleConnsPerHost: int(kafkaConfig.MaxIdleConnsPerHost),
-	}
+	})
 
 	kafkaChannelInformer := kafkachannel.Get(ctx)
 	args := &dispatcher.KafkaDispatcherArgs{
-		KnCEConnectionArgs:       connectionArgs,
 		ClientID:                 "kafka-ch-dispatcher",
 		Brokers:                  kafkaConfig.Brokers,
 		KafkaAuthConfig:          kafkaAuthCfg,
