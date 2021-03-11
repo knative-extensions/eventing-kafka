@@ -114,6 +114,11 @@ func (r Reconciler) Reconcile(ctx context.Context, key string) error {
 
 	r.logger.Info("Reconcile", zap.String("key", key))
 
+	// Only Reconcile KafkaChannel Associated With This Dispatcher
+	if r.channelKey != key {
+		return nil
+	}
+
 	// Convert the namespace/name string into a distinct namespace and name.
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
@@ -130,11 +135,6 @@ func (r Reconciler) Reconcile(ctx context.Context, key string) error {
 		}
 		r.logger.Error("Error Retrieving KafkaChannel", zap.Error(err), zap.String("namespace", namespace), zap.String("name", name))
 		return err
-	}
-
-	// Only Reconcile KafkaChannel Associated With This Dispatcher
-	if r.channelKey != key {
-		return nil
 	}
 
 	if !original.Status.IsReady() {
