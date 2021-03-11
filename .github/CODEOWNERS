@@ -2,10 +2,10 @@
 * @knative-sandbox/eventing-kafka-approvers @knative-sandbox/eventing-writers @knative-sandbox/knative-release-leads @knative-sandbox/technical-oversight-committee
 
 # mtsource owners
-/cmd/config/source/multi/** @knative-sandbox/eventing-kafka-mtsource-approvers
-/cmd/source/mt* @knative-sandbox/eventing-kafka-mtsource-approvers
-/pkg/common/scheduler/** @knative-sandbox/eventing-kafka-mtsource-approvers
-/pkg/source/** @knative-sandbox/eventing-kafka-mtsource-approvers
+/cmd/config/source/multi/** @knative-sandbox/eventing-kafka-mtsource-approvers @knative-sandbox/eventing-kafka-approvers @knative-sandbox/eventing-writers @knative-sandbox/knative-release-leads @knative-sandbox/technical-oversight-committee
+/cmd/source/mt* @knative-sandbox/eventing-kafka-mtsource-approvers @knative-sandbox/eventing-kafka-approvers @knative-sandbox/eventing-writers @knative-sandbox/knative-release-leads @knative-sandbox/technical-oversight-committee
+/pkg/common/scheduler/** @knative-sandbox/eventing-kafka-mtsource-approvers @knative-sandbox/eventing-kafka-approvers @knative-sandbox/eventing-writers @knative-sandbox/knative-release-leads @knative-sandbox/technical-oversight-committee
+/pkg/source/** @knative-sandbox/eventing-kafka-mtsource-approvers @knative-sandbox/eventing-kafka-approvers @knative-sandbox/eventing-writers @knative-sandbox/knative-release-leads @knative-sandbox/technical-oversight-committee
 
 # hack and test are owned by productivity
 /hack/* @knative-sandbox/productivity-wg-leads @knative-sandbox/eventing-kafka-approvers @knative-sandbox/eventing-writers @knative-sandbox/knative-release-leads @knative-sandbox/technical-oversight-committee
