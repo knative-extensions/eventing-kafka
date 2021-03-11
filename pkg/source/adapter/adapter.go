@@ -82,6 +82,9 @@ func NewAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, httpMe
 		keyTypeMapper:     getKeyTypeMapper(config.KeyType),
 	}
 }
+func (a *Adapter) GetConsumerGroup() string {
+	return a.config.ConsumerGroup
+}
 
 func (a *Adapter) Start(ctx context.Context) error {
 	a.logger.Infow("Starting with config: ",

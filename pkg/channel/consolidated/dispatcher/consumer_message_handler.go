@@ -34,9 +34,14 @@ type consumerMessageHandler struct {
 	sub               Subscription
 	dispatcher        *eventingchannels.MessageDispatcherImpl
 	kafkaSubscription *KafkaSubscription
+	consumerGroup     string
 }
 
 var _ consumer.KafkaConsumerHandler = (*consumerMessageHandler)(nil)
+
+func (c consumerMessageHandler) GetConsumerGroup() string {
+	return c.consumerGroup
+}
 
 func (c consumerMessageHandler) SetReady(ready bool) {
 	c.kafkaSubscription.SetReady(c.sub.UID, ready)

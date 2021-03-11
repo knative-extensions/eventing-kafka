@@ -18,14 +18,13 @@ package controller
 
 import (
 	"context"
-	"fmt"
-	"net/url"
+
+	corev1 "k8s.io/api/core/v1"
+	knativeReconciler "knative.dev/pkg/reconciler"
 
 	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/sets"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
@@ -35,11 +34,11 @@ import (
 	kafkaChannelReconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	eventingduckv1 "knative.dev/eventing/pkg/apis/duck/v1"
-	"knative.dev/eventing/pkg/apis/eventing"
 	eventingClient "knative.dev/eventing/pkg/client/injection/client"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
+	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
 	"knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/client/injection/kube/informers/core/v1/serviceaccount"
 	"knative.dev/pkg/client/injection/kube/informers/rbac/v1/rolebinding"
@@ -49,50 +48,12 @@ import (
 	"knative.dev/pkg/system"
 )
 
-type TargetLister struct {
-	endpointLister corev1listers.EndpointsLister
-}
-
-func (t *TargetLister) ListProbeTargets(ctx context.Context, kc v1beta1.KafkaChannel) ([]status.ProbeTarget, error) {
-	scope, ok := kc.Annotations[eventing.ScopeAnnotationKey]
-	if !ok {
-		scope = scopeCluster
-	}
-
-	dispatcherNamespace := system.Namespace()
-	if scope == scopeNamespace {
-		dispatcherNamespace = kc.Namespace
-	}
-
-	// Get the Dispatcher Service Endpoints and propagate the status to the Channel
-	// endpoints has the same name as the service, so not a bug.
-	eps, err := t.endpointLister.Endpoints(dispatcherNamespace).Get(dispatcherName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get internal service: %w", err)
-	}
-	var readyIPs []string
-
-	for _, sub := range eps.Subsets {
-		for _, address := range sub.Addresses {
-			readyIPs = append(readyIPs, address.IP)
-		}
-	}
-
-	if len(readyIPs) == 0 {
-		return nil, fmt.Errorf("no gateway pods available")
-	}
-
-	u, _ := url.Parse(fmt.Sprintf("http://%s.%s/%s/%s", dispatcherName, dispatcherNamespace, kc.Namespace, kc.Name))
-
-	uls := []*url.URL{u}
-
-	return []status.ProbeTarget{
-		{
-			PodIPs:  sets.NewString(readyIPs...),
-			PodPort: "8081", Port: "8081", URLs: uls,
-		},
-	}, nil
-}
+const (
+	channelLabelKey   = "messaging.knative.dev/channel"
+	channelLabelValue = "kafka-channel"
+	roleLabelKey      = "messaging.knative.dev/role"
+	roleLabelValue    = "dispatcher"
+)
 
 // NewController initializes the controller and is called by the generated code.
 // Registers event handlers to enqueue events.
@@ -107,6 +68,7 @@ func NewController(
 	serviceAccountInformer := serviceaccount.Get(ctx)
 	roleBindingInformer := rolebinding.Get(ctx)
 	serviceInformer := service.Get(ctx)
+	podInformer := podinformer.Get(ctx)
 
 	r := &Reconciler{
 		systemNamespace:      system.Namespace(),
@@ -185,12 +147,24 @@ func NewController(
 		Handler:    controller.HandleAll(grCh),
 	})
 
-	return impl
-}
+	podInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: knativeReconciler.ChainFilterFuncs(
+			knativeReconciler.LabelFilterFunc(channelLabelKey, channelLabelValue, false),
+			knativeReconciler.LabelFilterFunc(roleLabelKey, roleLabelValue, false),
+		),
+		Handler: cache.ResourceEventHandlerFuncs{
+			// Cancel probing when a Pod is deleted
+			DeleteFunc: func(obj interface{}) {
+				pod, ok := obj.(*corev1.Pod)
+				if ok {
+					logger.Debugw("Dispatcher pod deleted. Canceling pod probing.",
+						zap.String("pod", pod.GetName()))
+					statusProber.CancelPodProbing(pod)
+					impl.GlobalResync(kafkaChannelInformer.Informer())
+				}
+			},
+		},
+	})
 
-func NewProbeTargetLister(logger *zap.SugaredLogger, lister corev1listers.EndpointsLister) status.ProbeTargetLister {
-	tl := TargetLister{
-		endpointLister: lister,
-	}
-	return &tl
+	return impl
 }

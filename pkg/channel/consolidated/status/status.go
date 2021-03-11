@@ -40,6 +40,7 @@ import (
 	messagingv1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	eventingduckv1 "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/networking/pkg/prober"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 )
 
@@ -63,6 +64,9 @@ type targetState struct {
 
 	// pendingCount is the number of pods that haven't been successfully probed yet
 	pendingCount atomic.Int32
+	// readyCount is the number of pods that have the subscription ready
+	readyCount   atomic.Int32
+	initialCount int
 	lastAccessed time.Time
 
 	cancel func()
@@ -97,13 +101,13 @@ type ProbeTarget struct {
 	PodIPs  sets.String
 	PodPort string
 	Port    string
-	URLs    []*url.URL
+	URL     *url.URL
 }
 
 // ProbeTargetLister lists all the targets that requires probing.
 type ProbeTargetLister interface {
 	// ListProbeTargets returns a list of targets to be probed
-	ListProbeTargets(ctx context.Context, ch messagingv1beta1.KafkaChannel) ([]ProbeTarget, error)
+	ListProbeTargets(ctx context.Context, ch messagingv1beta1.KafkaChannel) (*ProbeTarget, error)
 }
 
 // Manager provides a way to check if an Ingress is ready
@@ -164,6 +168,21 @@ func computeHash(sub eventingduckv1.SubscriberSpec) ([sha256.Size]byte, error) {
 	return sha256.Sum256(bytes), nil
 }
 
+func (m *Prober) checkReadiness(state *targetState) bool {
+	consumers := int32(state.initialCount)
+	partitions := state.ch.Spec.NumPartitions
+	m.logger.Debugw("Checking subscription readiness",
+		zap.Any("initial probed consumers", consumers),
+		zap.Any("channel partitions", partitions),
+		zap.Any("ready consumers", state.readyCount.Load()),
+	)
+	if consumers > partitions {
+		return state.readyCount.Load() == partitions
+	} else {
+		return state.readyCount.Load() == consumers
+	}
+}
+
 func (m *Prober) IsReady(ctx context.Context, ch messagingv1beta1.KafkaChannel, sub eventingduckv1.SubscriberSpec) (bool, error) {
 	subscriptionKey := sub.UID
 	logger := logging.FromContext(ctx)
@@ -180,7 +199,9 @@ func (m *Prober) IsReady(ctx context.Context, ch messagingv1beta1.KafkaChannel, 
 		if state, ok := m.targetStates[subscriptionKey]; ok {
 			if state.hash == hash {
 				state.lastAccessed = time.Now()
-				return state.pendingCount.Load() == 0, true
+				logger.Debugw("Subscription is hashed. Checking readiness",
+					zap.Any("subscription", sub.UID))
+				return m.checkReadiness(state), true
 			}
 
 			// Cancel the polling for the outdated version
@@ -202,26 +223,27 @@ func (m *Prober) IsReady(ctx context.Context, ch messagingv1beta1.KafkaChannel, 
 	}
 
 	// Get the probe targets and group them by IP
-	targets, err := m.targetLister.ListProbeTargets(ctx, ch)
+	target, err := m.targetLister.ListProbeTargets(ctx, ch)
 	if err != nil {
+		logger.Errorw("Error listing probe targets", zap.Error(err),
+			zap.Any("subscription", sub.UID))
 		return false, err
 	}
+
 	workItems := make(map[string][]*workItem)
-	for _, target := range targets {
-		for ip := range target.PodIPs {
-			for _, url := range target.URLs {
-				workItems[ip] = append(workItems[ip], &workItem{
-					targetStates: subscriptionState,
-					url:          url,
-					podIP:        ip,
-					podPort:      target.PodPort,
-					logger:       logger,
-				})
-			}
-		}
+	for ip := range target.PodIPs {
+		workItems[ip] = append(workItems[ip], &workItem{
+			targetStates: subscriptionState,
+			url:          target.URL,
+			podIP:        ip,
+			podPort:      target.PodPort,
+			logger:       logger,
+		})
 	}
 
+	subscriptionState.initialCount = target.PodIPs.Len()
 	subscriptionState.pendingCount.Store(int32(len(workItems)))
+	subscriptionState.readyCount.Store(0)
 
 	for ip, ipWorkItems := range workItems {
 		// Get or create the context for that IP
@@ -279,7 +301,7 @@ func (m *Prober) IsReady(ctx context.Context, ch messagingv1beta1.KafkaChannel, 
 		defer m.mu.Unlock()
 		m.targetStates[subscriptionKey] = subscriptionState
 	}()
-	return len(workItems) == 0, nil
+	return false, nil
 }
 
 // Start starts the Manager background operations
@@ -313,7 +335,12 @@ func (m *Prober) Start(done <-chan struct{}) chan struct{} {
 
 // CancelProbing cancels probing of the provided Subscription
 func (m *Prober) CancelProbing(sub eventingduckv1.SubscriberSpec) {
-	key := sub.UID
+	acc, err := kmeta.DeletionHandlingAccessor(sub)
+	if err != nil {
+		return
+	}
+
+	key := acc.GetUID()
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if state, ok := m.targetStates[key]; ok {
@@ -409,9 +436,9 @@ func (m *Prober) onProbingSuccess(subscriptionState *targetState, podState *podS
 	if podState.pendingCount.Dec() == 0 {
 		// Unlock the goroutine blocked on <-podCtx.Done()
 		podState.cancel()
-
 		// This is the last pod being successfully probed, the subscription is ready
-		if subscriptionState.pendingCount.Dec() == 0 {
+		if m.checkReadiness(subscriptionState) {
+			subscriptionState.cancel()
 			m.readyCallback(subscriptionState.ch, subscriptionState.sub)
 		}
 	}
@@ -429,6 +456,7 @@ func (m *Prober) onProbingCancellation(subscriptionState *targetState, podState 
 		if podState.pendingCount.CAS(pendingCount, 0) {
 			// This is the last pod being successfully probed, the subscription is ready
 			if subscriptionState.pendingCount.Dec() == 0 {
+				subscriptionState.cancel()
 				m.readyCallback(subscriptionState.ch, subscriptionState.sub)
 			}
 			return
@@ -438,32 +466,36 @@ func (m *Prober) onProbingCancellation(subscriptionState *targetState, podState 
 
 func (m *Prober) probeVerifier(item *workItem) prober.Verifier {
 	return func(r *http.Response, b []byte) (bool, error) {
-		//TODO Check if we need to use a hash
+		m.logger.Debugw("Verifying response", zap.Int("status code", r.StatusCode),
+			zap.ByteString("body", b))
 		switch r.StatusCode {
 		case http.StatusOK:
 			/**
 			{"my-kafka-channel":["90713ffd-f527-42bf-b158-57630b68ebe2","a2041ec2-3295-4cd8-ac31-e699ab08273e","d3d70a79-8528-4df6-a812-3b559380cf08","db536b74-45f8-41cd-ab3e-7e3f60ed9e35","eb3aeee9-7cb5-4cad-b4c4-424e436dac9f"]}
 			*/
-			m.logger.Debug("Verifying response")
 			var subscriptions = make(map[string][]string)
 			err := json.Unmarshal(b, &subscriptions)
 			if err != nil {
-				m.logger.Errorw("Error unmarshaling", err)
+				m.logger.Errorw("error unmarshaling", err)
 				return false, err
 			}
-			m.logger.Debugw("Got response", zap.Any("Response", b))
-			m.logger.Debugw("Got list", zap.Any("Unmarshaled", subscriptions))
 			uid := string(item.targetStates.sub.UID)
-			m.logger.Debugf("want %s", uid)
 			key := fmt.Sprintf("%s/%s", item.targetStates.ch.Namespace, item.targetStates.ch.Name)
+			m.logger.Debugw("Received proper probing response from target",
+				zap.Any("found subscriptions", subscriptions),
+				zap.String("pod ip", item.podIP),
+				zap.String("want channel", key),
+				zap.String("want subscription", uid),
+			)
 			if subs, ok := subscriptions[key]; ok && sets.NewString(subs...).Has(uid) {
-
+				item.targetStates.readyCount.Inc()
 				return true, nil
 			} else {
 				//TODO return and error if the channel doesn't exist?
 				return false, nil
 			}
 		case http.StatusNotFound, http.StatusServiceUnavailable:
+			m.logger.Errorf("unexpected status code: want %v, got %v", http.StatusOK, r.StatusCode)
 			return false, fmt.Errorf("unexpected status code: want %v, got %v", http.StatusOK, r.StatusCode)
 		default:
 			item.logger.Errorf("Probing of %s abandoned, IP: %s:%s: the response status is %v, expected one of: %v",

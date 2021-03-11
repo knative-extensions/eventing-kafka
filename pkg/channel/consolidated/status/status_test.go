@@ -24,24 +24,20 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"path"
 	"strconv"
 	"testing"
 	"time"
 
 	"go.uber.org/atomic"
-
-	"knative.dev/pkg/apis"
-
-	"k8s.io/apimachinery/pkg/types"
-
 	"go.uber.org/zap/zaptest"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	messagingv1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	eventingduckv1 "knative.dev/eventing/pkg/apis/duck/v1"
+	"knative.dev/pkg/apis"
 )
 
 var (
@@ -142,11 +138,11 @@ func TestProbeSinglePod(t *testing.T) {
 
 	prober := NewProber(
 		zaptest.NewLogger(t).Sugar(),
-		fakeProbeTargetLister{{
+		fakeProbeTargetLister{
 			PodIPs:  sets.NewString(hostname),
 			PodPort: strconv.Itoa(port),
-			URLs:    []*url.URL{tsURL},
-		}},
+			URL:     tsURL,
+		},
 		func(c v1beta1.KafkaChannel, s eventingduckv1.SubscriberSpec) {
 			ready <- &ReadyPair{
 				c,
@@ -196,25 +192,11 @@ func TestProbeSinglePod(t *testing.T) {
 	}
 }
 
-type fakeProbeTargetLister []ProbeTarget
+type fakeProbeTargetLister ProbeTarget
 
-func (l fakeProbeTargetLister) ListProbeTargets(ctx context.Context, kc messagingv1beta1.KafkaChannel) ([]ProbeTarget, error) {
-	targets := []ProbeTarget{}
-	for _, target := range l {
-		newTarget := ProbeTarget{
-			PodIPs:  target.PodIPs,
-			PodPort: target.PodPort,
-			Port:    target.Port,
-		}
-
-		for _, u := range target.URLs {
-			newURL := *u
-			newURL.Path = path.Join(newURL.Path, kc.Namespace, kc.Name)
-			newTarget.URLs = append(newTarget.URLs, &newURL)
-		}
-		targets = append(targets, newTarget)
-	}
-	return targets, nil
+func (l fakeProbeTargetLister) ListProbeTargets(ctx context.Context, kc messagingv1beta1.KafkaChannel) (*ProbeTarget, error) {
+	t := ProbeTarget(l)
+	return &t, nil
 }
 
 type notFoundLister struct{}

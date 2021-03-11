@@ -33,10 +33,12 @@ import (
 	"go.uber.org/zap/zaptest"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
 	"knative.dev/eventing-kafka/pkg/common/consumer"
 	eventingchannels "knative.dev/eventing/pkg/channel"
 	"knative.dev/eventing/pkg/channel/fanout"
+	klogtesting "knative.dev/pkg/logging/testing"
 	_ "knative.dev/pkg/system/testing"
 )
 
@@ -444,6 +446,7 @@ func TestNewDispatcher(t *testing.T) {
 }
 
 func TestSetReady(t *testing.T) {
+	logger := klogtesting.TestLogger(t)
 	testCases := []struct {
 		name             string
 		ready            bool
@@ -500,6 +503,7 @@ func TestSetReady(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Logf("Running %s", t.Name())
+			tc.originalKafkaSub.logger = logger
 			tc.originalKafkaSub.SetReady(tc.subID, tc.ready)
 			if diff := cmp.Diff(tc.desiredKafkaSub.channelReadySubscriptions, tc.originalKafkaSub.channelReadySubscriptions); diff != "" {
 				t.Errorf("unexpected ChannelReadySubscription (-want, +got) = %v", diff)
@@ -599,7 +603,7 @@ func TestServeHTTP(t *testing.T) {
 	}
 	d := &KafkaDispatcher{
 		channelSubscriptions: make(map[eventingchannels.ChannelReference]*KafkaSubscription),
-		logger:               zaptest.NewLogger(t).Sugar(),
+		logger:               klogtesting.TestLogger(t),
 	}
 	ts := httptest.NewServer(d)
 	defer ts.Close()

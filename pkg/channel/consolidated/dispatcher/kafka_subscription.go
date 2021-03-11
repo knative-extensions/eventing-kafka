@@ -19,13 +19,15 @@ package dispatcher
 import (
 	"sync"
 
+	"go.uber.org/zap"
+
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type KafkaSubscription struct {
-	subs []types.UID
-
+	logger *zap.SugaredLogger
+	subs   []types.UID
 	// readySubscriptionsLock must be used to synchronize access to channelReadySubscriptions
 	readySubscriptionsLock    sync.RWMutex
 	channelReadySubscriptions sets.String
@@ -33,14 +35,17 @@ type KafkaSubscription struct {
 
 // SetReady will mark the subid in the KafkaSubscription and call any registered callbacks
 func (ks *KafkaSubscription) SetReady(subID types.UID, ready bool) {
+	ks.logger.Debugw("Setting subscription readiness", zap.Any("subscription", subID), zap.Bool("ready", ready))
 	ks.readySubscriptionsLock.Lock()
 	defer ks.readySubscriptionsLock.Unlock()
 	if ready {
 		if !ks.channelReadySubscriptions.Has(string(subID)) {
+			ks.logger.Debugw("Caching ready subscription", zap.Any("subscription", subID))
 			ks.channelReadySubscriptions.Insert(string(subID))
 		}
 	} else {
 		if ks.channelReadySubscriptions.Has(string(subID)) {
+			ks.logger.Debugw("Ejecting cached ready subscription", zap.Any("subscription", subID))
 			ks.channelReadySubscriptions.Delete(string(subID))
 		}
 	}

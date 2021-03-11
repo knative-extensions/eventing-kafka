@@ -75,6 +75,11 @@ const (
 	dispatcherName = "kafka-ch-dispatcher"
 )
 
+var (
+	scopeNamespace = "namespace"
+	scopeCluster   = "cluster"
+)
+
 func newReconciledNormal(namespace, name string) pkgreconciler.Event {
 	return pkgreconciler.NewEvent(corev1.EventTypeNormal, "KafkaChannelReconciled", "KafkaChannel reconciled: \"%s/%s\"", namespace, name)
 }
@@ -126,11 +131,6 @@ type Reconciler struct {
 	roleBindingLister    rbacv1listers.RoleBindingLister
 	statusManager        status.Manager
 }
-
-var (
-	scopeNamespace = "namespace"
-	scopeCluster   = "cluster"
-)
 
 type envConfig struct {
 	Image string `envconfig:"DISPATCHER_IMAGE" required:"true"`

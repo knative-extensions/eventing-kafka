@@ -29,6 +29,7 @@ type KafkaConsumerHandler interface {
 	// The returned error is enqueued in errors channel.
 	Handle(context context.Context, message *sarama.ConsumerMessage) (bool, error)
 	SetReady(ready bool)
+	GetConsumerGroup() string
 }
 
 // ConsumerHandler implements sarama.ConsumerGroupHandler and provides some glue code to simplify message handling
@@ -66,7 +67,7 @@ func (consumer *SaramaConsumerHandler) Cleanup(session sarama.ConsumerGroupSessi
 
 // ConsumeClaim must start a consumer loop of ConsumerGroupClaim's Messages().
 func (consumer *SaramaConsumerHandler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
-	consumer.logger.Info(fmt.Sprintf("Starting partition consumer, topic: %s, partition: %d, initialOffset: %d", claim.Topic(), claim.Partition(), claim.InitialOffset()))
+	consumer.logger.Infow(fmt.Sprintf("Starting partition consumer, topic: %s, partition: %d, initialOffset: %d", claim.Topic(), claim.Partition(), claim.InitialOffset()), zap.String("ConsumeGroup", consumer.handler.GetConsumerGroup()))
 	consumer.handler.SetReady(true)
 	// NOTE:
 	// Do not move the code below to a goroutine.
