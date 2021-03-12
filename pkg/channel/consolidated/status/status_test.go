@@ -61,7 +61,7 @@ var (
 const dispatcherReadySubHeader = "K-Subscriber-Status"
 
 func getURL(s string) *apis.URL {
-	u, _ := apis.ParseURL("http://subscr.ns.local")
+	u, _ := apis.ParseURL(s)
 	return u
 }
 
@@ -93,18 +93,11 @@ type ReadyPair struct {
 	s eventingduckv1.SubscriberSpec
 }
 
-const HashHeaderName = "K-Network-Hash"
-
 func TestProbeSinglePod(t *testing.T) {
 	var succeed atomic.Bool
 
 	ch := channelTemplate.DeepCopy()
 	sub := subscriptionTemplate.DeepCopy()
-
-	hash, err := computeHash(*sub.DeepCopy())
-	if err != nil {
-		t.Fatal("Failed to compute hash:", err)
-	}
 
 	probeHandler := http.HandlerFunc(handleProbe(t))
 
@@ -117,8 +110,6 @@ func TestProbeSinglePod(t *testing.T) {
 			return
 		}
 
-		// TODO Move const to dispatcher
-		r.Header.Set(HashHeaderName, fmt.Sprintf("%x", hash))
 		probeHandler.ServeHTTP(w, r)
 	})
 
