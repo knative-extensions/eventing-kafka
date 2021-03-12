@@ -140,22 +140,15 @@ func (r *Reporter) recordMeasurement(metricKey string, saramaKey string, value i
 	description := getDescription(metricKey, saramaKey)
 
 	// Type-switches don't support "fallthrough" so each individual possible type must have its own
-	// somewhat-redundant code block
+	// somewhat-redundant code block.  Not all types are used by Sarama at the moment; if a new type is
+	// added, a warning will be logged here.
 	switch value := value.(type) {
-	case int:     r.recordInt(int64(value), name, description)
-	case int8:    r.recordInt(int64(value), name, description)
-	case int16:   r.recordInt(int64(value), name, description)
 	case int32:   r.recordInt(int64(value), name, description)
 	case int64:   r.recordInt(value, name, description)
-	case uint:    r.recordInt(int64(value), name, description)
-	case uint8:   r.recordInt(int64(value), name, description)
-	case uint16:  r.recordInt(int64(value), name, description)
-	case uint32:  r.recordInt(int64(value), name, description)
-	case uint64:  r.recordInt(int64(value), name, description)
 	case float64: r.recordFloat(value, name, description)
 	case float32: r.recordFloat(float64(value), name, description)
 	default:
-		r.logger.Warn("Could not interpret measurement as a number", zap.Any("Sarama Value", value))
+		r.logger.Warn("Could not interpret Sarama measurement as a number", zap.Any("Sarama Value", value))
 	}
 }
 
