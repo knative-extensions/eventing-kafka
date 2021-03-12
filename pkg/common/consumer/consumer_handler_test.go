@@ -117,6 +117,10 @@ func (m mockMessageHandler) Handle(ctx context.Context, message *sarama.Consumer
 func (m mockMessageHandler) SetReady(ready bool) {
 }
 
+func (m mockMessageHandler) GetConsumerGroup() string {
+	return "consumer group"
+}
+
 //------ Tests
 
 func Test(t *testing.T) {
