@@ -100,6 +100,11 @@ func TestGetDescription(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Test uncached regex replacement
+			if got := getDescription(tt.name, ""); got != tt.want {
+				t.Errorf("getDescription() = %v, want %v", got, tt.want)
+			}
+			// Test cached map replacement (should be identical)
 			if got := getDescription(tt.name, ""); got != tt.want {
 				t.Errorf("getDescription() = %v, want %v", got, tt.want)
 			}

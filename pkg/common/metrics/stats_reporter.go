@@ -60,6 +60,10 @@ var regexDescriptions = []struct {
 	{regexp.MustCompile(`-for-broker-`), " for Broker "},
 }
 
+// Since regular expressions are somewhat costly and the metrics are repetitive, this cache will hold a simple
+// string-to-string direct replacement
+var replacementCache = map[string]string{}
+
 // Define StatsReporter Structure
 type Reporter struct {
 	views        map[string]*view.View
@@ -175,11 +179,17 @@ func (r *Reporter) createViewIfNecessary(measure stats.Measure, name string, des
 
 // Returns pretty descriptions for known Sarama metrics
 func getDescription(main string, sub string) string {
-	// Run through the list of known replacements that should be made (multiple replacements may happen)
-	for _, replacement := range regexDescriptions {
-		main = replacement.Search.ReplaceAllString(main, replacement.Replace)
+	if cachedReplacement, ok := replacementCache[main+sub]; ok {
+		return cachedReplacement
 	}
-	return main + ": " + getSubDescription(sub)
+	// Run through the list of known replacements that should be made (multiple replacements may happen)
+	newString := main
+	for _, replacement := range regexDescriptions {
+		newString = replacement.Search.ReplaceAllString(newString, replacement.Replace)
+	}
+	newString += ": " + getSubDescription(sub)
+	replacementCache[main+sub] = newString
+	return newString
 }
 
 // Returns pretty descriptions for known Sarama sub-metric categories
