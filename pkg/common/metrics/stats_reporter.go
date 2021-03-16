@@ -39,25 +39,34 @@ var _ StatsReporter = &Reporter{}
 // Define a list of regular expressions that can be applied to a raw incoming Sarama metric in order to produce
 // text suitable for the "# HELP" section of the metrics endpoint output
 // Note that all of the expressions are executed in-order, so a string such as "request-rate-for-broker-0" will
-// first replace "request-rate" with "Request Rate" and then also replace "-for-broker-0" with " for Broker 0"
+// first replace "request-rate" with "Requests/second sent to all brokers" and then also replace
+// "all brokers-for-broker-0" with " for broker 0" to produce the final description.
 var regexDescriptions = []struct {
 	Search  *regexp.Regexp
 	Replace string
 }{
-	{regexp.MustCompile(`incoming-byte-rate`), "Incoming Byte Rate"},
-	{regexp.MustCompile(`request-rate`), "Request Rate"},
-	{regexp.MustCompile(`request-size`), "Request Size"},
-	{regexp.MustCompile(`request-latency-in-ms`), "Request Latency (ms)"},
-	{regexp.MustCompile(`outgoing-byte-rate`), "Outgoing Byte Rate"},
-	{regexp.MustCompile(`response-rate`), "Response Rate"},
-	{regexp.MustCompile(`response-size`), "Response Size"},
-	{regexp.MustCompile(`requests-in-flight`), "Requests in Flight"},
-	{regexp.MustCompile(`compression-ratio`), "Compression Ratio"},
-	{regexp.MustCompile(`batch-size`), "Batch Size"},
-	{regexp.MustCompile(`record-send-rate`), "Record Send Rate"},
-	{regexp.MustCompile(`records-per-request`), "Records Per Request"},
-	{regexp.MustCompile(`-for-topic-`), " for Topic "},
-	{regexp.MustCompile(`-for-broker-`), " for Broker "},
+	// Sarama Histograms
+	{regexp.MustCompile(`^request-size`), `Distribution of the request size in bytes for all brokers`},
+	{regexp.MustCompile(`^request-latency-in-ms`), `Distribution of the request latency in ms for all brokers`},
+	{regexp.MustCompile(`^response-size`), `Distribution of the response size in bytes for all brokers`},
+	{regexp.MustCompile(`^batch-size`), `Distribution of the number of bytes sent per partition per request for all topics`},
+	{regexp.MustCompile(`^records-per-request`), `Distribution of the number of records sent per request for all topics`},
+	{regexp.MustCompile(`^compression-ratio`), `Distribution of the compression ratio times 100 of record batches for all topics`},
+	{regexp.MustCompile(`^consumer-batch-size`), `Distribution of the number of messages in a batch`},
+
+	// Sarama Meters
+	{regexp.MustCompile(`^incoming-byte-rate`), `Bytes/second read of all brokers`},
+	{regexp.MustCompile(`^request-rate`), `Requests/second sent to all brokers`},
+	{regexp.MustCompile(`^response-rate`), `Responses/second received from all brokers`},
+	{regexp.MustCompile(`^record-send-rate`), `Records/second sent to all topics`},
+	{regexp.MustCompile(`^outgoing-byte-rate`), `Bytes/second written of all brokers`},
+
+	// Sarama Counters
+	{regexp.MustCompile(`^requests-in-flight`), `The current number of in-flight requests awaiting a response for all brokers`},
+
+	// Touch-ups for specific topics/brokers
+	{regexp.MustCompile(`all topics-for-topic-(.*)`), `topic "${1}"`},
+	{regexp.MustCompile(`all brokers-for-broker-`), `broker `},
 }
 
 // Since regular expressions are somewhat costly and the metrics are repetitive, this cache will hold a simple
@@ -110,31 +119,33 @@ func (r *Reporter) Report(list ReportingList) {
 }
 
 // Creates and registers a new view in the OpenCensus context, adding it to the Reporter's known views
-func (r *Reporter) createView(ctx context.Context, measure stats.Measure, name string, description string) context.Context {
+// Note:  OpenCensus has a "view.Distribution" that can be used for the Aggregation field, but the Sarama
+//        measurements (1-Minute Rate, 5-Minute Rate, etc.) are already in a collective form, so the only way
+//        to record them via OpenCensus is to use the individual measurements and offer them to the end-user
+//        as individual views for whatever purpose they desire.  This isn't perfect and it may be better in
+//        the future to switch to something other than the default OpenCensus recorder.
+func (r *Reporter) createView(ctx context.Context, measure stats.Measure, name string, description string) (*view.View, error) {
 	key, err := tag.NewKey(name)
 	if err != nil {
-		r.logger.Error("Failed To Create New OpenCensus Key For Sarama Metric", zap.String("Key", name), zap.Error(err))
-		return ctx
+		return nil, err
 	}
 	ctx, err = tag.New(ctx, tag.Insert(key, name))
 	if err != nil {
-		r.logger.Error("Failed To Create New OpenCensus Tag For Sarama Metric", zap.String("Key", name), zap.Error(err))
-		return ctx
+		return nil, err
 	}
 
 	newView := &view.View{
 		Name:        name,
 		Description: description,
 		Measure:     measure,
-		Aggregation: view.LastValue(),
+		Aggregation: view.LastValue(), // Sarama already sums or otherwise aggregates its metrics, so only LastValue is useful here
 	}
 	err = view.Register(newView)
 	if err != nil {
-		r.logger.Error("Failed to register OpenCensus views", zap.Error(err))
-		return ctx
+		return nil, err
 	}
 	r.views[name] = newView
-	return ctx
+	return newView, nil
 }
 
 // Record a measurement to the metrics backend, creating a new OpenCensus view if this is a new measurement
@@ -146,11 +157,13 @@ func (r *Reporter) recordMeasurement(metricKey string, saramaKey string, value i
 	// Type-switches don't support "fallthrough" so each individual possible type must have its own
 	// somewhat-redundant code block.  Not all types are used by Sarama at the moment; if a new type is
 	// added, a warning will be logged here.
+	// Note:  The Int64Measure wrapper converts to a float64 internally anyway so there is no particular
+	//        advantage in treating int-types separately here.
 	switch value := value.(type) {
 	case int32:
-		r.recordInt(int64(value), name, description)
+		r.recordFloat(float64(value), name, description)
 	case int64:
-		r.recordInt(value, name, description)
+		r.recordFloat(float64(value), name, description)
 	case float64:
 		r.recordFloat(value, name, description)
 	case float32:
@@ -160,25 +173,18 @@ func (r *Reporter) recordMeasurement(metricKey string, saramaKey string, value i
 	}
 }
 
-// Record a measurement that is represented by an int64 value
-func (r *Reporter) recordInt(value int64, name string, description string) {
-	measure := stats.Int64(name, description, stats.UnitDimensionless)
-	RecordWrapper(r.tagCtx, measure.M(value))
-	r.createViewIfNecessary(measure, name, description)
-}
-
 // Record a measurement that is represented by a float64 value
 func (r *Reporter) recordFloat(value float64, name string, description string) {
-	measure := stats.Float64(name, description, stats.UnitDimensionless)
-	RecordWrapper(r.tagCtx, measure.M(value))
-	r.createViewIfNecessary(measure, name, description)
-}
-
-// Adds a view for this measurement to this Reporter's map of known views, if not already present
-func (r *Reporter) createViewIfNecessary(measure stats.Measure, name string, description string) {
-	if _, ok := r.views[name]; !ok {
-		r.tagCtx = r.createView(r.tagCtx, measure, name, description)
+	var err error
+	floatView, ok := r.views[name]
+	if !ok {
+		floatView, err = r.createView(r.tagCtx, stats.Float64(name, description, stats.UnitDimensionless), name, description)
+		if err != nil {
+			r.logger.Error("Failed to register OpenCensus views", zap.Error(err))
+			return
+		}
 	}
+	RecordWrapper(r.tagCtx, floatView.Measure.(*stats.Float64Measure).M(value))
 }
 
 // Returns pretty descriptions for known Sarama metrics

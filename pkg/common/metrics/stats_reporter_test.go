@@ -78,25 +78,31 @@ func TestGetDescription(t *testing.T) {
 		name string
 		want string
 	}{
-		{name: "incoming-byte-rate", want: "Incoming Byte Rate: "},
-		{name: "request-rate", want: "Request Rate: "},
-		{name: "request-size", want: "Request Size: "},
-		{name: "request-latency-in-ms", want: "Request Latency (ms): "},
-		{name: "outgoing-byte-rate", want: "Outgoing Byte Rate: "},
-		{name: "response-rate", want: "Response Rate: "},
-		{name: "response-size", want: "Response Size: "},
-		{name: "requests-in-flight", want: "Requests in Flight: "},
-		{name: "compression-ratio", want: "Compression Ratio: "},
-		{name: "incoming-byte-rate-for-broker-0", want: "Incoming Byte Rate for Broker 0: "},
-		{name: "outgoing-byte-rate-for-broker-0", want: "Outgoing Byte Rate for Broker 0: "},
-		{name: "request-latency-in-ms-for-broker-1", want: "Request Latency (ms) for Broker 1: "},
-		{name: "request-rate-for-broker-1", want: "Request Rate for Broker 1: "},
-		{name: "request-size-for-broker-12345", want: "Request Size for Broker 12345: "},
-		{name: "response-rate-for-broker-12345", want: "Response Rate for Broker 12345: "},
-		{name: "response-size-for-broker-12345", want: "Response Size for Broker 12345: "},
-		{name: "batch-size-for-topic-test-topic", want: "Batch Size for Topic test-topic: "},
-		{name: "record-send-rate-for-topic-test-topic", want: "Record Send Rate for Topic test-topic: "},
-		{name: "records-per-request-for-topic-test-topic", want: "Records Per Request for Topic test-topic: "},
+		{name: "incoming-byte-rate-for-broker-0", want: "Bytes/second read of broker 0: "},
+		{name: "outgoing-byte-rate-for-broker-0", want: "Bytes/second written of broker 0: "},
+		{name: "request-rate-for-broker-0", want: "Requests/second sent to broker 0: "},
+		{name: "request-size-for-broker-0", want: "Distribution of the request size in bytes for broker 0: "},
+		{name: "request-latency-in-ms-for-broker-0", want: "Distribution of the request latency in ms for broker 0: "},
+		{name: "response-rate-for-broker-0", want: "Responses/second received from broker 0: "},
+		{name: "response-size-for-broker-0", want: "Distribution of the response size in bytes for broker 0: "},
+		{name: "requests-in-flight-for-broker-0", want: "The current number of in-flight requests awaiting a response for broker 0: "},
+		{name: "batch-size-for-topic-test-topic", want: "Distribution of the number of bytes sent per partition per request for topic \"test-topic\": "},
+		{name: "record-send-rate-for-topic-test-topic", want: "Records/second sent to topic \"test-topic\": "},
+		{name: "records-per-request-for-topic-test-topic", want: "Distribution of the number of records sent per request for topic \"test-topic\": "},
+		{name: "compression-ratio-for-topic-test-topic", want: "Distribution of the compression ratio times 100 of record batches for topic \"test-topic\": "},
+		{name: "incoming-byte-rate", want: "Bytes/second read of all brokers: "},
+		{name: "outgoing-byte-rate", want: "Bytes/second written of all brokers: "},
+		{name: "request-rate", want: "Requests/second sent to all brokers: "},
+		{name: "request-size", want: "Distribution of the request size in bytes for all brokers: "},
+		{name: "request-latency-in-ms", want: "Distribution of the request latency in ms for all brokers: "},
+		{name: "response-rate", want: "Responses/second received from all brokers: "},
+		{name: "response-size", want: "Distribution of the response size in bytes for all brokers: "},
+		{name: "requests-in-flight", want: "The current number of in-flight requests awaiting a response for all brokers: "},
+		{name: "batch-size", want: "Distribution of the number of bytes sent per partition per request for all topics: "},
+		{name: "record-send-rate", want: "Records/second sent to all topics: "},
+		{name: "records-per-request", want: "Distribution of the number of records sent per request for all topics: "},
+		{name: "compression-ratio", want: "Distribution of the compression ratio times 100 of record batches for all topics: "},
+		{name: "consumer-batch-size", want: "Distribution of the number of messages in a batch: "},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -215,49 +221,60 @@ func TestReporterCreateView(t *testing.T) {
 			statsReporter := createTestReporter(t)
 
 			// Perform the test
-			newContext := statsReporter.createView(tt.ctx, tt.measure, tt.nameArg, tt.description)
-			newView := statsReporter.views[tt.nameArg]
+			newView, err := statsReporter.createView(tt.ctx, tt.measure, tt.nameArg, tt.description)
+			viewFromMap := statsReporter.views[tt.nameArg]
 
 			// Verify the results
-			assert.NotNil(t, newContext)
 			if tt.expectView {
 				assert.NotNil(t, newView)
+				assert.NotNil(t, viewFromMap)
+				assert.Nil(t, err)
 				view.Unregister(newView)
 			} else {
+				assert.NotNil(t, err)
 				assert.Nil(t, newView)
+				assert.Nil(t, viewFromMap)
 			}
 		})
 	}
 
 }
 
-func TestReporterRecordInt(t *testing.T) {
-	reporter := createTestReporter(t)
-	recordCalled := false
-	RecordWrapper = func(ctx context.Context, ms ocstats.Measurement, ros ...ocstats.Options) { recordCalled = true }
-	reporter.recordInt(12345, "test-name", "test-description")
-	assert.True(t, recordCalled)
-	assert.NotNil(t, reporter.views["test-name"])
-	view.Unregister(reporter.views["test-name"])
-}
-
 func TestReporterRecordFloat(t *testing.T) {
-	reporter := createTestReporter(t)
-	recordCalled := false
-	RecordWrapper = func(ctx context.Context, ms ocstats.Measurement, ros ...ocstats.Options) { recordCalled = true }
-	reporter.recordFloat(12.345, "test-name", "test-description")
-	assert.True(t, recordCalled)
-	assert.NotNil(t, reporter.views["test-name"])
-	view.Unregister(reporter.views["test-name"])
-}
 
-func TestReporterCreateViewIfNecessary(t *testing.T) {
-	reporter := createTestReporter(t)
-	measure := stats.Float64("test-name", "test-description", stats.UnitDimensionless)
-	assert.Nil(t, reporter.views["test-name"])
-	reporter.createViewIfNecessary(measure, "test-name", "test-description")
-	assert.NotNil(t, reporter.views["test-name"])
-	view.Unregister(reporter.views["test-name"])
+	tests := []struct {
+		name       string
+		nameArg    string
+		expectView bool
+	}{
+		{name: "Valid Name", nameArg: "valid-name", expectView: true},
+		{name: "Invalid Name", nameArg: "invalid-name-�"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			reporter := createTestReporter(t)
+			recordCalled := false
+
+			RecordWrapperRef := RecordWrapper
+			defer func() { RecordWrapper = RecordWrapperRef }()
+
+			RecordWrapper = func(ctx context.Context, ms ocstats.Measurement, ros ...ocstats.Options) { recordCalled = true }
+
+			// Perform the test
+			reporter.recordFloat(12.345, tt.nameArg, "test-description")
+
+			// Verify the results
+			if tt.expectView {
+				assert.NotNil(t, reporter.views[tt.nameArg])
+				view.Unregister(reporter.views[tt.nameArg])
+				assert.True(t, recordCalled)
+			} else {
+				assert.Nil(t, reporter.views[tt.nameArg])
+				assert.False(t, recordCalled)
+			}
+		})
+	}
 }
 
 // Utility Function For Creating Test Reporter Struct
