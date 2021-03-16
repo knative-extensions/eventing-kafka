@@ -80,33 +80,33 @@ type Dispatcher interface {
 	UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error
 }
 
-// Define A ConfigImpl Struct With Configuration & ConsumerGroup State
-type ConfigImpl struct {
+// Define A Dispatcher Implementation Struct With Configuration & ConsumerGroup State
+type Implementation struct {
 	Config
 	subscribers        map[types.UID]*SubscriberWrapper
 	consumerUpdateLock sync.Mutex
 	messageDispatcher  channel.MessageDispatcher
 }
 
-// Verify The ConfigImpl Implements The Dispatcher Interface
-var _ Dispatcher = &ConfigImpl{}
+// Verify The Implementation Implements The Dispatcher Interface
+var _ Dispatcher = &Implementation{}
 
 // Dispatcher Constructor
 func NewDispatcher(dispatcherConfig Config) Dispatcher {
 
-	// Create The ConfigImpl With Specified Configuration
-	dispatcher := &ConfigImpl{
+	// Create The Implementation With Specified Configuration
+	dispatcher := &Implementation{
 		Config:            dispatcherConfig,
 		subscribers:       make(map[types.UID]*SubscriberWrapper),
 		messageDispatcher: channel.NewMessageDispatcher(dispatcherConfig.Logger),
 	}
 
-	// Return The ConfigImpl
+	// Return The Implementation
 	return dispatcher
 }
 
 // Shutdown The Dispatcher
-func (d *ConfigImpl) Shutdown() {
+func (d *Implementation) Shutdown() {
 
 	// Stop Observing Metrics
 	close(d.MetricsStopChan)
@@ -119,7 +119,7 @@ func (d *ConfigImpl) Shutdown() {
 }
 
 // Update The Dispatcher's Subscriptions To Align With New State
-func (d *ConfigImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error {
+func (d *Implementation) UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error {
 
 	if d.SaramaConfig == nil {
 		d.Logger.Error("Dispatcher has no config!")
@@ -195,7 +195,7 @@ func (d *ConfigImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subscrib
 }
 
 // Start Consuming Messages With The Specified Subscriber's ConsumerGroup
-func (d *ConfigImpl) startConsuming(subscriber *SubscriberWrapper) {
+func (d *Implementation) startConsuming(subscriber *SubscriberWrapper) {
 
 	// Validate The Subscriber / ConsumerGroup
 	if subscriber != nil && subscriber.ConsumerGroup != nil {
@@ -247,7 +247,7 @@ func (d *ConfigImpl) startConsuming(subscriber *SubscriberWrapper) {
 }
 
 // Close The ConsumerGroup Associated With A Single Subscriber
-func (d *ConfigImpl) closeConsumerGroup(subscriber *SubscriberWrapper) {
+func (d *Implementation) closeConsumerGroup(subscriber *SubscriberWrapper) {
 
 	// Get The ConsumerGroup Associated with The Specified Subscriber
 	consumerGroup := subscriber.ConsumerGroup
@@ -286,7 +286,7 @@ func (d *ConfigImpl) closeConsumerGroup(subscriber *SubscriberWrapper) {
 // are needed in the future, the environment will also need to be re-parsed here.
 // If there aren't any consumer-specific differences between the current config and the new one,
 // then just log that and move on; do not restart the ConsumerGroups unnecessarily.
-func (d *ConfigImpl) ConfigChanged(ctx context.Context, configMap *corev1.ConfigMap) Dispatcher {
+func (d *Implementation) ConfigChanged(ctx context.Context, configMap *corev1.ConfigMap) Dispatcher {
 
 	d.Logger.Debug("New ConfigMap Received", zap.String("configMap.Name", configMap.ObjectMeta.Name))
 
@@ -345,7 +345,7 @@ func (d *ConfigImpl) ConfigChanged(ctx context.Context, configMap *corev1.Config
 
 // SecretChanged is called by the secretObserver handler function in main() so that
 // settings specific to the dispatcher may be extracted and the dispatcher restarted if necessary.
-func (d *ConfigImpl) SecretChanged(ctx context.Context, secret *corev1.Secret) Dispatcher {
+func (d *Implementation) SecretChanged(ctx context.Context, secret *corev1.Secret) Dispatcher {
 
 	// Debug Log The Secret Change
 	d.Logger.Debug("New Secret Received", zap.String("secret.Name", secret.ObjectMeta.Name))
@@ -379,7 +379,7 @@ func (d *ConfigImpl) SecretChanged(ctx context.Context, secret *corev1.Secret) D
 }
 
 // Shut down the current dispatcher and recreate it with new settings
-func (d *ConfigImpl) reconfigure(newConfig *sarama.Config, ekConfig *commonconfig.EventingKafkaConfig) Dispatcher {
+func (d *Implementation) reconfigure(newConfig *sarama.Config, ekConfig *commonconfig.EventingKafkaConfig) Dispatcher {
 	d.Shutdown()
 	d.Config.SaramaConfig = newConfig
 	if ekConfig != nil {
@@ -396,7 +396,7 @@ func (d *ConfigImpl) reconfigure(newConfig *sarama.Config, ekConfig *commonconfi
 }
 
 // Async Process For Observing Kafka Metrics
-func (d *ConfigImpl) ObserveMetrics(interval time.Duration) {
+func (d *Implementation) ObserveMetrics(interval time.Duration) {
 
 	// Fork A New Process To Run Async Metrics Collection
 	go func() {

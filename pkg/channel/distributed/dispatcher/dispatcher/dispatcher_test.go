@@ -91,7 +91,7 @@ func TestShutdown(t *testing.T) {
 	groupId3 := fmt.Sprintf("kafka.%s", subscriber3.UID)
 
 	// Create The Dispatcher To Test With Existing Subscribers
-	dispatcher := &ConfigImpl{
+	dispatcher := &Implementation{
 		Config: Config{
 			Logger: logtesting.TestLogger(t).Desugar(),
 		},
@@ -240,7 +240,7 @@ func TestUpdateSubscriptions(t *testing.T) {
 		filteredTestCases = testCases
 	}
 
-	// Execute The Test Cases (Create A ConfigImpl & UpdateSubscriptions() :)
+	// Execute The Test Cases (Create A Implementation & UpdateSubscriptions() :)
 	for _, testCase := range filteredTestCases {
 		t.Run(testCase.name, func(t *testing.T) {
 
@@ -252,8 +252,8 @@ func TestUpdateSubscriptions(t *testing.T) {
 				testCase.fields.DispatcherConfig.SaramaConfig,
 				mockConsumerGroup))
 
-			// Create A New ConfigImpl To Test
-			dispatcher := &ConfigImpl{
+			// Create A New Implementation To Test
+			dispatcher := &Implementation{
 				Config:      testCase.fields.DispatcherConfig,
 				subscribers: testCase.fields.subscribers,
 			}
@@ -552,7 +552,7 @@ func TestConfigImpl_ObserveMetrics(t *testing.T) {
 
 	reporter := &statsReporterMock{}
 
-	config := &ConfigImpl{
+	config := &Implementation{
 		Config: Config{
 			Logger:             logtesting.TestLogger(t).Desugar(),
 			MetricsRegistry:    baseSaramaConfig.MetricRegistry,
