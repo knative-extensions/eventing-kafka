@@ -575,6 +575,6 @@ type statsReporterMock struct {
 	ReportCalled bool
 }
 
-func (s *statsReporterMock) Report(list metrics.ReportingList) {
+func (s *statsReporterMock) Report(_ metrics.ReportingList) {
 	s.ReportCalled = true
 }
