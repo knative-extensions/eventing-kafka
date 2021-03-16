@@ -860,6 +860,14 @@ func (m *fakeStatusManager) IsReady(ctx context.Context, ch v1beta1.KafkaChannel
 	return m.FakeIsReady(ctx, ch, sub)
 }
 
+func (m *fakeStatusManager) CancelProbing(sub eventingduckv1.SubscriberSpec) {
+	//do nothing
+}
+
+func (m *fakeStatusManager) CancelPodProbing(pod corev1.Pod) {
+	//do nothing
+}
+
 func makePatch(namespace, name, patch string) clientgotesting.PatchActionImpl {
 	return clientgotesting.PatchActionImpl{
 		ActionImpl: clientgotesting.ActionImpl{
