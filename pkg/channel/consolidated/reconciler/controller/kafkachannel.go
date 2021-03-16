@@ -149,7 +149,6 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel
 		logger.Errorw("Invalid kafka channel", zap.String("channel", kc.Name), zap.Error(err))
 		return err
 	}
-
 	if r.kafkaConfig == nil {
 		if r.kafkaConfigError == nil {
 			r.kafkaConfigError = fmt.Errorf("the config map '%s' does not exist", constants.SettingsConfigMapName)
@@ -586,5 +585,9 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, kc *v1beta1.KafkaChannel)
 	//if r.consumerGroupWatcher != nil {
 	//	r.consumerGroupWatcher.Forget(string(kc.ObjectMeta.UID))
 	//}
+	for _, s := range kc.Spec.Subscribers {
+		r.statusManager.CancelProbing(s)
+	}
+
 	return newReconciledNormal(kc.Namespace, kc.Name) //ok to remove finalizer
 }

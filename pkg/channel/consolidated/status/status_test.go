@@ -183,6 +183,32 @@ func TestProbeSinglePod(t *testing.T) {
 	}
 }
 
+func TestProbeListerFail(t *testing.T) {
+	ch := channelTemplate.DeepCopy()
+	sub := subscriptionTemplate.DeepCopy()
+
+	ready := make(chan *ReadyPair)
+	defer close(ready)
+	prober := NewProber(
+		zaptest.NewLogger(t).Sugar(),
+		notFoundLister{},
+		func(c v1beta1.KafkaChannel, s eventingduckv1.SubscriberSpec) {
+			ready <- &ReadyPair{
+				c,
+				s,
+			}
+		})
+
+	// If we can't list, this  must fail and return false
+	ok, err := prober.IsReady(context.Background(), *ch, *sub)
+	if err == nil {
+		t.Fatal("IsReady returned unexpected success")
+	}
+	if ok {
+		t.Fatal("IsReady() returned true")
+	}
+}
+
 type fakeProbeTargetLister ProbeTarget
 
 func (l fakeProbeTargetLister) ListProbeTargets(ctx context.Context, kc messagingv1beta1.KafkaChannel) (*ProbeTarget, error) {
@@ -192,6 +218,6 @@ func (l fakeProbeTargetLister) ListProbeTargets(ctx context.Context, kc messagin
 
 type notFoundLister struct{}
 
-func (l notFoundLister) ListProbeTargets(ctx context.Context, obj interface{}) ([]ProbeTarget, error) {
+func (l notFoundLister) ListProbeTargets(ctx context.Context, kc messagingv1beta1.KafkaChannel) (*ProbeTarget, error) {
 	return nil, errors.New("not found")
 }

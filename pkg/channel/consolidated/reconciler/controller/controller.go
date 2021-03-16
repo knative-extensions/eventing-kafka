@@ -156,10 +156,10 @@ func NewController(
 			// Cancel probing when a Pod is deleted
 			DeleteFunc: func(obj interface{}) {
 				pod, ok := obj.(*corev1.Pod)
-				if ok {
+				if ok && pod != nil {
 					logger.Debugw("Dispatcher pod deleted. Canceling pod probing.",
 						zap.String("pod", pod.GetName()))
-					statusProber.CancelPodProbing(pod)
+					statusProber.CancelPodProbing(*pod)
 					impl.GlobalResync(kafkaChannelInformer.Informer())
 				}
 			},

@@ -19,7 +19,6 @@ package status
 import (
 	"context"
 	"crypto/sha256"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -58,9 +57,8 @@ var dialContext = (&net.Dialer{Timeout: probeTimeout}).DialContext
 
 // targetState represents the probing state of a subscription
 type targetState struct {
-	hash string
-	sub  eventingduckv1.SubscriberSpec
-	ch   messagingv1beta1.KafkaChannel
+	sub eventingduckv1.SubscriberSpec
+	ch  messagingv1beta1.KafkaChannel
 
 	// pendingCount is the number of pods that haven't been successfully probed yet
 	pendingCount atomic.Int32
@@ -113,6 +111,8 @@ type ProbeTargetLister interface {
 // Manager provides a way to check if an Ingress is ready
 type Manager interface {
 	IsReady(ctx context.Context, ch messagingv1beta1.KafkaChannel, sub eventingduckv1.SubscriberSpec) (bool, error)
+	CancelProbing(sub eventingduckv1.SubscriberSpec)
+	CancelPodProbing(pod corev1.Pod)
 }
 
 // Prober provides a way to check if a VirtualService is ready by probing the Envoy pods
@@ -187,19 +187,13 @@ func (m *Prober) IsReady(ctx context.Context, ch messagingv1beta1.KafkaChannel, 
 	subscriptionKey := sub.UID
 	logger := logging.FromContext(ctx)
 
-	bytes, err := computeHash(sub)
-	if err != nil {
-		return false, fmt.Errorf("failed to compute the hash of the Subscription: %w", err)
-	}
-	hash := fmt.Sprintf("%x", bytes)
-
 	if ready, ok := func() (bool, bool) {
 		m.mu.Lock()
 		defer m.mu.Unlock()
 		if state, ok := m.targetStates[subscriptionKey]; ok {
-			if state.hash == hash {
+			if state.sub.Generation == sub.Generation {
 				state.lastAccessed = time.Now()
-				logger.Debugw("Subscription is hashed. Checking readiness",
+				logger.Debugw("Subscription is cached. Checking readiness",
 					zap.Any("subscription", sub.UID))
 				return m.checkReadiness(state), true
 			}
@@ -215,7 +209,6 @@ func (m *Prober) IsReady(ctx context.Context, ch messagingv1beta1.KafkaChannel, 
 
 	subCtx, cancel := context.WithCancel(context.Background())
 	subscriptionState := &targetState{
-		hash:         hash,
 		sub:          sub,
 		ch:           ch,
 		lastAccessed: time.Now(),
@@ -350,17 +343,13 @@ func (m *Prober) CancelProbing(sub eventingduckv1.SubscriberSpec) {
 }
 
 // CancelPodProbing cancels probing of the provided Pod IP.
-//
-// TODO(#6269): make this cancellation based on Pod x port instead of just Pod.
-func (m *Prober) CancelPodProbing(obj interface{}) {
-	if pod, ok := obj.(*corev1.Pod); ok {
-		m.mu.Lock()
-		defer m.mu.Unlock()
+func (m *Prober) CancelPodProbing(pod corev1.Pod) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
-		if ctx, ok := m.podContexts[pod.Status.PodIP]; ok {
-			ctx.cancel()
-			delete(m.podContexts, pod.Status.PodIP)
-		}
+	if ctx, ok := m.podContexts[pod.Status.PodIP]; ok {
+		ctx.cancel()
+		delete(m.podContexts, pod.Status.PodIP)
 	}
 }
 
@@ -384,17 +373,9 @@ func (m *Prober) processWorkItem() bool {
 		item.url, item.podIP, item.podPort, m.workQueue.Len())
 
 	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.TLSClientConfig = &tls.Config{
-		//nolint:gosec
-		// We only want to know that the Gateway is configured, not that the configuration is valid.
-		// Therefore, we can safely ignore any TLS certificate validation.
-		InsecureSkipVerify: true,
-	}
+
 	transport.DialContext = func(ctx context.Context, network, addr string) (conn net.Conn, e error) {
-		// Requests with the IP as hostname and the Host header set do no pass client-side validation
-		// because the HTTP client validates that the hostname (not the Host header) matches the server
-		// TLS certificate Common Name or Alternative Names. Therefore, http.Request.URL is set to the
-		// hostname and it is substituted it here with the target IP.
+		// http.Request.URL is set to the hostname and it is substituted in here with the target IP.
 		return dialContext(ctx, network, net.JoinHostPort(item.podIP, item.podPort))
 	}
 
@@ -470,9 +451,6 @@ func (m *Prober) probeVerifier(item *workItem) prober.Verifier {
 			zap.ByteString("body", b))
 		switch r.StatusCode {
 		case http.StatusOK:
-			/**
-			{"my-kafka-channel":["90713ffd-f527-42bf-b158-57630b68ebe2","a2041ec2-3295-4cd8-ac31-e699ab08273e","d3d70a79-8528-4df6-a812-3b559380cf08","db536b74-45f8-41cd-ab3e-7e3f60ed9e35","eb3aeee9-7cb5-4cad-b4c4-424e436dac9f"]}
-			*/
 			var subscriptions = make(map[string][]string)
 			err := json.Unmarshal(b, &subscriptions)
 			if err != nil {
@@ -491,7 +469,6 @@ func (m *Prober) probeVerifier(item *workItem) prober.Verifier {
 				item.targetStates.readyCount.Inc()
 				return true, nil
 			} else {
-				//TODO return and error if the channel doesn't exist?
 				return false, nil
 			}
 		case http.StatusNotFound, http.StatusServiceUnavailable:
