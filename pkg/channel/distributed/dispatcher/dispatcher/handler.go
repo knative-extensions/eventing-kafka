@@ -20,13 +20,13 @@ import (
 	"context"
 	"errors"
 	"net/url"
-
-	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
+	"strings"
 
 	"github.com/Shopify/sarama"
 	kafkasaramaprotocol "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"github.com/cloudevents/sdk-go/v2/binding"
 	"go.uber.org/zap"
+	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/common/tracing"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/channel"
@@ -36,7 +36,7 @@ import (
 // Verify The Handler Implements The Sarama ConsumerGroupHandler
 var _ sarama.ConsumerGroupHandler = &Handler{}
 
-// Define A Sarama ConsumerGroupHandler Implementation
+// Define A Sarama ConsumerGroupHandler DispatcherImpl
 type Handler struct {
 	Logger            *zap.Logger
 	Subscriber        *eventingduck.SubscriberSpec
@@ -108,11 +108,19 @@ func (h *Handler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama
 	// Pull Any Available Messages From The ConsumerGroupClaim (Until The Channel Closes)
 	for message := range claim.Messages() {
 
-		// Consume The Message (Ignore Errors - Will have already been retried and we're moving on so as not to block further Topic processing.)
-		_ = h.consumeMessage(session.Context(), message, destinationURL, replyURL, deadLetterURL, &retryConfig)
+		// Consume The Message (Ignore any errors other than "context canceled" - Will have already been retried
+		// and we're moving on so as not to block further Topic processing.)
+		err := h.consumeMessage(session.Context(), message, destinationURL, replyURL, deadLetterURL, &retryConfig)
 
-		// Mark The Message As Having Been Consumed (Does Not Imply Successful Delivery - Only Full Retry Attempts Made)
-		session.MarkMessage(message, "")
+		// If the system is shutting down, it's possible to get a "unable to complete request to [destination]: context canceled" error
+		// This is different than other types of failure in that it is the dispatcher's "fault" and so marking the message as delivered
+		// would be a violation of the "at least once" guarantee (because the next dispatcher that starts would see it as marked and not
+		// try to deliver it again).
+		if err == nil || !strings.Contains(err.Error(), context.Canceled.Error()) {
+			// Mark The Message As Having Been Consumed (Does Not Imply Successful Delivery - Only Full Retry Attempts Made)
+			session.MarkMessage(message, "")
+		}
+
 	}
 
 	// Return Success

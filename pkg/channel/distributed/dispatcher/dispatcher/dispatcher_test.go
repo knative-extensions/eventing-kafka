@@ -19,6 +19,7 @@ package dispatcher
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -91,7 +92,7 @@ func TestShutdown(t *testing.T) {
 	groupId3 := fmt.Sprintf("kafka.%s", subscriber3.UID)
 
 	// Create The Dispatcher To Test With Existing Subscribers
-	dispatcher := &Implementation{
+	dispatcher := &DispatcherImpl{
 		Config: Config{
 			Logger: logtesting.TestLogger(t).Desugar(),
 		},
@@ -240,7 +241,7 @@ func TestUpdateSubscriptions(t *testing.T) {
 		filteredTestCases = testCases
 	}
 
-	// Execute The Test Cases (Create A Implementation & UpdateSubscriptions() :)
+	// Execute The Test Cases (Create A DispatcherImpl & UpdateSubscriptions() :)
 	for _, testCase := range filteredTestCases {
 		t.Run(testCase.name, func(t *testing.T) {
 
@@ -252,8 +253,8 @@ func TestUpdateSubscriptions(t *testing.T) {
 				testCase.fields.DispatcherConfig.SaramaConfig,
 				mockConsumerGroup))
 
-			// Create A New Implementation To Test
-			dispatcher := &Implementation{
+			// Create A New DispatcherImpl To Test
+			dispatcher := &DispatcherImpl{
 				Config:      testCase.fields.DispatcherConfig,
 				subscribers: testCase.fields.subscribers,
 			}
@@ -552,7 +553,7 @@ func TestConfigImpl_ObserveMetrics(t *testing.T) {
 
 	reporter := &statsReporterMock{}
 
-	config := &Implementation{
+	config := &DispatcherImpl{
 		Config: Config{
 			Logger:             logtesting.TestLogger(t).Desugar(),
 			MetricsRegistry:    baseSaramaConfig.MetricRegistry,
@@ -564,17 +565,25 @@ func TestConfigImpl_ObserveMetrics(t *testing.T) {
 
 	// Start the metrics observing loop and verify that the report function was called at least once
 	config.ObserveMetrics(5 * time.Millisecond)
-	time.Sleep(10 * time.Millisecond)
-	assert.True(t, reporter.ReportCalled)
+	assert.Eventually(t, reporter.GetReportCalled, 50*time.Millisecond, 5*time.Millisecond)
 	close(config.MetricsStopChan)
 	<-config.MetricsStoppedChan
 }
 
 // A mock for the StatsReporter that will provide feedback when the Report function is called
 type statsReporterMock struct {
-	ReportCalled bool
+	reportCalled bool
+	mutex        sync.Mutex // Prevent race conditions between writing the value and assert.Eventually reading it
+}
+
+func (s *statsReporterMock) GetReportCalled() bool {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	return s.reportCalled
 }
 
 func (s *statsReporterMock) Report(_ metrics.ReportingList) {
-	s.ReportCalled = true
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.reportCalled = true
 }

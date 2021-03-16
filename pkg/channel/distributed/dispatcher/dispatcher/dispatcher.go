@@ -23,6 +23,8 @@ import (
 	"sync"
 	"time"
 
+	dispatcherconstants "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/constants"
+
 	gometrics "github.com/rcrowley/go-metrics"
 
 	distributedcommonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
@@ -34,7 +36,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer"
 	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
-	dispatcherconstants "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/constants"
 	"knative.dev/eventing-kafka/pkg/common/client"
 	"knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
@@ -80,33 +81,36 @@ type Dispatcher interface {
 	UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error
 }
 
-// Define A Dispatcher Implementation Struct With Configuration & ConsumerGroup State
-type Implementation struct {
+// Define A Dispatcher DispatcherImpl Struct With Configuration & ConsumerGroup State
+type DispatcherImpl struct {
 	Config
 	subscribers        map[types.UID]*SubscriberWrapper
 	consumerUpdateLock sync.Mutex
 	messageDispatcher  channel.MessageDispatcher
 }
 
-// Verify The Implementation Implements The Dispatcher Interface
-var _ Dispatcher = &Implementation{}
+// Verify The DispatcherImpl Implements The Dispatcher Interface
+var _ Dispatcher = &DispatcherImpl{}
 
 // Dispatcher Constructor
 func NewDispatcher(dispatcherConfig Config) Dispatcher {
 
-	// Create The Implementation With Specified Configuration
-	dispatcher := &Implementation{
+	// Create The DispatcherImpl With Specified Configuration
+	dispatcher := &DispatcherImpl{
 		Config:            dispatcherConfig,
 		subscribers:       make(map[types.UID]*SubscriberWrapper),
 		messageDispatcher: channel.NewMessageDispatcher(dispatcherConfig.Logger),
 	}
 
-	// Return The Implementation
+	// Start Observing Metrics
+	dispatcher.ObserveMetrics(dispatcherconstants.MetricsInterval)
+
+	// Return The DispatcherImpl
 	return dispatcher
 }
 
 // Shutdown The Dispatcher
-func (d *Implementation) Shutdown() {
+func (d *DispatcherImpl) Shutdown() {
 
 	// Stop Observing Metrics
 	if d.MetricsStopChan != nil {
@@ -121,7 +125,7 @@ func (d *Implementation) Shutdown() {
 }
 
 // Update The Dispatcher's Subscriptions To Align With New State
-func (d *Implementation) UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error {
+func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error {
 
 	if d.SaramaConfig == nil {
 		d.Logger.Error("Dispatcher has no config!")
@@ -135,9 +139,6 @@ func (d *Implementation) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 	// Thread Safe ;)
 	d.consumerUpdateLock.Lock()
 	defer d.consumerUpdateLock.Unlock()
-
-	// Start Observing Metrics
-	d.ObserveMetrics(dispatcherconstants.MetricsInterval)
 
 	// Loop Over All All The Specified Subscribers
 	for _, subscriberSpec := range subscriberSpecs {
@@ -197,7 +198,7 @@ func (d *Implementation) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 }
 
 // Start Consuming Messages With The Specified Subscriber's ConsumerGroup
-func (d *Implementation) startConsuming(subscriber *SubscriberWrapper) {
+func (d *DispatcherImpl) startConsuming(subscriber *SubscriberWrapper) {
 
 	// Validate The Subscriber / ConsumerGroup
 	if subscriber != nil && subscriber.ConsumerGroup != nil {
@@ -249,7 +250,7 @@ func (d *Implementation) startConsuming(subscriber *SubscriberWrapper) {
 }
 
 // Close The ConsumerGroup Associated With A Single Subscriber
-func (d *Implementation) closeConsumerGroup(subscriber *SubscriberWrapper) {
+func (d *DispatcherImpl) closeConsumerGroup(subscriber *SubscriberWrapper) {
 
 	// Get The ConsumerGroup Associated with The Specified Subscriber
 	consumerGroup := subscriber.ConsumerGroup
@@ -288,7 +289,7 @@ func (d *Implementation) closeConsumerGroup(subscriber *SubscriberWrapper) {
 // are needed in the future, the environment will also need to be re-parsed here.
 // If there aren't any consumer-specific differences between the current config and the new one,
 // then just log that and move on; do not restart the ConsumerGroups unnecessarily.
-func (d *Implementation) ConfigChanged(ctx context.Context, configMap *corev1.ConfigMap) Dispatcher {
+func (d *DispatcherImpl) ConfigChanged(ctx context.Context, configMap *corev1.ConfigMap) Dispatcher {
 
 	d.Logger.Debug("New ConfigMap Received", zap.String("configMap.Name", configMap.ObjectMeta.Name))
 
@@ -347,7 +348,7 @@ func (d *Implementation) ConfigChanged(ctx context.Context, configMap *corev1.Co
 
 // SecretChanged is called by the secretObserver handler function in main() so that
 // settings specific to the dispatcher may be extracted and the dispatcher restarted if necessary.
-func (d *Implementation) SecretChanged(ctx context.Context, secret *corev1.Secret) Dispatcher {
+func (d *DispatcherImpl) SecretChanged(ctx context.Context, secret *corev1.Secret) Dispatcher {
 
 	// Debug Log The Secret Change
 	d.Logger.Debug("New Secret Received", zap.String("secret.Name", secret.ObjectMeta.Name))
@@ -381,7 +382,7 @@ func (d *Implementation) SecretChanged(ctx context.Context, secret *corev1.Secre
 }
 
 // Shut down the current dispatcher and recreate it with new settings
-func (d *Implementation) reconfigure(newConfig *sarama.Config, ekConfig *commonconfig.EventingKafkaConfig) Dispatcher {
+func (d *DispatcherImpl) reconfigure(newConfig *sarama.Config, ekConfig *commonconfig.EventingKafkaConfig) Dispatcher {
 	d.Shutdown()
 	d.Config.SaramaConfig = newConfig
 	if ekConfig != nil {
@@ -398,7 +399,7 @@ func (d *Implementation) reconfigure(newConfig *sarama.Config, ekConfig *commonc
 }
 
 // Async Process For Observing Kafka Metrics
-func (d *Implementation) ObserveMetrics(interval time.Duration) {
+func (d *DispatcherImpl) ObserveMetrics(interval time.Duration) {
 
 	// Fork A New Process To Run Async Metrics Collection
 	go func() {
