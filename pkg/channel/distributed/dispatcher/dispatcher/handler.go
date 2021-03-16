@@ -36,7 +36,7 @@ import (
 // Verify The Handler Implements The Sarama ConsumerGroupHandler
 var _ sarama.ConsumerGroupHandler = &Handler{}
 
-// Define A Sarama ConsumerGroupHandler DispatcherImpl
+// Define A Sarama ConsumerGroupHandler Implementation
 type Handler struct {
 	Logger            *zap.Logger
 	Subscriber        *eventingduck.SubscriberSpec
