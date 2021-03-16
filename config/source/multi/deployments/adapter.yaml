@@ -49,6 +49,7 @@ spec:
 
         # The memory limit, per vreplica. Must be a quantity.
         # see https://github.com/kubernetes/apimachinery/blob/master/pkg/api/resource/quantity.go#L31
+        # Should be pod requested memory / pod capacity (see controller.yaml)
         - name: VREPLICA_LIMITS_MEMORY
           value: '2Mi'
 
