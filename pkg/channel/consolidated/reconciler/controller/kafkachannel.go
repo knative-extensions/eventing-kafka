@@ -581,10 +581,7 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, kc *v1beta1.KafkaChannel)
 			return err
 		}
 	}
-	//TODO
-	//if r.consumerGroupWatcher != nil {
-	//	r.consumerGroupWatcher.Forget(string(kc.ObjectMeta.UID))
-	//}
+
 	for _, s := range kc.Spec.Subscribers {
 		r.statusManager.CancelProbing(s)
 	}
