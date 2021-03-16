@@ -80,11 +80,8 @@ func ValidateKafkaChannel(channelReference eventingChannel.ChannelReference) err
 	kafkaChannel, err := kafkaChannelLister.KafkaChannels(channelReference.Namespace).Get(channelReference.Name)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			// Note - Returning Knative UnknownChannelError Type For EventReceiver.StartHTTP()
-			//        Ideally we'd be able to populate the UnknownChannelError's ChannelReference
-			//        but once again Knative has made this private.
 			logger.Warn("Invalid KafkaChannel - Not Found")
-			return &eventingChannel.UnknownChannelError{}
+			return &eventingChannel.UnknownChannelError{Channel: channelReference}
 		} else {
 			logger.Error("Invalid KafkaChannel - Failed To Find", zap.Error(err))
 			return err

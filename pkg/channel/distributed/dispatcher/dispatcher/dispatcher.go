@@ -21,6 +21,9 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
+
+	gometrics "github.com/rcrowley/go-metrics"
 
 	distributedcommonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
@@ -31,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer"
 	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
+	dispatcherconstants "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/constants"
 	"knative.dev/eventing-kafka/pkg/common/client"
 	"knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
@@ -39,17 +43,20 @@ import (
 )
 
 // Define A Dispatcher Config Struct To Hold Configuration
-type DispatcherConfig struct {
-	Logger          *zap.Logger
-	ClientId        string
-	Brokers         []string
-	Topic           string
-	Username        string
-	Password        string
-	ChannelKey      string
-	StatsReporter   metrics.StatsReporter
-	SaramaConfig    *sarama.Config
-	SubscriberSpecs []eventingduck.SubscriberSpec
+type Config struct {
+	Logger             *zap.Logger
+	ClientId           string
+	Brokers            []string
+	Topic              string
+	Username           string
+	Password           string
+	ChannelKey         string
+	StatsReporter      metrics.StatsReporter
+	MetricsRegistry    gometrics.Registry
+	MetricsStopChan    chan struct{}
+	MetricsStoppedChan chan struct{}
+	SaramaConfig       *sarama.Config
+	SubscriberSpecs    []eventingduck.SubscriberSpec
 }
 
 // Knative Eventing SubscriberSpec Wrapper Enhanced With Sarama ConsumerGroup
@@ -73,33 +80,37 @@ type Dispatcher interface {
 	UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error
 }
 
-// Define A DispatcherImpl Struct With Configuration & ConsumerGroup State
-type DispatcherImpl struct {
-	DispatcherConfig
+// Define A ConfigImpl Struct With Configuration & ConsumerGroup State
+type ConfigImpl struct {
+	Config
 	subscribers        map[types.UID]*SubscriberWrapper
 	consumerUpdateLock sync.Mutex
 	messageDispatcher  channel.MessageDispatcher
 }
 
-// Verify The DispatcherImpl Implements The Dispatcher Interface
-var _ Dispatcher = &DispatcherImpl{}
+// Verify The ConfigImpl Implements The Dispatcher Interface
+var _ Dispatcher = &ConfigImpl{}
 
 // Dispatcher Constructor
-func NewDispatcher(dispatcherConfig DispatcherConfig) Dispatcher {
+func NewDispatcher(dispatcherConfig Config) Dispatcher {
 
-	// Create The DispatcherImpl With Specified Configuration
-	dispatcher := &DispatcherImpl{
-		DispatcherConfig:  dispatcherConfig,
+	// Create The ConfigImpl With Specified Configuration
+	dispatcher := &ConfigImpl{
+		Config:            dispatcherConfig,
 		subscribers:       make(map[types.UID]*SubscriberWrapper),
 		messageDispatcher: channel.NewMessageDispatcher(dispatcherConfig.Logger),
 	}
 
-	// Return The DispatcherImpl
+	// Return The ConfigImpl
 	return dispatcher
 }
 
 // Shutdown The Dispatcher
-func (d *DispatcherImpl) Shutdown() {
+func (d *ConfigImpl) Shutdown() {
+
+	// Stop Observing Metrics
+	close(d.MetricsStopChan)
+	<-d.MetricsStoppedChan
 
 	// Close ConsumerGroups Of All Subscriptions
 	for _, subscriber := range d.subscribers {
@@ -108,7 +119,7 @@ func (d *DispatcherImpl) Shutdown() {
 }
 
 // Update The Dispatcher's Subscriptions To Align With New State
-func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error {
+func (d *ConfigImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error {
 
 	if d.SaramaConfig == nil {
 		d.Logger.Error("Dispatcher has no config!")
@@ -122,6 +133,9 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 	// Thread Safe ;)
 	d.consumerUpdateLock.Lock()
 	defer d.consumerUpdateLock.Unlock()
+
+	// Start Observing Metrics
+	d.ObserveMetrics(dispatcherconstants.MetricsInterval)
 
 	// Loop Over All All The Specified Subscribers
 	for _, subscriberSpec := range subscriberSpecs {
@@ -147,8 +161,6 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 
 				// Create A New SubscriberWrapper With The ConsumerGroup
 				subscriber := NewSubscriberWrapper(subscriberSpec, groupId, consumerGroup)
-
-				// Should start observing metrics from Sarama Config.MetricsRegistry from CreateConsumerGroup() above ; )
 
 				// Start The ConsumerGroup Processing Messages
 				d.startConsuming(subscriber)
@@ -183,7 +195,7 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 }
 
 // Start Consuming Messages With The Specified Subscriber's ConsumerGroup
-func (d *DispatcherImpl) startConsuming(subscriber *SubscriberWrapper) {
+func (d *ConfigImpl) startConsuming(subscriber *SubscriberWrapper) {
 
 	// Validate The Subscriber / ConsumerGroup
 	if subscriber != nil && subscriber.ConsumerGroup != nil {
@@ -235,7 +247,7 @@ func (d *DispatcherImpl) startConsuming(subscriber *SubscriberWrapper) {
 }
 
 // Close The ConsumerGroup Associated With A Single Subscriber
-func (d *DispatcherImpl) closeConsumerGroup(subscriber *SubscriberWrapper) {
+func (d *ConfigImpl) closeConsumerGroup(subscriber *SubscriberWrapper) {
 
 	// Get The ConsumerGroup Associated with The Specified Subscriber
 	consumerGroup := subscriber.ConsumerGroup
@@ -274,7 +286,7 @@ func (d *DispatcherImpl) closeConsumerGroup(subscriber *SubscriberWrapper) {
 // are needed in the future, the environment will also need to be re-parsed here.
 // If there aren't any consumer-specific differences between the current config and the new one,
 // then just log that and move on; do not restart the ConsumerGroups unnecessarily.
-func (d *DispatcherImpl) ConfigChanged(ctx context.Context, configMap *corev1.ConfigMap) Dispatcher {
+func (d *ConfigImpl) ConfigChanged(ctx context.Context, configMap *corev1.ConfigMap) Dispatcher {
 
 	d.Logger.Debug("New ConfigMap Received", zap.String("configMap.Name", configMap.ObjectMeta.Name))
 
@@ -333,7 +345,7 @@ func (d *DispatcherImpl) ConfigChanged(ctx context.Context, configMap *corev1.Co
 
 // SecretChanged is called by the secretObserver handler function in main() so that
 // settings specific to the dispatcher may be extracted and the dispatcher restarted if necessary.
-func (d *DispatcherImpl) SecretChanged(ctx context.Context, secret *corev1.Secret) Dispatcher {
+func (d *ConfigImpl) SecretChanged(ctx context.Context, secret *corev1.Secret) Dispatcher {
 
 	// Debug Log The Secret Change
 	d.Logger.Debug("New Secret Received", zap.String("secret.Name", secret.ObjectMeta.Name))
@@ -367,18 +379,45 @@ func (d *DispatcherImpl) SecretChanged(ctx context.Context, secret *corev1.Secre
 }
 
 // Shut down the current dispatcher and recreate it with new settings
-func (d *DispatcherImpl) reconfigure(newConfig *sarama.Config, ekConfig *commonconfig.EventingKafkaConfig) Dispatcher {
+func (d *ConfigImpl) reconfigure(newConfig *sarama.Config, ekConfig *commonconfig.EventingKafkaConfig) Dispatcher {
 	d.Shutdown()
-	d.DispatcherConfig.SaramaConfig = newConfig
+	d.Config.SaramaConfig = newConfig
 	if ekConfig != nil {
 		// Currently the only thing that a new dispatcher might care about in the EventingKafkaConfig is the Brokers
-		d.DispatcherConfig.Brokers = strings.Split(ekConfig.Kafka.Brokers, ",")
+		d.Config.Brokers = strings.Split(ekConfig.Kafka.Brokers, ",")
 	}
-	newDispatcher := NewDispatcher(d.DispatcherConfig)
+	newDispatcher := NewDispatcher(d.Config)
 	failedSubscriptions := newDispatcher.UpdateSubscriptions(d.SubscriberSpecs)
 	if len(failedSubscriptions) > 0 {
 		d.Logger.Fatal("Failed To Subscribe Kafka Subscriptions For New Dispatcher", zap.Int("Count", len(failedSubscriptions)))
 		return nil
 	}
 	return newDispatcher
+}
+
+// Async Process For Observing Kafka Metrics
+func (d *ConfigImpl) ObserveMetrics(interval time.Duration) {
+
+	// Fork A New Process To Run Async Metrics Collection
+	go func() {
+
+		// Infinite Loop For Periodically Observing Sarama Metrics From Registry
+		for {
+
+			select {
+
+			case <-d.MetricsStopChan:
+				d.Logger.Info("Stopped Metrics Tracking")
+				close(d.MetricsStoppedChan)
+				return
+
+			case <-time.After(interval):
+				// Get All The Sarama Metrics From The Producer's Metrics Registry
+				kafkaMetrics := d.MetricsRegistry.GetAll()
+
+				// Forward Metrics To Prometheus For Observation
+				d.StatsReporter.Report(kafkaMetrics)
+			}
+		}
+	}()
 }

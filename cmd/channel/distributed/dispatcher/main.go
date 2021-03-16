@@ -132,16 +132,19 @@ func main() {
 	})
 
 	// Create The Dispatcher With Specified Configuration
-	dispatcherConfig := dispatch.DispatcherConfig{
-		Logger:        logger,
-		ClientId:      constants.Component,
-		Brokers:       strings.Split(ekConfig.Kafka.Brokers, ","),
-		Topic:         environment.KafkaTopic,
-		Username:      kafkaAuthCfg.SASL.User,
-		Password:      kafkaAuthCfg.SASL.Password,
-		ChannelKey:    environment.ChannelKey,
-		StatsReporter: statsReporter,
-		SaramaConfig:  saramaConfig,
+	dispatcherConfig := dispatch.Config{
+		Logger:             logger,
+		ClientId:           constants.Component,
+		Brokers:            strings.Split(ekConfig.Kafka.Brokers, ","),
+		Topic:              environment.KafkaTopic,
+		Username:           kafkaAuthCfg.SASL.User,
+		Password:           kafkaAuthCfg.SASL.Password,
+		ChannelKey:         environment.ChannelKey,
+		StatsReporter:      statsReporter,
+		MetricsRegistry:    saramaConfig.MetricRegistry,
+		MetricsStopChan:    make(chan struct{}),
+		MetricsStoppedChan: make(chan struct{}),
+		SaramaConfig:       saramaConfig,
 	}
 	dispatcher = dispatch.NewDispatcher(dispatcherConfig)
 

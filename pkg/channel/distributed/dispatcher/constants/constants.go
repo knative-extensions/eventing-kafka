@@ -16,11 +16,15 @@ limitations under the License.
 
 package constants
 
+import "time"
+
 // Global Constants
 const (
 	// Values Used When Creating A New Dispatcher
 	DefaultMaxIdleConns        = 1000
 	DefaultMaxIdleConnsPerHost = 100
+
+	MetricsInterval = 5 * time.Second
 
 	Component = "eventing-kafka-channel-dispatcher"
 )

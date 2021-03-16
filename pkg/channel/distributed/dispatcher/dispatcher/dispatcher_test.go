@@ -91,8 +91,8 @@ func TestShutdown(t *testing.T) {
 	groupId3 := fmt.Sprintf("kafka.%s", subscriber3.UID)
 
 	// Create The Dispatcher To Test With Existing Subscribers
-	dispatcher := &DispatcherImpl{
-		DispatcherConfig: DispatcherConfig{
+	dispatcher := &ConfigImpl{
+		Config: Config{
 			Logger: logtesting.TestLogger(t).Desugar(),
 		},
 		subscribers: map[types.UID]*SubscriberWrapper{
@@ -126,7 +126,7 @@ func TestUpdateSubscriptions(t *testing.T) {
 	config, err := commonclient.NewConfigBuilder().WithDefaults().FromYaml(clienttesting.DefaultSaramaConfigYaml).Build(ctx)
 	assert.Nil(t, err)
 
-	dispatcherConfig := DispatcherConfig{
+	dispatcherConfig := Config{
 		Logger:       logger.Desugar(),
 		Brokers:      brokers,
 		SaramaConfig: config,
@@ -134,7 +134,7 @@ func TestUpdateSubscriptions(t *testing.T) {
 
 	// Define The TestCase Struct
 	type fields struct {
-		DispatcherConfig DispatcherConfig
+		DispatcherConfig Config
 		subscribers      map[types.UID]*SubscriberWrapper
 	}
 	type args struct {
@@ -240,7 +240,7 @@ func TestUpdateSubscriptions(t *testing.T) {
 		filteredTestCases = testCases
 	}
 
-	// Execute The Test Cases (Create A DispatcherImpl & UpdateSubscriptions() :)
+	// Execute The Test Cases (Create A ConfigImpl & UpdateSubscriptions() :)
 	for _, testCase := range filteredTestCases {
 		t.Run(testCase.name, func(t *testing.T) {
 
@@ -252,10 +252,10 @@ func TestUpdateSubscriptions(t *testing.T) {
 				testCase.fields.DispatcherConfig.SaramaConfig,
 				mockConsumerGroup))
 
-			// Create A New DispatcherImpl To Test
-			dispatcher := &DispatcherImpl{
-				DispatcherConfig: testCase.fields.DispatcherConfig,
-				subscribers:      testCase.fields.subscribers,
+			// Create A New ConfigImpl To Test
+			dispatcher := &ConfigImpl{
+				Config:      testCase.fields.DispatcherConfig,
+				subscribers: testCase.fields.subscribers,
 			}
 
 			// Perform The Test
@@ -503,8 +503,8 @@ func createTestDispatcher(t *testing.T, brokers []string, config *sarama.Config)
 	// Create An Empty Set Of SubscriberSpecs
 	subscriberSpecs := make([]eventingduck.SubscriberSpec, 0)
 
-	// Create The DispatcherConfig
-	dispatcherConfig := DispatcherConfig{
+	// Create The Dispatcher Config
+	dispatcherConfig := Config{
 		Logger:          logger,
 		Brokers:         brokers,
 		StatsReporter:   statsReporter,
@@ -540,4 +540,41 @@ func customValidationNewConsumerGroupFn(t *testing.T,
 		assert.Equal(t, config, expectedConfig)
 		return mockConsumerGroup, nil
 	}
+}
+
+func TestConfigImpl_ObserveMetrics(t *testing.T) {
+	baseSaramaConfig, err := commonclient.NewConfigBuilder().
+		WithDefaults().
+		FromYaml(clienttesting.DefaultSaramaConfigYaml).
+		WithVersion(&sarama.V2_0_0_0).
+		Build(context.Background())
+	assert.Nil(t, err)
+
+	reporter := &statsReporterMock{}
+
+	config := &ConfigImpl{
+		Config: Config{
+			Logger:             logtesting.TestLogger(t).Desugar(),
+			MetricsRegistry:    baseSaramaConfig.MetricRegistry,
+			MetricsStopChan:    make(chan struct{}),
+			MetricsStoppedChan: make(chan struct{}),
+			StatsReporter:      reporter,
+		},
+	}
+
+	// Start the metrics observing loop and verify that the report function was called at least once
+	config.ObserveMetrics(5 * time.Millisecond)
+	time.Sleep(10 * time.Millisecond)
+	assert.True(t, reporter.ReportCalled)
+	close(config.MetricsStopChan)
+	<-config.MetricsStoppedChan
+}
+
+// A mock for the StatsReporter that will provide feedback when the Report function is called
+type statsReporterMock struct {
+	ReportCalled bool
+}
+
+func (s *statsReporterMock) Report(list metrics.ReportingList) {
+	s.ReportCalled = true
 }
