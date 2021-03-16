@@ -38,3 +38,18 @@ func GetPlacementForPod(placements []duckv1alpha1.Placement, podName string) *du
 	}
 	return nil
 }
+
+// GetPodCount returns the number of pods with the given placements
+func GetPodCount(placements []duckv1alpha1.Placement) int {
+	set := map[string]int{}
+	for _, p := range placements {
+		if p.VReplicas > 0 {
+			if _, ok := set[p.PodName]; !ok {
+				set[p.PodName] = 1
+				continue
+			}
+			set[p.PodName] += 1
+		}
+	}
+	return len(set)
+}

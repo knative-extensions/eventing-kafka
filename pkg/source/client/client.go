@@ -119,3 +119,12 @@ func NewProducer(ctx context.Context) (sarama.Client, error) {
 
 	return sarama.NewClient(bs, cfg)
 }
+
+// NewProducer is a helper method for constructing an admin client
+func MakeAdminClient(ctx context.Context, env *KafkaEnvConfig) (sarama.ClusterAdmin, error) {
+	bs, cfg, err := NewConfigWithEnv(ctx, env)
+	if err != nil {
+		return nil, err
+	}
+	return sarama.NewClusterAdmin(bs, cfg)
+}
