@@ -130,7 +130,7 @@ func (r *Reporter) createView(ctx context.Context, measure stats.Measure, name s
 	}
 	err = view.Register(newView)
 	if err != nil {
-		r.logger.Error("failed to register opencensus views", zap.Error(err))
+		r.logger.Error("Failed to register OpenCensus views", zap.Error(err))
 		return ctx
 	}
 	r.views[name] = newView
