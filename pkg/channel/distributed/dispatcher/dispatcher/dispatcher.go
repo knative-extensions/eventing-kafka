@@ -109,8 +109,10 @@ func NewDispatcher(dispatcherConfig Config) Dispatcher {
 func (d *Implementation) Shutdown() {
 
 	// Stop Observing Metrics
-	close(d.MetricsStopChan)
-	<-d.MetricsStoppedChan
+	if d.MetricsStopChan != nil {
+		close(d.MetricsStopChan)
+		<-d.MetricsStoppedChan
+	}
 
 	// Close ConsumerGroups Of All Subscriptions
 	for _, subscriber := range d.subscribers {
