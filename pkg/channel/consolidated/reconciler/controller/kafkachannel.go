@@ -254,7 +254,11 @@ func (r *Reconciler) setupSubscriptionStatusWatcher(ctx context.Context, ch *v1b
 	after.Status.Subscribers = make([]v1.SubscriberStatus, 0)
 
 	for _, s := range ch.Spec.Subscribers {
-		if r, _ := r.statusManager.IsReady(ctx, *ch, s); r {
+		r, err := r.statusManager.IsReady(ctx, *ch, s)
+		if err != nil {
+			return fmt.Errorf("failed checking subscription readiness: %v", err)
+		}
+		if r {
 			logging.FromContext(ctx).Debugw("marking subscription", zap.Any("subscription", s))
 			after.Status.Subscribers = append(after.Status.Subscribers, v1.SubscriberStatus{
 				UID:                s.UID,
