@@ -38,11 +38,14 @@ import (
 )
 
 // NewScheduler creates a new scheduler with pod autoscaling enabled.
-func NewScheduler(ctx context.Context, namespace, name string, lister scheduler.VPodLister) scheduler.Scheduler {
-	capacity := int32(10) // TODO: config
+func NewScheduler(ctx context.Context,
+	namespace, name string,
+	lister scheduler.VPodLister,
+	refreshPeriod time.Duration,
+	capacity int32) scheduler.Scheduler {
 
 	stateAccessor := newStateBuilder(logging.FromContext(ctx), lister, capacity)
-	autoscaler := NewAutoscaler(ctx, namespace, name, stateAccessor, 10*time.Second) // TODO: config
+	autoscaler := NewAutoscaler(ctx, namespace, name, stateAccessor, refreshPeriod, capacity)
 
 	go autoscaler.Start(ctx)
 
@@ -67,7 +70,12 @@ type StatefulSetScheduler struct {
 	pending map[types.NamespacedName]int32
 }
 
-func NewStatefulSetScheduler(ctx context.Context, namespace, name string, lister scheduler.VPodLister, stateAccessor stateAccessor, autoscaler Autoscaler) scheduler.Scheduler {
+func NewStatefulSetScheduler(ctx context.Context,
+	namespace, name string,
+	lister scheduler.VPodLister,
+	stateAccessor stateAccessor,
+	autoscaler Autoscaler) scheduler.Scheduler {
+
 	scheduler := &StatefulSetScheduler{
 		logger:            logging.FromContext(ctx),
 		statefulSetName:   name,

@@ -49,18 +49,23 @@ type autoscaler struct {
 	// capacity is the total number of virtual replicas available per pod.
 	capacity int32
 
-	// refreshPeriod is how often to try attempting scaling down the statefulset
+	// refreshPeriod is how often the autoscaler tries to scale down the statefulset
 	refreshPeriod time.Duration
 }
 
-func NewAutoscaler(ctx context.Context, namespace, name string, stateAccessor stateAccessor, refreshPeriod time.Duration) Autoscaler {
+func NewAutoscaler(ctx context.Context,
+	namespace, name string,
+	stateAccessor stateAccessor,
+	refreshPeriod time.Duration,
+	capacity int32) Autoscaler {
+
 	return &autoscaler{
 		logger:            logging.FromContext(ctx),
 		statefulSetClient: kubeclient.Get(ctx).AppsV1().StatefulSets(namespace),
 		statefulSetName:   name,
 		stateAccessor:     stateAccessor,
 		trigger:           make(chan int32, 1),
-		capacity:          int32(10),
+		capacity:          capacity,
 		refreshPeriod:     refreshPeriod,
 	}
 }
@@ -119,7 +124,7 @@ func (a *autoscaler) doautoscale(ctx context.Context, attemptScaleDown bool, pen
 		// The number of replicas may be lower than the last ordinal, for instance
 		// when the statefulset is manually scaled down. In that case, replicas above
 		// scale.Spec.Replicas have not been considered when scheduling vreplicas.
-		// Adjust accordindly
+		// Adjust accordingly
 		pending -= state.freeCapacity()
 
 		// Still need more?
