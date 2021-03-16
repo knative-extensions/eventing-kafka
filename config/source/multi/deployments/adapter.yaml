@@ -20,7 +20,7 @@ metadata:
   labels:
     kafka.eventing.knative.dev/release: devel
 spec:
-  replicas: 1 # TODO: set to 0
+  replicas: 1
   selector:
     matchLabels: &labels
       control-plane: kafkasource-mt-adapter
@@ -56,11 +56,11 @@ spec:
 
         resources:
           requests:
-            cpu: 50m
-            memory: 1Gi
+            cpu: 100m
+            memory: 100Mi
           limits:
-            cpu: 50m
-            memory: 1Gi
+            cpu: 200m
+            memory: 150Mi
 
         ports:
         - name: metrics

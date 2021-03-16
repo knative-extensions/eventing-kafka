@@ -44,7 +44,15 @@ spec:
           value: config-observability
         - name: CONFIG_LEADERELECTION_NAME
           value: config-leader-election
-        volumeMounts:
+
+        # how often (in seconds) the autoscaler tries to scale down the statefulset
+        - name: AUTOSCALER_REFRESH_PERIOD
+          value: '10'
+
+        # the number of virtual replicas this pod can handle
+        - name: POD_CAPACITY
+          value: '100'
+
         resources:
           requests:
             cpu: 20m
