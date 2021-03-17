@@ -23,5 +23,5 @@ const (
 	clientReconnectionRetry = 10
 	clientDialRetryInterval = 200 * time.Millisecond
 
-	keepAlive = 30 * time.Second
+	KeepAlive = 30 * time.Second
 )

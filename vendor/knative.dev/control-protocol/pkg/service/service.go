@@ -97,8 +97,8 @@ func (c *service) sendBinaryAndWaitForAck(opcode ctrl.OpCode, payload []byte) er
 		logging.FromContext(c.ctx).Warnf("Dropping message because context cancelled: %s", msg.UUID().String())
 		return c.ctx.Err()
 	case <-time.After(controlServiceSendTimeout):
-		logging.FromContext(c.ctx).Debugf("Timeout waiting for the ack, retrying to send: %s", msg.UUID().String())
-		return fmt.Errorf("retry exceeded for outgoing message: %s", msg.UUID().String())
+		logging.FromContext(c.ctx).Debugf("Timeout waiting for the ack: %s", msg.UUID().String())
+		return fmt.Errorf("timeout exceeded for outgoing message: %s", msg.UUID().String())
 	}
 }
 

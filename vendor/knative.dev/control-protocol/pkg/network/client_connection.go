@@ -92,39 +92,39 @@ func newClientTcpConnection(ctx context.Context, dialer Dialer) *clientTcpConnec
 }
 
 func (t *clientTcpConnection) startPolling(initialConn net.Conn) {
-	// We have 2 goroutines:
-	// * One consumes the connections and it eventually reconnects
-	// * One blocks on context done and closes the connection
+	// We have 1 goroutine that consumes the connections and it eventually reconnects.
+	// When done, it closed the internal channels
 	go func(initialConn net.Conn) {
-		// Consume the connection
+		// Consume the initial connection
 		t.consumeConnection(initialConn)
 
-		// Retry until connection closed
-		for {
-			select {
-			case <-t.ctx.Done():
-				return
-			default:
-				t.logger.Warnf("Connection lost, retrying to reconnect %s", initialConn.RemoteAddr().String())
+		// This returns when either the context is closed
+		// or when redialing is not possible anymore
+		t.reDialLoop(initialConn.RemoteAddr())
 
-				// Let's try the dial
-				conn, err := tryDial(t.ctx, t.dialer, initialConn.RemoteAddr().String(), clientReconnectionRetry, clientDialRetryInterval)
-				if err != nil {
-					t.logger.Warnf("Cannot re-dial to target %s: %v", initialConn.RemoteAddr().String(), err)
-					return
-				}
-
-				t.consumeConnection(conn)
-			}
-		}
-	}(initialConn)
-	go func() {
-		<-t.ctx.Done()
 		t.logger.Infof("Closing control client")
-		err := t.close()
+		t.close()
 		t.logger.Infof("Connection closed")
-		if err != nil {
-			t.logger.Warnf("Error while closing the connection: %s", err)
+	}(initialConn)
+}
+
+func (t *clientTcpConnection) reDialLoop(remoteAddr net.Addr) {
+	// Retry until connection closed
+	for {
+		select {
+		case <-t.ctx.Done():
+			return
+		default:
+			t.logger.Warnf("Connection lost, retrying to reconnect %s", remoteAddr.String())
+
+			// Let's try the dial
+			conn, err := tryDial(t.ctx, t.dialer, remoteAddr.String(), clientReconnectionRetry, clientDialRetryInterval)
+			if err != nil {
+				t.logger.Warnf("Cannot re-dial to target %s: %v", remoteAddr.String(), err)
+				return
+			}
+
+			t.consumeConnection(conn)
 		}
-	}()
+	}
 }

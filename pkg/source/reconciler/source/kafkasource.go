@@ -202,12 +202,12 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 		podIPs,
 		func(newHost string, service ctrl.Service) {
 			service.MessageHandler(ctrlservice.MessageRouter{
-				kafkasourcecontrol.NotifySetupClaimsOpCode: r.claimsNotificationStore.ControlMessageHandler(
+				kafkasourcecontrol.NotifySetupClaimsOpCode: r.claimsNotificationStore.MessageHandler(
 					srcNamespacedName,
 					newHost,
 					kafkasourcecontrol.ClaimsMerger,
 				),
-				kafkasourcecontrol.NotifyCleanupClaimsOpCode: r.claimsNotificationStore.ControlMessageHandler(
+				kafkasourcecontrol.NotifyCleanupClaimsOpCode: r.claimsNotificationStore.MessageHandler(
 					srcNamespacedName,
 					newHost,
 					kafkasourcecontrol.ClaimsDifference,

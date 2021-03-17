@@ -53,7 +53,7 @@ func NewNotificationStore(enqueueKey func(name types.NamespacedName), parser Pay
 	}
 }
 
-func (n *NotificationStore) ControlMessageHandler(srcName types.NamespacedName, pod string, valueMerger ValueMerger) control.MessageHandler {
+func (n *NotificationStore) MessageHandler(srcName types.NamespacedName, pod string, valueMerger ValueMerger) control.MessageHandler {
 	return control.MessageHandlerFunc(func(ctx context.Context, message control.ServiceMessage) {
 		// Parse the payload
 		parsedPayload, err := n.payloadParser(message.Payload())

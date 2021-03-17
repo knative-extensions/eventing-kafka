@@ -165,10 +165,33 @@ func newServerTcpConnection(ctx context.Context, listener net.Listener, loader f
 
 func (t *serverTcpConnection) startAcceptPolling(closedServerChannel chan struct{}) {
 	// We have 2 goroutines:
-	// * One polls the listener to accept new conns
-	// * One blocks on context done and closes the listener and the connection
+	// * One pools the t.ctx and closes the listener
+	// * One polls the listener to accept new conns. When done, it closes the connection channels
 	go func() {
-		for {
+		<-t.ctx.Done()
+		t.logger.Infof("Closing control server")
+		err := t.listener.Close()
+		t.logger.Infof("Listener closed")
+		if err != nil {
+			t.logger.Warnf("Error while closing the listener: %s", err)
+		}
+	}()
+	go func() {
+		// This returns when either the listener is closed by external signal
+		// or catastrophic failure happened. In both cases, we want to close
+		t.listenLoop()
+
+		t.close()
+		close(closedServerChannel)
+	}()
+}
+
+func (t *serverTcpConnection) listenLoop() {
+	for {
+		select {
+		case <-t.ctx.Done():
+			return
+		default:
 			conn, err := t.listener.Accept()
 			if err != nil {
 				t.logger.Warnf("Error while accepting the connection, closing the accept loop: %s", err)
@@ -179,7 +202,7 @@ func (t *serverTcpConnection) startAcceptPolling(closedServerChannel chan struct
 				tlsConf, err := t.tlsConfigLoader()
 				if err != nil {
 					t.logger.Warnf("Cannot load tls configuration: %v", err)
-					t.tryPropagateError(t.ctx, err)
+					t.errors <- err
 					_ = conn.Close()
 					continue
 				}
@@ -187,26 +210,6 @@ func (t *serverTcpConnection) startAcceptPolling(closedServerChannel chan struct
 			}
 			t.logger.Debugf("Accepting new control connection from %s", conn.RemoteAddr())
 			t.consumeConnection(conn)
-			select {
-			case <-t.ctx.Done():
-				return
-			default:
-				continue
-			}
 		}
-	}()
-	go func() {
-		<-t.ctx.Done()
-		t.logger.Infof("Closing control server")
-		err := t.listener.Close()
-		t.logger.Infof("Listener closed")
-		if err != nil {
-			t.logger.Warnf("Error while closing the listener: %s", err)
-		}
-		err = t.close()
-		if err != nil {
-			t.logger.Warnf("Error while closing the tcp connection: %s", err)
-		}
-		close(closedServerChannel)
-	}()
+	}
 }
