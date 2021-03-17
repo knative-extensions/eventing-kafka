@@ -93,7 +93,9 @@ func TestHandlerConsumeClaim(t *testing.T) {
 		destinationUri *apis.URL
 		replyUri       *apis.URL
 		deadLetterUri  *apis.URL
+		dispatchErr    error
 		retry          bool
+		expectSkipMark bool
 	}
 
 	// Define The TestCases
@@ -134,6 +136,15 @@ func TestHandlerConsumeClaim(t *testing.T) {
 			name:  "Empty Subscriber Configuration",
 			retry: false,
 		},
+		{
+			name:           "Context Canceled",
+			destinationUri: testSubscriberURI,
+			replyUri:       testReplyURI,
+			deadLetterUri:  testDeadLetterURI,
+			retry:          true,
+			dispatchErr:    context.Canceled,
+			expectSkipMark: true,
+		},
 	}
 
 	// Filter To Those With "only" Flag (If Any Specified)
@@ -150,13 +161,26 @@ func TestHandlerConsumeClaim(t *testing.T) {
 	// Execute The Individual Test Cases
 	for _, testCase := range filteredTestCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			performHandlerConsumeClaimTest(t, testCase.destinationUri, testCase.replyUri, testCase.deadLetterUri, testCase.retry)
+			performHandlerConsumeClaimTest(t,
+				testCase.destinationUri,
+				testCase.replyUri,
+				testCase.deadLetterUri,
+				testCase.retry,
+				testCase.dispatchErr,
+				testCase.expectSkipMark,
+			)
 		})
 	}
 }
 
 // Test One Permutation Of The Handler's ConsumeClaim() Functionality
-func performHandlerConsumeClaimTest(t *testing.T, destinationUri, replyUri, deadLetterUri *apis.URL, retry bool) {
+func performHandlerConsumeClaimTest(t *testing.T,
+	destinationUri,
+	replyUri,
+	deadLetterUri *apis.URL,
+	retry bool,
+	dispatchErr error,
+	expectSkipMark bool) {
 
 	// Initialize Destination As Specified
 	var destinationUrl *url.URL
@@ -191,7 +215,7 @@ func performHandlerConsumeClaimTest(t *testing.T, destinationUri, replyUri, dead
 	// Create Mocks For Testing
 	mockConsumerGroupSession := dispatchertesting.NewMockConsumerGroupSession(t)
 	mockConsumerGroupClaim := dispatchertesting.NewMockConsumerGroupClaim(t)
-	mockMessageDispatcher := dispatchertesting.NewMockMessageDispatcher(t, nil, destinationUrl, replyUrl, deadLetterUrl, &retryConfig, nil)
+	mockMessageDispatcher := dispatchertesting.NewMockMessageDispatcher(t, nil, destinationUrl, replyUrl, deadLetterUrl, &retryConfig, dispatchErr)
 
 	// Mock The newMessageDispatcherWrapper Function (And Restore Post-Test)
 	newMessageDispatcherWrapperPlaceholder := newMessageDispatcherWrapper
@@ -203,26 +227,34 @@ func performHandlerConsumeClaimTest(t *testing.T, destinationUri, replyUri, dead
 	// Create The Handler To Test
 	handler := createTestHandler(t, destinationUri, replyUri, &deliverySpec)
 
+	consumeFinishedChan := make(chan bool)
 	// Background Start Consuming Claims
 	go func() {
 		err := handler.ConsumeClaim(mockConsumerGroupSession, mockConsumerGroupClaim)
 		assert.Nil(t, err)
+		consumeFinishedChan <- true
 	}()
 
 	// Perform The Test (Add ConsumerMessages To Claims)
 	consumerMessage := createConsumerMessage(t)
 	mockConsumerGroupClaim.MessageChan <- consumerMessage
 
-	// Wait For Message To Be Marked As Complete
-	markedMessage := <-mockConsumerGroupSession.MarkMessageChan
+	if !expectSkipMark {
+		// Wait For Message To Be Marked As Complete
+		markedMessage := <-mockConsumerGroupSession.MarkMessageChan
+
+		// Verify The Results (CloudEvent Was Dispatched & ConsumerMessage Was Marked)
+		assert.Equal(t, consumerMessage, markedMessage)
+		assert.NotNil(t, mockMessageDispatcher.Message())
+		verifyDispatchedMessage(t, mockMessageDispatcher.Message())
+	}
+	assert.Equal(t, !expectSkipMark, mockConsumerGroupSession.MarkMessageCalled())
 
 	// Close The Mock ConsumerGroupClaim Message Channel To Complete/Exit Handler's ConsumeClaim()
 	close(mockConsumerGroupClaim.MessageChan)
 
-	// Verify The Results (CloudEvent Was Dispatched & ConsumerMessage Was Marked)
-	assert.Equal(t, consumerMessage, markedMessage)
-	assert.NotNil(t, mockMessageDispatcher.Message())
-	verifyDispatchedMessage(t, mockMessageDispatcher.Message())
+	// Wait for the consumer goroutine to finish to prevent logging attempts after the test is completed
+	<-consumeFinishedChan
 }
 
 // Verify The Dispatched Message Contains Test Message Contents (Was Not Corrupted)
