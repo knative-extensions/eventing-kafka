@@ -43,8 +43,8 @@ func (c consumerMessageHandler) GetConsumerGroup() string {
 	return c.consumerGroup
 }
 
-func (c consumerMessageHandler) SetReady(ready bool) {
-	c.kafkaSubscription.SetReady(c.sub.UID, ready)
+func (c consumerMessageHandler) SetReady(partition int32, ready bool) {
+	c.kafkaSubscription.SetReady(c.sub.UID, partition, ready)
 }
 
 func (c consumerMessageHandler) Handle(ctx context.Context, consumerMessage *sarama.ConsumerMessage) (bool, error) {

@@ -254,11 +254,7 @@ func (r *Reconciler) setupSubscriptionStatusWatcher(ctx context.Context, ch *v1b
 	after.Status.Subscribers = make([]v1.SubscriberStatus, 0)
 
 	for _, s := range ch.Spec.Subscribers {
-		r, err := r.statusManager.IsReady(ctx, *ch, s)
-		if err != nil {
-			return fmt.Errorf("failed checking subscription readiness: %v", err)
-		}
-		if r {
+		if r, _ := r.statusManager.IsReady(ctx, *ch, s); r {
 			logging.FromContext(ctx).Debugw("marking subscription", zap.Any("subscription", s))
 			after.Status.Subscribers = append(after.Status.Subscribers, v1.SubscriberStatus{
 				UID:                s.UID,
@@ -545,6 +541,7 @@ func (r *Reconciler) deleteTopic(ctx context.Context, channel *v1beta1.KafkaChan
 	logger.Infow("Deleting topic on Kafka Cluster", zap.String("topic", topicName))
 	err := kafkaClusterAdmin.DeleteTopic(topicName)
 	if err == sarama.ErrUnknownTopicOrPartition {
+		logger.Debugw("Received an unknown topic or partition response. Ignoring")
 		return nil
 	} else if err != nil {
 		logger.Errorw("Error deleting topic", zap.String("topic", topicName), zap.Error(err))
@@ -580,15 +577,22 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 func (r *Reconciler) FinalizeKind(ctx context.Context, kc *v1beta1.KafkaChannel) pkgreconciler.Event {
 	// Do not attempt retrying creating the client because it might be a permanent error
 	// in which case the finalizer will never get removed.
-	if kafkaClusterAdmin, err := r.createClient(ctx); err == nil && r.kafkaConfig != nil {
+	logger := logging.FromContext(ctx)
+	channel := fmt.Sprintf("%s/%s", kc.GetNamespace(), kc.GetName())
+	logger.Debugw("FinalizeKind", zap.String("channel", channel))
+	kafkaClusterAdmin, err := r.createClient(ctx)
+	if err != nil || r.kafkaConfig == nil {
+		logger.Errorw("Can't obtain Kafka Client", zap.String("channel", channel), zap.Error(err))
+	} else {
+		logger.Debugw("Got client, about to delete topic")
 		if err := r.deleteTopic(ctx, kc, kafkaClusterAdmin); err != nil {
+			logger.Errorw("Error deleting Kafka channel topic", zap.String("channel", channel), zap.Error(err))
 			return err
 		}
 	}
-
 	for _, s := range kc.Spec.Subscribers {
+		logger.Debugw("Canceling probing", zap.String("channel", channel), zap.Any("subscription", s))
 		r.statusManager.CancelProbing(s)
 	}
-
 	return newReconciledNormal(kc.Namespace, kc.Name) //ok to remove finalizer
 }

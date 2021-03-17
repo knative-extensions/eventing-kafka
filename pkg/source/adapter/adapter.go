@@ -125,7 +125,7 @@ func (a *Adapter) Start(ctx context.Context) error {
 	return nil
 }
 
-func (a *Adapter) SetReady(_ bool) {}
+func (a *Adapter) SetReady(int32, bool) {}
 
 func (a *Adapter) Handle(ctx context.Context, msg *sarama.ConsumerMessage) (bool, error) {
 	if a.rateLimiter != nil {

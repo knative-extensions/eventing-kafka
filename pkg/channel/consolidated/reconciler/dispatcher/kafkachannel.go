@@ -157,6 +157,16 @@ func (r *Reconciler) ObserveKind(ctx context.Context, kc *v1beta1.KafkaChannel) 
 	return r.syncDispatcher(ctx)
 }
 
+func (r *Reconciler) FinalizeKind(ctx context.Context, kc *v1beta1.KafkaChannel) pkgreconciler.Event {
+	r.kafkaDispatcher.CleanupChannel(ctx, kc)
+	return nil
+}
+
+func (r *Reconciler) ObserveFinalizeKind(ctx context.Context, kc *v1beta1.KafkaChannel) pkgreconciler.Event {
+	r.kafkaDispatcher.CleanupChannel(ctx, kc)
+	return nil
+}
+
 func (r *Reconciler) syncDispatcher(ctx context.Context) pkgreconciler.Event {
 	channels, err := r.kafkachannelLister.List(labels.Everything())
 	if err != nil {

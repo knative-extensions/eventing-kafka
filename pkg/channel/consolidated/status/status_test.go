@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -69,12 +68,8 @@ func handleProbe(t *testing.T) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		channelRefName := channelTemplate.ObjectMeta.Name
 		channelRefNamespace := channelTemplate.ObjectMeta.Namespace
-		mapKeyName := fmt.Sprintf("%s/%s", channelRefNamespace,
-			channelRefName)
-		var subscriptions = map[string][]string{
-			mapKeyName: {
-				string(subscriptionTemplate.UID),
-			},
+		var subscriptions = map[string][]int{
+			string(subscriptionTemplate.UID): {0},
 		}
 		w.Header().Set(dispatcherReadySubHeader, channelRefName)
 		jsonResult, err := json.Marshal(subscriptions)

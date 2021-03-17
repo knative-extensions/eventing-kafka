@@ -39,7 +39,6 @@ import (
 	messagingv1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	eventingduckv1 "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/networking/pkg/prober"
-	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 )
 
@@ -60,12 +59,13 @@ type targetState struct {
 	sub eventingduckv1.SubscriberSpec
 	ch  messagingv1beta1.KafkaChannel
 
+	readyLock sync.RWMutex
 	// pendingCount is the number of pods that haven't been successfully probed yet
 	pendingCount atomic.Int32
 	// readyCount is the number of pods that have the subscription ready
-	readyCount   atomic.Int32
-	initialCount int
-	lastAccessed time.Time
+	readyPartitions sets.Int
+	initialCount    int
+	lastAccessed    time.Time
 
 	cancel func()
 }
@@ -174,13 +174,9 @@ func (m *Prober) checkReadiness(state *targetState) bool {
 	m.logger.Debugw("Checking subscription readiness",
 		zap.Any("initial probed consumers", consumers),
 		zap.Any("channel partitions", partitions),
-		zap.Any("ready consumers", state.readyCount.Load()),
+		zap.Any("ready partitions", state.readyPartitions.List()),
 	)
-	if consumers > partitions {
-		return state.readyCount.Load() == partitions
-	} else {
-		return state.readyCount.Load() == consumers
-	}
+	return state.readyPartitions.Len() == int(partitions)
 }
 
 func (m *Prober) IsReady(ctx context.Context, ch messagingv1beta1.KafkaChannel, sub eventingduckv1.SubscriberSpec) (bool, error) {
@@ -236,7 +232,7 @@ func (m *Prober) IsReady(ctx context.Context, ch messagingv1beta1.KafkaChannel, 
 
 	subscriptionState.initialCount = target.PodIPs.Len()
 	subscriptionState.pendingCount.Store(int32(len(workItems)))
-	subscriptionState.readyCount.Store(0)
+	subscriptionState.readyPartitions = sets.Int{}
 
 	for ip, ipWorkItems := range workItems {
 		// Get or create the context for that IP
@@ -328,17 +324,12 @@ func (m *Prober) Start(done <-chan struct{}) chan struct{} {
 
 // CancelProbing cancels probing of the provided Subscription
 func (m *Prober) CancelProbing(sub eventingduckv1.SubscriberSpec) {
-	acc, err := kmeta.DeletionHandlingAccessor(sub)
-	if err != nil {
-		return
-	}
-
-	key := acc.GetUID()
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if state, ok := m.targetStates[key]; ok {
+	if state, ok := m.targetStates[sub.UID]; ok {
+		m.logger.Debugw("Canceling state", zap.Any("subscription", sub))
 		state.cancel()
-		delete(m.targetStates, key)
+		delete(m.targetStates, sub.UID)
 	}
 }
 
@@ -451,7 +442,7 @@ func (m *Prober) probeVerifier(item *workItem) prober.Verifier {
 			zap.ByteString("body", b))
 		switch r.StatusCode {
 		case http.StatusOK:
-			var subscriptions = make(map[string][]string)
+			var subscriptions = make(map[string][]int)
 			err := json.Unmarshal(b, &subscriptions)
 			if err != nil {
 				m.logger.Errorw("error unmarshaling", err)
@@ -465,8 +456,10 @@ func (m *Prober) probeVerifier(item *workItem) prober.Verifier {
 				zap.String("want channel", key),
 				zap.String("want subscription", uid),
 			)
-			if subs, ok := subscriptions[key]; ok && sets.NewString(subs...).Has(uid) {
-				item.targetStates.readyCount.Inc()
+			if partitions, ok := subscriptions[uid]; ok {
+				item.targetStates.readyLock.Lock()
+				defer item.targetStates.readyLock.Unlock()
+				item.targetStates.readyPartitions.Insert(partitions...)
 				return true, nil
 			} else {
 				return false, nil

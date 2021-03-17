@@ -25,11 +25,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"k8s.io/apimachinery/pkg/util/sets"
-
-	"knative.dev/eventing-kafka/pkg/common/client"
-	"knative.dev/eventing-kafka/pkg/common/tracing"
-
 	"github.com/Shopify/sarama"
 	protocolkafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"github.com/cloudevents/sdk-go/v2/binding"
@@ -37,13 +32,17 @@ import (
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
+
+	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
+	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
+	"knative.dev/eventing-kafka/pkg/common/client"
+	"knative.dev/eventing-kafka/pkg/common/consumer"
+	"knative.dev/eventing-kafka/pkg/common/tracing"
 	eventingchannels "knative.dev/eventing/pkg/channel"
 	"knative.dev/eventing/pkg/kncloudevents"
 	"knative.dev/pkg/kmeta"
-
-	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
-	"knative.dev/eventing-kafka/pkg/common/consumer"
 )
 
 const (
@@ -191,9 +190,11 @@ func (d *KafkaDispatcher) ServeHTTP(w nethttp.ResponseWriter, r *nethttp.Request
 	}
 	d.channelSubscriptions[channelRef].readySubscriptionsLock.RLock()
 	defer d.channelSubscriptions[channelRef].readySubscriptionsLock.RUnlock()
-	var subscriptions = make(map[string][]string)
+	var subscriptions = make(map[string][]int32)
 	w.Header().Set(dispatcherReadySubHeader, channelRefName)
-	subscriptions[channelRefNamespace+"/"+channelRefName] = d.channelSubscriptions[channelRef].channelReadySubscriptions.List()
+	for s, ps := range d.channelSubscriptions[channelRef].channelReadySubscriptions {
+		subscriptions[s] = ps.List()
+	}
 	jsonResult, err := json.Marshal(subscriptions)
 	if err != nil {
 		d.logger.Errorf("Error marshalling json for sub-status channelref: %s/%s, %w", channelRefNamespace, channelRefName, err)
@@ -236,7 +237,7 @@ func (d *KafkaDispatcher) UpdateKafkaConsumers(config *Config) (map[types.UID]er
 				d.channelSubscriptions[channelRef] = &KafkaSubscription{
 					logger:                    d.logger,
 					subs:                      []types.UID{},
-					channelReadySubscriptions: sets.String{},
+					channelReadySubscriptions: map[string]sets.Int32{},
 				}
 			}
 
@@ -367,6 +368,26 @@ func (d *KafkaDispatcher) getChannelReferenceFromHost(host string) (eventingchan
 		return cr, eventingchannels.UnknownHostError(host)
 	}
 	return cr, nil
+}
+
+func (d *KafkaDispatcher) CleanupChannel(ctx context.Context, kc *v1beta1.KafkaChannel) {
+	d.consumerUpdateLock.Lock()
+	defer d.consumerUpdateLock.Unlock()
+	channelRef := eventingchannels.ChannelReference{
+		Name:      kc.GetName(),
+		Namespace: kc.GetNamespace(),
+	}
+	d.logger.Infow("Cleaning up KafkaChannel cached resources", zap.Any("kafkachannel", channelRef))
+	if kafkaSub, ok := d.channelSubscriptions[channelRef]; ok {
+		for _, s := range kafkaSub.subs {
+			if c, ok := d.subsConsumerGroups[s]; ok {
+				delete(d.subsConsumerGroups, s)
+				d.logger.Debugw("Closing cached consumer group", zap.Any("consumer group", c))
+				c.Close()
+			}
+		}
+		delete(d.channelSubscriptions, channelRef)
+	}
 }
 
 func uidSetDifference(a, b []types.UID) (diff []types.UID) {
