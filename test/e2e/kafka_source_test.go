@@ -584,6 +584,8 @@ func testKafkaSourceUpdate(t *testing.T, name string, test updateTest) {
 	}
 
 	contribtestlib.UpdateKafkaSourceV1Beta1OrFail(client, ksObj)
+	// TODO(slinkydeveloper) Give it 5 secs to the kafka source to reconcile again
+	time.Sleep(5 * time.Second)
 	client.WaitForAllTestResourcesReadyOrFail(context.Background())
 
 	// See https://github.com/knative-sandbox/eventing-kafka/issues/411
