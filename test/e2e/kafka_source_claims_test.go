@@ -70,7 +70,7 @@ func TestKafkaSourceClaims(t *testing.T) {
 
 	t.Logf("Creating kafkasource: %s\n", kafkaSourceName)
 	contribtestlib.CreateKafkaSourceV1Beta1OrFail(client, contribresources.KafkaSourceV1Beta1(
-		defaultKafkaSource.auth.bootStrapServer,
+		kafkaBootstrapUrlPlain,
 		topic,
 		resources.ServiceRef(sink),
 		contribresources.WithNameV1Beta1(kafkaSourceName),
@@ -78,7 +78,9 @@ func TestKafkaSourceClaims(t *testing.T) {
 	client.WaitForAllTestResourcesReadyOrFail(context.Background())
 
 	t.Logf("Send update event to kafkatopic")
-	helpers.MustPublishKafkaMessage(client, kafkaBootstrapUrlPlain,
+	helpers.MustPublishKafkaMessage(
+		client,
+		kafkaBootstrapUrlPlain,
 		topic,
 		"0",
 		messageHeaders,

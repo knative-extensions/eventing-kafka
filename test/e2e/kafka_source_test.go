@@ -566,6 +566,7 @@ func testKafkaSourceUpdate(t *testing.T, name string, test updateTest) {
 	if ksObj == nil {
 		t.Fatalf("Unabled to Get kafkasource: %s/%s\n", client.Namespace, kafkaSourceName)
 	}
+	t.Logf("Claims before the update: %s", ksObj.Status.Claims)
 	if test.topicName != defaultKafkaSource.topicName {
 		helpers.MustCreateTopic(client, kafkaClusterName, kafkaClusterNamespace, test.topicName+name)
 		ksObj.Spec.Topics = []string{test.topicName + name}
