@@ -1,7 +1,5 @@
-// +build tools
-
 /*
-Copyright 2020 The Knative Authors
+Copyright 2021 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,19 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package tools
-
-import (
-	_ "knative.dev/hack"
-	_ "knative.dev/pkg/hack"
-
-	// Test images from eventing
-	_ "knative.dev/eventing/test/test_images/event-sender"
-	_ "knative.dev/eventing/test/test_images/heartbeats"
-	_ "knative.dev/eventing/test/test_images/performance"
-	_ "knative.dev/eventing/test/test_images/print"
-	_ "knative.dev/eventing/test/test_images/recordevents"
-
-	// For migration
-	_ "knative.dev/pkg/apiextensions/storageversion/cmd/migrate"
-)
+// Package pre_install is a placeholder that allows us to pull in config files
+// via go mod vendor.
+package post_install

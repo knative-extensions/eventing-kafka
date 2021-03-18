@@ -36,7 +36,7 @@ func TestKafkaChannelDefaults(t *testing.T) {
 			initial: KafkaChannel{},
 			expected: KafkaChannel{
 				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{"messaging.knative.dev/subscribable": "v1beta1"},
+					Annotations: map[string]string{"messaging.knative.dev/subscribable": "v1alpha1"},
 				},
 				Spec: KafkaChannelSpec{
 					NumPartitions:     constants.DefaultNumPartitions,
@@ -52,7 +52,7 @@ func TestKafkaChannelDefaults(t *testing.T) {
 			},
 			expected: KafkaChannel{
 				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{"messaging.knative.dev/subscribable": "v1beta1"},
+					Annotations: map[string]string{"messaging.knative.dev/subscribable": "v1alpha1"},
 				},
 				Spec: KafkaChannelSpec{
 					NumPartitions:     constants.DefaultNumPartitions,
@@ -68,7 +68,7 @@ func TestKafkaChannelDefaults(t *testing.T) {
 			},
 			expected: KafkaChannel{
 				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{"messaging.knative.dev/subscribable": "v1beta1"},
+					Annotations: map[string]string{"messaging.knative.dev/subscribable": "v1alpha1"},
 				},
 				Spec: KafkaChannelSpec{
 					NumPartitions:     testNumPartitions,
