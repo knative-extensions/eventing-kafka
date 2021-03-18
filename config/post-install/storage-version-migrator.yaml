@@ -43,3 +43,4 @@ spec:
           image: ko://knative.dev/eventing-kafka/vendor/knative.dev/pkg/apiextensions/storageversion/cmd/migrate
           args:
             - "kafkachannels.messaging.knative.dev"
+            - "subscriptions.messaging.knative.dev"
