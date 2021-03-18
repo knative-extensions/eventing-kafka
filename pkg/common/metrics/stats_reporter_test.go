@@ -19,6 +19,7 @@ package metrics
 import (
 	"context"
 	"fmt"
+	"go.opencensus.io/tag"
 	"os"
 	"testing"
 
@@ -73,46 +74,93 @@ func TestMetricsServer_Report(t *testing.T) {
 	assert.Equal(t, float64(msgCount), measuredMsgCount)
 }
 
-func TestGetDescription(t *testing.T) {
+func TestGetMetricSubInfo(t *testing.T) {
+	const subMetric = "test-sub-metric"
+	
 	tests := []struct {
 		name string
 		want string
 	}{
-		{name: "incoming-byte-rate-for-broker-0", want: "Bytes/second read of broker 0: "},
-		{name: "outgoing-byte-rate-for-broker-0", want: "Bytes/second written of broker 0: "},
-		{name: "request-rate-for-broker-0", want: "Requests/second sent to broker 0: "},
-		{name: "request-size-for-broker-0", want: "Distribution of the request size in bytes for broker 0: "},
-		{name: "request-latency-in-ms-for-broker-0", want: "Distribution of the request latency in ms for broker 0: "},
-		{name: "response-rate-for-broker-0", want: "Responses/second received from broker 0: "},
-		{name: "response-size-for-broker-0", want: "Distribution of the response size in bytes for broker 0: "},
-		{name: "requests-in-flight-for-broker-0", want: "The current number of in-flight requests awaiting a response for broker 0: "},
-		{name: "batch-size-for-topic-test-topic", want: "Distribution of the number of bytes sent per partition per request for topic \"test-topic\": "},
-		{name: "record-send-rate-for-topic-test-topic", want: "Records/second sent to topic \"test-topic\": "},
-		{name: "records-per-request-for-topic-test-topic", want: "Distribution of the number of records sent per request for topic \"test-topic\": "},
-		{name: "compression-ratio-for-topic-test-topic", want: "Distribution of the compression ratio times 100 of record batches for topic \"test-topic\": "},
-		{name: "incoming-byte-rate", want: "Bytes/second read of all brokers: "},
-		{name: "outgoing-byte-rate", want: "Bytes/second written of all brokers: "},
-		{name: "request-rate", want: "Requests/second sent to all brokers: "},
-		{name: "request-size", want: "Distribution of the request size in bytes for all brokers: "},
-		{name: "request-latency-in-ms", want: "Distribution of the request latency in ms for all brokers: "},
-		{name: "response-rate", want: "Responses/second received from all brokers: "},
-		{name: "response-size", want: "Distribution of the response size in bytes for all brokers: "},
-		{name: "requests-in-flight", want: "The current number of in-flight requests awaiting a response for all brokers: "},
-		{name: "batch-size", want: "Distribution of the number of bytes sent per partition per request for all topics: "},
-		{name: "record-send-rate", want: "Records/second sent to all topics: "},
-		{name: "records-per-request", want: "Distribution of the number of records sent per request for all topics: "},
-		{name: "compression-ratio", want: "Distribution of the compression ratio times 100 of record batches for all topics: "},
-		{name: "consumer-batch-size", want: "Distribution of the number of messages in a batch: "},
+		{name: "incoming-byte-rate-for-broker-0", want: "Bytes/second read of broker 0: " + subMetric},
+		{name: "outgoing-byte-rate-for-broker-0", want: "Bytes/second written of broker 0: " + subMetric},
+		{name: "request-rate-for-broker-0", want: "Requests/second sent to broker 0: " + subMetric},
+		{name: "request-size-for-broker-0", want: "Distribution of the request size in bytes for broker 0: " + subMetric},
+		{name: "request-latency-in-ms-for-broker-0", want: "Distribution of the request latency in ms for broker 0: " + subMetric},
+		{name: "response-rate-for-broker-0", want: "Responses/second received from broker 0: " + subMetric},
+		{name: "response-size-for-broker-0", want: "Distribution of the response size in bytes for broker 0: " + subMetric},
+		{name: "requests-in-flight-for-broker-0", want: "The current number of in-flight requests awaiting a response for broker 0: " + subMetric},
+		{name: "batch-size-for-topic-test-topic", want: "Distribution of the number of bytes sent per partition per request for topic \"test-topic\": " + subMetric},
+		{name: "record-send-rate-for-topic-test-topic", want: "Records/second sent to topic \"test-topic\": " + subMetric},
+		{name: "records-per-request-for-topic-test-topic", want: "Distribution of the number of records sent per request for topic \"test-topic\": " + subMetric},
+		{name: "compression-ratio-for-topic-test-topic", want: "Distribution of the compression ratio times 100 of record batches for topic \"test-topic\": " + subMetric},
+		{name: "incoming-byte-rate", want: "Bytes/second read of all brokers: " + subMetric},
+		{name: "outgoing-byte-rate", want: "Bytes/second written of all brokers: " + subMetric},
+		{name: "request-rate", want: "Requests/second sent to all brokers: " + subMetric},
+		{name: "request-size", want: "Distribution of the request size in bytes for all brokers: " + subMetric},
+		{name: "request-latency-in-ms", want: "Distribution of the request latency in ms for all brokers: " + subMetric},
+		{name: "response-rate", want: "Responses/second received from all brokers: " + subMetric},
+		{name: "response-size", want: "Distribution of the response size in bytes for all brokers: " + subMetric},
+		{name: "requests-in-flight", want: "The current number of in-flight requests awaiting a response for all brokers: " + subMetric},
+		{name: "batch-size", want: "Distribution of the number of bytes sent per partition per request for all topics: " + subMetric},
+		{name: "record-send-rate", want: "Records/second sent to all topics: " + subMetric},
+		{name: "records-per-request", want: "Distribution of the number of records sent per request for all topics: " + subMetric},
+		{name: "compression-ratio", want: "Distribution of the compression ratio times 100 of record batches for all topics: " + subMetric},
+		{name: "consumer-batch-size", want: "Distribution of the number of messages in a batch: " + subMetric},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Test uncached regex replacement
-			if got := getDescription(tt.name, ""); got != tt.want {
-				t.Errorf("getDescription() = %v, want %v", got, tt.want)
+			if got := getMetricSubInfo(tt.name, subMetric).Description; got != tt.want {
+				t.Errorf("getMetricSubInfo() = %v, want %v", got, tt.want)
 			}
 			// Test cached map replacement (should be identical)
-			if got := getDescription(tt.name, ""); got != tt.want {
-				t.Errorf("getDescription() = %v, want %v", got, tt.want)
+			if got := getMetricSubInfo(tt.name, subMetric).Description; got != tt.want {
+				t.Errorf("getMetricSubInfo() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetMetricInfo(t *testing.T) {
+	tests := []struct {
+		name string
+		want string
+	}{
+		{name: "incoming-byte-rate-for-broker-0", want: "Bytes/second read of broker 0"},
+		{name: "outgoing-byte-rate-for-broker-0", want: "Bytes/second written of broker 0"},
+		{name: "request-rate-for-broker-0", want: "Requests/second sent to broker 0"},
+		{name: "request-size-for-broker-0", want: "Distribution of the request size in bytes for broker 0"},
+		{name: "request-latency-in-ms-for-broker-0", want: "Distribution of the request latency in ms for broker 0"},
+		{name: "response-rate-for-broker-0", want: "Responses/second received from broker 0"},
+		{name: "response-size-for-broker-0", want: "Distribution of the response size in bytes for broker 0"},
+		{name: "requests-in-flight-for-broker-0", want: "The current number of in-flight requests awaiting a response for broker 0"},
+		{name: "batch-size-for-topic-test-topic", want: "Distribution of the number of bytes sent per partition per request for topic \"test-topic\""},
+		{name: "record-send-rate-for-topic-test-topic", want: "Records/second sent to topic \"test-topic\""},
+		{name: "records-per-request-for-topic-test-topic", want: "Distribution of the number of records sent per request for topic \"test-topic\""},
+		{name: "compression-ratio-for-topic-test-topic", want: "Distribution of the compression ratio times 100 of record batches for topic \"test-topic\""},
+		{name: "incoming-byte-rate", want: "Bytes/second read of all brokers"},
+		{name: "outgoing-byte-rate", want: "Bytes/second written of all brokers"},
+		{name: "request-rate", want: "Requests/second sent to all brokers"},
+		{name: "request-size", want: "Distribution of the request size in bytes for all brokers"},
+		{name: "request-latency-in-ms", want: "Distribution of the request latency in ms for all brokers"},
+		{name: "response-rate", want: "Responses/second received from all brokers"},
+		{name: "response-size", want: "Distribution of the response size in bytes for all brokers"},
+		{name: "requests-in-flight", want: "The current number of in-flight requests awaiting a response for all brokers"},
+		{name: "batch-size", want: "Distribution of the number of bytes sent per partition per request for all topics"},
+		{name: "record-send-rate", want: "Records/second sent to all topics"},
+		{name: "records-per-request", want: "Distribution of the number of records sent per request for all topics"},
+		{name: "compression-ratio", want: "Distribution of the compression ratio times 100 of record batches for all topics"},
+		{name: "consumer-batch-size", want: "Distribution of the number of messages in a batch"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Test uncached regex replacement
+			if got := getMetricInfo(tt.name).Description; got != tt.want {
+				t.Errorf("getMetricInfo() = %v, want %v", got, tt.want)
+			}
+			// Test cached map replacement (should be identical)
+			if got := getMetricInfo(tt.name).Description; got != tt.want {
+				t.Errorf("getMetricInfo() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -153,7 +201,7 @@ func TestReporterRecordMeasurement(t *testing.T) {
 		{name: "Int32 Measure", value: int32(-123456)},
 		{name: "Int16 Measure", value: int16(-1234), expectError: true},
 		{name: "Int8 Measure", value: int8(-123), expectError: true},
-		{name: "Int Measure", value: -12345, expectError: true},
+		{name: "Int Measure", value: -12345},
 		{name: "UInt64 Measure", value: uint64(12345678901), expectError: true},
 		{name: "UInt32 Measure", value: uint32(123456), expectError: true},
 		{name: "UInt16 Measure", value: uint16(1234), expectError: true},
@@ -205,23 +253,28 @@ func TestReporterCreateView(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		ctx         context.Context
 		measure     ocstats.Measure
 		nameArg     string
 		description string
 		expectView  bool
 	}{
-		{name: "Valid Name", ctx: context.TODO(), measure: intMeasure, nameArg: "valid-name", expectView: true},
-		{name: "Invalid Name", ctx: context.TODO(), measure: floatMeasure, nameArg: "invalid-name-�"},
-		{name: "No Measure", ctx: context.TODO(), nameArg: "no-measure"},
+		{name: "Valid Name", measure: intMeasure, nameArg: "valid-name", expectView: true},
+		{name: "Invalid Name", measure: floatMeasure, nameArg: "invalid-name-�"},
+		{name: "No Measure", nameArg: "no-measure"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
 			statsReporter := createTestReporter(t)
 
+			info := saramaMetricInfo{
+				Name:        tt.nameArg,
+				Description: tt.description,
+				Broker:      "all",
+				Topic:       "any",
+			}
 			// Perform the test
-			newView, err := statsReporter.createView(tt.ctx, tt.measure, tt.nameArg, tt.description)
+			newView, err := statsReporter.createView(info, tt.measure)
 			viewFromMap := statsReporter.views[tt.nameArg]
 
 			// Verify the results
@@ -262,15 +315,16 @@ func TestReporterRecordFloat(t *testing.T) {
 			RecordWrapper = func(ctx context.Context, ms ocstats.Measurement, ros ...ocstats.Options) { recordCalled = true }
 
 			// Perform the test
-			reporter.recordFloat(12.345, tt.nameArg, "test-description")
+			reporter.recordFloat(12.345, tt.nameArg, "test-sub")
 
+			viewName := tt.nameArg + ".test-sub"
 			// Verify the results
 			if tt.expectView {
-				assert.NotNil(t, reporter.views[tt.nameArg])
-				view.Unregister(reporter.views[tt.nameArg])
+				assert.NotNil(t, reporter.views[viewName])
+				view.Unregister(reporter.views[viewName])
 				assert.True(t, recordCalled)
 			} else {
-				assert.Nil(t, reporter.views[tt.nameArg])
+				assert.Nil(t, reporter.views[viewName])
 				assert.False(t, recordCalled)
 			}
 		})
@@ -281,9 +335,9 @@ func TestReporterRecordFloat(t *testing.T) {
 func createTestReporter(t *testing.T) *Reporter {
 	return &Reporter{
 		views:        make(map[string]*view.View),
+		tagKeys:      make(map[string]tag.Key),
+		tagContexts:  make(map[string]context.Context),
 		logger:       logtesting.TestLogger(t).Desugar(),
-		tagCtx:       context.Background(),
-		measurements: make(map[string]stats.Measure),
 	}
 }
 
