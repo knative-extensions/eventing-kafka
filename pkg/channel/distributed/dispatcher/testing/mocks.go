@@ -20,6 +20,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"sync"
 	"testing"
 
 	"github.com/Shopify/sarama"
@@ -106,11 +107,21 @@ var _ sarama.ConsumerGroupSession = &MockConsumerGroupSession{}
 type MockConsumerGroupSession struct {
 	t               *testing.T
 	MarkMessageChan chan *sarama.ConsumerMessage
+
+	// These fields must be pointers because the ConsumeClaim function copies the ConsumerGroupSession struct
+	// and we need the values to be preserved across the threads in order to test them.
+	markMessageCalled *bool
+	markMessageMutex  *sync.Mutex // Prevent data race while reading MarkMessageCalled
 }
 
 // Mock ConsumerGroupSession Constructor
 func NewMockConsumerGroupSession(t *testing.T) MockConsumerGroupSession {
-	return MockConsumerGroupSession{t: t, MarkMessageChan: make(chan *sarama.ConsumerMessage)}
+	return MockConsumerGroupSession{
+		t:                 t,
+		MarkMessageChan:   make(chan *sarama.ConsumerMessage),
+		markMessageCalled: new(bool),
+		markMessageMutex:  new(sync.Mutex),
+	}
 }
 
 func (m MockConsumerGroupSession) Claims() map[string][]int32 {
@@ -134,8 +145,17 @@ func (m MockConsumerGroupSession) ResetOffset(topic string, partition int32, off
 }
 
 func (m MockConsumerGroupSession) MarkMessage(msg *sarama.ConsumerMessage, metadata string) {
+	m.markMessageMutex.Lock()
+	*m.markMessageCalled = true
+	m.markMessageMutex.Unlock()
 	m.MarkMessageChan <- msg
 	assert.Empty(m.t, metadata)
+}
+
+func (m MockConsumerGroupSession) MarkMessageCalled() bool {
+	m.markMessageMutex.Lock()
+	defer m.markMessageMutex.Unlock()
+	return *m.markMessageCalled
 }
 
 func (m MockConsumerGroupSession) Context() context.Context {
