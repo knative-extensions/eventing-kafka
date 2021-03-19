@@ -379,14 +379,9 @@ func (d *KafkaDispatcher) CleanupChannel(ctx context.Context, kc *v1beta1.KafkaC
 	}
 	d.logger.Infow("Cleaning up KafkaChannel cached resources", zap.Any("kafkachannel", channelRef))
 	if kafkaSub, ok := d.channelSubscriptions[channelRef]; ok {
-		for _, s := range kafkaSub.subs {
-			if c, ok := d.subsConsumerGroups[s]; ok {
-				delete(d.subsConsumerGroups, s)
-				d.logger.Debugw("Closing cached consumer group", zap.Any("consumer group", c))
-				c.Close()
-			}
-		}
-		delete(d.channelSubscriptions, channelRef)
+		kafkaSub.readySubscriptionsLock.Lock()
+		defer kafkaSub.readySubscriptionsLock.Unlock()
+		kafkaSub.channelReadySubscriptions = map[string]sets.Int32{}
 	}
 }
 

@@ -18,7 +18,6 @@ package status
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -158,14 +157,6 @@ func NewProber(
 		probeConcurrency: probeConcurrency,
 		opts:             opts,
 	}
-}
-
-func computeHash(sub eventingduckv1.SubscriberSpec) ([sha256.Size]byte, error) {
-	bytes, err := json.Marshal(sub)
-	if err != nil {
-		return [sha256.Size]byte{}, fmt.Errorf("failed to serialize Subscription: %w", err)
-	}
-	return sha256.Sum256(bytes), nil
 }
 
 func (m *Prober) checkReadiness(state *targetState) bool {
@@ -395,7 +386,7 @@ func (m *Prober) processWorkItem() bool {
 	if err != nil || !ok {
 		// In case of error, enqueue for retry
 		m.workQueue.AddRateLimited(obj)
-		item.logger.Errorf("Probing of %s failed, IP: %s:%s, ready: %t, error: %v (depth: %d)",
+		item.logger.Debugw("Probing of %s failed, IP: %s:%s, ready: %t, error: %v (depth: %d)",
 			item.url, item.podIP, item.podPort, ok, err, m.workQueue.Len())
 	} else {
 		m.onProbingSuccess(item.targetStates, item.podState)
