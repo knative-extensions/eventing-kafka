@@ -43,7 +43,7 @@ import (
 
 const (
 	// probeConcurrency defines how many probing calls can be issued simultaneously
-	probeConcurrency = 15
+	probeConcurrency = 100
 	// probeTimeout defines the maximum amount of time a request will wait
 	probeTimeout = 1 * time.Second
 	// initialDelay defines the delay before enqueuing a probing request the first time.

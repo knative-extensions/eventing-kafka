@@ -34,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
 	"knative.dev/eventing-kafka/pkg/common/client"
@@ -368,21 +367,6 @@ func (d *KafkaDispatcher) getChannelReferenceFromHost(host string) (eventingchan
 		return cr, eventingchannels.UnknownHostError(host)
 	}
 	return cr, nil
-}
-
-func (d *KafkaDispatcher) CleanupChannel(ctx context.Context, kc *v1beta1.KafkaChannel) {
-	d.consumerUpdateLock.Lock()
-	defer d.consumerUpdateLock.Unlock()
-	channelRef := eventingchannels.ChannelReference{
-		Name:      kc.GetName(),
-		Namespace: kc.GetNamespace(),
-	}
-	d.logger.Infow("Cleaning up KafkaChannel cached resources", zap.Any("kafkachannel", channelRef))
-	if kafkaSub, ok := d.channelSubscriptions[channelRef]; ok {
-		kafkaSub.readySubscriptionsLock.Lock()
-		defer kafkaSub.readySubscriptionsLock.Unlock()
-		kafkaSub.channelReadySubscriptions = map[string]sets.Int32{}
-	}
 }
 
 func uidSetDifference(a, b []types.UID) (diff []types.UID) {
