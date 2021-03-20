@@ -20,15 +20,9 @@ import (
 	"context"
 	"fmt"
 	"testing"
-	"time"
-
-	eventingduckv1 "knative.dev/eventing/pkg/apis/duck/v1"
-	"knative.dev/pkg/apis"
 
 	"github.com/Shopify/sarama"
-
 	"go.uber.org/zap"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,8 +30,15 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	clientgotesting "k8s.io/client-go/testing"
 
+	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
+	"knative.dev/eventing-kafka/pkg/channel/consolidated/reconciler/controller/resources"
+	reconcilertesting "knative.dev/eventing-kafka/pkg/channel/consolidated/reconciler/testing"
+	. "knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
+	fakekafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client/fake"
+	"knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
+	eventingduckv1 "knative.dev/eventing/pkg/apis/duck/v1"
 	eventingClient "knative.dev/eventing/pkg/client/injection/client"
-
+	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/configmap"
@@ -46,13 +47,6 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/network"
 	. "knative.dev/pkg/reconciler/testing"
-
-	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
-	"knative.dev/eventing-kafka/pkg/channel/consolidated/reconciler/controller/resources"
-	reconcilertesting "knative.dev/eventing-kafka/pkg/channel/consolidated/reconciler/testing"
-	. "knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
-	fakekafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client/fake"
-	"knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
 )
 
 const (
@@ -64,6 +58,7 @@ const (
 	finalizerName         = "kafkachannels.messaging.knative.dev"
 	sub1UID               = "2f9b5e8e-deb6-11e8-9f32-f2801f1b9fd1"
 	sub2UID               = "34c5aec8-deb6-11e8-9f32-f2801f1b9fd1"
+	twoSubscribersPatch   = `[{"op":"add","path":"/status/subscribers","value":[{"observedGeneration":1,"ready":"True","uid":"2f9b5e8e-deb6-11e8-9f32-f2801f1b9fd1"},{"observedGeneration":2,"ready":"True","uid":"34c5aec8-deb6-11e8-9f32-f2801f1b9fd1"}]}]`
 )
 
 var (
@@ -263,6 +258,9 @@ func TestAllCases(t *testing.T) {
 			WantEvents: []string{
 				Eventf(corev1.EventTypeNormal, "KafkaChannelReconciled", `KafkaChannel reconciled: "test-namespace/test-kc"`),
 			},
+			WantPatches: []clientgotesting.PatchActionImpl{
+				makePatch(testNS, kcName, twoSubscribersPatch),
+			},
 		}, {
 			Name: "channel exists, not owned by us",
 			Key:  kcKey,
@@ -334,8 +332,7 @@ func TestAllCases(t *testing.T) {
 			kafkaConfig: &KafkaConfig{
 				Brokers: []string{brokerName},
 			},
-			consumerGroupWatcher: NewConsumerGroupWatcher(ctx, &FakeClusterAdmin{}, 100*time.Millisecond),
-			kafkachannelLister:   listers.GetKafkaChannelLister(),
+			kafkachannelLister: listers.GetKafkaChannelLister(),
 			// TODO fix
 			kafkachannelInformer: nil,
 			deploymentLister:     listers.GetDeploymentLister(),
@@ -345,6 +342,12 @@ func TestAllCases(t *testing.T) {
 			kafkaClientSet:       fakekafkaclient.Get(ctx),
 			KubeClientSet:        kubeclient.Get(ctx),
 			EventingClientSet:    eventingClient.Get(ctx),
+			statusManager: &fakeStatusManager{
+				FakeIsReady: func(ctx context.Context, ch v1beta1.KafkaChannel,
+					sub eventingduckv1.SubscriberSpec) (bool, error) {
+					return true, nil
+				},
+			},
 		}
 		return kafkachannel.NewReconciler(ctx, logging.FromContext(ctx), r.kafkaClientSet, listers.GetKafkaChannelLister(), controller.GetEventRecorder(ctx), r)
 	}, zap.L()))
@@ -392,8 +395,7 @@ func TestTopicExists(t *testing.T) {
 			kafkaConfig: &KafkaConfig{
 				Brokers: []string{brokerName},
 			},
-			consumerGroupWatcher: NewConsumerGroupWatcher(ctx, &FakeClusterAdmin{}, 100*time.Millisecond),
-			kafkachannelLister:   listers.GetKafkaChannelLister(),
+			kafkachannelLister: listers.GetKafkaChannelLister(),
 			// TODO fix
 			kafkachannelInformer: nil,
 			deploymentLister:     listers.GetDeploymentLister(),
@@ -411,6 +413,12 @@ func TestTopicExists(t *testing.T) {
 			kafkaClientSet:    fakekafkaclient.Get(ctx),
 			KubeClientSet:     kubeclient.Get(ctx),
 			EventingClientSet: eventingClient.Get(ctx),
+			statusManager: &fakeStatusManager{
+				FakeIsReady: func(ctx context.Context, channel v1beta1.KafkaChannel,
+					spec eventingduckv1.SubscriberSpec) (bool, error) {
+					return true, nil
+				},
+			},
 		}
 		return kafkachannel.NewReconciler(ctx, logging.FromContext(ctx), r.kafkaClientSet, listers.GetKafkaChannelLister(), controller.GetEventRecorder(ctx), r)
 	}, zap.L()))
@@ -462,8 +470,7 @@ func TestDeploymentUpdatedOnImageChange(t *testing.T) {
 			kafkaConfig: &KafkaConfig{
 				Brokers: []string{brokerName},
 			},
-			consumerGroupWatcher: NewConsumerGroupWatcher(ctx, &FakeClusterAdmin{}, 100*time.Millisecond),
-			kafkachannelLister:   listers.GetKafkaChannelLister(),
+			kafkachannelLister: listers.GetKafkaChannelLister(),
 			// TODO fix
 			kafkachannelInformer: nil,
 			deploymentLister:     listers.GetDeploymentLister(),
@@ -481,6 +488,12 @@ func TestDeploymentUpdatedOnImageChange(t *testing.T) {
 			kafkaClientSet:    fakekafkaclient.Get(ctx),
 			KubeClientSet:     kubeclient.Get(ctx),
 			EventingClientSet: eventingClient.Get(ctx),
+			statusManager: &fakeStatusManager{
+				FakeIsReady: func(ctx context.Context, channel v1beta1.KafkaChannel,
+					spec eventingduckv1.SubscriberSpec) (bool, error) {
+					return true, nil
+				},
+			},
 		}
 		return kafkachannel.NewReconciler(ctx, logging.FromContext(ctx), r.kafkaClientSet, listers.GetKafkaChannelLister(), controller.GetEventRecorder(ctx), r)
 	}, zap.L()))
@@ -532,8 +545,7 @@ func TestDeploymentZeroReplicas(t *testing.T) {
 			kafkaConfig: &KafkaConfig{
 				Brokers: []string{brokerName},
 			},
-			consumerGroupWatcher: NewConsumerGroupWatcher(ctx, &FakeClusterAdmin{}, 100*time.Millisecond),
-			kafkachannelLister:   listers.GetKafkaChannelLister(),
+			kafkachannelLister: listers.GetKafkaChannelLister(),
 			// TODO fix
 			kafkachannelInformer: nil,
 			deploymentLister:     listers.GetDeploymentLister(),
@@ -551,6 +563,12 @@ func TestDeploymentZeroReplicas(t *testing.T) {
 			kafkaClientSet:    fakekafkaclient.Get(ctx),
 			KubeClientSet:     kubeclient.Get(ctx),
 			EventingClientSet: eventingClient.Get(ctx),
+			statusManager: &fakeStatusManager{
+				FakeIsReady: func(ctx context.Context, channel v1beta1.KafkaChannel,
+					spec eventingduckv1.SubscriberSpec) (bool, error) {
+					return true, nil
+				},
+			},
 		}
 		return kafkachannel.NewReconciler(ctx, logging.FromContext(ctx), r.kafkaClientSet, listers.GetKafkaChannelLister(), controller.GetEventRecorder(ctx), r)
 	}, zap.L()))
@@ -599,8 +617,7 @@ func TestDeploymentMoreThanOneReplicas(t *testing.T) {
 			kafkaConfig: &KafkaConfig{
 				Brokers: []string{brokerName},
 			},
-			consumerGroupWatcher: NewConsumerGroupWatcher(ctx, &FakeClusterAdmin{}, 100*time.Millisecond),
-			kafkachannelLister:   listers.GetKafkaChannelLister(),
+			kafkachannelLister: listers.GetKafkaChannelLister(),
 			// TODO fix
 			kafkachannelInformer: nil,
 			deploymentLister:     listers.GetDeploymentLister(),
@@ -618,6 +635,12 @@ func TestDeploymentMoreThanOneReplicas(t *testing.T) {
 			kafkaClientSet:    fakekafkaclient.Get(ctx),
 			KubeClientSet:     kubeclient.Get(ctx),
 			EventingClientSet: eventingClient.Get(ctx),
+			statusManager: &fakeStatusManager{
+				FakeIsReady: func(ctx context.Context, channel v1beta1.KafkaChannel,
+					spec eventingduckv1.SubscriberSpec) (bool, error) {
+					return true, nil
+				},
+			},
 		}
 		return kafkachannel.NewReconciler(ctx, logging.FromContext(ctx), r.kafkaClientSet, listers.GetKafkaChannelLister(), controller.GetEventRecorder(ctx), r)
 	}, zap.L()))
@@ -827,4 +850,30 @@ func subscribers() []eventingduckv1.SubscriberSpec {
 		SubscriberURI: apis.HTTP("call2"),
 		ReplyURI:      apis.HTTP("sink2"),
 	}}
+}
+
+type fakeStatusManager struct {
+	FakeIsReady func(context.Context, v1beta1.KafkaChannel, eventingduckv1.SubscriberSpec) (bool, error)
+}
+
+func (m *fakeStatusManager) IsReady(ctx context.Context, ch v1beta1.KafkaChannel, sub eventingduckv1.SubscriberSpec) (bool, error) {
+	return m.FakeIsReady(ctx, ch, sub)
+}
+
+func (m *fakeStatusManager) CancelProbing(sub eventingduckv1.SubscriberSpec) {
+	//do nothing
+}
+
+func (m *fakeStatusManager) CancelPodProbing(pod corev1.Pod) {
+	//do nothing
+}
+
+func makePatch(namespace, name, patch string) clientgotesting.PatchActionImpl {
+	return clientgotesting.PatchActionImpl{
+		ActionImpl: clientgotesting.ActionImpl{
+			Namespace: namespace,
+		},
+		Name:  name,
+		Patch: []byte(patch),
+	}
 }
