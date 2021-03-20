@@ -39,7 +39,6 @@ rules:
   - apiGroups:
       - "" # Core API group.
     resources:
-      - services
       - configmaps
       - secrets
     verbs:
@@ -51,6 +50,7 @@ rules:
       - "" # Core API group.
     resources:
       - services
+      - serviceaccounts
     verbs: &everything
       - get
       - list
@@ -75,17 +75,10 @@ rules:
       - patch
       - update
   - apiGroups:
-      - ""
-    resources:
-      - configmaps
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
       - "" # Core API group.
     resources:
       - endpoints
+      - pods
     verbs:
       - get
       - list
@@ -95,11 +88,6 @@ rules:
     resources:
       - deployments
       - deployments/status
-    verbs: *everything
-  - apiGroups:
-      - "" # Core API group.
-    resources:
-      - serviceaccounts
     verbs: *everything
   - apiGroups:
       - rbac.authorization.k8s.io

@@ -28,7 +28,8 @@ type KafkaConsumerHandler interface {
 	// When this function returns true, the consumer group offset is marked as consumed.
 	// The returned error is enqueued in errors channel.
 	Handle(context context.Context, message *sarama.ConsumerMessage) (bool, error)
-	SetReady(ready bool)
+	SetReady(partition int32, ready bool)
+	GetConsumerGroup() string
 }
 
 // ConsumerHandler implements sarama.ConsumerGroupHandler and provides some glue code to simplify message handling
@@ -59,15 +60,21 @@ func (consumer *SaramaConsumerHandler) Setup(sarama.ConsumerGroupSession) error 
 
 // Cleanup is run at the end of a session, once all ConsumeClaim goroutines have exited
 func (consumer *SaramaConsumerHandler) Cleanup(session sarama.ConsumerGroupSession) error {
-	consumer.logger.Info("cleanup handler")
-	consumer.handler.SetReady(false)
+	consumer.logger.Infow("Cleanup handler")
+	for t, ps := range session.Claims() {
+		for _, p := range ps {
+			consumer.logger.Debugw("Cleanup handler: Setting partition readiness to false", zap.String("topic", t),
+				zap.Int32("partition", p))
+			consumer.handler.SetReady(p, false)
+		}
+	}
 	return nil
 }
 
 // ConsumeClaim must start a consumer loop of ConsumerGroupClaim's Messages().
 func (consumer *SaramaConsumerHandler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
-	consumer.logger.Info(fmt.Sprintf("Starting partition consumer, topic: %s, partition: %d, initialOffset: %d", claim.Topic(), claim.Partition(), claim.InitialOffset()))
-
+	consumer.logger.Infow(fmt.Sprintf("Starting partition consumer, topic: %s, partition: %d, initialOffset: %d", claim.Topic(), claim.Partition(), claim.InitialOffset()), zap.String("ConsumeGroup", consumer.handler.GetConsumerGroup()))
+	consumer.handler.SetReady(claim.Partition(), true)
 	// NOTE:
 	// Do not move the code below to a goroutine.
 	// The `ConsumeClaim` itself is called within a goroutine, see:
@@ -85,7 +92,7 @@ func (consumer *SaramaConsumerHandler) ConsumeClaim(session sarama.ConsumerGroup
 		if err != nil {
 			consumer.logger.Infow("Failure while handling a message", zap.String("topic", message.Topic), zap.Int32("partition", message.Partition), zap.Int64("offset", message.Offset), zap.Error(err))
 			consumer.errors <- err
-			consumer.handler.SetReady(false)
+			consumer.handler.SetReady(claim.Partition(), false)
 		}
 
 		if mustMark {
@@ -93,7 +100,6 @@ func (consumer *SaramaConsumerHandler) ConsumeClaim(session sarama.ConsumerGroup
 			if ce := consumer.logger.Desugar().Check(zap.DebugLevel, "debugging"); ce != nil {
 				consumer.logger.Debugw("Message marked", zap.String("topic", message.Topic), zap.Binary("value", message.Value))
 			}
-			consumer.handler.SetReady(true)
 		}
 
 	}

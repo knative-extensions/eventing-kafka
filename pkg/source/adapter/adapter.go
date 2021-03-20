@@ -82,6 +82,9 @@ func NewAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, httpMe
 		keyTypeMapper:     getKeyTypeMapper(config.KeyType),
 	}
 }
+func (a *Adapter) GetConsumerGroup() string {
+	return a.config.ConsumerGroup
+}
 
 func (a *Adapter) Start(ctx context.Context) error {
 	a.logger.Infow("Starting with config: ",
@@ -122,7 +125,7 @@ func (a *Adapter) Start(ctx context.Context) error {
 	return nil
 }
 
-func (a *Adapter) SetReady(_ bool) {}
+func (a *Adapter) SetReady(int32, bool) {}
 
 func (a *Adapter) Handle(ctx context.Context, msg *sarama.ConsumerMessage) (bool, error) {
 	if a.rateLimiter != nil {
