@@ -30,7 +30,9 @@ spec:
   template:
     metadata:
       labels:
+        # Do not change. Used by the controller for probing.
         messaging.knative.dev/channel: kafka-channel
+        # Do not change. Used by the controller for probing.
         messaging.knative.dev/role: dispatcher
         kafka.eventing.knative.dev/release: devel
     spec:

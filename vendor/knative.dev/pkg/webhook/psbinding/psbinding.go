@@ -24,7 +24,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/markbates/inflect"
+	"github.com/gobuffalo/flect"
 	"go.uber.org/zap"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -292,12 +292,15 @@ func (ac *Reconciler) reconcileMutatingWebhook(ctx context.Context, caCert []byt
 	// After we've updated our indices, bail out unless we are the leader.
 	// Only the leader should be mutating the webhook.
 	if !ac.IsLeaderFor(sentinel) {
+		// We don't use controller.NewSkipKey here because we did do
+		// some amount of processing and the timing information may be
+		// useful.
 		return nil
 	}
 
 	rules := make([]admissionregistrationv1.RuleWithOperations, 0, len(gks))
 	for gk, versions := range gks {
-		plural := strings.ToLower(inflect.Pluralize(gk.Kind))
+		plural := strings.ToLower(flect.Pluralize(gk.Kind))
 
 		rules = append(rules, admissionregistrationv1.RuleWithOperations{
 			Operations: []admissionregistrationv1.OperationType{

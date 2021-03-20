@@ -14,9 +14,9 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/ghodss/yaml v1.0.0
 	github.com/golang/protobuf v1.4.3
-	github.com/google/go-cmp v0.5.4
-	github.com/google/gofuzz v1.1.0
-	github.com/google/uuid v1.1.2
+	github.com/google/go-cmp v0.5.5
+	github.com/google/gofuzz v1.2.0
+	github.com/google/uuid v1.2.0
 	github.com/influxdata/tdigest v0.0.1 // indirect
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/mitchellh/mapstructure v1.3.3 // indirect
@@ -24,17 +24,20 @@ require (
 	github.com/slinkydeveloper/loadastic v0.0.0-20201218203601-5c69eea3b7d8
 	github.com/stretchr/testify v1.6.1
 	github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c
-	go.opencensus.io v0.22.5
+	go.opencensus.io v0.23.0
+	go.uber.org/atomic v1.7.0
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897 // indirect
 	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a
-	k8s.io/api v0.18.12
-	k8s.io/apimachinery v0.18.12
+	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
+	k8s.io/api v0.19.7
+	k8s.io/apimachinery v0.19.7
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/utils v0.0.0-20200603063816-c1c6865ac451
 	knative.dev/eventing v0.19.1-0.20210112102830-a414aee50a2b
-	knative.dev/hack v0.0.0-20201214230143-4ed1ecb8db24
-	knative.dev/pkg v0.0.0-20210107022335-51c72e24c179
+	knative.dev/hack v0.0.0-20210317214554-58edbdc42966
+	knative.dev/networking v0.0.0-20210324061918-44a3b919bce1
+	knative.dev/pkg v0.0.0-20210323202917-b558677ab034
 )
 
 replace (
@@ -43,4 +46,5 @@ replace (
 	k8s.io/apimachinery => k8s.io/apimachinery v0.18.8
 	k8s.io/client-go => k8s.io/client-go v0.18.8
 	k8s.io/code-generator => k8s.io/code-generator v0.18.8
+
 )
