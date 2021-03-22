@@ -379,7 +379,7 @@ func testKafkaSource(t *testing.T, name string, version string, messageKey strin
 			t.Fatalf("could not copy secret(%s): %v", kafkaTLSSecret, err)
 		}
 	}
-	helpers.MustCreateTopic(client, kafkaClusterName, kafkaClusterNamespace, kafkaTopicName)
+	helpers.MustCreateTopic(client, kafkaClusterName, kafkaClusterNamespace, kafkaTopicName, 10)
 	if len(recordEventPodName) > 63 {
 		recordEventPodName = recordEventPodName[:63]
 	}
