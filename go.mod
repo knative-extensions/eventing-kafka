@@ -14,8 +14,8 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/ghodss/yaml v1.0.0
 	github.com/golang/protobuf v1.4.3
-	github.com/google/go-cmp v0.5.4
-	github.com/google/gofuzz v1.1.0
+	github.com/google/go-cmp v0.5.5
+	github.com/google/gofuzz v1.2.0
 	github.com/google/uuid v1.2.0
 	github.com/influxdata/tdigest v0.0.1 // indirect
 	github.com/kelseyhightower/envconfig v1.4.0
@@ -24,7 +24,7 @@ require (
 	github.com/slinkydeveloper/loadastic v0.0.0-20201218203601-5c69eea3b7d8
 	github.com/stretchr/testify v1.6.1
 	github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c
-	go.opencensus.io v0.22.6
+	go.opencensus.io v0.23.0
 	go.uber.org/atomic v1.7.0
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897 // indirect
@@ -34,8 +34,8 @@ require (
 	k8s.io/apimachinery v0.19.7
 	k8s.io/client-go v0.19.7
 	k8s.io/utils v0.0.0-20200729134348-d5654de09c73
-	knative.dev/eventing v0.21.1-0.20210309092525-37e702765dbc
-	knative.dev/hack v0.0.0-20210305150220-f99a25560134
-	knative.dev/networking v0.0.0-20210304153916-f813b5904943
-	knative.dev/pkg v0.0.0-20210309024624-0f8d8de5949d
+	knative.dev/eventing v0.21.1-0.20210320090253-2dcdb4728eae
+	knative.dev/hack v0.0.0-20210317214554-58edbdc42966
+	knative.dev/networking v0.0.0-20210318050954-ed835c9611c3
+	knative.dev/pkg v0.0.0-20210318052054-dfeeb1817679
 )
