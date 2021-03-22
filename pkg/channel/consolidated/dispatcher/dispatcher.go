@@ -17,11 +17,9 @@ package dispatcher
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	nethttp "net/http"
-	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -108,8 +106,13 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 		topicFunc:            args.TopicFunc,
 	}
 
+	// initialize and start the subscription endpoint server
+	subscriptionEndpoint := &subscriptionEndpoint{
+		dispatcher: dispatcher,
+		logger:     args.Logger,
+	}
 	go func() {
-		dispatcher.logger.Fatal(nethttp.ListenAndServe(":8081", dispatcher))
+		subscriptionEndpoint.start()
 	}()
 
 	podName, err := env.GetRequiredConfigValue(args.Logger.Desugar(), env.PodNameEnvVarKey)
@@ -164,45 +167,6 @@ func (d *KafkaDispatcher) Start(ctx context.Context) error {
 	}
 
 	return d.receiver.Start(ctx)
-}
-
-func (d *KafkaDispatcher) ServeHTTP(w nethttp.ResponseWriter, r *nethttp.Request) {
-	if r.Method != nethttp.MethodGet {
-		w.WriteHeader(nethttp.StatusMethodNotAllowed)
-		d.logger.Errorf("Received request method that wasn't GET: %s", r.Method)
-		return
-	}
-	uriSplit := strings.Split(r.RequestURI, "/")
-	if len(uriSplit) != 3 {
-		w.WriteHeader(nethttp.StatusNotFound)
-		d.logger.Errorf("Unable to process request: %s", r.RequestURI)
-		return
-	}
-	channelRefNamespace, channelRefName := uriSplit[1], uriSplit[2]
-	channelRef := eventingchannels.ChannelReference{
-		Name:      channelRefName,
-		Namespace: channelRefNamespace,
-	}
-	if _, ok := d.channelSubscriptions[channelRef]; !ok {
-		w.WriteHeader(nethttp.StatusNotFound)
-		return
-	}
-	d.channelSubscriptions[channelRef].readySubscriptionsLock.RLock()
-	defer d.channelSubscriptions[channelRef].readySubscriptionsLock.RUnlock()
-	var subscriptions = make(map[string][]int32)
-	w.Header().Set(dispatcherReadySubHeader, channelRefName)
-	for s, ps := range d.channelSubscriptions[channelRef].channelReadySubscriptions {
-		subscriptions[s] = ps.List()
-	}
-	jsonResult, err := json.Marshal(subscriptions)
-	if err != nil {
-		d.logger.Errorf("Error marshalling json for sub-status channelref: %s/%s, %w", channelRefNamespace, channelRefName, err)
-		return
-	}
-	_, err = w.Write(jsonResult)
-	if err != nil {
-		d.logger.Errorf("Error writing jsonResult to serveHTTP writer: %w", err)
-	}
 }
 
 // UpdateKafkaConsumers will be called by new CRD based kafka channel dispatcher controller.
