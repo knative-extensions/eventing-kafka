@@ -69,6 +69,12 @@ func readyDispatcherPodsCheck(t *testing.T, client *testlib.Client) int32 {
 }
 
 func TestChannelSubscriptionScaleReady(t *testing.T) {
+	t.Run("Scale-from-one-to-four", func(t *testing.T) {
+		testChannelSubscriptionScaleReady(t)
+	})
+}
+
+func testChannelSubscriptionScaleReady(t *testing.T) {
 
 	kafkaChannelMeta := metav1.TypeMeta{
 		Kind:       "KafkaChannel",
