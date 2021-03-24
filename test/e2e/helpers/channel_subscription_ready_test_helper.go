@@ -29,7 +29,6 @@ import (
 	channelsv1alpha1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1alpha1"
 	channelsv1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	contribtestlib "knative.dev/eventing-kafka/test/lib"
-	eventinghelpers "knative.dev/eventing/test/e2e/helpers"
 	testlib "knative.dev/eventing/test/lib"
 	"knative.dev/eventing/test/lib/recordevents"
 	"knative.dev/eventing/test/lib/resources"
@@ -97,7 +96,6 @@ func createKafkaChannel(client *testlib.Client, kafkaChannelMeta metav1.TypeMeta
 func ChannelSubscriptionScaleReadyHelper(
 	ctx context.Context,
 	t *testing.T,
-	subscriptionVersion eventinghelpers.SubscriptionVersion,
 	channelTestRunner testlib.ComponentsTestRunner,
 	options ...testlib.SetupClientOption) {
 
