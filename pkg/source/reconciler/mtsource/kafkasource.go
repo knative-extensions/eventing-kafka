@@ -79,6 +79,8 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 	}
 	src.Status.MarkSink(sinkURI)
 
+	src.Status.Selector = "control-plane=kafkasource-mt-adapter"
+
 	if val, ok := src.GetLabels()[v1beta1.KafkaKeyTypeLabel]; ok {
 		found := false
 		for _, allowed := range v1beta1.KafkaKeyTypeAllowed {

@@ -18,7 +18,9 @@ package mtsource
 
 import (
 	"context"
+	"time"
 
+	"github.com/kelseyhightower/envconfig"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -35,10 +37,22 @@ import (
 	scheduler "knative.dev/eventing-kafka/pkg/common/scheduler/statefulset"
 )
 
+type envConfig struct {
+	SchedulerRefreshPeriod int64 `envconfig:"AUTOSCALER_REFRESH_PERIOD" required:"true"`
+	PodCapacity            int32 `envconfig:"POD_CAPACITY" required:"true"`
+}
+
 func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
 ) *controller.Impl {
+	logger := logging.FromContext(ctx)
+
+	env := &envConfig{}
+	if err := envconfig.Process("", env); err != nil {
+		logger.Panicf("unable to process required environment variables: %v", err)
+	}
+
 	kafkaInformer := kafkainformer.Get(ctx)
 
 	c := &Reconciler{
@@ -55,10 +69,11 @@ func NewController(
 	// Use a different set of conditions
 	sourcesv1beta1.RegisterAlternateKafkaConditionSet(sourcesv1beta1.KafkaMTSourceCondSet)
 
-	c.scheduler = scheduler.NewScheduler(ctx, system.Namespace(), mtadapterName, c.vpodLister)
+	rp := time.Duration(env.SchedulerRefreshPeriod) * time.Second
+
+	c.scheduler = scheduler.NewScheduler(ctx, system.Namespace(), mtadapterName, c.vpodLister, rp, env.PodCapacity)
 
 	logging.FromContext(ctx).Info("Setting up kafka event handlers")
-
 	kafkaInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	return impl

@@ -19,12 +19,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"strings"
-	"time"
-
-	"knative.dev/eventing-kafka/pkg/channel/consolidated/kafka"
-	"knative.dev/eventing-kafka/pkg/common/client"
-	"knative.dev/eventing-kafka/pkg/common/constants"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
@@ -45,11 +39,14 @@ import (
 
 	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/reconciler/controller/resources"
+	"knative.dev/eventing-kafka/pkg/channel/consolidated/status"
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
 	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	kafkaScheme "knative.dev/eventing-kafka/pkg/client/clientset/versioned/scheme"
 	kafkaChannelReconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
 	listers "knative.dev/eventing-kafka/pkg/client/listers/messaging/v1beta1"
+	"knative.dev/eventing-kafka/pkg/common/client"
+	"knative.dev/eventing-kafka/pkg/common/constants"
 	v1 "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/apis/eventing"
 	eventingclientset "knative.dev/eventing/pkg/client/clientset/versioned"
@@ -76,8 +73,11 @@ const (
 	dispatcherRoleBindingCreated    = "DispatcherRoleBindingCreated"
 
 	dispatcherName = "kafka-ch-dispatcher"
+)
 
-	pollInterval = 2 * time.Second
+var (
+	scopeNamespace = "namespace"
+	scopeCluster   = "cluster"
 )
 
 func newReconciledNormal(namespace, name string) pkgreconciler.Event {
@@ -122,7 +122,6 @@ type Reconciler struct {
 	// Using a shared kafkaClusterAdmin does not work currently because of an issue with
 	// Shopify/sarama, see https://github.com/Shopify/sarama/issues/1162.
 	kafkaClusterAdmin    sarama.ClusterAdmin
-	consumerGroupWatcher ConsumerGroupWatcher
 	kafkachannelLister   listers.KafkaChannelLister
 	kafkachannelInformer cache.SharedIndexInformer
 	deploymentLister     appsv1listers.DeploymentLister
@@ -130,12 +129,8 @@ type Reconciler struct {
 	endpointsLister      corev1listers.EndpointsLister
 	serviceAccountLister corev1listers.ServiceAccountLister
 	roleBindingLister    rbacv1listers.RoleBindingLister
+	statusManager        status.Manager
 }
-
-var (
-	scopeNamespace = "namespace"
-	scopeCluster   = "cluster"
-)
 
 type envConfig struct {
 	Image string `envconfig:"DISPATCHER_IMAGE" required:"true"`
@@ -147,7 +142,6 @@ var _ kafkaChannelReconciler.Finalizer = (*Reconciler)(nil)
 
 func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel) pkgreconciler.Event {
 	kc.Status.InitializeConditions()
-
 	logger := logging.FromContext(ctx)
 	// Verify channel is valid.
 	kc.SetDefaults(ctx)
@@ -155,7 +149,6 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel
 		logger.Errorw("Invalid kafka channel", zap.String("channel", kc.Name), zap.Error(err))
 		return err
 	}
-
 	if r.kafkaConfig == nil {
 		if r.kafkaConfigError == nil {
 			r.kafkaConfigError = fmt.Errorf("the config map '%s' does not exist", constants.SettingsConfigMapName)
@@ -256,29 +249,12 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel
 	return newReconciledNormal(kc.Namespace, kc.Name)
 }
 
-func (r *Reconciler) setupSubscriptionStatusWatcher(ctx context.Context, channel *v1beta1.KafkaChannel) error {
-	var err error
-	groupIDPrefix := fmt.Sprintf("kafka.%s.%s", channel.Namespace, channel.Name)
-
-	m := func(cg string) bool {
-		return strings.HasPrefix(cg, groupIDPrefix)
-	}
-	err = r.consumerGroupWatcher.Watch(string(channel.ObjectMeta.UID), func() {
-		err := r.markSubscriptionReadiness(ctx, channel, r.consumerGroupWatcher.List(m))
-		if err != nil {
-			logging.FromContext(ctx).Errorw("error updating subscription readiness", zap.Error(err))
-		}
-	})
-	return err
-}
-
-func (r *Reconciler) markSubscriptionReadiness(ctx context.Context, ch *v1beta1.KafkaChannel, cgs []string) error {
+func (r *Reconciler) setupSubscriptionStatusWatcher(ctx context.Context, ch *v1beta1.KafkaChannel) error {
 	after := ch.DeepCopy()
 	after.Status.Subscribers = make([]v1.SubscriberStatus, 0)
 
 	for _, s := range ch.Spec.Subscribers {
-		cg := fmt.Sprintf("kafka.%s.%s.%s", ch.Namespace, ch.Name, s.UID)
-		if Find(cgs, cg) {
+		if r, _ := r.statusManager.IsReady(ctx, *ch, s); r {
 			logging.FromContext(ctx).Debugw("marking subscription", zap.Any("subscription", s))
 			after.Status.Subscribers = append(after.Status.Subscribers, v1.SubscriberStatus{
 				UID:                s.UID,
@@ -565,6 +541,7 @@ func (r *Reconciler) deleteTopic(ctx context.Context, channel *v1beta1.KafkaChan
 	logger.Infow("Deleting topic on Kafka Cluster", zap.String("topic", topicName))
 	err := kafkaClusterAdmin.DeleteTopic(topicName)
 	if err == sarama.ErrUnknownTopicOrPartition {
+		logger.Debugw("Received an unknown topic or partition response. Ignoring")
 		return nil
 	} else if err != nil {
 		logger.Errorw("Error deleting topic", zap.String("topic", topicName), zap.Error(err))
@@ -590,36 +567,32 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 	// Eventually the previous config should be snapshotted to delete Kafka topics
 	r.kafkaConfig = kafkaConfig
 	r.kafkaConfigError = err
-	ac, err := kafka.NewAdminClient(ctx, func() (sarama.ClusterAdmin, error) {
-		return client.MakeAdminClient(ctx, controllerAgentName, r.kafkaAuthConfig, kafkaConfig.SaramaSettingsYamlString, kafkaConfig.Brokers)
-	})
 
 	if err != nil {
 		logger.Errorw("Error creating AdminClient", zap.Error(err))
 		return
 	}
-
-	if r.consumerGroupWatcher != nil {
-		logger.Info("terminating consumer group watcher")
-		r.consumerGroupWatcher.Terminate()
-		logger.Info("terminated consumer group watcher")
-	}
-
-	r.consumerGroupWatcher = NewConsumerGroupWatcher(ctx, ac, pollInterval)
-	//TODO handle error
-	r.consumerGroupWatcher.Start()
 }
 
 func (r *Reconciler) FinalizeKind(ctx context.Context, kc *v1beta1.KafkaChannel) pkgreconciler.Event {
 	// Do not attempt retrying creating the client because it might be a permanent error
 	// in which case the finalizer will never get removed.
-	if kafkaClusterAdmin, err := r.createClient(ctx); err == nil && r.kafkaConfig != nil {
+	logger := logging.FromContext(ctx)
+	channel := fmt.Sprintf("%s/%s", kc.GetNamespace(), kc.GetName())
+	logger.Debugw("FinalizeKind", zap.String("channel", channel))
+	kafkaClusterAdmin, err := r.createClient(ctx)
+	if err != nil || r.kafkaConfig == nil {
+		logger.Errorw("Can't obtain Kafka Client", zap.String("channel", channel), zap.Error(err))
+	} else {
+		logger.Debugw("Got client, about to delete topic")
 		if err := r.deleteTopic(ctx, kc, kafkaClusterAdmin); err != nil {
+			logger.Errorw("Error deleting Kafka channel topic", zap.String("channel", channel), zap.Error(err))
 			return err
 		}
 	}
-	if r.consumerGroupWatcher != nil {
-		r.consumerGroupWatcher.Forget(string(kc.ObjectMeta.UID))
+	for _, s := range kc.Spec.Subscribers {
+		logger.Debugw("Canceling probing", zap.String("channel", channel), zap.Any("subscription", s))
+		r.statusManager.CancelProbing(s)
 	}
 	return newReconciledNormal(kc.Namespace, kc.Name) //ok to remove finalizer
 }

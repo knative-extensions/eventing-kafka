@@ -16,6 +16,11 @@ limitations under the License.
 
 package resources
 
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+)
+
 const (
 	// controllerAgentName is the string used by this controller to identify
 	// itself when creating events.
@@ -27,4 +32,13 @@ func GetLabels(name string) map[string]string {
 		"eventing.knative.dev/source":     controllerAgentName,
 		"eventing.knative.dev/sourceName": name,
 	}
+}
+
+// GetLabelsAsSelector returns labels wrapped as Selector object
+func GetLabelsAsSelector(name string) (labels.Selector, error) {
+	labels := GetLabels(name)
+	var labelSelector metav1.LabelSelector
+	labelSelector.MatchLabels = labels
+	selector, err := metav1.LabelSelectorAsSelector(&labelSelector)
+	return selector, err
 }

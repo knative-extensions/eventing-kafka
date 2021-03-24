@@ -36,7 +36,7 @@ type state struct {
 	// with placed vpods.
 	lastOrdinal int32
 
-	// Pod capacity. Used
+	// Pod capacity.
 	capacity int32
 }
 

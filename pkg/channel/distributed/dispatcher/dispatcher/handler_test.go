@@ -83,21 +83,22 @@ func TestHandlerCleanup(t *testing.T) {
 	assert.Nil(t, handler.Cleanup(nil))
 }
 
+type HandlerConsumeClaimTestCase struct {
+	only           bool
+	name           string
+	destinationUri *apis.URL
+	replyUri       *apis.URL
+	deadLetterUri  *apis.URL
+	dispatchErr    error
+	retry          bool
+	expectSkipMark bool
+}
+
 // Test The Handler's ConsumeClaim() Functionality
 func TestHandlerConsumeClaim(t *testing.T) {
 
-	// Define The TestCase Type
-	type TestCase struct {
-		only           bool
-		name           string
-		destinationUri *apis.URL
-		replyUri       *apis.URL
-		deadLetterUri  *apis.URL
-		retry          bool
-	}
-
-	// Define The TestCases
-	testCases := []TestCase{
+	// Define The HandlerConsumeClaimTestCases
+	testCases := []HandlerConsumeClaimTestCase{
 		{
 			name:           "Complete Subscriber Configuration",
 			destinationUri: testSubscriberURI,
@@ -134,10 +135,19 @@ func TestHandlerConsumeClaim(t *testing.T) {
 			name:  "Empty Subscriber Configuration",
 			retry: false,
 		},
+		{
+			name:           "Context Canceled",
+			destinationUri: testSubscriberURI,
+			replyUri:       testReplyURI,
+			deadLetterUri:  testDeadLetterURI,
+			retry:          true,
+			dispatchErr:    context.Canceled,
+			expectSkipMark: true,
+		},
 	}
 
 	// Filter To Those With "only" Flag (If Any Specified)
-	filteredTestCases := make([]TestCase, 0)
+	filteredTestCases := make([]HandlerConsumeClaimTestCase, 0)
 	for _, testCase := range testCases {
 		if testCase.only {
 			filteredTestCases = append(filteredTestCases, testCase)
@@ -150,38 +160,38 @@ func TestHandlerConsumeClaim(t *testing.T) {
 	// Execute The Individual Test Cases
 	for _, testCase := range filteredTestCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			performHandlerConsumeClaimTest(t, testCase.destinationUri, testCase.replyUri, testCase.deadLetterUri, testCase.retry)
+			performHandlerConsumeClaimTest(t, testCase)
 		})
 	}
 }
 
 // Test One Permutation Of The Handler's ConsumeClaim() Functionality
-func performHandlerConsumeClaimTest(t *testing.T, destinationUri, replyUri, deadLetterUri *apis.URL, retry bool) {
+func performHandlerConsumeClaimTest(t *testing.T, testCase HandlerConsumeClaimTestCase) {
 
 	// Initialize Destination As Specified
 	var destinationUrl *url.URL
-	if destinationUri != nil {
-		destinationUrl = destinationUri.URL()
+	if testCase.destinationUri != nil {
+		destinationUrl = testCase.destinationUri.URL()
 	}
 
 	// Initialize Reply As Specified
 	var replyUrl *url.URL
-	if replyUri != nil {
-		replyUrl = replyUri.URL()
+	if testCase.replyUri != nil {
+		replyUrl = testCase.replyUri.URL()
 	}
 
 	// Initialize DeadLetter As Specified
 	var deadLetterUrl *url.URL
-	if deadLetterUri != nil {
-		deadLetterUrl = deadLetterUri.URL()
+	if testCase.deadLetterUri != nil {
+		deadLetterUrl = testCase.deadLetterUri.URL()
 	}
 
 	// Create The Specified DeliverySpec
-	deliverySpec := createDeliverySpec(deadLetterUri, retry)
+	deliverySpec := createDeliverySpec(testCase.deadLetterUri, testCase.retry)
 
 	// Create The Expected RetryConfig
 	var retryConfig kncloudevents.RetryConfig
-	if retry {
+	if testCase.retry {
 		var err error
 		retryConfig, err = kncloudevents.RetryConfigFromDeliverySpec(deliverySpec)
 		assert.NotNil(t, retryConfig)
@@ -191,7 +201,7 @@ func performHandlerConsumeClaimTest(t *testing.T, destinationUri, replyUri, dead
 	// Create Mocks For Testing
 	mockConsumerGroupSession := dispatchertesting.NewMockConsumerGroupSession(t)
 	mockConsumerGroupClaim := dispatchertesting.NewMockConsumerGroupClaim(t)
-	mockMessageDispatcher := dispatchertesting.NewMockMessageDispatcher(t, nil, destinationUrl, replyUrl, deadLetterUrl, &retryConfig, nil)
+	mockMessageDispatcher := dispatchertesting.NewMockMessageDispatcher(t, nil, destinationUrl, replyUrl, deadLetterUrl, &retryConfig, testCase.dispatchErr)
 
 	// Mock The newMessageDispatcherWrapper Function (And Restore Post-Test)
 	newMessageDispatcherWrapperPlaceholder := newMessageDispatcherWrapper
@@ -201,28 +211,36 @@ func performHandlerConsumeClaimTest(t *testing.T, destinationUri, replyUri, dead
 	defer func() { newMessageDispatcherWrapper = newMessageDispatcherWrapperPlaceholder }()
 
 	// Create The Handler To Test
-	handler := createTestHandler(t, destinationUri, replyUri, &deliverySpec)
+	handler := createTestHandler(t, testCase.destinationUri, testCase.replyUri, &deliverySpec)
 
+	consumeFinishedChan := make(chan bool)
 	// Background Start Consuming Claims
 	go func() {
 		err := handler.ConsumeClaim(mockConsumerGroupSession, mockConsumerGroupClaim)
 		assert.Nil(t, err)
+		consumeFinishedChan <- true
 	}()
 
 	// Perform The Test (Add ConsumerMessages To Claims)
 	consumerMessage := createConsumerMessage(t)
 	mockConsumerGroupClaim.MessageChan <- consumerMessage
 
-	// Wait For Message To Be Marked As Complete
-	markedMessage := <-mockConsumerGroupSession.MarkMessageChan
+	// Verify The Results (CloudEvent Was Dispatched & ConsumerMessage Was Marked)
+	if !testCase.expectSkipMark {
+		// Wait For Message To Be Marked As Complete
+		markedMessage := <-mockConsumerGroupSession.MarkMessageChan
+
+		assert.Equal(t, consumerMessage, markedMessage)
+		assert.NotNil(t, mockMessageDispatcher.Message())
+		verifyDispatchedMessage(t, mockMessageDispatcher.Message())
+	}
+	assert.Equal(t, !testCase.expectSkipMark, mockConsumerGroupSession.MarkMessageCalled())
 
 	// Close The Mock ConsumerGroupClaim Message Channel To Complete/Exit Handler's ConsumeClaim()
 	close(mockConsumerGroupClaim.MessageChan)
 
-	// Verify The Results (CloudEvent Was Dispatched & ConsumerMessage Was Marked)
-	assert.Equal(t, consumerMessage, markedMessage)
-	assert.NotNil(t, mockMessageDispatcher.Message())
-	verifyDispatchedMessage(t, mockMessageDispatcher.Message())
+	// Wait for the consumer goroutine to finish to prevent logging attempts after the test is completed
+	<-consumeFinishedChan
 }
 
 // Verify The Dispatched Message Contains Test Message Contents (Was Not Corrupted)

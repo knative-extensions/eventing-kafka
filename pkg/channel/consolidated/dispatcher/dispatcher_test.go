@@ -19,10 +19,6 @@ package dispatcher
 import (
 	"context"
 	"errors"
-	"fmt"
-	"io/ioutil"
-	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"testing"
 
@@ -33,10 +29,12 @@ import (
 	"go.uber.org/zap/zaptest"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
 	"knative.dev/eventing-kafka/pkg/common/consumer"
 	eventingchannels "knative.dev/eventing/pkg/channel"
 	"knative.dev/eventing/pkg/channel/fanout"
+	klogtesting "knative.dev/pkg/logging/testing"
 	_ "knative.dev/pkg/system/testing"
 )
 
@@ -444,189 +442,124 @@ func TestNewDispatcher(t *testing.T) {
 }
 
 func TestSetReady(t *testing.T) {
+	logger := klogtesting.TestLogger(t)
 	testCases := []struct {
 		name             string
 		ready            bool
 		subID            types.UID
+		partition        int32
 		originalKafkaSub *KafkaSubscription
 		desiredKafkaSub  *KafkaSubscription
 	}{
 		{
-			name:  "doesn't have the sub, add it (on ready)",
-			ready: true,
-			subID: "foo",
+			name:      "doesn't have the sub, add it (on ready)",
+			ready:     true,
+			subID:     "foo",
+			partition: 0,
 			originalKafkaSub: &KafkaSubscription{
-				channelReadySubscriptions: sets.String{"bar": sets.Empty{}},
+				channelReadySubscriptions: map[string]sets.Int32{"bar": sets.NewInt32(0)},
 			},
 			desiredKafkaSub: &KafkaSubscription{
-				subs:                      []types.UID{},
-				channelReadySubscriptions: sets.String{"bar": sets.Empty{}, "foo": sets.Empty{}},
+				subs: []types.UID{},
+				channelReadySubscriptions: map[string]sets.Int32{
+					"bar": sets.NewInt32(0),
+					"foo": sets.NewInt32(0),
+				},
 			},
 		},
 		{
-			name:  "has the sub already (on ready)",
-			ready: true,
-			subID: "foo",
+			name:      "has the sub but not the partition, add it (on ready)",
+			ready:     true,
+			subID:     "foo",
+			partition: 1,
 			originalKafkaSub: &KafkaSubscription{
-				channelReadySubscriptions: sets.String{"foo": sets.Empty{}, "bar": sets.Empty{}},
+				channelReadySubscriptions: map[string]sets.Int32{
+					"bar": sets.NewInt32(0),
+					"foo": sets.NewInt32(0),
+				},
 			},
 			desiredKafkaSub: &KafkaSubscription{
-				channelReadySubscriptions: sets.String{"foo": sets.Empty{}, "bar": sets.Empty{}},
+				subs: []types.UID{},
+				channelReadySubscriptions: map[string]sets.Int32{
+					"bar": sets.NewInt32(0),
+					"foo": sets.NewInt32(0, 1),
+				},
 			},
 		},
 		{
-			name:  "has the sub, delete it (on !ready)",
-			ready: false,
-			subID: "foo",
+			name:      "has the sub and partition already (on ready)",
+			ready:     true,
+			subID:     "foo",
+			partition: 0,
 			originalKafkaSub: &KafkaSubscription{
-				channelReadySubscriptions: sets.String{"foo": sets.Empty{}, "bar": sets.Empty{}},
+				channelReadySubscriptions: map[string]sets.Int32{
+					"bar": sets.NewInt32(0),
+					"foo": sets.NewInt32(0),
+				}},
+			desiredKafkaSub: &KafkaSubscription{
+				channelReadySubscriptions: map[string]sets.Int32{
+					"bar": sets.NewInt32(0),
+					"foo": sets.NewInt32(0),
+				}},
+		},
+		{
+			name:      "has the sub with two partition, delete one (on !ready)",
+			ready:     false,
+			subID:     "foo",
+			partition: 1,
+			originalKafkaSub: &KafkaSubscription{
+				channelReadySubscriptions: map[string]sets.Int32{
+					"bar": sets.NewInt32(0),
+					"foo": sets.NewInt32(0, 1),
+				},
 			},
 			desiredKafkaSub: &KafkaSubscription{
-				channelReadySubscriptions: sets.String{"bar": sets.Empty{}},
+				channelReadySubscriptions: map[string]sets.Int32{
+					"bar": sets.NewInt32(0),
+					"foo": sets.NewInt32(0),
+				},
 			},
 		},
 		{
-			name:  "doesn't have the sub to delete (on !ready)",
-			ready: false,
-			subID: "foo",
+			name:      "has the sub with one partition, delete sub (on !ready)",
+			ready:     false,
+			subID:     "foo",
+			partition: 0,
 			originalKafkaSub: &KafkaSubscription{
-				channelReadySubscriptions: sets.String{"bar": sets.Empty{}},
+				channelReadySubscriptions: map[string]sets.Int32{
+					"bar": sets.NewInt32(0),
+					"foo": sets.NewInt32(0),
+				},
 			},
 			desiredKafkaSub: &KafkaSubscription{
-				channelReadySubscriptions: sets.String{"bar": sets.Empty{}},
+				channelReadySubscriptions: map[string]sets.Int32{
+					"bar": sets.NewInt32(0),
+				},
+			},
+		},
+		{
+			name:      "doesn't have the sub to delete (on !ready)",
+			ready:     false,
+			subID:     "foo",
+			partition: 0,
+			originalKafkaSub: &KafkaSubscription{
+				channelReadySubscriptions: map[string]sets.Int32{
+					"bar": sets.NewInt32(0),
+				}},
+			desiredKafkaSub: &KafkaSubscription{
+				channelReadySubscriptions: map[string]sets.Int32{
+					"bar": sets.NewInt32(0),
+				},
 			},
 		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Logf("Running %s", t.Name())
-			tc.originalKafkaSub.SetReady(tc.subID, tc.ready)
+			tc.originalKafkaSub.logger = logger
+			tc.originalKafkaSub.SetReady(tc.subID, tc.partition, tc.ready)
 			if diff := cmp.Diff(tc.desiredKafkaSub.channelReadySubscriptions, tc.originalKafkaSub.channelReadySubscriptions); diff != "" {
 				t.Errorf("unexpected ChannelReadySubscription (-want, +got) = %v", diff)
-			}
-		})
-	}
-}
-
-func TestServeHTTP(t *testing.T) {
-
-	httpGet := "GET"
-	httpPost := "POST"
-	testCases := []struct {
-		name               string
-		responseReturnCode int
-		desiredJson        []byte
-		channelSubs        map[eventingchannels.ChannelReference]*KafkaSubscription
-		requestURI         string
-		httpMethod         string
-	}{
-		{
-			name:               "channelref not found",
-			httpMethod:         httpGet,
-			responseReturnCode: http.StatusNotFound,
-			desiredJson:        []byte{},
-			requestURI:         "/exist/thisDoesNot",
-		}, {
-			name:               "nop",
-			httpMethod:         httpGet,
-			responseReturnCode: http.StatusNotFound,
-			desiredJson:        []byte{},
-			requestURI:         "///",
-		}, {
-			name:               "no ready subscribers",
-			httpMethod:         httpGet,
-			responseReturnCode: http.StatusOK,
-			desiredJson:        []byte(`{"bar/foo":[]}`),
-			channelSubs: map[eventingchannels.ChannelReference]*KafkaSubscription{
-				{Name: "foo", Namespace: "bar"}: {
-					subs:                      []types.UID{},
-					channelReadySubscriptions: sets.String{},
-				},
-			},
-			requestURI: "/bar/foo",
-		}, {
-			name:               "different channelref called from populated channref (different ns)",
-			httpMethod:         httpGet,
-			desiredJson:        []byte{},
-			responseReturnCode: http.StatusNotFound,
-			channelSubs: map[eventingchannels.ChannelReference]*KafkaSubscription{
-				{Name: "foo", Namespace: "baz"}: {
-					subs:                      []types.UID{"a", "b"},
-					channelReadySubscriptions: sets.String{"a": sets.Empty{}, "b": sets.Empty{}},
-				},
-			},
-			requestURI: "/bar/foo",
-		}, {
-			name:               "return correct subscription",
-			httpMethod:         httpGet,
-			desiredJson:        []byte(`{"bar/foo":["a","b"]}`),
-			responseReturnCode: http.StatusOK,
-			channelSubs: map[eventingchannels.ChannelReference]*KafkaSubscription{
-				{Name: "foo", Namespace: "bar"}: {
-					subs:                      []types.UID{"a", "b"},
-					channelReadySubscriptions: sets.String{"a": sets.Empty{}, "b": sets.Empty{}},
-				},
-			},
-			requestURI: "/bar/foo",
-		}, {
-			name:               "return correct subscription from multiple chanrefs",
-			httpMethod:         httpGet,
-			desiredJson:        []byte(`{"bar/foo":["a","b"]}`),
-			responseReturnCode: http.StatusOK,
-			channelSubs: map[eventingchannels.ChannelReference]*KafkaSubscription{
-				{Name: "table", Namespace: "flip"}: {
-					subs:                      []types.UID{"c", "d"},
-					channelReadySubscriptions: sets.String{"c": sets.Empty{}},
-				},
-				{Name: "foo", Namespace: "bar"}: {
-					subs:                      []types.UID{"a", "b"},
-					channelReadySubscriptions: sets.String{"a": sets.Empty{}, "b": sets.Empty{}},
-				},
-			},
-			requestURI: "/bar/foo",
-		}, {
-			name:               "bad request uri",
-			httpMethod:         httpGet,
-			desiredJson:        []byte{},
-			responseReturnCode: http.StatusNotFound,
-			requestURI:         "/here/be/dragons/there/are/too/many/slashes",
-		}, {
-			name:               "bad request method (POST)",
-			httpMethod:         httpPost,
-			desiredJson:        []byte{},
-			responseReturnCode: http.StatusMethodNotAllowed,
-		},
-	}
-	d := &KafkaDispatcher{
-		channelSubscriptions: make(map[eventingchannels.ChannelReference]*KafkaSubscription),
-		logger:               zaptest.NewLogger(t).Sugar(),
-	}
-	ts := httptest.NewServer(d)
-	defer ts.Close()
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Logf("Running %s", t.Name())
-			d.channelSubscriptions = tc.channelSubs
-
-			request, _ := http.NewRequest(tc.httpMethod, fmt.Sprintf("%s%s", ts.URL, tc.requestURI), nil)
-			//			resp, err := http.Get(fmt.Sprintf("%s%s", ts.URL, tc.requestURI))
-			resp, err := http.DefaultClient.Do(request)
-			if err != nil {
-				t.Errorf("Could not send request to subscriber endpoint: %v", err)
-			}
-			if resp.StatusCode != tc.responseReturnCode {
-				t.Errorf("unepxected status returned: want: %d, got: %d", tc.responseReturnCode, resp.StatusCode)
-			}
-			respBody, err := ioutil.ReadAll(resp.Body)
-			defer resp.Body.Close()
-			if err != nil {
-				t.Errorf("Could not read response from subscriber endpoint: %v", err)
-			}
-			if testing.Verbose() && len(respBody) > 0 {
-				t.Logf("http response: %s\n", string(respBody))
-			}
-			if diff := cmp.Diff(tc.desiredJson, respBody); diff != "" {
-				t.Errorf("unexpected readysubscriber status response: (-want, +got) = %v", diff)
 			}
 		})
 	}

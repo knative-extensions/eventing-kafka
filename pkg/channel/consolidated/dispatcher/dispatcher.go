@@ -17,18 +17,11 @@ package dispatcher
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	nethttp "net/http"
-	"strings"
 	"sync"
 	"sync/atomic"
-
-	"k8s.io/apimachinery/pkg/util/sets"
-
-	"knative.dev/eventing-kafka/pkg/common/client"
-	"knative.dev/eventing-kafka/pkg/common/tracing"
 
 	"github.com/Shopify/sarama"
 	protocolkafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
@@ -37,13 +30,16 @@ import (
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
-	eventingchannels "knative.dev/eventing/pkg/channel"
-	"knative.dev/eventing/pkg/kncloudevents"
-	"knative.dev/pkg/kmeta"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
+	"knative.dev/eventing-kafka/pkg/common/client"
 	"knative.dev/eventing-kafka/pkg/common/consumer"
+	"knative.dev/eventing-kafka/pkg/common/tracing"
+	eventingchannels "knative.dev/eventing/pkg/channel"
+	"knative.dev/eventing/pkg/kncloudevents"
+	"knative.dev/pkg/kmeta"
 )
 
 const (
@@ -110,8 +106,13 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 		topicFunc:            args.TopicFunc,
 	}
 
+	// initialize and start the subscription endpoint server
+	subscriptionEndpoint := &subscriptionEndpoint{
+		dispatcher: dispatcher,
+		logger:     args.Logger,
+	}
 	go func() {
-		dispatcher.logger.Fatal(nethttp.ListenAndServe(":8081", dispatcher))
+		subscriptionEndpoint.start()
 	}()
 
 	podName, err := env.GetRequiredConfigValue(args.Logger.Desugar(), env.PodNameEnvVarKey)
@@ -168,43 +169,6 @@ func (d *KafkaDispatcher) Start(ctx context.Context) error {
 	return d.receiver.Start(ctx)
 }
 
-func (d *KafkaDispatcher) ServeHTTP(w nethttp.ResponseWriter, r *nethttp.Request) {
-	if r.Method != nethttp.MethodGet {
-		w.WriteHeader(nethttp.StatusMethodNotAllowed)
-		d.logger.Errorf("Received request method that wasn't GET: %s", r.Method)
-		return
-	}
-	uriSplit := strings.Split(r.RequestURI, "/")
-	if len(uriSplit) != 3 {
-		w.WriteHeader(nethttp.StatusNotFound)
-		d.logger.Errorf("Unable to process request: %s", r.RequestURI)
-		return
-	}
-	channelRefNamespace, channelRefName := uriSplit[1], uriSplit[2]
-	channelRef := eventingchannels.ChannelReference{
-		Name:      channelRefName,
-		Namespace: channelRefNamespace,
-	}
-	if _, ok := d.channelSubscriptions[channelRef]; !ok {
-		w.WriteHeader(nethttp.StatusNotFound)
-		return
-	}
-	d.channelSubscriptions[channelRef].readySubscriptionsLock.RLock()
-	defer d.channelSubscriptions[channelRef].readySubscriptionsLock.RUnlock()
-	var subscriptions = make(map[string][]string)
-	w.Header().Set(dispatcherReadySubHeader, channelRefName)
-	subscriptions[channelRefNamespace+"/"+channelRefName] = d.channelSubscriptions[channelRef].channelReadySubscriptions.List()
-	jsonResult, err := json.Marshal(subscriptions)
-	if err != nil {
-		d.logger.Errorf("Error marshalling json for sub-status channelref: %s/%s, %w", channelRefNamespace, channelRefName, err)
-		return
-	}
-	_, err = w.Write(jsonResult)
-	if err != nil {
-		d.logger.Errorf("Error writing jsonResult to serveHTTP writer: %w", err)
-	}
-}
-
 // UpdateKafkaConsumers will be called by new CRD based kafka channel dispatcher controller.
 func (d *KafkaDispatcher) UpdateKafkaConsumers(config *Config) (map[types.UID]error, error) {
 	if config == nil {
@@ -234,8 +198,9 @@ func (d *KafkaDispatcher) UpdateKafkaConsumers(config *Config) (map[types.UID]er
 				}
 			} else { //ensure the pointer is populated or things go boom
 				d.channelSubscriptions[channelRef] = &KafkaSubscription{
+					logger:                    d.logger,
 					subs:                      []types.UID{},
-					channelReadySubscriptions: sets.String{},
+					channelReadySubscriptions: map[string]sets.Int32{},
 				}
 			}
 
@@ -291,13 +256,18 @@ func (d *KafkaDispatcher) UpdateHostToChannelMap(config *Config) error {
 // subscribe reads kafkaConsumers which gets updated in UpdateConfig in a separate go-routine.
 // subscribe must be called under updateLock.
 func (d *KafkaDispatcher) subscribe(channelRef eventingchannels.ChannelReference, sub Subscription) error {
-	d.logger.Info("Subscribing", zap.Any("channelRef", channelRef), zap.Any("subscription", sub.UID))
-
+	d.logger.Infow("Subscribing to Kafka Channel", zap.Any("channelRef", channelRef), zap.Any("subscription", sub.UID))
 	topicName := d.topicFunc(utils.KafkaChannelSeparator, channelRef.Namespace, channelRef.Name)
 	groupID := fmt.Sprintf("kafka.%s.%s.%s", channelRef.Namespace, channelRef.Name, string(sub.UID))
-
-	handler := &consumerMessageHandler{d.logger, sub, d.dispatcher, d.channelSubscriptions[channelRef]}
-
+	handler := &consumerMessageHandler{
+		d.logger,
+		sub,
+		d.dispatcher,
+		d.channelSubscriptions[channelRef],
+		groupID,
+	}
+	d.logger.Debugw("Starting consumer group", zap.Any("channelRef", channelRef),
+		zap.Any("subscription", sub.UID), zap.String("topic", topicName), zap.String("consumer group", groupID))
 	consumerGroup, err := d.kafkaConsumerFactory.StartConsumerGroup(groupID, []string{topicName}, d.logger, handler)
 
 	if err != nil {
@@ -324,7 +294,7 @@ func (d *KafkaDispatcher) subscribe(channelRef eventingchannels.ChannelReference
 // unsubscribe reads kafkaConsumers which gets updated in UpdateConfig in a separate go-routine.
 // unsubscribe must be called under updateLock.
 func (d *KafkaDispatcher) unsubscribe(channel eventingchannels.ChannelReference, sub Subscription) error {
-	d.logger.Infow("Unsubscribing from channel", zap.Any("channel", channel), zap.String("subscription", sub.String()))
+	d.logger.Infow("Unsubscribing from channel", zap.Any("channel", channel), zap.Any("subscription", sub.UID))
 	delete(d.subscriptions, sub.UID)
 	if _, ok := d.channelSubscriptions[channel]; !ok {
 		return nil
@@ -340,6 +310,7 @@ func (d *KafkaDispatcher) unsubscribe(channel eventingchannels.ChannelReference,
 	}
 	if consumer, ok := d.subsConsumerGroups[sub.UID]; ok {
 		delete(d.subsConsumerGroups, sub.UID)
+		d.logger.Debugw("Closing cached consumer group", zap.Any("consumer group", consumer))
 		return consumer.Close()
 	}
 	return nil

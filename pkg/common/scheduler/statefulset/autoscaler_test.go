@@ -196,7 +196,7 @@ func TestAutoscaler(t *testing.T) {
 				t.Fatal("unexpected error", err)
 			}
 
-			autoscaler := NewAutoscaler(ctx, testNs, sfsName, stateAccessor, 10*time.Second).(*autoscaler)
+			autoscaler := NewAutoscaler(ctx, testNs, sfsName, stateAccessor, 10*time.Second, int32(10)).(*autoscaler)
 
 			for _, vpod := range tc.vpods {
 				vpodClient.Append(vpod)
@@ -239,7 +239,7 @@ func TestAutoscalerScaleDownToZero(t *testing.T) {
 		t.Fatal("unexpected error", err)
 	}
 
-	autoscaler := NewAutoscaler(ctx, testNs, sfsName, stateAccessor, 2*time.Second).(*autoscaler)
+	autoscaler := NewAutoscaler(ctx, testNs, sfsName, stateAccessor, 2*time.Second, int32(10)).(*autoscaler)
 
 	done := make(chan bool)
 	go func() {
