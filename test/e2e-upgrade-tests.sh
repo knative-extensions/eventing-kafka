@@ -16,6 +16,8 @@
 
 # Docs -> file://./upgrade/README.md
 
+set -Eeuo pipefail
+
 export GO111MODULE=on
 
 # shellcheck disable=SC1090

@@ -40,7 +40,7 @@ func Suite() pkgupgrade.Suite {
 		},
 		Installations: pkgupgrade.Installations{
 			Base: []pkgupgrade.Operation{
-				installation.EventingLatestStable(),
+				installation.EventingCore(),
 				installation.LatestStable(),
 			},
 			UpgradeWith: []pkgupgrade.Operation{

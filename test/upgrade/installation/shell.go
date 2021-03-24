@@ -16,11 +16,24 @@ limitations under the License.
 
 package installation
 
-import pkgupgrade "knative.dev/pkg/test/upgrade"
+import (
+	"knative.dev/hack/shell"
+)
 
-// EventingLatestStable installs the latest stable eventing core.
-func EventingLatestStable() pkgupgrade.Operation {
-	return pkgupgrade.NewOperation("EventingLatestStable", func(c pkgupgrade.Context) {
-
+func shellout(funcName string) error {
+	loc, err := shell.NewProjectLocation("../../..")
+	if err != nil {
+		return err
+	}
+	exec := shell.NewExecutor(shell.ExecutorConfig{
+		ProjectLocation: loc,
 	})
+	fn := shell.Function{
+		Script: shell.Script{
+			Label:      funcName,
+			ScriptPath: "test/e2e-common.sh",
+		},
+		FunctionName: funcName,
+	}
+	return exec.RunFunction(fn)
 }

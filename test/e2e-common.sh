@@ -30,9 +30,11 @@
 
 # This script includes common functions for testing setup and teardown.
 
+set -Eeuo pipefail
+
 TEST_PARALLEL=${MAX_PARALLEL_TESTS:-12}
 
-source $(dirname $0)/../vendor/knative.dev/hack/e2e-tests.sh
+source "$(dirname "$(dirname "${BASH_SOURCE[0]}")")/vendor/knative.dev/hack/e2e-tests.sh"
 
 # If gcloud is not available make it a no-op, not an error.
 which gcloud &> /dev/null || gcloud() { echo "[ignore-gcloud $*]" 1>&2; }
@@ -160,6 +162,10 @@ function add_kn_eventing_test_pull_secret() {
 }
 
 function knative_setup() {
+  install_knative_eventing
+}
+
+function install_knative_eventing {
   if is_release_branch; then
     echo ">> Install Knative Eventing from ${KNATIVE_EVENTING_RELEASE}"
     kubectl apply -f ${KNATIVE_EVENTING_RELEASE}
