@@ -25,6 +25,10 @@ import (
 	eventinghelpers "knative.dev/eventing/test/e2e/helpers"
 )
 
-func TestChannelSubscriptionScaleReady(t *testing.T) {
+func TestChannelSubscriptionScaleReadyV1(t *testing.T) {
 	helpers.ChannelSubscriptionScaleReadyHelper(context.Background(), t, eventinghelpers.SubscriptionV1, channelTestRunner)
+}
+
+func TestChannelSubscriptionScaleReadyV1Beta1(t *testing.T) {
+	helpers.ChannelSubscriptionScaleReadyHelper(context.Background(), t, eventinghelpers.SubscriptionV1beta1, channelTestRunner)
 }

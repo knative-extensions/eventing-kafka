@@ -94,31 +94,58 @@ func ChannelSubscriptionScaleReadyHelper(
 		client.WaitForResourceReadyOrFail(kafkaChannelName, &kafkaChannelMeta)
 
 		eventTracker, _ := recordevents.StartEventRecordOrFail(ctx, client, recordEventsPodName)
-		client.CreateSubscriptionV1OrFail(
-			kafkaSub0,
-			kafkaChannelName,
-			&kafkaChannelMeta,
-			resources.WithSubscriberForSubscriptionV1(recordEventsPodName),
-		)
+		if subscriptionVersion == eventinghelpers.SubscriptionV1 {
+			client.CreateSubscriptionV1OrFail(
+				kafkaSub0,
+				kafkaChannelName,
+				&kafkaChannelMeta,
+				resources.WithSubscriberForSubscriptionV1(recordEventsPodName),
+			)
+		} else {
+			client.CreateSubscriptionOrFail(
+				kafkaSub0,
+				kafkaChannelName,
+				&kafkaChannelMeta,
+				resources.WithSubscriberForSubscription(recordEventsPodName),
+			)
+		}
 		client.WaitForAllTestResourcesReadyOrFail(ctx)
 
 		scaleDispatcherDeployment(ctx, st, 4, client)
 		client.WaitForResourceReadyOrFail(kafkaSub0, testlib.SubscriptionTypeMeta) //this should still be ready
 
-		client.CreateSubscriptionV1OrFail(
-			kafkaSub1,
-			kafkaChannelName,
-			&kafkaChannelMeta,
-			resources.WithSubscriberForSubscriptionV1(recordEventsPodName),
-		)
-
+		if subscriptionVersion == eventinghelpers.SubscriptionV1 {
+			client.CreateSubscriptionV1OrFail(
+				kafkaSub1,
+				kafkaChannelName,
+				&kafkaChannelMeta,
+				resources.WithSubscriberForSubscriptionV1(recordEventsPodName),
+			)
+		} else {
+			client.CreateSubscriptionOrFail(
+				kafkaSub1,
+				kafkaChannelName,
+				&kafkaChannelMeta,
+				resources.WithSubscriberForSubscription(recordEventsPodName),
+			)
+		}
 		for readyDispatcherPodsCheck(ctx, st, client) < 3 {
-			subObj, err := client.Eventing.MessagingV1().Subscriptions(client.Namespace).Get(ctx, kafkaSub1, metav1.GetOptions{})
-			if err != nil {
-				st.Fatalf("Could not get subscription object %q: %v", subObj.Name, err)
-			}
-			if subObj.Status.IsReady() {
-				st.Fatalf("Subscription: %s, marked ready before dispatcher pods ready", subObj.Name)
+			if subscriptionVersion == eventinghelpers.SubscriptionV1 {
+				subObj, err := client.Eventing.MessagingV1().Subscriptions(client.Namespace).Get(ctx, kafkaSub1, metav1.GetOptions{})
+				if err != nil {
+					st.Fatalf("Could not get v1 subscription object %q: %v", subObj.Name, err)
+				}
+				if subObj.Status.IsReady() {
+					st.Fatalf("Subscription: %s, marked ready before dispatcher pods ready", subObj.Name)
+				}
+			} else {
+				subObj, err := client.Eventing.MessagingV1beta1().Subscriptions(client.Namespace).Get(ctx, kafkaSub1, metav1.GetOptions{})
+				if err != nil {
+					st.Fatalf("Could not get v1beta1 subscription object %q: %v", subObj.Name, err)
+				}
+				if subObj.Status.IsReady() {
+					st.Fatalf("Subscription: %s, marked ready before dispatcher pods ready", subObj.Name)
+				}
 			}
 		}
 		client.WaitForResourceReadyOrFail(kafkaSub1, testlib.SubscriptionTypeMeta)
