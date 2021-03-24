@@ -22,13 +22,8 @@ import (
 	"testing"
 
 	"knative.dev/eventing-kafka/test/e2e/helpers"
-	eventinghelpers "knative.dev/eventing/test/e2e/helpers"
 )
 
 func TestChannelSubscriptionScaleReadyV1(t *testing.T) {
-	helpers.ChannelSubscriptionScaleReadyHelper(context.Background(), t, eventinghelpers.SubscriptionV1, channelTestRunner)
-}
-
-func TestChannelSubscriptionScaleReadyV1Beta1(t *testing.T) {
-	helpers.ChannelSubscriptionScaleReadyHelper(context.Background(), t, eventinghelpers.SubscriptionV1beta1, channelTestRunner)
+	helpers.ChannelSubscriptionScaleReadyHelper(context.Background(), t, channelTestRunner)
 }
