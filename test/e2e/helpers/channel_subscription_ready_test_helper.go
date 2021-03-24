@@ -94,22 +94,22 @@ func ChannelSubscriptionScaleReadyHelper(
 		client.WaitForResourceReadyOrFail(kafkaChannelName, &kafkaChannelMeta)
 
 		eventTracker, _ := recordevents.StartEventRecordOrFail(ctx, client, recordEventsPodName)
-		client.CreateSubscriptionOrFail(
+		client.CreateSubscriptionV1OrFail(
 			kafkaSub0,
 			kafkaChannelName,
 			&kafkaChannelMeta,
-			resources.WithSubscriberForSubscription(recordEventsPodName),
+			resources.WithSubscriberForSubscriptionV1(recordEventsPodName),
 		)
 		client.WaitForAllTestResourcesReadyOrFail(ctx)
 
 		scaleDispatcherDeployment(ctx, st, 4, client)
 		client.WaitForResourceReadyOrFail(kafkaSub0, testlib.SubscriptionTypeMeta) //this should still be ready
 
-		client.CreateSubscriptionOrFail(
+		client.CreateSubscriptionV1OrFail(
 			kafkaSub1,
 			kafkaChannelName,
 			&kafkaChannelMeta,
-			resources.WithSubscriberForSubscription(recordEventsPodName),
+			resources.WithSubscriberForSubscriptionV1(recordEventsPodName),
 		)
 
 		for readyDispatcherPodsCheck(ctx, st, client) < 3 {
