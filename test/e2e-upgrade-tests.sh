@@ -43,10 +43,9 @@ function uninstall_test_resources {
 initialize "$@" --skip-istio-addon
 
 TIMEOUT=${TIMEOUT:-60m}
+GO_TEST_VERBOSITY="${GO_TEST_VERBOSITY:-standard-verbose}"
 
-export GO_TEST_VERBOSITY="${GO_TEST_VERBOSITY:-standard-verbose}"
-
-go_test_e2e \
+go_test_e2e -v \
   -tags=upgrade \
   -timeout="${TIMEOUT}" \
   ./test/upgrade \

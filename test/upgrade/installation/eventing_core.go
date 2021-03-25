@@ -21,7 +21,7 @@ import pkgupgrade "knative.dev/pkg/test/upgrade"
 // EventingCore installs the eventing core.
 func EventingCore() pkgupgrade.Operation {
 	return pkgupgrade.NewOperation("EventingCore", func(c pkgupgrade.Context) {
-		shellfunc := "install_knative_eventing"
+		shellfunc := "start_latest_knative_eventing"
 		c.Log.Info("Running shell function: ", shellfunc)
 		err := shellout(shellfunc)
 		if err != nil {

@@ -101,8 +101,8 @@ readonly KAFKA_CRD_CONFIG_DIR="$(mktemp -d)"
 # Real Kafka Source CRD config, generated from the template directory and modified template file.
 readonly KAFKA_SOURCE_CRD_CONFIG_DIR="$(mktemp -d)"
 
-# Remove the temporary directories on exit (avoiding "rm -rf" to prevent disaster if something is wrong with the variables)
-trap "{ for dirrm in \"${KAFKA_CRD_CONFIG_DIR}\" \"${KAFKA_SOURCE_CRD_CONFIG_DIR}\"; do rm \"\${dirrm}\"/*; rmdir \"\${dirrm}\"; done }" EXIT
+# Remove the temporary directories on exit
+trap remove_temp_kafka_dirs EXIT
 
 # Kafka ST and MT Source CRD config template directory
 readonly KAFKA_SOURCE_TEMPLATE_DIR="config/source/single"
@@ -118,6 +118,14 @@ export SYSTEM_NAMESPACE
 
 # Zipkin setup
 readonly KNATIVE_EVENTING_MONITORING_YAML="test/config/monitoring.yaml"
+
+# Remove the temporary directories on exit
+function remove_temp_kafka_dirs {
+  for dirrm in "${KAFKA_CRD_CONFIG_DIR}" "${KAFKA_SOURCE_CRD_CONFIG_DIR}"; do
+    if ! [ -d "${dirrm}" ]; then continue; fi
+    rm -rf "${dirrm}"
+  done
+}
 
 #
 # TODO - Consider adding this function to the test-infra library.sh utilities ?
