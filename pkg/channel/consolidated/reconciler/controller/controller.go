@@ -20,30 +20,41 @@ import (
 	"context"
 
 	"github.com/kelseyhightower/envconfig"
-	"knative.dev/eventing-kafka/pkg/common/constants"
-
 	"go.uber.org/zap"
-
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
-	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	"knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
-	"knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
-	"knative.dev/pkg/client/injection/kube/informers/core/v1/service"
-	"knative.dev/pkg/client/injection/kube/informers/core/v1/serviceaccount"
-	"knative.dev/pkg/client/injection/kube/informers/rbac/v1/rolebinding"
 
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/system"
-
+	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
+	"knative.dev/eventing-kafka/pkg/channel/consolidated/status"
 	kafkaChannelClient "knative.dev/eventing-kafka/pkg/client/injection/client"
 	"knative.dev/eventing-kafka/pkg/client/injection/informers/messaging/v1beta1/kafkachannel"
 	kafkaChannelReconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
+	"knative.dev/eventing-kafka/pkg/common/constants"
+	eventingduckv1 "knative.dev/eventing/pkg/apis/duck/v1"
 	eventingClient "knative.dev/eventing/pkg/client/injection/client"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
+	"knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
+	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
+	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
+	"knative.dev/pkg/client/injection/kube/informers/core/v1/service"
+	"knative.dev/pkg/client/injection/kube/informers/core/v1/serviceaccount"
+	"knative.dev/pkg/client/injection/kube/informers/rbac/v1/rolebinding"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
+	knativeReconciler "knative.dev/pkg/reconciler"
+	"knative.dev/pkg/system"
+)
+
+const (
+	channelLabelKey   = "messaging.knative.dev/channel"
+	channelLabelValue = "kafka-channel"
+	roleLabelKey      = "messaging.knative.dev/role"
+	roleLabelValue    = "dispatcher"
 )
 
 // NewController initializes the controller and is called by the generated code.
@@ -52,13 +63,14 @@ func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
 ) *controller.Impl {
-
+	logger := logging.FromContext(ctx)
 	kafkaChannelInformer := kafkachannel.Get(ctx)
 	deploymentInformer := deployment.Get(ctx)
-	endpointsInformer := endpoints.Get(ctx)
+	endpointsInformer := endpointsinformer.Get(ctx)
 	serviceAccountInformer := serviceaccount.Get(ctx)
 	roleBindingInformer := rolebinding.Get(ctx)
 	serviceInformer := service.Get(ctx)
+	podInformer := podinformer.Get(ctx)
 
 	r := &Reconciler{
 		systemNamespace:      system.Namespace(),
@@ -87,6 +99,16 @@ func NewController(
 
 	impl := kafkaChannelReconciler.NewImpl(ctx, r)
 
+	statusProber := status.NewProber(
+		logger.Named("status-manager"),
+		NewProbeTargetLister(logger, endpointsInformer.Lister()),
+		func(c v1beta1.KafkaChannel, s eventingduckv1.SubscriberSpec) {
+			logger.Debugf("Ready callback triggered for channel: %s/%s subscription: %s", c.Namespace, c.Name, string(s.UID))
+			impl.EnqueueKey(types.NamespacedName{Namespace: c.Namespace, Name: c.Name})
+		},
+	)
+	r.statusManager = statusProber
+	statusProber.Start(ctx.Done())
 	// Get and Watch the Kakfa config map and dynamically update Kafka configuration.
 	if _, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, constants.SettingsConfigMapName, metav1.GetOptions{}); err == nil {
 		cmw.Watch(constants.SettingsConfigMapName, func(configMap *v1.ConfigMap) {
@@ -128,6 +150,25 @@ func NewController(
 	roleBindingInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: filterFn,
 		Handler:    controller.HandleAll(grCh),
+	})
+
+	podInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: knativeReconciler.ChainFilterFuncs(
+			knativeReconciler.LabelFilterFunc(channelLabelKey, channelLabelValue, false),
+			knativeReconciler.LabelFilterFunc(roleLabelKey, roleLabelValue, false),
+		),
+		Handler: cache.ResourceEventHandlerFuncs{
+			// Cancel probing when a Pod is deleted
+			DeleteFunc: func(obj interface{}) {
+				pod, ok := obj.(*corev1.Pod)
+				if ok && pod != nil {
+					logger.Debugw("Dispatcher pod deleted. Canceling pod probing.",
+						zap.String("pod", pod.GetName()))
+					statusProber.CancelPodProbing(*pod)
+					impl.GlobalResync(kafkaChannelInformer.Informer())
+				}
+			},
+		},
 	})
 
 	return impl

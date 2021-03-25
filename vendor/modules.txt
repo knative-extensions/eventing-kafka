@@ -185,7 +185,7 @@ github.com/go-openapi/spec
 github.com/go-openapi/swag
 # github.com/gobuffalo/flect v0.2.2
 github.com/gobuffalo/flect
-# github.com/gogo/protobuf v1.3.1
+# github.com/gogo/protobuf v1.3.2
 github.com/gogo/protobuf/proto
 github.com/gogo/protobuf/sortkeys
 # github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
@@ -396,6 +396,7 @@ go.opentelemetry.io/otel/label
 go.opentelemetry.io/otel/propagation
 go.opentelemetry.io/otel/trace
 # go.uber.org/atomic v1.7.0
+## explicit
 go.uber.org/atomic
 # go.uber.org/automaxprocs v1.4.0
 go.uber.org/automaxprocs/internal/cgroups
@@ -471,7 +472,7 @@ golang.org/x/text/width
 # golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 ## explicit
 golang.org/x/time/rate
-# golang.org/x/tools v0.0.0-20210105154028-b0ab187a4818
+# golang.org/x/tools v0.0.0-20210106214847-113979e3529a
 golang.org/x/tools/cmd/goimports
 golang.org/x/tools/go/ast/astutil
 golang.org/x/tools/go/gcexportdata
@@ -1080,7 +1081,7 @@ k8s.io/utils/buffer
 k8s.io/utils/integer
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# knative.dev/eventing v0.21.0
+# knative.dev/eventing v0.21.3
 ## explicit
 knative.dev/eventing/pkg/adapter/v2
 knative.dev/eventing/pkg/adapter/v2/test
@@ -1216,10 +1217,13 @@ knative.dev/eventing/test/test_images/heartbeats
 knative.dev/eventing/test/test_images/performance
 knative.dev/eventing/test/test_images/print
 knative.dev/eventing/test/test_images/recordevents
-# knative.dev/hack v0.0.0-20210203173706-8368e1f6eacf
+# knative.dev/hack v0.0.0-20210305150220-f99a25560134
 ## explicit
 knative.dev/hack
-# knative.dev/pkg v0.0.0-20210216013737-584933f8280b
+# knative.dev/networking v0.0.0-20210304153916-f813b5904943
+## explicit
+knative.dev/networking/pkg/prober
+# knative.dev/pkg v0.0.0-20210309024624-0f8d8de5949d
 ## explicit
 knative.dev/pkg/apis
 knative.dev/pkg/apis/duck
@@ -1247,6 +1251,7 @@ knative.dev/pkg/client/injection/kube/informers/apps/v1/statefulset
 knative.dev/pkg/client/injection/kube/informers/apps/v1/statefulset/fake
 knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints
 knative.dev/pkg/client/injection/kube/informers/core/v1/namespace
+knative.dev/pkg/client/injection/kube/informers/core/v1/pod
 knative.dev/pkg/client/injection/kube/informers/core/v1/secret
 knative.dev/pkg/client/injection/kube/informers/core/v1/secret/fake
 knative.dev/pkg/client/injection/kube/informers/core/v1/service
