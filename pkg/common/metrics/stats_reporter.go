@@ -17,20 +17,16 @@ limitations under the License.
 package metrics
 
 import (
-	"context"
 	"fmt"
-	"go.opencensus.io/metric/metricdata"
-	"go.opencensus.io/metric/metricproducer"
-	"go.opencensus.io/resource"
-	"go.opencensus.io/stats"
-	"go.opencensus.io/stats/view"
-	"go.opencensus.io/tag"
-	"go.uber.org/zap"
-	"knative.dev/pkg/metrics"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
+
+	"go.opencensus.io/metric/metricdata"
+	"go.opencensus.io/metric/metricproducer"
+	"go.opencensus.io/resource"
+	"go.uber.org/zap"
 )
 
 // StatsReporter defines the interface for sending ingress metrics.
@@ -40,14 +36,6 @@ type StatsReporter interface {
 
 // Verify StatsReporter Implements StatsReporter Interface
 var _ StatsReporter = &Reporter{}
-
-// Regular expressions for extracting the particular broker and topic from Sarama metric identifiers
-var regexSpecificBroker = regexp.MustCompile(`^.*-for-broker-(.*)`)
-var regexSpecificTopic = regexp.MustCompile(`^.*-for-topic-(.*)`)
-
-// The broker and topic keys are constant but need to be created via a function, so they are defined here
-var keyBroker = tag.MustNewKey("broker")
-var keyTopic = tag.MustNewKey("topic")
 
 // Define a list of regular expressions that can be applied to a raw incoming Sarama metric in order to produce
 // text suitable for the "# HELP" section of the metrics endpoint output
@@ -84,107 +72,141 @@ var regexDescriptions = []struct {
 
 // The saramaMetricInfo struct holds information related to a particular Sarama metric for use by the Views and Tags
 type saramaMetricInfo struct {
-	Name string
+	Name        string
 	Description string
-	Broker string
-	Topic string
+	Unit        metricdata.Unit
 }
 
 // Since regular expressions are somewhat costly and the metrics are repetitive, this cache will hold a simple
 // string-to-saramaMetricInfo direct replacement
 var replacementCache = map[string]saramaMetricInfo{}
 
-// Define StatsReporter Structure
+// Some type aliases for the otherwise unwieldy metric collection map-of-maps-to-interfaces
+type ReportingItem = map[string]interface{}
+type ReportingList = map[string]ReportingItem
+
+// Define StatsReporter Structure, which implements the OpenCensus Producer interface
 type Reporter struct {
-	views        map[string]*view.View
-	tagKeys      map[string]tag.Key
-	tagContexts  map[string]context.Context
-	logger       *zap.Logger
+	logger  *zap.Logger
+	metrics map[string]*metricdata.Metric
+	once    sync.Once // Used to add a metric producer to the OpenCensus global manager only one time
 }
 
 // StatsReporter Constructor
 func NewStatsReporter(log *zap.Logger) StatsReporter {
 	return &Reporter{
-		views:        make(map[string]*view.View),
-		logger:       log,
-		tagContexts:  make(map[string]context.Context),
+		logger:  log,
+		metrics: make(map[string]*metricdata.Metric),
 	}
 }
-
-// Our RecordWrapper, which defaults to the knative metrics.Record()
-// This wrapper function facilitates minimally-invasive unit testing of the
-// Report functionality without requiring live servers to be started.
-var RecordWrapper = metrics.Record
-var once sync.Once
-
-// Some type aliases for the otherwise unwieldy metric collection map-of-maps-to-interfaces
-type ReportingItem = map[string]interface{}
-type ReportingList = map[string]ReportingItem
-
-var producer = &myProducer{myMetrics: make(map[string]*metricdata.Metric)}
 
 //
 // Report The Sarama Metrics (go-metrics) Via Knative / OpenCensus Metrics
 //
 func (r *Reporter) Report(list ReportingList) {
 
-	once.Do(func() {
-		metricproducer.GlobalManager().AddProducer(producer)
+	// Add this Reporter as an OpenCensus Producer, if it has not been done already
+	r.once.Do(func() {
+		metricproducer.GlobalManager().AddProducer(r)
 	})
 
 	// Validate The Metrics
 	// Loop Over The Observed Metrics
 	for metricKey, metricValue := range list {
-
 		r.recordMetric(metricKey, metricValue)
-
-		//r.createViewsIfNecessary(metricKey, metricValue)
-		//// Record Each Individual Metric Item
-		//for saramaKey, saramaValue := range metricValue {
-		//	r.recordMeasurement(metricKey, saramaKey, saramaValue)
-		//}
 	}
 }
 
-type myProducer struct {
-	myMetrics map[string]*metricdata.Metric
-}
-
-func (p myProducer) Read() []*metricdata.Metric {
-	metricsArray := make([]*metricdata.Metric, len(producer.myMetrics))
+// Read implements the OpenCensus Producer interface
+func (r *Reporter) Read() []*metricdata.Metric {
+	metricsArray := make([]*metricdata.Metric, len(r.metrics))
 	index := 0
-	for name := range producer.myMetrics {
-		metricsArray[index] = producer.myMetrics[name]
+	for name := range r.metrics {
+		metricsArray[index] = r.metrics[name]
 		index++
 	}
 	return metricsArray
 }
 
-// Creates the views for this particular set of reporting items.  For example, the Sarama metric "batch-size":
+// Creates the metrics for this particular set of reporting items.  For example, the Sarama metric "batch-size":
 //   {"75%": X, "95%": X, "99%": X, "99.9%": X, "count": X, "max": X, "mean": X, "median": X, "min": X, "stddev": X}
-// requires a collection of TimeSeries values so that they appear in the exporter properly.
+// requires a collection of TimeSeries values so that they appear in the exporter properly as "one name with different
+// tags for the percentile values".
 func (r *Reporter) recordMetric(metricKey string, item ReportingItem) {
 	timeNow := time.Now()
 
 	if isPercentileMetric(item) {
+		// Record this metric as a single collection of TimeSeries values.  Example /metrics output:
+		//
+		//   # HELP eventing_kafka_request_latency_in_ms Distribution of the request latency in ms for all brokers
+		//   # TYPE eventing_kafka_request_latency_in_ms gauge
+		//   eventing_kafka_request_latency_in_ms{percentile="50%"} 251
+		//   eventing_kafka_request_latency_in_ms{percentile="75%"} 252
+		//   eventing_kafka_request_latency_in_ms{percentile="95%"} 254
+		//   eventing_kafka_request_latency_in_ms{percentile="99%"} 256
+		//   eventing_kafka_request_latency_in_ms{percentile="99.9%"} 3009
+		//   eventing_kafka_request_latency_in_ms{percentile="max"} 3009
+		//   eventing_kafka_request_latency_in_ms{percentile="mean"} 241.8544891640867
+		//   eventing_kafka_request_latency_in_ms{percentile="min"} 0
+		//   eventing_kafka_request_latency_in_ms{percentile="stddev"} 119.7515250132759
+		//   # HELP eventing_kafka_request_latency_in_ms_count Distribution of the request latency in ms for all brokers (count)
+		//   # TYPE eventing_kafka_request_latency_in_ms_count gauge
+		//   eventing_kafka_request_latency_in_ms_count 646
+		//
 		r.recordPercentileMetric(timeNow, metricKey, item)
 	} else {
-		// Otherwise export all of the individual values as their own metrics
+		// Otherwise export all of the individual values as their own metrics.  Example /metrics output:
+		//
+		//   # HELP eventing_kafka_request_rate_15m_rate Requests/second sent to all brokers: 15-Minute Rate
+		//   # TYPE eventing_kafka_request_rate_15m_rate gauge
+		//   eventing_kafka_request_rate_15m_rate 0.8275150616643104
+		//   # HELP eventing_kafka_request_rate_1m_rate Requests/second sent to all brokers: 1-Minute Rate
+		//   # TYPE eventing_kafka_request_rate_1m_rate gauge
+		//   eventing_kafka_request_rate_1m_rate 3.96042677919562
+		//   # HELP eventing_kafka_request_rate_5m_rate Requests/second sent to all brokers: 5-Minute Rate
+		//   # TYPE eventing_kafka_request_rate_5m_rate gauge
+		//   eventing_kafka_request_rate_5m_rate 1.8089955139418779
+		//
 		for subKey, value := range item {
 			info := getMetricSubInfo(metricKey, subKey)
-			r.recordIndividualMetric(timeNow, info.Name, info.Description, value)
+			r.metrics[info.Name] = &metricdata.Metric{
+				Descriptor: metricdata.Descriptor{
+					Name:        info.Name,
+					Description: info.Description,
+					Unit:        info.Unit,
+					Type:        metricdata.TypeGaugeFloat64,
+				},
+				TimeSeries: []*metricdata.TimeSeries{{
+					Points:    []metricdata.Point{r.newPoint(timeNow, value)},
+					StartTime: timeNow,
+				}},
+				Resource: &resource.Resource{Type: info.Name},
+			}
 		}
 	}
 }
 
+// recordPercentileMetric takes a ReportingItem and breaks it apart into individual TimeSeries
+// elements that can be recorded as a single metric name with different tags, which makes graphing
+// the metric simpler.
+//
+// Note:  There is a metric type of metricdata.TypeSummary that would be somewhat simpler to use than
+//        creating all of the TimeSeries entries manually, but it is not (as of this writing) implemented
+//        in the OpenCensus Go exporter and instead returns a nil output with no error (see
+//        contrib.go.opencensus.io/exporter/prometheus/prometheus.go::toPromMetric).  It is implemented in
+//        the parallel Java version of the code (see exporter/stats/prometheus/PrometheusExportUtils.java
+//        in the opencensus-instrumentation project) and so may be ported at some point.
+//
 func (r *Reporter) recordPercentileMetric(metricTime time.Time, metricKey string, item ReportingItem) {
-	info := getMetricInfo(metricKey)
-	timeSeries := make([]*metricdata.TimeSeries, 0, 10)
 
+	info := getMetricInfo(metricKey)
+
+	// Create a TimeSeries for each percentile item in the ReportingItem provided
+	timeSeries := make([]*metricdata.TimeSeries, 0, 10)
 	for key, value := range item {
 		label := key
 		if key == "median" {
-			label = "50%"
+			label = "50%" // For visual consistency, since the other values are percentage strings
 		}
 		// Count isn't the same unit as anything else, so don't put it in this timeseries
 		if key != "count" {
@@ -195,62 +217,70 @@ func (r *Reporter) recordPercentileMetric(metricTime time.Time, metricKey string
 		}
 	}
 
-	descriptor := metricdata.Descriptor{
-		Name:        info.Name,
-		Description: info.Description,
-		Unit:        getMetricUnit(metricKey),
-		Type:        metricdata.TypeGaugeFloat64, // Some fields like "mean" are always floats
-		LabelKeys:   []metricdata.LabelKey{{Key: "percentile"}},
-	}
-
-	metric := &metricdata.Metric{
-		Descriptor: descriptor,
+	// Add the array of TimeSeries values to the metric map that is part of this Reporter, so that it will
+	// be exported when the Read() function is called (via the GetAll() function of the metricproducer's Manager)
+	r.metrics[metricKey] = &metricdata.Metric{
+		Descriptor: metricdata.Descriptor{
+			Name:        info.Name,
+			Description: info.Description,
+			Unit:        info.Unit,
+			Type:        metricdata.TypeGaugeFloat64, // Because some fields like "mean" are always floats
+			LabelKeys:   []metricdata.LabelKey{{Key: "percentile"}},
+		},
 		TimeSeries: timeSeries,
-		Resource: &resource.Resource{ Type: metricKey },
+		Resource:   &resource.Resource{Type: metricKey},
 	}
 
-	producer.myMetrics[metricKey] = metric
-
-	// Put the count, if present, in its own metric
-	r.recordIndividualMetric(metricTime, metricKey+"_count", info.Description + " (count)", item["count"])
-}
-
-func (r *Reporter) recordIndividualMetric(metricTime time.Time, name string, description string, value interface{}) {
-	descriptorCount := metricdata.Descriptor{
-		Name:        name,
-		Description: description,
-		Unit:        metricdata.UnitDimensionless,
-		Type:        metricdata.TypeGaugeInt64, // A count is always an int
-	}
-
-	producer.myMetrics[name] = &metricdata.Metric{
-		Descriptor: descriptorCount,
-		TimeSeries: []*metricdata.TimeSeries{{
-				Points:      []metricdata.Point{r.newPoint(metricTime, value)},
-				StartTime:   metricTime,
+	// Put the count, if present, in its own metric, as it is not the same type as the other values
+	if countValue, ok := item["count"]; ok {
+		countName := metricKey + "_count"
+		r.metrics[countName] = &metricdata.Metric{
+			Descriptor: metricdata.Descriptor{
+				Name:        countName,
+				Description: info.Description + " (count)",
+				Unit:        metricdata.UnitDimensionless,
+				Type:        metricdata.TypeGaugeInt64, // a count is always an int
+			},
+			TimeSeries: []*metricdata.TimeSeries{{
+				Points:    []metricdata.Point{r.newPoint(metricTime, countValue)},
+				StartTime: metricTime,
 			}},
-		Resource: &resource.Resource{ Type: name },
+			Resource: &resource.Resource{Type: countName},
+		}
 	}
 }
 
+// newPoint creates a Point structure using the specific type of the value provided.
+// Note that currently all of the mechanisms for generating a Point do exactly the same
+// thing, and that Point.Value is an interface{} internally, so the only real benefit of
+// the type switch is to prevent non-numeric data from getting into a Point struct
+// (and log a warning to that effect).
 func (r *Reporter) newPoint(t time.Time, value interface{}) metricdata.Point {
 	// Type-switches don't support "fallthrough" so each individual possible type must have its own
 	// somewhat-redundant code block.  Not all types are used by Sarama at the moment; if a new type is
 	// added, a warning will be logged here.
 	switch value := value.(type) {
-	case float64: return metricdata.NewFloat64Point(t, value)
-	case float32: return metricdata.NewFloat64Point(t, float64(value))
-	case int64: return metricdata.NewInt64Point(t, value)
-	case int32: return metricdata.NewInt64Point(t, int64(value))
-	case int: return metricdata.NewInt64Point(t, int64(value))
+	case float64:
+		return metricdata.NewFloat64Point(t, value)
+	case float32:
+		return metricdata.NewFloat64Point(t, float64(value))
+	case int64:
+		return metricdata.NewInt64Point(t, value)
+	case int32:
+		return metricdata.NewInt64Point(t, int64(value))
+	case int:
+		return metricdata.NewInt64Point(t, int64(value))
 	default:
-		r.logger.Warn("Could not interpret Sarama measurement as a number; returning zero", zap.Any("Sarama Value", value))
+		r.logger.Warn("Could not interpret Sarama measurement as a number; using zero", zap.Any("Sarama Value", value))
 		return metricdata.NewInt64Point(t, 0)
 	}
 }
 
+// isPercentileMetric returns true if the ReportingItem provided is a collection of percentile values
+// For example, an item containing values for 75%, 95%, 99%, and 99.9%
 func isPercentileMetric(item ReportingItem) bool {
 	for key := range item {
+		// Assume that if any item key has a "%" in it, then it should be treated as a percentile metric
 		if strings.Contains(key, "%") {
 			return true
 		}
@@ -258,6 +288,7 @@ func isPercentileMetric(item ReportingItem) bool {
 	return false
 }
 
+// getMetricUnit returns the proper unit for a given Sarama metric name
 func getMetricUnit(metricKey string) metricdata.Unit {
 	if strings.Contains(metricKey, "-in-ms") {
 		return metricdata.UnitMilliseconds
@@ -265,86 +296,7 @@ func getMetricUnit(metricKey string) metricdata.Unit {
 	return metricdata.UnitDimensionless
 }
 
-// Creates and registers a new view in the OpenCensus context, adding it to the Reporter's known views
-// Note:  OpenCensus has a "view.Distribution" that can be used for the Aggregation field, but the Sarama
-//        measurements (1-Minute Rate, 5-Minute Rate, etc.) are already in a collective form, so the only way
-//        to record them via OpenCensus is to use the individual measurements and offer them to the end-user
-//        as individual views for whatever purpose they desire.  This isn't perfect and it may be better in
-//        the future to switch to something other than the default OpenCensus recorder.
-func (r *Reporter) createView(info saramaMetricInfo, measure stats.Measure) (*view.View, error) {
-	newView := &view.View{
-		Name:        info.Name,
-		Description: info.Description,
-		Measure:     measure,
-		TagKeys:     []tag.Key{keyBroker, keyTopic},
-		Aggregation: view.LastValue(), // Sarama already sums or otherwise aggregates its metrics, so only LastValue is useful here
-	}
-	err := view.Register(newView)
-	if err != nil {
-		return nil, err
-	}
-
-	r.tagContexts[info.Name] = context.Background()
-	ctx, err := tag.New(r.tagContexts[info.Name], tag.Insert(keyBroker, info.Broker))
-	if err != nil {
-		return nil, err
-	}
-	r.tagContexts[info.Name] = ctx
-
-	ctx, err = tag.New(ctx, tag.Insert(keyTopic, info.Topic))
-	if err != nil {
-		return nil, err
-	}
-	r.tagContexts[info.Name] = ctx
-
-	//r.logger.Info(fmt.Sprintf("\nEDV: View Name: %v\nView Description: %v\nMeasure Name: %v\nMeasure Description: %v\nTag Keys: %v\n", newView.Name, newView.Description, newView.Measure.Name(), newView.Measure.Description(), newView.TagKeys))
-	r.views[info.Name] = newView
-	return newView, nil
-}
-
-// Record a measurement to the metrics backend, creating a new OpenCensus view if this is a new measurement
-func (r *Reporter) recordMeasurement(metricKey string, saramaKey string, value interface{}) {
-
-	// Type-switches don't support "fallthrough" so each individual possible type must have its own
-	// somewhat-redundant code block.  Not all types are used by Sarama at the moment; if a new type is
-	// added, a warning will be logged here.
-	// Note:  The Int64Measure wrapper converts to a float64 internally anyway so there is no particular
-	//        advantage in treating int-types separately here.
-	switch value := value.(type) {
-	case int:
-		r.recordFloat(float64(value), metricKey, saramaKey)
-	case int32:
-		r.recordFloat(float64(value), metricKey, saramaKey)
-	case int64:
-		r.recordFloat(float64(value), metricKey, saramaKey)
-	case float64:
-		r.recordFloat(value, metricKey, saramaKey)
-	case float32:
-		r.recordFloat(float64(value), metricKey, saramaKey)
-	default:
-		r.logger.Warn("Could not interpret Sarama measurement as a number", zap.Any("Sarama Value", value))
-	}
-}
-
-// Record a measurement that is represented by a float64 value
-func (r *Reporter) recordFloat(value float64, metricKey string, saramaKey string) {
-	if ! strings.Contains(saramaKey, "%") {
-		return		// testing histograms only
-	}
-
-	info := getMetricInfo(metricKey)
-	measureInfo := getMetricSubInfo(metricKey, saramaKey)
-
-	var err error
-	floatView, ok := r.views[info.Name + "-bucket"]
-	if !ok {
-		r.logger.Error("View was not registered", zap.String("view", info.Name + "-bucket"), zap.Error(err))
-	} else {
-		RecordWrapper(r.tagContexts[measureInfo.Name], floatView.Measure.(*stats.Float64Measure).M(value))
-	}
-}
-
-// Returns pretty descriptions for known Sarama metrics
+// getMetricInfo returns pretty descriptions for known Sarama metrics
 func getMetricInfo(metricKey string) saramaMetricInfo {
 	if cachedReplacement, ok := replacementCache[metricKey]; ok {
 		return cachedReplacement
@@ -354,26 +306,16 @@ func getMetricInfo(metricKey string) saramaMetricInfo {
 		newString = replacement.Search.ReplaceAllString(newString, replacement.Replace)
 	}
 
-	broker := "all"
-	if regexSpecificBroker.MatchString(metricKey) {
-		broker = regexSpecificBroker.ReplaceAllString(metricKey, "${1}")
-	}
-	topic := "any"
-	if regexSpecificTopic.MatchString(metricKey) {
-		topic = regexSpecificTopic.ReplaceAllString(metricKey, "${1}")
-	}
-
 	info := saramaMetricInfo{
 		Name:        metricKey,
 		Description: newString,
-		Broker:      broker,
-		Topic:       topic,
+		Unit:        getMetricUnit(metricKey),
 	}
 	replacementCache[metricKey] = info
 	return info
 }
 
-// Returns pretty descriptions for known Sarama submetrics
+// getMetricSubInfo returns pretty descriptions for known Sarama submetrics
 func getMetricSubInfo(main string, sub string) saramaMetricInfo {
 	if cachedReplacement, ok := replacementCache[main+sub]; ok {
 		return cachedReplacement
@@ -382,11 +324,12 @@ func getMetricSubInfo(main string, sub string) saramaMetricInfo {
 	info := getMetricInfo(main)
 	info.Name = fmt.Sprintf("%s.%s", main, sub)
 	info.Description += ": " + getSubDescription(sub)
+	info.Unit = getMetricUnit(main)
 	replacementCache[main+sub] = info
 	return info
 }
 
-// Returns pretty descriptions for known Sarama sub-metric categories
+// getSubDescription returns pretty descriptions for known Sarama sub-metric categories
 func getSubDescription(sub string) string {
 	switch sub {
 	case "1m.rate":

@@ -17,17 +17,14 @@ limitations under the License.
 package metrics
 
 import (
-	"context"
-	"fmt"
-	"go.opencensus.io/tag"
 	"os"
 	"testing"
+	"time"
 
-	"go.opencensus.io/stats"
-	"go.opencensus.io/stats/view"
+	"github.com/stretchr/testify/require"
+	"go.opencensus.io/metric/metricdata"
 
 	"github.com/stretchr/testify/assert"
-	ocstats "go.opencensus.io/stats"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
 	logtesting "knative.dev/pkg/logging/testing"
 )
@@ -42,7 +39,7 @@ func TestMetricsServer_Report(t *testing.T) {
 	// Test Data
 	metricsDomain := "eventing-kafka"
 	topicName := "test-topic-name"
-	msgCount := 13579
+	msgCount := int64(13579)
 
 	// Initialize The Environment For The Test
 	assert.Nil(t, os.Setenv(env.MetricsDomainEnvVarKey, metricsDomain))
@@ -54,29 +51,24 @@ func TestMetricsServer_Report(t *testing.T) {
 	statsReporter := NewStatsReporter(logger)
 
 	// Create The Stats / Metrics To Report
-	metrics := createTestMetrics(topicName, int64(msgCount))
-
-	measuredMsgCount := 0.0
-
-	RecordWrapperRef := RecordWrapper
-	defer func() { RecordWrapper = RecordWrapperRef }()
-
-	// Set up a mock RecordWrapper() that will capture the produced message count from our stats reporter
-	RecordWrapper = func(ctx context.Context, ms ocstats.Measurement, ros ...ocstats.Options) {
-		if ms.Measure().Name() == fmt.Sprintf("%s%s.count", RecordSendRateForTopicPrefix, topicName) {
-			measuredMsgCount += ms.Value()
-		}
-	}
+	metrics := createTestMetrics(topicName, msgCount)
 
 	// Perform The Test
 	statsReporter.Report(metrics)
 
-	assert.Equal(t, float64(msgCount), measuredMsgCount)
+	// Verify that the count was stored for export properly
+	savedMetric := statsReporter.(*Reporter).metrics[RecordSendRateForTopicPrefix+topicName+".count"]
+	require.NotNil(t, savedMetric)
+	require.Equal(t, 1, len(savedMetric.TimeSeries))
+	require.Equal(t, 1, len(savedMetric.TimeSeries[0].Points))
+	messageValue, ok := savedMetric.TimeSeries[0].Points[0].Value.(int64)
+	require.True(t, ok)
+	assert.Equal(t, msgCount, messageValue)
 }
 
 func TestGetMetricSubInfo(t *testing.T) {
 	const subMetric = "test-sub-metric"
-	
+
 	tests := []struct {
 		name string
 		want string
@@ -191,141 +183,201 @@ func TestGetSubDescription(t *testing.T) {
 	}
 }
 
-func TestReporterRecordMeasurement(t *testing.T) {
+func TestReporterNewPoint(t *testing.T) {
 	tests := []struct {
 		name        string
 		value       interface{}
-		expectError bool
+		ExpectZero  bool
+		ExpectFloat bool
 	}{
 		{name: "Int64 Measure", value: int64(-12345678901)},
 		{name: "Int32 Measure", value: int32(-123456)},
-		{name: "Int16 Measure", value: int16(-1234), expectError: true},
-		{name: "Int8 Measure", value: int8(-123), expectError: true},
+		{name: "Int16 Measure", value: int16(-1234), ExpectZero: true},
+		{name: "Int8 Measure", value: int8(-123), ExpectZero: true},
 		{name: "Int Measure", value: -12345},
-		{name: "UInt64 Measure", value: uint64(12345678901), expectError: true},
-		{name: "UInt32 Measure", value: uint32(123456), expectError: true},
-		{name: "UInt16 Measure", value: uint16(1234), expectError: true},
-		{name: "UInt8 Measure", value: uint8(123), expectError: true},
-		{name: "UInt Measure", value: uint(12345), expectError: true},
-		{name: "Float64 Measure", value: 12.345},
-		{name: "Float32 Measure", value: float32(12.345)},
-		{name: "Invalid Measure", value: "not-a-number", expectError: true},
+		{name: "UInt64 Measure", value: uint64(12345678901), ExpectZero: true},
+		{name: "UInt32 Measure", value: uint32(123456), ExpectZero: true},
+		{name: "UInt16 Measure", value: uint16(1234), ExpectZero: true},
+		{name: "UInt8 Measure", value: uint8(123), ExpectZero: true},
+		{name: "UInt Measure", value: uint(12345), ExpectZero: true},
+		{name: "Float64 Measure", value: 12.345, ExpectFloat: true},
+		{name: "Float32 Measure", value: float32(12.345), ExpectFloat: true},
+		{name: "Invalid Measure", value: "not-a-number", ExpectZero: true},
 	}
 
-	RecordWrapperRef := RecordWrapper
-	defer func() { RecordWrapper = RecordWrapperRef }()
-
-	var recordCalled bool
-
-	// Set up a mock RecordWrapper() that will capture the produced message count from our stats reporter
-	RecordWrapper = func(ctx context.Context, ms ocstats.Measurement, ros ...ocstats.Options) {
-		recordCalled = true
-	}
+	timeNow := time.Now()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Reset the values to check before each individual test
-			recordCalled = false
-
 			statsReporter := createTestReporter(t)
 
 			// Perform the test
-			statsReporter.recordMeasurement("test-metric-key", "test-sarama-key", tt.value)
-			newView := statsReporter.views["test-metric-key.test-sarama-key"]
+			point := statsReporter.newPoint(timeNow, tt.value)
 
 			// Verify the results
-			if tt.expectError {
-				assert.False(t, recordCalled)
-				assert.Nil(t, newView)
+			if tt.ExpectZero {
+				assert.Zero(t, point.Value.(int64))
+			} else if tt.ExpectFloat {
+				assert.InDelta(t, tt.value, point.Value.(float64), 0.1) // InDelta handles "off by 0.00000001" float issues
 			} else {
-				assert.True(t, recordCalled)
-				assert.NotNil(t, newView)
-				view.Unregister(newView)
+				assert.InDelta(t, tt.value, point.Value.(int64), 0.1) // InDelta handles "slightly different int-types"
 			}
 		})
 	}
 }
 
-func TestReporterCreateView(t *testing.T) {
-
-	intMeasure := stats.Int64("int-name", "int-description", stats.UnitDimensionless)
-	floatMeasure := stats.Float64("float-name", "float-description", stats.UnitDimensionless)
+func TestIsPercentileMetric(t *testing.T) {
+	testMetrics := createTestMetrics("test-topic", 100)
 
 	tests := []struct {
-		name        string
-		measure     ocstats.Measure
-		nameArg     string
-		description string
-		expectView  bool
+		name   string
+		expect bool
 	}{
-		{name: "Valid Name", measure: intMeasure, nameArg: "valid-name", expectView: true},
-		{name: "Invalid Name", measure: floatMeasure, nameArg: "invalid-name-�"},
-		{name: "No Measure", nameArg: "no-measure"},
+		{name: "batch-size", expect: true},
+		{name: "batch-size-for-topic-test-topic", expect: true},
+		{name: "compression-ratio", expect: true},
+		{name: "compression-ratio-for-topic-stage_sample-kafka-channel-1", expect: true},
+		{name: "incoming-byte-rate", expect: false},
+		{name: "incoming-byte-rate-for-broker-0", expect: false},
+		{name: "outgoing-byte-rate", expect: false},
+		{name: "outgoing-byte-rate-for-broker-0", expect: false},
+		{name: "record-send-rate", expect: false},
+		{name: RecordSendRateForTopicPrefix + "test-topic", expect: false},
+		{name: "records-per-request", expect: true},
+		{name: "records-per-request-for-topic-stage_sample-kafka-channel-1", expect: true},
+		{name: "request-latency-in-ms", expect: true},
+		{name: "request-latency-in-ms-for-broker-0", expect: true},
+		{name: "request-rate", expect: false},
+		{name: "request-rate-for-broker-0", expect: false},
+		{name: "request-size", expect: true},
+		{name: "request-size-for-broker-0", expect: true},
+		{name: "response-rate", expect: false},
+		{name: "response-rate-for-broker-0", expect: false},
+		{name: "response-size", expect: true},
+		{name: "response-size-for-broker-0", expect: true},
+		{name: "int32-test-metric", expect: false},
+		{name: "float32-test-metric", expect: false},
+		{name: "nan-test-metric", expect: false},
+		{name: "bad-header", expect: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expect, isPercentileMetric(testMetrics[tt.name]))
+		})
+	}
+}
+
+func TestGetMetricUnit(t *testing.T) {
+	tests := []struct {
+		name     string
+		expectMS bool
+	}{
+		{name: "batch-size"},
+		{name: "batch-size-for-topic-test-topic"},
+		{name: "compression-ratio"},
+		{name: "compression-ratio-for-topic-stage_sample-kafka-channel-1"},
+		{name: "incoming-byte-rate"},
+		{name: "incoming-byte-rate-for-broker-0"},
+		{name: "outgoing-byte-rate"},
+		{name: "outgoing-byte-rate-for-broker-0"},
+		{name: "record-send-rate"},
+		{name: RecordSendRateForTopicPrefix + "test-topic"},
+		{name: "records-per-request"},
+		{name: "records-per-request-for-topic-stage_sample-kafka-channel-1"},
+		{name: "request-latency-in-ms", expectMS: true},
+		{name: "request-latency-in-ms-for-broker-0", expectMS: true},
+		{name: "request-rate"},
+		{name: "request-rate-for-broker-0"},
+		{name: "request-size"},
+		{name: "request-size-for-broker-0"},
+		{name: "response-rate"},
+		{name: "response-rate-for-broker-0"},
+		{name: "response-size"},
+		{name: "response-size-for-broker-0"},
+		{name: "int32-test-metric"},
+		{name: "float32-test-metric"},
+		{name: "nan-test-metric"},
+		{name: "bad-header"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
-			statsReporter := createTestReporter(t)
-
-			info := saramaMetricInfo{
-				Name:        tt.nameArg,
-				Description: tt.description,
-				Broker:      "all",
-				Topic:       "any",
-			}
-			// Perform the test
-			newView, err := statsReporter.createView(info, tt.measure)
-			viewFromMap := statsReporter.views[tt.nameArg]
-
-			// Verify the results
-			if tt.expectView {
-				assert.NotNil(t, newView)
-				assert.NotNil(t, viewFromMap)
-				assert.Nil(t, err)
-				view.Unregister(newView)
-			} else {
-				assert.NotNil(t, err)
-				assert.Nil(t, newView)
-				assert.Nil(t, viewFromMap)
-			}
+			assert.Equal(t, tt.expectMS, getMetricUnit(tt.name) == metricdata.UnitMilliseconds)
 		})
 	}
-
 }
 
-func TestReporterRecordFloat(t *testing.T) {
-
+func TestReporterRecordMetric(t *testing.T) {
+	reporter := createTestReporter(t)
+	metrics := createTestMetrics("test-topic", 100)
 	tests := []struct {
 		name       string
-		nameArg    string
-		expectView bool
+		noCount    bool
+		percentile bool
 	}{
-		{name: "Valid Name", nameArg: "valid-name", expectView: true},
-		{name: "Invalid Name", nameArg: "invalid-name-�"},
+		{name: "batch-size", percentile: true},
+		{name: "batch-size-for-topic-test-topic", percentile: true},
+		{name: "compression-ratio", percentile: true},
+		{name: "compression-ratio-for-topic-stage_sample-kafka-channel-1", percentile: true},
+		{name: "incoming-byte-rate"},
+		{name: "incoming-byte-rate-for-broker-0"},
+		{name: "outgoing-byte-rate"},
+		{name: "outgoing-byte-rate-for-broker-0"},
+		{name: "record-send-rate"},
+		{name: RecordSendRateForTopicPrefix + "test-topic"},
+		{name: "records-per-request", percentile: true},
+		{name: "records-per-request-for-topic-stage_sample-kafka-channel-1", percentile: true},
+		{name: "request-latency-in-ms", percentile: true},
+		{name: "request-latency-in-ms-for-broker-0", percentile: true},
+		{name: "request-rate"},
+		{name: "request-rate-for-broker-0"},
+		{name: "request-size", percentile: true},
+		{name: "request-size-for-broker-0", percentile: true},
+		{name: "response-rate"},
+		{name: "response-rate-for-broker-0"},
+		{name: "response-size", percentile: true},
+		{name: "response-size-for-broker-0", percentile: true},
+		{name: "int32-test-metric", noCount: true},
+		{name: "float32-test-metric", noCount: true},
+		{name: "nan-test-metric", noCount: true},
+		{name: "bad-header", noCount: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
-			reporter := createTestReporter(t)
-			recordCalled := false
-
-			RecordWrapperRef := RecordWrapper
-			defer func() { RecordWrapper = RecordWrapperRef }()
-
-			RecordWrapper = func(ctx context.Context, ms ocstats.Measurement, ros ...ocstats.Options) { recordCalled = true }
-
-			// Perform the test
-			reporter.recordFloat(12.345, tt.nameArg, "test-sub")
-
-			viewName := tt.nameArg + ".test-sub"
-			// Verify the results
-			if tt.expectView {
-				assert.NotNil(t, reporter.views[viewName])
-				view.Unregister(reporter.views[viewName])
-				assert.True(t, recordCalled)
+			// Clear the metrics before each test
+			reporter.metrics = make(map[string]*metricdata.Metric)
+			item := metrics[tt.name]
+			reporter.recordMetric(tt.name, item)
+			if tt.percentile {
+				savedMetric, ok := reporter.metrics[tt.name]
+				require.True(t, ok)
+				// Verify that all submetrics are part of one timeseries array (except for "count")
+				for _, series := range savedMetric.TimeSeries {
+					require.Equal(t, 1, len(series.Points))
+					require.Equal(t, 1, len(series.LabelValues))
+					itemKey := series.LabelValues[0].Value
+					if itemKey == "50%" {
+						itemKey = "median" // special-case conversion
+					}
+					// Make sure this point's value came from the original item
+					assert.InDelta(t, item[itemKey], series.Points[0].Value, 0.1)
+				}
 			} else {
-				assert.Nil(t, reporter.views[viewName])
-				assert.False(t, recordCalled)
+				// Verify that all of the sub-items exist as their own metric
+				for key, subItemValue := range item {
+					subItemInfo := getMetricSubInfo(tt.name, key)
+					savedMetric, ok := reporter.metrics[subItemInfo.Name]
+					require.True(t, ok)
+					require.Equal(t, 1, len(savedMetric.TimeSeries))
+					require.Equal(t, 1, len(savedMetric.TimeSeries[0].Points))
+					// Verify that the metric's value came from the original item
+					if _, ok = subItemValue.(string); ok {
+						// If it isn't a number it should be logged as zero
+						assert.InDelta(t, 0, savedMetric.TimeSeries[0].Points[0].Value, 0.1)
+					} else {
+						assert.InDelta(t, subItemValue, savedMetric.TimeSeries[0].Points[0].Value, 0.1)
+					}
+				}
 			}
 		})
 	}
@@ -334,10 +386,8 @@ func TestReporterRecordFloat(t *testing.T) {
 // Utility Function For Creating Test Reporter Struct
 func createTestReporter(t *testing.T) *Reporter {
 	return &Reporter{
-		views:        make(map[string]*view.View),
-		tagKeys:      make(map[string]tag.Key),
-		tagContexts:  make(map[string]context.Context),
-		logger:       logtesting.TestLogger(t).Desugar(),
+		logger:  logtesting.TestLogger(t).Desugar(),
+		metrics: make(map[string]*metricdata.Metric),
 	}
 }
 
@@ -371,4 +421,21 @@ func createTestMetrics(topic string, count int64) ReportingList {
 	testMetrics["nan-test-metric"] = ReportingItem{"test-header": "not-a-number"}
 	testMetrics["bad-header"] = ReportingItem{"�": 0}
 	return testMetrics
+}
+
+func TestReporterRead(t *testing.T) {
+	reporter := createTestReporter(t)
+	metrics := createTestMetrics("test-topic", 100)
+	expectedMetrics := 0
+	for key, value := range metrics {
+		if isPercentileMetric(value) {
+			expectedMetrics += 2 // The count and the timeseries array are two separate metrics
+		} else {
+			expectedMetrics += len(value) // Each individual subitem is its own metric
+		}
+		reporter.recordMetric(key, value)
+	}
+	metricsArray := reporter.Read()
+	// Verify that we are outputting the number of metrics we expect, given the test metrics list
+	assert.Equal(t, expectedMetrics, len(metricsArray))
 }
