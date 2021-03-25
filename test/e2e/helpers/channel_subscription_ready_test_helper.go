@@ -35,14 +35,11 @@ import (
 )
 
 const (
-	kafkaBootstrapUrlPlain = "my-cluster-kafka-bootstrap.kafka.svc:9092"
-	kafkaClusterName       = "my-cluster"
-	kafkaClusterNamespace  = "kafka"
-	kafkaChannelName       = "kafka-sub-ready-channel"
-	kafkaSub0              = "kafka-sub-0"
-	kafkaSub1              = "kafka-sub-1"
-	recordEventsPodName    = "e2e-channel-sub-ready-recordevents-pod"
-	eventSenderName        = "e2e-channel-event-sender-pod"
+	kafkaChannelName    = "kafka-sub-ready-channel"
+	kafkaSub0           = "kafka-sub-0"
+	kafkaSub1           = "kafka-sub-1"
+	recordEventsPodName = "e2e-channel-sub-ready-recordevents-pod"
+	eventSenderName     = "e2e-channel-event-sender-pod"
 )
 
 func scaleDispatcherDeployment(ctx context.Context, t *testing.T, desiredReplicas int32, client *testlib.Client) {
