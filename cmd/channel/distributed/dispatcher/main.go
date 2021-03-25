@@ -123,7 +123,9 @@ func main() {
 		logger.Fatal("Failed To Initialize Health Server - Terminating", zap.Error(err))
 	}
 
+	// Start The Metrics Reporter And Defer Shutdown
 	statsReporter := metrics.NewStatsReporter(logger)
+	defer statsReporter.Shutdown()
 
 	// Increase The Idle Connection Limits From Transport Defaults (see net/http/DefaultTransport)
 	kncloudevents.ConfigureConnectionArgs(&kncloudevents.ConnectionArgs{

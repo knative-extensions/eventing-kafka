@@ -587,3 +587,7 @@ func (s *statsReporterMock) Report(_ metrics.ReportingList) {
 	defer s.mutex.Unlock()
 	s.reportCalled = true
 }
+
+// Shutdown is required to implement the StatsReporter interface
+func (s *statsReporterMock) Shutdown() {
+}

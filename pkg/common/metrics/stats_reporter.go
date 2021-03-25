@@ -32,9 +32,10 @@ import (
 // StatsReporter defines the interface for sending ingress metrics.
 type StatsReporter interface {
 	Report(ReportingList)
+	Shutdown()
 }
 
-// Verify StatsReporter Implements StatsReporter Interface
+// Verify Reporter Implements StatsReporter Interface
 var _ StatsReporter = &Reporter{}
 
 // Define a list of regular expressions that can be applied to a raw incoming Sarama metric in order to produce
@@ -70,7 +71,7 @@ var regexDescriptions = []struct {
 	{regexp.MustCompile(`all brokers-for-broker-`), `broker `},
 }
 
-// The saramaMetricInfo struct holds information related to a particular Sarama metric for use by the Views and Tags
+// The saramaMetricInfo struct holds information related to a particular Sarama metric, used when creating TimeSeries
 type saramaMetricInfo struct {
 	Name        string
 	Description string
@@ -89,7 +90,7 @@ type ReportingList = map[string]ReportingItem
 type Reporter struct {
 	logger  *zap.Logger
 	metrics map[string]*metricdata.Metric
-	once    sync.Once // Used to add a metric producer to the OpenCensus global manager only one time
+	once    sync.Once // Used to add a particular metric producer to the OpenCensus global manager only one time
 }
 
 // StatsReporter Constructor
@@ -115,6 +116,11 @@ func (r *Reporter) Report(list ReportingList) {
 	for metricKey, metricValue := range list {
 		r.recordMetric(metricKey, metricValue)
 	}
+}
+
+// Remove this producer from the global manager's list so that it will no longer call Read()
+func (r *Reporter) Shutdown() {
+	metricproducer.GlobalManager().DeleteProducer(r)
 }
 
 // Read implements the OpenCensus Producer interface

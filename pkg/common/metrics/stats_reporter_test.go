@@ -49,6 +49,7 @@ func TestMetricsServer_Report(t *testing.T) {
 
 	// Create A New StatsReporter To Test
 	statsReporter := NewStatsReporter(logger)
+	defer statsReporter.Shutdown()
 
 	// Create The Stats / Metrics To Report
 	metrics := createTestMetrics(topicName, msgCount)
@@ -206,10 +207,11 @@ func TestReporterNewPoint(t *testing.T) {
 	}
 
 	timeNow := time.Now()
+	statsReporter := createTestReporter(t)
+	defer statsReporter.Shutdown()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			statsReporter := createTestReporter(t)
 
 			// Perform the test
 			point := statsReporter.newPoint(timeNow, tt.value)
@@ -309,6 +311,7 @@ func TestGetMetricUnit(t *testing.T) {
 
 func TestReporterRecordMetric(t *testing.T) {
 	reporter := createTestReporter(t)
+	defer reporter.Shutdown()
 	metrics := createTestMetrics("test-topic", 100)
 	tests := []struct {
 		name       string
@@ -383,6 +386,24 @@ func TestReporterRecordMetric(t *testing.T) {
 	}
 }
 
+func TestReporterRead(t *testing.T) {
+	reporter := createTestReporter(t)
+	defer reporter.Shutdown()
+	metrics := createTestMetrics("test-topic", 100)
+	expectedMetrics := 0
+	for key, value := range metrics {
+		if isPercentileMetric(value) {
+			expectedMetrics += 2 // The count and the timeseries array are two separate metrics
+		} else {
+			expectedMetrics += len(value) // Each individual subitem is its own metric
+		}
+		reporter.recordMetric(key, value)
+	}
+	metricsArray := reporter.Read()
+	// Verify that we are outputting the number of metrics we expect, given the test metrics list
+	assert.Equal(t, expectedMetrics, len(metricsArray))
+}
+
 // Utility Function For Creating Test Reporter Struct
 func createTestReporter(t *testing.T) *Reporter {
 	return &Reporter{
@@ -421,21 +442,4 @@ func createTestMetrics(topic string, count int64) ReportingList {
 	testMetrics["nan-test-metric"] = ReportingItem{"test-header": "not-a-number"}
 	testMetrics["bad-header"] = ReportingItem{"�": 0}
 	return testMetrics
-}
-
-func TestReporterRead(t *testing.T) {
-	reporter := createTestReporter(t)
-	metrics := createTestMetrics("test-topic", 100)
-	expectedMetrics := 0
-	for key, value := range metrics {
-		if isPercentileMetric(value) {
-			expectedMetrics += 2 // The count and the timeseries array are two separate metrics
-		} else {
-			expectedMetrics += len(value) // Each individual subitem is its own metric
-		}
-		reporter.recordMetric(key, value)
-	}
-	metricsArray := reporter.Read()
-	// Verify that we are outputting the number of metrics we expect, given the test metrics list
-	assert.Equal(t, expectedMetrics, len(metricsArray))
 }

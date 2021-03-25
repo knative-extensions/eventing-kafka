@@ -129,8 +129,9 @@ func main() {
 	}
 	defer channel.Close()
 
-	// Create A New Stats StatsReporter
+	// Start The Metrics Reporter And Defer Shutdown
 	statsReporter := metrics.NewStatsReporter(logger)
+	defer statsReporter.Shutdown()
 
 	// Create A Watcher On The Configuration Settings ConfigMap & Dynamically Update Configuration
 	// Since this is designed to be called by the main() function, the default KNative package behavior here
