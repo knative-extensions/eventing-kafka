@@ -565,7 +565,7 @@ func TestConfigImpl_ObserveMetrics(t *testing.T) {
 
 	// Start the metrics observing loop and verify that the report function was called at least once
 	config.ObserveMetrics(5 * time.Millisecond)
-	assert.Eventually(t, reporter.GetReportCalled, 50*time.Millisecond, 5*time.Millisecond)
+	assert.Eventually(t, reporter.GetReportCalled, time.Second, 5*time.Millisecond)
 	close(config.MetricsStopChan)
 	<-config.MetricsStoppedChan
 }
