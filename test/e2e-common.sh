@@ -489,8 +489,8 @@ function test_consolidated_channel_plain() {
   install_consolidated_channel_crds || return 1
   install_consolidated_sources_crds || return 1
 
-  go_test_e2e -tags=e2e,source -timeout=40m -test.parallel=${TEST_PARALLEL} ./test/e2e -channels=messaging.knative.dev/v1beta1:KafkaChannel  || fail_test
-  go_test_e2e -tags=e2e,source -timeout=5m -test.parallel=${TEST_PARALLEL} ./test/conformance -channels=messaging.knative.dev/v1beta1:KafkaChannel -sources=sources.knative.dev/v1beta1:KafkaSource || fail_test
+  go_test_e2e -tags=e2e,consolidated,source -timeout=40m -test.parallel=${TEST_PARALLEL} ./test/e2e -channels=messaging.knative.dev/v1beta1:KafkaChannel  || fail_test
+  go_test_e2e -tags=e2e,consolidated,source -timeout=5m -test.parallel=${TEST_PARALLEL} ./test/conformance -channels=messaging.knative.dev/v1beta1:KafkaChannel -sources=sources.knative.dev/v1beta1:KafkaSource || fail_test
 
   uninstall_sources_crds || return 1
   uninstall_channel_crds || return 1
@@ -506,7 +506,7 @@ function test_consolidated_channel_tls() {
 
   install_consolidated_channel_crds || return 1
 
-  go_test_e2e -tags=e2e -timeout=40m -test.parallel=${TEST_PARALLEL} ./test/e2e -channels=messaging.knative.dev/v1beta1:KafkaChannel  || fail_test
+  go_test_e2e -tags=e2e,consolidated -timeout=40m -test.parallel=${TEST_PARALLEL} ./test/e2e -channels=messaging.knative.dev/v1beta1:KafkaChannel  || fail_test
 
   uninstall_channel_crds || return 1
 }
@@ -521,7 +521,7 @@ function test_consolidated_channel_sasl() {
 
   install_consolidated_channel_crds || return 1
 
-  go_test_e2e -tags=e2e -timeout=40m -test.parallel=${TEST_PARALLEL} ./test/e2e -channels=messaging.knative.dev/v1beta1:KafkaChannel  || fail_test
+  go_test_e2e -tags=e2e,consolidated -timeout=40m -test.parallel=${TEST_PARALLEL} ./test/e2e -channels=messaging.knative.dev/v1beta1:KafkaChannel  || fail_test
 
   uninstall_channel_crds || return 1
 }

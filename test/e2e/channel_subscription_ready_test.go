@@ -1,4 +1,4 @@
-// +build e2e
+// +build e2e,consolidated
 
 /*
 Copyright 2021 The Knative Authors
