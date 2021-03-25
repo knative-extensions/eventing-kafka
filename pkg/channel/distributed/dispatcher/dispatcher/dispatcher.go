@@ -81,7 +81,7 @@ type Dispatcher interface {
 	UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error
 }
 
-// Define A Dispatcher DispatcherImpl Struct With Configuration & ConsumerGroup State
+// Define A DispatcherImpl Struct With Configuration & ConsumerGroup State
 type DispatcherImpl struct {
 	DispatcherConfig
 	subscribers        map[types.UID]*SubscriberWrapper
