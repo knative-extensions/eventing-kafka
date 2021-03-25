@@ -93,7 +93,7 @@ func TestShutdown(t *testing.T) {
 
 	// Create The Dispatcher To Test With Existing Subscribers
 	dispatcher := &DispatcherImpl{
-		Config: Config{
+		DispatcherConfig: DispatcherConfig{
 			Logger: logtesting.TestLogger(t).Desugar(),
 		},
 		subscribers: map[types.UID]*SubscriberWrapper{
@@ -127,7 +127,7 @@ func TestUpdateSubscriptions(t *testing.T) {
 	config, err := commonclient.NewConfigBuilder().WithDefaults().FromYaml(clienttesting.DefaultSaramaConfigYaml).Build(ctx)
 	assert.Nil(t, err)
 
-	dispatcherConfig := Config{
+	dispatcherConfig := DispatcherConfig{
 		Logger:       logger.Desugar(),
 		Brokers:      brokers,
 		SaramaConfig: config,
@@ -135,7 +135,7 @@ func TestUpdateSubscriptions(t *testing.T) {
 
 	// Define The TestCase Struct
 	type fields struct {
-		DispatcherConfig Config
+		DispatcherConfig DispatcherConfig
 		subscribers      map[types.UID]*SubscriberWrapper
 	}
 	type args struct {
@@ -255,8 +255,8 @@ func TestUpdateSubscriptions(t *testing.T) {
 
 			// Create A New DispatcherImpl To Test
 			dispatcher := &DispatcherImpl{
-				Config:      testCase.fields.DispatcherConfig,
-				subscribers: testCase.fields.subscribers,
+				DispatcherConfig: testCase.fields.DispatcherConfig,
+				subscribers:      testCase.fields.subscribers,
 			}
 
 			// Perform The Test
@@ -504,8 +504,8 @@ func createTestDispatcher(t *testing.T, brokers []string, config *sarama.Config)
 	// Create An Empty Set Of SubscriberSpecs
 	subscriberSpecs := make([]eventingduck.SubscriberSpec, 0)
 
-	// Create The Dispatcher Config
-	dispatcherConfig := Config{
+	// Create The DispatcherConfig
+	dispatcherConfig := DispatcherConfig{
 		Logger:          logger,
 		Brokers:         brokers,
 		StatsReporter:   statsReporter,
@@ -554,7 +554,7 @@ func TestConfigImpl_ObserveMetrics(t *testing.T) {
 	reporter := &statsReporterMock{}
 
 	config := &DispatcherImpl{
-		Config: Config{
+		DispatcherConfig: DispatcherConfig{
 			Logger:             logtesting.TestLogger(t).Desugar(),
 			MetricsRegistry:    baseSaramaConfig.MetricRegistry,
 			MetricsStopChan:    make(chan struct{}),

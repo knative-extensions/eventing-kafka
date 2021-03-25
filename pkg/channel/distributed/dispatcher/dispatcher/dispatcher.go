@@ -44,7 +44,7 @@ import (
 )
 
 // Define A Dispatcher Config Struct To Hold Configuration
-type Config struct {
+type DispatcherConfig struct {
 	Logger             *zap.Logger
 	ClientId           string
 	Brokers            []string
@@ -83,7 +83,7 @@ type Dispatcher interface {
 
 // Define A Dispatcher DispatcherImpl Struct With Configuration & ConsumerGroup State
 type DispatcherImpl struct {
-	Config
+	DispatcherConfig
 	subscribers        map[types.UID]*SubscriberWrapper
 	consumerUpdateLock sync.Mutex
 	messageDispatcher  channel.MessageDispatcher
@@ -93,11 +93,11 @@ type DispatcherImpl struct {
 var _ Dispatcher = &DispatcherImpl{}
 
 // Dispatcher Constructor
-func NewDispatcher(dispatcherConfig Config) Dispatcher {
+func NewDispatcher(dispatcherConfig DispatcherConfig) Dispatcher {
 
 	// Create The DispatcherImpl With Specified Configuration
 	dispatcher := &DispatcherImpl{
-		Config:            dispatcherConfig,
+		DispatcherConfig:  dispatcherConfig,
 		subscribers:       make(map[types.UID]*SubscriberWrapper),
 		messageDispatcher: channel.NewMessageDispatcher(dispatcherConfig.Logger),
 	}
@@ -384,12 +384,12 @@ func (d *DispatcherImpl) SecretChanged(ctx context.Context, secret *corev1.Secre
 // Shut down the current dispatcher and recreate it with new settings
 func (d *DispatcherImpl) reconfigure(newConfig *sarama.Config, ekConfig *commonconfig.EventingKafkaConfig) Dispatcher {
 	d.Shutdown()
-	d.Config.SaramaConfig = newConfig
+	d.DispatcherConfig.SaramaConfig = newConfig
 	if ekConfig != nil {
 		// Currently the only thing that a new dispatcher might care about in the EventingKafkaConfig is the Brokers
-		d.Config.Brokers = strings.Split(ekConfig.Kafka.Brokers, ",")
+		d.DispatcherConfig.Brokers = strings.Split(ekConfig.Kafka.Brokers, ",")
 	}
-	newDispatcher := NewDispatcher(d.Config)
+	newDispatcher := NewDispatcher(d.DispatcherConfig)
 	failedSubscriptions := newDispatcher.UpdateSubscriptions(d.SubscriberSpecs)
 	if len(failedSubscriptions) > 0 {
 		d.Logger.Fatal("Failed To Subscribe Kafka Subscriptions For New Dispatcher", zap.Int("Count", len(failedSubscriptions)))

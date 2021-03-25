@@ -132,7 +132,7 @@ func main() {
 	})
 
 	// Create The Dispatcher With Specified Configuration
-	dispatcherConfig := dispatch.Config{
+	dispatcherConfig := dispatch.DispatcherConfig{
 		Logger:             logger,
 		ClientId:           constants.Component,
 		Brokers:            strings.Split(ekConfig.Kafka.Brokers, ","),
