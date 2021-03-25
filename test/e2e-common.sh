@@ -236,11 +236,12 @@ function knative_teardown() {
 # Parameters: $1 - Function to call
 #             $2...$n - Signals for trap
 function add_trap() {
-  local cmd=$1
+  local current_trap new_cmd cmd
+  cmd=$1
   shift
-  for trap_signal in $@; do
-    local current_trap="$(trap -p $trap_signal | cut -d\' -f2)"
-    local new_cmd="($cmd)"
+  for trap_signal in "$@"; do
+    current_trap="$(trap -p $trap_signal | cut -d\' -f2)"
+    new_cmd="($cmd)"
     [[ -n "${current_trap}" ]] && new_cmd="${current_trap};${new_cmd}"
     trap -- "${new_cmd}" $trap_signal
   done
