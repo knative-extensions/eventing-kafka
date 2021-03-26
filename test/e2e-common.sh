@@ -46,6 +46,7 @@ if [ "$(uname)" == "Darwin" ]; then
 fi
 
 # Eventing main config path from HEAD.
+readonly EVENTING_KAFKA_REPO="${EVENTING_KAFKA_REPO:-https://github.com/knative-sandbox/eventing-kafka}"
 readonly EVENTING_CONFIG="./config/"
 readonly EVENTING_MT_CHANNEL_BROKER_CONFIG="./config/brokers/mt-channel-broker"
 readonly EVENTING_IN_MEMORY_CHANNEL_CONFIG="./config/channels/in-memory-channel"
@@ -118,6 +119,10 @@ export SYSTEM_NAMESPACE
 
 # Zipkin setup
 readonly KNATIVE_EVENTING_MONITORING_YAML="test/config/monitoring.yaml"
+
+# Latest release. If user does not supply this as a flag, the latest
+# tagged release on the current branch will be used.
+LATEST_RELEASE_VERSION="${LATEST_RELEASE_VERSION:-$(latest_version)}"
 
 # Remove the temporary directories on exit
 function remove_temp_kafka_dirs {
@@ -275,13 +280,36 @@ function test_teardown() {
   kafka_teardown
 }
 
-function install_consolidated_channel_crds() {
-  echo "Installing consolidated Kafka Channel CRD"
-  rm "${KAFKA_CRD_CONFIG_DIR}/"*yaml
-  cp "${CONSOLIDATED_TEMPLATE_DIR}/"*yaml "${KAFKA_CRD_CONFIG_DIR}"
-  sed -i "s/namespace: knative-eventing/namespace: ${SYSTEM_NAMESPACE}/g" "${KAFKA_CRD_CONFIG_DIR}/"*yaml
-  sed -i "s/REPLACE_WITH_CLUSTER_URL/${KAFKA_CLUSTER_URL}/" ${KAFKA_CRD_CONFIG_DIR}/${KAFKA_CRD_CONFIG_TEMPLATE}
-  ko apply -f "${KAFKA_CRD_CONFIG_DIR}" || return 1
+function install_released_consolidated_channel {
+  install_consolidated_channel_crds latest-release
+}
+
+function install_head_consolidated_channel {
+  install_consolidated_channel_crds HEAD
+}
+
+function install_consolidated_channel_crds {
+  local source url ver
+  source="${1:-HEAD}"
+  if [[ "${source}" == 'HEAD' ]]; then
+    echo "Installing consolidated Kafka Channel CRD (from HEAD)"
+    rm "${KAFKA_CRD_CONFIG_DIR}/"*yaml
+    cp "${CONSOLIDATED_TEMPLATE_DIR}/"*yaml "${KAFKA_CRD_CONFIG_DIR}"
+    sed -i "s/namespace: knative-eventing/namespace: ${SYSTEM_NAMESPACE}/g" \
+      "${KAFKA_CRD_CONFIG_DIR}/"*yaml
+    sed -i "s/REPLACE_WITH_CLUSTER_URL/${KAFKA_CLUSTER_URL}/" \
+      "${KAFKA_CRD_CONFIG_DIR}/${KAFKA_CRD_CONFIG_TEMPLATE}"
+    ko apply -f "${KAFKA_CRD_CONFIG_DIR}"
+  elif [[ "${source}" == 'latest-release' ]]; then
+    ver="${LATEST_RELEASE_VERSION}"
+    echo "Installing consolidated Kafka Channel CRD (from latest release: ${ver})"
+    # Download the latest release of Knative Eventing Kafka.
+    url="${EVENTING_KAFKA_REPO}/releases/download/${ver}/channel-consolidated.yaml"
+    kubectl apply -f "${url}"
+  else
+    fail_test "Unsupported source of installation: ${source}"
+    return 55
+  fi
   wait_until_pods_running "${SYSTEM_NAMESPACE}" || fail_test "Failed to install the consolidated Kafka Channel CRD"
 }
 

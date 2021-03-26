@@ -23,23 +23,6 @@ export GO111MODULE=on
 # shellcheck disable=SC1090
 source "$(dirname "${BASH_SOURCE[0]}")/e2e-common.sh"
 
-# Overrides
-
-function knative_setup {
-  # Nothing to do at setup
-  true
-}
-
-function install_test_resources {
-  # Nothing to install before tests
-  true
-}
-
-function uninstall_test_resources {
-  # Nothing to uninstall after tests
-  true
-}
-
 initialize "$@" --skip-istio-addon
 
 TIMEOUT=${TIMEOUT:-60m}

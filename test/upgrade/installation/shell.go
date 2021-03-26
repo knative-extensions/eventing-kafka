@@ -18,7 +18,17 @@ package installation
 
 import (
 	"knative.dev/hack/shell"
+	pkgupgrade "knative.dev/pkg/test/upgrade"
 )
+
+func runShellFunc(funcName string, c pkgupgrade.Context) {
+	c.Log.Info("Running shell function: ", funcName)
+	err := shellout(funcName)
+	if err != nil {
+		c.T.Error(err)
+		return
+	}
+}
 
 func shellout(funcName string) error {
 	loc, err := shell.NewProjectLocation("../../..")
