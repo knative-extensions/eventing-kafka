@@ -305,6 +305,7 @@ function install_consolidated_channel_crds {
     echo "Installing consolidated Kafka Channel CRD (from latest release: ${ver})"
     # Download the latest release of Knative Eventing Kafka.
     url="${EVENTING_KAFKA_REPO}/releases/download/${ver}/channel-consolidated.yaml"
+    echo "Applying: ${url}"
     kubectl apply -f "${url}"
   else
     fail_test "Unsupported source of installation: ${source}"
