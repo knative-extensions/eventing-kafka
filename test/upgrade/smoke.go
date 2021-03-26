@@ -30,7 +30,6 @@ func runChannelSmokeTest(t *testing.T) {
 	for i := range cases {
 		tt := cases[i]
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
 			helpers.SingleEventForChannelTestHelper(
 				ctx, t, tt.encoding, tt.version,
 				"", channelTestRunner,

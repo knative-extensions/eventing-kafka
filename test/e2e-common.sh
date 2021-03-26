@@ -289,7 +289,7 @@ function install_head_consolidated_channel {
 }
 
 function install_consolidated_channel_crds {
-  local source url ver
+  local source url ver release_yaml
   source="${1:-HEAD}"
   if [[ "${source}" == 'HEAD' ]]; then
     echo "Installing consolidated Kafka Channel CRD (from HEAD)"
@@ -305,13 +305,21 @@ function install_consolidated_channel_crds {
     echo "Installing consolidated Kafka Channel CRD (from latest release: ${ver})"
     # Download the latest release of Knative Eventing Kafka.
     url="${EVENTING_KAFKA_REPO}/releases/download/${ver}/channel-consolidated.yaml"
-    echo "Applying: ${url}"
-    kubectl apply -f "${url}"
+    release_yaml="${ARTIFACTS}/channel-consolidated-${ver}.yaml"
+
+    curl -Lo "${release_yaml}" "${url}"
+    sed -i "s/namespace: knative-eventing/namespace: ${SYSTEM_NAMESPACE}/g" \
+      "${release_yaml}"
+    sed -i "s/REPLACE_WITH_CLUSTER_URL/${KAFKA_CLUSTER_URL}/" \
+      "${release_yaml}"
+    echo "Applying: ${release_yaml}"
+    kubectl apply -f "${release_yaml}"
   else
     fail_test "Unsupported source of installation: ${source}"
     return 55
   fi
-  wait_until_pods_running "${SYSTEM_NAMESPACE}" || fail_test "Failed to install the consolidated Kafka Channel CRD"
+  sleep 1 # Wait until something gets deployed
+  wait_until_pods_running "${SYSTEM_NAMESPACE}"
 }
 
 function install_consolidated_sources_crds() {
