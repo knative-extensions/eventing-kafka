@@ -20,9 +20,11 @@ import (
 	"os"
 	"testing"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/eventing-kafka/test"
 	eventingTest "knative.dev/eventing/test"
 	testlib "knative.dev/eventing/test/lib"
+	"knative.dev/eventing/test/lib/resources"
 	"knative.dev/pkg/system"
 )
 
@@ -30,6 +32,10 @@ var channelTestRunner testlib.ComponentsTestRunner
 
 // RunMainTest is a module TestMain.
 func RunMainTest(m *testing.M) {
+	testlib.DefaultChannel = metav1.TypeMeta{
+		APIVersion: resources.MessagingAPIVersion,
+		Kind:       "KafkaChannel",
+	}
 	eventingTest.InitializeEventingFlags()
 	channelTestRunner = testlib.ComponentsTestRunner{
 		ComponentFeatureMap: test.ChannelFeatureMap,

@@ -293,7 +293,7 @@ function install_consolidated_channel_crds {
   source="${1:-HEAD}"
   if [[ "${source}" == 'HEAD' ]]; then
     echo "Installing consolidated Kafka Channel CRD (from HEAD)"
-    rm "${KAFKA_CRD_CONFIG_DIR}/"*yaml
+    rm -rf "${KAFKA_CRD_CONFIG_DIR}" && mkdir -p "${KAFKA_CRD_CONFIG_DIR}"
     cp "${CONSOLIDATED_TEMPLATE_DIR}/"*yaml "${KAFKA_CRD_CONFIG_DIR}"
     sed -i "s/namespace: knative-eventing/namespace: ${SYSTEM_NAMESPACE}/g" \
       "${KAFKA_CRD_CONFIG_DIR}/"*yaml
