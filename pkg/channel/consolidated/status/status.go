@@ -201,6 +201,8 @@ func (m *Prober) IsReady(ctx context.Context, ch messagingv1beta1.KafkaChannel, 
 					if target.PodIPs.Len() == state.probedPods.Len() && target.PodIPs.HasAll(state.probedPods.List()...) {
 						return false, true
 					} else {
+						logger.Debugw("Dispatcher pods changed. Canceling old probes and restarting",
+							zap.Any("subscription", sub.UID))
 						// the dispatcher pods changed, we need to cancel old probing and start again
 						m.mu.Unlock()
 						m.CancelProbing(state.sub)
