@@ -242,7 +242,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel
 		return fmt.Errorf("error reconciling subscribers %v", err)
 	}
 	if !reconciled {
-		return fmt.Errorf("SubscribersNotReady")
+		return newSubscribersNotReadyWarn()
 	}
 
 	// Ok, so now the Dispatcher Deployment & Service have been created, we're golden since the

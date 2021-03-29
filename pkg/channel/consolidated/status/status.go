@@ -202,7 +202,9 @@ func (m *Prober) IsReady(ctx context.Context, ch messagingv1beta1.KafkaChannel, 
 						return false, true
 					} else {
 						// the dispatcher pods changed, we need to cancel old probing and start again
+						m.mu.Unlock()
 						m.CancelProbing(state.sub)
+						m.mu.Lock()
 						return false, false
 					}
 				}
