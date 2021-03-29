@@ -48,6 +48,13 @@ type EKKafkaTopicConfig struct {
 	DefaultRetentionMillis   int64 `json:"defaultRetentionMillis,omitempty"`
 }
 
+// EKCloudEventConfig contains the values send to the Knative cloudevents' ConfigureConnectionArgs function
+// If they are not provided in the configmap, the DefaultMaxIdleConns and DefaultMaxIdleConnsPerHost constants are used
+type EKCloudEventConfig struct {
+	MaxIdleConns        int `json:"maxIdleConns,omitempty"`
+	MaxIdleConnsPerHost int `json:"maxIdleConnsPerHost,omitempty"`
+}
+
 // EKKafkaConfig contains items relevant to Kafka specifically, and the Sarama logging flag
 type EKKafkaConfig struct {
 	Brokers             string             `json:"brokers,omitempty"`
@@ -58,7 +65,8 @@ type EKKafkaConfig struct {
 
 // EventingKafkaConfig is the main struct that holds the Receiver, Dispatcher, and Kafka sub-items
 type EventingKafkaConfig struct {
-	Receiver   EKReceiverConfig   `json:"receiver,omitempty"`
-	Dispatcher EKDispatcherConfig `json:"dispatcher,omitempty"`
-	Kafka      EKKafkaConfig      `json:"kafka,omitempty"`
+	Receiver    EKReceiverConfig   `json:"receiver,omitempty"`
+	Dispatcher  EKDispatcherConfig `json:"dispatcher,omitempty"`
+	CloudEvents EKCloudEventConfig `json:"cloudevents,omitempty"`
+	Kafka       EKKafkaConfig      `json:"kafka,omitempty"`
 }

@@ -131,6 +131,7 @@ func TestConfigChanged(t *testing.T) {
 			expectNewProducer: false,
 		},
 		{
+			only:              true,
 			name:              "No EventingKafka Config (Same Producer)",
 			newConfigMap:      configtesting.NewKafkaConfigMap(configtesting.WithoutEventingKafkaConfiguration),
 			expectNewProducer: false,

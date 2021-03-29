@@ -125,10 +125,10 @@ func main() {
 
 	statsReporter := metrics.NewStatsReporter(logger)
 
-	// Increase The Idle Connection Limits From Transport Defaults (see net/http/DefaultTransport)
+	// Change The CloudEvent Connection Args
 	kncloudevents.ConfigureConnectionArgs(&kncloudevents.ConnectionArgs{
-		MaxIdleConns:        constants.DefaultMaxIdleConns,
-		MaxIdleConnsPerHost: constants.DefaultMaxIdleConnsPerHost,
+		MaxIdleConns:        ekConfig.CloudEvents.MaxIdleConns,
+		MaxIdleConnsPerHost: ekConfig.CloudEvents.MaxIdleConnsPerHost,
 	})
 
 	// Create The Dispatcher With Specified Configuration

@@ -24,6 +24,8 @@ import (
 	"testing"
 	"time"
 
+	distributedconstants "knative.dev/eventing-kafka/pkg/channel/distributed/common/constants"
+
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -346,6 +348,10 @@ func verifyTestEKConfigSettings(t *testing.T, saramaConfig *sarama.Config, event
 	assert.Equal(t, commontesting.OldUsername, saramaConfig.Net.SASL.User)
 	assert.Equal(t, commontesting.OldPassword, saramaConfig.Net.SASL.Password)
 	assert.Equal(t, commontesting.DispatcherReplicas, strconv.Itoa(eventingKafkaConfig.Dispatcher.Replicas))
+
+	// Verify that the default CloudEvent settings are set (i.e. not zero)
+	assert.Equal(t, distributedconstants.DefaultMaxIdleConns, eventingKafkaConfig.CloudEvents.MaxIdleConns)
+	assert.Equal(t, distributedconstants.DefaultMaxIdleConnsPerHost, eventingKafkaConfig.CloudEvents.MaxIdleConnsPerHost)
 }
 
 func getTestSaramaContext(t *testing.T, saramaConfig string, eventingKafkaConfig string) context.Context {

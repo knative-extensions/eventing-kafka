@@ -27,6 +27,7 @@ import (
 	"github.com/ghodss/yaml"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	distributedconstants "knative.dev/eventing-kafka/pkg/channel/distributed/common/constants"
 	"knative.dev/eventing-kafka/pkg/common/client"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/common/constants"
@@ -96,6 +97,18 @@ func LoadEventingKafkaSettings(configMap *corev1.ConfigMap) (*commonconfig.Event
 	err := yaml.Unmarshal([]byte(configMap.Data[constants.EventingKafkaSettingsConfigKey]), &eventingKafkaConfig)
 	if err != nil {
 		return nil, fmt.Errorf("ConfigMap's eventing-kafka value could not be converted to an EventingKafkaConfig struct: %s : %v", err, configMap.Data[constants.EventingKafkaSettingsConfigKey])
+	}
+
+	if eventingKafkaConfig != nil {
+		// If Any Config Was Provided, Set Some Default Values If Missing
+
+		// Increase The Idle Connection Limits From Transport Defaults If Not Provided (see net/http/DefaultTransport)
+		if eventingKafkaConfig.CloudEvents.MaxIdleConns == 0 {
+			eventingKafkaConfig.CloudEvents.MaxIdleConns = distributedconstants.DefaultMaxIdleConns
+		}
+		if eventingKafkaConfig.CloudEvents.MaxIdleConnsPerHost == 0 {
+			eventingKafkaConfig.CloudEvents.MaxIdleConnsPerHost = distributedconstants.DefaultMaxIdleConnsPerHost
+		}
 	}
 
 	return eventingKafkaConfig, nil
