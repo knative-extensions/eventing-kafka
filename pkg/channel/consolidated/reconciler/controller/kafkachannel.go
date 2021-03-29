@@ -230,7 +230,6 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel
 	// Reconcile the k8s service representing the actual Channel. It points to the Dispatcher service via ExternalName
 	svc, err := r.reconcileChannelService(ctx, dispatcherNamespace, kc)
 	if err != nil {
-
 		return err
 	}
 	kc.Status.MarkChannelServiceTrue()
@@ -243,7 +242,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel
 		return fmt.Errorf("error reconciling subscribers %v", err)
 	}
 	if !reconciled {
-		return newSubscribersNotReadyWarn()
+		return fmt.Errorf("SubscribersNotReady")
 	}
 
 	// Ok, so now the Dispatcher Deployment & Service have been created, we're golden since the
@@ -275,7 +274,7 @@ func (r *Reconciler) reconcileSubscribers(ctx context.Context, ch *v1beta1.Kafka
 	// If there is nothing to patch, we are good, just return.
 	// Empty patch is [], hence we check for that.
 	if len(jsonPatch) == 0 {
-		return true, nil
+		return reconciled, nil
 	}
 	patch, err := jsonPatch.MarshalJSON()
 	if err != nil {
