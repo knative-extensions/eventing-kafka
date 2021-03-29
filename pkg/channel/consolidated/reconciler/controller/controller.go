@@ -107,8 +107,21 @@ func NewController(
 	)
 	r.statusManager = statusProber
 	statusProber.Start(ctx.Done())
+
+	// Call GlobalResync on kafkachannels.
+	grCh := func(obj interface{}) {
+		logger.Info("Changes detected, doing global resync")
+		impl.GlobalResync(kafkaChannelInformer.Informer())
+	}
+
+	handleKafkaConfigMapChange := func(ctx context.Context, configMap *corev1.ConfigMap) {
+		logger.Info("Configmap is updated or, it is being read for the first time")
+		r.updateKafkaConfig(ctx, configMap)
+		grCh(configMap)
+	}
+
 	// Get and Watch the Kakfa config map and dynamically update Kafka configuration.
-	err := commonconfig.InitializeKafkaConfigMapWatcher(ctx, cmw, logger, r.updateKafkaConfig, system.Namespace())
+	err := commonconfig.InitializeKafkaConfigMapWatcher(ctx, cmw, logger, handleKafkaConfigMapChange, system.Namespace())
 	if err != nil {
 		logger.Fatal("Failed To Initialize ConfigMap Watcher", zap.Error(err))
 	}
@@ -120,11 +133,6 @@ func NewController(
 	// resources will affect our Channels. So, set up a watch here, that will cause
 	// a global Resync for all the channels to take stock of their health when these change.
 	filterFn := controller.FilterWithName(dispatcherName)
-
-	// Call GlobalResync on kafkachannels.
-	grCh := func(obj interface{}) {
-		impl.GlobalResync(kafkaChannelInformer.Informer())
-	}
 
 	deploymentInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: filterFn,
