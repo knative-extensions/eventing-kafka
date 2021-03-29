@@ -63,10 +63,10 @@ type targetState struct {
 	pendingCount atomic.Int32
 	// readyCount is the number of pods that have the subscription ready
 	readyPartitions sets.Int
-	initialCount    int
+	probedPods      sets.String
 	lastAccessed    time.Time
-
-	cancel func()
+	ready           bool
+	cancel          func()
 }
 
 // podState represents the probing state of a Pod (for a specific subscription)
@@ -160,10 +160,11 @@ func NewProber(
 }
 
 func (m *Prober) checkReadiness(state *targetState) bool {
-	consumers := int32(state.initialCount)
 	partitions := state.ch.Spec.NumPartitions
 	m.logger.Debugw("Checking subscription readiness",
-		zap.Any("initial probed consumers", consumers),
+		zap.Any("subscription", state.sub.UID),
+		zap.Any("channel", state.ch.Name),
+		zap.Any("pod ips", state.probedPods),
 		zap.Any("channel partitions", partitions),
 		zap.Any("ready partitions", state.readyPartitions.List()),
 	)
@@ -174,6 +175,14 @@ func (m *Prober) IsReady(ctx context.Context, ch messagingv1beta1.KafkaChannel, 
 	subscriptionKey := sub.UID
 	logger := logging.FromContext(ctx)
 
+	// Get the probe targets
+	target, err := m.targetLister.ListProbeTargets(ctx, ch)
+	if err != nil {
+		logger.Errorw("Error listing probe targets", zap.Error(err),
+			zap.Any("subscription", sub.UID))
+		return false, err
+	}
+
 	if ready, ok := func() (bool, bool) {
 		m.mu.Lock()
 		defer m.mu.Unlock()
@@ -182,9 +191,22 @@ func (m *Prober) IsReady(ctx context.Context, ch messagingv1beta1.KafkaChannel, 
 				state.lastAccessed = time.Now()
 				logger.Debugw("Subscription is cached. Checking readiness",
 					zap.Any("subscription", sub.UID))
-				return m.checkReadiness(state), true
+				if state.ready {
+					/* This subscription became ready once, that's sufficient for us for now.
+					Ideally we'd have a way to know if each partition already have at least one offset commit, but that's
+					another problem for another day
+					*/
+					return true, true
+				} else {
+					if target.PodIPs.Len() == state.probedPods.Len() && target.PodIPs.HasAll(state.probedPods.List()...) {
+						return false, true
+					} else {
+						// the dispatcher pods changed, we need to cancel old probing and start again
+						m.CancelProbing(state.sub)
+						return false, false
+					}
+				}
 			}
-
 			// Cancel the polling for the outdated version
 			state.cancel()
 			delete(m.targetStates, subscriptionKey)
@@ -202,14 +224,7 @@ func (m *Prober) IsReady(ctx context.Context, ch messagingv1beta1.KafkaChannel, 
 		cancel:       cancel,
 	}
 
-	// Get the probe targets and group them by IP
-	target, err := m.targetLister.ListProbeTargets(ctx, ch)
-	if err != nil {
-		logger.Errorw("Error listing probe targets", zap.Error(err),
-			zap.Any("subscription", sub.UID))
-		return false, err
-	}
-
+	// Group the probe targets by IP
 	workItems := make(map[string][]*workItem)
 	for ip := range target.PodIPs {
 		workItems[ip] = append(workItems[ip], &workItem{
@@ -221,7 +236,7 @@ func (m *Prober) IsReady(ctx context.Context, ch messagingv1beta1.KafkaChannel, 
 		})
 	}
 
-	subscriptionState.initialCount = target.PodIPs.Len()
+	subscriptionState.probedPods = target.PodIPs
 	subscriptionState.pendingCount.Store(int32(len(workItems)))
 	subscriptionState.readyPartitions = sets.Int{}
 
@@ -386,8 +401,10 @@ func (m *Prober) processWorkItem() bool {
 	if err != nil || !ok {
 		// In case of error, enqueue for retry
 		m.workQueue.AddRateLimited(obj)
-		item.logger.Debugw("Probing of %s failed, IP: %s:%s, ready: %t, error: %v (depth: %d)",
-			item.url, item.podIP, item.podPort, ok, err, m.workQueue.Len())
+		item.logger.Debugw("Probing failed",
+			zap.Any("url", item.url), zap.Any("IP", item.podIP),
+			zap.Any("port", item.podPort), zap.Bool("ready", ok), zap.Error(err),
+			zap.Int("depth", m.workQueue.Len()))
 	} else {
 		m.onProbingSuccess(item.targetStates, item.podState)
 	}
@@ -402,6 +419,7 @@ func (m *Prober) onProbingSuccess(subscriptionState *targetState, podState *podS
 		// This is the last pod being successfully probed, the subscription is ready
 		if m.checkReadiness(subscriptionState) {
 			subscriptionState.cancel()
+			subscriptionState.ready = true
 			m.readyCallback(subscriptionState.ch, subscriptionState.sub)
 		}
 	}
@@ -420,6 +438,7 @@ func (m *Prober) onProbingCancellation(subscriptionState *targetState, podState 
 			// This is the last pod being successfully probed, the subscription is ready
 			if subscriptionState.pendingCount.Dec() == 0 {
 				subscriptionState.cancel()
+				subscriptionState.ready = true
 				m.readyCallback(subscriptionState.ch, subscriptionState.sub)
 			}
 			return
@@ -430,7 +449,8 @@ func (m *Prober) onProbingCancellation(subscriptionState *targetState, podState 
 func (m *Prober) probeVerifier(item *workItem) prober.Verifier {
 	return func(r *http.Response, b []byte) (bool, error) {
 		m.logger.Debugw("Verifying response", zap.Int("status code", r.StatusCode),
-			zap.ByteString("body", b))
+			zap.ByteString("body", b), zap.Any("subscription", item.targetStates.sub.UID),
+			zap.Any("channel", item.targetStates.ch))
 		switch r.StatusCode {
 		case http.StatusOK:
 			var subscriptions = make(map[string][]int)
