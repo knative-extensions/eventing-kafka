@@ -100,10 +100,6 @@ func newRoleBindingWarn(err error) pkgreconciler.Event {
 	return pkgreconciler.NewEvent(corev1.EventTypeWarning, "DispatcherRoleBindingFailed", "Reconciling dispatcher RoleBinding failed: %s", err)
 }
 
-func newSubscribersNotReadyWarn() pkgreconciler.Event {
-	return pkgreconciler.NewEvent(corev1.EventTypeWarning, "SubscribersNotReady", "Subscribers not ready.")
-}
-
 func init() {
 	// Add run types to the default Kubernetes Scheme so Events can be
 	// logged for run types.
@@ -237,12 +233,9 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel
 		Scheme: "http",
 		Host:   network.GetServiceHostname(svc.Name, svc.Namespace),
 	})
-	reconciled, err := r.reconcileSubscribers(ctx, kc)
+	err = r.reconcileSubscribers(ctx, kc)
 	if err != nil {
 		return fmt.Errorf("error reconciling subscribers %v", err)
-	}
-	if !reconciled {
-		return newSubscribersNotReadyWarn()
 	}
 
 	// Ok, so now the Dispatcher Deployment & Service have been created, we're golden since the
@@ -250,10 +243,9 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel
 	return newReconciledNormal(kc.Namespace, kc.Name)
 }
 
-func (r *Reconciler) reconcileSubscribers(ctx context.Context, ch *v1beta1.KafkaChannel) (bool, error) {
+func (r *Reconciler) reconcileSubscribers(ctx context.Context, ch *v1beta1.KafkaChannel) error {
 	after := ch.DeepCopy()
 	after.Status.Subscribers = make([]v1.SubscriberStatus, 0)
-	reconciled := true
 	for _, s := range ch.Spec.Subscribers {
 		if r, _ := r.statusManager.IsReady(ctx, *ch, s); r {
 			logging.FromContext(ctx).Debugw("marking subscription", zap.Any("subscription", s))
@@ -262,31 +254,29 @@ func (r *Reconciler) reconcileSubscribers(ctx context.Context, ch *v1beta1.Kafka
 				ObservedGeneration: s.Generation,
 				Ready:              corev1.ConditionTrue,
 			})
-		} else {
-			reconciled = false
 		}
 	}
 
 	jsonPatch, err := duck.CreatePatch(ch, after)
 	if err != nil {
-		return false, fmt.Errorf("creating JSON patch: %w", err)
+		return fmt.Errorf("creating JSON patch: %w", err)
 	}
 	// If there is nothing to patch, we are good, just return.
 	// Empty patch is [], hence we check for that.
 	if len(jsonPatch) == 0 {
-		return reconciled, nil
+		return nil
 	}
 	patch, err := jsonPatch.MarshalJSON()
 	if err != nil {
-		return false, fmt.Errorf("marshaling JSON patch: %w", err)
+		return fmt.Errorf("marshaling JSON patch: %w", err)
 	}
 	patched, err := r.kafkaClientSet.MessagingV1beta1().KafkaChannels(ch.Namespace).Patch(ctx, ch.Name, types.JSONPatchType, patch, metav1.PatchOptions{}, "status")
 
 	if err != nil {
-		return false, fmt.Errorf("Failed patching: %w", err)
+		return fmt.Errorf("Failed patching: %w", err)
 	}
 	logging.FromContext(ctx).Debugw("Patched resource", zap.Any("patch", patch), zap.Any("patched", patched))
-	return reconciled, nil
+	return nil
 }
 
 func (r *Reconciler) reconcileDispatcher(ctx context.Context, scope string, dispatcherNamespace string, kc *v1beta1.KafkaChannel) (*appsv1.Deployment, error) {

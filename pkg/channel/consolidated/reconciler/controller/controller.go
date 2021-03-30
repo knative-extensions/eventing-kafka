@@ -157,9 +157,18 @@ func NewController(
 			DeleteFunc: func(obj interface{}) {
 				pod, ok := obj.(*corev1.Pod)
 				if ok && pod != nil {
-					logger.Debugw("Dispatcher pod deleted. Canceling pod probing.",
+					logger.Debugw("Dispatcher pod deleted. Refreshing pod probing.",
 						zap.String("pod", pod.GetName()))
-					statusProber.CancelPodProbing(*pod)
+					statusProber.RefreshPodProbing(ctx)
+					impl.GlobalResync(kafkaChannelInformer.Informer())
+				}
+			},
+			AddFunc: func(obj interface{}) {
+				pod, ok := obj.(*corev1.Pod)
+				if ok && pod != nil {
+					logger.Debugw("Dispatcher pod added. Refreshing pod probing.",
+						zap.String("pod", pod.GetName()))
+					statusProber.RefreshPodProbing(ctx)
 					impl.GlobalResync(kafkaChannelInformer.Informer())
 				}
 			},

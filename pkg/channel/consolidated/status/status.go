@@ -160,6 +160,8 @@ func NewProber(
 }
 
 func (m *Prober) checkReadiness(state *targetState) bool {
+	state.readyLock.Lock()
+	defer state.readyLock.Unlock()
 	partitions := state.ch.Spec.NumPartitions
 	m.logger.Debugw("Checking subscription readiness",
 		zap.Any("subscription", state.sub.UID),
@@ -168,11 +170,13 @@ func (m *Prober) checkReadiness(state *targetState) bool {
 		zap.Any("channel partitions", partitions),
 		zap.Any("ready partitions", state.readyPartitions.List()),
 	)
-	return state.readyPartitions.Len() == int(partitions)
+	if !state.ready {
+		state.ready = state.readyPartitions.Len() == int(partitions)
+	}
+	return state.ready
 }
 
 func (m *Prober) IsReady(ctx context.Context, ch messagingv1beta1.KafkaChannel, sub eventingduckv1.SubscriberSpec) (bool, error) {
-	subscriptionKey := sub.UID
 	logger := logging.FromContext(ctx)
 
 	// Get the probe targets
@@ -182,44 +186,25 @@ func (m *Prober) IsReady(ctx context.Context, ch messagingv1beta1.KafkaChannel, 
 			zap.Any("subscription", sub.UID))
 		return false, err
 	}
-
-	if ready, ok := func() (bool, bool) {
+	state, ok := func() (*targetState, bool) {
 		m.mu.Lock()
 		defer m.mu.Unlock()
-		if state, ok := m.targetStates[subscriptionKey]; ok {
-			if state.sub.Generation == sub.Generation {
-				state.lastAccessed = time.Now()
-				logger.Debugw("Subscription is cached. Checking readiness",
-					zap.Any("subscription", sub.UID))
-				if state.ready {
-					/* This subscription became ready once, that's sufficient for us for now.
-					Ideally we'd have a way to know if each partition already have at least one offset commit, but that's
-					another problem for another day
-					*/
-					return true, true
-				} else {
-					if target.PodIPs.Len() == state.probedPods.Len() && target.PodIPs.HasAll(state.probedPods.List()...) {
-						return false, true
-					} else {
-						logger.Debugw("Dispatcher pods changed. Canceling old probes and restarting",
-							zap.Any("subscription", sub.UID))
-						// the dispatcher pods changed, we need to cancel old probing and start again
-						m.mu.Unlock()
-						m.CancelProbing(state.sub)
-						m.mu.Lock()
-						return false, false
-					}
-				}
-			}
-			// Cancel the polling for the outdated version
-			state.cancel()
-			delete(m.targetStates, subscriptionKey)
+		s, o := m.targetStates[sub.UID]
+		return s, o
+	}()
+	if ok {
+		if !isOutdatedTargetState(state, sub, target.PodIPs) {
+			return m.checkReadiness(state), nil
 		}
-		return false, false
-	}(); ok {
-		return ready, nil
+		m.forgetState(sub)
 	}
+	m.probeTarget(ctx, ch, sub, target)
+	return false, nil
+}
 
+func (m *Prober) probeTarget(ctx context.Context, ch messagingv1beta1.KafkaChannel, sub eventingduckv1.SubscriberSpec, target *ProbeTarget) {
+	subscriptionKey := sub.UID
+	logger := logging.FromContext(ctx)
 	subCtx, cancel := context.WithCancel(context.Background())
 	subscriptionState := &targetState{
 		sub:          sub,
@@ -300,7 +285,6 @@ func (m *Prober) IsReady(ctx context.Context, ch messagingv1beta1.KafkaChannel, 
 		defer m.mu.Unlock()
 		m.targetStates[subscriptionKey] = subscriptionState
 	}()
-	return false, nil
 }
 
 // Start starts the Manager background operations
@@ -336,6 +320,11 @@ func (m *Prober) Start(done <-chan struct{}) chan struct{} {
 func (m *Prober) CancelProbing(sub eventingduckv1.SubscriberSpec) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.forgetState(sub)
+}
+
+// This is meant to be called while m.mu is locked
+func (m *Prober) forgetState(sub eventingduckv1.SubscriberSpec) {
 	if state, ok := m.targetStates[sub.UID]; ok {
 		m.logger.Debugw("Canceling state", zap.Any("subscription", sub))
 		state.cancel()
@@ -351,6 +340,37 @@ func (m *Prober) CancelPodProbing(pod corev1.Pod) {
 	if ctx, ok := m.podContexts[pod.Status.PodIP]; ok {
 		ctx.cancel()
 		delete(m.podContexts, pod.Status.PodIP)
+	}
+}
+
+// RefreshPodProbing lists probe targets and invalidates any in-flight (non-ready) states whose initial probed targets changed from the
+// current ones.
+func (m *Prober) RefreshPodProbing(ctx context.Context) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	logger := logging.FromContext(ctx)
+	for _, state := range m.targetStates {
+		if !m.checkReadiness(state) {
+			// This is an in-flight state
+			sub := state.sub
+			ch := state.ch
+			// Get the probe targets
+			target, err := m.targetLister.ListProbeTargets(ctx, ch)
+			if err != nil {
+				logger.Errorw("Error listing probe targets", zap.Error(err),
+					zap.Any("subscription", sub.UID))
+				return
+			}
+			if !state.probedPods.Equal(target.PodIPs) {
+				m.forgetState(state.sub)
+				func() {
+					// probeTarget requires an unlocked mutex.
+					m.mu.Unlock()
+					defer m.mu.Lock()
+					m.probeTarget(ctx, ch, sub, target)
+				}()
+			}
+		}
 	}
 }
 
@@ -420,10 +440,9 @@ func (m *Prober) onProbingSuccess(subscriptionState *targetState, podState *podS
 	if podState.pendingCount.Dec() == 0 {
 		// Unlock the goroutine blocked on <-podCtx.Done()
 		podState.cancel()
-		// This is the last pod being successfully probed, the subscription is ready
+		// This is the last pod being successfully probed, the subscription might ready
 		if m.checkReadiness(subscriptionState) {
 			subscriptionState.cancel()
-			subscriptionState.ready = true
 			m.readyCallback(subscriptionState.ch, subscriptionState.sub)
 		}
 	}
@@ -436,14 +455,13 @@ func (m *Prober) onProbingCancellation(subscriptionState *targetState, podState 
 			// Probing succeeded, nothing to do
 			return
 		}
-
 		// Attempt to set pendingCount to 0.
 		if podState.pendingCount.CAS(pendingCount, 0) {
-			// This is the last pod being successfully probed, the subscription is ready
+			// This is the last pod being successfully probed, the subscription might be ready
 			if subscriptionState.pendingCount.Dec() == 0 {
-				subscriptionState.cancel()
-				subscriptionState.ready = true
-				m.readyCallback(subscriptionState.ch, subscriptionState.sub)
+				if m.checkReadiness(subscriptionState) {
+					m.readyCallback(subscriptionState.ch, subscriptionState.sub)
+				}
 			}
 			return
 		}
@@ -489,6 +507,15 @@ func (m *Prober) probeVerifier(item *workItem) prober.Verifier {
 			return true, nil
 		}
 	}
+}
+
+// A target state is outdated if the generation is different or if the target IPs change before it becomes
+// ready.
+func isOutdatedTargetState(s *targetState, sub eventingduckv1.SubscriberSpec, podIPs sets.String) bool {
+	s.readyLock.RLock()
+	defer s.readyLock.RUnlock()
+	r := s.ready
+	return s.sub.Generation != sub.Generation || (!r && !s.probedPods.Equal(podIPs))
 }
 
 // deepCopy copies a URL into a new one
