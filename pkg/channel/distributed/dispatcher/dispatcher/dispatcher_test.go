@@ -19,6 +19,7 @@ package dispatcher
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -28,10 +29,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	consumertesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer/testing"
 	consumerwrapper "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer/wrapper"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/metrics"
 	commonclient "knative.dev/eventing-kafka/pkg/common/client"
 	clienttesting "knative.dev/eventing-kafka/pkg/common/client/testing"
 	configtesting "knative.dev/eventing-kafka/pkg/common/config/testing"
+	"knative.dev/eventing-kafka/pkg/common/metrics"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/pkg/logging"
@@ -540,4 +541,53 @@ func customValidationNewConsumerGroupFn(t *testing.T,
 		assert.Equal(t, config, expectedConfig)
 		return mockConsumerGroup, nil
 	}
+}
+
+func TestConfigImpl_ObserveMetrics(t *testing.T) {
+	baseSaramaConfig, err := commonclient.NewConfigBuilder().
+		WithDefaults().
+		FromYaml(clienttesting.DefaultSaramaConfigYaml).
+		WithVersion(&sarama.V2_0_0_0).
+		Build(context.Background())
+	assert.Nil(t, err)
+
+	reporter := &statsReporterMock{}
+
+	config := &DispatcherImpl{
+		DispatcherConfig: DispatcherConfig{
+			Logger:             logtesting.TestLogger(t).Desugar(),
+			MetricsRegistry:    baseSaramaConfig.MetricRegistry,
+			MetricsStopChan:    make(chan struct{}),
+			MetricsStoppedChan: make(chan struct{}),
+			StatsReporter:      reporter,
+		},
+	}
+
+	// Start the metrics observing loop and verify that the report function was called at least once
+	config.ObserveMetrics(5 * time.Millisecond)
+	assert.Eventually(t, reporter.GetReportCalled, time.Second, 5*time.Millisecond)
+	close(config.MetricsStopChan)
+	<-config.MetricsStoppedChan
+}
+
+// A mock for the StatsReporter that will provide feedback when the Report function is called
+type statsReporterMock struct {
+	reportCalled bool
+	mutex        sync.Mutex // Prevent race conditions between writing the value and assert.Eventually reading it
+}
+
+func (s *statsReporterMock) GetReportCalled() bool {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	return s.reportCalled
+}
+
+func (s *statsReporterMock) Report(_ metrics.ReportingList) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.reportCalled = true
+}
+
+// Shutdown is required to implement the StatsReporter interface
+func (s *statsReporterMock) Shutdown() {
 }

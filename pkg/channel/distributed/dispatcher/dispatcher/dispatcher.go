@@ -21,6 +21,11 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
+
+	dispatcherconstants "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/constants"
+
+	gometrics "github.com/rcrowley/go-metrics"
 
 	distributedcommonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
@@ -31,25 +36,28 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer"
 	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/metrics"
 	"knative.dev/eventing-kafka/pkg/common/client"
 	"knative.dev/eventing-kafka/pkg/common/constants"
+	"knative.dev/eventing-kafka/pkg/common/metrics"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/channel"
 )
 
 // Define A Dispatcher Config Struct To Hold Configuration
 type DispatcherConfig struct {
-	Logger          *zap.Logger
-	ClientId        string
-	Brokers         []string
-	Topic           string
-	Username        string
-	Password        string
-	ChannelKey      string
-	StatsReporter   metrics.StatsReporter
-	SaramaConfig    *sarama.Config
-	SubscriberSpecs []eventingduck.SubscriberSpec
+	Logger             *zap.Logger
+	ClientId           string
+	Brokers            []string
+	Topic              string
+	Username           string
+	Password           string
+	ChannelKey         string
+	StatsReporter      metrics.StatsReporter
+	MetricsRegistry    gometrics.Registry
+	MetricsStopChan    chan struct{}
+	MetricsStoppedChan chan struct{}
+	SaramaConfig       *sarama.Config
+	SubscriberSpecs    []eventingduck.SubscriberSpec
 }
 
 // Knative Eventing SubscriberSpec Wrapper Enhanced With Sarama ConsumerGroup
@@ -94,12 +102,21 @@ func NewDispatcher(dispatcherConfig DispatcherConfig) Dispatcher {
 		messageDispatcher: channel.NewMessageDispatcher(dispatcherConfig.Logger),
 	}
 
+	// Start Observing Metrics
+	dispatcher.ObserveMetrics(dispatcherconstants.MetricsInterval)
+
 	// Return The DispatcherImpl
 	return dispatcher
 }
 
 // Shutdown The Dispatcher
 func (d *DispatcherImpl) Shutdown() {
+
+	// Stop Observing Metrics
+	if d.MetricsStopChan != nil {
+		close(d.MetricsStopChan)
+		<-d.MetricsStoppedChan
+	}
 
 	// Close ConsumerGroups Of All Subscriptions
 	for _, subscriber := range d.subscribers {
@@ -147,8 +164,6 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 
 				// Create A New SubscriberWrapper With The ConsumerGroup
 				subscriber := NewSubscriberWrapper(subscriberSpec, groupId, consumerGroup)
-
-				// Should start observing metrics from Sarama Config.MetricsRegistry from CreateConsumerGroup() above ; )
 
 				// Start The ConsumerGroup Processing Messages
 				d.startConsuming(subscriber)
@@ -381,4 +396,31 @@ func (d *DispatcherImpl) reconfigure(newConfig *sarama.Config, ekConfig *commonc
 		return nil
 	}
 	return newDispatcher
+}
+
+// Async Process For Observing Kafka Metrics
+func (d *DispatcherImpl) ObserveMetrics(interval time.Duration) {
+
+	// Fork A New Process To Run Async Metrics Collection
+	go func() {
+
+		// Infinite Loop For Periodically Observing Sarama Metrics From Registry
+		for {
+
+			select {
+
+			case <-d.MetricsStopChan:
+				d.Logger.Info("Stopped Metrics Tracking")
+				close(d.MetricsStoppedChan)
+				return
+
+			case <-time.After(interval):
+				// Get All The Sarama Metrics From The Producer's Metrics Registry
+				kafkaMetrics := d.MetricsRegistry.GetAll()
+
+				// Forward Metrics To Prometheus For Observation
+				d.StatsReporter.Report(kafkaMetrics)
+			}
+		}
+	}()
 }
