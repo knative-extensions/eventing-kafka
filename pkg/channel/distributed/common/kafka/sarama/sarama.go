@@ -27,7 +27,6 @@ import (
 	"github.com/ghodss/yaml"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	distributedconstants "knative.dev/eventing-kafka/pkg/channel/distributed/common/constants"
 	"knative.dev/eventing-kafka/pkg/common/client"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/common/constants"
@@ -104,10 +103,10 @@ func LoadEventingKafkaSettings(configMap *corev1.ConfigMap) (*commonconfig.Event
 
 		// Increase The Idle Connection Limits From Transport Defaults If Not Provided (see net/http/DefaultTransport)
 		if eventingKafkaConfig.CloudEvents.MaxIdleConns == 0 {
-			eventingKafkaConfig.CloudEvents.MaxIdleConns = distributedconstants.DefaultMaxIdleConns
+			eventingKafkaConfig.CloudEvents.MaxIdleConns = constants.DefaultMaxIdleConns
 		}
 		if eventingKafkaConfig.CloudEvents.MaxIdleConnsPerHost == 0 {
-			eventingKafkaConfig.CloudEvents.MaxIdleConnsPerHost = distributedconstants.DefaultMaxIdleConnsPerHost
+			eventingKafkaConfig.CloudEvents.MaxIdleConnsPerHost = constants.DefaultMaxIdleConnsPerHost
 		}
 	}
 

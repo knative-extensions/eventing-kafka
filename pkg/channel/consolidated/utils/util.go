@@ -53,9 +53,6 @@ const (
 	KafkaChannelSeparator = "."
 
 	knativeKafkaTopicPrefix = "knative-messaging-kafka"
-
-	DefaultMaxIdleConns        = 1000
-	DefaultMaxIdleConnsPerHost = 100
 )
 
 type KafkaConfig struct {
@@ -129,8 +126,8 @@ func GetKafkaConfig(configMap map[string]string) (*KafkaConfig, error) {
 	}
 
 	config := &KafkaConfig{
-		MaxIdleConns:        DefaultMaxIdleConns,
-		MaxIdleConnsPerHost: DefaultMaxIdleConnsPerHost,
+		MaxIdleConns:        constants.DefaultMaxIdleConns,
+		MaxIdleConnsPerHost: constants.DefaultMaxIdleConnsPerHost,
 	}
 
 	var bootstrapServers string

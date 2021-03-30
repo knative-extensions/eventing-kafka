@@ -34,4 +34,8 @@ const (
 
 	// The name of the keys in the Data section of the eventing-kafka configmap that holds Sarama and Eventing-Kafka configuration YAML
 	SaramaSettingsConfigKey = "sarama"
+
+	// Default values for the cloud events connection arguments, if not overridden
+	DefaultMaxIdleConns        = 1000
+	DefaultMaxIdleConnsPerHost = 100
 )

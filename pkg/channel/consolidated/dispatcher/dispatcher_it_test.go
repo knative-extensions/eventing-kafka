@@ -27,6 +27,8 @@ import (
 	"testing"
 	"time"
 
+	"knative.dev/eventing-kafka/pkg/common/constants"
+
 	"github.com/cloudevents/sdk-go/v2/binding"
 	"github.com/cloudevents/sdk-go/v2/binding/transformer"
 	protocolhttp "github.com/cloudevents/sdk-go/v2/protocol/http"
@@ -66,8 +68,8 @@ func TestDispatcher(t *testing.T) {
 
 	// Configure connection arguments - to be done exactly once per process
 	kncloudevents.ConfigureConnectionArgs(&kncloudevents.ConnectionArgs{
-		MaxIdleConns:        utils.DefaultMaxIdleConns,
-		MaxIdleConnsPerHost: utils.DefaultMaxIdleConnsPerHost,
+		MaxIdleConns:        constants.DefaultMaxIdleConns,
+		MaxIdleConnsPerHost: constants.DefaultMaxIdleConnsPerHost,
 	})
 
 	dispatcherArgs := KafkaDispatcherArgs{
