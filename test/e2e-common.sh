@@ -30,8 +30,6 @@
 
 # This script includes common functions for testing setup and teardown.
 
-set -Eeuo pipefail
-
 TEST_PARALLEL=${MAX_PARALLEL_TESTS:-12}
 
 source "$(dirname "$(dirname "${BASH_SOURCE[0]}")")/vendor/knative.dev/hack/e2e-tests.sh"
