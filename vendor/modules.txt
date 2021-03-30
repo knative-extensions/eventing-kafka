@@ -331,6 +331,8 @@ github.com/mailru/easyjson/jlexer
 github.com/mailru/easyjson/jwriter
 # github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369
 github.com/matttproud/golang_protobuf_extensions/pbutil
+# github.com/mitchellh/go-homedir v1.1.0
+github.com/mitchellh/go-homedir
 # github.com/mitchellh/mapstructure v1.3.3
 ## explicit
 github.com/mitchellh/mapstructure
@@ -345,6 +347,8 @@ github.com/openzipkin/zipkin-go/model
 github.com/openzipkin/zipkin-go/propagation
 github.com/openzipkin/zipkin-go/reporter
 github.com/openzipkin/zipkin-go/reporter/http
+# github.com/pelletier/go-toml v1.8.0
+github.com/pelletier/go-toml
 # github.com/pierrec/lz4 v2.6.0+incompatible
 github.com/pierrec/lz4
 github.com/pierrec/lz4/internal/xxh32
@@ -400,6 +404,8 @@ github.com/stretchr/testify/require
 github.com/tsenart/vegeta/v12/lib
 # github.com/valyala/bytebufferpool v1.0.0
 github.com/valyala/bytebufferpool
+# github.com/wavesoftware/go-ensure v1.0.0
+github.com/wavesoftware/go-ensure
 # github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c
 ## explicit
 github.com/xdg/scram
@@ -1212,6 +1218,12 @@ knative.dev/eventing/test/test_images/heartbeats
 knative.dev/eventing/test/test_images/performance
 knative.dev/eventing/test/test_images/print
 knative.dev/eventing/test/test_images/recordevents
+knative.dev/eventing/test/upgrade/prober
+knative.dev/eventing/test/upgrade/prober/wathola/client
+knative.dev/eventing/test/upgrade/prober/wathola/config
+knative.dev/eventing/test/upgrade/prober/wathola/event
+knative.dev/eventing/test/upgrade/prober/wathola/fetcher
+knative.dev/eventing/test/upgrade/prober/wathola/receiver
 # knative.dev/hack v0.0.0-20210325223819-b6ab329907d3
 ## explicit
 knative.dev/hack

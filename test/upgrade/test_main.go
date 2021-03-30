@@ -28,14 +28,18 @@ import (
 	"knative.dev/pkg/system"
 )
 
-var channelTestRunner testlib.ComponentsTestRunner
-
-// RunMainTest is a module TestMain.
-func RunMainTest(m *testing.M) {
-	testlib.DefaultChannel = metav1.TypeMeta{
+var (
+	channelTestRunner  testlib.ComponentsTestRunner
+	defaultChannelType = metav1.TypeMeta{
 		APIVersion: resources.MessagingAPIVersion,
 		Kind:       "KafkaChannel",
 	}
+)
+
+// RunMainTest is a module TestMain.
+func RunMainTest(m *testing.M) {
+	// setting a default channel
+	testlib.DefaultChannel = defaultChannelType
 	eventingTest.InitializeEventingFlags()
 	channelTestRunner = testlib.ComponentsTestRunner{
 		ComponentFeatureMap: test.ChannelFeatureMap,
