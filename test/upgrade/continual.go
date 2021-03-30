@@ -22,8 +22,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	testlib "knative.dev/eventing/test/lib"
 	"knative.dev/eventing/test/upgrade/prober"
 	pkgupgrade "knative.dev/pkg/test/upgrade"
@@ -65,12 +65,20 @@ func configureKafkaChannelAsDefault(
 		ctx context.Context,
 		client *testlib.Client,
 ) {
-	configmaps := client.Kube.CoreV1().ConfigMaps("knative-eventing")
-	data := []byte(fmt.Sprintf(`{
-		"channelTemplateSpec": "apiVersion: %s\nkind: %s\n"
-  }`, defaultChannelType.APIVersion, defaultChannelType.Kind))
-	cm, err := configmaps.Patch(ctx, "config-br-default-channel",
-		types.MergePatchType, data, metav1.PatchOptions{})
+	systemNs := "knative-eventing"
+	configmaps := client.Kube.CoreV1().ConfigMaps(systemNs)
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: systemNs,
+			Name:      "config-br-default-channel",
+		},
+		Data: map[string]string{
+			"channelTemplateSpec": fmt.Sprintf("apiVersion: %s\nkind: %s\n",
+				defaultChannelType.APIVersion, defaultChannelType.Kind,
+			),
+		},
+	}
+	cm, err := configmaps.Update(ctx, cm, metav1.UpdateOptions{})
 
 	if !assert.NoError(c.T, err) {
 		c.T.FailNow()
