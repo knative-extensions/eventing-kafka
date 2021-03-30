@@ -362,7 +362,7 @@ func (m *Prober) RefreshPodProbing(ctx context.Context) {
 				return
 			}
 			if !state.probedPods.Equal(target.PodIPs) {
-				m.forgetState(state.sub)
+				m.forgetState(sub)
 				func() {
 					// probeTarget requires an unlocked mutex.
 					m.mu.Unlock()
@@ -511,11 +511,10 @@ func (m *Prober) probeVerifier(item *workItem) prober.Verifier {
 
 // A target state is outdated if the generation is different or if the target IPs change before it becomes
 // ready.
-func isOutdatedTargetState(s *targetState, sub eventingduckv1.SubscriberSpec, podIPs sets.String) bool {
-	s.readyLock.RLock()
-	defer s.readyLock.RUnlock()
-	r := s.ready
-	return s.sub.Generation != sub.Generation || (!r && !s.probedPods.Equal(podIPs))
+func isOutdatedTargetState(state *targetState, sub eventingduckv1.SubscriberSpec, podIPs sets.String) bool {
+	state.readyLock.RLock()
+	defer state.readyLock.RUnlock()
+	return state.sub.Generation != sub.Generation || (!state.ready && !state.probedPods.Equal(podIPs))
 }
 
 // deepCopy copies a URL into a new one
