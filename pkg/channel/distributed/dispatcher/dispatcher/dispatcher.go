@@ -391,7 +391,6 @@ func (d *DispatcherImpl) reconfigure(newConfig *sarama.Config, ekConfig *commonc
 		// Currently the only thing that a new dispatcher might care about in the EventingKafkaConfig is the Brokers
 		d.DispatcherConfig.Brokers = strings.Split(ekConfig.Kafka.Brokers, ",")
 	}
-
 	newDispatcher := NewDispatcher(d.DispatcherConfig)
 	failedSubscriptions := newDispatcher.UpdateSubscriptions(d.SubscriberSpecs)
 	if len(failedSubscriptions) > 0 {
