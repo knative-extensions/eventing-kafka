@@ -45,19 +45,17 @@ import (
 
 // Define A Dispatcher Config Struct To Hold Configuration
 type DispatcherConfig struct {
-	Logger             *zap.Logger
-	ClientId           string
-	Brokers            []string
-	Topic              string
-	Username           string
-	Password           string
-	ChannelKey         string
-	StatsReporter      metrics.StatsReporter
-	MetricsRegistry    gometrics.Registry
-	MetricsStopChan    chan struct{}
-	MetricsStoppedChan chan struct{}
-	SaramaConfig       *sarama.Config
-	SubscriberSpecs    []eventingduck.SubscriberSpec
+	Logger          *zap.Logger
+	ClientId        string
+	Brokers         []string
+	Topic           string
+	Username        string
+	Password        string
+	ChannelKey      string
+	StatsReporter   metrics.StatsReporter
+	MetricsRegistry gometrics.Registry
+	SaramaConfig    *sarama.Config
+	SubscriberSpecs []eventingduck.SubscriberSpec
 }
 
 // Knative Eventing SubscriberSpec Wrapper Enhanced With Sarama ConsumerGroup
@@ -87,6 +85,8 @@ type DispatcherImpl struct {
 	subscribers        map[types.UID]*SubscriberWrapper
 	consumerUpdateLock sync.Mutex
 	messageDispatcher  channel.MessageDispatcher
+	MetricsStopChan    chan struct{}
+	MetricsStoppedChan chan struct{}
 }
 
 // Verify The DispatcherImpl Implements The Dispatcher Interface
@@ -97,9 +97,11 @@ func NewDispatcher(dispatcherConfig DispatcherConfig) Dispatcher {
 
 	// Create The DispatcherImpl With Specified Configuration
 	dispatcher := &DispatcherImpl{
-		DispatcherConfig:  dispatcherConfig,
-		subscribers:       make(map[types.UID]*SubscriberWrapper),
-		messageDispatcher: channel.NewMessageDispatcher(dispatcherConfig.Logger),
+		DispatcherConfig:   dispatcherConfig,
+		subscribers:        make(map[types.UID]*SubscriberWrapper),
+		messageDispatcher:  channel.NewMessageDispatcher(dispatcherConfig.Logger),
+		MetricsStopChan:    make(chan struct{}),
+		MetricsStoppedChan: make(chan struct{}),
 	}
 
 	// Start Observing Metrics
