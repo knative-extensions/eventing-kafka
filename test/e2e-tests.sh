@@ -74,6 +74,11 @@ echo "TEST_CONSOLIDATED_CHANNEL_TLS: ${TEST_CONSOLIDATED_CHANNEL_TLS}"
 echo "TEST_CONSOLIDATED_CHANNEL_SASL: ${TEST_CONSOLIDATED_CHANNEL_SASL}"
 echo "TEST_MT_SOURCE: ${TEST_MT_SOURCE}"
 
+# FIXME(ksuszyns): Remove this before merging the PR
+if [[ $TEST_CONSOLIDATED_CHANNEL == 1 ]]; then
+  "$(dirname "${BASH_SOURCE[0]}")/e2e-upgrade-tests.sh"
+fi
+
 # If none of the tests were explicitly specified, run both plain tests
 if [[ $TEST_CONSOLIDATED_CHANNEL != 1 ]] && [[ $TEST_CONSOLIDATED_CHANNEL_TLS != 1 ]] && [[ $TEST_CONSOLIDATED_CHANNEL_SASL != 1 ]] && [[ $TEST_DISTRIBUTED_CHANNEL != 1 ]] && [[ $TEST_MT_SOURCE != 1 ]]; then
   TEST_DISTRIBUTED_CHANNEL=1
