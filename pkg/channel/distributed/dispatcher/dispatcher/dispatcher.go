@@ -54,8 +54,6 @@ type DispatcherConfig struct {
 	ChannelKey         string
 	StatsReporter      metrics.StatsReporter
 	MetricsRegistry    gometrics.Registry
-	MetricsStopChan    chan struct{}
-	MetricsStoppedChan chan struct{}
 	SaramaConfig       *sarama.Config
 	SubscriberSpecs    []eventingduck.SubscriberSpec
 }
@@ -87,6 +85,8 @@ type DispatcherImpl struct {
 	subscribers        map[types.UID]*SubscriberWrapper
 	consumerUpdateLock sync.Mutex
 	messageDispatcher  channel.MessageDispatcher
+	MetricsStopChan    chan struct{}
+	MetricsStoppedChan chan struct{}
 }
 
 // Verify The DispatcherImpl Implements The Dispatcher Interface
@@ -97,9 +97,11 @@ func NewDispatcher(dispatcherConfig DispatcherConfig) Dispatcher {
 
 	// Create The DispatcherImpl With Specified Configuration
 	dispatcher := &DispatcherImpl{
-		DispatcherConfig:  dispatcherConfig,
-		subscribers:       make(map[types.UID]*SubscriberWrapper),
-		messageDispatcher: channel.NewMessageDispatcher(dispatcherConfig.Logger),
+		DispatcherConfig:   dispatcherConfig,
+		subscribers:        make(map[types.UID]*SubscriberWrapper),
+		messageDispatcher:  channel.NewMessageDispatcher(dispatcherConfig.Logger),
+		MetricsStopChan:    make(chan struct{}),
+		MetricsStoppedChan: make(chan struct{}),
 	}
 
 	// Start Observing Metrics
@@ -389,6 +391,7 @@ func (d *DispatcherImpl) reconfigure(newConfig *sarama.Config, ekConfig *commonc
 		// Currently the only thing that a new dispatcher might care about in the EventingKafkaConfig is the Brokers
 		d.DispatcherConfig.Brokers = strings.Split(ekConfig.Kafka.Brokers, ",")
 	}
+
 	newDispatcher := NewDispatcher(d.DispatcherConfig)
 	failedSubscriptions := newDispatcher.UpdateSubscriptions(d.SubscriberSpecs)
 	if len(failedSubscriptions) > 0 {

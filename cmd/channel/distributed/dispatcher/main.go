@@ -144,8 +144,6 @@ func main() {
 		ChannelKey:         environment.ChannelKey,
 		StatsReporter:      statsReporter,
 		MetricsRegistry:    saramaConfig.MetricRegistry,
-		MetricsStopChan:    make(chan struct{}),
-		MetricsStoppedChan: make(chan struct{}),
 		SaramaConfig:       saramaConfig,
 	}
 	dispatcher = dispatch.NewDispatcher(dispatcherConfig)

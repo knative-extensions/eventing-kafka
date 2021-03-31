@@ -111,6 +111,9 @@ func TestShutdown(t *testing.T) {
 	assert.True(t, consumerGroup2.Closed)
 	assert.True(t, consumerGroup3.Closed)
 	assert.Len(t, dispatcher.subscribers, 0)
+
+	// Verify that calling Shutdown a second time does not cause a panic
+	dispatcher.Shutdown()
 }
 
 // Test The UpdateSubscriptions() Functionality
@@ -553,21 +556,23 @@ func TestConfigImpl_ObserveMetrics(t *testing.T) {
 
 	reporter := &statsReporterMock{}
 
-	config := &DispatcherImpl{
+	// Create our own DispatcherImpl instead of using NewDispatcher(), so that we can start the metrics
+	// reporting function with a very small interval
+	dispatcher := &DispatcherImpl{
 		DispatcherConfig: DispatcherConfig{
 			Logger:             logtesting.TestLogger(t).Desugar(),
 			MetricsRegistry:    baseSaramaConfig.MetricRegistry,
-			MetricsStopChan:    make(chan struct{}),
-			MetricsStoppedChan: make(chan struct{}),
 			StatsReporter:      reporter,
 		},
+		MetricsStopChan:    make(chan struct{}),
+		MetricsStoppedChan: make(chan struct{}),
 	}
 
 	// Start the metrics observing loop and verify that the report function was called at least once
-	config.ObserveMetrics(5 * time.Millisecond)
+	dispatcher.ObserveMetrics(5 * time.Millisecond)
 	assert.Eventually(t, reporter.GetReportCalled, time.Second, 5*time.Millisecond)
-	close(config.MetricsStopChan)
-	<-config.MetricsStoppedChan
+	close(dispatcher.MetricsStopChan)
+	<-dispatcher.MetricsStoppedChan
 }
 
 // A mock for the StatsReporter that will provide feedback when the Report function is called
