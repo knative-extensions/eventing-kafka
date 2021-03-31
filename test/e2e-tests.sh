@@ -40,6 +40,12 @@
 #   PROJECT_ID:  the GKR project in which to create the new cluster (unless using "--run-tests")
 #   MAX_PARALLEL_TESTS:  The maximum number of go tests to run in parallel (via "-test.parallel", default 12)
 
+# FIXME(ksuszyns): Remove upgrade-tests invocation before merging the PR
+if [[ "$1" == '--consolidated' ]]; then
+  echo 'FIXME(ksuszyns): Remove upgrade-tests invocation before merging the PR'
+  exec "$(dirname "${BASH_SOURCE[0]}")/e2e-upgrade-tests.sh"
+fi
+
 TEST_PARALLEL=${MAX_PARALLEL_TESTS:-12}
 
 source "$(dirname "$0")/e2e-common.sh"
@@ -73,11 +79,6 @@ echo "TEST_DISTRIBUTED_CHANNEL: ${TEST_DISTRIBUTED_CHANNEL}"
 echo "TEST_CONSOLIDATED_CHANNEL_TLS: ${TEST_CONSOLIDATED_CHANNEL_TLS}"
 echo "TEST_CONSOLIDATED_CHANNEL_SASL: ${TEST_CONSOLIDATED_CHANNEL_SASL}"
 echo "TEST_MT_SOURCE: ${TEST_MT_SOURCE}"
-
-# FIXME(ksuszyns): Remove this before merging the PR
-if [[ $TEST_CONSOLIDATED_CHANNEL == 1 ]]; then
-  "$(dirname "${BASH_SOURCE[0]}")/e2e-upgrade-tests.sh"
-fi
 
 # If none of the tests were explicitly specified, run both plain tests
 if [[ $TEST_CONSOLIDATED_CHANNEL != 1 ]] && [[ $TEST_CONSOLIDATED_CHANNEL_TLS != 1 ]] && [[ $TEST_CONSOLIDATED_CHANNEL_SASL != 1 ]] && [[ $TEST_DISTRIBUTED_CHANNEL != 1 ]] && [[ $TEST_MT_SOURCE != 1 ]]; then
