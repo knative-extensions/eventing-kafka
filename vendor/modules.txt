@@ -1218,12 +1218,18 @@ knative.dev/eventing/test/test_images/heartbeats
 knative.dev/eventing/test/test_images/performance
 knative.dev/eventing/test/test_images/print
 knative.dev/eventing/test/test_images/recordevents
+knative.dev/eventing/test/test_images/wathola-fetcher
+knative.dev/eventing/test/test_images/wathola-forwarder
+knative.dev/eventing/test/test_images/wathola-receiver
+knative.dev/eventing/test/test_images/wathola-sender
 knative.dev/eventing/test/upgrade/prober
 knative.dev/eventing/test/upgrade/prober/wathola/client
 knative.dev/eventing/test/upgrade/prober/wathola/config
 knative.dev/eventing/test/upgrade/prober/wathola/event
 knative.dev/eventing/test/upgrade/prober/wathola/fetcher
+knative.dev/eventing/test/upgrade/prober/wathola/forwarder
 knative.dev/eventing/test/upgrade/prober/wathola/receiver
+knative.dev/eventing/test/upgrade/prober/wathola/sender
 # knative.dev/hack v0.0.0-20210325223819-b6ab329907d3
 ## explicit
 knative.dev/hack

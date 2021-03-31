@@ -41,7 +41,6 @@ func ChannelContinualTest() pkgupgrade.BackgroundOperation {
 		client = testlib.Setup(c.T, false)
 		configureKafkaChannelAsDefault(c, ctx, client)
 		config := prober.NewConfig(client.Namespace)
-		config.OnDuplicate = prober.Error
 		config.FailOnErrors = true
 		config.Interval = 2 * time.Millisecond
 
