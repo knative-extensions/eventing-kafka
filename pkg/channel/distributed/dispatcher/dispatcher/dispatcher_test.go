@@ -379,6 +379,14 @@ func TestConfigChanged(t *testing.T) {
 
 			// Verify Expected State (Not Much To Verify Due To Interface)
 			assert.Equal(t, testCase.expectNewDispatcher, newDispatcher != nil)
+
+			if testCase.expectNewDispatcher {
+				// Verify that the new dispatcher's channels are not the same as the original
+				oldImpl := dispatcher.(*DispatcherImpl)
+				newImpl := newDispatcher.(*DispatcherImpl)
+				assert.NotEqual(t, oldImpl.MetricsStopChan, newImpl.MetricsStopChan)
+				assert.NotEqual(t, oldImpl.MetricsStoppedChan, newImpl.MetricsStoppedChan)
+			}
 		})
 	}
 }
@@ -486,6 +494,14 @@ func TestSecretChanged(t *testing.T) {
 
 			// Verify Expected State (Not Much To Verify Due To Interface)
 			assert.Equal(t, testCase.expectNewDispatcher, newDispatcher != nil)
+
+			if testCase.expectNewDispatcher {
+				// Verify that the new dispatcher's channels are not the same as the original
+				oldImpl := dispatcher.(*DispatcherImpl)
+				newImpl := newDispatcher.(*DispatcherImpl)
+				assert.NotEqual(t, oldImpl.MetricsStopChan, newImpl.MetricsStopChan)
+				assert.NotEqual(t, oldImpl.MetricsStoppedChan, newImpl.MetricsStoppedChan)
+			}
 		})
 	}
 }
