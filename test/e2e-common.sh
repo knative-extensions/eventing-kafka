@@ -30,12 +30,12 @@
 
 # This script includes common functions for testing setup and teardown.
 
-# TODO: https://github.com/knative/hack/issues/61
-set -Ee
-
 TEST_PARALLEL=${MAX_PARALLEL_TESTS:-12}
 
 source "$(dirname "$(dirname "${BASH_SOURCE[0]}")")/vendor/knative.dev/hack/e2e-tests.sh"
+
+# TODO: https://github.com/knative/hack/issues/61
+set -Ee
 
 # If gcloud is not available make it a no-op, not an error.
 which gcloud &> /dev/null || gcloud() { echo "[ignore-gcloud $*]" 1>&2; }
