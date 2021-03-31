@@ -61,9 +61,9 @@ func ChannelContinualTest() pkgupgrade.BackgroundOperation {
 }
 
 func configureKafkaChannelAsDefault(
-		c pkgupgrade.Context,
-		ctx context.Context,
-		client *testlib.Client,
+	c pkgupgrade.Context,
+	ctx context.Context,
+	client *testlib.Client,
 ) {
 	systemNs := "knative-eventing"
 	configmaps := client.Kube.CoreV1().ConfigMaps(systemNs)
@@ -85,5 +85,5 @@ func configureKafkaChannelAsDefault(
 	}
 
 	c.Log.Info("Updated config-br-default-channel in ns knative-eventing"+
-			" to eq: ", cm.Data)
+		" to eq: ", cm.Data)
 }
