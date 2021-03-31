@@ -16,7 +16,11 @@ limitations under the License.
 
 package constants
 
+import "time"
+
 // Global Constants
 const (
+	MetricsInterval = 5 * time.Second
+
 	Component = "eventing-kafka-channel-dispatcher"
 )

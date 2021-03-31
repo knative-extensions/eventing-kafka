@@ -33,7 +33,6 @@ import (
 	distributedcommonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	commonk8s "knative.dev/eventing-kafka/pkg/channel/distributed/common/k8s"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/metrics"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/controller"
 	dispatch "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/dispatcher"
@@ -41,6 +40,7 @@ import (
 	dispatcherhealth "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/health"
 	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	"knative.dev/eventing-kafka/pkg/client/informers/externalversions"
+	"knative.dev/eventing-kafka/pkg/common/metrics"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	kncontroller "knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -123,7 +123,9 @@ func main() {
 		logger.Fatal("Failed To Initialize Health Server - Terminating", zap.Error(err))
 	}
 
+	// Start The Metrics Reporter And Defer Shutdown
 	statsReporter := metrics.NewStatsReporter(logger)
+	defer statsReporter.Shutdown()
 
 	// Change The CloudEvent Connection Args
 	kncloudevents.ConfigureConnectionArgs(&kncloudevents.ConnectionArgs{
@@ -133,15 +135,18 @@ func main() {
 
 	// Create The Dispatcher With Specified Configuration
 	dispatcherConfig := dispatch.DispatcherConfig{
-		Logger:        logger,
-		ClientId:      constants.Component,
-		Brokers:       strings.Split(ekConfig.Kafka.Brokers, ","),
-		Topic:         environment.KafkaTopic,
-		Username:      kafkaAuthCfg.SASL.User,
-		Password:      kafkaAuthCfg.SASL.Password,
-		ChannelKey:    environment.ChannelKey,
-		StatsReporter: statsReporter,
-		SaramaConfig:  saramaConfig,
+		Logger:             logger,
+		ClientId:           constants.Component,
+		Brokers:            strings.Split(ekConfig.Kafka.Brokers, ","),
+		Topic:              environment.KafkaTopic,
+		Username:           kafkaAuthCfg.SASL.User,
+		Password:           kafkaAuthCfg.SASL.Password,
+		ChannelKey:         environment.ChannelKey,
+		StatsReporter:      statsReporter,
+		MetricsRegistry:    saramaConfig.MetricRegistry,
+		MetricsStopChan:    make(chan struct{}),
+		MetricsStoppedChan: make(chan struct{}),
+		SaramaConfig:       saramaConfig,
 	}
 	dispatcher = dispatch.NewDispatcher(dispatcherConfig)
 

@@ -31,7 +31,6 @@ import (
 	commonk8s "knative.dev/eventing-kafka/pkg/channel/distributed/common/k8s"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	kafkautil "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/util"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/metrics"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/channel"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/env"
@@ -39,6 +38,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/producer"
 	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
+	"knative.dev/eventing-kafka/pkg/common/metrics"
 	eventingchannel "knative.dev/eventing/pkg/channel"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/injection"
@@ -78,9 +78,6 @@ func main() {
 	// Get The Logger From The Context & Defer Flushing Any Buffered Log Entries On Exit
 	logger = logging.FromContext(ctx).Desugar()
 	defer flush(logger)
-
-	// UnComment To Enable Sarama Logging For Local Debug
-	// sarama.EnableSaramaLogging()
 
 	// Load Environment Variables
 	environment, err := env.GetEnvironment(logger)
@@ -132,8 +129,9 @@ func main() {
 	}
 	defer channel.Close()
 
-	// Create A New Stats StatsReporter
+	// Start The Metrics Reporter And Defer Shutdown
 	statsReporter := metrics.NewStatsReporter(logger)
+	defer statsReporter.Shutdown()
 
 	// Create A Watcher On The Configuration Settings ConfigMap & Dynamically Update Configuration
 	// Since this is designed to be called by the main() function, the default KNative package behavior here
