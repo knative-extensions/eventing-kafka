@@ -21,9 +21,9 @@ export GO111MODULE=on
 # shellcheck disable=SC1090
 source "$(dirname "${BASH_SOURCE[0]}")/e2e-common.sh"
 
-set -Eeuo pipefail
-
 initialize "$@" --skip-istio-addon
+
+set -Eeuo pipefail
 
 TIMEOUT=${TIMEOUT:-60m}
 GO_TEST_VERBOSITY="${GO_TEST_VERBOSITY:-standard-verbose}"
