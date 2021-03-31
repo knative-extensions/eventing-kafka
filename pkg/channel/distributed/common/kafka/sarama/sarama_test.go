@@ -346,6 +346,10 @@ func verifyTestEKConfigSettings(t *testing.T, saramaConfig *sarama.Config, event
 	assert.Equal(t, commontesting.OldUsername, saramaConfig.Net.SASL.User)
 	assert.Equal(t, commontesting.OldPassword, saramaConfig.Net.SASL.Password)
 	assert.Equal(t, commontesting.DispatcherReplicas, strconv.Itoa(eventingKafkaConfig.Dispatcher.Replicas))
+
+	// Verify that the default CloudEvent settings are set (i.e. not zero)
+	assert.Equal(t, constants.DefaultMaxIdleConns, eventingKafkaConfig.CloudEvents.MaxIdleConns)
+	assert.Equal(t, constants.DefaultMaxIdleConnsPerHost, eventingKafkaConfig.CloudEvents.MaxIdleConnsPerHost)
 }
 
 func getTestSaramaContext(t *testing.T, saramaConfig string, eventingKafkaConfig string) context.Context {
