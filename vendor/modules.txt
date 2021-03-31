@@ -1228,10 +1228,10 @@ knative.dev/eventing/test/upgrade/prober/wathola/receiver
 ## explicit
 knative.dev/hack
 knative.dev/hack/shell
-# knative.dev/networking v0.0.0-20210329132124-45fe1f5dd35e
+# knative.dev/networking v0.0.0-20210331064822-999a7708876c
 ## explicit
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20210330073320-3b7934e599fb
+# knative.dev/pkg v0.0.0-20210331065221-952fdd90dbb0
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
