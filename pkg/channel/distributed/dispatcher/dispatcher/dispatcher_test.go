@@ -576,9 +576,9 @@ func TestConfigImpl_ObserveMetrics(t *testing.T) {
 	// reporting function with a very small interval
 	dispatcher := &DispatcherImpl{
 		DispatcherConfig: DispatcherConfig{
-			Logger:             logtesting.TestLogger(t).Desugar(),
-			MetricsRegistry:    baseSaramaConfig.MetricRegistry,
-			StatsReporter:      reporter,
+			Logger:          logtesting.TestLogger(t).Desugar(),
+			MetricsRegistry: baseSaramaConfig.MetricRegistry,
+			StatsReporter:   reporter,
 		},
 		MetricsStopChan:    make(chan struct{}),
 		MetricsStoppedChan: make(chan struct{}),
