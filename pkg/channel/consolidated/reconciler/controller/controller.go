@@ -19,16 +19,15 @@ package controller
 import (
 	"context"
 
-	corev1 "k8s.io/api/core/v1"
-	knativeReconciler "knative.dev/pkg/reconciler"
-
 	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
 	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/status"
+	kafkavmessaging1beta1 "knative.dev/eventing-kafka/pkg/client/informers/externalversions/messaging/v1beta1"
 	kafkaChannelClient "knative.dev/eventing-kafka/pkg/client/injection/client"
 	"knative.dev/eventing-kafka/pkg/client/injection/informers/messaging/v1beta1/kafkachannel"
 	kafkaChannelReconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
@@ -45,6 +44,7 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	knativeReconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 )
 
@@ -154,26 +154,22 @@ func NewController(
 		),
 		Handler: cache.ResourceEventHandlerFuncs{
 			// Cancel probing when a Pod is deleted
-			DeleteFunc: func(obj interface{}) {
-				pod, ok := obj.(*corev1.Pod)
-				if ok && pod != nil {
-					logger.Debugw("Dispatcher pod deleted. Refreshing pod probing.",
-						zap.String("pod", pod.GetName()))
-					statusProber.RefreshPodProbing(ctx)
-					impl.GlobalResync(kafkaChannelInformer.Informer())
-				}
-			},
-			AddFunc: func(obj interface{}) {
-				pod, ok := obj.(*corev1.Pod)
-				if ok && pod != nil {
-					logger.Debugw("Dispatcher pod added. Refreshing pod probing.",
-						zap.String("pod", pod.GetName()))
-					statusProber.RefreshPodProbing(ctx)
-					impl.GlobalResync(kafkaChannelInformer.Informer())
-				}
-			},
+			DeleteFunc: getPodInformerEventHandler(ctx, logger, statusProber, impl, kafkaChannelInformer, "Delete"),
+			AddFunc:    getPodInformerEventHandler(ctx, logger, statusProber, impl, kafkaChannelInformer, "Add"),
 		},
 	})
 
 	return impl
+}
+
+func getPodInformerEventHandler(ctx context.Context, logger *zap.SugaredLogger, statusProber *status.Prober, impl *controller.Impl, kafkaChannelInformer kafkavmessaging1beta1.KafkaChannelInformer, handlerType string) func(obj interface{}) {
+	return func(obj interface{}) {
+		pod, ok := obj.(*corev1.Pod)
+		if ok && pod != nil {
+			logger.Debugw("%s rods. Refreshing pod probing.", handlerType,
+				zap.String("pod", pod.GetName()))
+			statusProber.RefreshPodProbing(ctx)
+			impl.GlobalResync(kafkaChannelInformer.Informer())
+		}
+	}
 }
