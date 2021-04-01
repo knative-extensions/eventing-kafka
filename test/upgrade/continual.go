@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kelseyhightower/envconfig"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,8 +42,15 @@ func ChannelContinualTest() pkgupgrade.BackgroundOperation {
 		client = testlib.Setup(c.T, false)
 		configureKafkaChannelAsDefault(c, ctx, client)
 		config := prober.NewConfig(client.Namespace)
+		// TODO: knative/eventing#5176 - this is cumbersome
+		config.ConfigTemplate = "../../../../../../test/upgrade/config.toml"
 		config.FailOnErrors = true
 		config.Interval = 2 * time.Millisecond
+		// envconfig.Process invocation is repeated from within prober.NewConfig to
+		// make sure every knob is configurable, but using defaults from Eventing
+		// Kafka instead of Core.
+		err := envconfig.Process("e2e_upgrade_tests", config)
+		assert.NoError(c.T, err)
 
 		probe = prober.RunEventProber(ctx, c.Log, client, config)
 	}
