@@ -162,6 +162,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel
 		kc.Status.MarkConfigFailed("InvalidConfiguration", "Unable to build Kafka admin client for channel %s: %v", kc.Name, err)
 		return err
 	}
+	defer kafkaClusterAdmin.Close()
 
 	kc.Status.MarkConfigTrue()
 
@@ -225,7 +226,6 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel
 	// Reconcile the k8s service representing the actual Channel. It points to the Dispatcher service via ExternalName
 	svc, err := r.reconcileChannelService(ctx, dispatcherNamespace, kc)
 	if err != nil {
-
 		return err
 	}
 	kc.Status.MarkChannelServiceTrue()
@@ -233,15 +233,9 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel
 		Scheme: "http",
 		Host:   network.GetServiceHostname(svc.Name, svc.Namespace),
 	})
-	err = r.setupSubscriptionStatusWatcher(ctx, kc)
+	err = r.reconcileSubscribers(ctx, kc)
 	if err != nil {
-		logger.Errorw("error setting up some subscription status watchers", zap.Error(err))
-	}
-	// close the connection
-	err = kafkaClusterAdmin.Close()
-	if err != nil {
-		logger.Errorw("Error closing the connection", zap.Error(err))
-		return err
+		return fmt.Errorf("error reconciling subscribers %v", err)
 	}
 
 	// Ok, so now the Dispatcher Deployment & Service have been created, we're golden since the
@@ -249,10 +243,9 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel
 	return newReconciledNormal(kc.Namespace, kc.Name)
 }
 
-func (r *Reconciler) setupSubscriptionStatusWatcher(ctx context.Context, ch *v1beta1.KafkaChannel) error {
+func (r *Reconciler) reconcileSubscribers(ctx context.Context, ch *v1beta1.KafkaChannel) error {
 	after := ch.DeepCopy()
 	after.Status.Subscribers = make([]v1.SubscriberStatus, 0)
-
 	for _, s := range ch.Spec.Subscribers {
 		if r, _ := r.statusManager.IsReady(ctx, *ch, s); r {
 			logging.FromContext(ctx).Debugw("marking subscription", zap.Any("subscription", s))

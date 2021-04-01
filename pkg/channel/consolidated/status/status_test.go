@@ -39,49 +39,12 @@ import (
 	"knative.dev/pkg/apis"
 )
 
-var (
-	channelTemplate = &v1beta1.KafkaChannel{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "default",
-			Name:      "chan4prober",
-		},
-		Spec: v1beta1.KafkaChannelSpec{
-			NumPartitions:     1,
-			ReplicationFactor: 1,
-		},
-	}
-	subscriptionTemplate = eventingduckv1.SubscriberSpec{
-		UID:           types.UID("90713ffd-f527-42bf-b158-57630b68ebe2"),
-		Generation:    1,
-		SubscriberURI: getURL("http://subscr.ns.local"),
-	}
-)
+var channelObjectMeta = metav1.ObjectMeta{
+	Namespace: "default",
+	Name:      "chan4prober",
+}
 
 const dispatcherReadySubHeader = "K-Subscriber-Status"
-
-func getURL(s string) *apis.URL {
-	u, _ := apis.ParseURL(s)
-	return u
-}
-
-func handleProbe(t *testing.T) func(http.ResponseWriter, *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		channelRefName := channelTemplate.ObjectMeta.Name
-		channelRefNamespace := channelTemplate.ObjectMeta.Namespace
-		var subscriptions = map[string][]int{
-			string(subscriptionTemplate.UID): {0},
-		}
-		w.Header().Set(dispatcherReadySubHeader, channelRefName)
-		jsonResult, err := json.Marshal(subscriptions)
-		if err != nil {
-			t.Fatalf("Error marshalling json for sub-status channelref: %s/%s, %v", channelRefNamespace, channelRefName, err)
-		}
-		_, err = w.Write(jsonResult)
-		if err != nil {
-			t.Fatalf("Error writing jsonResult to serveHTTP writer: %v", err)
-		}
-	}
-}
 
 type ReadyPair struct {
 	c v1beta1.KafkaChannel
@@ -89,52 +52,38 @@ type ReadyPair struct {
 }
 
 func TestProbeSinglePod(t *testing.T) {
-	var succeed atomic.Bool
+	ch := getChannel(1)
+	sub := getSubscription()
+	var subscriptions = map[string][]int{
+		string(sub.UID): {0},
+	}
 
-	ch := channelTemplate.DeepCopy()
-	sub := subscriptionTemplate.DeepCopy()
-
-	probeHandler := http.HandlerFunc(handleProbe(t))
+	// This should be called when we want the dispatcher to return a successful result
+	successHandler := http.HandlerFunc(readyJSONHandler(t, subscriptions))
 
 	// Probes only succeed if succeed is true
+	var succeed atomic.Bool
+
+	// This is a latch channel that will lock the handler goroutine until we drain it
 	probeRequests := make(chan *http.Request)
-	finalHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := func(w http.ResponseWriter, r *http.Request) {
 		probeRequests <- r
 		if !succeed.Load() {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 
-		probeHandler.ServeHTTP(w, r)
-	})
+		successHandler.ServeHTTP(w, r)
+	}
 
-	ts := httptest.NewServer(finalHandler)
+	ts := getDispatcherServer(handler)
 	defer ts.Close()
-	tsURL, err := url.Parse(ts.URL)
-	if err != nil {
-		t.Fatalf("Failed to parse URL %q: %v", ts.URL, err)
-	}
-	port, err := strconv.Atoi(tsURL.Port())
-	if err != nil {
-		t.Fatalf("Failed to parse port %q: %v", tsURL.Port(), err)
-	}
-	hostname := tsURL.Hostname()
 
-	ready := make(chan *ReadyPair)
+	lister := fakeProbeTargetLister{
+		target: getTargetLister(t, ts.URL),
+	}
 
-	prober := NewProber(
-		zaptest.NewLogger(t).Sugar(),
-		fakeProbeTargetLister{
-			PodIPs:  sets.NewString(hostname),
-			PodPort: strconv.Itoa(port),
-			URL:     tsURL,
-		},
-		func(c v1beta1.KafkaChannel, s eventingduckv1.SubscriberSpec) {
-			ready <- &ReadyPair{
-				c,
-				s,
-			}
-		})
+	prober, ready := getProber(t, &lister)
 
 	done := make(chan struct{})
 	cancelled := prober.Start(done)
@@ -143,44 +92,12 @@ func TestProbeSinglePod(t *testing.T) {
 		<-cancelled
 	}()
 
-	// The first call to IsReady must succeed and return false
-	ok, err := prober.IsReady(context.Background(), *ch, *sub)
-	if err != nil {
-		t.Fatal("IsReady failed:", err)
-	}
-	if ok {
-		t.Fatal("IsReady() returned true")
-	}
-
-	select {
-	case <-ready:
-		// Since succeed is still false and we don't return 200, the prober shouldn't be ready
-		t.Fatal("Prober shouldn't be ready")
-	case <-time.After(1 * time.Second):
-		// Not ideal but it gives time to the prober to write to ready
-		break
-	}
-
-	// Make probes to hostB succeed
-	succeed.Store(true)
-
-	// Just drain the requests in the channel to not block the handler
-	go func() {
-		for range probeRequests {
-		}
-	}()
-
-	select {
-	case <-ready:
-		// Wait for the probing to eventually succeed
-	case <-time.After(5 * time.Second):
-		t.Error("Timed out waiting for probing to succeed.")
-	}
+	assertEventuallyReady(t, prober, ch, sub, ready, &succeed, &probeRequests)
 }
 
 func TestProbeListerFail(t *testing.T) {
-	ch := channelTemplate.DeepCopy()
-	sub := subscriptionTemplate.DeepCopy()
+	ch := getChannel(1)
+	sub := getSubscription()
 
 	ready := make(chan *ReadyPair)
 	defer close(ready)
@@ -204,11 +121,216 @@ func TestProbeListerFail(t *testing.T) {
 	}
 }
 
-type fakeProbeTargetLister ProbeTarget
+func TestSucceedAfterRefreshPodProbing(t *testing.T) {
+	// We have a channel with three partitions
+	ch := getChannel(3)
+	sub := getSubscription()
+
+	// Dispatcher D1 will return only one ready partition
+	var subsD1 = map[string][]int{
+		string(sub.UID): {0},
+	}
+
+	// Dispatcher D2 will return the three ready partitions
+	var subsD2 = map[string][]int{
+		string(sub.UID): {0, 1, 2},
+	}
+
+	// The success handler for dispatcher D1, will return one partition only
+	successHandlerD1 := http.HandlerFunc(readyJSONHandler(t, subsD1))
+
+	// This is a latch channel that will lock the handler goroutine until we drain it
+	probeRequestsD1 := make(chan *http.Request)
+
+	handlerD1 := func(w http.ResponseWriter, r *http.Request) {
+		probeRequestsD1 <- r
+		successHandlerD1.ServeHTTP(w, r)
+	}
+
+	serverD1 := getDispatcherServer(handlerD1)
+	defer serverD1.Close()
+
+	// Probes only succeed if succeed is true
+	var succeed atomic.Bool
+
+	// The success handler for dispatcher D2, will return all three needed partitions
+	probeHandlerD2 := http.HandlerFunc(readyJSONHandler(t, subsD2))
+
+	// This is a latch channel that will lock the handler goroutine until we drain it
+	probeRequestsD2 := make(chan *http.Request)
+	handlerD2 := func(w http.ResponseWriter, r *http.Request) {
+		probeRequestsD2 <- r
+		if !succeed.Load() {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		probeHandlerD2.ServeHTTP(w, r)
+	}
+
+	serverD2 := getDispatcherServer(handlerD2)
+	defer serverD2.Close()
+
+	// Initially, lister points to d1
+	lister := fakeProbeTargetLister{
+		target: getTargetLister(t, serverD1.URL),
+	}
+
+	prober, ready := getProber(t, &lister)
+
+	done := make(chan struct{})
+	cancelled := prober.Start(done)
+	defer func() {
+		close(done)
+		<-cancelled
+	}()
+
+	// Assert we're not ready.
+	assertNeverReady(t, prober, ch, sub, ready, &probeRequestsD1)
+
+	// Switch to new dispatcher
+	lister.target = getTargetLister(t, serverD2.URL)
+
+	// Assert we're still not ready
+	assertNeverReady(t, prober, ch, sub, ready, &probeRequestsD1)
+
+	// Refresh the pod probing, now the prober should probe the new disptacher
+	prober.RefreshPodProbing(context.Background())
+
+	// Assert that probing will be successful eventually
+	assertEventuallyReady(t, prober, ch, sub, ready, &succeed, &probeRequestsD2)
+}
+
+func assertNeverReady(t *testing.T, prober *Prober, ch *messagingv1beta1.KafkaChannel, sub *eventingduckv1.SubscriberSpec, ready chan *ReadyPair, probeRequests *chan *http.Request) {
+	// The first call to IsReady must succeed and return false
+	ok, err := prober.IsReady(context.Background(), *ch, *sub)
+	if err != nil {
+		t.Fatal("IsReady failed:", err)
+	}
+	if ok {
+		t.Fatal("IsReady() returned true")
+	}
+
+	// Just drain the requests in the channel to not block the handler
+	go func() {
+		for range *probeRequests {
+		}
+	}()
+
+	select {
+	case <-ready:
+		// Prober shouldn't be ready
+		t.Fatal("Prober shouldn't be ready")
+	case <-time.After(1 * time.Second):
+		// Not ideal but it gives time to the prober to write to ready
+		break
+	}
+}
+
+func assertEventuallyReady(t *testing.T, prober *Prober, ch *messagingv1beta1.KafkaChannel, sub *eventingduckv1.SubscriberSpec, ready chan *ReadyPair, succeed *atomic.Bool, probeRequests *chan *http.Request) {
+
+	// Since succeed is still false the prober shouldn't be ready
+	assertNeverReady(t, prober, ch, sub, ready, probeRequests)
+
+	// Make probes succeed
+	succeed.Store(true)
+
+	// Just drain the requests in the channel to not block the handler
+	go func() {
+		for range *probeRequests {
+		}
+	}()
+
+	select {
+	case <-ready:
+		// Wait for the probing to eventually succeed
+	case <-time.After(5 * time.Second):
+		t.Error("Timed out waiting for probing to succeed.")
+	}
+}
+
+func getDispatcherServer(handler func(w http.ResponseWriter, r *http.Request)) *httptest.Server {
+	ts := httptest.NewServer(http.HandlerFunc(handler))
+	return ts
+}
+
+func getChannel(partitionsNum int32) *v1beta1.KafkaChannel {
+	return (&v1beta1.KafkaChannel{
+		ObjectMeta: channelObjectMeta,
+		Spec: v1beta1.KafkaChannelSpec{
+			NumPartitions:     partitionsNum,
+			ReplicationFactor: 1,
+		},
+	}).DeepCopy()
+}
+
+func getSubscription() *eventingduckv1.SubscriberSpec {
+	return (&eventingduckv1.SubscriberSpec{
+		UID:           types.UID("90713ffd-f527-42bf-b158-57630b68ebe2"),
+		Generation:    1,
+		SubscriberURI: getURL("http://subscr.ns.local"),
+	}).DeepCopy()
+}
+
+func getURL(s string) *apis.URL {
+	u, _ := apis.ParseURL(s)
+	return u
+}
+
+// readyJSONHandler is a factory for a handler which responds with a JSON of the ready subscriptions
+func readyJSONHandler(t *testing.T, subscriptions map[string][]int) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		channelRefName := channelObjectMeta.Name
+		channelRefNamespace := channelObjectMeta.Namespace
+		w.Header().Set(dispatcherReadySubHeader, channelRefName)
+		jsonResult, err := json.Marshal(subscriptions)
+		if err != nil {
+			t.Fatalf("Error marshalling json for sub-status channelref: %s/%s, %v", channelRefNamespace, channelRefName, err)
+		}
+		_, err = w.Write(jsonResult)
+		if err != nil {
+			t.Fatalf("Error writing jsonResult to serveHTTP writer: %v", err)
+		}
+	}
+}
+
+func getTargetLister(t *testing.T, dURL string) *ProbeTarget {
+	tsURL, err := url.Parse(dURL)
+	if err != nil {
+		t.Fatalf("Failed to parse URL %q: %v", dURL, err)
+	}
+	port, err := strconv.Atoi(tsURL.Port())
+	if err != nil {
+		t.Fatalf("Failed to parse port %q: %v", tsURL.Port(), err)
+	}
+	hostname := tsURL.Hostname()
+	return &ProbeTarget{
+		PodIPs:  sets.NewString(hostname),
+		PodPort: strconv.Itoa(port),
+		URL:     tsURL,
+	}
+}
+
+func getProber(t *testing.T, lister ProbeTargetLister) (*Prober, chan *ReadyPair) {
+	ready := make(chan *ReadyPair)
+	prober := NewProber(
+		zaptest.NewLogger(t).Sugar(),
+		lister,
+		func(c v1beta1.KafkaChannel, s eventingduckv1.SubscriberSpec) {
+			ready <- &ReadyPair{
+				c,
+				s,
+			}
+		})
+	return prober, ready
+}
+
+type fakeProbeTargetLister struct {
+	target *ProbeTarget
+}
 
 func (l fakeProbeTargetLister) ListProbeTargets(ctx context.Context, kc messagingv1beta1.KafkaChannel) (*ProbeTarget, error) {
-	t := ProbeTarget(l)
-	return &t, nil
+	return l.target, nil
 }
 
 type notFoundLister struct{}
