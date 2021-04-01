@@ -40,12 +40,6 @@
 #   PROJECT_ID:  the GKR project in which to create the new cluster (unless using "--run-tests")
 #   MAX_PARALLEL_TESTS:  The maximum number of go tests to run in parallel (via "-test.parallel", default 12)
 
-# FIXME(ksuszyns): Remove upgrade-tests invocation before merging the PR
-if [[ "$1" == '--consolidated' ]]; then
-  echo 'FIXME(ksuszyns): Remove upgrade-tests invocation before merging the PR'
-  exec "$(dirname "${BASH_SOURCE[0]}")/e2e-upgrade-tests.sh"
-fi
-
 TEST_PARALLEL=${MAX_PARALLEL_TESTS:-12}
 
 source "$(dirname "$0")/e2e-common.sh"
