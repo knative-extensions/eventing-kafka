@@ -104,7 +104,7 @@ func (cc *ControlPlaneConnectionPool) ResolveControlInterface(key string, host s
 	defer cc.connsLock.Unlock()
 	if m, ok := cc.conns[key]; !ok {
 		return "", nil
-	} else if holder, ok := m[host]; !ok {
+	} else if holder, ok := m[host]; ok {
 		return host, holder.service
 	}
 

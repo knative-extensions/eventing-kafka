@@ -50,7 +50,7 @@ func (ch *ListerCertificateGetter) GenerateTLSDialer(baseDialOptions *net.Dialer
 	if err != nil {
 		return nil, err
 	}
-	if secret.Data == nil {
+	if secret == nil || secret.Data == nil {
 		return nil, fmt.Errorf("no tls configuration available")
 	}
 	caCertBytes := secret.Data[certificates.SecretCaCertKey]

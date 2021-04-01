@@ -59,18 +59,6 @@ type MessageHeader struct {
 	length uint32
 }
 
-// NewMessageHeader creates a new message header.
-// This is useful when the logic to read the inbound message is different from the ReadFrom implementation provided
-func NewMessageHeader(version uint8, flags uint8, opcode uint8, uuid [16]byte, length uint32) MessageHeader {
-	return MessageHeader{
-		version: version,
-		flags:   flags,
-		opcode:  opcode,
-		uuid:    uuid,
-		length:  length,
-	}
-}
-
 func (m MessageHeader) Version() uint8 {
 	return m.version
 }

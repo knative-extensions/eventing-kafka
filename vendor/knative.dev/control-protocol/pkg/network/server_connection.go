@@ -19,9 +19,7 @@ package network
 import (
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"strconv"
 	"strings"
@@ -30,43 +28,11 @@ import (
 	"knative.dev/pkg/logging"
 
 	ctrl "knative.dev/control-protocol/pkg"
-	"knative.dev/control-protocol/pkg/certificates"
 	"knative.dev/control-protocol/pkg/service"
-)
-
-const (
-	baseCertsPath = "/etc/control-secret"
-
-	publicCertPath = baseCertsPath + "/" + certificates.SecretCertKey
-	pkPath         = baseCertsPath + "/" + certificates.SecretPKKey
-	caCertPath     = baseCertsPath + "/" + certificates.SecretCaCertKey
 )
 
 var listenConfig = net.ListenConfig{
 	KeepAlive: 30 * time.Second,
-}
-
-func LoadServerTLSConfigFromFile() (*tls.Config, error) {
-	cert, err := tls.LoadX509KeyPair(publicCertPath, pkPath)
-	if err != nil {
-		return nil, err
-	}
-
-	caCert, err := ioutil.ReadFile(caCertPath)
-	if err != nil {
-		return nil, err
-	}
-
-	certPool := x509.NewCertPool()
-	certPool.AppendCertsFromPEM(caCert)
-	conf := &tls.Config{
-		Certificates: []tls.Certificate{cert},
-		ClientCAs:    certPool,
-		ClientAuth:   tls.RequireAndVerifyClientCert,
-		ServerName:   certificates.FakeDnsName,
-	}
-
-	return conf, nil
 }
 
 type ControlServerOptions struct {
