@@ -27,7 +27,7 @@ import (
 
 	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/status"
-	kafkavmessaging1beta1 "knative.dev/eventing-kafka/pkg/client/informers/externalversions/messaging/v1beta1"
+	kafkamessagingv1beta1 "knative.dev/eventing-kafka/pkg/client/informers/externalversions/messaging/v1beta1"
 	kafkaChannelClient "knative.dev/eventing-kafka/pkg/client/injection/client"
 	"knative.dev/eventing-kafka/pkg/client/injection/informers/messaging/v1beta1/kafkachannel"
 	kafkaChannelReconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
@@ -162,11 +162,11 @@ func NewController(
 	return impl
 }
 
-func getPodInformerEventHandler(ctx context.Context, logger *zap.SugaredLogger, statusProber *status.Prober, impl *controller.Impl, kafkaChannelInformer kafkavmessaging1beta1.KafkaChannelInformer, handlerType string) func(obj interface{}) {
+func getPodInformerEventHandler(ctx context.Context, logger *zap.SugaredLogger, statusProber *status.Prober, impl *controller.Impl, kafkaChannelInformer kafkamessagingv1beta1.KafkaChannelInformer, handlerType string) func(obj interface{}) {
 	return func(obj interface{}) {
 		pod, ok := obj.(*corev1.Pod)
 		if ok && pod != nil {
-			logger.Debugw("%s rods. Refreshing pod probing.", handlerType,
+			logger.Debugw("%s pods. Refreshing pod probing.", handlerType,
 				zap.String("pod", pod.GetName()))
 			statusProber.RefreshPodProbing(ctx)
 			impl.GlobalResync(kafkaChannelInformer.Informer())
