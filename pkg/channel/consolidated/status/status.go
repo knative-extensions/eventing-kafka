@@ -97,7 +97,6 @@ type workItem struct {
 type ProbeTarget struct {
 	PodIPs  sets.String
 	PodPort string
-	Port    string
 	URL     *url.URL
 }
 
@@ -107,7 +106,7 @@ type ProbeTargetLister interface {
 	ListProbeTargets(ctx context.Context, ch messagingv1beta1.KafkaChannel) (*ProbeTarget, error)
 }
 
-// Manager provides a way to check if an Ingress is ready
+// Manager provides a way to check if a Subscription is ready
 type Manager interface {
 	IsReady(ctx context.Context, ch messagingv1beta1.KafkaChannel, sub eventingduckv1.SubscriberSpec) (bool, error)
 	CancelProbing(sub eventingduckv1.SubscriberSpec)
@@ -186,6 +185,7 @@ func (m *Prober) IsReady(ctx context.Context, ch messagingv1beta1.KafkaChannel, 
 			zap.Any("subscription", sub.UID))
 		return false, err
 	}
+	// get the state while locking for very short scope
 	state, ok := func() (*targetState, bool) {
 		m.mu.Lock()
 		defer m.mu.Unlock()
@@ -196,7 +196,7 @@ func (m *Prober) IsReady(ctx context.Context, ch messagingv1beta1.KafkaChannel, 
 		if !isOutdatedTargetState(state, sub, target.PodIPs) {
 			return m.checkReadiness(state), nil
 		}
-		m.forgetState(sub)
+		m.ejectStateUnsafe(sub)
 	}
 	m.probeTarget(ctx, ch, sub, target)
 	return false, nil
@@ -320,11 +320,11 @@ func (m *Prober) Start(done <-chan struct{}) chan struct{} {
 func (m *Prober) CancelProbing(sub eventingduckv1.SubscriberSpec) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.forgetState(sub)
+	m.ejectStateUnsafe(sub)
 }
 
-// This is meant to be called while m.mu is locked
-func (m *Prober) forgetState(sub eventingduckv1.SubscriberSpec) {
+// ejectStateUnsafe ejects a state from Cache, it's not safe for concurrent access and is meant for internal use only under proper locking.
+func (m *Prober) ejectStateUnsafe(sub eventingduckv1.SubscriberSpec) {
 	if state, ok := m.targetStates[sub.UID]; ok {
 		m.logger.Debugw("Canceling state", zap.Any("subscription", sub))
 		state.cancel()
@@ -361,15 +361,13 @@ func (m *Prober) RefreshPodProbing(ctx context.Context) {
 					zap.Any("subscription", sub.UID))
 				return
 			}
-			if !state.probedPods.Equal(target.PodIPs) {
-				m.forgetState(sub)
-				func() {
-					// probeTarget requires an unlocked mutex.
-					m.mu.Unlock()
-					defer m.mu.Lock()
-					m.probeTarget(ctx, ch, sub, target)
-				}()
-			}
+			m.ejectStateUnsafe(sub)
+			func() {
+				// probeTarget requires an unlocked mutex.
+				m.mu.Unlock()
+				defer m.mu.Lock()
+				m.probeTarget(ctx, ch, sub, target)
+			}()
 		}
 	}
 }
