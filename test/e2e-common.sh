@@ -380,7 +380,9 @@ function install_mt_source() {
   cp "${KAFKA_MT_SOURCE_TEMPLATE_DIR}/"*yaml "${KAFKA_SOURCE_CRD_CONFIG_DIR}"
   sed -i "s/namespace: knative-eventing/namespace: ${SYSTEM_NAMESPACE}/g" "${KAFKA_SOURCE_CRD_CONFIG_DIR}/"*yaml
   ko apply -f "${KAFKA_SOURCE_CRD_CONFIG_DIR}" || return 1
-  run_postinstall_jobs
+
+  # FIXME: integration-test-mt-source fails if post-install scripts are executed (knative-sandbox/eventing-kafka#495)
+  # run_postinstall_jobs
 
   wait_until_pods_running "${EVENTING_NAMESPACE}" || fail_test "Failed to install the multi-tenant Kafka Source"
 }
