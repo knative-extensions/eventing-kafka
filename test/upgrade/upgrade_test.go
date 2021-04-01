@@ -26,7 +26,7 @@ import (
 	pkgupgrade "knative.dev/pkg/test/upgrade"
 )
 
-func TestEventingKafkaUpgrades(t *testing.T) {
+func TestUpgrades(t *testing.T) {
 	suite := upgrade.Suite()
 	suite.Execute(newUpgradeConfig(t))
 }
