@@ -34,7 +34,7 @@ import (
 // MTAdapter is the interface the multi-tenant KafkaSource adapter must implement
 type MTAdapter interface {
 	// Update is called when the source is ready and when the specification and/or status has changed.
-	Update(ctx context.Context, source *v1beta1.KafkaSource)
+	Update(ctx context.Context, source *v1beta1.KafkaSource) (err error)
 
 	// Remove is called when the source has been deleted.
 	Remove(source *v1beta1.KafkaSource)

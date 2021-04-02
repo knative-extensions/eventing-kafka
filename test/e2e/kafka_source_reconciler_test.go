@@ -43,10 +43,9 @@ const (
 	rtChannelName        = "e2e-rt-channel"
 	rtKafkaConsumerGroup = "e2e-rt-cg"
 	rtKafkaTopicName     = "e2e-rt-topic"
+	rtKafkaTopicNameNew  = "e2e-rt-topic-new"
 )
 
-//TestKafkaSourceReconciler tests various kafka source reconciler statuses
-//RT is short for reconciler test
 func TestKafkaSourceReconciler(t *testing.T) {
 	client := testlib.Setup(t, true)
 	defer testlib.TearDown(client)
@@ -74,6 +73,11 @@ func TestKafkaSourceReconciler(t *testing.T) {
 	}, {
 		"create_sink_after_delete",
 		createChannel,
+		sets.NewString(""),
+		1,
+	}, {
+		"update_kafka_source",
+		updateKafkaSourceWithNewTopic,
 		sets.NewString(""),
 		1,
 	}} {
@@ -118,6 +122,19 @@ func createKafkaSourceWithSinkMissing(c *testlib.Client) {
 		contribresources.WithNameV1Beta1(rtKafkaSourceName),
 		contribresources.WithConsumerGroupV1Beta1(rtKafkaConsumerGroup),
 	))
+}
+
+func updateKafkaSourceWithNewTopic(c *testlib.Client) {
+	ksObj := contribtestlib.GetKafkaSourceV1Beta1OrFail(c, rtKafkaSourceName)
+	if ksObj == nil {
+		c.T.Fatalf("Unable to Get kafkasource: %s/%s\n", c.Namespace, rtKafkaSourceName)
+	}
+
+	helpers.MustCreateTopic(c, kafkaClusterName, kafkaClusterNamespace, rtKafkaTopicNameNew)
+	ksObj.Spec.Topics = []string{rtKafkaTopicNameNew}
+
+	contribtestlib.UpdateKafkaSourceV1Beta1OrFail(c, ksObj)
+	c.WaitForAllTestResourcesReadyOrFail(context.Background())
 }
 
 func createChannel(c *testlib.Client) {

@@ -40,8 +40,11 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, source *v1beta1.KafkaSou
 		return fmt.Errorf("warning: KafkaSource is not ready")
 	}
 
-	// Update the adapter state
-	r.mtadapter.Update(ctx, source)
+	// Update the adapter state; if it fails, return error for retrying reconciliation
+	err := r.mtadapter.Update(ctx, source)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

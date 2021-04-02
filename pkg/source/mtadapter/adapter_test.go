@@ -63,7 +63,7 @@ func TestUpdateRemoveSources(t *testing.T) {
 		adapterStopped <- true
 	}()
 
-	adapter.Update(ctx, &sourcesv1beta1.KafkaSource{
+	err := adapter.Update(ctx, &sourcesv1beta1.KafkaSource{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-name",
 			Namespace: "test-ns",
@@ -76,6 +76,9 @@ func TestUpdateRemoveSources(t *testing.T) {
 				}},
 		},
 	})
+	if err != nil {
+		t.Fatalf("Updating MT source adapter failed with %v", err)
+	}
 
 	if _, ok := adapter.sources["test-ns/test-name"]; !ok {
 		t.Error(`Expected adapter to contain "test-ns/test-name"`)

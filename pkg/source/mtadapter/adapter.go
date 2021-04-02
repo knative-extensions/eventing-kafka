@@ -18,6 +18,7 @@ package mtadapter
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
@@ -89,7 +90,7 @@ func (a *Adapter) Start(ctx context.Context) error {
 
 // Implements MTAdapter
 
-func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) {
+func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) (err error) {
 	a.sourcesMu.Lock()
 	defer a.sourcesMu.Unlock()
 	a.logger.Infow("adding source", "name", obj.Name)
@@ -108,7 +109,7 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) {
 	if placement == nil || placement.VReplicas == 0 {
 		// this pod does not handle this source. Skipping
 		a.logger.Infow("no replicas assigned to this source. skipping", zap.String("key", key))
-		return
+		return nil
 	}
 
 	config := stadapter.AdapterConfig{
@@ -144,12 +145,12 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) {
 
 	reporter, err := pkgsource.NewStatsReporter()
 	if err != nil {
-		a.logger.Error("error building statsreporter", zap.Error(err))
+		return fmt.Errorf("error building statsreporter: %v", err)
 	}
 
 	httpBindingsSender, err := kncloudevents.NewHTTPMessageSenderWithTarget(obj.Status.SinkURI.String())
 	if err != nil {
-		a.logger.Fatalw("error building cloud event client", zap.Error(err))
+		return fmt.Errorf("error building cloud event client: %v", err)
 	}
 
 	adapter := a.adapterCtor(ctx, &config, httpBindingsSender, reporter)
@@ -169,6 +170,7 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) {
 
 	a.sources[key] = cancelFn
 	a.logger.Infow("source added", "name", obj.Name)
+	return nil
 }
 
 func (a *Adapter) Remove(obj *v1beta1.KafkaSource) {
