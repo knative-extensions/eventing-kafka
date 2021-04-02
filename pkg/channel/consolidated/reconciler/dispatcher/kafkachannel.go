@@ -19,6 +19,10 @@ package controller
 import (
 	"context"
 	"fmt"
+	"github.com/kelseyhightower/envconfig"
+	corev1 "k8s.io/api/core/v1"
+	"os"
+	"reflect"
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/labels"
@@ -46,6 +50,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/client/injection/informers/messaging/v1beta1/kafkachannel"
 	kafkachannelreconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
 	listers "knative.dev/eventing-kafka/pkg/client/listers/messaging/v1beta1"
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 )
 
 func init() {
@@ -62,6 +67,15 @@ type Reconciler struct {
 	kafkachannelLister   listers.KafkaChannelLister
 	kafkachannelInformer cache.SharedIndexInformer
 	impl                 *controller.Impl
+}
+
+type envConfig struct {
+	// this is always set. by default, it is "knative-eventing"
+	SystemNamespace string `envconfig:"SYSTEM_NAMESPACE" required:"true"`
+
+	// this is only set for namespaced channels. it is set to the channel and
+	// dispatcher namespace
+	Namespace string `envconfig:"NAMESPACE" required:"false"`
 }
 
 // Check that our Reconciler implements controller.Reconciler.
@@ -85,6 +99,33 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 	kafkaConfig, err := utils.GetKafkaConfig(configMap)
 	if err != nil {
 		logger.Fatalw("Error loading kafka config", zap.Error(err))
+	}
+
+	env := &envConfig{}
+	if err := envconfig.Process("", env); err != nil {
+		logger.Panicf("unable to process Kafka channel's required environment variables: %v", err)
+	}
+
+	if env.SystemNamespace == "" {
+		logger.Panic("unable to process Kafka channel's required environment variable(s)")
+	}
+
+	configMapObserver := func(ctx context.Context, updatedConfigMap *corev1.ConfigMap) {
+		if updatedConfigMap == nil || updatedConfigMap.Data == nil {
+			logger.Warn("Nil ConfigMap passed to configMapObserver; ignoring")
+			return
+		}
+
+		if !reflect.DeepEqual(updatedConfigMap.Data, configMap) {
+			logger.Info("Confimap changed. Killing process to restart it from scratch.")
+			os.Exit(0)
+		}
+	}
+
+	// Watch The Settings ConfigMap For Changes
+	err = commonconfig.InitializeKafkaConfigMapWatcher(ctx, cmw, logger, configMapObserver, getDispatcherNamespace(env))
+	if err != nil {
+		logger.Fatal("Failed To Initialize ConfigMap Watcher", zap.Error(err))
 	}
 
 	kafkaAuthCfg := utils.GetKafkaAuthData(ctx, kafkaConfig.AuthSecretName, kafkaConfig.AuthSecretNamespace)
@@ -224,4 +265,11 @@ func (r *Reconciler) newConfigFromKafkaChannels(channels []*v1beta1.KafkaChannel
 	return &dispatcher.Config{
 		ChannelConfigs: cc,
 	}
+}
+
+func getDispatcherNamespace(env *envConfig) string {
+	if env.Namespace != "" {
+		return env.Namespace
+	}
+	return env.SystemNamespace
 }

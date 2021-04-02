@@ -118,7 +118,7 @@ func makeEnv(args DispatcherArgs) []corev1.EnvVar {
 
 	if args.DispatcherScope == "namespace" {
 		vars = append(vars, corev1.EnvVar{
-			Name: "NAMESPACE",
+			Name: constants.NamespaceEnvKey,
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{
 					FieldPath: "metadata.namespace",
