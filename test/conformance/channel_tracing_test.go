@@ -35,7 +35,7 @@ func TestChannelTracingWithReply(t *testing.T) {
 	helpers.ChannelTracingTestHelperWithChannelTestRunner(context.Background(), t, testlib.ComponentsTestRunner{
 		ComponentFeatureMap: map[metav1.TypeMeta][]testlib.Feature{
 			{
-				APIVersion: resources.MessagingAPIVersion,
+				APIVersion: "messaging.knative.dev/v1beta1",
 				Kind:       contribtest.KafkaChannelKind,
 			}: {
 				testlib.FeatureBasic,
