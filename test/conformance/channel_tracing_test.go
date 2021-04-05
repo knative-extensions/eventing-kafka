@@ -31,12 +31,13 @@ import (
 
 // Eventing channels are v1, but Kafka channel is v1beta1.
 const kafkaChannelAPIVersion = "messaging.knative.dev/v1beta1"
+
 func TestChannelTracingWithReply(t *testing.T) {
 	// Enable this test only for Kafka
 	helpers.ChannelTracingTestHelperWithChannelTestRunner(context.Background(), t, testlib.ComponentsTestRunner{
 		ComponentFeatureMap: map[metav1.TypeMeta][]testlib.Feature{
 			{
-				APIVersion: kafkaChannelAPIVersion
+				APIVersion: kafkaChannelAPIVersion,
 				Kind:       contribtest.KafkaChannelKind,
 			}: {
 				testlib.FeatureBasic,
@@ -46,7 +47,7 @@ func TestChannelTracingWithReply(t *testing.T) {
 		},
 		ComponentsToTest: []metav1.TypeMeta{
 			{
-				APIVersion: kafkaChannelAPIVersion
+				APIVersion: kafkaChannelAPIVersion,
 				Kind:       contribtest.KafkaChannelKind,
 			},
 		},
