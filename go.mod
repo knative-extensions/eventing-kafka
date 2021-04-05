@@ -38,3 +38,5 @@ require (
 	knative.dev/networking v0.0.0-20210331064822-999a7708876c
 	knative.dev/pkg v0.0.0-20210331065221-952fdd90dbb0
 )
+
+replace knative.dev/eventing => github.com/vaikas/eventing v0.0.0-20210404214556-bb50e6bc634a
