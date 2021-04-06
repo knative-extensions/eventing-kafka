@@ -104,7 +104,7 @@ func (a *Adapter) Start(ctx context.Context) error {
 	consumerGroupFactory := consumer.NewConsumerGroupFactory(addrs, config)
 	group, err := consumerGroupFactory.StartConsumerGroup(a.config.ConsumerGroup, a.config.Topics, a.logger, a)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to start consumer group: %w", err)
 	}
 	defer func() {
 		err := group.Close()
