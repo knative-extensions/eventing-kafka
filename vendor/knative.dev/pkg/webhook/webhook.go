@@ -21,7 +21,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"html"
 	"net/http"
 	"time"
 
@@ -141,7 +140,7 @@ func New(
 	}
 
 	webhook.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, fmt.Sprint("no controller registered for: ", html.EscapeString(r.URL.Path)), http.StatusBadRequest)
+		http.Error(w, fmt.Sprint("no controller registered for: ", r.URL.Path), http.StatusBadRequest)
 	})
 
 	for _, controller := range controllers {
