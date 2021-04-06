@@ -26,7 +26,6 @@ func Example_min() {
 	images := map[string]string{}
 	cfg := map[string]interface{}{
 		"name":             "foo",
-		"namespace":        "bar",
 		"partitions":       10,
 		"clusterName":      "my-cluster",
 		"clusterNamespace": "there",
@@ -54,8 +53,7 @@ func Example_min() {
 func Example_full() {
 	images := map[string]string{}
 	cfg := map[string]interface{}{
-		"name":      "foo",
-		"namespace": "bar",
+		"name": "foo",
 	}
 
 	WithClusterName("other-cluster")(cfg)

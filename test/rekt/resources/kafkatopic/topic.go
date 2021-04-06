@@ -67,13 +67,6 @@ func IsReady(name string, timings ...time.Duration) feature.StepFn {
 	}
 }
 
-// WithNamespace overrides the resource namespace (default: kafka).
-func WithNamespace(namespace string) CfgFn {
-	return func(cfg map[string]interface{}) {
-		cfg["namespace"] = namespace
-	}
-}
-
 // WithPartitions overrides the number of partitions (default: 10).
 func WithPartitions(partitions string) CfgFn {
 	return func(cfg map[string]interface{}) {

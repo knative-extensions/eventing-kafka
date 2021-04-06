@@ -18,6 +18,7 @@ package kafkasource
 
 import (
 	"context"
+	"os"
 	"time"
 
 	cetest "github.com/cloudevents/sdk-go/v2/test"
@@ -29,6 +30,10 @@ import (
 	"knative.dev/eventing-kafka/test/rekt/resources/kafkacat"
 	"knative.dev/eventing-kafka/test/rekt/resources/kafkasource"
 	"knative.dev/eventing-kafka/test/rekt/resources/kafkatopic"
+)
+
+var (
+	test_mt_source = os.Getenv("TEST_MT_SOURCE")
 )
 
 // DataPlaneDelivery returns a feature testing if the event sent to Kafka is received by the sink
@@ -66,7 +71,11 @@ func DataPlaneDelivery(name string, ksopts []kafkasource.CfgFn, kcopts []kafkaca
 
 func sinkReceiveProducedEvent(name string, kcopts []kafkacat.CfgFn, storeName string, matchers cetest.EventMatcher) feature.StepFn {
 	return func(ctx context.Context, t feature.T) {
-		time.Sleep(20 * time.Second)
+
+		// See https://github.com/knative-sandbox/eventing-kafka/issues/411
+		if test_mt_source == "1" {
+			time.Sleep(20 * time.Second)
+		}
 
 		// Install and wait for kafkacat to be ready
 		kafkacat.Install(name, kcopts...)(ctx, t)
