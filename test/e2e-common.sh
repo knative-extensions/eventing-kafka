@@ -550,7 +550,9 @@ function test_mt_source() {
   install_mt_source || return 1
 
   export TEST_MT_SOURCE
-  go_test_e2e -tags=source,mtsource -timeout=20m -test.parallel=${TEST_PARALLEL} ./test/e2e/...  || fail_test
+
+  go_test_e2e -tags=e2e -timeout=20m -test.parallel=${TEST_PARALLEL} ./test/rekt/... || fail_test
+  # go_test_e2e -tags=source,mtsource -timeout=20m -test.parallel=${TEST_PARALLEL} ./test/e2e/...  || fail_test
 
   # wait for all KafkaSources to be deleted
   local iterations=0

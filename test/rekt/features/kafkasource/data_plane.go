@@ -71,7 +71,6 @@ func DataPlaneDelivery(name string, ksopts []kafkasource.CfgFn, kcopts []kafkaca
 
 func sinkReceiveProducedEvent(name string, kcopts []kafkacat.CfgFn, storeName string, matchers cetest.EventMatcher) feature.StepFn {
 	return func(ctx context.Context, t feature.T) {
-
 		// See https://github.com/knative-sandbox/eventing-kafka/issues/411
 		if test_mt_source == "1" {
 			time.Sleep(20 * time.Second)
