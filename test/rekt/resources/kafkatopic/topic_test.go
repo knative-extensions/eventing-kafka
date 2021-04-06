@@ -14,25 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package kafkasource
+package kafkatopic
 
 import (
 	"os"
 
-	duckv1 "knative.dev/pkg/apis/duck/v1"
-
 	"knative.dev/reconciler-test/pkg/manifest"
 )
-
-// The following examples validate the processing of the With* helper methods
-// applied to config and go template parser.
 
 func Example_min() {
 	images := map[string]string{}
 	cfg := map[string]interface{}{
-		"name":      "foo",
-		"namespace": "bar",
-		"version":   "v1beta1",
+		"name":             "foo",
+		"namespace":        "bar",
+		"partitions":       10,
+		"clusterName":      "my-cluster",
+		"clusterNamespace": "there",
 	}
 
 	files, err := manifest.ExecuteLocalYAML(images, cfg)
@@ -42,12 +39,16 @@ func Example_min() {
 
 	manifest.OutputYAML(os.Stdout, files)
 	// Output:
-	// apiVersion: sources.knative.dev/v1beta1
-	// kind: KafkaSource
+	// apiVersion: kafka.strimzi.io/v1beta1
+	// kind: KafkaTopic
 	// metadata:
 	//   name: foo
-	//   namespace: bar
+	//   namespace: there
+	//   labels:
+	//     strimzi.io/cluster: my-cluster
 	// spec:
+	//   partitions: 10
+	//   replicas: 1
 }
 
 func Example_full() {
@@ -57,14 +58,9 @@ func Example_full() {
 		"namespace": "bar",
 	}
 
-	WithVersion("v1")(cfg)
-	WithAnnotations(map[string]string{
-		"autoscaling.knative.dev/class":    "keda.autoscaling.knative.dev",
-		"autoscaling.knative.dev/minScale": "0",
-	})(cfg)
-	WithBootstrapServers([]string{"baz"})(cfg)
-	WithTopics([]string{"t1", "t2"})(cfg)
-	WithSink(&duckv1.KReference{Kind: "Service", Name: "name", APIVersion: "v1"}, "")(cfg)
+	WithClusterName("other-cluster")(cfg)
+	WithClusterNamespace("here")(cfg)
+	WithPartitions("100")(cfg)
 
 	files, err := manifest.ExecuteLocalYAML(images, cfg)
 	if err != nil {
@@ -73,24 +69,14 @@ func Example_full() {
 
 	manifest.OutputYAML(os.Stdout, files)
 	// Output:
-	// apiVersion: sources.knative.dev/v1
-	// kind: KafkaSource
+	// apiVersion: kafka.strimzi.io/v1beta1
+	// kind: KafkaTopic
 	// metadata:
 	//   name: foo
-	//   namespace: bar
-	//   annotations:
-	//     autoscaling.knative.dev/class: "keda.autoscaling.knative.dev"
-	//     autoscaling.knative.dev/minScale: "0"
+	//   namespace: here
+	//   labels:
+	//     strimzi.io/cluster: other-cluster
 	// spec:
-	//   bootstrapServers:
-	//     - "baz"
-	//   topics:
-	//     - "t1"
-	//     - "t2"
-	//   sink:
-	//     ref:
-	//       kind: Service
-	//       namespace: bar
-	//       name: name
-	//       apiVersion: v1
+	//   partitions: 100
+	//   replicas: 1
 }

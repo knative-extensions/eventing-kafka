@@ -34,10 +34,11 @@ func Gvr() schema.GroupVersionResource {
 	return schema.GroupVersionResource{Group: "sources.knative.dev", Version: "v1beta1", Resource: "kafkasources"}
 }
 
-// Install will create a KafkaSource resource, augmented with the config fn options.
+// Install will create a KafkaSource resource, using the latest version, augmented with the config fn options.
 func Install(name string, opts ...CfgFn) feature.StepFn {
 	cfg := map[string]interface{}{
-		"name": name,
+		"name":    name,
+		"version": Gvr().Version,
 	}
 	for _, fn := range opts {
 		fn(cfg)
@@ -52,6 +53,15 @@ func Install(name string, opts ...CfgFn) feature.StepFn {
 // IsReady tests to see if a KafkaSource becomes ready within the time given.
 func IsReady(name string, timings ...time.Duration) feature.StepFn {
 	return k8s.IsReady(Gvr(), name, timings...)
+}
+
+// WithVersion overrides the default API version
+func WithVersion(version string) CfgFn {
+	return func(cfg map[string]interface{}) {
+		if version != "" {
+			cfg["version"] = version
+		}
+	}
 }
 
 // WithAnnotations adds annotation to a KafkaSource metadata.
