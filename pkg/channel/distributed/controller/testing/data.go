@@ -18,6 +18,7 @@ package testing
 
 import (
 	"fmt"
+	"k8s.io/utils/pointer"
 	"strconv"
 	"time"
 
@@ -188,6 +189,99 @@ func WithoutFinalizersDeployment(deployment *appsv1.Deployment) {
 func WithoutResources(deployment *appsv1.Deployment) {
 	deployment.Spec.Template.Spec.Containers[0].Resources.Limits = nil
 	deployment.Spec.Template.Spec.Containers[0].Resources.Requests = nil
+}
+
+func WithDifferentName(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].Name = "DifferentName"
+}
+
+func WithDifferentImage(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].Image = "DifferentImage"
+}
+
+func WithDifferentCommand(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].Command = []string{"DifferentCommand"}
+}
+
+func WithDifferentArgs(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].Args = []string{"DifferentArgs"}
+}
+
+func WithDifferentWorkingDir(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].WorkingDir = "DifferentWorkingDir"
+}
+
+func WithDifferentPorts(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].Ports = []corev1.ContainerPort{
+		{ Name: "DifferentPortName" },
+	}
+}
+
+func WithMissingEnvironment(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].Env = []corev1.EnvVar{}
+}
+
+func WithDifferentEnvironment(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].Env = append(
+		deployment.Spec.Template.Spec.Containers[0].Env,
+		corev1.EnvVar{Name: "NewEnvName", Value: "NewEnvValue"},
+	)
+}
+
+func WithDifferentVolumeMounts(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{
+		{ Name: "DifferentVolumeMount" },
+	}
+}
+
+func WithDifferentVolumeDevices(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].VolumeDevices = []corev1.VolumeDevice{
+		{ Name: "DifferentVolumeDevice" },
+	}
+}
+
+func WithDifferentLivenessProbe(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].LivenessProbe = &corev1.Probe{ Handler: corev1.Handler{} }
+}
+
+func WithDifferentReadinessProbe(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].ReadinessProbe = &corev1.Probe{ Handler: corev1.Handler{} }
+}
+
+func WithDifferentStartupProbe(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].StartupProbe = &corev1.Probe{ Handler: corev1.Handler{} }
+}
+
+func WithDifferentLifecycle(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].Lifecycle = &corev1.Lifecycle{ PostStart: &corev1.Handler{} }
+}
+
+func WithDifferentTerminationPath(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].TerminationMessagePath = "DifferentTerminationPath"
+}
+
+func WithDifferentTerminationPolicy(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].TerminationMessagePolicy = corev1.TerminationMessageFallbackToLogsOnError
+}
+
+func WithDifferentImagePullPolicy(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].ImagePullPolicy = corev1.PullNever
+}
+
+func WithDifferentSecurityContext(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{}
+}
+
+func WithDifferentReplicas(deployment *appsv1.Deployment) {
+	deployment.Spec.Replicas = pointer.Int32Ptr(10)
+}
+
+func WithoutLabels(deployment *appsv1.Deployment) {
+	deployment.ObjectMeta.Labels = map[string]string{}
+}
+
+func WithExtraLabels(deployment *appsv1.Deployment) {
+	deployment.ObjectMeta.Labels["ExtraLabelName"] = "ExtraLabelValue"
 }
 
 //
@@ -974,6 +1068,11 @@ func NewFinalizerPatchActionImpl() clientgotesting.PatchActionImpl {
 	}
 }
 
+// Utility Function For Creating A Dispatcher Deployment Updated Event
+func NewKafkaChannelDispatcherUpdatedEvent() string {
+	return reconcilertesting.Eventf(corev1.EventTypeNormal, "DispatcherDeploymentUpdated", "Dispatcher Deployment Updated")
+}
+
 // Utility Function For Creating A Successful KafkaChannel Reconciled Event
 func NewKafkaChannelSuccessfulReconciliationEvent() string {
 	return reconcilertesting.Eventf(corev1.EventTypeNormal, event.KafkaChannelReconciled.String(), `KafkaChannel Reconciled Successfully: "%s/%s"`, KafkaChannelNamespace, KafkaChannelName)
@@ -1049,4 +1148,33 @@ func NewDeploymentDeleteActionImpl(deployment *appsv1.Deployment) clientgotestin
 		},
 		Name: deployment.Name,
 	}
+}
+
+func NewKafkaChannelStatusUpdates() []clientgotesting.UpdateActionImpl {
+	return []clientgotesting.UpdateActionImpl{
+		{
+			Object: NewKafkaChannel(
+				WithFinalizer,
+				WithAddress,
+				WithInitializedConditions,
+				WithKafkaChannelServiceReady,
+				WithDispatcherDeploymentReady,
+				WithTopicReady,
+			),
+		},
+	}
+}
+
+func NewKafkaChannelUpdate() clientgotesting.UpdateActionImpl {
+	return clientgotesting.UpdateActionImpl{
+			Object: NewKafkaChannel(
+				WithFinalizer,
+				WithMetaData,
+				WithAddress,
+				WithInitializedConditions,
+				WithKafkaChannelServiceReady,
+				WithDispatcherDeploymentReady,
+				WithTopicReady,
+			),
+		}
 }

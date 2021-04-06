@@ -19,6 +19,8 @@ package kafkachannel
 import (
 	"context"
 	"fmt"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"strconv"
 	"time"
 
@@ -38,6 +40,12 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
+)
+
+const (
+	// Name of the corev1.Events emitted from the reconciliation process.
+	dispatcherDeploymentUpdated     = "DispatcherDeploymentUpdated"
+	dispatcherDeploymentFailed      = "DispatcherDeploymentFailed"
 )
 
 //
@@ -264,31 +272,32 @@ func (r *Reconciler) newDispatcherService(channel *kafkav1beta1.KafkaChannel) *c
 // Reconcile The Dispatcher Deployment
 func (r *Reconciler) reconcileDispatcherDeployment(ctx context.Context, logger *zap.Logger, channel *kafkav1beta1.KafkaChannel) error {
 
+	// Create A New Deployment For Comparison
+	newDeployment, err := r.newDispatcherDeployment(logger, channel)
+	if err != nil {
+		logger.Error("Failed To Create Dispatcher Deployment YAML", zap.Error(err))
+		channel.Status.MarkDispatcherFailed(event.DispatcherDeploymentReconciliationFailed.String(), "Failed To Generate Dispatcher Deployment: %v", err)
+		return err
+	}
+
 	// Attempt To Get The Dispatcher Deployment Associated With The Specified Channel
-	deployment, err := r.getDispatcherDeployment(channel)
-	if deployment == nil || err != nil {
+	existingDeployment, err := r.getDispatcherDeployment(channel)
+	if existingDeployment == nil || err != nil {
 
 		// If The Dispatcher Deployment Was Not Found - Then Create A New Deployment For The Channel
 		if errors.IsNotFound(err) {
 
 			// Then Create The New Deployment
 			logger.Info("Dispatcher Deployment Not Found - Creating New One")
-			deployment, err = r.newDispatcherDeployment(logger, channel)
+			newDeployment, err = r.kubeClientset.AppsV1().Deployments(newDeployment.Namespace).Create(ctx, newDeployment, metav1.CreateOptions{})
 			if err != nil {
-				logger.Error("Failed To Create Dispatcher Deployment YAML", zap.Error(err))
-				channel.Status.MarkDispatcherFailed(event.DispatcherDeploymentReconciliationFailed.String(), "Failed To Generate Dispatcher Deployment: %v", err)
+				logger.Error("Failed To Create Dispatcher Deployment", zap.Error(err))
+				channel.Status.MarkDispatcherFailed(event.DispatcherDeploymentReconciliationFailed.String(), "Failed To Create Dispatcher Deployment: %v", err)
 				return err
 			} else {
-				deployment, err = r.kubeClientset.AppsV1().Deployments(deployment.Namespace).Create(ctx, deployment, metav1.CreateOptions{})
-				if err != nil {
-					logger.Error("Failed To Create Dispatcher Deployment", zap.Error(err))
-					channel.Status.MarkDispatcherFailed(event.DispatcherDeploymentReconciliationFailed.String(), "Failed To Create Dispatcher Deployment: %v", err)
-					return err
-				} else {
-					logger.Info("Successfully Created Dispatcher Deployment")
-					channel.Status.PropagateDispatcherStatus(&deployment.Status)
-					return nil
-				}
+				logger.Info("Successfully Created Dispatcher Deployment")
+				channel.Status.PropagateDispatcherStatus(&newDeployment.Status)
+				return nil
 			}
 		} else {
 			// Failed In Attempt To Get Deployment From K8S
@@ -298,21 +307,103 @@ func (r *Reconciler) reconcileDispatcherDeployment(ctx context.Context, logger *
 		}
 	} else {
 
+		updatedDeployment, needsUpdate := r.checkDispatcherDeploymentChanged(logger, existingDeployment, newDeployment)
 		// Log Deletion Timestamp & Finalizer State
-		if deployment.DeletionTimestamp.IsZero() {
+		if updatedDeployment.DeletionTimestamp.IsZero() {
 			logger.Info("Successfully Verified Dispatcher Deployment")
 		} else {
-			if util.HasFinalizer(r.finalizerName(), &deployment.ObjectMeta) {
+			if util.HasFinalizer(r.finalizerName(), &newDeployment.ObjectMeta) {
 				logger.Info("Blocking Pending Deletion Of Dispatcher Deployment (Finalizer Detected)")
 			} else {
 				logger.Warn("Unable To Block Pending Deletion Of Dispatcher Deployment (Finalizer Missing)")
 			}
 		}
 
+		if needsUpdate {
+			updatedDeployment, err = r.kubeClientset.AppsV1().Deployments(newDeployment.Namespace).Update(ctx, updatedDeployment, metav1.UpdateOptions{})
+			if err == nil {
+				controller.GetEventRecorder(ctx).Event(channel, corev1.EventTypeNormal, dispatcherDeploymentUpdated, "Dispatcher Deployment Updated")
+			} else {
+				controller.GetEventRecorder(ctx).Event(channel, corev1.EventTypeWarning, dispatcherDeploymentFailed, "Dispatcher Deployment Failed")
+				channel.Status.MarkServiceFailed("DispatcherDeploymentUpdateFailed", "Failed to update the dispatcher deployment: %v", err)
+				return err
+			}
+		}
 		// Propagate Status & Return Success
-		channel.Status.PropagateDispatcherStatus(&deployment.Status)
+		channel.Status.PropagateDispatcherStatus(&updatedDeployment.Status)
 		return nil
 	}
+}
+
+// Modifies An Existing Dispatcher Deployment With New Fields (If Necessary)
+// Returns True If Any Modifications Were Made
+func (r *Reconciler) checkDispatcherDeploymentChanged(logger *zap.Logger, existingDeployment, newDeployment *appsv1.Deployment) (*appsv1.Deployment, bool) {
+
+	// Make a copy of the existing labels so we don't inadvertently modify the existing deployment fields directly
+	updatedLabels := make(map[string]string)
+	for oldKey, oldValue := range existingDeployment.ObjectMeta.Labels {
+		updatedLabels[oldKey] = oldValue
+	}
+
+	// Add any labels in the "new" deployment to the copy of the labels from the old deployment.
+	// Annotations could be similarly updated, but there are currently no annotations being made
+	// in new dispatcher deployments anyway so it would serve no practical purpose at the moment.
+	labelsChanged := false
+	for newKey, newValue := range newDeployment.ObjectMeta.Labels {
+		oldValue, ok := existingDeployment.ObjectMeta.Labels[newKey]
+		if !ok || oldValue != newValue {
+			labelsChanged = true
+			updatedLabels[newKey] = newValue
+		}
+	}
+
+	// Fields intentionally ignored:
+	//    Spec.Replicas - Since a HorizontalPodAutoscaler explicitly changes this value on the deployment directly
+
+	// Verify everything in the container spec aside from some particular exceptions (see "ignoreFields" below)
+	existingContainerCount := len(existingDeployment.Spec.Template.Spec.Containers)
+	if existingContainerCount == 0 {
+		// This is unlikely but if it happens, replace the entire existing deployment with a proper one
+		logger.Error("Dispatcher Deployment Has No Containers")
+		return newDeployment, true
+	} else if existingContainerCount > 1 {
+		logger.Warn("Dispatcher Deployment Has Multiple Containers; Comparing First Only")
+	}
+	if len(newDeployment.Spec.Template.Spec.Containers) < 1 {
+		// This shouldn't be possible if the new deployment came from newDispatcherDeployment()
+		logger.Error("New Dispatcher Deployment Has No Containers")
+		return existingDeployment, false
+	}
+	existingContainer := &existingDeployment.Spec.Template.Spec.Containers[0]
+	newContainer := &newDeployment.Spec.Template.Spec.Containers[0]
+
+	// Ignore the fields in a Container struct which are not set directly by getDispatcherDeployment()
+	// and ones that are acceptable to be changed manually (such as the ImagePullPolicy)
+	ignoreFields := cmpopts.IgnoreFields(*newContainer,
+		"Lifecycle",
+		"TerminationMessagePolicy",
+		"ImagePullPolicy",
+		"SecurityContext",
+		"StartupProbe",
+		"TerminationMessagePath",
+		"Stdin",
+		"StdinOnce",
+		"TTY")
+
+	containersEqual := cmp.Equal(existingContainer, newContainer, ignoreFields)
+	if !containersEqual || labelsChanged {
+		// Create an updated deployment from the existing one, but using the new Container field
+		updatedDeployment := existingDeployment.DeepCopy()
+		if labelsChanged {
+			updatedDeployment.ObjectMeta.Labels = updatedLabels
+		}
+		if !containersEqual {
+			updatedDeployment.Spec.Template.Spec.Containers[0] = *newContainer
+		}
+		return updatedDeployment, true
+	}
+
+	return existingDeployment, false
 }
 
 // Finalize The Dispatcher Deployment

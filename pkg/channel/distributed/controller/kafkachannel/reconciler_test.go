@@ -19,18 +19,18 @@ package kafkachannel
 import (
 	"context"
 	"errors"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	clientgotesting "k8s.io/client-go/testing"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
 	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
-	clientgotesting "k8s.io/client-go/testing"
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	kafkaadmintesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/testing"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/types"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
 	controllertesting "knative.dev/eventing-kafka/pkg/channel/distributed/controller/testing"
 	fakekafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client/fake"
 	kafkachannelreconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
@@ -648,6 +648,32 @@ func TestReconcile(t *testing.T) {
 				controllertesting.NewKafkaChannelSuccessfulReconciliationEvent(),
 			},
 		},
+
+		//
+		// Deployment Updating - Repairing Incorrect Or Missing Fields In Existing Deployments
+		//
+
+		newDispatcherUpdateTest("No Resources", controllertesting.WithoutResources),
+		newDispatcherUpdateTest("Different Name", controllertesting.WithDifferentName),
+		newDispatcherUpdateTest("Different Image", controllertesting.WithDifferentImage),
+		newDispatcherUpdateTest("Different Command", controllertesting.WithDifferentCommand),
+		newDispatcherUpdateTest("Different Args", controllertesting.WithDifferentArgs),
+		newDispatcherUpdateTest("Different WorkingDir", controllertesting.WithDifferentWorkingDir),
+		newDispatcherUpdateTest("Different Ports", controllertesting.WithDifferentPorts),
+		newDispatcherUpdateTest("Different Environment", controllertesting.WithMissingEnvironment),
+		newDispatcherUpdateTest("Different Environment", controllertesting.WithDifferentEnvironment),
+		newDispatcherUpdateTest("Different VolumeMounts", controllertesting.WithDifferentVolumeMounts),
+		newDispatcherUpdateTest("Different VolumeDevices", controllertesting.WithDifferentVolumeDevices),
+		newDispatcherUpdateTest("Different LivenessProbe", controllertesting.WithDifferentLivenessProbe),
+		newDispatcherUpdateTest("Different ReadinessProbe", controllertesting.WithDifferentReadinessProbe),
+		newDispatcherUpdateTest("Missing Labels", controllertesting.WithoutLabels),
+		newDispatcherNoUpdateTest("Different Lifecycle", controllertesting.WithDifferentLifecycle),
+		newDispatcherNoUpdateTest("Different TerminationPath", controllertesting.WithDifferentTerminationPath),
+		newDispatcherNoUpdateTest("Different TerminationPolicy", controllertesting.WithDifferentTerminationPolicy),
+		newDispatcherNoUpdateTest("Different ImagePullPolicy", controllertesting.WithDifferentImagePullPolicy),
+		newDispatcherNoUpdateTest("Different SecurityContext", controllertesting.WithDifferentSecurityContext),
+		newDispatcherNoUpdateTest("Different Replicas", controllertesting.WithDifferentReplicas),
+		newDispatcherNoUpdateTest("Extra Labels", controllertesting.WithExtraLabels),
 	}
 
 	// Create A Mock AdminClient
@@ -680,4 +706,39 @@ func TestReconcile(t *testing.T) {
 		}
 		return kafkachannelreconciler.NewReconciler(ctx, logger, r.kafkaClientSet, listers.GetKafkaChannelLister(), controller.GetEventRecorder(ctx), r)
 	}, logger.Desugar()))
+}
+
+// Utility Functions
+
+func newDispatcherUpdateTest(name string, options ... controllertesting.DeploymentOption) TableRow {
+	test := newDispatcherBasicTest("Existing Dispatcher, " + name + ", Update Needed")
+	test.Objects = append(test.Objects,	controllertesting.NewKafkaChannelDispatcherDeployment(options...))
+	test.WantUpdates = append(test.WantUpdates,
+		controllertesting.NewDeploymentUpdateActionImpl(controllertesting.NewKafkaChannelDispatcherDeployment()))
+	test.WantEvents = append([]string{controllertesting.NewKafkaChannelDispatcherUpdatedEvent()},
+		test.WantEvents...)
+	return test
+}
+
+func newDispatcherNoUpdateTest(name string, options ... controllertesting.DeploymentOption) TableRow {
+	test := newDispatcherBasicTest("Existing Dispatcher, " + name + ", No Update")
+	test.Objects = append(test.Objects,	controllertesting.NewKafkaChannelDispatcherDeployment(options...))
+	return test
+}
+
+func newDispatcherBasicTest(name string) TableRow {
+	return TableRow{
+		Name: name,
+		Key:  controllertesting.KafkaChannelKey,
+		Objects: []runtime.Object{
+			controllertesting.NewKafkaChannel(controllertesting.WithFinalizer),
+			controllertesting.NewKafkaChannelService(),
+			controllertesting.NewKafkaChannelDispatcherService(),
+		},
+		WantStatusUpdates: controllertesting.NewKafkaChannelStatusUpdates(),
+		WantUpdates: []clientgotesting.UpdateActionImpl{
+			controllertesting.NewKafkaChannelUpdate(),
+		},
+		WantEvents: []string{controllertesting.NewKafkaChannelSuccessfulReconciliationEvent()},
+	}
 }
