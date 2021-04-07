@@ -24,7 +24,10 @@ import (
 	"knative.dev/pkg/system"
 )
 
-const DispatcherContainerName = "dispatcher"
+const (
+	DispatcherContainerName    = "dispatcher"
+	ConfigMapHashAnnotationKey = "ConfigMapHash"
+)
 
 var (
 	dispatcherName   = "kafka-ch-dispatcher"
@@ -40,6 +43,7 @@ type DispatcherArgs struct {
 	Image               string
 	Replicas            int32
 	ServiceAccount      string
+	ConfigMapHash       string
 }
 
 // MakeDispatcher generates the dispatcher deployment for the KafKa channel
@@ -63,6 +67,9 @@ func MakeDispatcher(args DispatcherArgs) *v1.Deployment {
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: dispatcherLabels,
+					Annotations: map[string]string{
+						ConfigMapHashAnnotationKey: args.ConfigMapHash,
+					},
 				},
 				Spec: corev1.PodSpec{
 					ServiceAccountName: args.ServiceAccount,

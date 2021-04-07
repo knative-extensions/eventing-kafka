@@ -116,10 +116,11 @@ type Reconciler struct {
 	dispatcherImage          string
 	dispatcherServiceAccount string
 
-	kafkaConfig      *utils.KafkaConfig
-	kafkaAuthConfig  *client.KafkaAuthConfig
-	kafkaConfigError error
-	kafkaClientSet   kafkaclientset.Interface
+	kafkaConfig        *utils.KafkaConfig
+	kafkaConfigMapHash string
+	kafkaAuthConfig    *client.KafkaAuthConfig
+	kafkaConfigError   error
+	kafkaClientSet     kafkaclientset.Interface
 	// Using a shared kafkaClusterAdmin does not work currently because of an issue with
 	// Shopify/sarama, see https://github.com/Shopify/sarama/issues/1162.
 	kafkaClusterAdmin    sarama.ClusterAdmin
@@ -310,6 +311,7 @@ func (r *Reconciler) reconcileDispatcher(ctx context.Context, scope string, disp
 		Image:               r.dispatcherImage,
 		Replicas:            1,
 		ServiceAccount:      r.dispatcherServiceAccount,
+		ConfigMapHash:       r.kafkaConfigMapHash,
 	}
 
 	expected := resources.MakeDispatcher(args)
@@ -361,6 +363,12 @@ func (r *Reconciler) reconcileDispatcher(ctx context.Context, scope string, disp
 		if *d.Spec.Replicas == 0 {
 			logging.FromContext(ctx).Infof("Dispatcher deployment has 0 replica. Scaling up deployment to 1 replica")
 			d.Spec.Replicas = pointer.Int32Ptr(1)
+			needsUpdate = true
+		}
+
+		if expected.Spec.Template.Annotations[resources.ConfigMapHashAnnotationKey] != d.Spec.Template.Annotations[resources.ConfigMapHashAnnotationKey] {
+			logging.FromContext(ctx).Infof("Configmap hash is changed. Updating the dispatcher deployment.")
+			d.Spec.Template.Annotations[resources.ConfigMapHashAnnotationKey] = expected.Spec.Template.Annotations[resources.ConfigMapHashAnnotationKey]
 			needsUpdate = true
 		}
 
@@ -563,6 +571,8 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 	// Eventually the previous config should be snapshotted to delete Kafka topics
 	r.kafkaConfig = kafkaConfig
 	r.kafkaConfigError = err
+	configMapDataStr := fmt.Sprintf("%v", configMap.Data)
+	r.kafkaConfigMapHash = fmt.Sprintf("%08x", crc32.ChecksumIEEE([]byte(configMapDataStr)))
 
 	if err != nil {
 		logger.Errorw("Error creating AdminClient", zap.Error(err))

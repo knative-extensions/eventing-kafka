@@ -29,6 +29,8 @@ spec:
       messaging.knative.dev/role: dispatcher
   template:
     metadata:
+      annotations:
+        ConfigMapHash: ''
       labels:
         # Do not change. Used by the controller for probing.
         messaging.knative.dev/channel: kafka-channel
