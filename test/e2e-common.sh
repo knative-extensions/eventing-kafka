@@ -564,3 +564,10 @@ function parse_flags() {
   esac
   return 0
 }
+
+## hack
+function get_latest_knative_yaml_source() {
+  echo "https://storage.googleapis.com/knative-releases/eventing/latest/eventing.yaml"
+}
+
+readonly KNATIVE_EVENTING_RELEASE="$(get_latest_knative_yaml_source)"
