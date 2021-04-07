@@ -21,9 +21,9 @@ import (
 	"fmt"
 
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/cache"
+
 	"knative.dev/eventing-kafka/pkg/common/constants"
 
 	"knative.dev/eventing/pkg/apis/eventing"
@@ -64,7 +64,6 @@ type Reconciler struct {
 	impl                 *controller.Impl
 }
 
-// Check that our Reconciler implements controller.Reconciler.
 var _ kafkachannelreconciler.Interface = (*Reconciler)(nil)
 
 // NewController initializes the controller and is called by the generated code.
@@ -157,45 +156,25 @@ func filterWithAnnotation(namespaced bool) func(obj interface{}) bool {
 }
 
 func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel) pkgreconciler.Event {
-	logging.FromContext(ctx).Debugw("ReconcileKind for channel", zap.String("channel", kc.Name))
-	return r.syncDispatcher(ctx)
-}
-
-func (r *Reconciler) ObserveKind(ctx context.Context, kc *v1beta1.KafkaChannel) pkgreconciler.Event {
 	logging.FromContext(ctx).Debugw("ObserveKind for channel", zap.String("channel", kc.Name))
-	return r.syncDispatcher(ctx)
-}
-
-func (r *Reconciler) syncDispatcher(ctx context.Context) pkgreconciler.Event {
-	channels, err := r.kafkachannelLister.List(labels.Everything())
-	if err != nil {
-		logging.FromContext(ctx).Error("Error listing kafka channels")
-		return err
+	if !kc.Status.IsReady() {
+		logging.FromContext(ctx).Debugw("KafkaChannel still not ready, short-circuiting the reconciler", zap.String("channel", kc.Name))
+		return nil
 	}
 
-	// TODO: revisit this code. Instead of reading all channels and updating consumers and hostToChannel map for all
-	// why not just reconcile the current channel. With this the UpdateKafkaConsumers can now return SubscribableStatus
-	// for the subscriptions on the channel that is being reconciled.
-	kafkaChannels := make([]*v1beta1.KafkaChannel, 0)
-	for _, channel := range channels {
-		if channel.Status.IsReady() {
-			kafkaChannels = append(kafkaChannels, channel)
-		}
-	}
-	config := r.newConfigFromKafkaChannels(kafkaChannels)
-	if err := r.kafkaDispatcher.UpdateHostToChannelMap(config); err != nil {
+	config := r.newChannelConfigFromKafkaChannel(kc)
+
+	// Update receiver side
+	if err := r.kafkaDispatcher.RegisterChannelHost(config); err != nil {
 		logging.FromContext(ctx).Error("Error updating host to channel map in dispatcher")
 		return err
 	}
 
-	failedSubscriptions, err := r.kafkaDispatcher.UpdateKafkaConsumers(config)
-	if err != nil {
-		logging.FromContext(ctx).Error("Error updating kafka consumers in dispatcher")
-		return err
-	}
+	// Update dispatcher side
+	failedSubscriptions := r.kafkaDispatcher.ReconcileConsumers(config)
 	if len(failedSubscriptions) > 0 {
-		logging.FromContext(ctx).Error("Some kafka subscriptions failed to subscribe")
-		return fmt.Errorf("Some kafka subscriptions failed to subscribe")
+		logging.FromContext(ctx).Errorw("Some kafka subscriptions failed to subscribe", zap.Error(failedSubscriptions))
+		return fmt.Errorf("some kafka subscriptions failed to subscribe: %v", failedSubscriptions)
 	}
 	return nil
 }
@@ -225,16 +204,4 @@ func (r *Reconciler) newChannelConfigFromKafkaChannel(c *v1beta1.KafkaChannel) *
 	}
 
 	return &channelConfig
-}
-
-// newConfigFromKafkaChannels creates a new Config from the list of kafka channels.
-func (r *Reconciler) newConfigFromKafkaChannels(channels []*v1beta1.KafkaChannel) *dispatcher.Config {
-	cc := make([]dispatcher.ChannelConfig, 0)
-	for _, c := range channels {
-		channelConfig := r.newChannelConfigFromKafkaChannel(c)
-		cc = append(cc, *channelConfig)
-	}
-	return &dispatcher.Config{
-		ChannelConfigs: cc,
-	}
 }

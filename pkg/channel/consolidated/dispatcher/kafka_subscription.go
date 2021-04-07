@@ -27,10 +27,18 @@ import (
 
 type KafkaSubscription struct {
 	logger *zap.SugaredLogger
-	subs   []types.UID
+	subs   sets.String
 	// readySubscriptionsLock must be used to synchronize access to channelReadySubscriptions
 	readySubscriptionsLock    sync.RWMutex
 	channelReadySubscriptions map[string]sets.Int32
+}
+
+func NewKafkaSubscription(logger *zap.SugaredLogger) *KafkaSubscription {
+	return &KafkaSubscription{
+		logger:                    logger,
+		subs:                      sets.NewString(),
+		channelReadySubscriptions: map[string]sets.Int32{},
+	}
 }
 
 // SetReady will mark the subid in the KafkaSubscription and call any registered callbacks

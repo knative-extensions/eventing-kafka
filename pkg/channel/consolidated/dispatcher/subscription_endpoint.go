@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"go.uber.org/zap"
-	eventingchannels "knative.dev/eventing/pkg/channel"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // subscriptionEndpoint is serving the subscription status of the Kafka channel.
@@ -29,7 +29,7 @@ func (d *subscriptionEndpoint) ServeHTTP(w nethttp.ResponseWriter, r *nethttp.Re
 		return
 	}
 	channelRefNamespace, channelRefName := uriSplit[1], uriSplit[2]
-	channelRef := eventingchannels.ChannelReference{
+	channelRef := types.NamespacedName{
 		Name:      channelRefName,
 		Namespace: channelRefNamespace,
 	}

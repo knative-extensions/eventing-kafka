@@ -10,7 +10,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	eventingchannels "knative.dev/eventing/pkg/channel"
 	klogtesting "knative.dev/pkg/logging/testing"
 )
 
@@ -22,7 +21,7 @@ func TestServeHTTP(t *testing.T) {
 		name               string
 		responseReturnCode int
 		desiredJson        []byte
-		channelSubs        map[eventingchannels.ChannelReference]*KafkaSubscription
+		channelSubs        map[types.NamespacedName]*KafkaSubscription
 		requestURI         string
 		httpMethod         string
 	}{
@@ -43,9 +42,9 @@ func TestServeHTTP(t *testing.T) {
 			httpMethod:         httpGet,
 			responseReturnCode: http.StatusOK,
 			desiredJson:        []byte(`{}`),
-			channelSubs: map[eventingchannels.ChannelReference]*KafkaSubscription{
+			channelSubs: map[types.NamespacedName]*KafkaSubscription{
 				{Name: "foo", Namespace: "bar"}: {
-					subs:                      []types.UID{},
+					subs:                      sets.NewString(),
 					channelReadySubscriptions: map[string]sets.Int32{},
 				},
 			},
@@ -55,9 +54,9 @@ func TestServeHTTP(t *testing.T) {
 			httpMethod:         httpGet,
 			desiredJson:        []byte{},
 			responseReturnCode: http.StatusNotFound,
-			channelSubs: map[eventingchannels.ChannelReference]*KafkaSubscription{
+			channelSubs: map[types.NamespacedName]*KafkaSubscription{
 				{Name: "foo", Namespace: "baz"}: {
-					subs: []types.UID{"a", "b"},
+					subs: sets.NewString("a", "b"),
 					channelReadySubscriptions: map[string]sets.Int32{
 						"a": sets.NewInt32(0),
 						"b": sets.NewInt32(0),
@@ -70,9 +69,9 @@ func TestServeHTTP(t *testing.T) {
 			httpMethod:         httpGet,
 			desiredJson:        []byte(`{"a":[0],"b":[0,2,5]}`),
 			responseReturnCode: http.StatusOK,
-			channelSubs: map[eventingchannels.ChannelReference]*KafkaSubscription{
+			channelSubs: map[types.NamespacedName]*KafkaSubscription{
 				{Name: "foo", Namespace: "bar"}: {
-					subs: []types.UID{"a", "b"},
+					subs: sets.NewString("a", "b"),
 					channelReadySubscriptions: map[string]sets.Int32{
 						"a": sets.NewInt32(0),
 						"b": sets.NewInt32(0, 2, 5),
@@ -85,15 +84,15 @@ func TestServeHTTP(t *testing.T) {
 			httpMethod:         httpGet,
 			desiredJson:        []byte(`{"a":[0],"b":[0,2,5]}`),
 			responseReturnCode: http.StatusOK,
-			channelSubs: map[eventingchannels.ChannelReference]*KafkaSubscription{
+			channelSubs: map[types.NamespacedName]*KafkaSubscription{
 				{Name: "table", Namespace: "flip"}: {
-					subs: []types.UID{"c", "d"},
+					subs: sets.NewString("c", "d"),
 					channelReadySubscriptions: map[string]sets.Int32{
 						"c": sets.NewInt32(0),
 						"d": sets.NewInt32(0),
 					}},
 				{Name: "foo", Namespace: "bar"}: {
-					subs: []types.UID{"a", "b"},
+					subs: sets.NewString("a", "b"),
 					channelReadySubscriptions: map[string]sets.Int32{
 						"a": sets.NewInt32(0),
 						"b": sets.NewInt32(0, 2, 5),
@@ -116,7 +115,7 @@ func TestServeHTTP(t *testing.T) {
 	}
 	logger := klogtesting.TestLogger(t)
 	d := &KafkaDispatcher{
-		channelSubscriptions: make(map[eventingchannels.ChannelReference]*KafkaSubscription),
+		channelSubscriptions: make(map[types.NamespacedName]*KafkaSubscription),
 		logger:               logger,
 	}
 	subscriptionEndpoint := &subscriptionEndpoint{

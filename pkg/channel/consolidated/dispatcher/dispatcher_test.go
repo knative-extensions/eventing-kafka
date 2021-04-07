@@ -76,23 +76,6 @@ var _ sarama.ConsumerGroup = (*mockConsumerGroup)(nil)
 
 // ----- Tests
 
-// test util for various config checks
-func (d *KafkaDispatcher) checkConfigAndUpdate(config *Config) error {
-	if config == nil {
-		return errors.New("nil config")
-	}
-
-	if _, err := d.UpdateKafkaConsumers(config); err != nil {
-		// failed to update dispatchers consumers
-		return err
-	}
-	if err := d.UpdateHostToChannelMap(config); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (d *KafkaDispatcher) getHostToChannelMap() map[string]eventingchannels.ChannelReference {
 	m := make(map[string]eventingchannels.ChannelReference)
 	d.hostToChannelMap.Range(func(key, value interface{}) bool {
@@ -102,13 +85,38 @@ func (d *KafkaDispatcher) getHostToChannelMap() map[string]eventingchannels.Chan
 	return m
 }
 
-func TestDispatcher_UpdateConfig(t *testing.T) {
+func TestKafkaDispatcher_RegisterChannelHost(t *testing.T) {
+	firstChannelConfig := &ChannelConfig{
+		Namespace: "default",
+		Name:      "test-channel-1",
+		HostName:  "a.b.c.d",
+	}
+	secondChannelConfig := &ChannelConfig{
+		Namespace: "default",
+		Name:      "test-channel-2",
+		HostName:  "a.b.c.d",
+	}
+
+	d := &KafkaDispatcher{
+		kafkaConsumerFactory: &mockKafkaConsumerFactory{},
+		channelSubscriptions: make(map[types.NamespacedName]*KafkaSubscription),
+		subsConsumerGroups:   make(map[types.UID]sarama.ConsumerGroup),
+		subscriptions:        make(map[types.UID]Subscription),
+		topicFunc:            utils.TopicName,
+		logger:               zaptest.NewLogger(t).Sugar(),
+	}
+
+	require.NoError(t, d.RegisterChannelHost(firstChannelConfig))
+	require.Error(t, d.RegisterChannelHost(secondChannelConfig))
+}
+
+func TestDispatcher_UpdateConsumers(t *testing.T) {
 	subscriber, _ := url.Parse("http://test/subscriber")
 
 	testCases := []struct {
 		name             string
-		oldConfig        *Config
-		newConfig        *Config
+		oldConfig        *ChannelConfig
+		newConfig        *ChannelConfig
 		subscribes       []string
 		unsubscribes     []string
 		createErr        string
@@ -117,7 +125,7 @@ func TestDispatcher_UpdateConfig(t *testing.T) {
 	}{
 		{
 			name:             "nil config",
-			oldConfig:        &Config{},
+			oldConfig:        &ChannelConfig{},
 			newConfig:        nil,
 			createErr:        "nil config",
 			oldHostToChanMap: map[string]eventingchannels.ChannelReference{},
@@ -125,22 +133,18 @@ func TestDispatcher_UpdateConfig(t *testing.T) {
 		},
 		{
 			name:             "same config",
-			oldConfig:        &Config{},
-			newConfig:        &Config{},
+			oldConfig:        &ChannelConfig{},
+			newConfig:        &ChannelConfig{},
 			oldHostToChanMap: map[string]eventingchannels.ChannelReference{},
 			newHostToChanMap: map[string]eventingchannels.ChannelReference{},
 		},
 		{
 			name:      "config with no subscription",
-			oldConfig: &Config{},
-			newConfig: &Config{
-				ChannelConfigs: []ChannelConfig{
-					{
-						Namespace: "default",
-						Name:      "test-channel",
-						HostName:  "a.b.c.d",
-					},
-				},
+			oldConfig: &ChannelConfig{},
+			newConfig: &ChannelConfig{
+				Namespace: "default",
+				Name:      "test-channel",
+				HostName:  "a.b.c.d",
 			},
 			oldHostToChanMap: map[string]eventingchannels.ChannelReference{},
 			newHostToChanMap: map[string]eventingchannels.ChannelReference{
@@ -149,26 +153,22 @@ func TestDispatcher_UpdateConfig(t *testing.T) {
 		},
 		{
 			name:      "single channel w/ new subscriptions",
-			oldConfig: &Config{},
-			newConfig: &Config{
-				ChannelConfigs: []ChannelConfig{
+			oldConfig: &ChannelConfig{},
+			newConfig: &ChannelConfig{
+				Namespace: "default",
+				Name:      "test-channel",
+				HostName:  "a.b.c.d",
+				Subscriptions: []Subscription{
 					{
-						Namespace: "default",
-						Name:      "test-channel",
-						HostName:  "a.b.c.d",
-						Subscriptions: []Subscription{
-							{
-								UID: "subscription-1",
-								Subscription: fanout.Subscription{
-									Subscriber: subscriber,
-								},
-							},
-							{
-								UID: "subscription-2",
-								Subscription: fanout.Subscription{
-									Subscriber: subscriber,
-								},
-							},
+						UID: "subscription-1",
+						Subscription: fanout.Subscription{
+							Subscriber: subscriber,
+						},
+					},
+					{
+						UID: "subscription-2",
+						Subscription: fanout.Subscription{
+							Subscriber: subscriber,
 						},
 					},
 				},
@@ -181,48 +181,40 @@ func TestDispatcher_UpdateConfig(t *testing.T) {
 		},
 		{
 			name: "single channel w/ existing subscriptions",
-			oldConfig: &Config{
-				ChannelConfigs: []ChannelConfig{
+			oldConfig: &ChannelConfig{
+				Namespace: "default",
+				Name:      "test-channel",
+				HostName:  "a.b.c.d",
+				Subscriptions: []Subscription{
 					{
-						Namespace: "default",
-						Name:      "test-channel",
-						HostName:  "a.b.c.d",
-						Subscriptions: []Subscription{
-							{
-								UID: "subscription-1",
-								Subscription: fanout.Subscription{
-									Subscriber: subscriber,
-								},
-							},
-							{
-								UID: "subscription-2",
-								Subscription: fanout.Subscription{
-									Subscriber: subscriber,
-								},
-							},
+						UID: "subscription-1",
+						Subscription: fanout.Subscription{
+							Subscriber: subscriber,
+						},
+					},
+					{
+						UID: "subscription-2",
+						Subscription: fanout.Subscription{
+							Subscriber: subscriber,
 						},
 					},
 				},
 			},
-			newConfig: &Config{
-				ChannelConfigs: []ChannelConfig{
+			newConfig: &ChannelConfig{
+				Namespace: "default",
+				Name:      "test-channel",
+				HostName:  "a.b.c.d",
+				Subscriptions: []Subscription{
 					{
-						Namespace: "default",
-						Name:      "test-channel",
-						HostName:  "a.b.c.d",
-						Subscriptions: []Subscription{
-							{
-								UID: "subscription-2",
-								Subscription: fanout.Subscription{
-									Subscriber: subscriber,
-								},
-							},
-							{
-								UID: "subscription-3",
-								Subscription: fanout.Subscription{
-									Subscriber: subscriber,
-								},
-							},
+						UID: "subscription-2",
+						Subscription: fanout.Subscription{
+							Subscriber: subscriber,
+						},
+					},
+					{
+						UID: "subscription-3",
+						Subscription: fanout.Subscription{
+							Subscriber: subscriber,
 						},
 					},
 				},
@@ -236,97 +228,6 @@ func TestDispatcher_UpdateConfig(t *testing.T) {
 				"a.b.c.d": {Name: "test-channel", Namespace: "default"},
 			},
 		},
-		{
-			name: "multi channel w/old and new subscriptions",
-			oldConfig: &Config{
-				ChannelConfigs: []ChannelConfig{
-					{
-						Namespace: "default",
-						Name:      "test-channel-1",
-						HostName:  "a.b.c.d",
-						Subscriptions: []Subscription{
-							{
-								UID: "subscription-1",
-								Subscription: fanout.Subscription{
-									Subscriber: subscriber,
-								},
-							},
-							{
-								UID: "subscription-2",
-								Subscription: fanout.Subscription{
-									Subscriber: subscriber,
-								},
-							},
-						},
-					},
-				},
-			},
-			newConfig: &Config{
-				ChannelConfigs: []ChannelConfig{
-					{
-						Namespace: "default",
-						Name:      "test-channel-1",
-						HostName:  "a.b.c.d",
-						Subscriptions: []Subscription{
-							{
-								UID: "subscription-1",
-								Subscription: fanout.Subscription{
-									Subscriber: subscriber,
-								},
-							},
-						},
-					},
-					{
-						Namespace: "default",
-						Name:      "test-channel-2",
-						HostName:  "e.f.g.h",
-						Subscriptions: []Subscription{
-							{
-								UID: "subscription-3",
-								Subscription: fanout.Subscription{
-									Subscriber: subscriber,
-								},
-							},
-							{
-								UID: "subscription-4",
-								Subscription: fanout.Subscription{
-									Subscriber: subscriber,
-								},
-							},
-						},
-					},
-				},
-			},
-			subscribes:   []string{"subscription-1", "subscription-3", "subscription-4"},
-			unsubscribes: []string{"subscription-2"},
-			oldHostToChanMap: map[string]eventingchannels.ChannelReference{
-				"a.b.c.d": {Name: "test-channel-1", Namespace: "default"},
-			},
-			newHostToChanMap: map[string]eventingchannels.ChannelReference{
-				"a.b.c.d": {Name: "test-channel-1", Namespace: "default"},
-				"e.f.g.h": {Name: "test-channel-2", Namespace: "default"},
-			},
-		},
-		{
-			name:      "Duplicate hostnames",
-			oldConfig: &Config{},
-			newConfig: &Config{
-				ChannelConfigs: []ChannelConfig{
-					{
-						Namespace: "default",
-						Name:      "test-channel-1",
-						HostName:  "a.b.c.d",
-					},
-					{
-						Namespace: "default",
-						Name:      "test-channel-2",
-						HostName:  "a.b.c.d",
-					},
-				},
-			},
-			createErr:        "duplicate hostName found. Each channel must have a unique host header. HostName:a.b.c.d, channel:default.test-channel-2, channel:default.test-channel-1",
-			oldHostToChanMap: map[string]eventingchannels.ChannelReference{},
-		},
 	}
 
 	for _, tc := range testCases {
@@ -335,7 +236,7 @@ func TestDispatcher_UpdateConfig(t *testing.T) {
 			t.Logf("Running %s", t.Name())
 			d := &KafkaDispatcher{
 				kafkaConsumerFactory: &mockKafkaConsumerFactory{},
-				channelSubscriptions: make(map[eventingchannels.ChannelReference]*KafkaSubscription),
+				channelSubscriptions: make(map[types.NamespacedName]*KafkaSubscription),
 				subsConsumerGroups:   make(map[types.UID]sarama.ConsumerGroup),
 				subscriptions:        make(map[types.UID]Subscription),
 				topicFunc:            utils.TopicName,
@@ -343,11 +244,9 @@ func TestDispatcher_UpdateConfig(t *testing.T) {
 			}
 
 			// Initialize using oldConfig
-			err := d.checkConfigAndUpdate(tc.oldConfig)
-			if err != nil {
+			require.NoError(t, d.RegisterChannelHost(tc.oldConfig))
+			require.NoError(t, d.ReconcileConsumers(tc.oldConfig))
 
-				t.Errorf("unexpected error: %v", err)
-			}
 			oldSubscribers := sets.NewString()
 			for _, sub := range d.subscriptions {
 				oldSubscribers.Insert(string(sub.UID))
@@ -360,7 +259,7 @@ func TestDispatcher_UpdateConfig(t *testing.T) {
 			}
 
 			// Update with new config
-			err = d.checkConfigAndUpdate(tc.newConfig)
+			err := d.ReconcileConsumers(tc.newConfig)
 			if tc.createErr != "" {
 				if err == nil {
 					t.Errorf("Expected UpdateConfig error: '%v'. Actual nil", tc.createErr)
@@ -388,98 +287,43 @@ func TestDispatcher_UpdateConfig(t *testing.T) {
 	}
 }
 
-func TestDispatcher_DoThingsInParallel(t *testing.T) {
+func TestDispatcher_MultipleChannelsInParallel(t *testing.T) {
 	subscriber, _ := url.Parse("http://test/subscriber")
 
-	configs := []*Config{
-		{},
+	configs := []*ChannelConfig{
 		{
-			ChannelConfigs: []ChannelConfig{
-				{
-					Namespace: "default",
-					Name:      "test-channel",
-					HostName:  "a.b.c.d",
-				},
-			},
+			Namespace: "default",
+			Name:      "test-channel",
+			HostName:  "a.b.c.d",
 		},
 		{
-			ChannelConfigs: []ChannelConfig{
+			Namespace: "default",
+			Name:      "test-channel-1",
+			HostName:  "x.y.w.z",
+			Subscriptions: []Subscription{
 				{
-					Namespace: "default",
-					Name:      "test-channel",
-					HostName:  "a.b.c.d",
-					Subscriptions: []Subscription{
-						{
-							UID: "subscription-1",
-							Subscription: fanout.Subscription{
-								Subscriber: subscriber,
-							},
-						},
-						{
-							UID: "subscription-2",
-							Subscription: fanout.Subscription{
-								Subscriber: subscriber,
-							},
-						},
+					UID: "subscription-1",
+					Subscription: fanout.Subscription{
+						Subscriber: subscriber,
 					},
 				},
 			},
 		},
 		{
-			ChannelConfigs: []ChannelConfig{
+			Namespace: "default",
+			Name:      "test-channel-2",
+			HostName:  "e.f.g.h",
+			Subscriptions: []Subscription{
 				{
-					Namespace: "default",
-					Name:      "test-channel",
-					HostName:  "a.b.c.d",
-					Subscriptions: []Subscription{
-						{
-							UID: "subscription-2",
-							Subscription: fanout.Subscription{
-								Subscriber: subscriber,
-							},
-						},
-						{
-							UID: "subscription-3",
-							Subscription: fanout.Subscription{
-								Subscriber: subscriber,
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			ChannelConfigs: []ChannelConfig{
-				{
-					Namespace: "default",
-					Name:      "test-channel-1",
-					HostName:  "a.b.c.d",
-					Subscriptions: []Subscription{
-						{
-							UID: "subscription-1",
-							Subscription: fanout.Subscription{
-								Subscriber: subscriber,
-							},
-						},
+					UID: "subscription-3",
+					Subscription: fanout.Subscription{
+						Subscriber: subscriber,
 					},
 				},
 				{
-					Namespace: "default",
-					Name:      "test-channel-2",
-					HostName:  "e.f.g.h",
-					Subscriptions: []Subscription{
-						{
-							UID: "subscription-3",
-							Subscription: fanout.Subscription{
-								Subscriber: subscriber,
-							},
-						},
-						{
-							UID: "subscription-4",
-							Subscription: fanout.Subscription{
-								Subscriber: subscriber,
-							},
-						},
+					UID: "subscription-4",
+					Subscription: fanout.Subscription{
+						Subscriber: subscriber,
 					},
 				},
 			},
@@ -488,61 +332,91 @@ func TestDispatcher_DoThingsInParallel(t *testing.T) {
 
 	d := &KafkaDispatcher{
 		kafkaConsumerFactory: &mockKafkaConsumerFactory{},
-		channelSubscriptions: make(map[eventingchannels.ChannelReference]*KafkaSubscription),
+		channelSubscriptions: make(map[types.NamespacedName]*KafkaSubscription),
 		subsConsumerGroups:   make(map[types.UID]sarama.ConsumerGroup),
 		subscriptions:        make(map[types.UID]Subscription),
 		topicFunc:            utils.TopicName,
 		logger:               zaptest.NewLogger(t).Sugar(),
+	}
+
+	// Let's register channel configs first
+	for _, c := range configs {
+		require.NoError(t, d.RegisterChannelHost(c))
 	}
 
 	var wg sync.WaitGroup
+	for i := 0; i < 10; i++ { // Let's reiterate several times to check everything is fine
+		for _, c := range configs {
+			wg.Add(1)
+			go func(c *ChannelConfig) {
+				defer wg.Done()
+				assert.NoError(t, d.ReconcileConsumers(c))
+			}(c)
+		}
+	}
+	wg.Wait()
+
+	// Assert the state is the final one we want
+	require.Contains(t, d.getHostToChannelMap(), "a.b.c.d")
+	require.Contains(t, d.getHostToChannelMap(), "x.y.w.z")
+	require.Contains(t, d.getHostToChannelMap(), "e.f.g.h")
+
+	require.Contains(t, d.subscriptions, types.UID("subscription-1"))
+	require.Contains(t, d.subscriptions, types.UID("subscription-3"))
+	require.Contains(t, d.subscriptions, types.UID("subscription-4"))
+
+	// Now let's remove all of them
+	wg = sync.WaitGroup{}
 	for _, c := range configs {
 		wg.Add(1)
-		go func(c *Config) {
+		go func(c *ChannelConfig) {
 			defer wg.Done()
-			assert.NoError(t, d.checkConfigAndUpdate(c))
+			assert.NoError(t, d.CleanupChannel(c.Name, c.Namespace, c.HostName))
 		}(c)
 	}
 	wg.Wait()
+
+	require.Empty(t, d.getHostToChannelMap())
+	require.Empty(t, d.subscriptions)
+	require.Empty(t, d.channelSubscriptions)
+	require.Empty(t, d.subsConsumerGroups)
 }
 
-func TestRemoveChannel(t *testing.T) {
+func TestKafkaDispatcher_CleanupChannel(t *testing.T) {
 	subscriber, _ := url.Parse("http://test/subscriber")
 
 	d := &KafkaDispatcher{
 		kafkaConsumerFactory: &mockKafkaConsumerFactory{},
-		channelSubscriptions: make(map[eventingchannels.ChannelReference]*KafkaSubscription),
+		channelSubscriptions: make(map[types.NamespacedName]*KafkaSubscription),
 		subsConsumerGroups:   make(map[types.UID]sarama.ConsumerGroup),
 		subscriptions:        make(map[types.UID]Subscription),
 		topicFunc:            utils.TopicName,
 		logger:               zaptest.NewLogger(t).Sugar(),
 	}
 
-	require.NoError(t, d.checkConfigAndUpdate(&Config{
-		ChannelConfigs: []ChannelConfig{
+	channelConfig := &ChannelConfig{
+		Namespace: "default",
+		Name:      "test-channel",
+		HostName:  "a.b.c.d",
+		Subscriptions: []Subscription{
 			{
-				Namespace: "default",
-				Name:      "test-channel",
-				HostName:  "a.b.c.d",
-				Subscriptions: []Subscription{
-					{
-						UID: "subscription-1",
-						Subscription: fanout.Subscription{
-							Subscriber: subscriber,
-						},
-					},
-					{
-						UID: "subscription-2",
-						Subscription: fanout.Subscription{
-							Subscriber: subscriber,
-						},
-					},
+				UID: "subscription-1",
+				Subscription: fanout.Subscription{
+					Subscriber: subscriber,
+				},
+			},
+			{
+				UID: "subscription-2",
+				Subscription: fanout.Subscription{
+					Subscriber: subscriber,
 				},
 			},
 		},
-	}))
+	}
+	require.NoError(t, d.RegisterChannelHost(channelConfig))
+	require.NoError(t, d.ReconcileConsumers(channelConfig))
 
-	require.NoError(t, d.CleanupChannel("test-channel", "default", "a.b.c.d"))
+	require.NoError(t, d.CleanupChannel(channelConfig.Name, channelConfig.Namespace, channelConfig.HostName))
 	require.NotContains(t, d.subscriptions, "subscription-1")
 	require.NotContains(t, d.subscriptions, "subscription-2")
 	require.NotContains(t, d.channelSubscriptions, eventingchannels.ChannelReference{
@@ -561,7 +435,7 @@ func TestSubscribeError(t *testing.T) {
 		topicFunc:            utils.TopicName,
 	}
 
-	channelRef := eventingchannels.ChannelReference{
+	channelRef := types.NamespacedName{
 		Name:      "test-channel",
 		Namespace: "test-ns",
 	}
@@ -583,7 +457,7 @@ func TestUnsubscribeUnknownSub(t *testing.T) {
 		logger:               zap.NewNop().Sugar(),
 	}
 
-	channelRef := eventingchannels.ChannelReference{
+	channelRef := types.NamespacedName{
 		Name:      "test-channel",
 		Namespace: "test-ns",
 	}
@@ -637,7 +511,7 @@ func TestSetReady(t *testing.T) {
 				channelReadySubscriptions: map[string]sets.Int32{"bar": sets.NewInt32(0)},
 			},
 			desiredKafkaSub: &KafkaSubscription{
-				subs: []types.UID{},
+				subs: sets.NewString(),
 				channelReadySubscriptions: map[string]sets.Int32{
 					"bar": sets.NewInt32(0),
 					"foo": sets.NewInt32(0),
@@ -656,7 +530,7 @@ func TestSetReady(t *testing.T) {
 				},
 			},
 			desiredKafkaSub: &KafkaSubscription{
-				subs: []types.UID{},
+				subs: sets.NewString(),
 				channelReadySubscriptions: map[string]sets.Int32{
 					"bar": sets.NewInt32(0),
 					"foo": sets.NewInt32(0, 1),
