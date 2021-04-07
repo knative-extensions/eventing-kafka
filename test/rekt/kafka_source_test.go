@@ -20,7 +20,6 @@ package rekt
 
 import (
 	"encoding/json"
-	"os"
 	"testing"
 	"time"
 
@@ -52,10 +51,6 @@ type authSetup struct {
 	SASLEnabled     bool
 	TLSEnabled      bool
 }
-
-var (
-	test_mt_source = os.Getenv("TEST_MT_SOURCE")
-)
 
 func TestKafkaSource(t *testing.T) {
 	t.Parallel()
