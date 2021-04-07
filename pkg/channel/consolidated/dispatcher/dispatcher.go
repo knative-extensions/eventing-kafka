@@ -21,7 +21,6 @@ import (
 	"fmt"
 	nethttp "net/http"
 	"sync"
-	"sync/atomic"
 
 	"github.com/Shopify/sarama"
 	protocolkafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
@@ -32,14 +31,15 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	eventingchannels "knative.dev/eventing/pkg/channel"
+	"knative.dev/eventing/pkg/kncloudevents"
+	"knative.dev/pkg/kmeta"
+
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
 	"knative.dev/eventing-kafka/pkg/common/client"
 	"knative.dev/eventing-kafka/pkg/common/consumer"
 	"knative.dev/eventing-kafka/pkg/common/tracing"
-	eventingchannels "knative.dev/eventing/pkg/channel"
-	"knative.dev/eventing/pkg/kncloudevents"
-	"knative.dev/pkg/kmeta"
 )
 
 const (
@@ -59,19 +59,17 @@ type KafkaDispatcherArgs struct {
 }
 
 type KafkaDispatcher struct {
-	hostToChannelMap atomic.Value
-	// hostToChannelMapLock is used to update hostToChannelMap
-	hostToChannelMapLock sync.Mutex
+	hostToChannelMap sync.Map
 
 	receiver   *eventingchannels.MessageReceiver
 	dispatcher *eventingchannels.MessageDispatcherImpl
 
+	// consumerUpdateLock must be used to update all the below maps
+	consumerUpdateLock   sync.Mutex
 	kafkaSyncProducer    sarama.SyncProducer
 	channelSubscriptions map[eventingchannels.ChannelReference]*KafkaSubscription
 	subsConsumerGroups   map[types.UID]sarama.ConsumerGroup
 	subscriptions        map[types.UID]Subscription
-	// consumerUpdateLock must be used to update kafkaConsumers
-	consumerUpdateLock   sync.Mutex
 	kafkaConsumerFactory consumer.KafkaConsumerGroupFactory
 
 	topicFunc TopicFunc
@@ -156,7 +154,6 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 	}
 
 	dispatcher.receiver = receiverFunc
-	dispatcher.setHostToChannelMap(map[string]eventingchannels.ChannelReference{})
 	return dispatcher, nil
 }
 
@@ -241,16 +238,16 @@ func (d *KafkaDispatcher) UpdateHostToChannelMap(config *Config) error {
 		return errors.New("nil config")
 	}
 
-	// TODO why we have a lock inside another lock for this map?!
-	d.hostToChannelMapLock.Lock()
-	defer d.hostToChannelMapLock.Unlock()
-
+	// Because today we reconcile all channels on every reconcile loop,
+	// we just try to add all the channels here. In future, we'll just add the diff
 	hcMap, err := createHostToChannelMap(config)
 	if err != nil {
 		return err
 	}
 
-	d.setHostToChannelMap(hcMap)
+	for k, v := range hcMap {
+		d.hostToChannelMap.Store(k, v)
+	}
 	return nil
 }
 
@@ -261,14 +258,7 @@ func (d *KafkaDispatcher) CleanupChannel(name, namespace, hostname string) error
 	}
 
 	// Remove from the hostToChannel map the mapping with this channel
-	// TODO why we have a lock inside another lock for this map?!
-	d.hostToChannelMapLock.Lock()
-	hcMap := d.getHostToChannelMap()
-	if hcMap != nil {
-		delete(hcMap, hostname)
-		d.setHostToChannelMap(hcMap)
-	}
-	d.hostToChannelMapLock.Unlock()
+	d.hostToChannelMap.Delete(hostname)
 
 	// Remove all subs
 	d.consumerUpdateLock.Lock()
@@ -359,21 +349,12 @@ func (d *KafkaDispatcher) unsubscribe(channel eventingchannels.ChannelReference,
 	return nil
 }
 
-func (d *KafkaDispatcher) getHostToChannelMap() map[string]eventingchannels.ChannelReference {
-	return d.hostToChannelMap.Load().(map[string]eventingchannels.ChannelReference)
-}
-
-func (d *KafkaDispatcher) setHostToChannelMap(hcMap map[string]eventingchannels.ChannelReference) {
-	d.hostToChannelMap.Store(hcMap)
-}
-
 func (d *KafkaDispatcher) getChannelReferenceFromHost(host string) (eventingchannels.ChannelReference, error) {
-	chMap := d.getHostToChannelMap()
-	cr, ok := chMap[host]
+	cr, ok := d.hostToChannelMap.Load(host)
 	if !ok {
-		return cr, eventingchannels.UnknownHostError(host)
+		return eventingchannels.ChannelReference{}, eventingchannels.UnknownHostError(host)
 	}
-	return cr, nil
+	return cr.(eventingchannels.ChannelReference), nil
 }
 
 func uidSetDifference(a, b []types.UID) (diff []types.UID) {
