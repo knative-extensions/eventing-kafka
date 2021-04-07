@@ -127,7 +127,16 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 	kafkaChannelInformer.Informer().AddEventHandler(
 		cache.FilteringResourceEventHandler{
 			FilterFunc: filterWithAnnotation(injection.HasNamespaceScope(ctx)),
-			Handler:    controller.HandleAll(r.impl.Enqueue),
+			Handler:    	cache.ResourceEventHandlerFuncs{
+				AddFunc:    r.impl.Enqueue,
+				UpdateFunc: controller.PassNew(r.impl.Enqueue),
+				DeleteFunc: func(obj interface{}) {
+					// TODO when finalize kind is fixed, we'll need to handle that error properly
+					if err := r.CleanupChannel(obj.(*v1beta1.KafkaChannel)); err != nil {
+						logger.Warnw("Unable to remove kafka channel", zap.Any("kafkachannel", obj), zap.Error(err))
+					}
+				},
+			},
 		})
 
 	logger.Info("Starting dispatcher.")
@@ -155,16 +164,6 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel
 func (r *Reconciler) ObserveKind(ctx context.Context, kc *v1beta1.KafkaChannel) pkgreconciler.Event {
 	logging.FromContext(ctx).Debugw("ObserveKind for channel", zap.String("channel", kc.Name))
 	return r.syncDispatcher(ctx)
-}
-
-func (r *Reconciler) FinalizeKind(ctx context.Context, kc *v1beta1.KafkaChannel) pkgreconciler.Event {
-	logging.FromContext(ctx).Debugw("FinalizeKind for channel", zap.String("channel", kc.Name))
-	return r.finalizeChannel(ctx, kc)
-}
-
-func (r *Reconciler) ObserveFinalizeKind(ctx context.Context, kc *v1beta1.KafkaChannel) pkgreconciler.Event {
-	logging.FromContext(ctx).Debugw("ObserveFinalizeKind for channel", zap.String("channel", kc.Name))
-	return r.finalizeChannel(ctx, kc)
 }
 
 func (r *Reconciler) syncDispatcher(ctx context.Context) pkgreconciler.Event {
@@ -201,7 +200,7 @@ func (r *Reconciler) syncDispatcher(ctx context.Context) pkgreconciler.Event {
 	return nil
 }
 
-func (r *Reconciler) finalizeChannel(ctx context.Context, kc *v1beta1.KafkaChannel) pkgreconciler.Event {
+func (r *Reconciler) CleanupChannel(kc *v1beta1.KafkaChannel) pkgreconciler.Event {
 	return r.kafkaDispatcher.CleanupChannel(kc.Name, kc.Namespace, kc.Status.Address.URL.Host)
 }
 
