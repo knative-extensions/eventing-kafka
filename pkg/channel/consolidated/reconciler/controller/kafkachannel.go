@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"hash/crc32"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
@@ -352,6 +353,8 @@ func (r *Reconciler) reconcileDispatcher(ctx context.Context, scope string, disp
 			return nil, fmt.Errorf("container %s does not exist in expected dispatcher deployment. Cannot check if the deployment needs an update", resources.DispatcherContainerName)
 		}
 
+		expectedConfigMapHash := r.kafkaConfigMapHash
+
 		needsUpdate := false
 
 		if existing.Image != expectedContainer.Image {
@@ -366,9 +369,17 @@ func (r *Reconciler) reconcileDispatcher(ctx context.Context, scope string, disp
 			needsUpdate = true
 		}
 
-		if expected.Spec.Template.Annotations[resources.ConfigMapHashAnnotationKey] != d.Spec.Template.Annotations[resources.ConfigMapHashAnnotationKey] {
+		if d.Spec.Template.Annotations == nil {
+			logging.FromContext(ctx).Infof("Configmap hash is not set. Updating the dispatcher deployment.")
+			d.Spec.Template.Annotations = map[string]string{
+				resources.ConfigMapHashAnnotationKey: expectedConfigMapHash,
+			}
+			needsUpdate = true
+		}
+
+		if d.Spec.Template.Annotations[resources.ConfigMapHashAnnotationKey] != expectedConfigMapHash {
 			logging.FromContext(ctx).Infof("Configmap hash is changed. Updating the dispatcher deployment.")
-			d.Spec.Template.Annotations[resources.ConfigMapHashAnnotationKey] = expected.Spec.Template.Annotations[resources.ConfigMapHashAnnotationKey]
+			d.Spec.Template.Annotations[resources.ConfigMapHashAnnotationKey] = expectedConfigMapHash
 			needsUpdate = true
 		}
 

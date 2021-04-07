@@ -41,6 +41,7 @@ func TestNewDispatcher(t *testing.T) {
 		Image:               imageName,
 		Replicas:            1,
 		ServiceAccount:      serviceAccount,
+		ConfigMapHash:       "deadbeef",
 	}
 
 	replicas := int32(1)
@@ -124,6 +125,7 @@ func TestNewNamespaceDispatcher(t *testing.T) {
 		Image:               imageName,
 		Replicas:            1,
 		ServiceAccount:      serviceAccount,
+		ConfigMapHash:       "deadbeef",
 	}
 
 	replicas := int32(1)
