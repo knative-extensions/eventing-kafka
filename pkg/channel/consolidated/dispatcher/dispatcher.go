@@ -174,7 +174,7 @@ func (d *KafkaDispatcher) Start(ctx context.Context) error {
 type UpdateError map[types.UID]error
 
 func (k UpdateError) Error() string {
-	var errs []string
+	errs := make([]string, 0, len(k))
 	for uid, err := range k {
 		errs = append(errs, fmt.Sprintf("subscription %s: %v", uid, err))
 	}
