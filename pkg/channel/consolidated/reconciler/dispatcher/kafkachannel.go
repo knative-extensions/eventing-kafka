@@ -171,10 +171,10 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel
 	}
 
 	// Update dispatcher side
-	failedSubscriptions := r.kafkaDispatcher.ReconcileConsumers(config)
-	if len(failedSubscriptions) > 0 {
-		logging.FromContext(ctx).Errorw("Some kafka subscriptions failed to subscribe", zap.Error(failedSubscriptions))
-		return fmt.Errorf("some kafka subscriptions failed to subscribe: %v", failedSubscriptions)
+	err := r.kafkaDispatcher.ReconcileConsumers(config)
+	if err != nil {
+		logging.FromContext(ctx).Errorw("Some kafka subscriptions failed to subscribe", zap.Error(err))
+		return fmt.Errorf("some kafka subscriptions failed to subscribe: %v", err)
 	}
 	return nil
 }
