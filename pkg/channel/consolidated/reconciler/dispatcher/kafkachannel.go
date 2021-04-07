@@ -157,6 +157,16 @@ func (r *Reconciler) ObserveKind(ctx context.Context, kc *v1beta1.KafkaChannel) 
 	return r.syncDispatcher(ctx)
 }
 
+func (r *Reconciler) FinalizeKind(ctx context.Context, kc *v1beta1.KafkaChannel) pkgreconciler.Event {
+	logging.FromContext(ctx).Debugw("FinalizeKind for channel", zap.String("channel", kc.Name))
+	return r.finalizeChannel(ctx, kc)
+}
+
+func (r *Reconciler) ObserveFinalizeKind(ctx context.Context, kc *v1beta1.KafkaChannel) pkgreconciler.Event {
+	logging.FromContext(ctx).Debugw("ObserveFinalizeKind for channel", zap.String("channel", kc.Name))
+	return r.finalizeChannel(ctx, kc)
+}
+
 func (r *Reconciler) syncDispatcher(ctx context.Context) pkgreconciler.Event {
 	channels, err := r.kafkachannelLister.List(labels.Everything())
 	if err != nil {
@@ -189,6 +199,10 @@ func (r *Reconciler) syncDispatcher(ctx context.Context) pkgreconciler.Event {
 		return fmt.Errorf("Some kafka subscriptions failed to subscribe")
 	}
 	return nil
+}
+
+func (r *Reconciler) finalizeChannel(ctx context.Context, kc *v1beta1.KafkaChannel) pkgreconciler.Event {
+	return r.kafkaDispatcher.CleanupChannel(kc.Name, kc.Namespace, kc.Status.Address.URL.Host)
 }
 
 // newConfigFromKafkaChannels creates a new Config from the list of kafka channels.
