@@ -18,7 +18,6 @@ package config
 
 import (
 	"context"
-	"time"
 
 	"k8s.io/apimachinery/pkg/fields"
 
@@ -63,8 +62,6 @@ func InitializeSecretWatcher(ctx context.Context, namespace string, name string,
 						logger.Error("Could not convert watched object to Secret", zap.Any("event.Object", event.Object))
 					}
 				}
-			case <-time.After(5 * time.Second):
-				// Don't hang a shutdown waiting for an event
 			}
 		}
 
