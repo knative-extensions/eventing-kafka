@@ -241,6 +241,7 @@ func (d *KafkaDispatcher) UpdateHostToChannelMap(config *Config) error {
 		return errors.New("nil config")
 	}
 
+	// TODO why we have a lock inside another lock for this map?!
 	d.hostToChannelMapLock.Lock()
 	defer d.hostToChannelMapLock.Unlock()
 
@@ -250,6 +251,44 @@ func (d *KafkaDispatcher) UpdateHostToChannelMap(config *Config) error {
 	}
 
 	d.setHostToChannelMap(hcMap)
+	return nil
+}
+
+func (d *KafkaDispatcher) CleanupChannel(name, namespace, hostname string) error {
+	channelRef := eventingchannels.ChannelReference{
+		Name:      name,
+		Namespace: namespace,
+	}
+
+	// Remove from the hostToChannel map the mapping with this channel
+	// TODO why we have a lock inside another lock for this map?!
+	d.hostToChannelMapLock.Lock()
+	hcMap := d.getHostToChannelMap()
+	if hcMap != nil {
+		delete(hcMap, hostname)
+		d.setHostToChannelMap(hcMap)
+	}
+	d.hostToChannelMapLock.Unlock()
+
+	// Remove all subs
+	d.consumerUpdateLock.Lock()
+	defer d.consumerUpdateLock.Unlock()
+
+	if d.channelSubscriptions[channelRef] == nil {
+		// No subs to remove
+		return nil
+	}
+
+	// Avoid concurrent modification while iterating
+	subs := make([]types.UID, len(d.channelSubscriptions[channelRef].subs))
+	copy(subs, d.channelSubscriptions[channelRef].subs)
+
+	for _, s := range subs {
+		if err := d.unsubscribe(channelRef, d.subscriptions[s]); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -306,7 +345,11 @@ func (d *KafkaDispatcher) unsubscribe(channel eventingchannels.ChannelReference,
 				newSlice = append(newSlice, oldSub)
 			}
 		}
-		d.channelSubscriptions[channel].subs = newSlice
+		if len(newSlice) != 0 {
+			d.channelSubscriptions[channel].subs = newSlice
+		} else {
+			delete(d.channelSubscriptions, channel)
+		}
 	}
 	if consumer, ok := d.subsConsumerGroups[sub.UID]; ok {
 		delete(d.subsConsumerGroups, sub.UID)
