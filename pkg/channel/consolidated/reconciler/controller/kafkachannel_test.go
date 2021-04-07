@@ -330,6 +330,7 @@ func TestAllCases(t *testing.T) {
 		r := &Reconciler{
 			systemNamespace: testNS,
 			dispatcherImage: testDispatcherImage,
+			serviceAccount:  serviceAccount,
 			kafkaConfig: &KafkaConfig{
 				Brokers: []string{brokerName},
 			},
@@ -393,6 +394,7 @@ func TestTopicExists(t *testing.T) {
 		r := &Reconciler{
 			systemNamespace: testNS,
 			dispatcherImage: testDispatcherImage,
+			serviceAccount:  serviceAccount,
 			kafkaConfig: &KafkaConfig{
 				Brokers: []string{brokerName},
 			},
@@ -468,6 +470,7 @@ func TestDeploymentUpdatedOnImageChange(t *testing.T) {
 		r := &Reconciler{
 			systemNamespace: testNS,
 			dispatcherImage: testDispatcherImage,
+			serviceAccount:  serviceAccount,
 			kafkaConfig: &KafkaConfig{
 				Brokers: []string{brokerName},
 			},
@@ -543,6 +546,7 @@ func TestDeploymentZeroReplicas(t *testing.T) {
 		r := &Reconciler{
 			systemNamespace: testNS,
 			dispatcherImage: testDispatcherImage,
+			serviceAccount:  serviceAccount,
 			kafkaConfig: &KafkaConfig{
 				Brokers: []string{brokerName},
 			},
@@ -615,6 +619,7 @@ func TestDeploymentMoreThanOneReplicas(t *testing.T) {
 		r := &Reconciler{
 			systemNamespace: testNS,
 			dispatcherImage: testDispatcherImage,
+			serviceAccount:  serviceAccount,
 			kafkaConfig: &KafkaConfig{
 				Brokers: []string{brokerName},
 			},
