@@ -1073,6 +1073,11 @@ func NewKafkaChannelDispatcherUpdatedEvent() string {
 	return reconcilertesting.Eventf(corev1.EventTypeNormal, "DispatcherDeploymentUpdated", "Dispatcher Deployment Updated")
 }
 
+// Utility Function For Creating A Dispatcher Deployment Update Failure Event
+func NewKafkaChannelDispatcherUpdateFailedEvent() string {
+	return reconcilertesting.Eventf(corev1.EventTypeWarning, "DispatcherDeploymentFailed", "Dispatcher Deployment Failed")
+}
+
 // Utility Function For Creating A Successful KafkaChannel Reconciled Event
 func NewKafkaChannelSuccessfulReconciliationEvent() string {
 	return reconcilertesting.Eventf(corev1.EventTypeNormal, event.KafkaChannelReconciled.String(), `KafkaChannel Reconciled Successfully: "%s/%s"`, KafkaChannelNamespace, KafkaChannelName)

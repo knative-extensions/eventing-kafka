@@ -19,8 +19,6 @@ package kafkachannel
 import (
 	"context"
 	"fmt"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"strconv"
 	"time"
 
@@ -307,7 +305,7 @@ func (r *Reconciler) reconcileDispatcherDeployment(ctx context.Context, logger *
 		}
 	} else {
 
-		updatedDeployment, needsUpdate := r.checkDispatcherDeploymentChanged(logger, existingDeployment, newDeployment)
+		updatedDeployment, needsUpdate := util.CheckDeploymentChanged(logger, existingDeployment, newDeployment)
 		// Log Deletion Timestamp & Finalizer State
 		if updatedDeployment.DeletionTimestamp.IsZero() {
 			logger.Info("Successfully Verified Dispatcher Deployment")
@@ -325,7 +323,7 @@ func (r *Reconciler) reconcileDispatcherDeployment(ctx context.Context, logger *
 				controller.GetEventRecorder(ctx).Event(channel, corev1.EventTypeNormal, dispatcherDeploymentUpdated, "Dispatcher Deployment Updated")
 			} else {
 				controller.GetEventRecorder(ctx).Event(channel, corev1.EventTypeWarning, dispatcherDeploymentFailed, "Dispatcher Deployment Failed")
-				channel.Status.MarkServiceFailed("DispatcherDeploymentUpdateFailed", "Failed to update the dispatcher deployment: %v", err)
+				channel.Status.MarkDispatcherFailed("DispatcherDeploymentUpdateFailed", "Failed to update the dispatcher deployment: %v", err)
 				return err
 			}
 		}
@@ -333,77 +331,6 @@ func (r *Reconciler) reconcileDispatcherDeployment(ctx context.Context, logger *
 		channel.Status.PropagateDispatcherStatus(&updatedDeployment.Status)
 		return nil
 	}
-}
-
-// Modifies An Existing Dispatcher Deployment With New Fields (If Necessary)
-// Returns True If Any Modifications Were Made
-func (r *Reconciler) checkDispatcherDeploymentChanged(logger *zap.Logger, existingDeployment, newDeployment *appsv1.Deployment) (*appsv1.Deployment, bool) {
-
-	// Make a copy of the existing labels so we don't inadvertently modify the existing deployment fields directly
-	updatedLabels := make(map[string]string)
-	for oldKey, oldValue := range existingDeployment.ObjectMeta.Labels {
-		updatedLabels[oldKey] = oldValue
-	}
-
-	// Add any labels in the "new" deployment to the copy of the labels from the old deployment.
-	// Annotations could be similarly updated, but there are currently no annotations being made
-	// in new dispatcher deployments anyway so it would serve no practical purpose at the moment.
-	labelsChanged := false
-	for newKey, newValue := range newDeployment.ObjectMeta.Labels {
-		oldValue, ok := existingDeployment.ObjectMeta.Labels[newKey]
-		if !ok || oldValue != newValue {
-			labelsChanged = true
-			updatedLabels[newKey] = newValue
-		}
-	}
-
-	// Fields intentionally ignored:
-	//    Spec.Replicas - Since a HorizontalPodAutoscaler explicitly changes this value on the deployment directly
-
-	// Verify everything in the container spec aside from some particular exceptions (see "ignoreFields" below)
-	existingContainerCount := len(existingDeployment.Spec.Template.Spec.Containers)
-	if existingContainerCount == 0 {
-		// This is unlikely but if it happens, replace the entire existing deployment with a proper one
-		logger.Error("Dispatcher Deployment Has No Containers")
-		return newDeployment, true
-	} else if existingContainerCount > 1 {
-		logger.Warn("Dispatcher Deployment Has Multiple Containers; Comparing First Only")
-	}
-	if len(newDeployment.Spec.Template.Spec.Containers) < 1 {
-		// This shouldn't be possible if the new deployment came from newDispatcherDeployment()
-		logger.Error("New Dispatcher Deployment Has No Containers")
-		return existingDeployment, false
-	}
-	existingContainer := &existingDeployment.Spec.Template.Spec.Containers[0]
-	newContainer := &newDeployment.Spec.Template.Spec.Containers[0]
-
-	// Ignore the fields in a Container struct which are not set directly by getDispatcherDeployment()
-	// and ones that are acceptable to be changed manually (such as the ImagePullPolicy)
-	ignoreFields := cmpopts.IgnoreFields(*newContainer,
-		"Lifecycle",
-		"TerminationMessagePolicy",
-		"ImagePullPolicy",
-		"SecurityContext",
-		"StartupProbe",
-		"TerminationMessagePath",
-		"Stdin",
-		"StdinOnce",
-		"TTY")
-
-	containersEqual := cmp.Equal(existingContainer, newContainer, ignoreFields)
-	if !containersEqual || labelsChanged {
-		// Create an updated deployment from the existing one, but using the new Container field
-		updatedDeployment := existingDeployment.DeepCopy()
-		if labelsChanged {
-			updatedDeployment.ObjectMeta.Labels = updatedLabels
-		}
-		if !containersEqual {
-			updatedDeployment.Spec.Template.Spec.Containers[0] = *newContainer
-		}
-		return updatedDeployment, true
-	}
-
-	return existingDeployment, false
 }
 
 // Finalize The Dispatcher Deployment
