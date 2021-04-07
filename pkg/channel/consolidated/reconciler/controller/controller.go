@@ -90,7 +90,7 @@ func NewController(
 	}
 
 	r.dispatcherImage = env.Image
-	r.serviceAccount = env.ServiceAccount
+	r.dispatcherServiceAccount = env.DispatcherServiceAccount
 
 	impl := kafkaChannelReconciler.NewImpl(ctx, r)
 
