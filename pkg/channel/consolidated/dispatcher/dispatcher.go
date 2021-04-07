@@ -17,9 +17,9 @@ package dispatcher
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	nethttp "net/http"
+	"strings"
 	"sync"
 
 	"github.com/Shopify/sarama"
@@ -59,15 +59,18 @@ type KafkaDispatcherArgs struct {
 }
 
 type KafkaDispatcher struct {
-	hostToChannelMap sync.Map
-
 	receiver   *eventingchannels.MessageReceiver
 	dispatcher *eventingchannels.MessageDispatcherImpl
 
+	// Receiver data structures
+	// map[string]eventingchannels.ChannelReference
+	hostToChannelMap  sync.Map
+	kafkaSyncProducer sarama.SyncProducer
+
+	// Dispatcher data structures
 	// consumerUpdateLock must be used to update all the below maps
 	consumerUpdateLock   sync.Mutex
-	kafkaSyncProducer    sarama.SyncProducer
-	channelSubscriptions map[eventingchannels.ChannelReference]*KafkaSubscription
+	channelSubscriptions map[types.NamespacedName]*KafkaSubscription
 	subsConsumerGroups   map[types.UID]sarama.ConsumerGroup
 	subscriptions        map[types.UID]Subscription
 	kafkaConsumerFactory consumer.KafkaConsumerGroupFactory
@@ -96,7 +99,7 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 	dispatcher := &KafkaDispatcher{
 		dispatcher:           eventingchannels.NewMessageDispatcher(args.Logger.Desugar()),
 		kafkaConsumerFactory: consumer.NewConsumerGroupFactory(args.Brokers, conf),
-		channelSubscriptions: make(map[eventingchannels.ChannelReference]*KafkaSubscription),
+		channelSubscriptions: make(map[types.NamespacedName]*KafkaSubscription),
 		subsConsumerGroups:   make(map[types.UID]sarama.ConsumerGroup),
 		subscriptions:        make(map[types.UID]Subscription),
 		kafkaSyncProducer:    producer,
@@ -166,93 +169,103 @@ func (d *KafkaDispatcher) Start(ctx context.Context) error {
 	return d.receiver.Start(ctx)
 }
 
-// UpdateKafkaConsumers will be called by new CRD based kafka channel dispatcher controller.
-func (d *KafkaDispatcher) UpdateKafkaConsumers(config *Config) (map[types.UID]error, error) {
-	if config == nil {
-		return nil, fmt.Errorf("nil config")
+// UpdateError is the error returned from the ReconcileConsumers method, with the details of which
+// subscriptions failed to subscribe to.
+type UpdateError map[types.UID]error
+
+func (k UpdateError) Error() string {
+	var errs []string
+	for uid, err := range k {
+		errs = append(errs, fmt.Sprintf("subscription %s: %v", uid, err))
 	}
+	return strings.Join(errs, ",")
+}
+
+// ReconcileConsumers will be called by new CRD based kafka channel dispatcher controller.
+func (d *KafkaDispatcher) ReconcileConsumers(config *ChannelConfig) error {
+	channelNamespacedName := types.NamespacedName{
+		Namespace: config.Namespace,
+		Name:      config.Name,
+	}
+
+	// Aux data structures to reconcile
+	toAddSubs := make(map[types.UID]Subscription)
+	toRemoveSubs := sets.NewString()
 
 	d.consumerUpdateLock.Lock()
 	defer d.consumerUpdateLock.Unlock()
 
-	var newSubs []types.UID
-	failedToSubscribe := make(map[types.UID]error)
-	for _, cc := range config.ChannelConfigs {
-		channelRef := eventingchannels.ChannelReference{
-			Name:      cc.Name,
-			Namespace: cc.Namespace,
-		}
-		for _, subSpec := range cc.Subscriptions {
-			newSubs = append(newSubs, subSpec.UID)
+	// This loop takes care of filling toAddSubs and toRemoveSubs for new and existing channels
+	thisChannelKafkaSubscriptions := d.channelSubscriptions[channelNamespacedName]
 
-			// Check if sub already exists
-			exists := false
-			if _, ok := d.channelSubscriptions[channelRef]; ok {
-				for _, s := range d.channelSubscriptions[channelRef].subs {
-					if s == subSpec.UID {
-						exists = true
-					}
-				}
-			} else { //ensure the pointer is populated or things go boom
-				d.channelSubscriptions[channelRef] = &KafkaSubscription{
-					logger:                    d.logger,
-					subs:                      []types.UID{},
-					channelReadySubscriptions: map[string]sets.Int32{},
-				}
-			}
+	var existingSubsForThisChannel sets.String
+	if thisChannelKafkaSubscriptions != nil {
+		existingSubsForThisChannel = thisChannelKafkaSubscriptions.subs
+	} else {
+		existingSubsForThisChannel = sets.NewString()
+	}
 
-			if !exists {
-				// only subscribe when not exists in channel-subscriptions map
-				// do not need to resubscribe every time channel fanout config is updated
-				if err := d.subscribe(channelRef, subSpec); err != nil {
-					failedToSubscribe[subSpec.UID] = err
-				}
-			}
+	newSubsForThisChannel := sets.NewString(config.SubscriptionsUIDs()...)
+
+	// toRemoveSubs += existing subs of this channel - new subs of this channel
+	thisChannelToRemoveSubs := existingSubsForThisChannel.Difference(newSubsForThisChannel).UnsortedList()
+	toRemoveSubs.Insert(
+		thisChannelToRemoveSubs...,
+	)
+
+	// toAddSubs += new subs of this channel - existing subs of this channel
+	thisChannelToAddSubs := newSubsForThisChannel.Difference(existingSubsForThisChannel)
+	for _, subSpec := range config.Subscriptions {
+		if thisChannelToAddSubs.Has(string(subSpec.UID)) {
+			toAddSubs[subSpec.UID] = subSpec
 		}
 	}
 
-	d.logger.Debug("Number of new subs", zap.Any("subs", len(newSubs)))
+	d.logger.Debug("Number of new subs", zap.Any("subs", len(toAddSubs)))
+	d.logger.Debug("Number of old subs", zap.Any("subs", len(toRemoveSubs)))
+
+	failedToSubscribe := make(UpdateError)
+	for subUid, subSpec := range toAddSubs {
+		if err := d.subscribe(channelNamespacedName, subSpec); err != nil {
+			failedToSubscribe[subUid] = err
+		}
+	}
 	d.logger.Debug("Number of subs failed to subscribe", zap.Any("subs", len(failedToSubscribe)))
 
-	// Unsubscribe and close consumer for any deleted subscriptions
-	subsToRemove := make(map[eventingchannels.ChannelReference][]types.UID)
-	for channelRef, actualSubs := range d.channelSubscriptions {
-		subsToRemove[channelRef] = uidSetDifference(actualSubs.subs, newSubs)
-	}
-
-	for channelRef, subs := range subsToRemove {
-		for _, s := range subs {
-			if err := d.unsubscribe(channelRef, d.subscriptions[s]); err != nil {
-				return nil, err
-			}
+	for _, subUid := range toRemoveSubs.UnsortedList() {
+		// We don't signal to the caller the unsubscribe invocation
+		if err := d.unsubscribe(channelNamespacedName, d.subscriptions[types.UID(subUid)]); err != nil {
+			d.logger.Warnw("Error while unsubscribing", zap.Error(err))
 		}
-		d.channelSubscriptions[channelRef].subs = newSubs
 	}
 
-	return failedToSubscribe, nil
+	if len(failedToSubscribe) == 0 {
+		return nil
+	}
+	return failedToSubscribe
 }
 
-// UpdateHostToChannelMap will be called by new CRD based kafka channel dispatcher controller.
-func (d *KafkaDispatcher) UpdateHostToChannelMap(config *Config) error {
-	if config == nil {
-		return errors.New("nil config")
-	}
-
-	// Because today we reconcile all channels on every reconcile loop,
-	// we just try to add all the channels here. In future, we'll just add the diff
-	hcMap, err := createHostToChannelMap(config)
-	if err != nil {
-		return err
-	}
-
-	for k, v := range hcMap {
-		d.hostToChannelMap.Store(k, v)
+// RegisterChannelHost adds a new channel to the host-channel mapping.
+func (d *KafkaDispatcher) RegisterChannelHost(channelConfig *ChannelConfig) error {
+	old, ok := d.hostToChannelMap.LoadOrStore(channelConfig.HostName, eventingchannels.ChannelReference{
+		Name:      channelConfig.Name,
+		Namespace: channelConfig.Namespace,
+	})
+	if ok {
+		return fmt.Errorf(
+			"duplicate hostName found. Each channel must have a unique host header. HostName:%s, channel:%s.%s, channel:%s.%s",
+			channelConfig.HostName,
+			old.(eventingchannels.ChannelReference).Namespace,
+			old.(eventingchannels.ChannelReference).Name,
+			channelConfig.Namespace,
+			channelConfig.Name,
+		)
 	}
 	return nil
 }
 
 func (d *KafkaDispatcher) CleanupChannel(name, namespace, hostname string) error {
-	channelRef := eventingchannels.ChannelReference{
+	channelRef := types.NamespacedName{
 		Name:      name,
 		Namespace: namespace,
 	}
@@ -269,12 +282,8 @@ func (d *KafkaDispatcher) CleanupChannel(name, namespace, hostname string) error
 		return nil
 	}
 
-	// Avoid concurrent modification while iterating
-	subs := make([]types.UID, len(d.channelSubscriptions[channelRef].subs))
-	copy(subs, d.channelSubscriptions[channelRef].subs)
-
-	for _, s := range subs {
-		if err := d.unsubscribe(channelRef, d.subscriptions[s]); err != nil {
+	for _, s := range d.channelSubscriptions[channelRef].subs.UnsortedList() {
+		if err := d.unsubscribe(channelRef, d.subscriptions[types.UID(s)]); err != nil {
 			return err
 		}
 	}
@@ -284,10 +293,12 @@ func (d *KafkaDispatcher) CleanupChannel(name, namespace, hostname string) error
 
 // subscribe reads kafkaConsumers which gets updated in UpdateConfig in a separate go-routine.
 // subscribe must be called under updateLock.
-func (d *KafkaDispatcher) subscribe(channelRef eventingchannels.ChannelReference, sub Subscription) error {
+func (d *KafkaDispatcher) subscribe(channelRef types.NamespacedName, sub Subscription) error {
 	d.logger.Infow("Subscribing to Kafka Channel", zap.Any("channelRef", channelRef), zap.Any("subscription", sub.UID))
+
 	topicName := d.topicFunc(utils.KafkaChannelSeparator, channelRef.Namespace, channelRef.Name)
 	groupID := fmt.Sprintf("kafka.%s.%s.%s", channelRef.Namespace, channelRef.Name, string(sub.UID))
+
 	handler := &consumerMessageHandler{
 		d.logger,
 		sub,
@@ -313,7 +324,13 @@ func (d *KafkaDispatcher) subscribe(channelRef eventingchannels.ChannelReference
 		}
 	}()
 
-	d.channelSubscriptions[channelRef].subs = append(d.channelSubscriptions[channelRef].subs, sub.UID)
+	// Update the data structures that holds the reconciliation data
+	kafkaSubscription, ok := d.channelSubscriptions[channelRef]
+	if !ok {
+		kafkaSubscription = NewKafkaSubscription(d.logger)
+		d.channelSubscriptions[channelRef] = kafkaSubscription
+	}
+	kafkaSubscription.subs.Insert(string(sub.UID))
 	d.subscriptions[sub.UID] = sub
 	d.subsConsumerGroups[sub.UID] = consumerGroup
 
@@ -322,29 +339,29 @@ func (d *KafkaDispatcher) subscribe(channelRef eventingchannels.ChannelReference
 
 // unsubscribe reads kafkaConsumers which gets updated in UpdateConfig in a separate go-routine.
 // unsubscribe must be called under updateLock.
-func (d *KafkaDispatcher) unsubscribe(channel eventingchannels.ChannelReference, sub Subscription) error {
-	d.logger.Infow("Unsubscribing from channel", zap.Any("channel", channel), zap.Any("subscription", sub.UID))
+func (d *KafkaDispatcher) unsubscribe(channelRef types.NamespacedName, sub Subscription) error {
+	d.logger.Infow("Unsubscribing from channel", zap.Any("channel", channelRef), zap.Any("subscription", sub.UID))
+
+	// Remove the sub spec
 	delete(d.subscriptions, sub.UID)
-	if _, ok := d.channelSubscriptions[channel]; !ok {
+
+	// Remove the sub from the channel
+	kafkaSubscription, ok := d.channelSubscriptions[channelRef]
+	if !ok {
+		// If this happens, then there's a bug somewhere...
 		return nil
 	}
-	if subsSlice := d.channelSubscriptions[channel].subs; subsSlice != nil {
-		var newSlice []types.UID
-		for _, oldSub := range subsSlice {
-			if oldSub != sub.UID {
-				newSlice = append(newSlice, oldSub)
-			}
-		}
-		if len(newSlice) != 0 {
-			d.channelSubscriptions[channel].subs = newSlice
-		} else {
-			delete(d.channelSubscriptions, channel)
-		}
+	kafkaSubscription.subs.Delete(string(sub.UID))
+	if kafkaSubscription.subs.Len() == 0 {
+		// We can get rid of this
+		delete(d.channelSubscriptions, channelRef)
 	}
-	if consumer, ok := d.subsConsumerGroups[sub.UID]; ok {
+
+	// Delete the consumer group
+	if consumerGroup, ok := d.subsConsumerGroups[sub.UID]; ok {
 		delete(d.subsConsumerGroups, sub.UID)
-		d.logger.Debugw("Closing cached consumer group", zap.Any("consumer group", consumer))
-		return consumer.Close()
+		d.logger.Debugw("Closing cached consumerGroup group", zap.Any("consumer group", consumerGroup))
+		return consumerGroup.Close()
 	}
 	return nil
 }
@@ -355,36 +372,4 @@ func (d *KafkaDispatcher) getChannelReferenceFromHost(host string) (eventingchan
 		return eventingchannels.ChannelReference{}, eventingchannels.UnknownHostError(host)
 	}
 	return cr.(eventingchannels.ChannelReference), nil
-}
-
-func uidSetDifference(a, b []types.UID) (diff []types.UID) {
-	m := make(map[types.UID]bool)
-
-	for _, item := range b {
-		m[item] = true
-	}
-
-	for _, item := range a {
-		if _, ok := m[item]; !ok {
-			diff = append(diff, item)
-		}
-	}
-	return
-}
-
-func createHostToChannelMap(config *Config) (map[string]eventingchannels.ChannelReference, error) {
-	hcMap := make(map[string]eventingchannels.ChannelReference, len(config.ChannelConfigs))
-	for _, cConfig := range config.ChannelConfigs {
-		if cr, ok := hcMap[cConfig.HostName]; ok {
-			return nil, fmt.Errorf(
-				"duplicate hostName found. Each channel must have a unique host header. HostName:%s, channel:%s.%s, channel:%s.%s",
-				cConfig.HostName,
-				cConfig.Namespace,
-				cConfig.Name,
-				cr.Namespace,
-				cr.Name)
-		}
-		hcMap[cConfig.HostName] = eventingchannels.ChannelReference{Name: cConfig.Name, Namespace: cConfig.Namespace}
-	}
-	return hcMap, nil
 }
