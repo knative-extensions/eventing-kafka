@@ -26,7 +26,7 @@ import (
 
 const (
 	DispatcherContainerName    = "dispatcher"
-	ConfigMapHashAnnotationKey = "ConfigMapHash"
+	ConfigMapHashAnnotationKey = "kafka.eventing.knative.dev/configmap-hash"
 )
 
 var (
