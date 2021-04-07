@@ -39,7 +39,54 @@ spec:
     - "{{ $value }}"
     {{ end }}
   {{ end }}
-  {{if .sink }}
+  {{ if or .tls .sasl }}
+  net:
+    {{ if .tls }}
+    tls:
+      enable: true
+      {{ if .tls.cert }}
+      cert:
+        secretKeyRef:
+          name: "{{ .tls.cert.name }}"
+          key: "{{ .tls.cert.key }}"
+      {{ end }}
+      {{ if .tls.key }}
+      key:
+        secretKeyRef:
+          name: "{{ .tls.key.name }}"
+          key: "{{ .tls.key.key }}"
+      {{ end }}
+      {{ if .tls.caCert }}
+      caCert:
+        secretKeyRef:
+          name: "{{ .tls.caCert.name }}"
+          key: "{{ .tls.caCert.key }}"
+      {{ end }}
+    {{ end }}
+    {{ if .sasl }}
+    sasl:
+      enable: true
+      {{ if .sasl.user }}
+      user:
+        secretKeyRef:
+          name: "{{ .sasl.user.name }}"
+          key: "{{ .sasl.user.key }}"
+      {{ end }}
+      {{ if .sasl.password }}
+      password:
+        secretKeyRef:
+          name: "{{ .sasl.password.name }}"
+          key: "{{ .sasl.password.key }}"
+      {{ end }}
+      {{ if .sasl.type }}
+      type:
+        secretKeyRef:
+          name: "{{ .sasl.type.name }}"
+          key: "{{ .sasl.type.key }}"
+      {{ end }}
+    {{ end }}
+  {{ end }}
+  {{ if .sink }}
   sink:
     {{ if .sink.ref }}
     ref:

@@ -20,7 +20,6 @@ import (
 	"os"
 
 	duckv1 "knative.dev/pkg/apis/duck/v1"
-
 	"knative.dev/reconciler-test/pkg/manifest"
 )
 
@@ -64,6 +63,12 @@ func Example_full() {
 	})(cfg)
 	WithBootstrapServers([]string{"baz"})(cfg)
 	WithTopics([]string{"t1", "t2"})(cfg)
+	WithTLSCert("tlscertname", "tlscertkey")(cfg)
+	WithTLSKey("tlskeyname", "tlskeykey")(cfg)
+	WithTLSCACert("tlscaCertname", "tlscaCertkey")(cfg)
+	WithSASLUser("saslusername", "sasluserkey")(cfg)
+	WithSASLPassword("saslpwdname", "saslpwdkey")(cfg)
+	WithSASLType("sasltypename", "sasltypekey")(cfg)
 	WithSink(&duckv1.KReference{Kind: "Service", Name: "name", APIVersion: "v1"}, "")(cfg)
 
 	files, err := manifest.ExecuteLocalYAML(images, cfg)
@@ -87,6 +92,35 @@ func Example_full() {
 	//   topics:
 	//     - "t1"
 	//     - "t2"
+	//   net:
+	//     tls:
+	//       enable: true
+	//       cert:
+	//         secretKeyRef:
+	//           name: "tlscertname"
+	//           key: "tlscertkey"
+	//       key:
+	//         secretKeyRef:
+	//           name: "tlskeyname"
+	//           key: "tlskeykey"
+	//       caCert:
+	//         secretKeyRef:
+	//           name: "tlscaCertname"
+	//           key: "tlscaCertkey"
+	//     sasl:
+	//       enable: true
+	//       user:
+	//         secretKeyRef:
+	//           name: "saslusername"
+	//           key: "sasluserkey"
+	//       password:
+	//         secretKeyRef:
+	//           name: "saslpwdname"
+	//           key: "saslpwdkey"
+	//       type:
+	//         secretKeyRef:
+	//           name: "sasltypename"
+	//           key: "sasltypekey"
 	//   sink:
 	//     ref:
 	//       kind: Service

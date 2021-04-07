@@ -18,4 +18,4 @@ metadata:
   name: {{ .name }}
   namespace: {{ .namespace }}
 data:
-  payload: '{{ .payload }}'
+  payload: '{{ if .key }}{{ .key }}={{end}}{{ .payload }}'

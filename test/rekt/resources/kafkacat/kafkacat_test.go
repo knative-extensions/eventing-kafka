@@ -100,7 +100,7 @@ func Example_full() {
 	//   name: foo
 	//   namespace: bar
 	// data:
-	//   payload: 'aplayload'
+	//   payload: 'akey=aplayload'
 	// ---
 	// apiVersion: v1
 	// kind: Pod
@@ -120,7 +120,7 @@ func Example_full() {
 	//     - baz
 	//     - "-t"
 	//     - t1
-	//     - "-K=akey"
+	//     - "-K="
 	//     - "-H"
 	//     - "ct=xml"
 	//     - "-H"

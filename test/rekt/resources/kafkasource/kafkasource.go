@@ -22,7 +22,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
-
 	"knative.dev/reconciler-test/pkg/feature"
 	"knative.dev/reconciler-test/pkg/k8s"
 	"knative.dev/reconciler-test/pkg/manifest"
@@ -88,6 +87,120 @@ func WithTopics(topics []string) CfgFn {
 		if topics != nil {
 			cfg["topics"] = topics
 		}
+	}
+}
+
+// WithTLSEnabled enables TLS to a KafkaSource spec.
+func WithTLSEnabled() CfgFn {
+	return func(cfg map[string]interface{}) {
+		if _, ok := cfg["tls"]; !ok {
+			cfg["tls"] = map[string]interface{}{}
+		}
+	}
+}
+
+// WithTLSCert adds the TLS cert config to a KafkaSource spec.
+func WithTLSCert(name, key string) CfgFn {
+	return func(cfg map[string]interface{}) {
+		if _, ok := cfg["tls"]; !ok {
+			cfg["tls"] = map[string]interface{}{}
+		}
+		tls := cfg["tls"].(map[string]interface{})
+		if _, ok := tls["cert"]; !ok {
+			tls["cert"] = map[string]interface{}{}
+		}
+		cert := tls["cert"].(map[string]interface{})
+		cert["name"] = name
+		cert["key"] = key
+	}
+}
+
+// WithTLSKey adds the TLS key config to a KafkaSource spec.
+func WithTLSKey(name, key string) CfgFn {
+	return func(cfg map[string]interface{}) {
+		if _, ok := cfg["tls"]; !ok {
+			cfg["tls"] = map[string]interface{}{}
+		}
+		tls := cfg["tls"].(map[string]interface{})
+		if _, ok := tls["key"]; !ok {
+			tls["key"] = map[string]interface{}{}
+		}
+		cert := tls["key"].(map[string]interface{})
+		cert["name"] = name
+		cert["key"] = key
+	}
+}
+
+// WithTLSCACert adds the TLS caCert config to a KafkaSource spec.
+func WithTLSCACert(name, key string) CfgFn {
+	return func(cfg map[string]interface{}) {
+		if _, ok := cfg["tls"]; !ok {
+			cfg["tls"] = map[string]interface{}{}
+		}
+		tls := cfg["tls"].(map[string]interface{})
+		if _, ok := tls["caCert"]; !ok {
+			tls["caCert"] = map[string]interface{}{}
+		}
+		cert := tls["caCert"].(map[string]interface{})
+		cert["name"] = name
+		cert["key"] = key
+	}
+}
+
+// WithSASLEnabled enables SASL to a KafkaSource spec.
+func WithSASLEnabled() CfgFn {
+	return func(cfg map[string]interface{}) {
+		if _, ok := cfg["sasl"]; !ok {
+			cfg["sasl"] = map[string]interface{}{}
+		}
+	}
+}
+
+// WithSASLUser adds the SASL user config to a KafkaSource spec.
+func WithSASLUser(name, key string) CfgFn {
+	return func(cfg map[string]interface{}) {
+		if _, ok := cfg["sasl"]; !ok {
+			cfg["sasl"] = map[string]interface{}{}
+		}
+		sasl := cfg["sasl"].(map[string]interface{})
+		if _, ok := sasl["user"]; !ok {
+			sasl["user"] = map[string]interface{}{}
+		}
+		user := sasl["user"].(map[string]interface{})
+		user["name"] = name
+		user["key"] = key
+	}
+}
+
+// WithSASLPassword adds the SASL password config to a KafkaSource spec.
+func WithSASLPassword(name, key string) CfgFn {
+	return func(cfg map[string]interface{}) {
+		if _, ok := cfg["sasl"]; !ok {
+			cfg["sasl"] = map[string]interface{}{}
+		}
+		sasl := cfg["sasl"].(map[string]interface{})
+		if _, ok := sasl["password"]; !ok {
+			sasl["password"] = map[string]interface{}{}
+		}
+		password := sasl["password"].(map[string]interface{})
+		password["name"] = name
+		password["key"] = key
+	}
+}
+
+// WithSASLType adds the SASL type config to a KafkaSource spec.
+func WithSASLType(name, key string) CfgFn {
+	return func(cfg map[string]interface{}) {
+		if _, ok := cfg["sasl"]; !ok {
+			cfg["sasl"] = map[string]interface{}{}
+		}
+		sasl := cfg["sasl"].(map[string]interface{})
+		if _, ok := sasl["type"]; !ok {
+			sasl["type"] = map[string]interface{}{}
+		}
+		t := sasl["type"].(map[string]interface{})
+		t["name"] = name
+		t["key"] = key
 	}
 }
 

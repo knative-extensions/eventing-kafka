@@ -31,7 +31,7 @@ spec:
     - "-t"
     - {{ .topic }}
     {{ if .key }}
-    - "-K={{ .key }}"
+    - "-K="
     {{ end }}
     {{ if .headers }}
       {{ range $key, $value := .headers }}

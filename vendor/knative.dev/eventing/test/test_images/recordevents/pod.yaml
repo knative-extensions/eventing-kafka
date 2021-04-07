@@ -5,5 +5,5 @@ metadata:
 spec:
   containers:
     - name: recordevents
-      image: ko://knative.dev/eventing/test/test_images/recordevents
+      image: ko://knative.dev/eventing-kafka/vendor/knative.dev/eventing/test/test_images/recordevents
 

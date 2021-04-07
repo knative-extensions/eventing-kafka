@@ -23,10 +23,12 @@ import (
 
 	cetest "github.com/cloudevents/sdk-go/v2/test"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+	"knative.dev/reconciler-test/pkg/environment"
 	"knative.dev/reconciler-test/pkg/eventshub"
 	assert "knative.dev/reconciler-test/pkg/eventshub/assert"
 	"knative.dev/reconciler-test/pkg/feature"
 
+	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 	"knative.dev/eventing-kafka/test/rekt/resources/kafkacat"
 	"knative.dev/eventing-kafka/test/rekt/resources/kafkasource"
 	"knative.dev/eventing-kafka/test/rekt/resources/kafkatopic"
@@ -38,7 +40,7 @@ var (
 
 // DataPlaneDelivery returns a feature testing if the event sent to Kafka is received by the sink
 // via KafkaSource installed before sending events to Kafka
-func DataPlaneDelivery(name string, ksopts []kafkasource.CfgFn, kcopts []kafkacat.CfgFn, matchers cetest.EventMatcher) *feature.Feature {
+func DataPlaneDelivery(name string, ksopts []kafkasource.CfgFn, kcopts []kafkacat.CfgFn, matchers cetest.EventMatcher, intermediary bool) *feature.Feature {
 	f := feature.NewFeatureNamed("Delivery")
 
 	// Setup sink
@@ -52,28 +54,37 @@ func DataPlaneDelivery(name string, ksopts []kafkasource.CfgFn, kcopts []kafkaca
 	}, ""))
 
 	// Setup topic
-	topicName := feature.MakeRandomK8sName("topic")
-	f.Setup("install Kafka topic", kafkatopic.Install(topicName))
+	topicName := feature.MakeRandomK8sName("topic") // A k8s name is also a valid topic name.
+	f.Setup("install kafka topic", kafkatopic.Install(topicName))
 
 	ksopts = append(ksopts, kafkasource.WithTopics([]string{topicName}))
 	kcopts = append(kcopts, kafkacat.WithTopic(topicName))
 
 	// Setup source
-	f.Setup("install a kafkasource", kafkasource.Install(name, ksopts...))
+	f.Setup("install a kafka source", kafkasource.Install(name, ksopts...))
 
-	f.Requirement("Kafka topic must be ready", kafkatopic.IsReady(topicName))
-	f.Requirement("Kafka source must be ready", kafkasource.IsReady(name))
+	f.Requirement("kafka topic must be ready", kafkatopic.IsReady(topicName))
+	f.Requirement("kafka source must be ready", kafkasource.IsReady(name))
 
-	f.Assert("forward events from topic to sink", sinkReceiveProducedEvent(name, kcopts, sinkName, matchers))
+	f.Assert("forward events from topic to sink", sinkReceiveProducedEvent(name, topicName, kcopts, sinkName, matchers, intermediary))
 
 	return f
 }
 
-func sinkReceiveProducedEvent(name string, kcopts []kafkacat.CfgFn, storeName string, matchers cetest.EventMatcher) feature.StepFn {
+func sinkReceiveProducedEvent(name, topicName string, kcopts []kafkacat.CfgFn, storeName string, matchers cetest.EventMatcher, intermediary bool) feature.StepFn {
 	return func(ctx context.Context, t feature.T) {
 		// See https://github.com/knative-sandbox/eventing-kafka/issues/411
 		if test_mt_source == "1" {
-			time.Sleep(20 * time.Second)
+			time.Sleep(10 * time.Second)
+		}
+
+		if !intermediary {
+			// Also assert for ce-source and ce-type
+			env := environment.FromContext(ctx)
+			matchers = cetest.AllOf(
+				cetest.HasType(sourcesv1beta1.KafkaEventType),
+				cetest.HasSource(sourcesv1beta1.KafkaEventSource(env.Namespace(), name, topicName)),
+				matchers)
 		}
 
 		// Install and wait for kafkacat to be ready
