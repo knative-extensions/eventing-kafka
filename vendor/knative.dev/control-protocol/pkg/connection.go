@@ -19,10 +19,10 @@ package control
 // Connection handles the low level stuff, reading and writing to the wire
 type Connection interface {
 	// OutboundMessages returns a channel that accepts the messages that goes on the wire
-	OutboundMessages() chan<- *OutboundMessage
+	OutboundMessages() chan<- *Message
 
 	// InboundMessages returns a channel that returns the inbound messages from the wire
-	InboundMessages() <-chan *InboundMessage
+	InboundMessages() <-chan *Message
 
 	// Errors returns a channel that signals very bad, usually fatal, errors
 	// (like cannot re-establish the connection after several attempts)

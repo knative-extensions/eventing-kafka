@@ -82,8 +82,8 @@ func newClientTcpConnection(ctx context.Context, dialer Dialer) *clientTcpConnec
 		baseTcpConnection: baseTcpConnection{
 			ctx:                    ctx,
 			logger:                 logging.FromContext(ctx),
-			outboundMessageChannel: make(chan *ctrl.OutboundMessage, 10),
-			inboundMessageChannel:  make(chan *ctrl.InboundMessage, 10),
+			outboundMessageChannel: make(chan *ctrl.Message, 10),
+			inboundMessageChannel:  make(chan *ctrl.Message, 10),
 			errors:                 make(chan error, 10),
 		},
 		dialer: dialer,

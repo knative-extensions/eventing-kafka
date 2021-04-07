@@ -24,6 +24,7 @@ import (
 )
 
 const (
+	// ActualProtocolVersion is the supported protocol version, and the default one used to send outbound messages
 	ActualProtocolVersion   uint8 = 0
 	maximumSupportedVersion uint8 = ActualProtocolVersion
 	outboundMessageVersion        = maximumSupportedVersion
@@ -59,22 +60,27 @@ type MessageHeader struct {
 	length uint32
 }
 
+// Version returns the protocol version
 func (m MessageHeader) Version() uint8 {
 	return m.version
 }
 
+// Check returns true if the flag is 1, false otherwise
 func (m MessageHeader) Check(flag MessageFlag) bool {
 	return (m.flags & uint8(flag)) == uint8(flag)
 }
 
+// OpCode returns the opcode of the message
 func (m MessageHeader) OpCode() uint8 {
 	return m.opcode
 }
 
+// UUID returns the message uuid
 func (m MessageHeader) UUID() uuid.UUID {
 	return m.uuid
 }
 
+// UUID returns the payload length
 func (m MessageHeader) Length() uint32 {
 	return m.length
 }
@@ -115,31 +121,54 @@ func messageHeaderFromBytes(b [24]byte) MessageHeader {
 	return m
 }
 
-type InboundMessage struct {
+// Message is a MessageHeader and a payload
+type Message struct {
 	MessageHeader
 	payload []byte
 }
 
-// NewInboundMessage creates a new inbound message.
-// This is useful when the logic to read the inbound message is different from the provided ReadFrom implementation
-func NewInboundMessage(version uint8, flags uint8, opcode uint8, uuid [16]byte, payload []byte) InboundMessage {
+// MessageOpt is an additional option for NewMessage
+type MessageOpt func(*Message)
+
+// WithVersion specifies the version to use when creating a new Message
+func WithVersion(version uint8) MessageOpt {
+	return func(message *Message) {
+		message.version = version
+	}
+}
+
+// WithVersion specifies the flags to use when creating a new Message
+func WithFlags(flags uint8) MessageOpt {
+	return func(message *Message) {
+		message.flags = flags
+	}
+}
+
+// NewMessage creates a new message.
+func NewMessage(uuid [16]byte, opcode uint8, payload []byte, opts ...MessageOpt) Message {
 	length := uint32(0)
 	if payload != nil {
 		length = uint32(len(payload))
 	}
-	return InboundMessage{
+	msg := Message{
 		MessageHeader: MessageHeader{
-			version: version,
-			flags:   flags,
+			version: outboundMessageVersion,
+			flags:   0,
 			opcode:  opcode,
 			uuid:    uuid,
 			length:  length,
 		},
 		payload: payload,
 	}
+
+	for _, f := range opts {
+		f(&msg)
+	}
+
+	return msg
 }
 
-func (msg *InboundMessage) ReadFrom(r io.Reader) (count int64, err error) {
+func (msg *Message) ReadFrom(r io.Reader) (count int64, err error) {
 	var b [24]byte
 	var n int
 	n, err = io.ReadAtLeast(io.LimitReader(r, 24), b[0:24], 24)
@@ -158,12 +187,7 @@ func (msg *InboundMessage) ReadFrom(r io.Reader) (count int64, err error) {
 	return count, err
 }
 
-type OutboundMessage struct {
-	MessageHeader
-	payload []byte
-}
-
-func (msg *OutboundMessage) WriteTo(w io.Writer) (count int64, err error) {
+func (msg *Message) WriteTo(w io.Writer) (count int64, err error) {
 	n, err := msg.MessageHeader.WriteTo(w)
 	count = count + n
 	if err != nil {
@@ -176,30 +200,4 @@ func (msg *OutboundMessage) WriteTo(w io.Writer) (count int64, err error) {
 		count = count + int64(n1)
 	}
 	return count, err
-}
-
-func NewOutboundMessage(opcode uint8, payload []byte) OutboundMessage {
-	return OutboundMessage{
-		MessageHeader: MessageHeader{
-			version: outboundMessageVersion,
-			flags:   0,
-			opcode:  opcode,
-			uuid:    uuid.New(),
-			length:  uint32(len(payload)),
-		},
-		payload: payload,
-	}
-}
-
-func NewOutboundMessageWithUUID(uuid [16]byte, opcode uint8, payload []byte) OutboundMessage {
-	return OutboundMessage{
-		MessageHeader: MessageHeader{
-			version: outboundMessageVersion,
-			flags:   0,
-			opcode:  opcode,
-			uuid:    uuid,
-			length:  uint32(len(payload)),
-		},
-		payload: payload,
-	}
 }

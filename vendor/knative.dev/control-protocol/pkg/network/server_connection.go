@@ -114,17 +114,17 @@ type serverTcpConnection struct {
 	tlsConfigLoader func() (*tls.Config, error)
 }
 
-func newServerTcpConnection(ctx context.Context, listener net.Listener, loader func() (*tls.Config, error)) *serverTcpConnection {
+func newServerTcpConnection(ctx context.Context, listener net.Listener, tlsConfigLoader func() (*tls.Config, error)) *serverTcpConnection {
 	c := &serverTcpConnection{
 		baseTcpConnection: baseTcpConnection{
 			ctx:                    ctx,
 			logger:                 logging.FromContext(ctx),
-			outboundMessageChannel: make(chan *ctrl.OutboundMessage, 10),
-			inboundMessageChannel:  make(chan *ctrl.InboundMessage, 10),
+			outboundMessageChannel: make(chan *ctrl.Message, 10),
+			inboundMessageChannel:  make(chan *ctrl.Message, 10),
 			errors:                 make(chan error, 10),
 		},
 		listener:        listener,
-		tlsConfigLoader: loader,
+		tlsConfigLoader: tlsConfigLoader,
 	}
 	return c
 }

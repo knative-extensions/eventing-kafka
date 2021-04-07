@@ -26,11 +26,11 @@ type OpCode uint8
 const AckOpCode OpCode = 0
 
 type ServiceMessage struct {
-	inboundMessage *InboundMessage
+	inboundMessage *Message
 	ackFunc        func()
 }
 
-func NewServiceMessage(inboundMessage *InboundMessage, ackFunc func()) ServiceMessage {
+func NewServiceMessage(inboundMessage *Message, ackFunc func()) ServiceMessage {
 	return ServiceMessage{
 		inboundMessage: inboundMessage,
 		ackFunc:        ackFunc,

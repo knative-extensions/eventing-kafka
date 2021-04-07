@@ -34,16 +34,16 @@ type baseTcpConnection struct {
 	ctx    context.Context
 	logger *zap.SugaredLogger
 
-	outboundMessageChannel chan *ctrl.OutboundMessage
-	inboundMessageChannel  chan *ctrl.InboundMessage
+	outboundMessageChannel chan *ctrl.Message
+	inboundMessageChannel  chan *ctrl.Message
 	errors                 chan error
 }
 
-func (t *baseTcpConnection) OutboundMessages() chan<- *ctrl.OutboundMessage {
+func (t *baseTcpConnection) OutboundMessages() chan<- *ctrl.Message {
 	return t.outboundMessageChannel
 }
 
-func (t *baseTcpConnection) InboundMessages() <-chan *ctrl.InboundMessage {
+func (t *baseTcpConnection) InboundMessages() <-chan *ctrl.Message {
 	return t.inboundMessageChannel
 }
 
@@ -52,7 +52,7 @@ func (t *baseTcpConnection) Errors() <-chan error {
 }
 
 func (t *baseTcpConnection) read(conn net.Conn) error {
-	msg := &ctrl.InboundMessage{}
+	msg := &ctrl.Message{}
 	n, err := msg.ReadFrom(conn)
 	if err != nil {
 		return err
@@ -65,7 +65,7 @@ func (t *baseTcpConnection) read(conn net.Conn) error {
 	return nil
 }
 
-func (t *baseTcpConnection) write(conn net.Conn, msg *ctrl.OutboundMessage) error {
+func (t *baseTcpConnection) write(conn net.Conn, msg *ctrl.Message) error {
 	n, err := msg.WriteTo(conn)
 	if err != nil {
 		return err
