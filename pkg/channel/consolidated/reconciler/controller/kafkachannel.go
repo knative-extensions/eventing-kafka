@@ -112,8 +112,9 @@ type Reconciler struct {
 
 	EventingClientSet eventingclientset.Interface
 
-	systemNamespace string
-	dispatcherImage string
+	systemNamespace          string
+	dispatcherImage          string
+	dispatcherServiceAccount string
 
 	kafkaConfig      *utils.KafkaConfig
 	kafkaAuthConfig  *client.KafkaAuthConfig
@@ -133,7 +134,8 @@ type Reconciler struct {
 }
 
 type envConfig struct {
-	Image string `envconfig:"DISPATCHER_IMAGE" required:"true"`
+	Image                    string `envconfig:"DISPATCHER_IMAGE" required:"true"`
+	DispatcherServiceAccount string `envconfig:"SERVICE_ACCOUNT" required:"true"`
 }
 
 // Check that our Reconciler implements kafka's injection Interface
@@ -307,6 +309,7 @@ func (r *Reconciler) reconcileDispatcher(ctx context.Context, scope string, disp
 		DispatcherNamespace: dispatcherNamespace,
 		Image:               r.dispatcherImage,
 		Replicas:            1,
+		ServiceAccount:      r.dispatcherServiceAccount,
 	}
 
 	expected := resources.MakeDispatcher(args)

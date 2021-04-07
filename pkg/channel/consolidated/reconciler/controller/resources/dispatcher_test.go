@@ -28,7 +28,8 @@ import (
 )
 
 const (
-	imageName = "my-test-image"
+	imageName      = "my-test-image"
+	serviceAccount = "kafka-ch-dispatcher"
 )
 
 func TestNewDispatcher(t *testing.T) {
@@ -39,6 +40,7 @@ func TestNewDispatcher(t *testing.T) {
 		DispatcherNamespace: testNS,
 		Image:               imageName,
 		Replicas:            1,
+		ServiceAccount:      serviceAccount,
 	}
 
 	replicas := int32(1)
@@ -61,7 +63,7 @@ func TestNewDispatcher(t *testing.T) {
 					Labels: dispatcherLabels,
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName: serviceAccountName,
+					ServiceAccountName: serviceAccount,
 					Containers: []corev1.Container{
 						{
 							Name:  "dispatcher",
@@ -121,6 +123,7 @@ func TestNewNamespaceDispatcher(t *testing.T) {
 		DispatcherNamespace: testNS,
 		Image:               imageName,
 		Replicas:            1,
+		ServiceAccount:      serviceAccount,
 	}
 
 	replicas := int32(1)
@@ -143,7 +146,7 @@ func TestNewNamespaceDispatcher(t *testing.T) {
 					Labels: dispatcherLabels,
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName: serviceAccountName,
+					ServiceAccountName: serviceAccount,
 					Containers: []corev1.Container{
 						{
 							Name:  "dispatcher",

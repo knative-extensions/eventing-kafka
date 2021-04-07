@@ -50,15 +50,16 @@ import (
 )
 
 const (
-	testNS                = "test-namespace"
-	kcName                = "test-kc"
-	testDispatcherImage   = "test-image"
-	channelServiceAddress = "test-kc-kn-channel.test-namespace.svc.cluster.local"
-	brokerName            = "test-broker"
-	finalizerName         = "kafkachannels.messaging.knative.dev"
-	sub1UID               = "2f9b5e8e-deb6-11e8-9f32-f2801f1b9fd1"
-	sub2UID               = "34c5aec8-deb6-11e8-9f32-f2801f1b9fd1"
-	twoSubscribersPatch   = `[{"op":"add","path":"/status/subscribers","value":[{"observedGeneration":1,"ready":"True","uid":"2f9b5e8e-deb6-11e8-9f32-f2801f1b9fd1"},{"observedGeneration":2,"ready":"True","uid":"34c5aec8-deb6-11e8-9f32-f2801f1b9fd1"}]}]`
+	testNS                       = "test-namespace"
+	testDispatcherserviceAccount = "kafka-ch-dispatcher"
+	kcName                       = "test-kc"
+	testDispatcherImage          = "test-image"
+	channelServiceAddress        = "test-kc-kn-channel.test-namespace.svc.cluster.local"
+	brokerName                   = "test-broker"
+	finalizerName                = "kafkachannels.messaging.knative.dev"
+	sub1UID                      = "2f9b5e8e-deb6-11e8-9f32-f2801f1b9fd1"
+	sub2UID                      = "34c5aec8-deb6-11e8-9f32-f2801f1b9fd1"
+	twoSubscribersPatch          = `[{"op":"add","path":"/status/subscribers","value":[{"observedGeneration":1,"ready":"True","uid":"2f9b5e8e-deb6-11e8-9f32-f2801f1b9fd1"},{"observedGeneration":2,"ready":"True","uid":"34c5aec8-deb6-11e8-9f32-f2801f1b9fd1"}]}]`
 )
 
 var (
@@ -327,8 +328,9 @@ func TestAllCases(t *testing.T) {
 	table.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
 
 		r := &Reconciler{
-			systemNamespace: testNS,
-			dispatcherImage: testDispatcherImage,
+			systemNamespace:          testNS,
+			dispatcherImage:          testDispatcherImage,
+			dispatcherServiceAccount: testDispatcherserviceAccount,
 			kafkaConfig: &KafkaConfig{
 				Brokers: []string{brokerName},
 			},
@@ -390,8 +392,9 @@ func TestTopicExists(t *testing.T) {
 	row.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
 
 		r := &Reconciler{
-			systemNamespace: testNS,
-			dispatcherImage: testDispatcherImage,
+			systemNamespace:          testNS,
+			dispatcherImage:          testDispatcherImage,
+			dispatcherServiceAccount: testDispatcherserviceAccount,
 			kafkaConfig: &KafkaConfig{
 				Brokers: []string{brokerName},
 			},
@@ -465,8 +468,9 @@ func TestDeploymentUpdatedOnImageChange(t *testing.T) {
 	row.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
 
 		r := &Reconciler{
-			systemNamespace: testNS,
-			dispatcherImage: testDispatcherImage,
+			systemNamespace:          testNS,
+			dispatcherImage:          testDispatcherImage,
+			dispatcherServiceAccount: testDispatcherserviceAccount,
 			kafkaConfig: &KafkaConfig{
 				Brokers: []string{brokerName},
 			},
@@ -540,8 +544,9 @@ func TestDeploymentZeroReplicas(t *testing.T) {
 	row.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
 
 		r := &Reconciler{
-			systemNamespace: testNS,
-			dispatcherImage: testDispatcherImage,
+			systemNamespace:          testNS,
+			dispatcherImage:          testDispatcherImage,
+			dispatcherServiceAccount: testDispatcherserviceAccount,
 			kafkaConfig: &KafkaConfig{
 				Brokers: []string{brokerName},
 			},
@@ -612,8 +617,9 @@ func TestDeploymentMoreThanOneReplicas(t *testing.T) {
 	row.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
 
 		r := &Reconciler{
-			systemNamespace: testNS,
-			dispatcherImage: testDispatcherImage,
+			systemNamespace:          testNS,
+			dispatcherImage:          testDispatcherImage,
+			dispatcherServiceAccount: testDispatcherserviceAccount,
 			kafkaConfig: &KafkaConfig{
 				Brokers: []string{brokerName},
 			},
@@ -749,6 +755,7 @@ func makeDeploymentWithImageAndReplicas(image string, replicas int32) *appsv1.De
 		DispatcherNamespace: testNS,
 		Image:               image,
 		Replicas:            replicas,
+		ServiceAccount:      testDispatcherserviceAccount,
 	})
 }
 
