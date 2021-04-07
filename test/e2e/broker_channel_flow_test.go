@@ -27,12 +27,3 @@ import (
 func TestBrokerChannelFlowTriggerV1BrokerV1(t *testing.T) {
 	helpers.BrokerChannelFlowWithTransformation(context.Background(), t, "MTChannelBasedBroker", "v1", "v1", channelTestRunner)
 }
-func TestBrokerChannelFlowV1Beta1BrokerV1(t *testing.T) {
-	helpers.BrokerChannelFlowWithTransformation(context.Background(), t, "MTChannelBasedBroker", "v1", "v1beta1", channelTestRunner)
-}
-func TestBrokerChannelFlowTriggerV1Beta1BrokerV1Beta1(t *testing.T) {
-	helpers.BrokerChannelFlowWithTransformation(context.Background(), t, "MTChannelBasedBroker", "v1beta1", "v1beta1", channelTestRunner)
-}
-func TestBrokerChannelFlowTriggerV1BrokerV1Beta1(t *testing.T) {
-	helpers.BrokerChannelFlowWithTransformation(context.Background(), t, "MTChannelBasedBroker", "v1beta1", "v1", channelTestRunner)
-}
