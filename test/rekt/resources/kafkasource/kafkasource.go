@@ -29,7 +29,7 @@ import (
 
 type CfgFn func(map[string]interface{})
 
-func Gvr() schema.GroupVersionResource {
+func GVR() schema.GroupVersionResource {
 	return schema.GroupVersionResource{Group: "sources.knative.dev", Version: "v1beta1", Resource: "kafkasources"}
 }
 
@@ -37,7 +37,7 @@ func Gvr() schema.GroupVersionResource {
 func Install(name string, opts ...CfgFn) feature.StepFn {
 	cfg := map[string]interface{}{
 		"name":    name,
-		"version": Gvr().Version,
+		"version": GVR().Version,
 	}
 	for _, fn := range opts {
 		fn(cfg)
@@ -51,7 +51,7 @@ func Install(name string, opts ...CfgFn) feature.StepFn {
 
 // IsReady tests to see if a KafkaSource becomes ready within the time given.
 func IsReady(name string, timings ...time.Duration) feature.StepFn {
-	return k8s.IsReady(Gvr(), name, timings...)
+	return k8s.IsReady(GVR(), name, timings...)
 }
 
 // WithVersion overrides the default API version

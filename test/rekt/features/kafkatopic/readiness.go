@@ -28,8 +28,7 @@ func KafkaTopicGoesReady(name string, cfg ...kafkatopic.CfgFn) *feature.Feature 
 
 	f.Setup("install a Kafka topic", kafkatopic.Install(name, cfg...))
 
-	// f.Stable("kafkasource").
-	// 	Must("be ready", kafkasource.IsReady(name))
+	f.Requirement("be ready", kafkatopic.IsReady(name))
 
 	return f
 }

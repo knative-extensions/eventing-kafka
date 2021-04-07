@@ -38,9 +38,7 @@ func KafkaSourceGoesReady(name string, cfg ...kafkasource.CfgFn) *feature.Featur
 	}, ""))
 
 	f.Setup("install a kafkasource", kafkasource.Install(name, cfg...))
-
-	f.Stable("kafkasource").
-		Must("be ready", kafkasource.IsReady(name))
+	f.Requirement("be ready", kafkasource.IsReady(name))
 
 	return f
 }

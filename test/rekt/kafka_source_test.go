@@ -21,7 +21,6 @@ package rekt
 import (
 	"encoding/json"
 	"testing"
-	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	. "github.com/cloudevents/sdk-go/v2/test"
@@ -32,7 +31,6 @@ import (
 	"knative.dev/eventing/pkg/utils"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/system"
-	"knative.dev/reconciler-test/pkg/environment"
 	"knative.dev/reconciler-test/pkg/k8s"
 	"knative.dev/reconciler-test/pkg/knative"
 )
@@ -60,7 +58,6 @@ func TestKafkaSource(t *testing.T) {
 		knative.WithLoggingConfig,
 		knative.WithTracingConfig,
 		k8s.WithEventListener,
-		environment.WithPollTimings(2*time.Second, 30*time.Second),
 	)
 
 	kc := kubeclient.Get(ctx)
