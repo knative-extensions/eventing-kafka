@@ -20,11 +20,13 @@ import (
 	"context"
 	"errors"
 	"net/url"
+	"sync"
 	"testing"
 
 	"github.com/Shopify/sarama"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
@@ -89,6 +91,15 @@ func (d *KafkaDispatcher) checkConfigAndUpdate(config *Config) error {
 	}
 
 	return nil
+}
+
+func (d *KafkaDispatcher) getHostToChannelMap() map[string]eventingchannels.ChannelReference {
+	m := make(map[string]eventingchannels.ChannelReference)
+	d.hostToChannelMap.Range(func(key, value interface{}) bool {
+		m[key.(string)] = value.(eventingchannels.ChannelReference)
+		return true
+	})
+	return m
 }
 
 func TestDispatcher_UpdateConfig(t *testing.T) {
@@ -320,6 +331,7 @@ func TestDispatcher_UpdateConfig(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			t.Logf("Running %s", t.Name())
 			d := &KafkaDispatcher{
 				kafkaConsumerFactory: &mockKafkaConsumerFactory{},
@@ -329,7 +341,6 @@ func TestDispatcher_UpdateConfig(t *testing.T) {
 				topicFunc:            utils.TopicName,
 				logger:               zaptest.NewLogger(t).Sugar(),
 			}
-			d.setHostToChannelMap(map[string]eventingchannels.ChannelReference{})
 
 			// Initialize using oldConfig
 			err := d.checkConfigAndUpdate(tc.oldConfig)
@@ -377,6 +388,124 @@ func TestDispatcher_UpdateConfig(t *testing.T) {
 	}
 }
 
+func TestDispatcher_DoThingsInParallel(t *testing.T) {
+	subscriber, _ := url.Parse("http://test/subscriber")
+
+	configs := []*Config{
+		{},
+		{
+			ChannelConfigs: []ChannelConfig{
+				{
+					Namespace: "default",
+					Name:      "test-channel",
+					HostName:  "a.b.c.d",
+				},
+			},
+		},
+		{
+			ChannelConfigs: []ChannelConfig{
+				{
+					Namespace: "default",
+					Name:      "test-channel",
+					HostName:  "a.b.c.d",
+					Subscriptions: []Subscription{
+						{
+							UID: "subscription-1",
+							Subscription: fanout.Subscription{
+								Subscriber: subscriber,
+							},
+						},
+						{
+							UID: "subscription-2",
+							Subscription: fanout.Subscription{
+								Subscriber: subscriber,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			ChannelConfigs: []ChannelConfig{
+				{
+					Namespace: "default",
+					Name:      "test-channel",
+					HostName:  "a.b.c.d",
+					Subscriptions: []Subscription{
+						{
+							UID: "subscription-2",
+							Subscription: fanout.Subscription{
+								Subscriber: subscriber,
+							},
+						},
+						{
+							UID: "subscription-3",
+							Subscription: fanout.Subscription{
+								Subscriber: subscriber,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			ChannelConfigs: []ChannelConfig{
+				{
+					Namespace: "default",
+					Name:      "test-channel-1",
+					HostName:  "a.b.c.d",
+					Subscriptions: []Subscription{
+						{
+							UID: "subscription-1",
+							Subscription: fanout.Subscription{
+								Subscriber: subscriber,
+							},
+						},
+					},
+				},
+				{
+					Namespace: "default",
+					Name:      "test-channel-2",
+					HostName:  "e.f.g.h",
+					Subscriptions: []Subscription{
+						{
+							UID: "subscription-3",
+							Subscription: fanout.Subscription{
+								Subscriber: subscriber,
+							},
+						},
+						{
+							UID: "subscription-4",
+							Subscription: fanout.Subscription{
+								Subscriber: subscriber,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	d := &KafkaDispatcher{
+		kafkaConsumerFactory: &mockKafkaConsumerFactory{},
+		channelSubscriptions: make(map[eventingchannels.ChannelReference]*KafkaSubscription),
+		subsConsumerGroups:   make(map[types.UID]sarama.ConsumerGroup),
+		subscriptions:        make(map[types.UID]Subscription),
+		topicFunc:            utils.TopicName,
+		logger:               zaptest.NewLogger(t).Sugar(),
+	}
+
+	var wg sync.WaitGroup
+	for _, c := range configs {
+		wg.Add(1)
+		go func(c *Config) {
+			defer wg.Done()
+			assert.NoError(t, d.checkConfigAndUpdate(c))
+		}(c)
+	}
+	wg.Wait()
+}
+
 func TestRemoveChannel(t *testing.T) {
 	subscriber, _ := url.Parse("http://test/subscriber")
 
@@ -388,7 +517,6 @@ func TestRemoveChannel(t *testing.T) {
 		topicFunc:            utils.TopicName,
 		logger:               zaptest.NewLogger(t).Sugar(),
 	}
-	d.setHostToChannelMap(map[string]eventingchannels.ChannelReference{})
 
 	require.NoError(t, d.checkConfigAndUpdate(&Config{
 		ChannelConfigs: []ChannelConfig{
