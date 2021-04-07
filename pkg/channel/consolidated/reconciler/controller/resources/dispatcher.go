@@ -27,9 +27,8 @@ import (
 const DispatcherContainerName = "dispatcher"
 
 var (
-	serviceAccountName = "kafka-ch-dispatcher"
-	dispatcherName     = "kafka-ch-dispatcher"
-	dispatcherLabels   = map[string]string{
+	dispatcherName   = "kafka-ch-dispatcher"
+	dispatcherLabels = map[string]string{
 		"messaging.knative.dev/channel": "kafka-channel",
 		"messaging.knative.dev/role":    "dispatcher",
 	}
@@ -40,6 +39,7 @@ type DispatcherArgs struct {
 	DispatcherNamespace string
 	Image               string
 	Replicas            int32
+	ServiceAccount      string
 }
 
 // MakeDispatcher generates the dispatcher deployment for the KafKa channel
@@ -65,7 +65,7 @@ func MakeDispatcher(args DispatcherArgs) *v1.Deployment {
 					Labels: dispatcherLabels,
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName: serviceAccountName,
+					ServiceAccountName: args.ServiceAccount,
 					Containers: []corev1.Container{
 						{
 							Name:  DispatcherContainerName,

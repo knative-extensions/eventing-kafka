@@ -28,11 +28,11 @@ func TestNewServiceAccount(t *testing.T) {
 	want := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNS,
-			Name:      serviceAccountName,
+			Name:      serviceAccount,
 		},
 	}
 
-	got := MakeServiceAccount(testNS, serviceAccountName)
+	got := MakeServiceAccount(testNS, serviceAccount)
 
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("unexpected condition (-want, +got) = %v", diff)

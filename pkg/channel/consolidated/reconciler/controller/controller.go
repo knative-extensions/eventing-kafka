@@ -89,11 +89,8 @@ func NewController(
 		logger.Panicf("unable to process Kafka channel's required environment variables: %v", err)
 	}
 
-	if env.Image == "" {
-		logger.Panic("unable to process Kafka channel's required environment variables (missing DISPATCHER_IMAGE)")
-	}
-
 	r.dispatcherImage = env.Image
+	r.serviceAccount = env.ServiceAccount
 
 	impl := kafkaChannelReconciler.NewImpl(ctx, r)
 

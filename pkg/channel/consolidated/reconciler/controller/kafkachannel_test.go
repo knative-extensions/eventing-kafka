@@ -51,6 +51,7 @@ import (
 
 const (
 	testNS                = "test-namespace"
+	serviceAccount        = "kafka-ch-dispatcher"
 	kcName                = "test-kc"
 	testDispatcherImage   = "test-image"
 	channelServiceAddress = "test-kc-kn-channel.test-namespace.svc.cluster.local"
@@ -749,6 +750,7 @@ func makeDeploymentWithImageAndReplicas(image string, replicas int32) *appsv1.De
 		DispatcherNamespace: testNS,
 		Image:               image,
 		Replicas:            replicas,
+		ServiceAccount:      serviceAccount,
 	})
 }
 

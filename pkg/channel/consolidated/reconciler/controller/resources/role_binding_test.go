@@ -44,12 +44,12 @@ func TestNewRoleBinding(t *testing.T) {
 			{
 				Kind:      "ServiceAccount",
 				Namespace: testNS,
-				Name:      serviceAccountName,
+				Name:      serviceAccount,
 			},
 		},
 	}
 
-	sa := MakeServiceAccount(testNS, serviceAccountName)
+	sa := MakeServiceAccount(testNS, serviceAccount)
 	got := MakeRoleBinding(testNS, rbName, sa, crName)
 
 	if diff := cmp.Diff(want, got); diff != "" {

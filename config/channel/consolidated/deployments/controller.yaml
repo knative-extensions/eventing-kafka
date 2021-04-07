@@ -50,6 +50,10 @@ spec:
           value: config-leader-election
         - name: DISPATCHER_IMAGE
           value: ko://knative.dev/eventing-kafka/cmd/channel/consolidated/dispatcher
+        - name: SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              fieldPath: kafka-ch-dispatcher
         ports:
         - containerPort: 9090
           name: metrics
