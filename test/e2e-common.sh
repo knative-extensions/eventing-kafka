@@ -172,8 +172,8 @@ function knative_setup() {
 
 function install_knative_eventing {
   # if is_release_branch; then
-    echo ">> Install Knative Eventing from ${KNATIVE_EVENTING_RELEASE}"
-    kubectl apply -f ${KNATIVE_EVENTING_RELEASE}
+    echo ">> Install Knative Eventing from https://storage.googleapis.com/knative-releases/eventing/previous/v0.22.0/eventing.yaml"
+    kubectl apply -f https://storage.googleapis.com/knative-releases/eventing/previous/v0.22.0/eventing.yaml
   # else
   #   echo ">> Install Knative Eventing from HEAD"
   #   pushd .
@@ -212,8 +212,8 @@ function uninstall_zipkin() {
 function knative_teardown() {
   echo ">> Stopping Knative Eventing"
   # if is_release_branch; then
-    echo ">> Uninstalling Knative Eventing from ${KNATIVE_EVENTING_RELEASE}"
-    kubectl delete -f "${KNATIVE_EVENTING_RELEASE}"
+    echo ">> Uninstalling Knative Eventing from https://storage.googleapis.com/knative-releases/eventing/previous/v0.22.0/eventing.yaml"
+    kubectl delete -f https://storage.googleapis.com/knative-releases/eventing/previous/v0.22.0/eventing.yaml
   # else
   #   echo ">> Uninstalling Knative Eventing from HEAD"
   #   pushd .
@@ -564,10 +564,3 @@ function parse_flags() {
   esac
   return 0
 }
-
-## hack
-function get_latest_knative_yaml_source() {
-  echo "https://storage.googleapis.com/knative-releases/eventing/latest/eventing.yaml"
-}
-
-readonly KNATIVE_EVENTING_RELEASE="$(get_latest_knative_yaml_source)"
