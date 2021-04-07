@@ -127,7 +127,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 	kafkaChannelInformer.Informer().AddEventHandler(
 		cache.FilteringResourceEventHandler{
 			FilterFunc: filterWithAnnotation(injection.HasNamespaceScope(ctx)),
-			Handler:    	cache.ResourceEventHandlerFuncs{
+			Handler: cache.ResourceEventHandlerFuncs{
 				AddFunc:    r.impl.Enqueue,
 				UpdateFunc: controller.PassNew(r.impl.Enqueue),
 				DeleteFunc: func(obj interface{}) {
