@@ -25,6 +25,7 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 	"k8s.io/apimachinery/pkg/types"
@@ -374,6 +375,54 @@ func TestDispatcher_UpdateConfig(t *testing.T) {
 
 		})
 	}
+}
+
+func TestRemoveChannel(t *testing.T) {
+	subscriber, _ := url.Parse("http://test/subscriber")
+
+	d := &KafkaDispatcher{
+		kafkaConsumerFactory: &mockKafkaConsumerFactory{},
+		channelSubscriptions: make(map[eventingchannels.ChannelReference]*KafkaSubscription),
+		subsConsumerGroups:   make(map[types.UID]sarama.ConsumerGroup),
+		subscriptions:        make(map[types.UID]Subscription),
+		topicFunc:            utils.TopicName,
+		logger:               zaptest.NewLogger(t).Sugar(),
+	}
+	d.setHostToChannelMap(map[string]eventingchannels.ChannelReference{})
+
+	require.NoError(t, d.checkConfigAndUpdate(&Config{
+		ChannelConfigs: []ChannelConfig{
+			{
+				Namespace: "default",
+				Name:      "test-channel",
+				HostName:  "a.b.c.d",
+				Subscriptions: []Subscription{
+					{
+						UID: "subscription-1",
+						Subscription: fanout.Subscription{
+							Subscriber: subscriber,
+						},
+					},
+					{
+						UID: "subscription-2",
+						Subscription: fanout.Subscription{
+							Subscriber: subscriber,
+						},
+					},
+				},
+			},
+		},
+	}))
+
+	require.NoError(t, d.CleanupChannel("test-channel", "default", "a.b.c.d"))
+	require.NotContains(t, d.subscriptions, "subscription-1")
+	require.NotContains(t, d.subscriptions, "subscription-2")
+	require.NotContains(t, d.channelSubscriptions, eventingchannels.ChannelReference{
+		Namespace: "default",
+		Name:      "test-channel",
+	})
+	require.NotContains(t, d.subsConsumerGroups, "subscription-1")
+	require.NotContains(t, d.subsConsumerGroups, "subscription-2")
 }
 
 func TestSubscribeError(t *testing.T) {
