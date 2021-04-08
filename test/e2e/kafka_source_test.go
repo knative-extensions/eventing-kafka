@@ -190,3 +190,28 @@ func testKafkaSourceUpdate(t *testing.T, name string, test updateTest) {
 	}
 
 }
+
+type message struct {
+	cloudEventType string
+	payload        []byte
+	headers        map[string]string
+	key            string
+}
+
+type updateTest struct {
+	auth      authSetup
+	topicName string
+	sinkName  string
+}
+
+var (
+	defaultKafkaSource = updateTest{
+		auth: authSetup{
+			bootStrapServer: kafkaBootstrapUrlTLS,
+			SASLEnabled:     false,
+			TLSEnabled:      true,
+		},
+		topicName: "initial-topic",
+		sinkName:  "default-event-recorder",
+	}
+)
