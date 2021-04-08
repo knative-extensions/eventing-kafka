@@ -155,7 +155,7 @@ func filterWithAnnotation(namespaced bool) func(obj interface{}) bool {
 }
 
 func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel) pkgreconciler.Event {
-	logging.FromContext(ctx).Debugw("ObserveKind for channel", zap.String("channel", kc.Name))
+	logging.FromContext(ctx).Debugw("ReconcileKind for channel", zap.String("channel", kc.Name))
 	return r.syncChannel(ctx, kc)
 }
 
