@@ -170,7 +170,7 @@ func (r *Reconciler) syncChannel(ctx context.Context, kc *v1beta1.KafkaChannel) 
 		return nil
 	}
 
-	config := r.newChannelConfigFromKafkaChannel(kc)
+	config := r.newConfigFromKafkaChannel(kc)
 
 	// Update receiver side
 	if err := r.kafkaDispatcher.RegisterChannelHost(config); err != nil {
@@ -192,7 +192,7 @@ func (r *Reconciler) CleanupChannel(kc *v1beta1.KafkaChannel) pkgreconciler.Even
 }
 
 // newConfigFromKafkaChannels creates a new Config from the list of kafka channels.
-func (r *Reconciler) newChannelConfigFromKafkaChannel(c *v1beta1.KafkaChannel) *dispatcher.ChannelConfig {
+func (r *Reconciler) newConfigFromKafkaChannel(c *v1beta1.KafkaChannel) *dispatcher.ChannelConfig {
 	channelConfig := dispatcher.ChannelConfig{
 		Namespace: c.Namespace,
 		Name:      c.Name,
