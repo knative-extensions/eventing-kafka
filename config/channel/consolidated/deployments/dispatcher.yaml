@@ -30,7 +30,7 @@ spec:
   template:
     metadata:
       annotations:
-        ConfigMapHash: ''
+        kafka.eventing.knative.dev/configmap-hash: ''
       labels:
         # Do not change. Used by the controller for probing.
         messaging.knative.dev/channel: kafka-channel
