@@ -27,6 +27,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/cloudevents/sdk-go/v2/binding"
 	"github.com/cloudevents/sdk-go/v2/binding/transformer"
 	protocolhttp "github.com/cloudevents/sdk-go/v2/protocol/http"
@@ -69,7 +71,6 @@ func TestDispatcher(t *testing.T) {
 		ClientID:           "testing",
 		Brokers:            []string{"localhost:9092"},
 		TopicFunc:          utils.TopicName,
-		Logger:             logger.Sugar(),
 	}
 
 	// Create the dispatcher. At this point, if Kafka is not up, this thing fails
@@ -149,58 +150,46 @@ func TestDispatcher(t *testing.T) {
 	)
 
 	// send -> channela -> sub with transformationServer and reply to channelb -> channelb -> sub with receiver -> receiver
-	config := Config{
-		ChannelConfigs: []ChannelConfig{
+	channelAConfig := &ChannelConfig{
+		Namespace: "default",
+		Name:      "channela",
+		HostName:  "channela.svc",
+		Subscriptions: []Subscription{
 			{
-				Namespace: "default",
-				Name:      "channela",
-				HostName:  "channela.svc",
-				Subscriptions: []Subscription{
-					{
-						UID: "aaaa",
-						Subscription: fanout.Subscription{
-							Subscriber: mustParseUrl(t, transformationsServer.URL),
-							Reply:      mustParseUrl(t, channelBProxy.URL),
-						},
-					},
-					{
-						UID: "cccc",
-						Subscription: fanout.Subscription{
-							Subscriber: mustParseUrl(t, transformationsFailureServer.URL),
-							Reply:      mustParseUrl(t, channelBProxy.URL),
-							DeadLetter: mustParseUrl(t, deadLetterServer.URL),
-						},
-					},
+				UID: "aaaa",
+				Subscription: fanout.Subscription{
+					Subscriber: mustParseUrl(t, transformationsServer.URL),
+					Reply:      mustParseUrl(t, channelBProxy.URL),
 				},
 			},
 			{
-				Namespace: "default",
-				Name:      "channelb",
-				HostName:  "channelb.svc",
-				Subscriptions: []Subscription{
-					{
-						UID: "bbbb",
-						Subscription: fanout.Subscription{
-							Subscriber: mustParseUrl(t, receiverServer.URL),
-						},
-					},
+				UID: "cccc",
+				Subscription: fanout.Subscription{
+					Subscriber: mustParseUrl(t, transformationsFailureServer.URL),
+					Reply:      mustParseUrl(t, channelBProxy.URL),
+					DeadLetter: mustParseUrl(t, deadLetterServer.URL),
 				},
 			},
 		},
 	}
+	require.NoError(t, dispatcher.RegisterChannelHost(channelAConfig))
+	require.NoError(t, dispatcher.ReconcileConsumers(channelAConfig))
 
-	err = dispatcher.UpdateHostToChannelMap(&config)
-	if err != nil {
-		t.Fatal(err)
+	channelBConfig := &ChannelConfig{
+		Namespace: "default",
+		Name:      "channelb",
+		HostName:  "channelb.svc",
+		Subscriptions: []Subscription{
+			{
+				UID: "bbbb",
+				Subscription: fanout.Subscription{
+					Subscriber: mustParseUrl(t, receiverServer.URL),
+				},
+			},
+		},
 	}
-
-	failed, err := dispatcher.UpdateKafkaConsumers(&config)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(failed) != 0 {
-		t.Fatal(err)
-	}
+	require.NoError(t, dispatcher.RegisterChannelHost(channelBConfig))
+	require.NoError(t, dispatcher.ReconcileConsumers(channelBConfig))
 
 	time.Sleep(5 * time.Second)
 
@@ -233,18 +222,8 @@ func TestDispatcher(t *testing.T) {
 	receiverWg.Wait()
 
 	// Try to close consumer groups
-	err = dispatcher.UpdateHostToChannelMap(&Config{})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	failed, err = dispatcher.UpdateKafkaConsumers(&Config{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(failed) != 0 {
-		t.Fatal(err)
-	}
+	require.NoError(t, dispatcher.CleanupChannel("channela", "default", "channela.svc"))
+	require.NoError(t, dispatcher.CleanupChannel("channelb", "default", "channelb.svc"))
 }
 
 func createReverseProxy(t *testing.T, host string) *httputil.ReverseProxy {
