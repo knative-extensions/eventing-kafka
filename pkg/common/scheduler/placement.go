@@ -17,6 +17,7 @@ limitations under the License.
 package scheduler
 
 import (
+	"k8s.io/apimachinery/pkg/util/sets"
 	duckv1alpha1 "knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
 )
 
@@ -41,15 +42,11 @@ func GetPlacementForPod(placements []duckv1alpha1.Placement, podName string) *du
 
 // GetPodCount returns the number of pods with the given placements
 func GetPodCount(placements []duckv1alpha1.Placement) int {
-	set := map[string]int{}
+	set := sets.NewString()
 	for _, p := range placements {
 		if p.VReplicas > 0 {
-			if _, ok := set[p.PodName]; !ok {
-				set[p.PodName] = 1
-				continue
-			}
-			set[p.PodName] += 1
+			set.Insert(p.PodName)
 		}
 	}
-	return len(set)
+	return set.Len()
 }

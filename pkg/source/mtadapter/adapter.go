@@ -103,7 +103,7 @@ func (a *Adapter) bufferSize(ctx context.Context,
 	logger *zap.SugaredLogger,
 	kafkaEnvConfig *client.KafkaEnvConfig,
 	topics []string,
-	consumerCount int) (int, error) {
+	podCount int) (int, error) {
 
 	// Compute the number of partitions handled by this source
 	// TODO: periodically check for # of resources. Need control-protocol.
@@ -125,20 +125,20 @@ func (a *Adapter) bufferSize(ctx context.Context,
 	}
 	adminClient.Close()
 
-	partitionsPerConsumer := int(math.Ceil(float64(totalPartitions) / float64(consumerCount)))
+	partitionsPerPod := int(math.Ceil(float64(totalPartitions) / float64(podCount)))
 
 	// Ideally, partitions are evenly spread across Kafka consumers.
 	// However, due to rebalancing or consumer (un)availability, a consumer
 	// might have to handle more partitions than expected.
 	// For now, account for 1 unavailable consumer.
-	handledPartitions := 2 * partitionsPerConsumer
-	if consumerCount < 3 {
+	handledPartitions := 2 * partitionsPerPod
+	if podCount < 3 {
 		handledPartitions = totalPartitions
 	}
 
 	logger.Infow("partition count",
 		zap.Int("total", totalPartitions),
-		zap.Int("perconsumer", partitionsPerConsumer),
+		zap.Int("averagePerPod", partitionsPerPod),
 		zap.Int("handled", handledPartitions))
 
 	// A partition consumes about 2 * fetch buffer size.
