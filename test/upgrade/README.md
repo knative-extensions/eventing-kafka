@@ -6,7 +6,8 @@ Running these tests on every commit will ensure that we don’t introduce any
 non-upgradeable changes, so every commit should be releasable.
 
 This is inspired by kubernetes
-[upgrade testing](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-testing/e2e-tests.md#version-skewed-and-upgrade-testing).
+[upgrade testing](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-testing/e2e-tests.md#version-skewed-and-upgrade-testing)
+.
 
 These tests are a pretty big hammer in that they cover more than just version
 changes, but it’s one of the only ways to make sure we don’t accidentally make
@@ -33,7 +34,7 @@ continual verification of system under test. In case of Eventing Kafka it is:
 1. Install the latest release from GitHub.
 1. Run the `preupgrade` smoke tests.
 1. Start `continual` tests that will propagate events in the background, while
-   upgrading and downgrading.    
+   upgrading and downgrading.
 1. Install at HEAD (`ko apply -f config/`) and run the post-install jobs.
 1. Run the `postupgrade` smoke tests.
 1. Install the latest release from GitHub.
@@ -53,13 +54,14 @@ Run the selected smoke tests for channel and source.
 ### Probe test
 
 In order to verify that we don't have data-plane unavailability during our
-control-plane outages (when we're upgrading the eventing-kafka installation),
-we run a prober test that continually sends events to a Kafka channel and sends
+control-plane outages (when we're upgrading the eventing-kafka installation), we
+run a prober test that continually sends events to a Kafka channel and sends
 events to Kafka topic, during the entire upgrade/downgrade process. When the
 upgrade completes, we make sure that all of those events propagated at least
 once.
 
-To achieve that a [wathola tool](https://pkg.go.dev/knative.dev/eventing/test/upgrade/prober/wathola)
+To achieve that
+a [wathola tool](https://pkg.go.dev/knative.dev/eventing/test/upgrade/prober/wathola)
 has been created. It consists of 4 components: _sender_, _forwarder_,
 _receiver_, and _fetcher_. _Sender_ is the usual Kubernetes deployment that
 publishes events to the system under tests (`KafkaSource` or `KafkaChannel`)
@@ -93,7 +95,7 @@ Diagram below describe the setup:
     |     |         |       |         |      +---------+  |
     |     +---------+       +----^----+        (job)      |
     |                            |
-    +----------------------------+              
+    +----------------------------+
 ```
 
 #### Probe test configuration
