@@ -18,6 +18,7 @@ package config
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"k8s.io/client-go/informers"
@@ -40,20 +41,31 @@ type SecretObserver func(ctx context.Context, secret *corev1.Secret)
 func InitializeSecretWatcher(ctx context.Context, namespace string, name string, resyncTime time.Duration, observer SecretObserver) error {
 
 	logger := logging.FromContext(ctx)
-	secretsInformer := informers.NewSharedInformerFactoryWithOptions(
-		kubeclient.Get(ctx), resyncTime, informers.WithNamespace(namespace)).Core().V1().Secrets().Informer()
+
+	// Create A New SharedInformerFactory
+	secretsInformerFactory := informers.NewSharedInformerFactoryWithOptions(
+		kubeclient.Get(ctx), resyncTime, informers.WithNamespace(namespace),
+		informers.WithTweakListOptions(func(listOptions *metav1.ListOptions) {
+			listOptions.FieldSelector = fmt.Sprintf("metadata.name=%s", name)
+		}))
+
+	// Create A Secrets Informer That Calls Our Observer Function
+	secretsInformer := secretsInformerFactory.Core().V1().Secrets().Informer()
 	secretsInformer.AddEventHandler(controller.HandleAll(func(object interface{}) {
 		secret, ok := object.(*corev1.Secret)
-		if ok && secret.Name == name {
+		if ok {
 			observer(ctx, secret)
 		}
 	}))
 
+	// Calling Informer.Run() instead of InformerFactory.Start() allows us to more easily
+	// log a message if the informer is stopped.
 	go func() {
 		secretsInformer.Run(ctx.Done())
 		logger.Info("Stopped Secret Watcher")
 	}()
 
+	logger.Info("Started Secret Watcher")
 	return nil
 }
 
