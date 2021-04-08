@@ -191,7 +191,7 @@ func (r *Reconciler) CleanupChannel(kc *v1beta1.KafkaChannel) pkgreconciler.Even
 	return r.kafkaDispatcher.CleanupChannel(kc.Name, kc.Namespace, kc.Status.Address.URL.Host)
 }
 
-// newConfigFromKafkaChannels creates a new Config from the list of kafka channels.
+// newConfigFromKafkaChannel creates a new Config from the list of kafka channels.
 func (r *Reconciler) newConfigFromKafkaChannel(c *v1beta1.KafkaChannel) *dispatcher.ChannelConfig {
 	channelConfig := dispatcher.ChannelConfig{
 		Namespace: c.Namespace,
