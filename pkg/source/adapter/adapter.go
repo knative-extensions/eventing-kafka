@@ -56,6 +56,9 @@ type AdapterConfig struct {
 	ConsumerGroup string   `envconfig:"KAFKA_CONSUMER_GROUP" required:"true"`
 	Name          string   `envconfig:"NAME" required:"true"`
 	KeyType       string   `envconfig:"KEY_TYPE" required:"false"`
+
+	// Turn off the control server.
+	DisableControlServer bool
 }
 
 func NewEnvConfig() adapter.EnvConfigAccessor {
@@ -103,12 +106,18 @@ func (a *Adapter) Start(ctx context.Context) (err error) {
 		zap.String("Namespace", a.config.Namespace),
 	)
 
+	var options consumer.SaramaConsumerHandlerOption
+
 	// Init control service
-	a.controlServer, err = ctrlnetwork.StartInsecureControlServer(ctx)
-	if err != nil {
-		return err
+	if !a.config.DisableControlServer {
+		a.controlServer, err = ctrlnetwork.StartInsecureControlServer(ctx)
+		if err != nil {
+			return err
+		}
+		a.controlServer.MessageHandler(a)
+
+		options = consumer.WithSaramaConsumerLifecycleListener(a)
 	}
-	a.controlServer.MessageHandler(a)
 
 	// init consumer group
 	addrs, config, err := client.NewConfigWithEnv(context.Background(), &a.config.KafkaEnvConfig)
@@ -122,7 +131,7 @@ func (a *Adapter) Start(ctx context.Context) (err error) {
 		a.config.Topics,
 		a.logger,
 		a,
-		consumer.WithSaramaConsumerLifecycleListener(a),
+		options,
 	)
 	if err != nil {
 		panic(err)
