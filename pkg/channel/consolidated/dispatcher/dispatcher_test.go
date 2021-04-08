@@ -484,7 +484,6 @@ func TestNewDispatcher(t *testing.T) {
 		ClientID:  "kafka-ch-dispatcher",
 		Brokers:   []string{"localhost:10000"},
 		TopicFunc: utils.TopicName,
-		Logger:    nil,
 	}
 	_, err := NewDispatcher(context.TODO(), args)
 	if err == nil {
