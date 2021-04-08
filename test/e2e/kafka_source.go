@@ -417,11 +417,12 @@ func AssureKafkaSourceIsOperational(t *testing.T, scope SourceTestScope) {
 			test := test
 			name := testcase + "_" + authName
 			for _, version := range []string{"v1alpha1", "v1beta1"} {
-				t.Run(name+"-"+version, func(t *testing.T) {
-					if !scope(authName, testcase, version) {
-						t.Skip("Test is out of selected scope")
-						return
-					}
+				testName := name + "-" + version
+				if !scope(authName, testcase, version) {
+					t.Log("Skipping the test case, because it's out of configured scope: ", testName)
+					continue
+				}
+				t.Run(testName, func(t *testing.T) {
 					testKafkaSource(t, name, version, test.messageKey, test.messageHeaders, test.messagePayload, test.matcherGen, auth.auth)
 				})
 			}
