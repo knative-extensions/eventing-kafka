@@ -41,7 +41,7 @@ var (
 // DataPlaneDelivery returns a feature testing if the event sent to Kafka is received by the sink
 // via KafkaSource installed before sending events to Kafka
 func DataPlaneDelivery(name string, ksopts []kafkasource.CfgFn, kcopts []kafkacat.CfgFn, matchers cetest.EventMatcher, intermediary bool) *feature.Feature {
-	f := feature.NewFeatureNamed("Delivery")
+	f := feature.NewFeatureNamed("Delivery/" + name)
 
 	// Setup sink
 	sinkName := feature.MakeRandomK8sName("sink")

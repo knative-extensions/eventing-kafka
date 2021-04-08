@@ -31,6 +31,7 @@ import (
 	"knative.dev/eventing/pkg/utils"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/system"
+	"knative.dev/reconciler-test/pkg/environment"
 	"knative.dev/reconciler-test/pkg/k8s"
 	"knative.dev/reconciler-test/pkg/knative"
 )
@@ -58,6 +59,7 @@ func TestKafkaSource(t *testing.T) {
 		knative.WithLoggingConfig,
 		knative.WithTracingConfig,
 		k8s.WithEventListener,
+		environment.Managed(t),
 	)
 
 	kc := kubeclient.Get(ctx)
@@ -214,6 +216,7 @@ func TestKafkaSource(t *testing.T) {
 			intermediary: true,
 		},
 	}
+
 	for authName, auth := range auths {
 		for name, test := range tests {
 			test := test
@@ -242,13 +245,9 @@ func TestKafkaSource(t *testing.T) {
 			kcopts = append(kcopts,
 				kafkacat.WithBootstrapServer(kafkaBootstrapUrlPlain))
 
-			t.Run(name, func(t *testing.T) {
-				env.Test(ctx, t, kafkasource.DataPlaneDelivery(name, ksopts, kcopts, test.matcher, test.intermediary))
-			})
+			env.Test(ctx, t, kafkasource.DataPlaneDelivery(name, ksopts, kcopts, test.matcher, test.intermediary))
 		}
 	}
-
-	env.Finish()
 }
 
 func mustJsonMarshal(t *testing.T, val interface{}) string {
