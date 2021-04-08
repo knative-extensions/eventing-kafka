@@ -57,9 +57,9 @@ func InitializeSecretWatcher(ctx context.Context, namespace string, name string,
 			case event, ok := <-watcher.ResultChan():
 				if !ok {
 					// Channel was closed; this typically happens because watchers have a default
-					// timeout that seems to be around 38m45s if there is no value (or zero) in the
-					// watcherOptions.TimeoutSeconds.  Regardless of the timeout, we need to restart
-					// the watcher when this happens.
+					// timeout that is randomly set between 30 and 60 minutes if there is no value
+					// (or zero) in the watcherOptions.TimeoutSeconds.  Regardless of the particular
+					// value of the timeout, we need to restart the watcher when this happens.
 					logger.Debug("Watcher channel closed; restarting Secret Watcher")
 					watcher, err = secrets.Watch(ctx, watcherOptions)
 					if err != nil {
