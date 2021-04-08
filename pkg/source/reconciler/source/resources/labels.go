@@ -34,6 +34,10 @@ func GetLabels(name string) map[string]string {
 	}
 }
 
+func LabelSelector(name string) string {
+	return "eventing.knative.dev/source=" + controllerAgentName + ",eventing.knative.dev/sourceName=" + name
+}
+
 // GetLabelsAsSelector returns labels wrapped as Selector object
 func GetLabelsAsSelector(name string) (labels.Selector, error) {
 	labels := GetLabels(name)

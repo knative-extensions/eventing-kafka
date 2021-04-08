@@ -1090,6 +1090,13 @@ k8s.io/utils/buffer
 k8s.io/utils/integer
 k8s.io/utils/pointer
 k8s.io/utils/trace
+# knative.dev/control-protocol v0.0.0-20210402065223-6e2383c7197d
+## explicit
+knative.dev/control-protocol/pkg
+knative.dev/control-protocol/pkg/certificates
+knative.dev/control-protocol/pkg/network
+knative.dev/control-protocol/pkg/reconciler
+knative.dev/control-protocol/pkg/service
 # knative.dev/eventing v0.22.1-0.20210406191848-5171353bd1ed
 ## explicit
 knative.dev/eventing/pkg/adapter/v2

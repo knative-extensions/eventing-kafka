@@ -26,6 +26,9 @@ import (
 
 	"golang.org/x/time/rate"
 
+	ctrl "knative.dev/control-protocol/pkg"
+	ctrlnetwork "knative.dev/control-protocol/pkg/network"
+
 	"github.com/Shopify/sarama"
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
@@ -38,6 +41,7 @@ import (
 
 	"knative.dev/eventing-kafka/pkg/common/consumer"
 	"knative.dev/eventing-kafka/pkg/source/client"
+	kafkasourcecontrol "knative.dev/eventing-kafka/pkg/source/control"
 )
 
 const (
@@ -59,7 +63,9 @@ func NewEnvConfig() adapter.EnvConfigAccessor {
 }
 
 type Adapter struct {
-	config            *AdapterConfig
+	config        *AdapterConfig
+	controlServer *ctrlnetwork.ControlServer
+
 	httpMessageSender *kncloudevents.HTTPMessageSender
 	reporter          pkgsource.StatsReporter
 	logger            *zap.SugaredLogger
@@ -68,6 +74,8 @@ type Adapter struct {
 }
 
 var _ adapter.MessageAdapter = (*Adapter)(nil)
+var _ consumer.KafkaConsumerHandler = (*Adapter)(nil)
+var _ consumer.SaramaConsumerLifecycleListener = (*Adapter)(nil)
 var _ adapter.MessageAdapterConstructor = NewAdapter
 
 func NewAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, httpMessageSender *kncloudevents.HTTPMessageSender, reporter pkgsource.StatsReporter) adapter.MessageAdapter {
@@ -86,7 +94,7 @@ func (a *Adapter) GetConsumerGroup() string {
 	return a.config.ConsumerGroup
 }
 
-func (a *Adapter) Start(ctx context.Context) error {
+func (a *Adapter) Start(ctx context.Context) (err error) {
 	a.logger.Infow("Starting with config: ",
 		zap.String("Topics", strings.Join(a.config.Topics, ",")),
 		zap.String("ConsumerGroup", a.config.ConsumerGroup),
@@ -95,6 +103,13 @@ func (a *Adapter) Start(ctx context.Context) error {
 		zap.String("Namespace", a.config.Namespace),
 	)
 
+	// Init control service
+	a.controlServer, err = ctrlnetwork.StartInsecureControlServer(ctx)
+	if err != nil {
+		return err
+	}
+	a.controlServer.MessageHandler(a)
+
 	// init consumer group
 	addrs, config, err := client.NewConfigWithEnv(context.Background(), &a.config.KafkaEnvConfig)
 	if err != nil {
@@ -102,7 +117,13 @@ func (a *Adapter) Start(ctx context.Context) error {
 	}
 
 	consumerGroupFactory := consumer.NewConsumerGroupFactory(addrs, config)
-	group, err := consumerGroupFactory.StartConsumerGroup(a.config.ConsumerGroup, a.config.Topics, a.logger, a)
+	group, err := consumerGroupFactory.StartConsumerGroup(
+		a.config.ConsumerGroup,
+		a.config.Topics,
+		a.logger,
+		a,
+		consumer.WithSaramaConsumerLifecycleListener(a),
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -176,4 +197,23 @@ func (a *Adapter) Handle(ctx context.Context, msg *sarama.ConsumerMessage) (bool
 // SetRateLimiter sets the global consumer rate limiter
 func (a *Adapter) SetRateLimits(r rate.Limit, b int) {
 	a.rateLimiter = rate.NewLimiter(r, b)
+}
+
+func (a *Adapter) HandleServiceMessage(ctx context.Context, message ctrl.ServiceMessage) {
+	// In this first PR, there is only the RA sending messages to control plane,
+	// there is no message the control plane should send to the RA
+	a.logger.Info("Received unexpected control message")
+	message.Ack()
+}
+
+func (a *Adapter) Setup(sess sarama.ConsumerGroupSession) {
+	if err := a.controlServer.SendAndWaitForAck(kafkasourcecontrol.NotifySetupClaimsOpCode, kafkasourcecontrol.Claims(sess.Claims())); err != nil {
+		a.logger.Warnf("Cannot send the claims update: %v", err)
+	}
+}
+
+func (a *Adapter) Cleanup(sess sarama.ConsumerGroupSession) {
+	if err := a.controlServer.SendAndWaitForAck(kafkasourcecontrol.NotifyCleanupClaimsOpCode, kafkasourcecontrol.Claims(sess.Claims())); err != nil {
+		a.logger.Warnf("Cannot send the claims update: %v", err)
+	}
 }
