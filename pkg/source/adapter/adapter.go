@@ -106,7 +106,7 @@ func (a *Adapter) Start(ctx context.Context) (err error) {
 		zap.String("Namespace", a.config.Namespace),
 	)
 
-	var options consumer.SaramaConsumerHandlerOption
+	var options []consumer.SaramaConsumerHandlerOption
 
 	// Init control service
 	if !a.config.DisableControlServer {
@@ -116,7 +116,7 @@ func (a *Adapter) Start(ctx context.Context) (err error) {
 		}
 		a.controlServer.MessageHandler(a)
 
-		options = consumer.WithSaramaConsumerLifecycleListener(a)
+		options = append(options, consumer.WithSaramaConsumerLifecycleListener(a))
 	}
 
 	// init consumer group
@@ -131,7 +131,7 @@ func (a *Adapter) Start(ctx context.Context) (err error) {
 		a.config.Topics,
 		a.logger,
 		a,
-		options,
+		options...,
 	)
 	if err != nil {
 		panic(err)
