@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Shopify/sarama"
+
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -99,11 +101,11 @@ func TestGetConfigFromSecret_Valid(t *testing.T) {
 		commontesting.OldAuthUsername,
 		commontesting.OldAuthPassword,
 		commontesting.OldAuthNamespace,
-		commontesting.OldAuthSaslType)
+		"")
 	kafkaAuth := GetAuthConfigFromSecret(secret)
 	assert.Equal(t, commontesting.OldAuthUsername, kafkaAuth.SASL.User)
 	assert.Equal(t, commontesting.OldAuthPassword, kafkaAuth.SASL.Password)
-	assert.Equal(t, commontesting.OldAuthSaslType, kafkaAuth.SASL.SaslType)
+	assert.Equal(t, sarama.SASLTypePlaintext, kafkaAuth.SASL.SaslType)
 }
 
 func TestGetConfigFromSecret_Invalid(t *testing.T) {
@@ -133,7 +135,7 @@ func TestInitializeSecretWatcher(t *testing.T) {
 	assert.Equal(t, string(testSecret.Data[kafkaconstants.KafkaSecretKeySaslType]), commontesting.OldAuthSaslType)
 
 	// Perform The Test (Initialize The Secret Watcher)
-	err = InitializeSecretWatcher(ctx, system.Namespace(), constants.SettingsSecretName, secretWatcherHandler)
+	err = InitializeSecretWatcher(ctx, system.Namespace(), constants.SettingsSecretName, 10*time.Second, secretWatcherHandler)
 	assert.Nil(t, err)
 
 	// The secretWatcherHandler should change this back to a valid Secret after the watcher is triggered
@@ -152,9 +154,6 @@ func TestInitializeSecretWatcher(t *testing.T) {
 
 	// Wait for the secretWatcherHandler to be called
 	assert.Eventually(t, func() bool { return getWatchedSecret() != nil }, 500*time.Millisecond, 5*time.Millisecond)
-
-	// It would be nice to test that the watcher restarts after the timeout, but the fake watcher
-	// doesn't seem to do anything with the TimeoutSeconds field in the ListOptions anyway.
 
 	assert.NotNil(t, getWatchedSecret())
 	assert.Equal(t, string(testSecret.Data[kafkaconstants.KafkaSecretKeyUsername]), commontesting.NewAuthUsername)
