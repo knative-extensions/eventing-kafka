@@ -1307,6 +1307,8 @@ k8s.io/kube-openapi v0.0.0-20200805222855-6aeccd4b50c6 h1:+WnxoVtG8TMiudHBSEtrVL
 k8s.io/kube-openapi v0.0.0-20200805222855-6aeccd4b50c6/go.mod h1:UuqjUnNftUyPE5H64/qeyjQoUZhGpeFDVdxjTeEVN2o=
 k8s.io/utils v0.0.0-20200729134348-d5654de09c73 h1:uJmqzgNWG7XyClnU/mLPBWwfKKF1K8Hf8whTseBgJcg=
 k8s.io/utils v0.0.0-20200729134348-d5654de09c73/go.mod h1:jPW/WVKK9YHAvNhRxK0md/EJ228hCsBRufyofKtW8HA=
+knative.dev/control-protocol v0.0.0-20210402065223-6e2383c7197d h1:1ZueD3ovMOj8d/Ez+uPTol9jCwgy/6vkcGj26i3I498=
+knative.dev/control-protocol v0.0.0-20210402065223-6e2383c7197d/go.mod h1:82/EwanWb1EjpPVz7ts5IxLi0GlX0eFZ5oVa8/xLMuc=
 knative.dev/eventing v0.22.1-0.20210406191848-5171353bd1ed h1:TDGiR+w4hHN+VaXWF4bg8mb7Avwen+pjPfwSJbVQbxA=
 knative.dev/eventing v0.22.1-0.20210406191848-5171353bd1ed/go.mod h1:LOG7bh0eZQkbYANcnORwke6Yy6aUu62o8GeByaOFfRQ=
 knative.dev/hack v0.0.0-20210317214554-58edbdc42966/go.mod h1:PHt8x8yX5Z9pPquBEfIj0X66f8iWkWfR0S/sarACJrI=
@@ -1317,8 +1319,9 @@ knative.dev/networking v0.0.0-20210326014619-6a77ca6c8f69 h1:PeiohVaGSKco/GxdGkh
 knative.dev/networking v0.0.0-20210326014619-6a77ca6c8f69/go.mod h1:mvfNSGU+bI9JOha6K5ZxGFNL57Y4jnJ68X8ggqdbik4=
 knative.dev/pkg v0.0.0-20210323202917-b558677ab034/go.mod h1:o1aTlbc+h60DP9P6nd/WmP99Ny9Ls3U/JIjL4xMgqpw=
 knative.dev/pkg v0.0.0-20210329065222-9d92ea16c0d3/go.mod h1:PD5g8hUCXq6iR3tILjmZeJBvQfXGnHMPKryq54qHJhg=
-knative.dev/pkg v0.0.0-20210331062321-6317ec6066f4 h1:Vy9bGGnrGE+k98hosiKg7NMyDkz5yXjATLvBS5MnQu4=
 knative.dev/pkg v0.0.0-20210331062321-6317ec6066f4/go.mod h1:PD5g8hUCXq6iR3tILjmZeJBvQfXGnHMPKryq54qHJhg=
+knative.dev/pkg v0.0.0-20210331065221-952fdd90dbb0 h1:z05hcB4br0qz7JdwIoUSTXLTF+7ThuJ+R6NFfXd1Y4Q=
+knative.dev/pkg v0.0.0-20210331065221-952fdd90dbb0/go.mod h1:PD5g8hUCXq6iR3tILjmZeJBvQfXGnHMPKryq54qHJhg=
 knative.dev/reconciler-test v0.0.0-20210329214021-2a67496462a4 h1:fxMp1LSHoqxSosT1bScsTfM1Lu09+5hXAa8SZDTO98s=
 knative.dev/reconciler-test v0.0.0-20210329214021-2a67496462a4/go.mod h1:qLfJMHc0i9ENTSet/SUp/FcQm4QVfNTX8ZC//aVQN0M=
 pgregory.net/rapid v0.3.3 h1:jCjBsY4ln4Atz78QoBWxUEvAHaFyNDQg9+WU62aCn1U=
