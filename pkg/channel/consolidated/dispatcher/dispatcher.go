@@ -299,11 +299,18 @@ func (d *KafkaDispatcher) subscribe(channelRef types.NamespacedName, sub Subscri
 	topicName := d.topicFunc(utils.KafkaChannelSeparator, channelRef.Namespace, channelRef.Name)
 	groupID := fmt.Sprintf("kafka.%s.%s.%s", channelRef.Namespace, channelRef.Name, string(sub.UID))
 
+	// Get or create the channel kafka subscription
+	kafkaSubscription, ok := d.channelSubscriptions[channelRef]
+	if !ok {
+		kafkaSubscription = NewKafkaSubscription(d.logger)
+		d.channelSubscriptions[channelRef] = kafkaSubscription
+	}
+
 	handler := &consumerMessageHandler{
 		d.logger,
 		sub,
 		d.dispatcher,
-		d.channelSubscriptions[channelRef],
+		kafkaSubscription,
 		groupID,
 	}
 	d.logger.Debugw("Starting consumer group", zap.Any("channelRef", channelRef),
@@ -325,11 +332,6 @@ func (d *KafkaDispatcher) subscribe(channelRef types.NamespacedName, sub Subscri
 	}()
 
 	// Update the data structures that holds the reconciliation data
-	kafkaSubscription, ok := d.channelSubscriptions[channelRef]
-	if !ok {
-		kafkaSubscription = NewKafkaSubscription(d.logger)
-		d.channelSubscriptions[channelRef] = kafkaSubscription
-	}
 	kafkaSubscription.subs.Insert(string(sub.UID))
 	d.subscriptions[sub.UID] = sub
 	d.subsConsumerGroups[sub.UID] = consumerGroup
