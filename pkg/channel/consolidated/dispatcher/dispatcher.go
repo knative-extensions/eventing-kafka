@@ -30,6 +30,7 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"knative.dev/pkg/logging"
 
 	eventingchannels "knative.dev/eventing/pkg/channel"
 	"knative.dev/eventing/pkg/kncloudevents"
@@ -55,7 +56,6 @@ type KafkaDispatcherArgs struct {
 	KafkaAuthConfig          *client.KafkaAuthConfig
 	SaramaSettingsYamlString string
 	TopicFunc                TopicFunc
-	Logger                   *zap.SugaredLogger
 }
 
 type KafkaDispatcher struct {
@@ -97,30 +97,30 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 	}
 
 	dispatcher := &KafkaDispatcher{
-		dispatcher:           eventingchannels.NewMessageDispatcher(args.Logger.Desugar()),
+		dispatcher:           eventingchannels.NewMessageDispatcher(logging.FromContext(ctx).Desugar()),
 		kafkaConsumerFactory: consumer.NewConsumerGroupFactory(args.Brokers, conf),
 		channelSubscriptions: make(map[types.NamespacedName]*KafkaSubscription),
 		subsConsumerGroups:   make(map[types.UID]sarama.ConsumerGroup),
 		subscriptions:        make(map[types.UID]Subscription),
 		kafkaSyncProducer:    producer,
-		logger:               args.Logger,
+		logger:               logging.FromContext(ctx),
 		topicFunc:            args.TopicFunc,
 	}
 
 	// initialize and start the subscription endpoint server
 	subscriptionEndpoint := &subscriptionEndpoint{
 		dispatcher: dispatcher,
-		logger:     args.Logger,
+		logger:     logging.FromContext(ctx),
 	}
 	go func() {
 		subscriptionEndpoint.start()
 	}()
 
-	podName, err := env.GetRequiredConfigValue(args.Logger.Desugar(), env.PodNameEnvVarKey)
+	podName, err := env.GetRequiredConfigValue(logging.FromContext(ctx).Desugar(), env.PodNameEnvVarKey)
 	if err != nil {
 		return nil, err
 	}
-	containerName, err := env.GetRequiredConfigValue(args.Logger.Desugar(), env.ContainerNameEnvVarKey)
+	containerName, err := env.GetRequiredConfigValue(logging.FromContext(ctx).Desugar(), env.ContainerNameEnvVarKey)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +149,7 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 
 			return err
 		},
-		args.Logger.Desugar(),
+		logging.FromContext(ctx).Desugar(),
 		reporter,
 		eventingchannels.ResolveMessageChannelFromHostHeader(dispatcher.getChannelReferenceFromHost))
 	if err != nil {

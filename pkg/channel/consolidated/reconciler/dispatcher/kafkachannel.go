@@ -101,7 +101,6 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		KafkaAuthConfig:          kafkaAuthCfg,
 		SaramaSettingsYamlString: kafkaConfig.SaramaSettingsYamlString,
 		TopicFunc:                utils.TopicName,
-		Logger:                   logger,
 	}
 	kafkaDispatcher, err := dispatcher.NewDispatcher(ctx, args)
 	if err != nil {
