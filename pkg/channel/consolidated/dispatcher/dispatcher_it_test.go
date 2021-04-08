@@ -78,7 +78,6 @@ func TestDispatcher(t *testing.T) {
 		ClientID:  "testing",
 		Brokers:   []string{"localhost:9092"},
 		TopicFunc: utils.TopicName,
-		Logger:    logger.Sugar(),
 	}
 
 	// Create the dispatcher. At this point, if Kafka is not up, this thing fails
