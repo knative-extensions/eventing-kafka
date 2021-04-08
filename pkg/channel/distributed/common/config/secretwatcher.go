@@ -19,11 +19,11 @@ package config
 import (
 	"context"
 
-	"k8s.io/apimachinery/pkg/fields"
-
+	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/watch"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 	"knative.dev/eventing-kafka/pkg/common/client"
@@ -39,21 +39,34 @@ type SecretObserver func(ctx context.Context, secret *corev1.Secret)
 func InitializeSecretWatcher(ctx context.Context, namespace string, name string, observer SecretObserver) error {
 
 	logger := logging.FromContext(ctx)
+	watcherOptions := metav1.ListOptions{FieldSelector: fields.OneTermEqualSelector("metadata.name", name).String()}
 	secrets := kubeclient.Get(ctx).CoreV1().Secrets(namespace)
-	watcher, err := secrets.Watch(ctx, metav1.ListOptions{FieldSelector: fields.OneTermEqualSelector("metadata.name", name).String()})
+	watcher, err := secrets.Watch(ctx, watcherOptions)
 	if err != nil {
 		logger.Error("Failed to start secret watcher", zap.Error(err))
+		return err
 	}
 
 	go func() {
-		defer watcher.Stop()
-
 		for {
 			select {
 			case <-ctx.Done():
 				logger.Info("Stopped Secret Watcher")
+				watcher.Stop()
 				return
-			case event := <-watcher.ResultChan():
+			case event, ok := <-watcher.ResultChan():
+				if !ok {
+					// Channel was closed; this typically happens because watchers have a default
+					// timeout that seems to be around 38m45s if there is no value (or zero) in the
+					// watcherOptions.TimeoutSeconds.  Regardless of the timeout, we need to restart
+					// the watcher when this happens.
+					logger.Debug("Watcher channel closed; restarting Secret Watcher")
+					watcher, err = secrets.Watch(ctx, watcherOptions)
+					if err != nil {
+						logger.Error("Failed to restart Secret Watcher", zap.Error(err))
+						return
+					}
+				}
 				// We only care if the secret was modified or added
 				if event.Type == watch.Added || event.Type == watch.Modified {
 					if secret, ok := event.Object.(*corev1.Secret); ok {
@@ -64,7 +77,6 @@ func InitializeSecretWatcher(ctx context.Context, namespace string, name string,
 				}
 			}
 		}
-
 	}()
 
 	return nil
@@ -87,11 +99,18 @@ func GetAuthConfigFromSecret(secret *corev1.Secret) *client.KafkaAuthConfig {
 		return nil
 	}
 
+	// If we don't convert the empty string to the "PLAIN" default, the client.HasSameSettings()
+	// function will assume that they should be treated as differences and needlessly reconfigure
+	saslType := string(secret.Data[constants.KafkaSecretKeySaslType])
+	if saslType == "" {
+		saslType = sarama.SASLTypePlaintext
+	}
+
 	return &client.KafkaAuthConfig{
 		SASL: &client.KafkaSaslConfig{
 			User:     string(secret.Data[constants.KafkaSecretKeyUsername]),
 			Password: string(secret.Data[constants.KafkaSecretKeyPassword]),
-			SaslType: string(secret.Data[constants.KafkaSecretKeySaslType]),
+			SaslType: saslType,
 		},
 	}
 }

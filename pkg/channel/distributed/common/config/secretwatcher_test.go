@@ -150,10 +150,12 @@ func TestInitializeSecretWatcher(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, string(testSecret.Data[kafkaconstants.KafkaSecretKeyPassword]), commontesting.NewAuthPassword)
 
-	// Wait for the secretWatcherHandler to be called (happens pretty quickly; loop usually only runs once)
-	for try := 0; getWatchedSecret() == nil && try < 100; try++ {
-		time.Sleep(5 * time.Millisecond)
-	}
+	// Wait for the secretWatcherHandler to be called
+	assert.Eventually(t, func() bool { return getWatchedSecret() != nil }, 500*time.Millisecond, 5*time.Millisecond)
+
+	// It would be nice to test that the watcher restarts after the timeout, but the fake watcher
+	// doesn't seem to do anything with the TimeoutSeconds field in the ListOptions anyway.
+
 	assert.NotNil(t, getWatchedSecret())
 	assert.Equal(t, string(testSecret.Data[kafkaconstants.KafkaSecretKeyUsername]), commontesting.NewAuthUsername)
 	assert.Equal(t, string(testSecret.Data[kafkaconstants.KafkaSecretKeyPassword]), commontesting.NewAuthPassword)
