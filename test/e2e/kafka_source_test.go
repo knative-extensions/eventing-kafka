@@ -128,7 +128,7 @@ func testKafkaSourceUpdate(t *testing.T, name string, test updateTest) {
 	client.WaitForAllTestResourcesReadyOrFail(context.Background())
 
 	// See https://github.com/knative-sandbox/eventing-kafka/issues/411
-	if test_mt_source == "1" {
+	if testMtSource == "1" {
 		time.Sleep(20 * time.Second)
 	}
 
@@ -174,7 +174,7 @@ func testKafkaSourceUpdate(t *testing.T, name string, test updateTest) {
 	client.WaitForAllTestResourcesReadyOrFail(context.Background())
 
 	// See https://github.com/knative-sandbox/eventing-kafka/issues/411
-	if test_mt_source == "1" {
+	if testMtSource == "1" {
 		time.Sleep(20 * time.Second)
 	}
 

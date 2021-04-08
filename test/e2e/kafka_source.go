@@ -1,5 +1,3 @@
-// +build source mtsource
-
 /*
 Copyright 2021 The Knative Authors
 
@@ -63,7 +61,7 @@ type authSetup struct {
 }
 
 var (
-	test_mt_source = os.Getenv("TEST_MT_SOURCE")
+	testMtSource = os.Getenv("TEST_MT_SOURCE")
 )
 
 func withAuthEnablementV1Beta1(auth authSetup) contribresources.KafkaSourceV1Beta1Option {
@@ -248,7 +246,7 @@ func testKafkaSource(t *testing.T, name string, version string, messageKey strin
 	client.WaitForAllTestResourcesReadyOrFail(context.Background())
 
 	// See https://github.com/knative-sandbox/eventing-kafka/issues/411
-	if test_mt_source == "1" {
+	if testMtSource == "1" {
 		time.Sleep(20 * time.Second)
 	}
 
