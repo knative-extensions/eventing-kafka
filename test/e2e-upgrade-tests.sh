@@ -29,7 +29,7 @@ TIMEOUT=${TIMEOUT:-60m}
 GO_TEST_VERBOSITY="${GO_TEST_VERBOSITY:-standard-verbose}"
 
 go_test_e2e -v \
-  -tags=upgrade \
+  -tags=upgrade,source \
   -timeout="${TIMEOUT}" \
   ./test/upgrade \
   || fail_test
