@@ -33,6 +33,7 @@ const (
 	testNS             = "my-test-ns"
 	testDispatcherNS   = "dispatcher-namespace"
 	testDispatcherName = "dispatcher-name"
+	testConfigMapHash  = "deadbeef"
 )
 
 func TestMakeChannelServiceAddress(t *testing.T) {
