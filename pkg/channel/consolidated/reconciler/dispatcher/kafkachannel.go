@@ -157,6 +157,15 @@ func filterWithAnnotation(namespaced bool) func(obj interface{}) bool {
 
 func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel) pkgreconciler.Event {
 	logging.FromContext(ctx).Debugw("ObserveKind for channel", zap.String("channel", kc.Name))
+	return r.syncChannel(ctx, kc)
+}
+
+func (r *Reconciler) ObserveKind(ctx context.Context, kc *v1beta1.KafkaChannel) pkgreconciler.Event {
+	logging.FromContext(ctx).Debugw("ObserveKind for channel", zap.String("channel", kc.Name))
+	return r.syncChannel(ctx, kc)
+}
+
+func (r *Reconciler) syncChannel(ctx context.Context, kc *v1beta1.KafkaChannel) pkgreconciler.Event {
 	if !kc.Status.IsReady() {
 		logging.FromContext(ctx).Debugw("KafkaChannel still not ready, short-circuiting the reconciler", zap.String("channel", kc.Name))
 		return nil
