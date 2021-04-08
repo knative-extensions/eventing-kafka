@@ -756,7 +756,7 @@ func makeDeploymentWithImageAndReplicas(image string, replicas int32) *appsv1.De
 		Image:               image,
 		Replicas:            replicas,
 		ServiceAccount:      testDispatcherserviceAccount,
-		ConfigMapHash:       "deadbeef",
+		ConfigMapHash:       "",
 	})
 }
 
