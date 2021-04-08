@@ -455,6 +455,8 @@ func TestSubscribeError(t *testing.T) {
 		kafkaConsumerFactory: cf,
 		logger:               zap.NewNop().Sugar(),
 		topicFunc:            utils.TopicName,
+		subscriptions:        map[types.UID]Subscription{},
+		channelSubscriptions: map[types.NamespacedName]*KafkaSubscription{},
 	}
 
 	channelRef := types.NamespacedName{
