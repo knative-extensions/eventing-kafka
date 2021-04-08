@@ -110,6 +110,28 @@ func TestKafkaDispatcher_RegisterChannelHost(t *testing.T) {
 	require.Error(t, d.RegisterChannelHost(secondChannelConfig))
 }
 
+func TestKafkaDispatcher_RegisterSameChannelTwiceShouldNotFail(t *testing.T) {
+	channelConfig := &ChannelConfig{
+		Namespace: "default",
+		Name:      "test-channel-1",
+		HostName:  "a.b.c.d",
+	}
+
+	d := &KafkaDispatcher{
+		kafkaConsumerFactory: &mockKafkaConsumerFactory{},
+		channelSubscriptions: make(map[types.NamespacedName]*KafkaSubscription),
+		subsConsumerGroups:   make(map[types.UID]sarama.ConsumerGroup),
+		subscriptions:        make(map[types.UID]Subscription),
+		topicFunc:            utils.TopicName,
+		logger:               zaptest.NewLogger(t).Sugar(),
+	}
+
+	require.NoError(t, d.RegisterChannelHost(channelConfig))
+	require.Contains(t, d.getHostToChannelMap(), "a.b.c.d")
+	require.NoError(t, d.RegisterChannelHost(channelConfig))
+	require.Contains(t, d.getHostToChannelMap(), "a.b.c.d")
+}
+
 func TestDispatcher_UpdateConsumers(t *testing.T) {
 	subscriber, _ := url.Parse("http://test/subscriber")
 

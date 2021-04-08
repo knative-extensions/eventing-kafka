@@ -251,7 +251,8 @@ func (d *KafkaDispatcher) RegisterChannelHost(channelConfig *ChannelConfig) erro
 		Name:      channelConfig.Name,
 		Namespace: channelConfig.Namespace,
 	})
-	if ok {
+	if ok && !(old.(eventingchannels.ChannelReference).Namespace == channelConfig.Namespace && old.(eventingchannels.ChannelReference).Name == channelConfig.Name) {
+		// If something is already there, but it's not the same channel, then fail
 		return fmt.Errorf(
 			"duplicate hostName found. Each channel must have a unique host header. HostName:%s, channel:%s.%s, channel:%s.%s",
 			channelConfig.HostName,
