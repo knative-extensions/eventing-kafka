@@ -134,7 +134,7 @@ func (a *Adapter) Start(ctx context.Context) (err error) {
 		options...,
 	)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to start consumer group: %w", err)
 	}
 	defer func() {
 		err := group.Close()
