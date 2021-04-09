@@ -18,9 +18,10 @@ package testing
 
 import (
 	"fmt"
-	"k8s.io/utils/pointer"
 	"strconv"
 	"time"
+
+	"k8s.io/utils/pointer"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -213,7 +214,7 @@ func WithDifferentWorkingDir(deployment *appsv1.Deployment) {
 
 func WithDifferentPorts(deployment *appsv1.Deployment) {
 	deployment.Spec.Template.Spec.Containers[0].Ports = []corev1.ContainerPort{
-		{ Name: "DifferentPortName" },
+		{Name: "DifferentPortName"},
 	}
 }
 
@@ -230,30 +231,30 @@ func WithDifferentEnvironment(deployment *appsv1.Deployment) {
 
 func WithDifferentVolumeMounts(deployment *appsv1.Deployment) {
 	deployment.Spec.Template.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{
-		{ Name: "DifferentVolumeMount" },
+		{Name: "DifferentVolumeMount"},
 	}
 }
 
 func WithDifferentVolumeDevices(deployment *appsv1.Deployment) {
 	deployment.Spec.Template.Spec.Containers[0].VolumeDevices = []corev1.VolumeDevice{
-		{ Name: "DifferentVolumeDevice" },
+		{Name: "DifferentVolumeDevice"},
 	}
 }
 
 func WithDifferentLivenessProbe(deployment *appsv1.Deployment) {
-	deployment.Spec.Template.Spec.Containers[0].LivenessProbe = &corev1.Probe{ Handler: corev1.Handler{} }
+	deployment.Spec.Template.Spec.Containers[0].LivenessProbe = &corev1.Probe{Handler: corev1.Handler{}}
 }
 
 func WithDifferentReadinessProbe(deployment *appsv1.Deployment) {
-	deployment.Spec.Template.Spec.Containers[0].ReadinessProbe = &corev1.Probe{ Handler: corev1.Handler{} }
+	deployment.Spec.Template.Spec.Containers[0].ReadinessProbe = &corev1.Probe{Handler: corev1.Handler{}}
 }
 
 func WithDifferentStartupProbe(deployment *appsv1.Deployment) {
-	deployment.Spec.Template.Spec.Containers[0].StartupProbe = &corev1.Probe{ Handler: corev1.Handler{} }
+	deployment.Spec.Template.Spec.Containers[0].StartupProbe = &corev1.Probe{Handler: corev1.Handler{}}
 }
 
 func WithDifferentLifecycle(deployment *appsv1.Deployment) {
-	deployment.Spec.Template.Spec.Containers[0].Lifecycle = &corev1.Lifecycle{ PostStart: &corev1.Handler{} }
+	deployment.Spec.Template.Spec.Containers[0].Lifecycle = &corev1.Lifecycle{PostStart: &corev1.Handler{}}
 }
 
 func WithDifferentTerminationPath(deployment *appsv1.Deployment) {
@@ -573,6 +574,11 @@ func WithDispatcherDeploymentReady(_ *kafkav1beta1.KafkaChannel) {
 // Set The KafkaChannel's Dispatcher Deployment As Failed
 func WithDispatcherFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
 	kafkachannel.Status.MarkDispatcherFailed(event.DispatcherDeploymentReconciliationFailed.String(), "Failed To Create Dispatcher Deployment: inducing failure for create deployments")
+}
+
+// Set The KafkaChannel's Dispatcher Update As Failed
+func WithDispatcherUpdateFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
+	kafkachannel.Status.MarkDispatcherFailed(event.DispatcherDeploymentUpdateFailed.String(), "Failed To Update Dispatcher Deployment: inducing failure for update deployments")
 }
 
 // Set The KafkaChannel's Topic READY
@@ -1070,12 +1076,12 @@ func NewFinalizerPatchActionImpl() clientgotesting.PatchActionImpl {
 
 // Utility Function For Creating A Dispatcher Deployment Updated Event
 func NewKafkaChannelDispatcherUpdatedEvent() string {
-	return reconcilertesting.Eventf(corev1.EventTypeNormal, "DispatcherDeploymentUpdated", "Dispatcher Deployment Updated")
+	return reconcilertesting.Eventf(corev1.EventTypeNormal, event.DispatcherDeploymentUpdated.String(), "Dispatcher Deployment Updated")
 }
 
 // Utility Function For Creating A Dispatcher Deployment Update Failure Event
 func NewKafkaChannelDispatcherUpdateFailedEvent() string {
-	return reconcilertesting.Eventf(corev1.EventTypeWarning, "DispatcherDeploymentFailed", "Dispatcher Deployment Failed")
+	return reconcilertesting.Eventf(corev1.EventTypeWarning, event.DispatcherDeploymentUpdateFailed.String(), "Dispatcher Deployment Update Failed")
 }
 
 // Utility Function For Creating A Successful KafkaChannel Reconciled Event
@@ -1172,14 +1178,14 @@ func NewKafkaChannelStatusUpdates() []clientgotesting.UpdateActionImpl {
 
 func NewKafkaChannelUpdate() clientgotesting.UpdateActionImpl {
 	return clientgotesting.UpdateActionImpl{
-			Object: NewKafkaChannel(
-				WithFinalizer,
-				WithMetaData,
-				WithAddress,
-				WithInitializedConditions,
-				WithKafkaChannelServiceReady,
-				WithDispatcherDeploymentReady,
-				WithTopicReady,
-			),
-		}
+		Object: NewKafkaChannel(
+			WithFinalizer,
+			WithMetaData,
+			WithAddress,
+			WithInitializedConditions,
+			WithKafkaChannelServiceReady,
+			WithDispatcherDeploymentReady,
+			WithTopicReady,
+		),
+	}
 }

@@ -17,41 +17,27 @@ limitations under the License.
 package util
 
 import (
-	"fmt"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	logtesting "knative.dev/pkg/logging/testing"
-	"testing"
-	"time"
 )
 
 type deploymentOption func(service *appsv1.Deployment)
-
-func TestEDV(t *testing.T) {
-	timeout := time.NewTimer(10 * time.Second)
-	for {
-		select {
-		case <-time.After(1 * time.Second):
-			t.Error("time.After 1s")
-		case <-timeout.C:
-			fmt.Printf("timeout\n")
-			return
-		}
-	}
-}
 
 // Tests the CheckDeploymentChanged functionality.  Note that this is also tested fairly extensively
 // as part of the various reconciler tests, and as such the deployment structs used here are somewhat trivial.
 func TestCheckDeploymentChanged(t *testing.T) {
 	logger := logtesting.TestLogger(t).Desugar()
 	tests := []struct {
-		name  string
+		name               string
 		existingDeployment *appsv1.Deployment
-		newDeployment *appsv1.Deployment
-		expectUpdated bool
+		newDeployment      *appsv1.Deployment
+		expectUpdated      bool
 	}{
 		{
 			name:               "Different Image",
@@ -115,7 +101,7 @@ func getBasicDeployment(options ...deploymentOption) *appsv1.Deployment {
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
-						{ Name: "TestContainerName" },
+						{Name: "TestContainerName"},
 					},
 				},
 			},

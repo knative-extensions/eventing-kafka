@@ -40,12 +40,6 @@ import (
 	"knative.dev/pkg/system"
 )
 
-const (
-	// Name of the corev1.Events emitted from the reconciliation process.
-	dispatcherDeploymentUpdated     = "DispatcherDeploymentUpdated"
-	dispatcherDeploymentFailed      = "DispatcherDeploymentFailed"
-)
-
 //
 // Reconcile & Finalize The Dispatcher (Kafka Consumer) For The Specified KafkaChannel
 //
@@ -320,10 +314,10 @@ func (r *Reconciler) reconcileDispatcherDeployment(ctx context.Context, logger *
 		if needsUpdate {
 			updatedDeployment, err = r.kubeClientset.AppsV1().Deployments(newDeployment.Namespace).Update(ctx, updatedDeployment, metav1.UpdateOptions{})
 			if err == nil {
-				controller.GetEventRecorder(ctx).Event(channel, corev1.EventTypeNormal, dispatcherDeploymentUpdated, "Dispatcher Deployment Updated")
+				controller.GetEventRecorder(ctx).Event(channel, corev1.EventTypeNormal, event.DispatcherDeploymentUpdated.String(), "Dispatcher Deployment Updated")
 			} else {
-				controller.GetEventRecorder(ctx).Event(channel, corev1.EventTypeWarning, dispatcherDeploymentFailed, "Dispatcher Deployment Failed")
-				channel.Status.MarkDispatcherFailed("DispatcherDeploymentUpdateFailed", "Failed to update the dispatcher deployment: %v", err)
+				controller.GetEventRecorder(ctx).Event(channel, corev1.EventTypeWarning, event.DispatcherDeploymentUpdateFailed.String(), "Dispatcher Deployment Update Failed")
+				channel.Status.MarkDispatcherFailed(event.DispatcherDeploymentUpdateFailed.String(), "Failed To Update Dispatcher Deployment: %v", err)
 				return err
 			}
 		}

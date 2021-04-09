@@ -48,6 +48,8 @@ const (
 	DispatcherDeploymentReconciliationFailed
 	DispatcherServiceFinalizationFailed
 	DispatcherDeploymentFinalizationFailed
+	DispatcherDeploymentUpdated
+	DispatcherDeploymentUpdateFailed
 
 	// Kafka Secret Reconciliation
 	KafkaSecretReconciled
@@ -90,6 +92,10 @@ func (et CoreV1EventType) String() string {
 		eventTypeString = "DispatcherServiceFinalizationFailed"
 	case DispatcherDeploymentFinalizationFailed:
 		eventTypeString = "DispatcherDeploymentFinalizationFailed"
+	case DispatcherDeploymentUpdated:
+		eventTypeString = "DispatcherDeploymentUpdated"
+	case DispatcherDeploymentUpdateFailed:
+		eventTypeString = "DispatcherDeploymentUpdateFailed"
 	case KafkaSecretReconciled:
 		eventTypeString = "KafkaSecretReconciled"
 	case KafkaSecretFinalized:
