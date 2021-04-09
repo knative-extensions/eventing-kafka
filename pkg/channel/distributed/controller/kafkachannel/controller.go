@@ -18,6 +18,7 @@ package kafkachannel
 
 import (
 	"context"
+	corev1 "k8s.io/api/core/v1"
 	"sync"
 
 	"go.uber.org/zap"
@@ -138,14 +139,26 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		kafkaSaslType:        kafkaSaslType,
 	}
 
+	// Create A New KafkaChannel Controller Impl With The Reconciler
+	controllerImpl := kafkachannelreconciler.NewImpl(ctx, rec)
+
+	// Call GlobalResync on kafkachannels.
+	grCh := func(obj interface{}) {
+		logger.Info("Changes detected, doing global resync")
+		controllerImpl.GlobalResync(kafkachannelInformer.Informer())
+	}
+
+	handleKafkaConfigMapChange := func(ctx context.Context, configMap *corev1.ConfigMap) {
+		logger.Info("Configmap is updated or, it is being read for the first time")
+		rec.updateKafkaConfig(ctx, configMap)
+		grCh(configMap)
+	}
+
 	// Watch The Settings ConfigMap For Changes
-	err = commonconfig.InitializeKafkaConfigMapWatcher(ctx, cmw, logger.Sugar(), rec.configMapObserver, environment.SystemNamespace)
+	err = commonconfig.InitializeKafkaConfigMapWatcher(ctx, cmw, logger.Sugar(), handleKafkaConfigMapChange, environment.SystemNamespace)
 	if err != nil {
 		logger.Fatal("Failed To Initialize ConfigMap Watcher", zap.Error(err))
 	}
-
-	// Create A New KafkaChannel Controller Impl With The Reconciler
-	controllerImpl := kafkachannelreconciler.NewImpl(ctx, rec)
 
 	//
 	// Configure The Informers' EventHandlers
