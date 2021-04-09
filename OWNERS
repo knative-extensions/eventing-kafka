@@ -10,6 +10,7 @@ approvers:
 - travis-minke-sap
 - phamilton
 - aliok
+- devguyio
 
 reviewers:
 - vaikas
@@ -24,3 +25,4 @@ reviewers:
 - phamilton
 - devguyio
 - aliok
+- devguyio
