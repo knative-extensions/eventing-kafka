@@ -595,11 +595,6 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 	r.kafkaConfig = kafkaConfig
 	r.kafkaConfigError = err
 	r.kafkaConfigMapHash = configmapDataCheckSum(configMap)
-
-	if err != nil {
-		logger.Errorw("Error creating AdminClient", zap.Error(err))
-		return
-	}
 }
 
 func (r *Reconciler) FinalizeKind(ctx context.Context, kc *v1beta1.KafkaChannel) pkgreconciler.Event {
