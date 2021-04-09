@@ -196,7 +196,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 
 	// Reconcile connections
 	srcNamespacedName := types.NamespacedName{Name: src.Name, Namespace: src.Namespace}
-	_, err = r.connectionPool.ReconcileConnections(
+	connections, err := r.connectionPool.ReconcileConnections(
 		ctx,
 		string(src.UID),
 		podIPs,
@@ -223,6 +223,20 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 	}
 
 	logging.FromContext(ctx).Debugf("Control connections reconciled")
+
+	logging.FromContext(ctx).Debugf("Going to send the contract")
+
+	for host, conn := range connections {
+		err := conn.SendAndWaitForAck(kafkasourcecontrol.SetContract, kafkasourcecontrol.KafkaSourceContract{
+			BootstrapServers: src.Spec.BootstrapServers,
+			Topics:           src.Spec.Topics,
+			ConsumerGroup:    src.Spec.ConsumerGroup,
+			KeyType:          src.GetLabels()[v1beta1.KafkaKeyTypeLabel],
+		})
+		if err != nil {
+			return fmt.Errorf("error while sending the contract to %s: %w", host, err)
+		}
+	}
 
 	// Update consumer group status
 	lastClaimStatus, ok := r.claimsNotificationStore.GetPodsNotifications(srcNamespacedName)
