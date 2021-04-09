@@ -24,12 +24,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Shopify/sarama"
+	//"github.com/cloudevents/sdk-go/v2/extensions"
 	protocolkafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/binding"
-	//"github.com/cloudevents/sdk-go/v2/extensions"
 	"github.com/cloudevents/sdk-go/v2/protocol/http"
+
+	"github.com/Shopify/sarama"
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
 
@@ -51,7 +52,7 @@ func (a *Adapter) ConsumerMessageToHttpRequest(ctx context.Context, span *trace.
 
 	if msg.ReadEncoding() != binding.EncodingUnknown {
 		// Message is a CloudEvent -> Encode directly to HTTP
-		return http.WriteRequest(ctx, msg, req)//, tracingExt.WriteTransformer())
+		return http.WriteRequest(ctx, msg, req) //, tracingExt.WriteTransformer())
 	}
 
 	a.logger.Debug("Message is not a CloudEvent -> We need to translate it to a valid CloudEvent")
@@ -72,7 +73,7 @@ func (a *Adapter) ConsumerMessageToHttpRequest(ctx context.Context, span *trace.
 		return err
 	}
 
-	return http.WriteRequest(ctx, binding.ToMessage(&event), req)//, tracingExt.WriteTransformer())
+	return http.WriteRequest(ctx, binding.ToMessage(&event), req) //, tracingExt.WriteTransformer())
 }
 
 func makeEventId(partition int32, offset int64) string {
