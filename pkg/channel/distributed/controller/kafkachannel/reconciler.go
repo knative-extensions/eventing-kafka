@@ -246,6 +246,12 @@ func (r *Reconciler) configMapObserver(ctx context.Context, configMap *corev1.Co
 
 	logger.Info("Reloading Kafka configuration")
 
+	// Validate The ConfigMap Data
+	if configMap.Data == nil {
+		logger.Fatal("Attempted to merge sarama settings with empty configmap", zap.Any("configMap", configMap))
+		return
+	}
+
 	// Enable Sarama Logging If Specified In ConfigMap
 	if ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap); err == nil && ekConfig != nil {
 		kafkasarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)
@@ -261,12 +267,6 @@ func (r *Reconciler) configMapObserver(ctx context.Context, configMap *corev1.Co
 	// which simply uses the r.saramaConfig set here whenever necessary.  This means that calling
 	// env.GetEnvironment is not necessary now.  If	those settings are needed in the future, the
 	// environment will also need to be re-parsed here.
-
-	// Validate The ConfigMap Data
-	if configMap.Data == nil {
-		logger.Fatal("Attempted to merge sarama settings with empty configmap", zap.Any("configMap", configMap))
-		return
-	}
 
 	// Get The Sarama Config Yaml From The ConfigMap
 	saramaSettingsYamlString := configMap.Data[commonconstants.SaramaSettingsConfigKey]
