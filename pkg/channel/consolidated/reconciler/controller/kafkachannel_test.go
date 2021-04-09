@@ -662,7 +662,7 @@ func TestDeploymentMoreThanOneReplicas(t *testing.T) {
 func TestDeploymentUpdatedOnConfigMapHashChange(t *testing.T) {
 	kcKey := testNS + "/" + kcName
 	row := TableRow{
-		Name: "ConfigMapHashChange",
+		Name: "ConfigMap hash changed, dispatcher updated",
 		Key:  kcKey,
 		Objects: []runtime.Object{
 			makeDeploymentWithConfigMapHash("toBeUpdated"),
