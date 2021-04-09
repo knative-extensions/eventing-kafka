@@ -131,7 +131,6 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		adminClientType:      kafkaAdminClientType,
 		adminClient:          nil,
 		adminMutex:           &sync.Mutex{},
-		configObserver:       rec.configMapObserver, // Maintains a reference so that the ConfigWatcher can call it
 		kafkaSecret:          kafkaSecretName,
 		kafkaBrokers:         configuration.Kafka.Brokers,
 		kafkaUsername:        kafkaUsername,
