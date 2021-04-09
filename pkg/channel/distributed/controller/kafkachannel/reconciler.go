@@ -244,6 +244,8 @@ func (r *Reconciler) configMapObserver(ctx context.Context, configMap *corev1.Co
 		return
 	}
 
+	logger.Info("Reloading Kafka configuration")
+
 	// Enable Sarama Logging If Specified In ConfigMap
 	if ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap); err == nil && ekConfig != nil {
 		kafkasarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)
