@@ -18,10 +18,11 @@ package kafkachannel
 
 import (
 	"context"
-	corev1 "k8s.io/api/core/v1"
 	"sync"
 
 	"go.uber.org/zap"
+
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	kafkachannelv1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
