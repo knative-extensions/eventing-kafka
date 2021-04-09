@@ -52,6 +52,7 @@ import (
 const (
 	testNS                       = "test-namespace"
 	testDispatcherserviceAccount = "kafka-ch-dispatcher"
+	testConfigMapHash            = "deadbeef"
 	kcName                       = "test-kc"
 	testDispatcherImage          = "test-image"
 	channelServiceAddress        = "test-kc-kn-channel.test-namespace.svc.cluster.local"
@@ -331,6 +332,7 @@ func TestAllCases(t *testing.T) {
 			systemNamespace:          testNS,
 			dispatcherImage:          testDispatcherImage,
 			dispatcherServiceAccount: testDispatcherserviceAccount,
+			kafkaConfigMapHash:       testConfigMapHash,
 			kafkaConfig: &KafkaConfig{
 				Brokers: []string{brokerName},
 			},
@@ -395,6 +397,7 @@ func TestTopicExists(t *testing.T) {
 			systemNamespace:          testNS,
 			dispatcherImage:          testDispatcherImage,
 			dispatcherServiceAccount: testDispatcherserviceAccount,
+			kafkaConfigMapHash:       testConfigMapHash,
 			kafkaConfig: &KafkaConfig{
 				Brokers: []string{brokerName},
 			},
@@ -471,6 +474,7 @@ func TestDeploymentUpdatedOnImageChange(t *testing.T) {
 			systemNamespace:          testNS,
 			dispatcherImage:          testDispatcherImage,
 			dispatcherServiceAccount: testDispatcherserviceAccount,
+			kafkaConfigMapHash:       testConfigMapHash,
 			kafkaConfig: &KafkaConfig{
 				Brokers: []string{brokerName},
 			},
@@ -547,6 +551,7 @@ func TestDeploymentZeroReplicas(t *testing.T) {
 			systemNamespace:          testNS,
 			dispatcherImage:          testDispatcherImage,
 			dispatcherServiceAccount: testDispatcherserviceAccount,
+			kafkaConfigMapHash:       testConfigMapHash,
 			kafkaConfig: &KafkaConfig{
 				Brokers: []string{brokerName},
 			},
@@ -620,6 +625,84 @@ func TestDeploymentMoreThanOneReplicas(t *testing.T) {
 			systemNamespace:          testNS,
 			dispatcherImage:          testDispatcherImage,
 			dispatcherServiceAccount: testDispatcherserviceAccount,
+			kafkaConfigMapHash:       testConfigMapHash,
+			kafkaConfig: &KafkaConfig{
+				Brokers: []string{brokerName},
+			},
+			kafkachannelLister: listers.GetKafkaChannelLister(),
+			// TODO fix
+			kafkachannelInformer: nil,
+			deploymentLister:     listers.GetDeploymentLister(),
+			serviceLister:        listers.GetServiceLister(),
+			endpointsLister:      listers.GetEndpointsLister(),
+			kafkaClusterAdmin: &mockClusterAdmin{
+				mockCreateTopicFunc: func(topic string, detail *sarama.TopicDetail, validateOnly bool) error {
+					errMsg := sarama.ErrTopicAlreadyExists.Error()
+					return &sarama.TopicError{
+						Err:    sarama.ErrTopicAlreadyExists,
+						ErrMsg: &errMsg,
+					}
+				},
+			},
+			kafkaClientSet:    fakekafkaclient.Get(ctx),
+			KubeClientSet:     kubeclient.Get(ctx),
+			EventingClientSet: eventingClient.Get(ctx),
+			statusManager: &fakeStatusManager{
+				FakeIsReady: func(ctx context.Context, channel v1beta1.KafkaChannel,
+					spec eventingduckv1.SubscriberSpec) (bool, error) {
+					return true, nil
+				},
+			},
+		}
+		return kafkachannel.NewReconciler(ctx, logging.FromContext(ctx), r.kafkaClientSet, listers.GetKafkaChannelLister(), controller.GetEventRecorder(ctx), r)
+	}, zap.L()))
+}
+
+func TestDeploymentUpdatedOnConfigMapHashChange(t *testing.T) {
+	kcKey := testNS + "/" + kcName
+	row := TableRow{
+		Name: "Works, topic already exists",
+		Key:  kcKey,
+		Objects: []runtime.Object{
+			makeDeploymentWithConfigMapHash("toBeUpdated"),
+			makeService(),
+			makeReadyEndpoints(),
+			reconcilertesting.NewKafkaChannel(kcName, testNS,
+				reconcilertesting.WithKafkaFinalizer(finalizerName)),
+		},
+		WantErr: false,
+		WantCreates: []runtime.Object{
+			makeChannelService(reconcilertesting.NewKafkaChannel(kcName, testNS)),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: makeDeploymentWithConfigMapHash(testConfigMapHash),
+		}},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: reconcilertesting.NewKafkaChannel(kcName, testNS,
+				reconcilertesting.WithInitKafkaChannelConditions,
+				reconcilertesting.WithKafkaFinalizer(finalizerName),
+				reconcilertesting.WithKafkaChannelConfigReady(),
+				reconcilertesting.WithKafkaChannelTopicReady(),
+				//				reconcilekafkatesting.WithKafkaChannelDeploymentReady(),
+				reconcilertesting.WithKafkaChannelServiceReady(),
+				reconcilertesting.WithKafkaChannelEndpointsReady(),
+				reconcilertesting.WithKafkaChannelChannelServiceReady(),
+				reconcilertesting.WithKafkaChannelAddress(channelServiceAddress),
+			),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, dispatcherDeploymentUpdated, "Dispatcher deployment updated"),
+			Eventf(corev1.EventTypeNormal, "KafkaChannelReconciled", `KafkaChannel reconciled: "test-namespace/test-kc"`),
+		},
+	}
+
+	row.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
+
+		r := &Reconciler{
+			systemNamespace:          testNS,
+			dispatcherImage:          testDispatcherImage,
+			dispatcherServiceAccount: testDispatcherserviceAccount,
+			kafkaConfigMapHash:       testConfigMapHash,
 			kafkaConfig: &KafkaConfig{
 				Brokers: []string{brokerName},
 			},
@@ -750,14 +833,22 @@ func (ca *mockClusterAdmin) DeleteConsumerGroup(group string) error {
 
 var _ sarama.ClusterAdmin = (*mockClusterAdmin)(nil)
 
-func makeDeploymentWithImageAndReplicas(image string, replicas int32) *appsv1.Deployment {
+func makeDeploymentWithImageAndReplicasAndConfigMapHash(image string, replicas int32, configMapHash string) *appsv1.Deployment {
 	return resources.MakeDispatcher(resources.DispatcherArgs{
 		DispatcherNamespace: testNS,
 		Image:               image,
 		Replicas:            replicas,
 		ServiceAccount:      testDispatcherserviceAccount,
-		ConfigMapHash:       "",
+		ConfigMapHash:       configMapHash,
 	})
+}
+
+func makeDeploymentWithImageAndReplicas(image string, replicas int32) *appsv1.Deployment {
+	return makeDeploymentWithImageAndReplicasAndConfigMapHash(image, replicas, testConfigMapHash)
+}
+
+func makeDeploymentWithConfigMapHash(configMapHash string) *appsv1.Deployment {
+	return makeDeploymentWithImageAndReplicasAndConfigMapHash(testDispatcherImage, 1, configMapHash)
 }
 
 func makeDeployment() *appsv1.Deployment {

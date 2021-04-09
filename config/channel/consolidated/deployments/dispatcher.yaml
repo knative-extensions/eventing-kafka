@@ -30,6 +30,8 @@ spec:
   template:
     metadata:
       annotations:
+        # This annotation is used by the controller to track updates
+        # to config-kafka and apply them in the dispatcher deployment
         kafka.eventing.knative.dev/configmap-hash: ''
       labels:
         # Do not change. Used by the controller for probing.
