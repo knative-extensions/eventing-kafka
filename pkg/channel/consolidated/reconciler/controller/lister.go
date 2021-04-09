@@ -70,7 +70,6 @@ func (t *DispatcherPodsLister) ListProbeTargets(ctx context.Context, kc v1beta1.
 	return &status.ProbeTarget{
 		PodIPs:  sets.NewString(readyIPs...),
 		PodPort: "8081",
-		Port:    "8081",
 		URL:     u,
 	}, nil
 }
