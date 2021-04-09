@@ -661,7 +661,7 @@ func TestDeploymentMoreThanOneReplicas(t *testing.T) {
 func TestDeploymentUpdatedOnConfigMapHashChange(t *testing.T) {
 	kcKey := testNS + "/" + kcName
 	row := TableRow{
-		Name: "Works, topic already exists",
+		Name: "ConfigMapHashChange",
 		Key:  kcKey,
 		Objects: []runtime.Object{
 			makeDeploymentWithConfigMapHash("toBeUpdated"),
@@ -833,7 +833,7 @@ func (ca *mockClusterAdmin) DeleteConsumerGroup(group string) error {
 
 var _ sarama.ClusterAdmin = (*mockClusterAdmin)(nil)
 
-func makeDeploymentWithImageAndReplicasAndConfigMapHash(image string, replicas int32, configMapHash string) *appsv1.Deployment {
+func makeDeploymentWithParams(image string, replicas int32, configMapHash string) *appsv1.Deployment {
 	return resources.MakeDispatcher(resources.DispatcherArgs{
 		DispatcherNamespace: testNS,
 		Image:               image,
@@ -844,11 +844,11 @@ func makeDeploymentWithImageAndReplicasAndConfigMapHash(image string, replicas i
 }
 
 func makeDeploymentWithImageAndReplicas(image string, replicas int32) *appsv1.Deployment {
-	return makeDeploymentWithImageAndReplicasAndConfigMapHash(image, replicas, testConfigMapHash)
+	return makeDeploymentWithParams(image, replicas, testConfigMapHash)
 }
 
 func makeDeploymentWithConfigMapHash(configMapHash string) *appsv1.Deployment {
-	return makeDeploymentWithImageAndReplicasAndConfigMapHash(testDispatcherImage, 1, configMapHash)
+	return makeDeploymentWithParams(testDispatcherImage, 1, configMapHash)
 }
 
 func makeDeployment() *appsv1.Deployment {

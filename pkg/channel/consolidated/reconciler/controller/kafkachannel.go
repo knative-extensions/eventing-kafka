@@ -582,8 +582,7 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 	// Eventually the previous config should be snapshotted to delete Kafka topics
 	r.kafkaConfig = kafkaConfig
 	r.kafkaConfigError = err
-	configMapDataStr := fmt.Sprintf("%v", configMap.Data)
-	r.kafkaConfigMapHash = fmt.Sprintf("%08x", crc32.ChecksumIEEE([]byte(configMapDataStr)))
+	r.kafkaConfigMapHash = configmapDataCheckSum(configMap)
 
 	if err != nil {
 		logger.Errorw("Error creating AdminClient", zap.Error(err))
@@ -612,4 +611,10 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, kc *v1beta1.KafkaChannel)
 		r.statusManager.CancelProbing(s)
 	}
 	return newReconciledNormal(kc.Namespace, kc.Name) //ok to remove finalizer
+}
+
+func configmapDataCheckSum(configMap *corev1.ConfigMap) string {
+	configMapDataStr := fmt.Sprintf("%v", configMap.Data)
+	checksum := fmt.Sprintf("%08x", crc32.ChecksumIEEE([]byte(configMapDataStr)))
+	return checksum
 }
