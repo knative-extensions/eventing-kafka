@@ -27,15 +27,19 @@ func Suite() pkgupgrade.Suite {
 		Tests: pkgupgrade.Tests{
 			PreUpgrade: []pkgupgrade.Operation{
 				ChannelPreUpgradeTest(),
+				SourcePreUpgradeTest(),
 			},
 			PostUpgrade: []pkgupgrade.Operation{
 				ChannelPostUpgradeTest(),
+				SourcePostUpgradeTest(),
 			},
 			PostDowngrade: []pkgupgrade.Operation{
 				ChannelPostDowngradeTest(),
+				SourcePostDowngradeTest(),
 			},
 			Continual: []pkgupgrade.BackgroundOperation{
 				ChannelContinualTest(),
+				SourceContinualTest(),
 			},
 		},
 		Installations: pkgupgrade.Installations{
