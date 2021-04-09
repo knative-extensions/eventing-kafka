@@ -58,7 +58,7 @@ type AdapterConfig struct {
 	KeyType       string   `envconfig:"KEY_TYPE" required:"false"`
 
 	// Turn off the control server.
-	DisableControlServer bool
+	DisableControlProtocol bool
 }
 
 func NewEnvConfig() adapter.EnvConfigAccessor {
@@ -108,17 +108,30 @@ func (a *Adapter) Start(ctx context.Context) (err error) {
 
 	var options []consumer.SaramaConsumerHandlerOption
 
-	// Init control service
-	if !a.config.DisableControlServer {
-		a.controlServer, err = ctrlnetwork.StartInsecureControlServer(ctx)
-		if err != nil {
-			return err
-		}
-		a.controlServer.MessageHandler(a)
-
-		options = append(options, consumer.WithSaramaConsumerLifecycleListener(a))
+	if a.config.DisableControlProtocol {
+		// Behave the old way!
+		return a.mtSourceStart(ctx)
 	}
 
+	// Register the control protocol server
+	a.controlServer, err = ctrlnetwork.StartInsecureControlServer(ctx)
+	if err != nil {
+		return err
+	}
+	a.controlServer.MessageHandler(a)
+
+	// At this point, we do nothing, waiting for the first contract to come
+	// Environment variables are ignored and all the configuration comes from the control plane
+
+	// TODO consumer.WithSaramaConsumerLifecycleListener(a)
+
+	// This goroutine remains forever blocked until the adapter is closed
+	<-ctx.Done()
+	a.logger.Info("Shutting down...")
+	return nil
+}
+
+func (a *Adapter) mtSourceStart(ctx context.Context) (err error) {
 	// init consumer group
 	addrs, config, err := client.NewConfigWithEnv(context.Background(), &a.config.KafkaEnvConfig)
 	if err != nil {
@@ -131,7 +144,6 @@ func (a *Adapter) Start(ctx context.Context) (err error) {
 		a.config.Topics,
 		a.logger,
 		a,
-		options...,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to start consumer group: %w", err)
