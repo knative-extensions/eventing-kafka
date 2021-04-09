@@ -41,6 +41,7 @@ func TestNewDispatcher(t *testing.T) {
 		Image:               imageName,
 		Replicas:            1,
 		ServiceAccount:      serviceAccount,
+		ConfigMapHash:       testConfigMapHash,
 	}
 
 	replicas := int32(1)
@@ -61,6 +62,9 @@ func TestNewDispatcher(t *testing.T) {
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: dispatcherLabels,
+					Annotations: map[string]string{
+						ConfigMapHashAnnotationKey: testConfigMapHash,
+					},
 				},
 				Spec: corev1.PodSpec{
 					ServiceAccountName: serviceAccount,
@@ -124,6 +128,7 @@ func TestNewNamespaceDispatcher(t *testing.T) {
 		Image:               imageName,
 		Replicas:            1,
 		ServiceAccount:      serviceAccount,
+		ConfigMapHash:       testConfigMapHash,
 	}
 
 	replicas := int32(1)
@@ -144,6 +149,9 @@ func TestNewNamespaceDispatcher(t *testing.T) {
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: dispatcherLabels,
+					Annotations: map[string]string{
+						ConfigMapHashAnnotationKey: testConfigMapHash,
+					},
 				},
 				Spec: corev1.PodSpec{
 					ServiceAccountName: serviceAccount,

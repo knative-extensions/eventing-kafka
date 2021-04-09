@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"hash/crc32"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
@@ -116,10 +117,11 @@ type Reconciler struct {
 	dispatcherImage          string
 	dispatcherServiceAccount string
 
-	kafkaConfig      *utils.KafkaConfig
-	kafkaAuthConfig  *client.KafkaAuthConfig
-	kafkaConfigError error
-	kafkaClientSet   kafkaclientset.Interface
+	kafkaConfig        *utils.KafkaConfig
+	kafkaConfigMapHash string
+	kafkaAuthConfig    *client.KafkaAuthConfig
+	kafkaConfigError   error
+	kafkaClientSet     kafkaclientset.Interface
 	// Using a shared kafkaClusterAdmin does not work currently because of an issue with
 	// Shopify/sarama, see https://github.com/Shopify/sarama/issues/1162.
 	kafkaClusterAdmin    sarama.ClusterAdmin
@@ -310,6 +312,7 @@ func (r *Reconciler) reconcileDispatcher(ctx context.Context, scope string, disp
 		Image:               r.dispatcherImage,
 		Replicas:            1,
 		ServiceAccount:      r.dispatcherServiceAccount,
+		ConfigMapHash:       r.kafkaConfigMapHash,
 	}
 
 	expected := resources.MakeDispatcher(args)
@@ -350,6 +353,8 @@ func (r *Reconciler) reconcileDispatcher(ctx context.Context, scope string, disp
 			return nil, fmt.Errorf("container %s does not exist in expected dispatcher deployment. Cannot check if the deployment needs an update", resources.DispatcherContainerName)
 		}
 
+		expectedConfigMapHash := r.kafkaConfigMapHash
+
 		needsUpdate := false
 
 		if existing.Image != expectedContainer.Image {
@@ -361,6 +366,20 @@ func (r *Reconciler) reconcileDispatcher(ctx context.Context, scope string, disp
 		if *d.Spec.Replicas == 0 {
 			logging.FromContext(ctx).Infof("Dispatcher deployment has 0 replica. Scaling up deployment to 1 replica")
 			d.Spec.Replicas = pointer.Int32Ptr(1)
+			needsUpdate = true
+		}
+
+		if d.Spec.Template.Annotations == nil {
+			logging.FromContext(ctx).Infof("Configmap hash is not set. Updating the dispatcher deployment.")
+			d.Spec.Template.Annotations = map[string]string{
+				resources.ConfigMapHashAnnotationKey: expectedConfigMapHash,
+			}
+			needsUpdate = true
+		}
+
+		if d.Spec.Template.Annotations[resources.ConfigMapHashAnnotationKey] != expectedConfigMapHash {
+			logging.FromContext(ctx).Infof("Configmap hash is changed. Updating the dispatcher deployment.")
+			d.Spec.Template.Annotations[resources.ConfigMapHashAnnotationKey] = expectedConfigMapHash
 			needsUpdate = true
 		}
 
@@ -563,6 +582,7 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 	// Eventually the previous config should be snapshotted to delete Kafka topics
 	r.kafkaConfig = kafkaConfig
 	r.kafkaConfigError = err
+	r.kafkaConfigMapHash = configmapDataCheckSum(configMap)
 
 	if err != nil {
 		logger.Errorw("Error creating AdminClient", zap.Error(err))
@@ -591,4 +611,13 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, kc *v1beta1.KafkaChannel)
 		r.statusManager.CancelProbing(s)
 	}
 	return newReconciledNormal(kc.Namespace, kc.Name) //ok to remove finalizer
+}
+
+func configmapDataCheckSum(configMap *corev1.ConfigMap) string {
+	if configMap == nil || configMap.Data == nil {
+		return ""
+	}
+	configMapDataStr := fmt.Sprintf("%v", configMap.Data)
+	checksum := fmt.Sprintf("%08x", crc32.ChecksumIEEE([]byte(configMapDataStr)))
+	return checksum
 }
