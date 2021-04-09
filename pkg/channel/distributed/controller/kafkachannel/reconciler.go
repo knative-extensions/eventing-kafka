@@ -61,7 +61,6 @@ type Reconciler struct {
 	kafkachannelInformer cache.SharedIndexInformer
 	deploymentLister     appsv1listers.DeploymentLister
 	serviceLister        corev1listers.ServiceLister
-	configObserver       commonconfig.LoggingObserver
 	adminMutex           *sync.Mutex
 	kafkaSecret          string
 	kafkaBrokers         string
