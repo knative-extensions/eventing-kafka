@@ -614,6 +614,9 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, kc *v1beta1.KafkaChannel)
 }
 
 func configmapDataCheckSum(configMap *corev1.ConfigMap) string {
+	if configMap == nil || configMap.Data == nil {
+		return ""
+	}
 	configMapDataStr := fmt.Sprintf("%v", configMap.Data)
 	checksum := fmt.Sprintf("%08x", crc32.ChecksumIEEE([]byte(configMapDataStr)))
 	return checksum

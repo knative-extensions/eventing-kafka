@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"github.com/google/go-cmp/cmp"
 	"testing"
 
 	"github.com/Shopify/sarama"
@@ -974,5 +975,38 @@ func makePatch(namespace, name, patch string) clientgotesting.PatchActionImpl {
 		},
 		Name:  name,
 		Patch: []byte(patch),
+	}
+}
+
+func TestConfigmapDataCheckSum(t *testing.T) {
+	cases := []struct {
+		name      string
+		configmap *corev1.ConfigMap
+		expected  string
+	}{{
+		name:      "nil configmap",
+		configmap: nil,
+		expected:  "",
+	}, {
+		name: "nil configmap data",
+		configmap: &corev1.ConfigMap{
+			Data: nil,
+		},
+		expected: "",
+	}, {
+		name: "with configmap data",
+		configmap: &corev1.ConfigMap{
+			Data: map[string]string{"foo": "bar"},
+		},
+		expected: "f39c9878", // precomputed manually
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			retrieved := configmapDataCheckSum(tc.configmap)
+			if diff := cmp.Diff(tc.expected, retrieved); diff != "" {
+				t.Errorf("unexpected Config (-want, +got) = %v", diff)
+			}
+		})
 	}
 }
