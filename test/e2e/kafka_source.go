@@ -58,7 +58,7 @@ var (
 	testMtSource = os.Getenv("TEST_MT_SOURCE")
 )
 
-// SourceTestScope a func that will return true if we should proceed with given
+// SourceTestScope returns true if we should proceed with given
 // test case.
 type SourceTestScope func(auth, testCase, version string) bool
 
