@@ -46,7 +46,7 @@ func (a *Adapter) ConsumerMessageToHttpRequest(ctx context.Context, cm *sarama.C
 
 	if msg.ReadEncoding() != binding.EncodingUnknown {
 		// Message is a CloudEvent -> Encode directly to HTTP
-		return http.WriteRequest(ctx, msg, req)
+		return http.WriteRequest(cloudevents.WithEncodingBinary(ctx), msg, req)
 	}
 
 	a.logger.Debug("Message is not a CloudEvent -> We need to translate it to a valid CloudEvent")
