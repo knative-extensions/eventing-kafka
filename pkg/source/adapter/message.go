@@ -62,9 +62,14 @@ func (a *Adapter) ConsumerMessageToHttpRequest(ctx context.Context, cm *sarama.C
 
 	dumpKafkaMetaToEvent(&event, a.keyTypeMapper, cm.Key, kafkaMsg)
 
-	err := event.SetData(kafkaMsg.ContentType, kafkaMsg.Value)
-	if err != nil {
-		return err
+	if kafkaMsg.ContentType == "" {
+		// This avoids base64 encoding when sending as json structured
+		event.DataEncoded = kafkaMsg.Value
+	} else {
+		err := event.SetData(kafkaMsg.ContentType, kafkaMsg.Value)
+		if err != nil {
+			return err
+		}
 	}
 
 	return http.WriteRequest(ctx, binding.ToMessage(&event), req)
