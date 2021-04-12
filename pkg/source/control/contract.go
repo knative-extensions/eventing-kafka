@@ -27,7 +27,7 @@ const (
 )
 
 type KafkaSourceContract struct {
-	BootstrapServers []string
+	BootstrapServers []string `json:"bootstrapServers" required:"true"`
 	Topics           []string `json:"topics" required:"true"`
 	ConsumerGroup    string   `json:"consumerGroup" required:"true"`
 	KeyType          string   `json:"keyType" required:"false"`

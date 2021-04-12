@@ -265,8 +265,10 @@ func (a *Adapter) stopConsumerGroup() {
 }
 
 func (a *Adapter) startConsumerGroup(ctx context.Context, consumerGroupOptions ...consumer.SaramaConsumerHandlerOption) context.Context {
-	// I'm overwriting these to avoid creating a too big change here
-	// Note: Some parts of the config still comes from the env, hence this can't be trivially removed
+	// I'm overwriting these to avoid creating a too big change
+	// A proper solution is to pass the whole config through the control protocol
+	// But, this is still not possible, because some parts of the config still comes from the env,
+	// hence this can't be trivially removed. It will be, gradually
 	// TODO(slinkydeveloper) make client.NewConfig flexible to accept KafkaSourceContract too
 	a.config.KafkaEnvConfig.BootstrapServers = a.actualContract.BootstrapServers
 	a.keyTypeMapper = getKeyTypeMapper(a.actualContract.KeyType) // Maybe this one needs a lock

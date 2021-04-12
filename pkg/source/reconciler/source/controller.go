@@ -80,5 +80,25 @@ func NewController(
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
+	// TODO this doesn't seem right, fix it
+	podInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: controller.FilterControllerGK(v1alpha1.Kind("KafkaSource")),
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc: impl.EnqueueControllerOf,
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				// TODO fix
+				c.claimsNotificationStore.CleanPodNotification()
+				c.connectionPool.RemoveConnection()
+				impl.EnqueueControllerOf(newObj)
+			},
+			DeleteFunc: func(obj interface{}) {
+				// TODO fix
+				c.claimsNotificationStore.CleanPodNotification()
+				c.connectionPool.RemoveConnection()
+				impl.EnqueueControllerOf(obj)
+			},
+		},
+	})
+
 	return impl
 }
