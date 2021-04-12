@@ -19,13 +19,13 @@ package resources
 import (
 	"fmt"
 	"strconv"
-	"strings"
 
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 	"knative.dev/pkg/kmeta"
+
+	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 )
 
 type ReceiveAdapterArgs struct {
@@ -38,15 +38,6 @@ type ReceiveAdapterArgs struct {
 
 func MakeReceiveAdapter(args *ReceiveAdapterArgs) *v1.Deployment {
 	env := append([]corev1.EnvVar{{
-		Name:  "KAFKA_BOOTSTRAP_SERVERS",
-		Value: strings.Join(args.Source.Spec.BootstrapServers, ","),
-	}, {
-		Name:  "KAFKA_TOPICS",
-		Value: strings.Join(args.Source.Spec.Topics, ","),
-	}, {
-		Name:  "KAFKA_CONSUMER_GROUP",
-		Value: args.Source.Spec.ConsumerGroup,
-	}, {
 		Name:  "KAFKA_NET_SASL_ENABLE",
 		Value: strconv.FormatBool(args.Source.Spec.Net.SASL.Enable),
 	}, {
@@ -62,13 +53,6 @@ func MakeReceiveAdapter(args *ReceiveAdapterArgs) *v1.Deployment {
 		Name:  "NAMESPACE",
 		Value: args.Source.Namespace,
 	}}, args.AdditionalEnvs...)
-
-	if val, ok := args.Source.GetLabels()[v1beta1.KafkaKeyTypeLabel]; ok {
-		env = append(env, corev1.EnvVar{
-			Name:  "KEY_TYPE",
-			Value: val,
-		})
-	}
 
 	env = appendEnvFromSecretKeyRef(env, "KAFKA_NET_SASL_USER", args.Source.Spec.Net.SASL.User.SecretKeyRef)
 	env = appendEnvFromSecretKeyRef(env, "KAFKA_NET_SASL_PASSWORD", args.Source.Spec.Net.SASL.Password.SecretKeyRef)

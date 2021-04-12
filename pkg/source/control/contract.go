@@ -23,10 +23,12 @@ import (
 )
 
 const (
-	SetContract ctrl.OpCode = 3
+	SetContract           ctrl.OpCode = 3
+	NotifyContractUpdated ctrl.OpCode = 4
 )
 
 type KafkaSourceContract struct {
+	Generation       int64    `json:"generation" required:"true"`
 	BootstrapServers []string `json:"bootstrapServers" required:"true"`
 	Topics           []string `json:"topics" required:"true"`
 	ConsumerGroup    string   `json:"consumerGroup" required:"true"`
@@ -40,4 +42,27 @@ func (k KafkaSourceContract) MarshalBinary() (data []byte, err error) {
 func (k *KafkaSourceContract) UnmarshalBinary(data []byte) error {
 	// We might use something better than json here
 	return json.Unmarshal(data, k)
+}
+
+type UpdateResult struct {
+	Generation int64  `json:"generation" required:"true"`
+	Error      string `json:"error,omitempty" required:"false"`
+}
+
+func (k UpdateResult) MarshalBinary() (data []byte, err error) {
+	return json.Marshal(k)
+}
+
+func (k *UpdateResult) UnmarshalBinary(data []byte) error {
+	// We might use something better than json here
+	return json.Unmarshal(data, k)
+}
+
+func UpdateResultParser(payload []byte) (interface{}, error) {
+	var updateResult UpdateResult
+	err := (&updateResult).UnmarshalBinary(payload)
+	if err != nil {
+		return nil, err
+	}
+	return updateResult, nil
 }

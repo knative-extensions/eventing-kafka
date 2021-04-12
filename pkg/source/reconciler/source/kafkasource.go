@@ -106,9 +106,10 @@ type Reconciler struct {
 
 	configs KafkaSourceConfigAccessor
 
-	podIpGetter             ctrlreconciler.PodIpGetter
-	connectionPool          *ctrlreconciler.ControlPlaneConnectionPool
-	claimsNotificationStore *ctrlreconciler.NotificationStore
+	podIpGetter                     ctrlreconciler.PodIpGetter
+	connectionPool                  *ctrlreconciler.ControlPlaneConnectionPool
+	contractUpdateNotificationStore *ctrlreconciler.NotificationStore
+	claimsNotificationStore         *ctrlreconciler.NotificationStore
 }
 
 // Check that our Reconciler implements Interface
@@ -212,9 +213,15 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 					newHost,
 					kafkasourcecontrol.ClaimsDifference,
 				),
+				kafkasourcecontrol.NotifyContractUpdated: r.contractUpdateNotificationStore.MessageHandler(
+					srcNamespacedName,
+					newHost,
+					ctrlreconciler.PassNewValue,
+				),
 			})
 		},
 		func(oldHost string) {
+			r.contractUpdateNotificationStore.CleanPodNotification(srcNamespacedName, oldHost)
 			r.claimsNotificationStore.CleanPodNotification(srcNamespacedName, oldHost)
 		},
 	)
@@ -228,14 +235,35 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 
 	for host, conn := range connections {
 		err := conn.SendAndWaitForAck(kafkasourcecontrol.SetContract, kafkasourcecontrol.KafkaSourceContract{
+			Generation:       src.Generation,
 			BootstrapServers: src.Spec.BootstrapServers,
 			Topics:           src.Spec.Topics,
 			ConsumerGroup:    src.Spec.ConsumerGroup,
 			KeyType:          src.GetLabels()[v1beta1.KafkaKeyTypeLabel],
 		})
 		if err != nil {
+			src.Status.MarkFailedToPropagateDataPlaneContract("error while sending the contract to %s: %v", host, err)
 			return fmt.Errorf("error while sending the contract to %s: %w", host, err)
 		}
+		src.Status.MarkPropagatingContractToDataPlane()
+
+		lastUpdate, ok := r.contractUpdateNotificationStore.GetPodNotification(srcNamespacedName, host)
+		if !ok {
+			// Short-circuit while waiting for the update
+			return nil
+		}
+		lastUpdateVal := lastUpdate.(kafkasourcecontrol.UpdateResult)
+		if lastUpdateVal.Generation != src.Generation {
+			// Short-circuit while waiting for the update of this source contract
+			return nil
+		}
+
+		if lastUpdateVal.Error != "" {
+			src.Status.MarkFailedToPropagateDataPlaneContract("receive adapter '%s' failed to apply the new contract: %v", host, lastUpdateVal.Error)
+			return fmt.Errorf("receive adapter '%s' failed to apply the new contract: %v", host, lastUpdateVal.Error)
+		}
+
+		src.Status.MarkDataPlaneContractPropagated()
 	}
 
 	// Update consumer group status
@@ -252,6 +280,10 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, src *v1beta1.KafkaSource)
 	r.connectionPool.RemoveAllConnections(ctx, string(src.UID))
 
 	r.claimsNotificationStore.CleanPodsNotifications(types.NamespacedName{
+		Namespace: src.Namespace,
+		Name:      src.Name,
+	})
+	r.contractUpdateNotificationStore.CleanPodsNotifications(types.NamespacedName{
 		Namespace: src.Namespace,
 		Name:      src.Name,
 	})

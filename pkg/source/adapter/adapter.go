@@ -55,8 +55,8 @@ type AdapterConfig struct {
 	adapter.EnvConfig
 	client.KafkaEnvConfig
 
-	Topics        []string `envconfig:"KAFKA_TOPICS" required:"true"`
-	ConsumerGroup string   `envconfig:"KAFKA_CONSUMER_GROUP" required:"true"`
+	Topics        []string `envconfig:"KAFKA_TOPICS" required:"false"`
+	ConsumerGroup string   `envconfig:"KAFKA_CONSUMER_GROUP" required:"false"`
 	Name          string   `envconfig:"NAME" required:"true"`
 	KeyType       string   `envconfig:"KEY_TYPE" required:"false"`
 
@@ -247,12 +247,22 @@ func (a *Adapter) HandleSetContract(ctx context.Context, message ctrl.ServiceMes
 		return
 	}
 
+	a.stopConsumerGroup()
+
+	a.actualContract = &newContract
+
 	consumerContext, stopConsumer := context.WithCancel(ctx)
 	a.stopConsumer = stopConsumer
+	var startupError error
+	a.consumerStoppedSignal, startupError = a.startConsumerGroup(consumerContext, consumer.WithSaramaConsumerLifecycleListener(a))
 
-	a.stopConsumerGroup()
-	a.actualContract = &newContract
-	a.consumerStoppedSignal = a.startConsumerGroup(consumerContext, consumer.WithSaramaConsumerLifecycleListener(a))
+	updateResult := kafkasourcecontrol.UpdateResult{Generation: newContract.Generation}
+	if startupError != nil {
+		updateResult.Error = fmt.Sprintf("Error while starting the consumer group: %v", startupError)
+	}
+	if err := a.controlServer.SendAndWaitForAck(kafkasourcecontrol.NotifyContractUpdated, updateResult); err != nil {
+		a.logger.Errorf("Catastrophic failure: cannot contact the controller to notify the contract update: %v", err)
+	}
 }
 
 func (a *Adapter) stopConsumerGroup() {
@@ -264,7 +274,7 @@ func (a *Adapter) stopConsumerGroup() {
 	}
 }
 
-func (a *Adapter) startConsumerGroup(ctx context.Context, consumerGroupOptions ...consumer.SaramaConsumerHandlerOption) context.Context {
+func (a *Adapter) startConsumerGroup(ctx context.Context, consumerGroupOptions ...consumer.SaramaConsumerHandlerOption) (context.Context, error) {
 	// I'm overwriting these to avoid creating a too big change
 	// A proper solution is to pass the whole config through the control protocol
 	// But, this is still not possible, because some parts of the config still comes from the env,
@@ -277,10 +287,7 @@ func (a *Adapter) startConsumerGroup(ctx context.Context, consumerGroupOptions .
 
 	addrs, config, err := client.NewConfigWithEnv(context.Background(), &a.config.KafkaEnvConfig)
 	if err != nil {
-		// TODO(slinkydeveloper) this should be signaled back to the controller
-		//  It would be nice if the message handler can back-propagate this error more than doing manual stuff here!
-		//return fmt.Errorf("failed to create the config: %w", err)
-		return nil
+		return nil, fmt.Errorf("failed to create the config: %w", err)
 	}
 
 	consumerGroupFactory := consumer.NewConsumerGroupFactory(addrs, config)
@@ -292,10 +299,7 @@ func (a *Adapter) startConsumerGroup(ctx context.Context, consumerGroupOptions .
 		consumerGroupOptions...,
 	)
 	if err != nil {
-		// TODO(slinkydeveloper) this should be signaled back to the controller
-		//  It would be nice if the message handler can back-propagate this error more than doing manual stuff here!
-		//return fmt.Errorf("failed to start consumer group: %w", err)
-		return nil
+		return nil, fmt.Errorf("failed to start consumer group: %w", err)
 	}
 
 	closedSignal, cancel := context.WithCancel(context.Background())
@@ -316,9 +320,7 @@ func (a *Adapter) startConsumerGroup(ctx context.Context, consumerGroupOptions .
 			}
 		}
 	}()
-
-	// TODO(slinkydeveloper) at the end of this function, we need to signal back to the controller that the setup is done
-	return closedSignal
+	return closedSignal, nil
 }
 
 func (a *Adapter) Setup(sess sarama.ConsumerGroupSession) {

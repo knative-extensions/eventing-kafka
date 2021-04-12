@@ -34,6 +34,8 @@ const (
 	// KafkaConditionDeployed has status True when the KafkaSource has had it's receive adapter deployment created.
 	KafkaConditionDeployed apis.ConditionType = "Deployed"
 
+	KafkaConditionContractPropagation apis.ConditionType = "ContractPropagation"
+
 	// KafkaConditionKeyType is True when the KafkaSource has been configured with valid key type for
 	// the key deserializer.
 	KafkaConditionKeyType apis.ConditionType = "KeyTypeCorrect"
@@ -42,7 +44,9 @@ const (
 var (
 	KafkaSourceCondSet = apis.NewLivingConditionSet(
 		KafkaConditionSinkProvided,
-		KafkaConditionDeployed)
+		KafkaConditionDeployed,
+		KafkaConditionContractPropagation,
+	)
 
 	kafkaCondSetLock = sync.RWMutex{}
 )
@@ -121,6 +125,18 @@ func (s *KafkaSourceStatus) MarkDeploying(reason, messageFormat string, messageA
 // MarkNotDeployed sets the condition that the source has not been deployed.
 func (s *KafkaSourceStatus) MarkNotDeployed(reason, messageFormat string, messageA ...interface{}) {
 	KafkaSourceCondSet.Manage(s).MarkFalse(KafkaConditionDeployed, reason, messageFormat, messageA...)
+}
+
+func (s *KafkaSourceStatus) MarkPropagatingContractToDataPlane() {
+	KafkaSourceCondSet.Manage(s).MarkUnknown(KafkaConditionContractPropagation, "SentContractUpgrade", "Sent contract update to the receive adapter")
+}
+
+func (s *KafkaSourceStatus) MarkFailedToPropagateDataPlaneContract(messageFormat string, messageA ...interface{}) {
+	KafkaSourceCondSet.Manage(s).MarkFalse(KafkaConditionContractPropagation, "FailedDataPlaneContractPropagation", messageFormat, messageA...)
+}
+
+func (s *KafkaSourceStatus) MarkDataPlaneContractPropagated() {
+	KafkaSourceCondSet.Manage(s).MarkTrue(KafkaConditionContractPropagation)
 }
 
 func (s *KafkaSourceStatus) MarkKeyTypeCorrect() {

@@ -21,6 +21,7 @@ import (
 	"os"
 
 	"k8s.io/client-go/tools/cache"
+	ctrlservice "knative.dev/control-protocol/pkg/service"
 
 	"knative.dev/eventing/pkg/apis/sources/v1alpha1"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
@@ -63,12 +64,15 @@ func NewController(
 		loggingContext:      ctx,
 		configs:             WatchConfigurations(ctx, component, cmw),
 		podIpGetter:         ctrlreconciler.PodIpGetter{Lister: podInformer.Lister()},
-		connectionPool:      ctrlreconciler.NewInsecureControlPlaneConnectionPool(),
+		connectionPool: ctrlreconciler.NewInsecureControlPlaneConnectionPool(
+			ctrlreconciler.WithServiceWrapper(ctrlservice.WithCachingService(ctx)),
+		),
 	}
 
 	impl := kafkasource.NewImpl(ctx, c)
 	c.sinkResolver = resolver.NewURIResolver(ctx, impl.EnqueueKey)
 
+	c.contractUpdateNotificationStore = ctrlreconciler.NewNotificationStore(impl.EnqueueKey, kafkasourcecontrol.UpdateResultParser)
 	c.claimsNotificationStore = ctrlreconciler.NewNotificationStore(impl.EnqueueKey, kafkasourcecontrol.ClaimsParser)
 
 	logging.FromContext(ctx).Info("Setting up kafka event handlers")
@@ -80,24 +84,9 @@ func NewController(
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
-	// TODO this doesn't seem right, fix it
 	podInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.FilterControllerGK(v1alpha1.Kind("KafkaSource")),
-		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc: impl.EnqueueControllerOf,
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				// TODO fix
-				c.claimsNotificationStore.CleanPodNotification()
-				c.connectionPool.RemoveConnection()
-				impl.EnqueueControllerOf(newObj)
-			},
-			DeleteFunc: func(obj interface{}) {
-				// TODO fix
-				c.claimsNotificationStore.CleanPodNotification()
-				c.connectionPool.RemoveConnection()
-				impl.EnqueueControllerOf(obj)
-			},
-		},
+		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
 	return impl
