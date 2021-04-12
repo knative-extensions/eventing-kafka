@@ -345,9 +345,10 @@ func TestPostMessage_ServeHTTP_binary_mode(t *testing.T) {
 						Sink:      sinkServer.URL,
 						Namespace: "test",
 					},
-					Topics:        []string{"topic1", "topic2"},
-					ConsumerGroup: "group",
-					Name:          "test",
+					Topics:                 []string{"topic1", "topic2"},
+					ConsumerGroup:          "group",
+					Name:                   "test",
+					DisableControlProtocol: true,
 				},
 				httpMessageSender: s,
 				logger:            zap.NewNop().Sugar(),
@@ -435,7 +436,10 @@ func TestAdapter_Start(t *testing.T) { // just increase code coverage
 	// Increasing coverage
 	_ = os.Setenv("KAFKA_BOOTSTRAP_SERVERS", "my-cluster-kafka-bootstrap.my-kafka-namespace:9092")
 
-	a := NewAdapter(ctx, NewEnvConfig(), nil, nil)
+	adapterConfig := NewEnvConfig()
+	adapterConfig.(*AdapterConfig).DisableControlProtocol = true
+
+	a := NewAdapter(ctx, adapterConfig, nil, nil)
 	err := a.Start(ctx)
 	if err == nil {
 		t.Errorf("expected error, but got nil")

@@ -20,17 +20,11 @@ import (
 	"context"
 
 	"knative.dev/pkg/apis"
-	"knative.dev/pkg/kmp"
 )
 
 // Validate ensures KafkaSource is properly configured.
 func (ks *KafkaSource) Validate(ctx context.Context) *apis.FieldError {
-	errs := ks.Spec.Validate(ctx).ViaField("spec")
-	if apis.IsInUpdate(ctx) {
-		original := apis.GetBaseline(ctx).(*KafkaSource)
-		errs = errs.Also(ks.CheckImmutableFields(ctx, original))
-	}
-	return errs
+	return ks.Spec.Validate(ctx).ViaField("spec")
 }
 
 func (kss *KafkaSourceSpec) Validate(ctx context.Context) *apis.FieldError {
@@ -48,29 +42,4 @@ func (kss *KafkaSourceSpec) Validate(ctx context.Context) *apis.FieldError {
 	}
 
 	return errs
-}
-
-func (ks *KafkaSource) CheckImmutableFields(ctx context.Context, original *KafkaSource) *apis.FieldError {
-	if original == nil {
-		return nil
-	}
-	diff, err := kmp.ShortDiff(original.Spec.ConsumerGroup, ks.Spec.ConsumerGroup)
-
-	if err != nil {
-		return &apis.FieldError{
-			Message: "Failed to diff KafkaSource",
-			Paths:   []string{"spec"},
-			Details: err.Error(),
-		}
-	}
-
-	if diff != "" {
-		return &apis.FieldError{
-			Message: "Immutable fields changed (-old +new)",
-			Paths:   []string{"spec"},
-			Details: diff,
-		}
-	}
-
-	return nil
 }
