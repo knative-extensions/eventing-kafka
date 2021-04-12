@@ -60,8 +60,8 @@ events to Kafka topic, during the entire upgrade/downgrade process. When the
 upgrade completes, we make sure that all of those events propagated at least
 once.
 
-To achieve that
-a [wathola tool](https://pkg.go.dev/knative.dev/eventing/test/upgrade/prober/wathola)
+To achieve that a
+[wathola tool](https://pkg.go.dev/knative.dev/eventing/test/upgrade/prober/wathola)
 has been created. It consists of 4 components: _sender_, _forwarder_,
 _receiver_, and _fetcher_. _Sender_ is the usual Kubernetes deployment that
 publishes events to the system under tests (`KafkaSource` or `KafkaChannel`)
