@@ -24,12 +24,10 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
-	"sync"
 
 	"golang.org/x/time/rate"
 	ctrlservice "knative.dev/control-protocol/pkg/service"
 
-	ctrl "knative.dev/control-protocol/pkg"
 	ctrlnetwork "knative.dev/control-protocol/pkg/network"
 
 	"github.com/Shopify/sarama"
@@ -79,7 +77,7 @@ type Adapter struct {
 	rateLimiter       *rate.Limiter
 
 	// These are used only in case we're running in the DisableControlServer = false (aka for st kafka source)
-	reconfigurationLock   sync.Mutex
+	newContractCh         chan ctrlservice.AsyncCommandMessage
 	actualContract        *kafkasourcecontrol.KafkaSourceContract
 	stopConsumer          context.CancelFunc
 	consumerStoppedSignal context.Context
@@ -120,14 +118,35 @@ func (a *Adapter) Start(ctx context.Context) (err error) {
 		return a.mtSourceStart(ctx)
 	}
 
+	a.newContractCh = make(chan ctrlservice.AsyncCommandMessage)
+
 	// Register the control protocol server and the message handler
 	a.controlServer, err = ctrlnetwork.StartInsecureControlServer(ctx)
 	if err != nil {
 		return err
 	}
 	a.controlServer.MessageHandler(ctrlservice.MessageRouter{
-		kafkasourcecontrol.SetContract: ctrl.MessageHandlerFunc(a.HandleSetContract),
+		kafkasourcecontrol.SetContract: ctrlservice.NewAsyncCommandHandler(
+			a.controlServer,
+			&kafkasourcecontrol.KafkaSourceContract{},
+			kafkasourcecontrol.NotifyContractUpdated,
+			func(ctx context.Context, message ctrlservice.AsyncCommandMessage) {
+				a.newContractCh <- message
+			},
+		),
 	})
+
+	go func() {
+		for {
+			select {
+			case newContract := <-a.newContractCh:
+				a.handleSetContract(ctx, newContract)
+			case <-ctx.Done():
+				a.stopConsumerGroup()
+				return
+			}
+		}
+	}()
 
 	// At this point, we do nothing, waiting for the first contract to come
 	// Environment variables are ignored and all the configuration comes from the control plane through the control protocol
@@ -227,41 +246,28 @@ func (a *Adapter) SetRateLimits(r rate.Limit, b int) {
 	a.rateLimiter = rate.NewLimiter(r, b)
 }
 
-func (a *Adapter) HandleSetContract(ctx context.Context, message ctrl.ServiceMessage) {
-	newContract := kafkasourcecontrol.KafkaSourceContract{}
-	if err := newContract.UnmarshalBinary(message.Payload()); err != nil {
-		a.logger.Errorf("Catastrophic failure: received an unparsable contract. This sounds like a programming bug: %v", err)
-		message.Ack()
-		return
-	}
-
-	// We have the contract, we can ack back now
-	message.Ack()
-
-	// Let's lock and proceed with the changes
-	a.reconfigurationLock.Lock()
-	defer a.reconfigurationLock.Unlock()
+func (a *Adapter) handleSetContract(ctx context.Context, msg ctrlservice.AsyncCommandMessage) {
+	newContract := msg.ParsedCommand().(*kafkasourcecontrol.KafkaSourceContract)
 
 	if reflect.DeepEqual(&newContract, a.actualContract) {
 		// Nothing to do here
+		msg.NotifySuccess()
 		return
 	}
 
 	a.stopConsumerGroup()
 
-	a.actualContract = &newContract
+	a.actualContract = newContract
 
 	consumerContext, stopConsumer := context.WithCancel(ctx)
 	a.stopConsumer = stopConsumer
 	var startupError error
 	a.consumerStoppedSignal, startupError = a.startConsumerGroup(consumerContext, consumer.WithSaramaConsumerLifecycleListener(a))
 
-	updateResult := kafkasourcecontrol.UpdateResult{Generation: newContract.Generation}
-	if startupError != nil {
-		updateResult.Error = fmt.Sprintf("Error while starting the consumer group: %v", startupError)
-	}
-	if err := a.controlServer.SendAndWaitForAck(kafkasourcecontrol.NotifyContractUpdated, updateResult); err != nil {
-		a.logger.Errorf("Catastrophic failure: cannot contact the controller to notify the contract update: %v", err)
+	if startupError == nil {
+		msg.NotifySuccess()
+	} else {
+		msg.NotifyFailed(startupError)
 	}
 }
 

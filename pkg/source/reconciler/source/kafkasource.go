@@ -108,7 +108,7 @@ type Reconciler struct {
 
 	podIpGetter                     ctrlreconciler.PodIpGetter
 	connectionPool                  *ctrlreconciler.ControlPlaneConnectionPool
-	contractUpdateNotificationStore *ctrlreconciler.NotificationStore
+	contractUpdateNotificationStore *ctrlreconciler.AsyncCommandNotificationStore
 	claimsNotificationStore         *ctrlreconciler.NotificationStore
 }
 
@@ -216,7 +216,6 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 				kafkasourcecontrol.NotifyContractUpdated: r.contractUpdateNotificationStore.MessageHandler(
 					srcNamespacedName,
 					newHost,
-					ctrlreconciler.PassNewValue,
 				),
 			})
 		},
@@ -234,33 +233,29 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 	logging.FromContext(ctx).Debugf("Going to send the contract")
 
 	for host, conn := range connections {
-		err := conn.SendAndWaitForAck(kafkasourcecontrol.SetContract, kafkasourcecontrol.KafkaSourceContract{
+		contract := kafkasourcecontrol.KafkaSourceContract{
 			Generation:       src.Generation,
 			BootstrapServers: src.Spec.BootstrapServers,
 			Topics:           src.Spec.Topics,
 			ConsumerGroup:    src.Spec.ConsumerGroup,
 			KeyType:          src.GetLabels()[v1beta1.KafkaKeyTypeLabel],
-		})
+		}
+		err := conn.SendAndWaitForAck(kafkasourcecontrol.SetContract, contract)
 		if err != nil {
 			src.Status.MarkFailedToPropagateDataPlaneContract("error while sending the contract to %s: %v", host, err)
 			return fmt.Errorf("error while sending the contract to %s: %w", host, err)
 		}
 		src.Status.MarkPropagatingContractToDataPlane()
 
-		lastUpdate, ok := r.contractUpdateNotificationStore.GetPodNotification(srcNamespacedName, host)
-		if !ok {
+		commandResult := r.contractUpdateNotificationStore.GetCommandResult(srcNamespacedName, host, &contract)
+		if commandResult == nil {
 			// Short-circuit while waiting for the update
 			return nil
 		}
-		lastUpdateVal := lastUpdate.(kafkasourcecontrol.UpdateResult)
-		if lastUpdateVal.Generation != src.Generation {
-			// Short-circuit while waiting for the update of this source contract
-			return nil
-		}
 
-		if lastUpdateVal.Error != "" {
-			src.Status.MarkFailedToPropagateDataPlaneContract("receive adapter '%s' failed to apply the new contract: %v", host, lastUpdateVal.Error)
-			return fmt.Errorf("receive adapter '%s' failed to apply the new contract: %v", host, lastUpdateVal.Error)
+		if commandResult.Error != "" {
+			src.Status.MarkFailedToPropagateDataPlaneContract("receive adapter '%s' failed to apply the new contract: %v", host, commandResult.Error)
+			return fmt.Errorf("receive adapter '%s' failed to apply the new contract: %v", host, commandResult.Error)
 		}
 
 		src.Status.MarkDataPlaneContractPropagated()

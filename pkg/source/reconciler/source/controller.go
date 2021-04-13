@@ -72,7 +72,7 @@ func NewController(
 	impl := kafkasource.NewImpl(ctx, c)
 	c.sinkResolver = resolver.NewURIResolver(ctx, impl.EnqueueKey)
 
-	c.contractUpdateNotificationStore = ctrlreconciler.NewNotificationStore(impl.EnqueueKey, kafkasourcecontrol.UpdateResultParser)
+	c.contractUpdateNotificationStore = ctrlreconciler.NewAsyncCommandNotificationStore(impl.EnqueueKey)
 	c.claimsNotificationStore = ctrlreconciler.NewNotificationStore(impl.EnqueueKey, kafkasourcecontrol.ClaimsParser)
 
 	logging.FromContext(ctx).Info("Setting up kafka event handlers")

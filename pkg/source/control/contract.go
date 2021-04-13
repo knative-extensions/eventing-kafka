@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 
 	ctrl "knative.dev/control-protocol/pkg"
+	"knative.dev/control-protocol/pkg/message"
 )
 
 const (
@@ -35,6 +36,10 @@ type KafkaSourceContract struct {
 	KeyType          string   `json:"keyType" required:"false"`
 }
 
+func (k KafkaSourceContract) SerializedId() []byte {
+	return message.Int64CommandId(k.Generation)
+}
+
 func (k KafkaSourceContract) MarshalBinary() (data []byte, err error) {
 	return json.Marshal(k)
 }
@@ -42,27 +47,4 @@ func (k KafkaSourceContract) MarshalBinary() (data []byte, err error) {
 func (k *KafkaSourceContract) UnmarshalBinary(data []byte) error {
 	// We might use something better than json here
 	return json.Unmarshal(data, k)
-}
-
-type UpdateResult struct {
-	Generation int64  `json:"generation" required:"true"`
-	Error      string `json:"error,omitempty" required:"false"`
-}
-
-func (k UpdateResult) MarshalBinary() (data []byte, err error) {
-	return json.Marshal(k)
-}
-
-func (k *UpdateResult) UnmarshalBinary(data []byte) error {
-	// We might use something better than json here
-	return json.Unmarshal(data, k)
-}
-
-func UpdateResultParser(payload []byte) (interface{}, error) {
-	var updateResult UpdateResult
-	err := (&updateResult).UnmarshalBinary(payload)
-	if err != nil {
-		return nil, err
-	}
-	return updateResult, nil
 }
