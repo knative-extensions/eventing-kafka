@@ -25,14 +25,18 @@ import (
 	"knative.dev/eventing/pkg/apis/sources/v1alpha1"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	deploymentinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
+	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/resolver"
 
+	ctrlreconciler "knative.dev/control-protocol/pkg/reconciler"
+
 	kafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client"
 	kafkainformer "knative.dev/eventing-kafka/pkg/client/injection/informers/sources/v1beta1/kafkasource"
 	"knative.dev/eventing-kafka/pkg/client/injection/reconciler/sources/v1beta1/kafkasource"
+	kafkasourcecontrol "knative.dev/eventing-kafka/pkg/source/control"
 )
 
 func NewController(
@@ -48,6 +52,7 @@ func NewController(
 
 	kafkaInformer := kafkainformer.Get(ctx)
 	deploymentInformer := deploymentinformer.Get(ctx)
+	podInformer := podinformer.Get(ctx)
 
 	c := &Reconciler{
 		KubeClientSet:       kubeclient.Get(ctx),
@@ -57,10 +62,14 @@ func NewController(
 		receiveAdapterImage: raImage,
 		loggingContext:      ctx,
 		configs:             WatchConfigurations(ctx, component, cmw),
+		podIpGetter:         ctrlreconciler.PodIpGetter{Lister: podInformer.Lister()},
+		connectionPool:      ctrlreconciler.NewInsecureControlPlaneConnectionPool(),
 	}
 
 	impl := kafkasource.NewImpl(ctx, c)
 	c.sinkResolver = resolver.NewURIResolver(ctx, impl.EnqueueKey)
+
+	c.claimsNotificationStore = ctrlreconciler.NewNotificationStore(impl.EnqueueKey, kafkasourcecontrol.ClaimsParser)
 
 	logging.FromContext(ctx).Info("Setting up kafka event handlers")
 

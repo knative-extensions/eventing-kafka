@@ -16,14 +16,17 @@ limitations under the License.
 
 package dispatcher
 
-type Config struct {
-	// The configuration of each channel in this handler.
-	ChannelConfigs []ChannelConfig
-}
-
 type ChannelConfig struct {
 	Namespace     string
 	Name          string
 	HostName      string
 	Subscriptions []Subscription
+}
+
+func (cc ChannelConfig) SubscriptionsUIDs() []string {
+	res := make([]string, 0, len(cc.Subscriptions))
+	for _, s := range cc.Subscriptions {
+		res = append(res, string(s.UID))
+	}
+	return res
 }

@@ -32,11 +32,33 @@ type KafkaConsumerHandler interface {
 	GetConsumerGroup() string
 }
 
+type SaramaConsumerLifecycleListener interface {
+	// Setup is invoked when the consumer is joining the session
+	Setup(sess sarama.ConsumerGroupSession)
+
+	// Cleanup is invoked when the consumer is leaving the session
+	Cleanup(sess sarama.ConsumerGroupSession)
+}
+
+type noopSaramaConsumerLifecycleListener struct{}
+
+func (n noopSaramaConsumerLifecycleListener) Setup(sess sarama.ConsumerGroupSession) {}
+
+func (n noopSaramaConsumerLifecycleListener) Cleanup(sess sarama.ConsumerGroupSession) {}
+
+func WithSaramaConsumerLifecycleListener(listener SaramaConsumerLifecycleListener) SaramaConsumerHandlerOption {
+	return func(handler *SaramaConsumerHandler) {
+		handler.lifecycleListener = listener
+	}
+}
+
 // ConsumerHandler implements sarama.ConsumerGroupHandler and provides some glue code to simplify message handling
 // You must implement KafkaConsumerHandler and create a new SaramaConsumerHandler with it
 type SaramaConsumerHandler struct {
 	// The user message handler
 	handler KafkaConsumerHandler
+
+	lifecycleListener SaramaConsumerLifecycleListener
 
 	logger *zap.SugaredLogger
 
@@ -44,17 +66,27 @@ type SaramaConsumerHandler struct {
 	errors chan error
 }
 
-func NewConsumerHandler(logger *zap.SugaredLogger, handler KafkaConsumerHandler, errorsCh chan error) SaramaConsumerHandler {
-	return SaramaConsumerHandler{
-		logger:  logger,
-		handler: handler,
-		errors:  errorsCh,
+type SaramaConsumerHandlerOption func(*SaramaConsumerHandler)
+
+func NewConsumerHandler(logger *zap.SugaredLogger, handler KafkaConsumerHandler, errorsCh chan error, options ...SaramaConsumerHandlerOption) SaramaConsumerHandler {
+	sch := SaramaConsumerHandler{
+		handler:           handler,
+		lifecycleListener: noopSaramaConsumerLifecycleListener{},
+		logger:            logger,
+		errors:            errorsCh,
 	}
+
+	for _, f := range options {
+		f(&sch)
+	}
+
+	return sch
 }
 
 // Setup is run at the beginning of a new session, before ConsumeClaim
-func (consumer *SaramaConsumerHandler) Setup(sarama.ConsumerGroupSession) error {
+func (consumer *SaramaConsumerHandler) Setup(session sarama.ConsumerGroupSession) error {
 	consumer.logger.Info("setting up handler")
+	consumer.lifecycleListener.Setup(session)
 	return nil
 }
 
@@ -68,6 +100,7 @@ func (consumer *SaramaConsumerHandler) Cleanup(session sarama.ConsumerGroupSessi
 			consumer.handler.SetReady(p, false)
 		}
 	}
+	consumer.lifecycleListener.Cleanup(session)
 	return nil
 }
 

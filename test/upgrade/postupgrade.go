@@ -27,3 +27,11 @@ func ChannelPostUpgradeTest() pkgupgrade.Operation {
 			runChannelSmokeTest(c.T)
 		})
 }
+
+// SourcePostUpgradeTest tests source operations after upgrade.
+func SourcePostUpgradeTest() pkgupgrade.Operation {
+	return pkgupgrade.NewOperation("SourcePostUpgradeTest",
+		func(c pkgupgrade.Context) {
+			runSourceSmokeTest(c.T)
+		})
+}

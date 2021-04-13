@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	"knative.dev/eventing-kafka/test/e2e"
 	"knative.dev/eventing/test/e2e/helpers"
 )
 
@@ -38,6 +39,12 @@ func runChannelSmokeTest(t *testing.T) {
 	}
 }
 
+func runSourceSmokeTest(t *testing.T) {
+	e2e.AssureKafkaSourceIsOperational(t, func(auth, testCase, version string) bool {
+		return auth == "plain" && (testCase == "structured" || testCase == "binary")
+	})
+}
+
 type smokeTestCase struct {
 	name     string
 	encoding cloudevents.Encoding
@@ -50,16 +57,8 @@ func smokeTestCases() []smokeTestCase {
 		encoding: cloudevents.EncodingBinary,
 		version:  helpers.SubscriptionV1,
 	}, {
-		name:     "BinaryV1beta1",
-		encoding: cloudevents.EncodingBinary,
-		version:  helpers.SubscriptionV1beta1,
-	}, {
 		name:     "StructuredV1",
 		encoding: cloudevents.EncodingStructured,
 		version:  helpers.SubscriptionV1,
-	}, {
-		name:     "StructuredV1beta1",
-		encoding: cloudevents.EncodingStructured,
-		version:  helpers.SubscriptionV1beta1,
 	}}
 }

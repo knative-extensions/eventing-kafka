@@ -27,7 +27,7 @@ var newConsumerGroup = sarama.NewConsumerGroup
 
 // Kafka consumer factory creates the ConsumerGroup and start consuming the specified topic
 type KafkaConsumerGroupFactory interface {
-	StartConsumerGroup(groupID string, topics []string, logger *zap.SugaredLogger, handler KafkaConsumerHandler) (sarama.ConsumerGroup, error)
+	StartConsumerGroup(groupID string, topics []string, logger *zap.SugaredLogger, handler KafkaConsumerHandler, options ...SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error)
 }
 
 type kafkaConsumerGroupFactoryImpl struct {
@@ -53,7 +53,7 @@ func (c *customConsumerGroup) Close() error {
 
 var _ sarama.ConsumerGroup = (*customConsumerGroup)(nil)
 
-func (c kafkaConsumerGroupFactoryImpl) StartConsumerGroup(groupID string, topics []string, logger *zap.SugaredLogger, handler KafkaConsumerHandler) (sarama.ConsumerGroup, error) {
+func (c kafkaConsumerGroupFactoryImpl) StartConsumerGroup(groupID string, topics []string, logger *zap.SugaredLogger, handler KafkaConsumerHandler, options ...SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error) {
 	consumerGroup, err := newConsumerGroup(c.addrs, groupID, c.config)
 	if err != nil {
 		return nil, err
@@ -65,7 +65,7 @@ func (c kafkaConsumerGroupFactoryImpl) StartConsumerGroup(groupID string, topics
 	go func() {
 		defer close(errorCh)
 		for {
-			consumerHandler := NewConsumerHandler(logger, handler, errorCh)
+			consumerHandler := NewConsumerHandler(logger, handler, errorCh, options...)
 
 			err := consumerGroup.Consume(ctx, topics, &consumerHandler)
 			if err == sarama.ErrClosedConsumerGroup {

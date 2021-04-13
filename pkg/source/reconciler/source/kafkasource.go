@@ -22,6 +22,9 @@ import (
 	"fmt"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
+	ctrl "knative.dev/control-protocol/pkg"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
 
@@ -35,7 +38,11 @@ import (
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 
+	ctrlreconciler "knative.dev/control-protocol/pkg/reconciler"
+	ctrlservice "knative.dev/control-protocol/pkg/service"
+
 	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
+	kafkasourcecontrol "knative.dev/eventing-kafka/pkg/source/control"
 	"knative.dev/eventing-kafka/pkg/source/reconciler/source/resources"
 
 	"k8s.io/client-go/kubernetes"
@@ -98,6 +105,10 @@ type Reconciler struct {
 	sinkResolver *resolver.URIResolver
 
 	configs KafkaSourceConfigAccessor
+
+	podIpGetter             ctrlreconciler.PodIpGetter
+	connectionPool          *ctrlreconciler.ControlPlaneConnectionPool
+	claimsNotificationStore *ctrlreconciler.NotificationStore
 }
 
 // Check that our Reconciler implements Interface
@@ -170,6 +181,66 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 	src.Status.MarkDeployed(ra)
 	src.Status.CloudEventAttributes = r.createCloudEventAttributes(src)
 
+	logging.FromContext(ctx).Debugf("we have a RA deployment")
+
+	// We need to get all the pods for that ra deployment
+	podIPs, err := r.podIpGetter.GetAllPodsIp(src.Namespace, labels.Set(resources.GetLabels(src.Name)).AsSelector())
+	if err != nil {
+		return fmt.Errorf("error getting receive adapter pods %q: %v", ra.Name, err)
+	}
+
+	// Check if all the pods are up as they should be
+	if derefReplicas(ra.Spec.Replicas) != int32(len(podIPs)) {
+		return fmt.Errorf("returning because the numbers of pods deployed doesn't match the expected: %d", len(podIPs))
+	}
+
+	// Reconcile connections
+	srcNamespacedName := types.NamespacedName{Name: src.Name, Namespace: src.Namespace}
+	_, err = r.connectionPool.ReconcileConnections(
+		ctx,
+		string(src.UID),
+		podIPs,
+		func(newHost string, service ctrl.Service) {
+			service.MessageHandler(ctrlservice.MessageRouter{
+				kafkasourcecontrol.NotifySetupClaimsOpCode: r.claimsNotificationStore.MessageHandler(
+					srcNamespacedName,
+					newHost,
+					kafkasourcecontrol.ClaimsMerger,
+				),
+				kafkasourcecontrol.NotifyCleanupClaimsOpCode: r.claimsNotificationStore.MessageHandler(
+					srcNamespacedName,
+					newHost,
+					kafkasourcecontrol.ClaimsDifference,
+				),
+			})
+		},
+		func(oldHost string) {
+			r.claimsNotificationStore.CleanPodNotification(srcNamespacedName, oldHost)
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("error while reconciling connections: %w", err)
+	}
+
+	logging.FromContext(ctx).Debugf("Control connections reconciled")
+
+	// Update consumer group status
+	lastClaimStatus, ok := r.claimsNotificationStore.GetPodsNotifications(srcNamespacedName)
+	if ok {
+		src.Status.UpdateConsumerGroupStatus(stringifyClaimsStatus(lastClaimStatus))
+	}
+
+	return nil
+}
+
+func (r *Reconciler) FinalizeKind(ctx context.Context, src *v1beta1.KafkaSource) pkgreconciler.Event {
+	// Cleanup all the connections in the connection pool associated to src
+	r.connectionPool.RemoveAllConnections(ctx, string(src.UID))
+
+	r.claimsNotificationStore.CleanPodsNotifications(types.NamespacedName{
+		Namespace: src.Namespace,
+		Name:      src.Name,
+	})
 	return nil
 }
 
@@ -209,7 +280,7 @@ func (r *Reconciler) createReceiveAdapter(ctx context.Context, src *v1beta1.Kafk
 			return ra, err
 		}
 		return ra, deploymentUpdated(ra.Namespace, ra.Name)
-	} else if deref(ra.Spec.Replicas) != deref(expected.Spec.Replicas) {
+	} else if derefReplicas(ra.Spec.Replicas) != derefReplicas(expected.Spec.Replicas) {
 		ra.Spec.Replicas = expected.Spec.Replicas
 		if ra, err = r.KubeClientSet.AppsV1().Deployments(src.Namespace).Update(ctx, ra, metav1.UpdateOptions{}); err != nil {
 			return ra, err
@@ -257,9 +328,17 @@ func (r *Reconciler) createCloudEventAttributes(src *v1beta1.KafkaSource) []duck
 	return ceAttributes
 }
 
-func deref(i *int32) int32 {
+func derefReplicas(i *int32) int32 {
 	if i == nil {
 		return 1
 	}
 	return *i
+}
+
+func stringifyClaimsStatus(status map[string]interface{}) string {
+	strs := make([]string, 0, len(status))
+	for podIp, claims := range status {
+		strs = append(strs, fmt.Sprintf("Pod %s: %v", podIp, claims))
+	}
+	return strings.Join(strs, "\n")
 }

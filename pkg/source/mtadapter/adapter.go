@@ -133,9 +133,10 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) {
 				},
 			},
 		},
-		Topics:        obj.Spec.Topics,
-		ConsumerGroup: obj.Spec.ConsumerGroup,
-		Name:          obj.Name,
+		Topics:               obj.Spec.Topics,
+		ConsumerGroup:        obj.Spec.ConsumerGroup,
+		Name:                 obj.Name,
+		DisableControlServer: true,
 	}
 
 	if val, ok := obj.GetLabels()[v1beta1.KafkaKeyTypeLabel]; ok {

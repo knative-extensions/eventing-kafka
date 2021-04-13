@@ -406,6 +406,8 @@ func (d *DispatcherImpl) ObserveMetrics(interval time.Duration) {
 	// Fork A New Process To Run Async Metrics Collection
 	go func() {
 
+		metricsTimer := time.NewTimer(interval)
+
 		// Infinite Loop For Periodically Observing Sarama Metrics From Registry
 		for {
 
@@ -416,12 +418,15 @@ func (d *DispatcherImpl) ObserveMetrics(interval time.Duration) {
 				close(d.MetricsStoppedChan)
 				return
 
-			case <-time.After(interval):
+			case <-metricsTimer.C:
 				// Get All The Sarama Metrics From The Producer's Metrics Registry
 				kafkaMetrics := d.MetricsRegistry.GetAll()
 
 				// Forward Metrics To Prometheus For Observation
 				d.StatsReporter.Report(kafkaMetrics)
+
+				// Schedule Another Report
+				metricsTimer.Reset(interval)
 			}
 		}
 	}()

@@ -187,7 +187,7 @@ function install_knative_eventing {
     ko apply -f "${EVENTING_IN_MEMORY_CHANNEL_CONFIG}"
     popd
   fi
-  wait_until_pods_running "${EVENTING_NAMESPACE}" || fail_test "Knative Eventing did not come up"
+   wait_until_pods_running "${EVENTING_NAMESPACE}" || fail_test "Knative Eventing did not come up"
 
   install_zipkin
 }
@@ -315,12 +315,40 @@ function install_consolidated_channel_crds {
   wait_until_pods_running "${SYSTEM_NAMESPACE}"
 }
 
+function install_released_consolidated_source {
+  install_consolidated_sources_crds latest-release
+}
+
+function install_head_consolidated_source {
+  install_consolidated_sources_crds HEAD
+}
+
 function install_consolidated_sources_crds() {
-  echo "Installing consolidated Kafka Source CRD"
-  rm -rf "${KAFKA_SOURCE_CRD_CONFIG_DIR}" && mkdir -p "${KAFKA_SOURCE_CRD_CONFIG_DIR}"
-  cp "${KAFKA_SOURCE_TEMPLATE_DIR}/"*yaml "${KAFKA_SOURCE_CRD_CONFIG_DIR}"
-  sed -i "s/namespace: knative-eventing/namespace: ${SYSTEM_NAMESPACE}/g" "${KAFKA_SOURCE_CRD_CONFIG_DIR}/"*yaml
-  ko apply -f "${KAFKA_SOURCE_CRD_CONFIG_DIR}" || return 1
+  local source url ver release_yaml
+  source="${1:-HEAD}"
+  if [[ "${source}" == 'HEAD' ]]; then
+    echo "Installing consolidated Kafka Source CRD (from HEAD)"
+    rm -rf "${KAFKA_SOURCE_CRD_CONFIG_DIR}" && mkdir -p "${KAFKA_SOURCE_CRD_CONFIG_DIR}"
+    cp "${KAFKA_SOURCE_TEMPLATE_DIR}/"*yaml "${KAFKA_SOURCE_CRD_CONFIG_DIR}"
+    sed -i "s/namespace: knative-eventing/namespace: ${SYSTEM_NAMESPACE}/g" "${KAFKA_SOURCE_CRD_CONFIG_DIR}/"*yaml
+    ko apply -f "${KAFKA_SOURCE_CRD_CONFIG_DIR}" || return $?
+  elif [[ "${source}" == 'latest-release' ]]; then
+    ver="${LATEST_RELEASE_VERSION}"
+    echo "Installing consolidated Kafka Source CRD (from latest release: ${ver})"
+    # Download the latest release of Knative Eventing Kafka.
+    url="${EVENTING_KAFKA_REPO}/releases/download/${ver}/source.yaml"
+    release_yaml="${ARTIFACTS}/source-${ver}.yaml"
+
+    curl -Lo "${release_yaml}" "${url}"
+    sed -i "s/namespace: knative-eventing/namespace: ${SYSTEM_NAMESPACE}/g" \
+      "${release_yaml}"
+    echo "Applying: ${release_yaml}"
+    kubectl apply -f "${release_yaml}"
+  else
+    fail_test "Unsupported source of installation: ${source}"
+    return 56
+  fi
+
   run_postinstall_jobs
   wait_until_pods_running "${EVENTING_NAMESPACE}" || fail_test "Failed to install the consolidated Kafka Source CRD"
 }

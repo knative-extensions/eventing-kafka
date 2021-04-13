@@ -61,7 +61,6 @@ type Reconciler struct {
 	kafkachannelInformer cache.SharedIndexInformer
 	deploymentLister     appsv1listers.DeploymentLister
 	serviceLister        corev1listers.ServiceLister
-	configObserver       commonconfig.LoggingObserver
 	adminMutex           *sync.Mutex
 	kafkaSecret          string
 	kafkaBrokers         string
@@ -230,8 +229,8 @@ func (r *Reconciler) reconcile(ctx context.Context, channel *kafkav1beta1.KafkaC
 	return nil
 }
 
-// configMapObserver is the callback function that handles changes to our ConfigMap
-func (r *Reconciler) configMapObserver(ctx context.Context, configMap *corev1.ConfigMap) {
+// updateKafkaConfig is the callback function that handles changes to our ConfigMap
+func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.ConfigMap) {
 	logger := logging.FromContext(ctx)
 
 	if r == nil {
@@ -244,26 +243,20 @@ func (r *Reconciler) configMapObserver(ctx context.Context, configMap *corev1.Co
 		return
 	}
 
+	logger.Info("Reloading Kafka configuration")
+
+	// Validate The ConfigMap Data
+	if configMap.Data == nil {
+		logger.Fatal("Attempted to merge sarama settings with empty configmap", zap.Any("configMap", configMap))
+		return
+	}
+
 	// Enable Sarama Logging If Specified In ConfigMap
 	if ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap); err == nil && ekConfig != nil {
 		kafkasarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)
 		logger.Debug("Updated Sarama logging", zap.Any("configMap", configMap), zap.Bool("Kafka.EnableSaramaLogging", ekConfig.Kafka.EnableSaramaLogging))
 	} else {
 		logger.Error("Could Not Extract Eventing-Kafka Setting From Updated ConfigMap", zap.Any("configMap", configMap), zap.Error(err))
-	}
-
-	// Though the new configmap could technically have changes to the eventing-kafka section
-	// (aside from the Sarama logging) as well as the sarama section, we currently do not do
-	// anything proactive based on configuration changes to those items.  The only component
-	// in the controller that uses any of the fields after startup currently is the AdminClient,
-	// which simply uses the r.saramaConfig set here whenever necessary.  This means that calling
-	// env.GetEnvironment is not necessary now.  If	those settings are needed in the future, the
-	// environment will also need to be re-parsed here.
-
-	// Validate The ConfigMap Data
-	if configMap.Data == nil {
-		logger.Fatal("Attempted to merge sarama settings with empty configmap", zap.Any("configMap", configMap))
-		return
 	}
 
 	// Get The Sarama Config Yaml From The ConfigMap

@@ -67,6 +67,22 @@ func ChannelContinualTest() pkgupgrade.BackgroundOperation {
 		"ChannelContinualTest", setup, verify)
 }
 
+// SourceContinualTest tests source operation in continual manner during the
+// whole upgrade and downgrade process asserting that all event are propagated
+// well.
+func SourceContinualTest() pkgupgrade.BackgroundOperation {
+	setup := func(c pkgupgrade.Context) {
+		// TODO: not yet implemented
+		c.Log.Warn("TODO: not yet implemented")
+	}
+	verify := func(c pkgupgrade.Context) {
+		// TODO: not yet implemented
+		c.Log.Warn("TODO: not yet implemented")
+	}
+	return pkgupgrade.NewBackgroundVerification(
+		"SourceContinualTest", setup, verify)
+}
+
 func configureKafkaChannelAsDefault(
 	c pkgupgrade.Context,
 	ctx context.Context,

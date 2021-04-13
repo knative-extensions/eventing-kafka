@@ -22,5 +22,6 @@ import pkgupgrade "knative.dev/pkg/test/upgrade"
 func GitHead() pkgupgrade.Operation {
 	return pkgupgrade.NewOperation("GitHead", func(c pkgupgrade.Context) {
 		runShellFunc("install_head_consolidated_channel", c)
+		runShellFunc("install_head_consolidated_source", c)
 	})
 }

@@ -28,3 +28,11 @@ func ChannelPostDowngradeTest() pkgupgrade.Operation {
 			runChannelSmokeTest(c.T)
 		})
 }
+
+// SourcePostDowngradeTest tests source operations after downgrade.
+func SourcePostDowngradeTest() pkgupgrade.Operation {
+	return pkgupgrade.NewOperation("SourcePostDowngradeTest",
+		func(c pkgupgrade.Context) {
+			runSourceSmokeTest(c.T)
+		})
+}

@@ -26,9 +26,5 @@ import (
 )
 
 func TestChannelChain(t *testing.T) {
-	helpers.ChannelChainTestHelper(context.Background(), t, helpers.SubscriptionV1beta1, channelTestRunner)
-}
-
-func TestChannelChainV1(t *testing.T) {
 	helpers.ChannelChainTestHelper(context.Background(), t, helpers.SubscriptionV1, channelTestRunner)
 }

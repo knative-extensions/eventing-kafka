@@ -22,5 +22,6 @@ import pkgupgrade "knative.dev/pkg/test/upgrade"
 func LatestStable() pkgupgrade.Operation {
 	return pkgupgrade.NewOperation("LatestStable", func(c pkgupgrade.Context) {
 		runShellFunc("install_released_consolidated_channel", c)
+		runShellFunc("install_released_consolidated_source", c)
 	})
 }
