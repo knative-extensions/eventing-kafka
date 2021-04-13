@@ -568,10 +568,22 @@ func (r *Reconciler) deleteTopic(ctx context.Context, channel *v1beta1.KafkaChan
 
 func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.ConfigMap) {
 	logger := logging.FromContext(ctx)
+
+	if r == nil {
+		// This typically happens during startup and can be ignored
+		return
+	}
+
+	if configMap == nil {
+		logger.Warn("Nil ConfigMap passed to configMapObserver; ignoring")
+		return
+	}
+
 	logger.Info("Reloading Kafka configuration")
 	kafkaConfig, err := utils.GetKafkaConfig(configMap.Data)
 	if err != nil {
 		logger.Errorw("Error reading Kafka configuration", zap.Error(err))
+		return
 	}
 
 	if kafkaConfig.AuthSecretName != "" {
@@ -583,11 +595,6 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 	r.kafkaConfig = kafkaConfig
 	r.kafkaConfigError = err
 	r.kafkaConfigMapHash = configmapDataCheckSum(configMap)
-
-	if err != nil {
-		logger.Errorw("Error creating AdminClient", zap.Error(err))
-		return
-	}
 }
 
 func (r *Reconciler) FinalizeKind(ctx context.Context, kc *v1beta1.KafkaChannel) pkgreconciler.Event {
