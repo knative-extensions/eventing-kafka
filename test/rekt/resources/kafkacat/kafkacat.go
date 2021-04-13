@@ -68,13 +68,17 @@ func WithTopic(topic string) CfgFn {
 // WithKey adds the key to the kafkacat argument list.
 func WithKey(key string) CfgFn {
 	return func(cfg map[string]interface{}) {
-		cfg["key"] = key
+		if key != "" {
+			cfg["key"] = key
+		}
 	}
 }
 
 // WithHeaders adds the headers to the kafkacat argument list.
 func WithHeaders(headers map[string]string) CfgFn {
 	return func(cfg map[string]interface{}) {
-		cfg["headers"] = headers
+		if len(headers) > 0 {
+			cfg["headers"] = headers
+		}
 	}
 }
