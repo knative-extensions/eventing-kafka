@@ -20,54 +20,37 @@ import (
 	"context"
 	"time"
 
-	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/client-go/informers"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 
-	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/watch"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 	"knative.dev/eventing-kafka/pkg/common/client"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	"knative.dev/pkg/logging"
 )
 
 type SecretObserver func(ctx context.Context, secret *corev1.Secret)
 
 //
-// Initialize The Specified Context With A Secret Watcher
+// Initialize The Specified Context With A Secret Informer
 //
-func InitializeSecretWatcher(ctx context.Context, namespace string, name string, observer SecretObserver) error {
+func InitializeSecretWatcher(ctx context.Context, namespace string, name string, resyncTime time.Duration, observer SecretObserver) error {
 
 	logger := logging.FromContext(ctx)
-	secrets := kubeclient.Get(ctx).CoreV1().Secrets(namespace)
-	watcher, err := secrets.Watch(ctx, metav1.ListOptions{FieldSelector: fields.OneTermEqualSelector("metadata.name", name).String()})
-	if err != nil {
-		logger.Error("Failed to start secret watcher", zap.Error(err))
-	}
+	secretsInformer := informers.NewSharedInformerFactoryWithOptions(
+		kubeclient.Get(ctx), resyncTime, informers.WithNamespace(namespace)).Core().V1().Secrets().Informer()
+	secretsInformer.AddEventHandler(controller.HandleAll(func(object interface{}) {
+		secret, ok := object.(*corev1.Secret)
+		if ok && secret.Name == name {
+			observer(ctx, secret)
+		}
+	}))
 
 	go func() {
-		defer watcher.Stop()
-
-		for {
-			select {
-			case <-ctx.Done():
-				logger.Info("Stopped Secret Watcher")
-				return
-			case event := <-watcher.ResultChan():
-				// We only care if the secret was modified or added
-				if event.Type == watch.Added || event.Type == watch.Modified {
-					if secret, ok := event.Object.(*corev1.Secret); ok {
-						observer(ctx, secret)
-					} else {
-						logger.Error("Could not convert watched object to Secret", zap.Any("event.Object", event.Object))
-					}
-				}
-			case <-time.After(5 * time.Second):
-				// Don't hang a shutdown waiting for an event
-			}
-		}
-
+		secretsInformer.Run(ctx.Done())
+		logger.Info("Stopped Secret Watcher")
 	}()
 
 	return nil

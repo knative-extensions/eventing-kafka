@@ -133,7 +133,7 @@ func TestInitializeSecretWatcher(t *testing.T) {
 	assert.Equal(t, string(testSecret.Data[kafkaconstants.KafkaSecretKeySaslType]), commontesting.OldAuthSaslType)
 
 	// Perform The Test (Initialize The Secret Watcher)
-	err = InitializeSecretWatcher(ctx, system.Namespace(), constants.SettingsSecretName, secretWatcherHandler)
+	err = InitializeSecretWatcher(ctx, system.Namespace(), constants.SettingsSecretName, 10*time.Second, secretWatcherHandler)
 	assert.Nil(t, err)
 
 	// The secretWatcherHandler should change this back to a valid Secret after the watcher is triggered
@@ -150,10 +150,9 @@ func TestInitializeSecretWatcher(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, string(testSecret.Data[kafkaconstants.KafkaSecretKeyPassword]), commontesting.NewAuthPassword)
 
-	// Wait for the secretWatcherHandler to be called (happens pretty quickly; loop usually only runs once)
-	for try := 0; getWatchedSecret() == nil && try < 100; try++ {
-		time.Sleep(5 * time.Millisecond)
-	}
+	// Wait for the secretWatcherHandler to be called
+	assert.Eventually(t, func() bool { return getWatchedSecret() != nil }, 500*time.Millisecond, 5*time.Millisecond)
+
 	assert.NotNil(t, getWatchedSecret())
 	assert.Equal(t, string(testSecret.Data[kafkaconstants.KafkaSecretKeyUsername]), commontesting.NewAuthUsername)
 	assert.Equal(t, string(testSecret.Data[kafkaconstants.KafkaSecretKeyPassword]), commontesting.NewAuthPassword)
