@@ -84,7 +84,7 @@ func MakeDispatcher(args DispatcherArgs) *v1.Deployment {
 							}},
 							VolumeMounts: []corev1.VolumeMount{
 								{
-									Name:      "config-kafka",
+									Name:      constants.SettingsConfigMapName,
 									MountPath: constants.SettingsConfigMapMountPath,
 								},
 							},
@@ -92,7 +92,7 @@ func MakeDispatcher(args DispatcherArgs) *v1.Deployment {
 					},
 					Volumes: []corev1.Volume{
 						{
-							Name: "config-kafka",
+							Name: constants.SettingsConfigMapName,
 							VolumeSource: corev1.VolumeSource{
 								ConfigMap: &corev1.ConfigMapVolumeSource{
 									LocalObjectReference: corev1.LocalObjectReference{
