@@ -35,6 +35,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
@@ -469,6 +470,22 @@ func (r *Reconciler) newDispatcherDeployment(logger *zap.Logger, channel *kafkav
 								Limits:   resourceLimits,
 								Requests: resourceRequests,
 							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      commonconstants.SettingsConfigMapName,
+									MountPath: commonconstants.SettingsConfigMapMountPath,
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: commonconstants.SettingsConfigMapName,
+							VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: commonconstants.SettingsConfigMapName,
+								},
+							}},
 						},
 					},
 				},
