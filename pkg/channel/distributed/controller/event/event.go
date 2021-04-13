@@ -39,6 +39,10 @@ const (
 	// Receiver (Kafka Producer) Reconciliation
 	ReceiverServiceReconciliationFailed
 	ReceiverDeploymentReconciliationFailed
+	ReceiverServiceUpdated
+	ReceiverDeploymentUpdated
+	ReceiverServiceUpdateFailed
+	ReceiverDeploymentUpdateFailed
 
 	// Kafka Topic Reconciliation
 	KafkaTopicReconciliationFailed
@@ -50,6 +54,8 @@ const (
 	DispatcherDeploymentFinalizationFailed
 	DispatcherDeploymentUpdated
 	DispatcherDeploymentUpdateFailed
+	DispatcherServiceUpdated
+	DispatcherServiceUpdateFailed
 
 	// Kafka Secret Reconciliation
 	KafkaSecretReconciled
@@ -80,6 +86,14 @@ func (et CoreV1EventType) String() string {
 		eventTypeString = "ReceiverServiceReconciliationFailed"
 	case ReceiverDeploymentReconciliationFailed:
 		eventTypeString = "ReceiverDeploymentReconciliationFailed"
+	case ReceiverServiceUpdated:
+		eventTypeString = "ReceiverServiceUpdated"
+	case ReceiverDeploymentUpdated:
+		eventTypeString = "ReceiverDeploymentUpdated"
+	case ReceiverServiceUpdateFailed:
+		eventTypeString = "ReceiverServiceUpdateFailed"
+	case ReceiverDeploymentUpdateFailed:
+		eventTypeString = "ReceiverDeploymentUpdateFailed"
 	case ChannelStatusReconciliationFailed:
 		eventTypeString = "ChannelStatusReconciliationFailed"
 	case KafkaTopicReconciliationFailed:
@@ -96,6 +110,10 @@ func (et CoreV1EventType) String() string {
 		eventTypeString = "DispatcherDeploymentUpdated"
 	case DispatcherDeploymentUpdateFailed:
 		eventTypeString = "DispatcherDeploymentUpdateFailed"
+	case DispatcherServiceUpdated:
+		eventTypeString = "DispatcherServiceUpdated"
+	case DispatcherServiceUpdateFailed:
+		eventTypeString = "DispatcherServiceUpdateFailed"
 	case KafkaSecretReconciled:
 		eventTypeString = "KafkaSecretReconciled"
 	case KafkaSecretFinalized:

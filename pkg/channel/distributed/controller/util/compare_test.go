@@ -134,3 +134,88 @@ func withExtraContainer(deployment *appsv1.Deployment) {
 func withDifferentImage(deployment *appsv1.Deployment) {
 	deployment.Spec.Template.Spec.Containers[0].Image = "TestNewImage"
 }
+
+type serviceOption func(*corev1.Service)
+
+// Tests the CheckServiceChanged functionality.  Note that this is also tested fairly extensively
+// as part of the various reconciler tests, and as such the service structs used here are somewhat trivial.
+func TestCheckServiceChanged(t *testing.T) {
+	tests := []struct {
+		name            string
+		existingService *corev1.Service
+		newService      *corev1.Service
+		expectUpdated   bool
+	}{
+		{
+			name:            "Different Cluster IP",
+			existingService: getBasicService(),
+			newService:      getBasicService(withDifferentClusterIP),
+		},
+		{
+			name:            "Missing Required Label",
+			existingService: getBasicService(),
+			newService:      getBasicService(withServiceLabel),
+			expectUpdated:   true,
+		},
+		{
+			name:            "Missing Ports",
+			existingService: getBasicService(withoutPorts),
+			newService:      getBasicService(),
+			expectUpdated:   true,
+		},
+		{
+			name:            "Extra Existing Label",
+			existingService: getBasicService(withServiceLabel),
+			newService:      getBasicService(),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			newService := tt.newService
+			if newService == nil {
+				newService = getBasicService()
+			}
+			updatedService, isUpdated := CheckServiceChanged(tt.existingService, tt.newService)
+			assert.NotNil(t, updatedService)
+			assert.Equal(t, tt.expectUpdated, isUpdated)
+		})
+	}
+}
+
+func getBasicService(options ...serviceOption) *corev1.Service {
+	service := &corev1.Service{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: corev1.SchemeGroupVersion.String(),
+			Kind:       constants.ServiceKind,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "TestService",
+			Namespace: "TestNamespace",
+			Labels:    make(map[string]string),
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{{
+				Name: "TestServicePort",
+			}},
+		},
+	}
+
+	// Apply any desired customizations
+	for _, option := range options {
+		option(service)
+	}
+
+	return service
+}
+
+func withServiceLabel(service *corev1.Service) {
+	service.Labels["TestLabelName"] = "TestLabelValue"
+}
+
+func withDifferentClusterIP(service *corev1.Service) {
+	service.Spec.ClusterIP = "DifferentClusterIP"
+}
+
+func withoutPorts(service *corev1.Service) {
+	service.Spec.Ports = nil
+}

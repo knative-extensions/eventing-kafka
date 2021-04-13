@@ -187,6 +187,33 @@ func WithoutFinalizersDeployment(deployment *appsv1.Deployment) {
 	deployment.ObjectMeta.Finalizers = []string{}
 }
 
+func WithoutServicePorts(service *corev1.Service) {
+	service.Spec.Ports = []corev1.ServicePort{}
+}
+
+func WithoutServiceSelector(service *corev1.Service) {
+	service.Spec.Selector = map[string]string{}
+}
+
+func WithoutServiceLabels(service *corev1.Service) {
+	service.Labels = map[string]string{}
+}
+
+func WithExtraServiceLabels(service *corev1.Service) {
+	service.Labels["ExtraLabelName"] = "ExtraLabelValue"
+}
+
+func WithDifferentServiceStatus(service *corev1.Service) {
+	service.Status.LoadBalancer = corev1.LoadBalancerStatus{
+		Ingress: []corev1.LoadBalancerIngress{
+			{
+				IP:       "1.2.3.4",
+				Hostname: "DifferentHostname",
+			},
+		},
+	}
+}
+
 func WithoutResources(deployment *appsv1.Deployment) {
 	deployment.Spec.Template.Spec.Containers[0].Resources.Limits = nil
 	deployment.Spec.Template.Spec.Containers[0].Resources.Requests = nil
@@ -544,6 +571,11 @@ func WithReceiverServiceFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
 	kafkachannel.Status.MarkServiceFailed(event.ReceiverServiceReconciliationFailed.String(), "Receiver Service Failed: inducing failure for create services")
 }
 
+// Set The KafkaChannel's Receiver Service As Failed
+func WithReceiverServiceUpdateFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
+	kafkachannel.Status.MarkServiceFailed(event.ReceiverServiceReconciliationFailed.String(), "Receiver Service Failed: inducing failure for update services")
+}
+
 // Set The KafkaChannel's Receiver Service As Finalized
 func WithReceiverServiceFinalized(kafkachannel *kafkav1beta1.KafkaChannel) {
 	kafkachannel.Status.MarkServiceFailed("ChannelServiceUnavailable", "Kafka Auth Secret Finalized")
@@ -557,6 +589,11 @@ func WithReceiverDeploymentReady(kafkachannel *kafkav1beta1.KafkaChannel) {
 // Set The KafkaChannel's Receiver Deployment As Failed
 func WithReceiverDeploymentFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
 	kafkachannel.Status.MarkEndpointsFailed(event.ReceiverDeploymentReconciliationFailed.String(), "Receiver Deployment Failed: inducing failure for create deployments")
+}
+
+// Set The KafkaChannel's Receiver Deployment Update As Failed
+func WithReceiverDeploymentUpdateFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
+	kafkachannel.Status.MarkEndpointsFailed(event.ReceiverDeploymentReconciliationFailed.String(), "Receiver Deployment Failed: inducing failure for update deployments")
 }
 
 // Set The KafkaChannel's Receiver Deployment As Finalized
@@ -579,6 +616,10 @@ func WithDispatcherFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
 // Set The KafkaChannel's Dispatcher Update As Failed
 func WithDispatcherUpdateFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
 	kafkachannel.Status.MarkDispatcherFailed(event.DispatcherDeploymentUpdateFailed.String(), "Failed To Update Dispatcher Deployment: inducing failure for update deployments")
+}
+
+func WithDispatcherServiceUpdateFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
+	kafkachannel.Status.MarkDispatcherFailed(event.DispatcherServiceUpdateFailed.String(), "Failed To Update Dispatcher Service: inducing failure for update services")
 }
 
 // Set The KafkaChannel's Topic READY
@@ -1074,14 +1115,49 @@ func NewFinalizerPatchActionImpl() clientgotesting.PatchActionImpl {
 	}
 }
 
+// Utility Function For Creating A Receiver Deployment Updated Event
+func NewReceiverDeploymentUpdatedEvent() string {
+	return reconcilertesting.Eventf(corev1.EventTypeNormal, event.ReceiverDeploymentUpdated.String(), "Receiver Deployment Updated")
+}
+
+// Utility Function For Creating A Receiver Deployment Update Failure Event
+func NewReceiverDeploymentUpdateFailedEvent() string {
+	return reconcilertesting.Eventf(corev1.EventTypeWarning, event.ReceiverDeploymentUpdateFailed.String(), "Receiver Deployment Update Failed")
+}
+
+// Utility Function For Creating A Receiver Service Updated Event
+func NewReceiverServiceUpdatedEvent() string {
+	return reconcilertesting.Eventf(corev1.EventTypeNormal, event.ReceiverServiceUpdated.String(), "Receiver Service Updated")
+}
+
+// Utility Function For Creating A Receiver Service Update Failure Event
+func NewReceiverServiceUpdateFailedEvent() string {
+	return reconcilertesting.Eventf(corev1.EventTypeWarning, event.ReceiverServiceUpdateFailed.String(), "Receiver Service Update Failed")
+}
+
 // Utility Function For Creating A Dispatcher Deployment Updated Event
-func NewKafkaChannelDispatcherUpdatedEvent() string {
+func NewKafkaChannelDispatcherDeploymentUpdatedEvent() string {
 	return reconcilertesting.Eventf(corev1.EventTypeNormal, event.DispatcherDeploymentUpdated.String(), "Dispatcher Deployment Updated")
 }
 
 // Utility Function For Creating A Dispatcher Deployment Update Failure Event
-func NewKafkaChannelDispatcherUpdateFailedEvent() string {
+func NewKafkaSecretReceiverDeploymentUpdateFailedEvent() string {
+	return reconcilertesting.Eventf(corev1.EventTypeWarning, event.ReceiverDeploymentUpdateFailed.String(), "Receiver Deployment Update Failed")
+}
+
+// Utility Function For Creating A Dispatcher Deployment Update Failure Event
+func NewKafkaChannelDispatcherDeploymentUpdateFailedEvent() string {
 	return reconcilertesting.Eventf(corev1.EventTypeWarning, event.DispatcherDeploymentUpdateFailed.String(), "Dispatcher Deployment Update Failed")
+}
+
+// Utility Function For Creating A Dispatcher Service Updated Event
+func NewKafkaChannelDispatcherServiceUpdatedEvent() string {
+	return reconcilertesting.Eventf(corev1.EventTypeNormal, event.DispatcherServiceUpdated.String(), "Dispatcher Service Updated")
+}
+
+// Utility Function For Creating A Dispatcher Service Update Failure Event
+func NewKafkaChannelDispatcherServiceUpdateFailedEvent() string {
+	return reconcilertesting.Eventf(corev1.EventTypeWarning, event.DispatcherServiceUpdateFailed.String(), "Dispatcher Service Update Failed")
 }
 
 // Utility Function For Creating A Successful KafkaChannel Reconciled Event
@@ -1158,34 +1234,5 @@ func NewDeploymentDeleteActionImpl(deployment *appsv1.Deployment) clientgotestin
 			Subresource: "",
 		},
 		Name: deployment.Name,
-	}
-}
-
-func NewKafkaChannelStatusUpdates() []clientgotesting.UpdateActionImpl {
-	return []clientgotesting.UpdateActionImpl{
-		{
-			Object: NewKafkaChannel(
-				WithFinalizer,
-				WithAddress,
-				WithInitializedConditions,
-				WithKafkaChannelServiceReady,
-				WithDispatcherDeploymentReady,
-				WithTopicReady,
-			),
-		},
-	}
-}
-
-func NewKafkaChannelUpdate() clientgotesting.UpdateActionImpl {
-	return clientgotesting.UpdateActionImpl{
-		Object: NewKafkaChannel(
-			WithFinalizer,
-			WithMetaData,
-			WithAddress,
-			WithInitializedConditions,
-			WithKafkaChannelServiceReady,
-			WithDispatcherDeploymentReady,
-			WithTopicReady,
-		),
 	}
 }

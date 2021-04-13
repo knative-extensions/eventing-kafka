@@ -21,9 +21,10 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
-// Modifies An Existing Deployment With New Fields (If Necessary)
+// CheckDeploymentChanged Modifies An Existing Deployment With New Fields (If Necessary)
 // Returns True If Any Modifications Were Made
 func CheckDeploymentChanged(logger *zap.Logger, existingDeployment, newDeployment *appsv1.Deployment) (*appsv1.Deployment, bool) {
 
@@ -92,4 +93,52 @@ func CheckDeploymentChanged(logger *zap.Logger, existingDeployment, newDeploymen
 		updatedDeployment.Spec.Template.Spec.Containers[0] = *newContainer
 	}
 	return updatedDeployment, true
+}
+
+// CheckServiceChanged Modifies An Existing Service With New Fields (If Necessary)
+// Returns True If Any Modifications Were Made
+func CheckServiceChanged(existingService, newService *corev1.Service) (*corev1.Service, bool) {
+
+	return existingService, false
+	//
+	//// Make a copy of the existing labels so we don't inadvertently modify the existing service fields directly
+	//updatedLabels := make(map[string]string)
+	//for oldKey, oldValue := range existingService.ObjectMeta.Labels {
+	//	updatedLabels[oldKey] = oldValue
+	//}
+	//
+	//// Add any labels in the "new" service to the copy of the labels from the old service.
+	//// Annotations could be similarly updated, but there are currently no annotations being made
+	//// in new services anyway so it would serve no practical purpose at the moment.
+	//labelsChanged := false
+	//for newKey, newValue := range newService.ObjectMeta.Labels {
+	//	oldValue, ok := existingService.ObjectMeta.Labels[newKey]
+	//	if !ok || oldValue != newValue {
+	//		labelsChanged = true
+	//		updatedLabels[newKey] = newValue
+	//	}
+	//}
+	//
+	//// Ignore the fields in a Spec struct which are not set directly by the distributed channel reconcilers
+	//ignoreFields := cmpopts.IgnoreFields(existingService.Spec, "ClusterIP")
+	//
+	//// Verify everything in the service spec
+	//specEqual := cmp.Equal(existingService.Spec, newService.Spec, ignoreFields)
+	//if specEqual && !labelsChanged {
+	//	// Nothing of interest changed, so just keep the existing service
+	//	return existingService, false
+	//}
+	//
+	//// Create an updated service from the existing one, but using the new Spec field
+	//updatedService := existingService.DeepCopy()
+	//if labelsChanged {
+	//	updatedService.ObjectMeta.Labels = updatedLabels
+	//}
+	//if !specEqual {
+	//	updatedService.Spec = newService.Spec
+	//}
+	//
+	//// Some fields are immutable and need to be removed before being used for update purposes
+	//updatedService.Spec.ClusterIP = ""
+	//return updatedService, true
 }

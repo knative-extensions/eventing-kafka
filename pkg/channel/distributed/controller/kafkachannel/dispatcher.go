@@ -121,15 +121,17 @@ func (r *Reconciler) finalizeDispatcher(ctx context.Context, channel *kafkav1bet
 // Reconcile The Dispatcher Service
 func (r *Reconciler) reconcileDispatcherService(ctx context.Context, logger *zap.Logger, channel *kafkav1beta1.KafkaChannel) error {
 
+	// Create A New Deployment For Comparison
+	newService := r.newDispatcherService(channel)
+
 	// Attempt To Get The Dispatcher Service Associated With The Specified Channel
-	service, err := r.getDispatcherService(channel)
-	if service == nil || err != nil {
+	existingService, err := r.getDispatcherService(channel)
+	if existingService == nil || err != nil {
 
 		// If The Service Was Not Found - Then Create A New One For The Channel
 		if errors.IsNotFound(err) {
 			logger.Info("Dispatcher Service Not Found - Creating New One")
-			service := r.newDispatcherService(channel)
-			_, err = r.kubeClientset.CoreV1().Services(service.Namespace).Create(ctx, service, metav1.CreateOptions{})
+			_, err = r.kubeClientset.CoreV1().Services(newService.Namespace).Create(ctx, newService, metav1.CreateOptions{})
 			if err != nil {
 				logger.Error("Failed To Create Dispatcher Service", zap.Error(err))
 				return err
@@ -143,20 +145,35 @@ func (r *Reconciler) reconcileDispatcherService(ctx context.Context, logger *zap
 		}
 	} else {
 
+		// Determine whether the existing service is different in a way that demands an update
+		// such as missing required labels or spec differences
+		updatedService, needsUpdate := util.CheckServiceChanged(existingService, newService)
+
 		// Log Deletion Timestamp & Finalizer State
-		if service.DeletionTimestamp.IsZero() {
+		if newService.DeletionTimestamp.IsZero() {
 			logger.Info("Successfully Verified Dispatcher Service")
 		} else {
-			if util.HasFinalizer(r.finalizerName(), &service.ObjectMeta) {
+			if util.HasFinalizer(r.finalizerName(), &newService.ObjectMeta) {
 				logger.Info("Blocking Pending Deletion Of Dispatcher Service (Finalizer Detected)")
 			} else {
 				logger.Warn("Unable To Block Pending Deletion Of Dispatcher Service (Finalizer Missing)")
 			}
 		}
 
-		// Return Success
-		return nil
+		// Update the service in Kubernetes if necessary
+		if needsUpdate {
+			logger.Info("Dispatcher Service Changed - Updating")
+			updatedService, err = r.kubeClientset.CoreV1().Services(newService.Namespace).Update(ctx, updatedService, metav1.UpdateOptions{})
+			if err == nil {
+				controller.GetEventRecorder(ctx).Event(channel, corev1.EventTypeNormal, event.DispatcherServiceUpdated.String(), "Dispatcher Service Updated")
+			} else {
+				controller.GetEventRecorder(ctx).Event(channel, corev1.EventTypeWarning, event.DispatcherServiceUpdateFailed.String(), "Dispatcher Service Update Failed")
+				channel.Status.MarkDispatcherFailed(event.DispatcherServiceUpdateFailed.String(), "Failed To Update Dispatcher Service: %v", err)
+				return err
+			}
+		}
 	}
+	return nil
 }
 
 // Finalize The Dispatcher Service
@@ -299,7 +316,10 @@ func (r *Reconciler) reconcileDispatcherDeployment(ctx context.Context, logger *
 		}
 	} else {
 
+		// Determine whether the existing deployment is different in a way that demands an update
+		// such as missing required labels, a different image, or certain container differences.
 		updatedDeployment, needsUpdate := util.CheckDeploymentChanged(logger, existingDeployment, newDeployment)
+
 		// Log Deletion Timestamp & Finalizer State
 		if updatedDeployment.DeletionTimestamp.IsZero() {
 			logger.Info("Successfully Verified Dispatcher Deployment")
@@ -311,7 +331,9 @@ func (r *Reconciler) reconcileDispatcherDeployment(ctx context.Context, logger *
 			}
 		}
 
+		// Update the deployment in Kubernetes if necessary
 		if needsUpdate {
+			logger.Info("Dispatcher Deployment Changed - Updating")
 			updatedDeployment, err = r.kubeClientset.AppsV1().Deployments(newDeployment.Namespace).Update(ctx, updatedDeployment, metav1.UpdateOptions{})
 			if err == nil {
 				controller.GetEventRecorder(ctx).Event(channel, corev1.EventTypeNormal, event.DispatcherDeploymentUpdated.String(), "Dispatcher Deployment Updated")

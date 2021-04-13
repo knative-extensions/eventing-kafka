@@ -23,12 +23,12 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	clientgotesting "k8s.io/client-go/testing"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
 
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
+	clientgotesting "k8s.io/client-go/testing"
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	kafkaadmintesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/testing"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/types"
@@ -681,7 +681,7 @@ func TestReconcile(t *testing.T) {
 		//
 
 		{
-			Name: "Existing Dispatcher, Different Image, Update Error",
+			Name: "Existing Dispatcher Deployment, Different Image, Update Error",
 			Key:  controllertesting.KafkaChannelKey,
 			Objects: []runtime.Object{
 				controllertesting.NewKafkaChannel(controllertesting.WithFinalizer),
@@ -703,12 +703,59 @@ func TestReconcile(t *testing.T) {
 			},
 			WantUpdates: []clientgotesting.UpdateActionImpl{{Object: controllertesting.NewKafkaChannelDispatcherDeployment()}},
 			WantEvents: []string{
-				controllertesting.NewKafkaChannelDispatcherUpdateFailedEvent(),
+				controllertesting.NewKafkaChannelDispatcherDeploymentUpdateFailedEvent(),
 				Eventf(corev1.EventTypeWarning, event.DispatcherDeploymentReconciliationFailed.String(), "Failed To Reconcile Dispatcher Deployment: inducing failure for update deployments"),
 				controllertesting.NewKafkaChannelFailedReconciliationEvent(),
 			},
 			WithReactors: []clientgotesting.ReactionFunc{
 				InduceFailure("update", "Deployments"),
+			},
+			WantErr: true,
+		},
+
+		//
+		// Service Updating - Repairing Incorrect Or Missing Fields In Existing Services
+		//
+
+		newServiceUpdateTest("Missing Ports", controllertesting.WithoutServicePorts),
+		newServiceUpdateTest("Missing App Label Selector", controllertesting.WithoutServiceSelector),
+		newServiceUpdateTest("Missing Labels", controllertesting.WithoutServiceLabels),
+		newServiceNoUpdateTest("Extra Labels", controllertesting.WithExtraServiceLabels),
+		newServiceNoUpdateTest("Different Status", controllertesting.WithDifferentServiceStatus),
+
+		//
+		// Service Update Failure
+		//
+
+		{
+			Name: "Existing Dispatcher Service, Different Image, Update Error",
+			Key:  controllertesting.KafkaChannelKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaChannel(controllertesting.WithFinalizer),
+				controllertesting.NewKafkaChannelService(),
+				controllertesting.NewKafkaChannelDispatcherService(controllertesting.WithoutServicePorts),
+				controllertesting.NewKafkaChannelDispatcherDeployment(),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
+				{
+					Object: controllertesting.NewKafkaChannel(
+						controllertesting.WithFinalizer,
+						controllertesting.WithAddress,
+						controllertesting.WithInitializedConditions,
+						controllertesting.WithKafkaChannelServiceReady,
+						controllertesting.WithDispatcherServiceUpdateFailed,
+						controllertesting.WithTopicReady,
+					),
+				},
+			},
+			WantUpdates: []clientgotesting.UpdateActionImpl{{Object: controllertesting.NewKafkaChannelDispatcherService()}},
+			WantEvents: []string{
+				controllertesting.NewKafkaChannelDispatcherServiceUpdateFailedEvent(),
+				Eventf(corev1.EventTypeWarning, event.DispatcherServiceReconciliationFailed.String(), "Failed To Reconcile Dispatcher Service: inducing failure for update services"),
+				controllertesting.NewKafkaChannelFailedReconciliationEvent(),
+			},
+			WithReactors: []clientgotesting.ReactionFunc{
+				InduceFailure("update", "Services"),
 			},
 			WantErr: true,
 		},
@@ -748,22 +795,51 @@ func TestReconcile(t *testing.T) {
 
 // Utility Functions
 
+// Creates a test that expects a dispatcher deployment update, using the provided options
 func newDispatcherUpdateTest(name string, options ...controllertesting.DeploymentOption) TableRow {
-	test := newDispatcherBasicTest("Existing Dispatcher, " + name + ", Update Needed")
-	test.Objects = append(test.Objects, controllertesting.NewKafkaChannelDispatcherDeployment(options...))
+	test := newDispatcherBasicTest("Existing Dispatcher Deployment, " + name + ", Update Needed")
+	test.Objects = append(test.Objects,
+		controllertesting.NewKafkaChannelDispatcherService(),
+		controllertesting.NewKafkaChannelDispatcherDeployment(options...))
 	test.WantUpdates = append(test.WantUpdates,
 		controllertesting.NewDeploymentUpdateActionImpl(controllertesting.NewKafkaChannelDispatcherDeployment()))
-	test.WantEvents = append([]string{controllertesting.NewKafkaChannelDispatcherUpdatedEvent()},
+	test.WantEvents = append([]string{controllertesting.NewKafkaChannelDispatcherDeploymentUpdatedEvent()},
 		test.WantEvents...)
 	return test
 }
 
+// Creates a test that expects to not have a dispatcher deployment update, using the provided options
 func newDispatcherNoUpdateTest(name string, options ...controllertesting.DeploymentOption) TableRow {
-	test := newDispatcherBasicTest("Existing Dispatcher, " + name + ", No Update")
-	test.Objects = append(test.Objects, controllertesting.NewKafkaChannelDispatcherDeployment(options...))
+	test := newDispatcherBasicTest("Existing Dispatcher Deployment, " + name + ", No Update")
+	test.Objects = append(test.Objects,
+		controllertesting.NewKafkaChannelDispatcherService(),
+		controllertesting.NewKafkaChannelDispatcherDeployment(options...))
 	return test
 }
 
+// Creates a test that expects a dispatcher service update, using the provided options
+func newServiceUpdateTest(name string, options ...controllertesting.ServiceOption) TableRow {
+	test := newDispatcherBasicTest("Existing Dispatcher Service, " + name + ", Update Needed")
+	test.Objects = append(test.Objects,
+		controllertesting.NewKafkaChannelDispatcherService(options...),
+		controllertesting.NewKafkaChannelDispatcherDeployment())
+	test.WantUpdates = append(test.WantUpdates,
+		controllertesting.NewServiceUpdateActionImpl(controllertesting.NewKafkaChannelDispatcherService()))
+	test.WantEvents = append([]string{controllertesting.NewKafkaChannelDispatcherServiceUpdatedEvent()},
+		test.WantEvents...)
+	return test
+}
+
+// Creates a test that expects to not have a dispatcher service update, using the provided options
+func newServiceNoUpdateTest(name string, options ...controllertesting.ServiceOption) TableRow {
+	test := newDispatcherBasicTest("Existing Dispatcher Service, " + name + ", No Update")
+	test.Objects = append(test.Objects,
+		controllertesting.NewKafkaChannelDispatcherService(options...),
+		controllertesting.NewKafkaChannelDispatcherDeployment())
+	return test
+}
+
+// Creates a test that can serve as a common base for other dispatcher tests
 func newDispatcherBasicTest(name string) TableRow {
 	return TableRow{
 		Name: name,
@@ -771,12 +847,28 @@ func newDispatcherBasicTest(name string) TableRow {
 		Objects: []runtime.Object{
 			controllertesting.NewKafkaChannel(controllertesting.WithFinalizer),
 			controllertesting.NewKafkaChannelService(),
-			controllertesting.NewKafkaChannelDispatcherService(),
 		},
-		WantStatusUpdates: controllertesting.NewKafkaChannelStatusUpdates(),
-		WantUpdates: []clientgotesting.UpdateActionImpl{
-			controllertesting.NewKafkaChannelUpdate(),
-		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: controllertesting.NewKafkaChannel(
+				controllertesting.WithFinalizer,
+				controllertesting.WithAddress,
+				controllertesting.WithInitializedConditions,
+				controllertesting.WithKafkaChannelServiceReady,
+				controllertesting.WithDispatcherDeploymentReady,
+				controllertesting.WithTopicReady,
+			),
+		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: controllertesting.NewKafkaChannel(
+				controllertesting.WithFinalizer,
+				controllertesting.WithMetaData,
+				controllertesting.WithAddress,
+				controllertesting.WithInitializedConditions,
+				controllertesting.WithKafkaChannelServiceReady,
+				controllertesting.WithDispatcherDeploymentReady,
+				controllertesting.WithTopicReady,
+			),
+		}},
 		WantEvents: []string{controllertesting.NewKafkaChannelSuccessfulReconciliationEvent()},
 	}
 }

@@ -91,17 +91,19 @@ func (r *Reconciler) reconcileChannel(ctx context.Context, secret *corev1.Secret
 // Reconcile The Receiver Service
 func (r *Reconciler) reconcileReceiverService(ctx context.Context, logger *zap.Logger, secret *corev1.Secret) error {
 
+	// Create A New Deployment For Comparison
+	newService := r.newReceiverService(secret)
+
 	// Attempt To Get The Receiver Service Associated With The Specified Secret
-	service, err := r.getReceiverService(secret)
-	if service == nil || err != nil {
+	existingService, err := r.getReceiverService(secret)
+	if existingService == nil || err != nil {
 
 		// If The Service Was Not Found - Then Create A New One For The Secret
 		if errors.IsNotFound(err) {
 
 			// Then Create The New Receiver Service
 			logger.Info("Receiver Service Not Found - Creating New One")
-			service := r.newReceiverService(secret)
-			_, err = r.kubeClientset.CoreV1().Services(service.Namespace).Create(ctx, service, metav1.CreateOptions{})
+			_, err = r.kubeClientset.CoreV1().Services(newService.Namespace).Create(ctx, newService, metav1.CreateOptions{})
 			if err != nil {
 				logger.Error("Failed To Create Receiver Service", zap.Error(err))
 				return err
@@ -118,15 +120,31 @@ func (r *Reconciler) reconcileReceiverService(ctx context.Context, logger *zap.L
 		}
 	} else {
 
+		// Determine whether the existing service is different in a way that demands an update
+		// such as missing required labels or spec differences
+		updatedService, needsUpdate := util.CheckServiceChanged(existingService, newService)
+
 		// Verify Receiver Service Is Not Terminating
-		if service.DeletionTimestamp.IsZero() {
+		if updatedService.DeletionTimestamp.IsZero() {
 			logger.Info("Successfully Verified Receiver Service")
-			return nil
 		} else {
-			logger.Warn("Encountered Receiver Service With DeletionTimestamp - Forcing Reconciliation", zap.String("Namespace", service.Namespace), zap.String("Name", service.Name))
-			return fmt.Errorf("encountered Receiver Service with DeletionTimestamp %s/%s - potential race condition", service.Namespace, service.Name)
+			logger.Warn("Encountered Receiver Service With DeletionTimestamp - Forcing Reconciliation", zap.String("Namespace", updatedService.Namespace), zap.String("Name", updatedService.Name))
+			return fmt.Errorf("encountered Receiver Service with DeletionTimestamp %s/%s - potential race condition", updatedService.Namespace, updatedService.Name)
+		}
+
+		// Update the service in Kubernetes if necessary
+		if needsUpdate {
+			logger.Info("Receiver Service Changed - Updating")
+			updatedService, err = r.kubeClientset.CoreV1().Services(newService.Namespace).Update(ctx, updatedService, metav1.UpdateOptions{})
+			if err == nil {
+				controller.GetEventRecorder(ctx).Event(secret, corev1.EventTypeNormal, event.ReceiverServiceUpdated.String(), "Receiver Service Updated")
+			} else {
+				controller.GetEventRecorder(ctx).Event(secret, corev1.EventTypeWarning, event.ReceiverServiceUpdateFailed.String(), "Receiver Service Update Failed")
+				return err
+			}
 		}
 	}
+	return nil
 }
 
 // Get The Kafka Receiver Service Associated With The Specified Channel
@@ -192,28 +210,30 @@ func (r *Reconciler) newReceiverService(secret *corev1.Secret) *corev1.Service {
 // Reconcile The Receiver Deployment
 func (r *Reconciler) reconcileReceiverDeployment(ctx context.Context, logger *zap.Logger, secret *corev1.Secret) error {
 
+	// Create A New Deployment For Comparison
+	newDeployment, err := r.newReceiverDeployment(logger, secret)
+	if err != nil {
+		logger.Error("Failed To Create Receiver Deployment YAML", zap.Error(err))
+		return err
+	}
+
 	// Attempt To Get The Receiver Deployment Associated With The Specified Secret
-	deployment, err := r.getReceiverDeployment(secret)
-	if deployment == nil || err != nil {
+	existingDeployment, err := r.getReceiverDeployment(secret)
+	if existingDeployment == nil || err != nil {
 
 		// If The Receiver Deployment Was Not Found - Then Create A New Deployment For The Secret
 		if errors.IsNotFound(err) {
 
 			// Then Create The New Receiver Deployment
 			logger.Info("Receiver Deployment Not Found - Creating New One")
-			deployment, err := r.newReceiverDeployment(logger, secret)
+
+			_, err = r.kubeClientset.AppsV1().Deployments(newDeployment.Namespace).Create(ctx, newDeployment, metav1.CreateOptions{})
 			if err != nil {
-				logger.Error("Failed To Create Receiver Deployment YAML", zap.Error(err))
+				logger.Error("Failed To Create Receiver Deployment", zap.Error(err))
 				return err
 			} else {
-				_, err = r.kubeClientset.AppsV1().Deployments(deployment.Namespace).Create(ctx, deployment, metav1.CreateOptions{})
-				if err != nil {
-					logger.Error("Failed To Create Receiver Deployment", zap.Error(err))
-					return err
-				} else {
-					logger.Info("Successfully Created Receiver Deployment")
-					return nil
-				}
+				logger.Info("Successfully Created Receiver Deployment")
+				return nil
 			}
 
 		} else {
@@ -224,14 +244,30 @@ func (r *Reconciler) reconcileReceiverDeployment(ctx context.Context, logger *za
 		}
 	} else {
 
+		// Determine whether the existing deployment is different in a way that demands an update
+		// such as missing required labels, a different image, or certain container differences.
+		updatedDeployment, needsUpdate := util.CheckDeploymentChanged(logger, existingDeployment, newDeployment)
+
 		// Verify Receiver Deployment Is Not Terminating
-		if deployment.DeletionTimestamp.IsZero() {
+		if updatedDeployment.DeletionTimestamp.IsZero() {
 			logger.Info("Successfully Verified Receiver Deployment")
-			return nil
 		} else {
-			logger.Warn("Encountered Receiver Deployment With DeletionTimestamp - Forcing Reconciliation", zap.String("Namespace", deployment.Namespace), zap.String("Name", deployment.Name))
-			return fmt.Errorf("encountered Receiver Deployment with DeletionTimestamp %s/%s - potential race condition", deployment.Namespace, deployment.Name)
+			logger.Warn("Encountered Receiver Deployment With DeletionTimestamp - Forcing Reconciliation", zap.String("Namespace", updatedDeployment.Namespace), zap.String("Name", updatedDeployment.Name))
+			return fmt.Errorf("encountered Receiver Deployment with DeletionTimestamp %s/%s - potential race condition", updatedDeployment.Namespace, updatedDeployment.Name)
 		}
+
+		// Update the deployment in Kubernetes if necessary
+		if needsUpdate {
+			logger.Info("Receiver Deployment Changed - Updating")
+			updatedDeployment, err = r.kubeClientset.AppsV1().Deployments(newDeployment.Namespace).Update(ctx, updatedDeployment, metav1.UpdateOptions{})
+			if err == nil {
+				controller.GetEventRecorder(ctx).Event(secret, corev1.EventTypeNormal, event.ReceiverDeploymentUpdated.String(), "Receiver Deployment Updated")
+			} else {
+				controller.GetEventRecorder(ctx).Event(secret, corev1.EventTypeWarning, event.ReceiverDeploymentUpdateFailed.String(), "Receiver Deployment Update Failed")
+				return err
+			}
+		}
+		return nil
 	}
 }
 
