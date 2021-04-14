@@ -146,9 +146,9 @@ func NewProber(
 		workQueue: workqueue.NewNamedRateLimitingQueue(
 			workqueue.NewMaxOfRateLimiter(
 				// Per item exponential backoff
-				workqueue.NewItemExponentialFailureRateLimiter(50*time.Millisecond, 30*time.Second),
+				workqueue.NewItemExponentialFailureRateLimiter(2500*time.Millisecond, 50*time.Second),
 				// Global rate limiter
-				&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Limit(50), 100)},
+				&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Limit(50), 1000)},
 			),
 			"ProbingQueue"),
 		targetLister:     targetLister,
