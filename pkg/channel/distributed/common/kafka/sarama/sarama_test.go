@@ -185,14 +185,14 @@ func TestLoadSettings(t *testing.T) {
 
 	// Verify that empty configmap data does not return an error
 	ctx = CreateContextWithConfigmapLoader(map[string]string{})
-	_, _, err = LoadSettings(context.TODO(), "", nil)
+	_, _, err = LoadSettings(ctx, "", nil)
 	assert.Nil(t, err)
 
 	// Verify that a configmap with invalid YAML returns an error
 	configMap = commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, "")
 	configMap.Data[constants.EventingKafkaSettingsConfigKey] = "\tinvalidYaml"
 	ctx = CreateContextWithConfigmapLoader(configMap.Data)
-	saramaConfig, eventingKafkaConfig, err = LoadSettings(context.TODO(), "", nil)
+	saramaConfig, eventingKafkaConfig, err = LoadSettings(ctx, "", nil)
 	assert.Nil(t, saramaConfig)
 	assert.Nil(t, eventingKafkaConfig)
 	assert.NotNil(t, err)
