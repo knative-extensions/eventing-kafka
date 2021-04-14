@@ -106,3 +106,51 @@ func TestGetPlacementForPod(t *testing.T) {
 		})
 	}
 }
+func TestPodCount(t *testing.T) {
+	testCases := []struct {
+		name       string
+		placements []duckv1alpha1.Placement
+		expected   int
+	}{
+		{
+			name:       "nil placements",
+			placements: nil,
+			expected:   0,
+		},
+		{
+			name:       "empty placements",
+			placements: []duckv1alpha1.Placement{},
+			expected:   0,
+		},
+		{
+			name:       "one pod",
+			placements: []duckv1alpha1.Placement{{PodName: "d", VReplicas: 2}},
+			expected:   1,
+		},
+		{
+			name: "two pods",
+			placements: []duckv1alpha1.Placement{
+				{PodName: "p1", VReplicas: 2},
+				{PodName: "p2", VReplicas: 6},
+				{PodName: "p1", VReplicas: 6}},
+			expected: 2,
+		},
+		{
+			name: "three pods, one with no vreplicas",
+			placements: []duckv1alpha1.Placement{
+				{PodName: "p1", VReplicas: 2},
+				{PodName: "p2", VReplicas: 6},
+				{PodName: "p1", VReplicas: 0}},
+			expected: 2,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := GetPodCount(tc.placements)
+			if got != tc.expected {
+				t.Errorf("got %v, want %v", got, tc.expected)
+			}
+		})
+	}
+}
