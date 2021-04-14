@@ -19,12 +19,11 @@ package kafkasource
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"time"
 
-	cloudevents "github.com/cloudevents/sdk-go/v2"
 	. "github.com/cloudevents/sdk-go/v2/test"
-	cetypes "github.com/cloudevents/sdk-go/v2/types"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/reconciler-test/pkg/environment"
 	"knative.dev/reconciler-test/pkg/eventshub"
@@ -54,11 +53,11 @@ type auth struct {
 }
 
 type kafkaMessage struct {
-	key         string
-	headers     map[string]string
-	payload     string
-	contentType string
-	cloudevent  bool
+	Key         string
+	Headers     map[string]string
+	Payload     string
+	ContentType string
+	Cloudevent  bool
 }
 type delivery struct {
 	auth
@@ -77,18 +76,17 @@ var (
 			SASLEnabled:     false,
 			TLSEnabled:      false,
 		},
+		// "s512": {
+		// 	bootstrapServer: kafkaBootstrapUrlSASL,
+		// 	SASLEnabled:     true,
+		// 	TLSEnabled:      false,
+		// },
 
-		"s512": {
-			bootstrapServer: kafkaBootstrapUrlSASL,
-			SASLEnabled:     true,
-			TLSEnabled:      false,
-		},
-
-		"tls": {
-			bootstrapServer: kafkaBootstrapUrlTLS,
-			SASLEnabled:     false,
-			TLSEnabled:      true,
-		},
+		// "tls": {
+		// 	bootstrapServer: kafkaBootstrapUrlTLS,
+		// 	SASLEnabled:     false,
+		// 	TLSEnabled:      true,
+		// },
 	}
 )
 
@@ -97,15 +95,15 @@ var (
 // when an event is sent to Kafka
 // then it is received by the sink
 func DataPlaneDelivery() []*feature.Feature {
-	time, _ := cetypes.ParseTime("2018-04-05T17:31:00Z")
+	//	time, _ := cetypes.ParseTime("2018-04-05T17:31:00Z")
 	meta := map[string]delivery{
 		"no-ce-event": {
 			message: kafkaMessage{
-				key: "0",
-				headers: map[string]string{
+				Key: "0",
+				Headers: map[string]string{
 					"content-type": "application/json",
 				},
-				payload: `{"value":5}`,
+				Payload: `{"value":5}`,
 			},
 			matchers: AllOf(
 				HasDataContentType("application/json"),
@@ -113,104 +111,104 @@ func DataPlaneDelivery() []*feature.Feature {
 				HasExtension("key", "0"),
 			),
 		},
-		"no-ce-event-no-content-type": {
-			message: kafkaMessage{
-				key:     "0",
-				payload: `{"value":5}`,
-			},
-			matchers: AllOf(
-				HasData([]byte(`{"value":5}`)),
-				HasExtension("key", "0"),
-			),
-		},
-		"no-ce-event-content-type-or-key": {
-			message: kafkaMessage{
-				payload: `{"value":5}`,
-			},
-			matchers: AllOf(
-				HasData([]byte(`{"value":5}`)),
-			),
-		},
-		"no-ce-event-with-text-plain-body": {
-			message: kafkaMessage{
-				key: "0",
-				headers: map[string]string{
-					"content-type": "text/plain",
-				},
-				payload: `simple 10`,
-			},
-			matchers: AllOf(
-				HasDataContentType("text/plain"),
-				HasData([]byte("simple 10")),
-				HasExtension("key", "0"),
-			),
-		},
-		"structured": {
-			message: kafkaMessage{
-				headers: map[string]string{
-					"content-type": "application/cloudevents+json",
-				},
+		// "no-ce-event-no-content-type": {
+		// 	message: kafkaMessage{
+		// 		key:     "0",
+		// 		payload: `{"value":5}`,
+		// 	},
+		// 	matchers: AllOf(
+		// 		HasData([]byte(`{"value":5}`)),
+		// 		HasExtension("key", "0"),
+		// 	),
+		// },
+		// "no-ce-event-content-type-or-key": {
+		// 	message: kafkaMessage{
+		// 		payload: `{"value":5}`,
+		// 	},
+		// 	matchers: AllOf(
+		// 		HasData([]byte(`{"value":5}`)),
+		// 	),
+		// },
+		// "no-ce-event-with-text-plain-body": {
+		// 	message: kafkaMessage{
+		// 		key: "0",
+		// 		headers: map[string]string{
+		// 			"content-type": "text/plain",
+		// 		},
+		// 		payload: `simple 10`,
+		// 	},
+		// 	matchers: AllOf(
+		// 		HasDataContentType("text/plain"),
+		// 		HasData([]byte("simple 10")),
+		// 		HasExtension("key", "0"),
+		// 	),
+		// },
+		// "structured": {
+		// 	message: kafkaMessage{
+		// 		headers: map[string]string{
+		// 			"content-type": "application/cloudevents+json",
+		// 		},
 
-				payload: mustJsonMarshal(map[string]interface{}{
-					"specversion":     "1.0",
-					"type":            "com.github.pull.create",
-					"source":          "https://github.com/cloudevents/spec/pull",
-					"subject":         "123",
-					"id":              "A234-1234-1234",
-					"time":            "2018-04-05T17:31:00Z",
-					"datacontenttype": "application/json",
-					"data": map[string]string{
-						"hello": "Francesco",
-					},
-					"comexampleextension1": "value",
-					"comexampleothervalue": 5,
-				}),
-				cloudevent: true,
-			},
-			matchers: AllOf(
-				HasSpecVersion(cloudevents.VersionV1),
-				HasType("com.github.pull.create"),
-				HasSource("https://github.com/cloudevents/spec/pull"),
-				HasSubject("123"),
-				HasId("A234-1234-1234"),
-				HasTime(time),
-				HasDataContentType("application/json"),
-				HasData([]byte(`{"hello":"Francesco"}`)),
-				HasExtension("comexampleextension1", "value"),
-				HasExtension("comexampleothervalue", "5"),
-			),
-		},
-		"binary": {
-			message: kafkaMessage{
-				headers: map[string]string{
-					"ce_specversion":          "1.0",
-					"ce_type":                 "com.github.pull.create",
-					"ce_source":               "https://github.com/cloudevents/spec/pull",
-					"ce_subject":              "123",
-					"ce_id":                   "A234-1234-1234",
-					"ce_time":                 "2018-04-05T17:31:00Z",
-					"content-type":            "application/json",
-					"ce_comexampleextension1": "value",
-					"ce_comexampleothervalue": "5",
-				},
-				payload: mustJsonMarshal(map[string]string{
-					"hello": "Francesco",
-				}),
-				cloudevent: true,
-			},
-			matchers: AllOf(
-				HasSpecVersion(cloudevents.VersionV1),
-				HasType("com.github.pull.create"),
-				HasSource("https://github.com/cloudevents/spec/pull"),
-				HasSubject("123"),
-				HasId("A234-1234-1234"),
-				HasTime(time),
-				HasDataContentType("application/json"),
-				HasData([]byte(`{"hello":"Francesco"}`)),
-				HasExtension("comexampleextension1", "value"),
-				HasExtension("comexampleothervalue", "5"),
-			),
-		},
+		// 		payload: mustJsonMarshal(map[string]interface{}{
+		// 			"specversion":     "1.0",
+		// 			"type":            "com.github.pull.create",
+		// 			"source":          "https://github.com/cloudevents/spec/pull",
+		// 			"subject":         "123",
+		// 			"id":              "A234-1234-1234",
+		// 			"time":            "2018-04-05T17:31:00Z",
+		// 			"datacontenttype": "application/json",
+		// 			"data": map[string]string{
+		// 				"hello": "Francesco",
+		// 			},
+		// 			"comexampleextension1": "value",
+		// 			"comexampleothervalue": 5,
+		// 		}),
+		// 		cloudevent: true,
+		// 	},
+		// 	matchers: AllOf(
+		// 		HasSpecVersion(cloudevents.VersionV1),
+		// 		HasType("com.github.pull.create"),
+		// 		HasSource("https://github.com/cloudevents/spec/pull"),
+		// 		HasSubject("123"),
+		// 		HasId("A234-1234-1234"),
+		// 		HasTime(time),
+		// 		HasDataContentType("application/json"),
+		// 		HasData([]byte(`{"hello":"Francesco"}`)),
+		// 		HasExtension("comexampleextension1", "value"),
+		// 		HasExtension("comexampleothervalue", "5"),
+		// 	),
+		// },
+		// "binary": {
+		// 	message: kafkaMessage{
+		// 		headers: map[string]string{
+		// 			"ce_specversion":          "1.0",
+		// 			"ce_type":                 "com.github.pull.create",
+		// 			"ce_source":               "https://github.com/cloudevents/spec/pull",
+		// 			"ce_subject":              "123",
+		// 			"ce_id":                   "A234-1234-1234",
+		// 			"ce_time":                 "2018-04-05T17:31:00Z",
+		// 			"content-type":            "application/json",
+		// 			"ce_comexampleextension1": "value",
+		// 			"ce_comexampleothervalue": "5",
+		// 		},
+		// 		payload: mustJsonMarshal(map[string]string{
+		// 			"hello": "Francesco",
+		// 		}),
+		// 		cloudevent: true,
+		// 	},
+		// 	matchers: AllOf(
+		// 		HasSpecVersion(cloudevents.VersionV1),
+		// 		HasType("com.github.pull.create"),
+		// 		HasSource("https://github.com/cloudevents/spec/pull"),
+		// 		HasSubject("123"),
+		// 		HasId("A234-1234-1234"),
+		// 		HasTime(time),
+		// 		HasDataContentType("application/json"),
+		// 		HasData([]byte(`{"hello":"Francesco"}`)),
+		// 		HasExtension("comexampleextension1", "value"),
+		// 		HasExtension("comexampleothervalue", "5"),
+		// 	),
+		// },
 	}
 
 	var features []*feature.Feature
@@ -232,6 +230,8 @@ func DataPlaneDelivery() []*feature.Feature {
 
 func dataPlaneDelivery(name string, data delivery) *feature.Feature {
 	f := feature.NewFeatureNamed("Delivery/" + name)
+
+	fmt.Println(data)
 
 	// Setup:
 	// (kafkacat) -> KafkaTopic -> KafkaSource -> Sink
@@ -319,14 +319,14 @@ func sinkReceiveEvent(name string, matchers EventMatcher) func(ctx context.Conte
 		kcopts := []kafkacat.CfgFn{
 			kafkacat.WithBootstrapServer(kafkaBootstrapUrlPlain),
 			kafkacat.WithTopic(topicName),
-			kafkacat.WithKey(message.key),
-			kafkacat.WithHeaders(message.headers),
-			kafkacat.WithPayload(message.payload),
+			kafkacat.WithKey(message.Key),
+			kafkacat.WithHeaders(message.Headers),
+			kafkacat.WithPayload(message.Payload),
 		}
 
 		// If the message is not a CloudEvent,
 		// assert ce-source and ce-type is set by the KafkaSource Adapter
-		if !message.cloudevent {
+		if !message.Cloudevent {
 			// Also assert for ce-source and ce-type
 			env := environment.FromContext(ctx)
 			matchers = AllOf(
@@ -336,7 +336,7 @@ func sinkReceiveEvent(name string, matchers EventMatcher) func(ctx context.Conte
 		}
 
 		// Install and wait for kafkacat to be ready
-		kafkacat.Install(topicName, kcopts...)(ctx, t)
+		kafkacat.Install(name, kcopts...)(ctx, t)
 
 		// Assert events are received and correct
 		assert.OnStore(sinkName).MatchEvent(matchers).Exact(1)(ctx, t)
