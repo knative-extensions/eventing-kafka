@@ -45,11 +45,11 @@ spec:
         - name: CONFIG_LEADERELECTION_NAME
           value: config-leader-election
 
-        # how often (in seconds) the autoscaler tries to scale down the statefulset
+        # How often (in seconds) the autoscaler tries to scale down the statefulset.
         - name: AUTOSCALER_REFRESH_PERIOD
           value: '10'
 
-        # the number of virtual replicas this pod can handle
+        # The number of virtual replicas this pod can handle.
         - name: POD_CAPACITY
           value: '100'
 
