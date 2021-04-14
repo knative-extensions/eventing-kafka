@@ -217,7 +217,7 @@ func (p *Producer) ConfigChanged(ctx context.Context, configMap *corev1.ConfigMa
 		return nil
 	}
 
-	ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap)
+	ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap.Data)
 	if err != nil || ekConfig == nil {
 		p.logger.Error("Could Not Extract Eventing-Kafka Setting From Updated ConfigMap", zap.Error(err))
 		return nil

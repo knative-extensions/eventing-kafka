@@ -18,6 +18,7 @@ package kafkasecret
 
 import (
 	"context"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -58,9 +59,14 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 		logger.Fatal("Failed To Get Environment From Context - Terminating!", zap.Error(err))
 	}
 
+	configMap, err := configmap.Load(commonconstants.SettingsConfigMapMountPath)
+	if err != nil {
+		logger.Fatal("error loading configuration", zap.Error(err))
+	}
+
 	// Load the Sarama and other eventing-kafka settings from our configmap
 	// (though we don't need the Sarama settings here; the AdminClient loads them from the configmap each time it needs them)
-	_, configuration, err := sarama.LoadSettings(ctx, "", nil)
+	_, configuration, err := sarama.LoadSettings(ctx, "", configMap, nil)
 	if err != nil {
 		logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Error(err))
 	}

@@ -18,6 +18,8 @@ package main
 
 import (
 	"context"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
+	"knative.dev/pkg/configmap"
 	"strconv"
 	"strings"
 
@@ -95,8 +97,13 @@ func main() {
 		logger.Fatal("Failed To Load Auth Config", zap.Error(err))
 	}
 
+	configMap, err := configmap.Load(commonconstants.SettingsConfigMapMountPath)
+	if err != nil {
+		logger.Fatal("error loading configuration", zap.Error(err))
+	}
+
 	// Load The Sarama & Eventing-Kafka Configuration From The ConfigMap
-	saramaConfig, ekConfig, err := sarama.LoadSettings(ctx, constants.Component, kafkaAuthCfg)
+	saramaConfig, ekConfig, err := sarama.LoadSettings(ctx, constants.Component, configMap, kafkaAuthCfg)
 	if err != nil {
 		logger.Fatal("Failed To Load Sarama Settings", zap.Error(err))
 	}

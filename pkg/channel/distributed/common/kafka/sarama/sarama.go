@@ -25,13 +25,9 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/ghodss/yaml"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/eventing-kafka/pkg/common/client"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/common/constants"
-	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	"knative.dev/pkg/system"
 )
 
 // Utility Function For Enabling Sarama Logging (Debugging)
@@ -45,14 +41,10 @@ func EnableSaramaLogging(enable bool) {
 
 // Load The Sarama & EventingKafka Configuration From The ConfigMap
 // The Provided Context Must Have A Kubernetes Client Associated With It
-func LoadSettings(ctx context.Context, clientId string, kafkaAuthConfig *client.KafkaAuthConfig) (*sarama.Config, *commonconfig.EventingKafkaConfig, error) {
-	if ctx == nil {
-		return nil, nil, fmt.Errorf("attempted to load settings from a nil context")
-	}
-
-	configMap, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, constants.SettingsConfigMapName, metav1.GetOptions{})
-	if err != nil {
-		return nil, nil, err
+func LoadSettings(ctx context.Context, clientId string, configMap map[string]string, kafkaAuthConfig *client.KafkaAuthConfig) (*sarama.Config, *commonconfig.EventingKafkaConfig, error) {
+	// Validate The ConfigMap Data
+	if configMap == nil {
+		return nil, nil, fmt.Errorf("attempted to merge sarama settings with empty configmap")
 	}
 
 	eventingKafkaConfig, err := LoadEventingKafkaSettings(configMap)
@@ -60,13 +52,8 @@ func LoadSettings(ctx context.Context, clientId string, kafkaAuthConfig *client.
 		return nil, nil, err
 	}
 
-	// Validate The ConfigMap Data
-	if configMap.Data == nil {
-		return nil, nil, fmt.Errorf("attempted to merge sarama settings with empty configmap")
-	}
-
 	// Merge The ConfigMap Settings Into The Provided Config
-	saramaSettingsYamlString := configMap.Data[constants.SaramaSettingsConfigKey]
+	saramaSettingsYamlString := configMap[constants.SaramaSettingsConfigKey]
 
 	if kafkaAuthConfig != nil && kafkaAuthConfig.SASL.User == "" {
 		// The config builder expects the entire config object to be nil if not using auth
@@ -85,17 +72,17 @@ func LoadSettings(ctx context.Context, clientId string, kafkaAuthConfig *client.
 	return saramaConfig, eventingKafkaConfig, err
 }
 
-func LoadEventingKafkaSettings(configMap *corev1.ConfigMap) (*commonconfig.EventingKafkaConfig, error) {
+func LoadEventingKafkaSettings(configMap map[string]string) (*commonconfig.EventingKafkaConfig, error) {
 	// Validate The ConfigMap Data
-	if configMap == nil || configMap.Data == nil {
+	if configMap == nil {
 		return nil, fmt.Errorf("attempted to load configuration from empty configmap")
 	}
 
 	// Unmarshal The Eventing-Kafka ConfigMap YAML Into A EventingKafkaSettings Struct
 	eventingKafkaConfig := &commonconfig.EventingKafkaConfig{}
-	err := yaml.Unmarshal([]byte(configMap.Data[constants.EventingKafkaSettingsConfigKey]), &eventingKafkaConfig)
+	err := yaml.Unmarshal([]byte(configMap[constants.EventingKafkaSettingsConfigKey]), &eventingKafkaConfig)
 	if err != nil {
-		return nil, fmt.Errorf("ConfigMap's eventing-kafka value could not be converted to an EventingKafkaConfig struct: %s : %v", err, configMap.Data[constants.EventingKafkaSettingsConfigKey])
+		return nil, fmt.Errorf("ConfigMap's eventing-kafka value could not be converted to an EventingKafkaConfig struct: %s : %v", err, configMap[constants.EventingKafkaSettingsConfigKey])
 	}
 
 	if eventingKafkaConfig != nil {

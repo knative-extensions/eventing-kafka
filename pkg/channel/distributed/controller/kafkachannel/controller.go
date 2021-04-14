@@ -18,6 +18,7 @@ package kafkachannel
 
 import (
 	"context"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	"sync"
 
 	"go.uber.org/zap"
@@ -96,8 +97,13 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		}
 	}
 
+	configMap, err := configmap.Load(commonconstants.SettingsConfigMapMountPath)
+	if err != nil {
+		logger.Fatal("error loading configuration", zap.Error(err))
+	}
+
 	// Load the Sarama and other eventing-kafka settings from our configmap
-	saramaConfig, configuration, err := sarama.LoadSettings(ctx, "", kafkaAuthCfg)
+	saramaConfig, configuration, err := sarama.LoadSettings(ctx, "", configMap, kafkaAuthCfg)
 	if err != nil {
 		logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Error(err))
 	}
