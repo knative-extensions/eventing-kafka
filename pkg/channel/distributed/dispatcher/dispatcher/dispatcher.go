@@ -35,9 +35,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer"
-	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/common/client"
-	"knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/channel"
@@ -73,7 +71,6 @@ func NewSubscriberWrapper(subscriberSpec eventingduck.SubscriberSpec, groupId st
 
 //  Dispatcher Interface
 type Dispatcher interface {
-	ConfigChanged(ctx context.Context, configMap *corev1.ConfigMap) Dispatcher
 	SecretChanged(ctx context.Context, secret *corev1.Secret) Dispatcher
 	Shutdown()
 	UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error
@@ -182,7 +179,7 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 		}
 	}
 
-	// Save the current (active) subscriber specs so that ConfigChanged() can use them to recreate the Dispatcher
+	// Save the current (active) subscriber specs so that SecretChanged() can use them to recreate the Dispatcher
 	// if necessary without going through the inactive subscribers again.
 	d.SubscriberSpecs = []eventingduck.SubscriberSpec{}
 
@@ -281,71 +278,6 @@ func (d *DispatcherImpl) closeConsumerGroup(subscriber *SubscriberWrapper) {
 		logger.Warn("Successfully Closed Subscriber With Nil ConsumerGroup")
 		delete(d.subscribers, subscriber.UID)
 	}
-}
-
-// ConfigChanged is called by the configMapObserver handler function in main() so that
-// settings specific to the dispatcher may be extracted and the ConsumerGroups restarted if necessary.
-// The new configmap could technically have changes to the eventing-kafka section as well as the sarama
-// section, but none of those matter to a currently-running Dispatcher, so those are ignored here
-// (which avoids the necessity of calling env.GetEnvironment).  If those settings
-// are needed in the future, the environment will also need to be re-parsed here.
-// If there aren't any consumer-specific differences between the current config and the new one,
-// then just log that and move on; do not restart the ConsumerGroups unnecessarily.
-func (d *DispatcherImpl) ConfigChanged(ctx context.Context, configMap *corev1.ConfigMap) Dispatcher {
-
-	d.Logger.Debug("New ConfigMap Received", zap.String("configMap.Name", configMap.ObjectMeta.Name))
-
-	// Validate Configuration (Should Always Be Present)
-	if d.SaramaConfig == nil {
-		d.Logger.Error("Dispatcher configuration is nil; cannot reconfigure")
-		return nil
-	}
-
-	// Validate The ConfigMap Data
-	if configMap.Data == nil {
-		d.Logger.Error("Attempted to merge sarama settings with empty configmap")
-		return nil
-	}
-
-	// Merge The ConfigMap Settings Into The Provided Config
-	saramaSettingsYamlString := configMap.Data[constants.SaramaSettingsConfigKey]
-
-	// Create A New Sarama Config
-	configBuilder := client.NewConfigBuilder().
-		WithDefaults().
-		FromYaml(saramaSettingsYamlString)
-
-	// Some of the current config settings may not be overridden by the configmap (username, password, etc.)
-	configBuilder = configBuilder.
-		WithClientId(d.SaramaConfig.ClientID).
-		WithAuth(kafkasarama.AuthFromSarama(d.SaramaConfig))
-
-	newConfig, err := configBuilder.Build(ctx)
-	if err != nil {
-		d.Logger.Error("Unable to build sarama settings", zap.Error(err))
-		return nil
-	}
-
-	ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap.Data)
-	if err != nil || ekConfig == nil {
-		d.Logger.Error("Could Not Extract Eventing-Kafka Setting From Updated ConfigMap", zap.Error(err))
-		return nil
-	}
-
-	// Enable Sarama Logging If Specified In ConfigMap
-	kafkasarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)
-	d.Logger.Debug("Updated Sarama logging", zap.Bool("Kafka.EnableSaramaLogging", ekConfig.Kafka.EnableSaramaLogging))
-
-	// Ignore the "Producer" section as changes to that do not require recreating the Dispatcher
-	if client.ConfigEqual(newConfig, d.SaramaConfig, newConfig.Producer) &&
-		client.HasSameBrokers(ekConfig.Kafka.Brokers, d.Brokers) {
-		d.Logger.Info("No Consumer Changes Detected In New Configuration - Ignoring")
-		return nil
-	}
-
-	// Create A New Dispatcher With The New Configuration (Reusing All Other Existing Config)
-	d.Logger.Info("Consumer Changes Detected In New Configuration - Closing & Recreating Consumer Groups")
-	return d.reconfigure(newConfig, ekConfig)
 }
 
 // SecretChanged is called by the secretObserver handler function in main() so that

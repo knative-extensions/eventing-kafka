@@ -37,7 +37,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/util"
 	"knative.dev/eventing-kafka/pkg/common/client"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
-	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
 	"knative.dev/eventing-kafka/pkg/common/tracing"
 	eventingChannel "knative.dev/eventing/pkg/channel"
@@ -172,71 +171,6 @@ func (p *Producer) ObserveMetrics(interval time.Duration) {
 			}
 		}
 	}()
-}
-
-// ConfigChanged is called by the configMapObserver handler function in main() so that
-// settings specific to the producer may be extracted and the producer restarted if necessary.
-// The new configmap could technically have changes to the eventing-kafka section as well as the sarama
-// section, but none of those matter to a currently-running Producer, so those are ignored here
-// (which avoids the necessity of calling env.GetEnvironment).  If those settings
-// are needed in the future, the environment will also need to be re-parsed here.
-// If there aren't any producer-specific differences between the current config and the new one,
-// then just log that and move on; do not restart the Producer unnecessarily.
-func (p *Producer) ConfigChanged(ctx context.Context, configMap *corev1.ConfigMap) *Producer {
-
-	p.logger.Debug("New ConfigMap Received", zap.String("configMap.Name", configMap.ObjectMeta.Name))
-
-	// Validate Configuration (Should Always Be Present)
-	if p.configuration == nil {
-		p.logger.Error("Producer configuration is nil; cannot reconfigure")
-		return nil
-	}
-
-	// Validate The ConfigMap Data
-	if configMap.Data == nil {
-		p.logger.Error("Attempted to merge sarama settings with empty configmap")
-		return nil
-	}
-
-	// Merge The ConfigMap Settings Into The Provided Config
-	saramaSettingsYamlString := configMap.Data[commonconstants.SaramaSettingsConfigKey]
-
-	// Merge The Sarama Config From ConfigMap Into New Sarama Config
-	configBuilder := client.NewConfigBuilder().
-		WithDefaults().
-		FromYaml(saramaSettingsYamlString)
-
-	// Some of the current config settings may not be overridden by the configmap (username, password, etc.)
-	configBuilder = configBuilder.
-		WithClientId(p.configuration.ClientID).
-		WithAuth(kafkasarama.AuthFromSarama(p.configuration))
-
-	newConfig, err := configBuilder.Build(ctx)
-	if err != nil {
-		p.logger.Error("Unable to merge sarama settings", zap.Error(err))
-		return nil
-	}
-
-	ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap.Data)
-	if err != nil || ekConfig == nil {
-		p.logger.Error("Could Not Extract Eventing-Kafka Setting From Updated ConfigMap", zap.Error(err))
-		return nil
-	}
-
-	// Enable Sarama Logging If Specified In ConfigMap
-	kafkasarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)
-	p.logger.Debug("Updated Sarama logging", zap.Bool("Kafka.EnableSaramaLogging", ekConfig.Kafka.EnableSaramaLogging))
-
-	// Ignore the "Admin" and "Consumer" sections when comparing, as changes to those do not require restarting the Producer
-	if client.ConfigEqual(newConfig, p.configuration, newConfig.Admin, newConfig.Consumer) &&
-		client.HasSameBrokers(ekConfig.Kafka.Brokers, p.brokers) {
-		p.logger.Info("No Producer Changes Detected In New Configuration - Ignoring")
-		return nil
-	}
-
-	// Create A New Producer With The New Configuration (Reusing All Other Existing Config)
-	p.logger.Info("Producer Changes Detected In New Configuration - Closing & Recreating Producer")
-	return p.reconfigure(newConfig, ekConfig)
 }
 
 // SecretChanged is called by the secretObserver handler function in main() so that

@@ -21,15 +21,8 @@ import (
 	"strconv"
 	"strings"
 
-	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
-	"knative.dev/pkg/configmap"
-
-	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
-	"knative.dev/eventing/pkg/kncloudevents"
-	"knative.dev/pkg/injection"
-	"knative.dev/pkg/injection/sharedmain"
-
 	"go.uber.org/zap"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -43,9 +36,13 @@ import (
 	dispatcherhealth "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/health"
 	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	"knative.dev/eventing-kafka/pkg/client/informers/externalversions"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
+	"knative.dev/eventing/pkg/kncloudevents"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
+	"knative.dev/pkg/configmap"
 	kncontroller "knative.dev/pkg/controller"
+	"knative.dev/pkg/injection"
 	"knative.dev/pkg/logging"
 	eventingmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/signals"
@@ -156,21 +153,6 @@ func main() {
 	}
 	dispatcher = dispatch.NewDispatcher(dispatcherConfig)
 
-	// Create A Watcher On The Configuration Settings ConfigMap & Dynamically Update Configuration
-	// Since this is designed to be called by the main() function, the default KNative package behavior here
-	// is a fatal exit if the watch cannot be set up.
-	cmw := sharedmain.SetupConfigMapWatchOrDie(ctx, logger.Sugar())
-
-	// Watch The Settings ConfigMap For Changes
-	err = commonconfig.InitializeKafkaConfigMapWatcher(ctx, cmw, logger.Sugar(), configMapObserver, environment.SystemNamespace)
-	if err != nil {
-		logger.Fatal("Failed To Initialize ConfigMap Watcher", zap.Error(err))
-	}
-
-	if err := cmw.Start(ctx.Done()); err != nil {
-		logger.Fatal("Failed to start configmap watcher", zap.Error(err))
-	}
-
 	// Watch The Secret For Changes
 	err = distributedcommonconfig.InitializeSecretWatcher(ctx, environment.KafkaSecretNamespace, environment.KafkaSecretName, environment.ResyncPeriod, secretObserver)
 	if err != nil {
@@ -226,30 +208,6 @@ func main() {
 func flush(logger *zap.Logger) {
 	_ = logger.Sync()
 	eventingmetrics.FlushExporter()
-}
-
-// configMapObserver is the callback function that handles changes to our ConfigMap
-func configMapObserver(ctx context.Context, configMap *corev1.ConfigMap) {
-	logger := logging.FromContext(ctx)
-
-	if configMap == nil {
-		logger.Warn("Nil ConfigMap passed to configMapObserver; ignoring")
-		return
-	}
-
-	if dispatcher == nil {
-		// This typically happens during startup
-		logger.Info("Dispatcher is nil during call to configMapObserver; ignoring changes")
-		return
-	}
-
-	// Toss the new config map to the dispatcher for inspection and action
-	newDispatcher := dispatcher.ConfigChanged(ctx, configMap)
-	if newDispatcher != nil {
-		// The configuration change caused a new dispatcher to be created, so switch to that one
-		logger.Info("Config Changed; Dispatcher Reconfigured")
-		dispatcher = newDispatcher
-	}
 }
 
 // secretObserver is the callback function that handles changes to our Secret

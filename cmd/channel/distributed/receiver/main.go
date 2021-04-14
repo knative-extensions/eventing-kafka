@@ -40,12 +40,10 @@ import (
 	channelhealth "knative.dev/eventing-kafka/pkg/channel/distributed/receiver/health"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/producer"
 	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
-	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
 	eventingchannel "knative.dev/eventing/pkg/channel"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/injection"
-	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	eventingmetrics "knative.dev/pkg/metrics"
@@ -141,21 +139,6 @@ func main() {
 	statsReporter := metrics.NewStatsReporter(logger)
 	defer statsReporter.Shutdown()
 
-	// Create A Watcher On The Configuration Settings ConfigMap & Dynamically Update Configuration
-	// Since this is designed to be called by the main() function, the default KNative package behavior here
-	// is a fatal exit if the watch cannot be set up.
-	cmw := sharedmain.SetupConfigMapWatchOrDie(ctx, logger.Sugar())
-
-	// Watch The Settings ConfigMap For Changes
-	err = commonconfig.InitializeKafkaConfigMapWatcher(ctx, cmw, logger.Sugar(), configMapObserver, environment.SystemNamespace)
-	if err != nil {
-		logger.Fatal("Failed To Initialize ConfigMap Watcher", zap.Error(err))
-	}
-
-	if err := cmw.Start(ctx.Done()); err != nil {
-		logger.Fatal("Failed to start configmap watcher", zap.Error(err))
-	}
-
 	// Watch The Secret For Changes
 	err = distributedcommonconfig.InitializeSecretWatcher(ctx, environment.KafkaSecretNamespace, environment.KafkaSecretName, environment.ResyncPeriod, secretObserver)
 	if err != nil {
@@ -228,30 +211,6 @@ func handleMessage(ctx context.Context, channelReference eventingchannel.Channel
 
 	// Return Success
 	return nil
-}
-
-// configMapObserver is the callback function that handles changes to our ConfigMap
-func configMapObserver(ctx context.Context, configMap *corev1.ConfigMap) {
-	logger := logging.FromContext(ctx)
-
-	if configMap == nil {
-		logger.Warn("Nil ConfigMap passed to configMapObserver; ignoring")
-		return
-	}
-
-	if kafkaProducer == nil {
-		// This typically happens during startup
-		logger.Debug("Producer is nil during call to configMapObserver; ignoring changes")
-		return
-	}
-
-	// Toss the new config map to the producer for inspection and action
-	newProducer := kafkaProducer.ConfigChanged(ctx, configMap)
-	if newProducer != nil {
-		// The configuration change caused a new producer to be created, so switch to that one
-		logger.Info("Config Changed; Receiver Reconfigured")
-		kafkaProducer = newProducer
-	}
 }
 
 // secretObserver is the callback function that handles changes to our Secret
