@@ -38,6 +38,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 	"knative.dev/eventing/pkg/apis/messaging"
 	"knative.dev/pkg/apis"
@@ -701,6 +702,24 @@ func NewKafkaChannelReceiverDeployment(options ...DeploymentOption) *appsv1.Depl
 									corev1.ResourceMemory: resource.MustParse(ReceiverMemoryLimit),
 								},
 							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      commonconstants.SettingsConfigMapName,
+									MountPath: commonconstants.SettingsConfigMapMountPath,
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: commonconstants.SettingsConfigMapName,
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: commonconstants.SettingsConfigMapName,
+									},
+								},
+							},
 						},
 					},
 				},
@@ -899,6 +918,24 @@ func NewKafkaChannelDispatcherDeployment(options ...DeploymentOption) *appsv1.De
 								Requests: corev1.ResourceList{
 									corev1.ResourceMemory: resource.MustParse(DispatcherMemoryRequest),
 									corev1.ResourceCPU:    resource.MustParse(DispatcherCpuRequest),
+								},
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      commonconstants.SettingsConfigMapName,
+									MountPath: commonconstants.SettingsConfigMapMountPath,
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: commonconstants.SettingsConfigMapName,
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: commonconstants.SettingsConfigMapName,
+									},
 								},
 							},
 						},

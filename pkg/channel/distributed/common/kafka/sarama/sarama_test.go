@@ -173,7 +173,7 @@ func TestLoadSettings(t *testing.T) {
 	assert.NotNil(t, err)
 
 	// Verify that empty configmap data does not return an error
-	saramaConfig, eventingKafkaConfig, err = LoadSettings(context.TODO(), "", map[string]string{}, nil)
+	_, _, err = LoadSettings(context.TODO(), "", map[string]string{}, nil)
 	assert.Nil(t, err)
 
 	// Verify that a configmap with invalid YAML returns an error

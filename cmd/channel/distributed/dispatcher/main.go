@@ -18,10 +18,11 @@ package main
 
 import (
 	"context"
-	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
-	"knative.dev/pkg/configmap"
 	"strconv"
 	"strings"
+
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
+	"knative.dev/pkg/configmap"
 
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing/pkg/kncloudevents"

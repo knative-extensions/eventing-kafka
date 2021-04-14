@@ -18,11 +18,12 @@ package main
 
 import (
 	"context"
-	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
-	"knative.dev/pkg/configmap"
 	"net/http"
 	"strconv"
 	"strings"
+
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
+	"knative.dev/pkg/configmap"
 
 	"github.com/cloudevents/sdk-go/v2/binding"
 	"github.com/google/uuid"
