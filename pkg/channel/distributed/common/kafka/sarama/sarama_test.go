@@ -134,68 +134,78 @@ func TestLoadDefaultSaramaSettings(t *testing.T) {
 }
 
 func TestLoadEventingKafkaSettings(t *testing.T) {
-	// Set up a configmap and verify that the sarama settings are loaded properly from it
 	commontesting.SetTestEnvironment(t)
-	configMap := commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, commontesting.TestEKConfig)
-	configmapLoader := fakeConfigmapLoader.NewFakeConfigmapLoader()
-	configmapLoader.Register(commonconstants.SettingsConfigMapMountPath, configMap.Data)
-	ctx := context.WithValue(context.Background(), configmaploader.Key{}, configmapLoader.Load)
 
-	saramaConfig, eventingKafkaConfig, err := LoadSettings(ctx, "", nil)
-	assert.Nil(t, err)
-	verifyTestEKConfigSettings(t, saramaConfig, eventingKafkaConfig)
+	{
+		// Set up a configmap and verify that the sarama settings are loaded properly from it
+		configMap := commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, commontesting.TestEKConfig)
+		ctx := CreateContextWithConfigmapLoader(configMap.Data)
+		saramaConfig, eventingKafkaConfig, err := LoadSettings(ctx, "", nil)
+		assert.Nil(t, err)
+		verifyTestEKConfigSettings(t, saramaConfig, eventingKafkaConfig)
+	}
 
-	// Test the LoadEventingKafkaSettings function by itself
-	eventingKafkaConfig, err = LoadEventingKafkaSettings(configMap.Data)
-	assert.Nil(t, err)
-	assert.Equal(t, commontesting.DispatcherReplicas, fmt.Sprint(eventingKafkaConfig.Dispatcher.Replicas))
+	{
+		// Test the LoadEventingKafkaSettings function by itself
+		configMap := commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, commontesting.TestEKConfig)
+		eventingKafkaConfig, err := LoadEventingKafkaSettings(configMap.Data)
+		assert.Nil(t, err)
+		assert.Equal(t, commontesting.DispatcherReplicas, fmt.Sprint(eventingKafkaConfig.Dispatcher.Replicas))
+	}
 
-	// Verify that invalid YAML returns an error
-	configMap.Data[constants.EventingKafkaSettingsConfigKey] = "\tinvalidYAML"
-	eventingKafkaConfig, err = LoadEventingKafkaSettings(configMap.Data)
-	assert.Nil(t, eventingKafkaConfig)
-	assert.NotNil(t, err)
+	{
+		// Verify that invalid YAML returns an error
+		configMap := commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, commontesting.TestEKConfig)
+		configMap.Data[constants.EventingKafkaSettingsConfigKey] = "\tinvalidYAML"
+		eventingKafkaConfig, err := LoadEventingKafkaSettings(configMap.Data)
+		assert.Nil(t, eventingKafkaConfig)
+		assert.NotNil(t, err)
+	}
 
-	// Verify that a configmap with no data section returns an error
-	configMap.Data = nil
-	eventingKafkaConfig, err = LoadEventingKafkaSettings(configMap.Data)
-	assert.Nil(t, eventingKafkaConfig)
-	assert.NotNil(t, err)
-
-	// Verify that a nil configmap returns an error
-	eventingKafkaConfig, err = LoadEventingKafkaSettings(nil)
-	assert.Nil(t, eventingKafkaConfig)
-	assert.NotNil(t, err)
+	{
+		// Verify that a configmap with no data section returns an error
+		eventingKafkaConfig, err := LoadEventingKafkaSettings(nil)
+		assert.Nil(t, eventingKafkaConfig)
+		assert.NotNil(t, err)
+	}
 }
 
 func TestLoadSettings(t *testing.T) {
-	// Set up a configmap and verify that the sarama and eventing-kafka settings are loaded properly from it
-	configMap := commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, commontesting.TestEKConfig)
-	ctx := CreateContextWithConfigmapLoader(configMap.Data)
-	saramaConfig, eventingKafkaConfig, err := LoadSettings(ctx, "", nil)
-	assert.Nil(t, err)
-	verifyTestEKConfigSettings(t, saramaConfig, eventingKafkaConfig)
+	{
+		// Set up a configmap and verify that the sarama and eventing-kafka settings are loaded properly from it
+		configMap := commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, commontesting.TestEKConfig)
+		ctx := CreateContextWithConfigmapLoader(configMap.Data)
+		saramaConfig, eventingKafkaConfig, err := LoadSettings(ctx, "", nil)
+		assert.Nil(t, err)
+		verifyTestEKConfigSettings(t, saramaConfig, eventingKafkaConfig)
+	}
 
-	// Verify that nil configmap data returns an error
-	ctx = CreateContextWithConfigmapLoader(nil)
-	saramaConfig, eventingKafkaConfig, err = LoadSettings(ctx, "", nil)
-	assert.Nil(t, saramaConfig)
-	assert.Nil(t, eventingKafkaConfig)
-	assert.NotNil(t, err)
+	{
+		// Verify that nil configmap data returns an error
+		ctx := CreateContextWithConfigmapLoader(nil)
+		saramaConfig, eventingKafkaConfig, err := LoadSettings(ctx, "", nil)
+		assert.Nil(t, saramaConfig)
+		assert.Nil(t, eventingKafkaConfig)
+		assert.NotNil(t, err)
+	}
 
-	// Verify that empty configmap data does not return an error
-	ctx = CreateContextWithConfigmapLoader(map[string]string{})
-	_, _, err = LoadSettings(ctx, "", nil)
-	assert.Nil(t, err)
+	{
+		// Verify that empty configmap data does not return an error
+		ctx := CreateContextWithConfigmapLoader(map[string]string{})
+		_, _, err := LoadSettings(ctx, "", nil)
+		assert.Nil(t, err)
+	}
 
-	// Verify that a configmap with invalid YAML returns an error
-	configMap = commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, "")
-	configMap.Data[constants.EventingKafkaSettingsConfigKey] = "\tinvalidYaml"
-	ctx = CreateContextWithConfigmapLoader(configMap.Data)
-	saramaConfig, eventingKafkaConfig, err = LoadSettings(ctx, "", nil)
-	assert.Nil(t, saramaConfig)
-	assert.Nil(t, eventingKafkaConfig)
-	assert.NotNil(t, err)
+	{
+		// Verify that a configmap with invalid YAML returns an error
+		configMap := commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, "")
+		configMap.Data[constants.EventingKafkaSettingsConfigKey] = "\tinvalidYaml"
+		ctx := CreateContextWithConfigmapLoader(configMap.Data)
+		saramaConfig, eventingKafkaConfig, err := LoadSettings(ctx, "", nil)
+		assert.Nil(t, saramaConfig)
+		assert.Nil(t, eventingKafkaConfig)
+		assert.NotNil(t, err)
+	}
 }
 
 func TestAuthFromSarama(t *testing.T) {
