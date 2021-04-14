@@ -171,36 +171,27 @@ func TestLoadEventingKafkaSettings(t *testing.T) {
 func TestLoadSettings(t *testing.T) {
 	// Set up a configmap and verify that the sarama and eventing-kafka settings are loaded properly from it
 	configMap := commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, commontesting.TestEKConfig)
-	configmapLoader := fakeConfigmapLoader.NewFakeConfigmapLoader()
-	configmapLoader.Register(commonconstants.SettingsConfigMapMountPath, configMap.Data)
-	ctx := context.WithValue(context.Background(), configmaploader.Key{}, configmapLoader.Load)
-
+	ctx := CreateContextWithConfigmapLoader(configMap.Data)
 	saramaConfig, eventingKafkaConfig, err := LoadSettings(ctx, "", nil)
 	assert.Nil(t, err)
 	verifyTestEKConfigSettings(t, saramaConfig, eventingKafkaConfig)
 
 	// Verify that nil configmap data returns an error
-	configmapLoader = fakeConfigmapLoader.NewFakeConfigmapLoader()
-	configmapLoader.Register(commonconstants.SettingsConfigMapMountPath, nil)
-	ctx = context.WithValue(context.Background(), configmaploader.Key{}, configmapLoader.Load)
+	ctx = CreateContextWithConfigmapLoader(nil)
 	saramaConfig, eventingKafkaConfig, err = LoadSettings(ctx, "", nil)
 	assert.Nil(t, saramaConfig)
 	assert.Nil(t, eventingKafkaConfig)
 	assert.NotNil(t, err)
 
 	// Verify that empty configmap data does not return an error
-	configmapLoader = fakeConfigmapLoader.NewFakeConfigmapLoader()
-	configmapLoader.Register(commonconstants.SettingsConfigMapMountPath, map[string]string{})
-	ctx = context.WithValue(context.Background(), configmaploader.Key{}, configmapLoader.Load)
+	ctx = CreateContextWithConfigmapLoader(map[string]string{})
 	_, _, err = LoadSettings(context.TODO(), "", nil)
 	assert.Nil(t, err)
 
 	// Verify that a configmap with invalid YAML returns an error
 	configMap = commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, "")
 	configMap.Data[constants.EventingKafkaSettingsConfigKey] = "\tinvalidYaml"
-	configmapLoader = fakeConfigmapLoader.NewFakeConfigmapLoader()
-	configmapLoader.Register(commonconstants.SettingsConfigMapMountPath, configMap.Data)
-	ctx = context.WithValue(context.Background(), configmaploader.Key{}, configmapLoader.Load)
+	ctx = CreateContextWithConfigmapLoader(configMap.Data)
 	saramaConfig, eventingKafkaConfig, err = LoadSettings(context.TODO(), "", nil)
 	assert.Nil(t, saramaConfig)
 	assert.Nil(t, eventingKafkaConfig)
@@ -347,6 +338,12 @@ func TestStringifyHeaders(t *testing.T) {
 			assert.Equal(t, testCase.expected, stringHeadersFromPtrs)
 		})
 	}
+}
+
+func CreateContextWithConfigmapLoader(data map[string]string) context.Context {
+	configmapLoader := fakeConfigmapLoader.NewFakeConfigmapLoader()
+	configmapLoader.Register(commonconstants.SettingsConfigMapMountPath, data)
+	return context.WithValue(context.Background(), configmaploader.Key{}, configmapLoader.Load)
 }
 
 func verifyTestEKConfigSettings(t *testing.T, saramaConfig *sarama.Config, eventingKafkaConfig *commonconfig.EventingKafkaConfig) {
