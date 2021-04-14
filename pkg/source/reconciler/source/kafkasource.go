@@ -240,7 +240,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 			ConsumerGroup:    src.Spec.ConsumerGroup,
 			KeyType:          src.GetLabels()[v1beta1.KafkaKeyTypeLabel],
 		}
-		err := conn.SendAndWaitForAck(kafkasourcecontrol.SetContract, contract)
+		err := conn.SendAndWaitForAck(kafkasourcecontrol.SetContractCommand, contract)
 		if err != nil {
 			src.Status.MarkFailedToPropagateDataPlaneContract("error while sending the contract to %s: %v", host, err)
 			return fmt.Errorf("error while sending the contract to %s: %w", host, err)

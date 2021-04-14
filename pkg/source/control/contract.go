@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	SetContract           ctrl.OpCode = 3
+	SetContractCommand    ctrl.OpCode = 3
 	NotifyContractUpdated ctrl.OpCode = 4
 )
 

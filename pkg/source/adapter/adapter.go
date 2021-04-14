@@ -126,7 +126,7 @@ func (a *Adapter) Start(ctx context.Context) (err error) {
 		return err
 	}
 	a.controlServer.MessageHandler(ctrlservice.MessageRouter{
-		kafkasourcecontrol.SetContract: ctrlservice.NewAsyncCommandHandler(
+		kafkasourcecontrol.SetContractCommand: ctrlservice.NewAsyncCommandHandler(
 			a.controlServer,
 			&kafkasourcecontrol.KafkaSourceContract{},
 			kafkasourcecontrol.NotifyContractUpdated,
@@ -248,6 +248,7 @@ func (a *Adapter) SetRateLimits(r rate.Limit, b int) {
 
 func (a *Adapter) handleSetContract(ctx context.Context, msg ctrlservice.AsyncCommandMessage) {
 	newContract := msg.ParsedCommand().(*kafkasourcecontrol.KafkaSourceContract)
+	a.logger.Infof("Setting the new contract, generation: %d", newContract.Generation)
 
 	if reflect.DeepEqual(&newContract, a.actualContract) {
 		// Nothing to do here
