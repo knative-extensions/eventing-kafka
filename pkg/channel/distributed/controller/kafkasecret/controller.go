@@ -18,7 +18,6 @@ package kafkasecret
 
 import (
 	"context"
-	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -33,6 +32,8 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/kafkasecretinjection"
 	injectionclient "knative.dev/eventing-kafka/pkg/client/injection/client"
 	"knative.dev/eventing-kafka/pkg/client/injection/informers/messaging/v1beta1/kafkachannel"
+	"knative.dev/eventing-kafka/pkg/common/configmaploader"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
 	"knative.dev/pkg/client/injection/kube/informers/core/v1/service"
@@ -59,7 +60,13 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 		logger.Fatal("Failed To Get Environment From Context - Terminating!", zap.Error(err))
 	}
 
-	configMap, err := configmap.Load(commonconstants.SettingsConfigMapMountPath)
+	// Get the configmap loader
+	configmapLoader, err := configmaploader.FromContext(ctx)
+	if err != nil {
+		logger.Fatal("Failed To Get ConfigmapLoader From Context - Terminating!", zap.Error(err))
+	}
+
+	configMap, err := configmapLoader(commonconstants.SettingsConfigMapMountPath)
 	if err != nil {
 		logger.Fatal("error loading configuration", zap.Error(err))
 	}

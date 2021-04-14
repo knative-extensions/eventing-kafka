@@ -31,6 +31,8 @@ import (
 	controllertesting "knative.dev/eventing-kafka/pkg/channel/distributed/controller/testing"
 	fakeKafkaClient "knative.dev/eventing-kafka/pkg/client/injection/client/fake"
 	_ "knative.dev/eventing-kafka/pkg/client/injection/informers/messaging/v1beta1/kafkachannel/fake" // Knative Fake Informer Injection
+	fakeConfigmapLoader "knative.dev/eventing-kafka/pkg/common/configmaploader/fake"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 	"knative.dev/pkg/client/injection/kube/client/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment/fake" // Knative Fake Informer Injection
@@ -62,6 +64,9 @@ func TestNewController(t *testing.T) {
 	// Add The Fake Kafka Clientset To The Context (Empty)
 	ctx, fakeKafkaClientset := fakeKafkaClient.With(ctx)
 	assert.NotNil(t, fakeKafkaClientset)
+
+	configmapLoader := fakeConfigmapLoader.NewFakeConfigmapLoader()
+	configmapLoader.Register(commonconstants.SettingsConfigMapMountPath, configMap.Data)
 
 	// Perform The Test (Create The KafkaChannel Controller)
 	environment, err := controllerenv.GetEnvironment(logger.Desugar())
