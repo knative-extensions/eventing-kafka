@@ -230,7 +230,7 @@ func (r *Reconciler) reconcileReceiverDeployment(ctx context.Context, logger *za
 			deploymentCopy := deployment.DeepCopy()
 
 			if deploymentCopy.Spec.Template.Annotations == nil {
-				logging.FromContext(ctx).Infof("Configmap hash is not set. Updating the receiver deployment.")
+				logger.Info("Configmap hash is not set. Updating the receiver deployment.")
 				deploymentCopy.Spec.Template.Annotations = map[string]string{
 					commonconstants.ConfigMapHashAnnotationKey: r.kafkaConfigMapHash,
 				}
@@ -238,7 +238,7 @@ func (r *Reconciler) reconcileReceiverDeployment(ctx context.Context, logger *za
 			}
 
 			if deploymentCopy.Spec.Template.Annotations[commonconstants.ConfigMapHashAnnotationKey] != r.kafkaConfigMapHash {
-				logging.FromContext(ctx).Infof("Configmap hash is changed. Updating the receiver deployment.")
+				logger.Info("Configmap hash is changed. Updating the receiver deployment.")
 				deploymentCopy.Spec.Template.Annotations[commonconstants.ConfigMapHashAnnotationKey] = r.kafkaConfigMapHash
 				needsUpdate = true
 			}

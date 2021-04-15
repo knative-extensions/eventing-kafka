@@ -305,7 +305,7 @@ func (r *Reconciler) reconcileDispatcherDeployment(ctx context.Context, logger *
 			needsUpdate := false
 
 			if deploymentCopy.Spec.Template.Annotations == nil {
-				logging.FromContext(ctx).Infof("Configmap hash is not set. Updating the dispatcher deployment.")
+				logger.Info("Configmap hash is not set. Updating the dispatcher deployment.")
 				deploymentCopy.Spec.Template.Annotations = map[string]string{
 					commonconstants.ConfigMapHashAnnotationKey: r.kafkaConfigMapHash,
 				}
@@ -313,7 +313,7 @@ func (r *Reconciler) reconcileDispatcherDeployment(ctx context.Context, logger *
 			}
 
 			if deploymentCopy.Spec.Template.Annotations[commonconstants.ConfigMapHashAnnotationKey] != r.kafkaConfigMapHash {
-				logging.FromContext(ctx).Infof("Configmap hash is changed. Updating the dispatcher deployment.")
+				logger.Info("Configmap hash is changed. Updating the dispatcher deployment.")
 				deploymentCopy.Spec.Template.Annotations[commonconstants.ConfigMapHashAnnotationKey] = r.kafkaConfigMapHash
 				needsUpdate = true
 			}
