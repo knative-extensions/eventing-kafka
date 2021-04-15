@@ -178,6 +178,12 @@ func WithDeletionTimestampDeployment(deployment *appsv1.Deployment) {
 	deployment.ObjectMeta.SetDeletionTimestamp(&DeletionTimestamp)
 }
 
+func WithConfigMapHash(configMapHash string) func(deployment *appsv1.Deployment) {
+	return func(deployment *appsv1.Deployment) {
+		deployment.Spec.Template.ObjectMeta.Annotations[commonconstants.ConfigMapHashAnnotationKey] = configMapHash
+	}
+}
+
 // Clear The Specified Service's Finalizers
 func WithoutFinalizersService(service *corev1.Service) {
 	service.ObjectMeta.Finalizers = []string{}

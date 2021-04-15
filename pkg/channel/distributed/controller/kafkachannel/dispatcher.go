@@ -301,27 +301,34 @@ func (r *Reconciler) reconcileDispatcherDeployment(ctx context.Context, logger *
 
 		// Log Deletion Timestamp & Finalizer State
 		if deployment.DeletionTimestamp.IsZero() {
+			deploymentCopy := deployment.DeepCopy()
 			needsUpdate := false
 
-			if deployment.Spec.Template.Annotations == nil {
+			if deploymentCopy.Spec.Template.Annotations == nil {
 				logging.FromContext(ctx).Infof("Configmap hash is not set. Updating the dispatcher deployment.")
-				deployment.Spec.Template.Annotations = map[string]string{
+				deploymentCopy.Spec.Template.Annotations = map[string]string{
 					commonconstants.ConfigMapHashAnnotationKey: r.kafkaConfigMapHash,
 				}
 				needsUpdate = true
 			}
 
-			if deployment.Spec.Template.Annotations[commonconstants.ConfigMapHashAnnotationKey] != r.kafkaConfigMapHash {
+			if deploymentCopy.Spec.Template.Annotations[commonconstants.ConfigMapHashAnnotationKey] != r.kafkaConfigMapHash {
 				logging.FromContext(ctx).Infof("Configmap hash is changed. Updating the dispatcher deployment.")
-				deployment.Spec.Template.Annotations[commonconstants.ConfigMapHashAnnotationKey] = r.kafkaConfigMapHash
+				deploymentCopy.Spec.Template.Annotations[commonconstants.ConfigMapHashAnnotationKey] = r.kafkaConfigMapHash
 				needsUpdate = true
 			}
 
 			if needsUpdate {
-				deployment, err = r.kubeClientset.AppsV1().Deployments(deployment.Namespace).Update(ctx, deployment, metav1.UpdateOptions{})
+				deploymentCopy, err = r.kubeClientset.AppsV1().Deployments(deploymentCopy.Namespace).Update(ctx, deploymentCopy, metav1.UpdateOptions{})
 				if err != nil {
+					logger.Error("Failed To Update Dispatcher Deployment", zap.Error(err))
 					channel.Status.MarkServiceFailed("DispatcherDeploymentUpdateFailed", "Failed to update the dispatcher deployment: %v", err)
 					return err
+				} else {
+					// Propagate Status & Return Success
+					logger.Info("Successfully Updated Dispatcher Deployment")
+					channel.Status.PropagateDispatcherStatus(&deploymentCopy.Status)
+					return nil
 				}
 			}
 

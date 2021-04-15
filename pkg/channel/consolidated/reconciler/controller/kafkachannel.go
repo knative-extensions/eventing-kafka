@@ -358,6 +358,8 @@ func (r *Reconciler) reconcileDispatcher(ctx context.Context, scope string, disp
 
 		needsUpdate := false
 
+		// TODO: do not touch the original deployment, deepcopy it
+
 		if existing.Image != expectedContainer.Image {
 			logging.FromContext(ctx).Infof("Dispatcher deployment image is not what we expect it to be, updating Deployment Got: %q Expect: %q", expected.Spec.Template.Spec.Containers[0].Image, d.Spec.Template.Spec.Containers[0].Image)
 			existing.Image = expectedContainer.Image
