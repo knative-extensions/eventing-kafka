@@ -244,7 +244,7 @@ func (r *Reconciler) reconcileReceiverDeployment(ctx context.Context, logger *za
 			}
 
 			if needsUpdate {
-				deploymentCopy, err = r.kubeClientset.AppsV1().Deployments(deploymentCopy.Namespace).Update(ctx, deploymentCopy, metav1.UpdateOptions{})
+				_, err = r.kubeClientset.AppsV1().Deployments(deploymentCopy.Namespace).Update(ctx, deploymentCopy, metav1.UpdateOptions{})
 				if err != nil {
 					logger.Warn("Unable to update receiver deployment", zap.Error(err))
 					return err
