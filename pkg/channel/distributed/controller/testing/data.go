@@ -103,6 +103,8 @@ const (
 	ReceiverCpuRequest    = "10m"
 	ReceiverCpuLimit      = "100m"
 
+	ConfigMapHash = "deadbeef"
+
 	ControllerConfigYaml = `
 receiver:
   cpuLimit: 200m
@@ -593,7 +595,7 @@ func NewKafkaChannelReceiverDeployment(options ...DeploymentOption) *appsv1.Depl
 				"kafkachannel-receiver": "true",
 			},
 			Annotations: map[string]string{
-				commonconstants.ConfigMapHashAnnotationKey: "deadbeef", // TODO: set to testConfigMapHash
+				commonconstants.ConfigMapHashAnnotationKey: ConfigMapHash,
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				NewSecretOwnerRef(),
@@ -814,7 +816,7 @@ func NewKafkaChannelDispatcherDeployment(options ...DeploymentOption) *appsv1.De
 				constants.KafkaChannelDispatcherLabel: "true",
 			},
 			Annotations: map[string]string{
-				commonconstants.ConfigMapHashAnnotationKey: "deadbeef", // TODO: set to testConfigMapHash
+				commonconstants.ConfigMapHashAnnotationKey: ConfigMapHash,
 			},
 			Finalizers: []string{constants.EventingKafkaFinalizerPrefix + constants.KafkaChannelFinalizerSuffix},
 		},
