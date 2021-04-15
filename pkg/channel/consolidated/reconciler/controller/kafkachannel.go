@@ -356,50 +356,51 @@ func (r *Reconciler) reconcileDispatcher(ctx context.Context, scope string, disp
 		expectedConfigMapHash := r.kafkaConfigMapHash
 
 		needsUpdate := false
+		// do not touch the original deployment, deepcopy it
+		deploymentCopy := d.DeepCopy()
+		existingCopy := utils.FindContainer(deploymentCopy, resources.DispatcherContainerName)
 
-		// TODO: do not touch the original deployment, deepcopy it
-
-		if existing.Image != expectedContainer.Image {
+		if existingCopy.Image != expectedContainer.Image {
 			logging.FromContext(ctx).Infof("Dispatcher deployment image is not what we expect it to be, updating Deployment Got: %q Expect: %q", expected.Spec.Template.Spec.Containers[0].Image, d.Spec.Template.Spec.Containers[0].Image)
-			existing.Image = expectedContainer.Image
+			existingCopy.Image = expectedContainer.Image
 			needsUpdate = true
 		}
 
-		if *d.Spec.Replicas == 0 {
+		if *deploymentCopy.Spec.Replicas == 0 {
 			logging.FromContext(ctx).Infof("Dispatcher deployment has 0 replica. Scaling up deployment to 1 replica")
-			d.Spec.Replicas = pointer.Int32Ptr(1)
+			deploymentCopy.Spec.Replicas = pointer.Int32Ptr(1)
 			needsUpdate = true
 		}
 
-		if d.Spec.Template.Annotations == nil {
+		if deploymentCopy.Spec.Template.Annotations == nil {
 			logging.FromContext(ctx).Infof("Configmap hash is not set. Updating the dispatcher deployment.")
-			d.Spec.Template.Annotations = map[string]string{
+			deploymentCopy.Spec.Template.Annotations = map[string]string{
 				commonconstants.ConfigMapHashAnnotationKey: expectedConfigMapHash,
 			}
 			needsUpdate = true
 		}
 
-		if d.Spec.Template.Annotations[commonconstants.ConfigMapHashAnnotationKey] != expectedConfigMapHash {
+		if deploymentCopy.Spec.Template.Annotations[commonconstants.ConfigMapHashAnnotationKey] != expectedConfigMapHash {
 			logging.FromContext(ctx).Infof("Configmap hash is changed. Updating the dispatcher deployment.")
-			d.Spec.Template.Annotations[commonconstants.ConfigMapHashAnnotationKey] = expectedConfigMapHash
+			deploymentCopy.Spec.Template.Annotations[commonconstants.ConfigMapHashAnnotationKey] = expectedConfigMapHash
 			needsUpdate = true
 		}
 
 		if needsUpdate {
-			d, err := r.KubeClientSet.AppsV1().Deployments(dispatcherNamespace).Update(ctx, d, metav1.UpdateOptions{})
+			deploymentCopy, err = r.KubeClientSet.AppsV1().Deployments(dispatcherNamespace).Update(ctx, deploymentCopy, metav1.UpdateOptions{})
 			if err == nil {
 				controller.GetEventRecorder(ctx).Event(kc, corev1.EventTypeNormal, dispatcherDeploymentUpdated, "Dispatcher deployment updated")
-				kc.Status.PropagateDispatcherStatus(&d.Status)
+				kc.Status.PropagateDispatcherStatus(&deploymentCopy.Status)
 				return nil
 			} else {
 				kc.Status.MarkServiceFailed("DispatcherDeploymentUpdateFailed", "Failed to update the dispatcher deployment: %v", err)
 				return newDeploymentWarn(err)
 			}
+		} else {
+			kc.Status.PropagateDispatcherStatus(&d.Status)
+			return nil
 		}
 	}
-
-	kc.Status.PropagateDispatcherStatus(&d.Status)
-	return nil
 }
 
 func (r *Reconciler) reconcileServiceAccount(ctx context.Context, dispatcherNamespace string, kc *v1beta1.KafkaChannel) (*corev1.ServiceAccount, error) {
