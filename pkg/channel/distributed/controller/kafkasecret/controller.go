@@ -99,7 +99,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 	// Create A New KafkaSecret Controller Impl With The Reconciler
 	controllerImpl := kafkasecretinjection.NewImpl(ctx, r)
 
-	// Call GlobalResync on kafkachannels.
+	// Call GlobalResync on kafkasecrets.
 	grCh := func(obj interface{}) {
 		logger.Info("Changes detected, doing global resync")
 		controllerImpl.GlobalResync(kafkaSecretInformer.Informer())
