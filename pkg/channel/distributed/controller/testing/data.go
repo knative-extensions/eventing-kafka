@@ -594,9 +594,6 @@ func NewKafkaChannelReceiverDeployment(options ...DeploymentOption) *appsv1.Depl
 				"app":                   ReceiverDeploymentName,
 				"kafkachannel-receiver": "true",
 			},
-			Annotations: map[string]string{
-				commonconstants.ConfigMapHashAnnotationKey: ConfigMapHash,
-			},
 			OwnerReferences: []metav1.OwnerReference{
 				NewSecretOwnerRef(),
 			},
@@ -612,6 +609,9 @@ func NewKafkaChannelReceiverDeployment(options ...DeploymentOption) *appsv1.Depl
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"app": ReceiverDeploymentName,
+					},
+					Annotations: map[string]string{
+						commonconstants.ConfigMapHashAnnotationKey: ConfigMapHash,
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -815,9 +815,6 @@ func NewKafkaChannelDispatcherDeployment(options ...DeploymentOption) *appsv1.De
 				constants.KafkaChannelNamespaceLabel:  KafkaChannelNamespace,
 				constants.KafkaChannelDispatcherLabel: "true",
 			},
-			Annotations: map[string]string{
-				commonconstants.ConfigMapHashAnnotationKey: ConfigMapHash,
-			},
 			Finalizers: []string{constants.EventingKafkaFinalizerPrefix + constants.KafkaChannelFinalizerSuffix},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -831,6 +828,9 @@ func NewKafkaChannelDispatcherDeployment(options ...DeploymentOption) *appsv1.De
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"app": dispatcherName,
+					},
+					Annotations: map[string]string{
+						commonconstants.ConfigMapHashAnnotationKey: ConfigMapHash,
 					},
 				},
 				Spec: corev1.PodSpec{

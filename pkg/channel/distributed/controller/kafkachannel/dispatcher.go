@@ -445,9 +445,6 @@ func (r *Reconciler) newDispatcherDeployment(logger *zap.Logger, channel *kafkav
 				constants.KafkaChannelNameLabel:       channel.Name,      // Identifies the Deployment's Owning KafkaChannel's Name
 				constants.KafkaChannelNamespaceLabel:  channel.Namespace, // Identifies the Deployment's Owning KafkaChannel's Namespace
 			},
-			Annotations: map[string]string{
-				commonconstants.ConfigMapHashAnnotationKey: r.kafkaConfigMapHash,
-			},
 			// K8S Does NOT Support Cross-Namespace OwnerReferences
 			// Instead Manage The Lifecycle Directly Via Finalizers (No K8S Garbage Collection)
 			Finalizers: []string{r.finalizerName()},
@@ -463,6 +460,9 @@ func (r *Reconciler) newDispatcherDeployment(logger *zap.Logger, channel *kafkav
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						constants.AppLabel: deploymentName, // Matched By Deployment Selector Above
+					},
+					Annotations: map[string]string{
+						commonconstants.ConfigMapHashAnnotationKey: r.kafkaConfigMapHash,
 					},
 				},
 				Spec: corev1.PodSpec{

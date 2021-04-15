@@ -320,9 +320,6 @@ func (r *Reconciler) newReceiverDeployment(logger *zap.Logger, secret *corev1.Se
 				constants.AppLabel:                  deploymentName, // Matches Service Selector Key/Value Below
 				constants.KafkaChannelReceiverLabel: "true",         // Allows for identification of Receivers
 			},
-			Annotations: map[string]string{
-				commonconstants.ConfigMapHashAnnotationKey: r.kafkaConfigMapHash,
-			},
 			OwnerReferences: []metav1.OwnerReference{
 				util.NewSecretOwnerReference(secret),
 			},
@@ -338,6 +335,9 @@ func (r *Reconciler) newReceiverDeployment(logger *zap.Logger, secret *corev1.Se
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						constants.AppLabel: deploymentName, // Matched By Deployment Selector Above
+					},
+					Annotations: map[string]string{
+						commonconstants.ConfigMapHashAnnotationKey: r.kafkaConfigMapHash,
 					},
 				},
 				Spec: corev1.PodSpec{
