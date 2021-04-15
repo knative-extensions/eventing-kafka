@@ -677,6 +677,7 @@ func TestReconcile(t *testing.T) {
 			kafkaUsername:        controllertesting.KafkaSecretDataValueUsername,
 			kafkaPassword:        controllertesting.KafkaSecretDataValuePassword,
 			kafkaSaslType:        controllertesting.KafkaSecretDataValueSaslType,
+			kafkaConfigMapHash:   controllertesting.ConfigMapHash,
 		}
 		return kafkachannelreconciler.NewReconciler(ctx, logger, r.kafkaClientSet, listers.GetKafkaChannelLister(), controller.GetEventRecorder(ctx), r)
 	}, logger.Desugar()))

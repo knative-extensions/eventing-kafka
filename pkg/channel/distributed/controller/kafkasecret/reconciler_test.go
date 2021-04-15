@@ -313,6 +313,7 @@ func TestReconcile(t *testing.T) {
 			kafkachannelLister: listers.GetKafkaChannelLister(),
 			deploymentLister:   listers.GetDeploymentLister(),
 			serviceLister:      listers.GetServiceLister(),
+			kafkaConfigMapHash: controllertesting.ConfigMapHash,
 		}
 		return kafkasecretinjection.NewReconciler(ctx, r.kubeClientset.CoreV1(), listers.GetSecretLister(), controller.GetEventRecorder(ctx), r)
 	}, logger.Desugar()))

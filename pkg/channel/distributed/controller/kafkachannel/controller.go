@@ -151,6 +151,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		kafkaUsername:        kafkaUsername,
 		kafkaPassword:        kafkaPassword,
 		kafkaSaslType:        kafkaSaslType,
+		kafkaConfigMapHash:   commonconfig.ConfigmapDataCheckSum(configMap),
 	}
 
 	// Create A New KafkaChannel Controller Impl With The Reconciler

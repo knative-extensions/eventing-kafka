@@ -32,6 +32,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/kafkasecretinjection"
 	injectionclient "knative.dev/eventing-kafka/pkg/client/injection/client"
 	"knative.dev/eventing-kafka/pkg/client/injection/informers/messaging/v1beta1/kafkachannel"
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/common/configmaploader"
 	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
@@ -92,6 +93,7 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 		kafkachannelLister: kafkachannelInformer.Lister(),
 		deploymentLister:   deploymentInformer.Lister(),
 		serviceLister:      serviceInformer.Lister(),
+		kafkaConfigMapHash: commonconfig.ConfigmapDataCheckSum(configMap),
 	}
 
 	// Create A New KafkaSecret Controller Impl With The Reconciler
