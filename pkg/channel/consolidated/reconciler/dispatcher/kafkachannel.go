@@ -24,6 +24,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/cache"
 
+	"knative.dev/eventing-kafka/pkg/common/configmaploader"
 	"knative.dev/eventing-kafka/pkg/common/constants"
 
 	"knative.dev/eventing/pkg/apis/eventing"
@@ -76,7 +77,13 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		logger.Fatalw("unable to setup tracing", zap.Error(err))
 	}
 
-	configMap, err := configmap.Load(constants.SettingsConfigMapMountPath)
+	// Get the configmap loader
+	configmapLoader, err := configmaploader.FromContext(ctx)
+	if err != nil {
+		logger.Fatal("Failed To Get ConfigmapLoader From Context - Terminating!", zap.Error(err))
+	}
+
+	configMap, err := configmapLoader(constants.SettingsConfigMapMountPath)
 	if err != nil {
 		logger.Fatalw("error loading configuration", zap.Error(err))
 	}

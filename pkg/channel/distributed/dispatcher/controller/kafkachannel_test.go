@@ -218,10 +218,6 @@ func (m MockDispatcher) UpdateSubscriptions(_ []eventingduck.SubscriberSpec) map
 	return nil
 }
 
-func (m MockDispatcher) ConfigChanged(_ context.Context, _ *corev1.ConfigMap) dispatcher.Dispatcher {
-	return nil
-}
-
 func (m MockDispatcher) SecretChanged(_ context.Context, _ *corev1.Secret) dispatcher.Dispatcher {
 	return nil
 }

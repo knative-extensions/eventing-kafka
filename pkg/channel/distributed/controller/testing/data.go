@@ -38,6 +38,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 	"knative.dev/eventing/pkg/apis/messaging"
 	"knative.dev/pkg/apis"
@@ -101,6 +102,8 @@ const (
 	ReceiverMemoryLimit   = "20Mi"
 	ReceiverCpuRequest    = "10m"
 	ReceiverCpuLimit      = "100m"
+
+	ConfigMapHash = "deadbeef"
 
 	ControllerConfigYaml = `
 receiver:
@@ -173,6 +176,12 @@ func WithDeletionTimestampService(service *corev1.Service) {
 // Set The Deployment's DeletionTimestamp To Current Time
 func WithDeletionTimestampDeployment(deployment *appsv1.Deployment) {
 	deployment.ObjectMeta.SetDeletionTimestamp(&DeletionTimestamp)
+}
+
+func WithConfigMapHash(configMapHash string) func(deployment *appsv1.Deployment) {
+	return func(deployment *appsv1.Deployment) {
+		deployment.Spec.Template.ObjectMeta.Annotations[commonconstants.ConfigMapHashAnnotationKey] = configMapHash
+	}
 }
 
 // Clear The Specified Service's Finalizers
@@ -607,6 +616,9 @@ func NewKafkaChannelReceiverDeployment(options ...DeploymentOption) *appsv1.Depl
 					Labels: map[string]string{
 						"app": ReceiverDeploymentName,
 					},
+					Annotations: map[string]string{
+						commonconstants.ConfigMapHashAnnotationKey: ConfigMapHash,
+					},
 				},
 				Spec: corev1.PodSpec{
 					ServiceAccountName: ServiceAccount,
@@ -699,6 +711,24 @@ func NewKafkaChannelReceiverDeployment(options ...DeploymentOption) *appsv1.Depl
 								Limits: corev1.ResourceList{
 									corev1.ResourceCPU:    resource.MustParse(ReceiverCpuLimit),
 									corev1.ResourceMemory: resource.MustParse(ReceiverMemoryLimit),
+								},
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      commonconstants.SettingsConfigMapName,
+									MountPath: commonconstants.SettingsConfigMapMountPath,
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: commonconstants.SettingsConfigMapName,
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: commonconstants.SettingsConfigMapName,
+									},
 								},
 							},
 						},
@@ -805,6 +835,9 @@ func NewKafkaChannelDispatcherDeployment(options ...DeploymentOption) *appsv1.De
 					Labels: map[string]string{
 						"app": dispatcherName,
 					},
+					Annotations: map[string]string{
+						commonconstants.ConfigMapHashAnnotationKey: ConfigMapHash,
+					},
 				},
 				Spec: corev1.PodSpec{
 					ServiceAccountName: ServiceAccount,
@@ -899,6 +932,24 @@ func NewKafkaChannelDispatcherDeployment(options ...DeploymentOption) *appsv1.De
 								Requests: corev1.ResourceList{
 									corev1.ResourceMemory: resource.MustParse(DispatcherMemoryRequest),
 									corev1.ResourceCPU:    resource.MustParse(DispatcherCpuRequest),
+								},
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      commonconstants.SettingsConfigMapName,
+									MountPath: commonconstants.SettingsConfigMapMountPath,
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: commonconstants.SettingsConfigMapName,
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: commonconstants.SettingsConfigMapName,
+									},
 								},
 							},
 						},

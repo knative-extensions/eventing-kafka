@@ -300,6 +300,24 @@ func TestReconcile(t *testing.T) {
 				controllertesting.NewKafkaSecretFailedReconciliationEvent(),
 			},
 		},
+		{
+			Name: "Reconcile Receiver Deployment - Redeployment on ConfigMapHash change",
+			Key:  controllertesting.KafkaSecretKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaSecret(controllertesting.WithKafkaSecretFinalizer),
+				controllertesting.NewKafkaChannel(
+					controllertesting.WithReceiverServiceReady,
+					controllertesting.WithReceiverDeploymentReady,
+				),
+				controllertesting.NewKafkaChannelService(),
+				controllertesting.NewKafkaChannelReceiverService(),
+				controllertesting.NewKafkaChannelReceiverDeployment(controllertesting.WithConfigMapHash("initial-hash-to-be-overridden-by-controller")),
+			},
+			WantUpdates: []clientgotesting.UpdateActionImpl{
+				controllertesting.NewDeploymentUpdateActionImpl(controllertesting.NewKafkaChannelReceiverDeployment()),
+			},
+			WantEvents: []string{controllertesting.NewKafkaSecretSuccessfulReconciliationEvent()},
+		},
 	}
 
 	// Run The TableTest Using The KafkaChannel Reconciler Provided By The Factory
@@ -313,6 +331,7 @@ func TestReconcile(t *testing.T) {
 			kafkachannelLister: listers.GetKafkaChannelLister(),
 			deploymentLister:   listers.GetDeploymentLister(),
 			serviceLister:      listers.GetServiceLister(),
+			kafkaConfigMapHash: controllertesting.ConfigMapHash,
 		}
 		return kafkasecretinjection.NewReconciler(ctx, r.kubeClientset.CoreV1(), listers.GetSecretLister(), controller.GetEventRecorder(ctx), r)
 	}, logger.Desugar()))

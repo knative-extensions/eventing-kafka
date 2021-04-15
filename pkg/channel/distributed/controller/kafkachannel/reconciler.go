@@ -67,6 +67,7 @@ type Reconciler struct {
 	kafkaUsername        string
 	kafkaPassword        string
 	kafkaSaslType        string
+	kafkaConfigMapHash   string
 }
 
 var (
@@ -252,7 +253,7 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 	}
 
 	// Enable Sarama Logging If Specified In ConfigMap
-	if ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap); err == nil && ekConfig != nil {
+	if ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap.Data); err == nil && ekConfig != nil {
 		kafkasarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)
 		logger.Debug("Updated Sarama logging", zap.Any("configMap", configMap), zap.Bool("Kafka.EnableSaramaLogging", ekConfig.Kafka.EnableSaramaLogging))
 	} else {
@@ -286,4 +287,6 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 
 	logger.Info("ConfigMap Changed; Updating Sarama Configuration")
 	r.saramaConfig = saramaConfig
+
+	r.kafkaConfigMapHash = commonconfig.ConfigmapDataCheckSum(configMap.Data)
 }
