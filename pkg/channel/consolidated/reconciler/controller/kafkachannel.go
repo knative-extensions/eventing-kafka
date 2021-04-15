@@ -48,6 +48,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/common/client"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/common/constants"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	v1 "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/apis/eventing"
 	eventingclientset "knative.dev/eventing/pkg/client/clientset/versioned"
@@ -372,14 +373,14 @@ func (r *Reconciler) reconcileDispatcher(ctx context.Context, scope string, disp
 		if d.Spec.Template.Annotations == nil {
 			logging.FromContext(ctx).Infof("Configmap hash is not set. Updating the dispatcher deployment.")
 			d.Spec.Template.Annotations = map[string]string{
-				resources.ConfigMapHashAnnotationKey: expectedConfigMapHash,
+				commonconstants.ConfigMapHashAnnotationKey: expectedConfigMapHash,
 			}
 			needsUpdate = true
 		}
 
-		if d.Spec.Template.Annotations[resources.ConfigMapHashAnnotationKey] != expectedConfigMapHash {
+		if d.Spec.Template.Annotations[commonconstants.ConfigMapHashAnnotationKey] != expectedConfigMapHash {
 			logging.FromContext(ctx).Infof("Configmap hash is changed. Updating the dispatcher deployment.")
-			d.Spec.Template.Annotations[resources.ConfigMapHashAnnotationKey] = expectedConfigMapHash
+			d.Spec.Template.Annotations[commonconstants.ConfigMapHashAnnotationKey] = expectedConfigMapHash
 			needsUpdate = true
 		}
 

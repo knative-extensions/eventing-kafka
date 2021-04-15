@@ -29,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgotesting "k8s.io/client-go/testing"
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
-	"knative.dev/eventing-kafka/pkg/channel/consolidated/reconciler/controller/resources"
 	commonenv "knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/health"
 	kafkaconstants "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
@@ -594,7 +593,7 @@ func NewKafkaChannelReceiverDeployment(options ...DeploymentOption) *appsv1.Depl
 				"kafkachannel-receiver": "true",
 			},
 			Annotations: map[string]string{
-				resources.ConfigMapHashAnnotationKey: "deadbeef", // TODO: set to testConfigMapHash
+				commonconstants.ConfigMapHashAnnotationKey: "deadbeef", // TODO: set to testConfigMapHash
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				NewSecretOwnerRef(),
@@ -815,7 +814,7 @@ func NewKafkaChannelDispatcherDeployment(options ...DeploymentOption) *appsv1.De
 				constants.KafkaChannelDispatcherLabel: "true",
 			},
 			Annotations: map[string]string{
-				resources.ConfigMapHashAnnotationKey: "deadbeef", // TODO: set to testConfigMapHash
+				commonconstants.ConfigMapHashAnnotationKey: "deadbeef", // TODO: set to testConfigMapHash
 			},
 			Finalizers: []string{constants.EventingKafkaFinalizerPrefix + constants.KafkaChannelFinalizerSuffix},
 		},

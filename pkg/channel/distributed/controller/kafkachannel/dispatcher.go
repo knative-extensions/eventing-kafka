@@ -30,7 +30,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
-	"knative.dev/eventing-kafka/pkg/channel/consolidated/reconciler/controller/resources"
 	commonenv "knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/health"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
@@ -307,14 +306,14 @@ func (r *Reconciler) reconcileDispatcherDeployment(ctx context.Context, logger *
 			if deployment.Spec.Template.Annotations == nil {
 				logging.FromContext(ctx).Infof("Configmap hash is not set. Updating the dispatcher deployment.")
 				deployment.Spec.Template.Annotations = map[string]string{
-					resources.ConfigMapHashAnnotationKey: r.kafkaConfigMapHash,
+					commonconstants.ConfigMapHashAnnotationKey: r.kafkaConfigMapHash,
 				}
 				needsUpdate = true
 			}
 
-			if deployment.Spec.Template.Annotations[resources.ConfigMapHashAnnotationKey] != r.kafkaConfigMapHash {
+			if deployment.Spec.Template.Annotations[commonconstants.ConfigMapHashAnnotationKey] != r.kafkaConfigMapHash {
 				logging.FromContext(ctx).Infof("Configmap hash is changed. Updating the dispatcher deployment.")
-				deployment.Spec.Template.Annotations[resources.ConfigMapHashAnnotationKey] = r.kafkaConfigMapHash
+				deployment.Spec.Template.Annotations[commonconstants.ConfigMapHashAnnotationKey] = r.kafkaConfigMapHash
 				needsUpdate = true
 			}
 
@@ -447,7 +446,7 @@ func (r *Reconciler) newDispatcherDeployment(logger *zap.Logger, channel *kafkav
 				constants.KafkaChannelNamespaceLabel:  channel.Namespace, // Identifies the Deployment's Owning KafkaChannel's Namespace
 			},
 			Annotations: map[string]string{
-				resources.ConfigMapHashAnnotationKey: r.kafkaConfigMapHash,
+				commonconstants.ConfigMapHashAnnotationKey: r.kafkaConfigMapHash,
 			},
 			// K8S Does NOT Support Cross-Namespace OwnerReferences
 			// Instead Manage The Lifecycle Directly Via Finalizers (No K8S Garbage Collection)

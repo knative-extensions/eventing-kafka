@@ -21,13 +21,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/eventing-kafka/pkg/common/constants"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/pkg/system"
 )
 
 const (
 	DispatcherContainerName = "dispatcher"
-	// TODO: move to common
-	ConfigMapHashAnnotationKey = "kafka.eventing.knative.dev/configmap-hash"
 )
 
 var (
@@ -69,7 +68,7 @@ func MakeDispatcher(args DispatcherArgs) *v1.Deployment {
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: dispatcherLabels,
 					Annotations: map[string]string{
-						ConfigMapHashAnnotationKey: args.ConfigMapHash,
+						commonconstants.ConfigMapHashAnnotationKey: args.ConfigMapHash,
 					},
 				},
 				Spec: corev1.PodSpec{

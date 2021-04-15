@@ -22,13 +22,11 @@ import (
 	"strconv"
 	"time"
 
-	"k8s.io/apimachinery/pkg/api/resource"
-	"knative.dev/eventing-kafka/pkg/channel/consolidated/reconciler/controller/resources"
-
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	commonenv "knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
@@ -233,14 +231,14 @@ func (r *Reconciler) reconcileReceiverDeployment(ctx context.Context, logger *za
 			if deployment.Spec.Template.Annotations == nil {
 				logging.FromContext(ctx).Infof("Configmap hash is not set. Updating the receiver deployment.")
 				deployment.Spec.Template.Annotations = map[string]string{
-					resources.ConfigMapHashAnnotationKey: r.kafkaConfigMapHash,
+					commonconstants.ConfigMapHashAnnotationKey: r.kafkaConfigMapHash,
 				}
 				needsUpdate = true
 			}
 
-			if deployment.Spec.Template.Annotations[resources.ConfigMapHashAnnotationKey] != r.kafkaConfigMapHash {
+			if deployment.Spec.Template.Annotations[commonconstants.ConfigMapHashAnnotationKey] != r.kafkaConfigMapHash {
 				logging.FromContext(ctx).Infof("Configmap hash is changed. Updating the receiver deployment.")
-				deployment.Spec.Template.Annotations[resources.ConfigMapHashAnnotationKey] = r.kafkaConfigMapHash
+				deployment.Spec.Template.Annotations[commonconstants.ConfigMapHashAnnotationKey] = r.kafkaConfigMapHash
 				needsUpdate = true
 			}
 
@@ -323,7 +321,7 @@ func (r *Reconciler) newReceiverDeployment(logger *zap.Logger, secret *corev1.Se
 				constants.KafkaChannelReceiverLabel: "true",         // Allows for identification of Receivers
 			},
 			Annotations: map[string]string{
-				resources.ConfigMapHashAnnotationKey: r.kafkaConfigMapHash,
+				commonconstants.ConfigMapHashAnnotationKey: r.kafkaConfigMapHash,
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				util.NewSecretOwnerReference(secret),
