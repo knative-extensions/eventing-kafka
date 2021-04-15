@@ -23,7 +23,9 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	apitypes "k8s.io/apimachinery/pkg/types"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
+	"knative.dev/pkg/apis/duck"
 
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -668,6 +670,7 @@ func TestReconcile(t *testing.T) {
 		newDispatcherUpdateTest("Different LivenessProbe", controllertesting.WithDifferentLivenessProbe),
 		newDispatcherUpdateTest("Different ReadinessProbe", controllertesting.WithDifferentReadinessProbe),
 		newDispatcherUpdateTest("Missing Labels", controllertesting.WithoutLabels),
+		newDispatcherNoUpdateTest("Missing Annotations", controllertesting.WithoutAnnotations), // TODO: When configmap hash is implemented this should be an Update
 		newDispatcherNoUpdateTest("Different Lifecycle", controllertesting.WithDifferentLifecycle),
 		newDispatcherNoUpdateTest("Different TerminationPath", controllertesting.WithDifferentTerminationPath),
 		newDispatcherNoUpdateTest("Different TerminationPolicy", controllertesting.WithDifferentTerminationPolicy),
@@ -675,6 +678,7 @@ func TestReconcile(t *testing.T) {
 		newDispatcherNoUpdateTest("Different SecurityContext", controllertesting.WithDifferentSecurityContext),
 		newDispatcherNoUpdateTest("Different Replicas", controllertesting.WithDifferentReplicas),
 		newDispatcherNoUpdateTest("Extra Labels", controllertesting.WithExtraLabels),
+		newDispatcherNoUpdateTest("Extra Annotations", controllertesting.WithExtraAnnotations),
 
 		//
 		// Deployment Update Failure
@@ -714,51 +718,21 @@ func TestReconcile(t *testing.T) {
 		},
 
 		//
-		// Service Updating - Repairing Incorrect Or Missing Fields In Existing Services
+		// Service Patching - Repairing Incorrect Or Missing Fields In Existing Services
 		//
 
-		newServiceUpdateTest("Missing Ports", controllertesting.WithoutServicePorts),
-		newServiceUpdateTest("Missing App Label Selector", controllertesting.WithoutServiceSelector),
-		newServiceUpdateTest("Missing Labels", controllertesting.WithoutServiceLabels),
-		newServiceNoUpdateTest("Extra Labels", controllertesting.WithExtraServiceLabels),
-		newServiceNoUpdateTest("Different Status", controllertesting.WithDifferentServiceStatus),
+		newServicePatchTest("Missing Ports", controllertesting.WithoutServicePorts),
+		newServicePatchTest("Missing App Label Selector", controllertesting.WithoutServiceSelector),
+		newServicePatchTest("Missing Labels", controllertesting.WithoutServiceLabels),
+		newServiceNoPatchTest("Extra Labels", controllertesting.WithExtraServiceLabels),
+		newServiceNoPatchTest("Different Status", controllertesting.WithDifferentServiceStatus),
 
 		//
-		// Service Update Failure
+		// Service Patch Failure
 		//
 
-		{
-			Name: "Existing Dispatcher Service, Different Image, Update Error",
-			Key:  controllertesting.KafkaChannelKey,
-			Objects: []runtime.Object{
-				controllertesting.NewKafkaChannel(controllertesting.WithFinalizer),
-				controllertesting.NewKafkaChannelService(),
-				controllertesting.NewKafkaChannelDispatcherService(controllertesting.WithoutServicePorts),
-				controllertesting.NewKafkaChannelDispatcherDeployment(),
-			},
-			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
-				{
-					Object: controllertesting.NewKafkaChannel(
-						controllertesting.WithFinalizer,
-						controllertesting.WithAddress,
-						controllertesting.WithInitializedConditions,
-						controllertesting.WithKafkaChannelServiceReady,
-						controllertesting.WithDispatcherServiceUpdateFailed,
-						controllertesting.WithTopicReady,
-					),
-				},
-			},
-			WantUpdates: []clientgotesting.UpdateActionImpl{{Object: controllertesting.NewKafkaChannelDispatcherService()}},
-			WantEvents: []string{
-				controllertesting.NewKafkaChannelDispatcherServiceUpdateFailedEvent(),
-				Eventf(corev1.EventTypeWarning, event.DispatcherServiceReconciliationFailed.String(), "Failed To Reconcile Dispatcher Service: inducing failure for update services"),
-				controllertesting.NewKafkaChannelFailedReconciliationEvent(),
-			},
-			WithReactors: []clientgotesting.ReactionFunc{
-				InduceFailure("update", "Services"),
-			},
-			WantErr: true,
-		},
+		newServicePatchFailureTest("Missing Ports", controllertesting.WithoutServicePorts),
+		newServicePatchFailureTest("Missing Labels", controllertesting.WithoutServiceLabels),
 	}
 
 	// Create A Mock AdminClient
@@ -818,21 +792,68 @@ func newDispatcherNoUpdateTest(name string, options ...controllertesting.Deploym
 }
 
 // Creates a test that expects a dispatcher service update, using the provided options
-func newServiceUpdateTest(name string, options ...controllertesting.ServiceOption) TableRow {
-	test := newDispatcherBasicTest("Existing Dispatcher Service, " + name + ", Update Needed")
-	test.Objects = append(test.Objects,
-		controllertesting.NewKafkaChannelDispatcherService(options...),
+func newServicePatchTest(name string, options ...controllertesting.ServiceOption) TableRow {
+	newService := controllertesting.NewKafkaChannelDispatcherService()
+	existingService := controllertesting.NewKafkaChannelDispatcherService(options...)
+
+	test := newDispatcherBasicTest("Existing Dispatcher Service, " + name + ", Patch Needed")
+	test.Objects = append(test.Objects, existingService,
 		controllertesting.NewKafkaChannelDispatcherDeployment())
-	test.WantUpdates = append(test.WantUpdates,
-		controllertesting.NewServiceUpdateActionImpl(controllertesting.NewKafkaChannelDispatcherService()))
-	test.WantEvents = append([]string{controllertesting.NewKafkaChannelDispatcherServiceUpdatedEvent()},
+
+	jsonPatch, _ := duck.CreatePatch(existingService, newService)
+	patch, _ := jsonPatch.MarshalJSON()
+
+	test.WantPatches = []clientgotesting.PatchActionImpl{{
+		Name:      existingService.Name,
+		PatchType: apitypes.JSONPatchType,
+		Patch:     patch,
+	}}
+
+	test.WantEvents = append([]string{controllertesting.NewKafkaChannelDispatcherServicePatchedEvent()},
 		test.WantEvents...)
+
+	// The "WantPatches" part of the table test assumes that a patch is supposed to be for the namespace
+	// given by the "Key" field, which, in this case, is the namespace for the KafkaChannel.  This assumption
+	// is not correct, so that validation must be skipped here (this is true for the Update commands as well
+	// but the table test code does not verify that updates are done in the same namespace for some reason).
+	test.SkipNamespaceValidation = true
 	return test
 }
 
-// Creates a test that expects to not have a dispatcher service update, using the provided options
-func newServiceNoUpdateTest(name string, options ...controllertesting.ServiceOption) TableRow {
-	test := newDispatcherBasicTest("Existing Dispatcher Service, " + name + ", No Update")
+func newServicePatchFailureTest(name string, options ...controllertesting.ServiceOption) TableRow {
+	test := newServicePatchTest(name, options...)
+	test.Name = "Existing Dispatcher Service, " + name + ", Patch Error"
+
+	test.WantEvents = []string{
+		controllertesting.NewKafkaChannelDispatcherServicePatchFailedEvent(),
+		Eventf(corev1.EventTypeWarning, event.DispatcherServiceReconciliationFailed.String(), "Failed To Reconcile Dispatcher Service: inducing failure for patch services"),
+		controllertesting.NewKafkaChannelFailedReconciliationEvent(),
+	}
+
+	test.WantStatusUpdates = []clientgotesting.UpdateActionImpl{{
+		Object: controllertesting.NewKafkaChannel(
+			controllertesting.WithFinalizer,
+			controllertesting.WithAddress,
+			controllertesting.WithInitializedConditions,
+			controllertesting.WithKafkaChannelServiceReady,
+			controllertesting.WithDispatcherDeploymentReady,
+			controllertesting.WithDispatcherServicePatchFailed,
+			controllertesting.WithTopicReady,
+		),
+	}}
+
+	// If the service fails, the other reconcilers are not executed, so no updates
+	test.WantUpdates = nil
+
+	test.WithReactors = []clientgotesting.ReactionFunc{InduceFailure("patch", "Services")}
+	test.WantErr = true
+
+	return test
+}
+
+// Creates a test that expects to not have a dispatcher service patch, using the provided options
+func newServiceNoPatchTest(name string, options ...controllertesting.ServiceOption) TableRow {
+	test := newDispatcherBasicTest("Existing Dispatcher Service, " + name + ", No Patch")
 	test.Objects = append(test.Objects,
 		controllertesting.NewKafkaChannelDispatcherService(options...),
 		controllertesting.NewKafkaChannelDispatcherDeployment())

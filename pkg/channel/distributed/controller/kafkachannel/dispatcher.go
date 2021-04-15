@@ -22,6 +22,8 @@ import (
 	"strconv"
 	"time"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -147,10 +149,10 @@ func (r *Reconciler) reconcileDispatcherService(ctx context.Context, logger *zap
 
 		// Determine whether the existing service is different in a way that demands an update
 		// such as missing required labels or spec differences
-		updatedService, needsUpdate := util.CheckServiceChanged(existingService, newService)
+		patch, needsUpdate := util.CheckServiceChanged(logger, existingService, newService)
 
 		// Log Deletion Timestamp & Finalizer State
-		if newService.DeletionTimestamp.IsZero() {
+		if existingService.DeletionTimestamp.IsZero() {
 			logger.Info("Successfully Verified Dispatcher Service")
 		} else {
 			if util.HasFinalizer(r.finalizerName(), &newService.ObjectMeta) {
@@ -162,13 +164,13 @@ func (r *Reconciler) reconcileDispatcherService(ctx context.Context, logger *zap
 
 		// Update the service in Kubernetes if necessary
 		if needsUpdate {
-			logger.Info("Dispatcher Service Changed - Updating")
-			updatedService, err = r.kubeClientset.CoreV1().Services(newService.Namespace).Update(ctx, updatedService, metav1.UpdateOptions{})
+			logger.Info("Dispatcher Service Changed - Patching")
+			_, err = r.kubeClientset.CoreV1().Services(existingService.Namespace).Patch(ctx, existingService.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 			if err == nil {
-				controller.GetEventRecorder(ctx).Event(channel, corev1.EventTypeNormal, event.DispatcherServiceUpdated.String(), "Dispatcher Service Updated")
+				controller.GetEventRecorder(ctx).Event(channel, corev1.EventTypeNormal, event.DispatcherServicePatched.String(), "Dispatcher Service Patched")
 			} else {
-				controller.GetEventRecorder(ctx).Event(channel, corev1.EventTypeWarning, event.DispatcherServiceUpdateFailed.String(), "Dispatcher Service Update Failed")
-				channel.Status.MarkDispatcherFailed(event.DispatcherServiceUpdateFailed.String(), "Failed To Update Dispatcher Service: %v", err)
+				controller.GetEventRecorder(ctx).Event(channel, corev1.EventTypeWarning, event.DispatcherServicePatchFailed.String(), "Dispatcher Service Patch Failed")
+				channel.Status.MarkDispatcherFailed(event.DispatcherServicePatchFailed.String(), "Failed To Patch Dispatcher Service: %v", err)
 				return err
 			}
 		}
@@ -439,6 +441,16 @@ func (r *Reconciler) newDispatcherDeployment(logger *zap.Logger, channel *kafkav
 		resourceRequests[corev1.ResourceCPU] = r.config.Dispatcher.CpuRequest
 	}
 
+	// If either the limits or requests are an entirely-empty map, this will be translated to a nil
+	// value in the resource itself, so pre-emptively set that here.  This prevents the CheckDeploymentChanged
+	// function from returning a difference and restarting the dispatcher unnecessarily.
+	if len(resourceLimits) == 0 {
+		resourceLimits = nil
+	}
+	if len(resourceRequests) == 0 {
+		resourceRequests = nil
+	}
+
 	// Create The Dispatcher's Deployment
 	deployment := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
@@ -485,6 +497,9 @@ func (r *Reconciler) newDispatcherDeployment(logger *zap.Logger, channel *kafkav
 								},
 								InitialDelaySeconds: constants.DispatcherLivenessDelay,
 								PeriodSeconds:       constants.DispatcherLivenessPeriod,
+								TimeoutSeconds:      constants.DispatcherLivenessTimeout,
+								SuccessThreshold:    constants.DispatcherLivenessSuccessThreshold,
+								FailureThreshold:    constants.DispatcherLivenessFailureThreshold,
 							},
 							ReadinessProbe: &corev1.Probe{
 								Handler: corev1.Handler{
@@ -495,6 +510,9 @@ func (r *Reconciler) newDispatcherDeployment(logger *zap.Logger, channel *kafkav
 								},
 								InitialDelaySeconds: constants.DispatcherReadinessDelay,
 								PeriodSeconds:       constants.DispatcherReadinessPeriod,
+								TimeoutSeconds:      constants.DispatcherReadinessTimeout,
+								SuccessThreshold:    constants.DispatcherReadinessSuccessThreshold,
+								FailureThreshold:    constants.DispatcherReadinessFailureThreshold,
 							},
 							Image:           r.environment.DispatcherImage,
 							Env:             envVars,

@@ -187,6 +187,10 @@ func WithoutFinalizersDeployment(deployment *appsv1.Deployment) {
 	deployment.ObjectMeta.Finalizers = []string{}
 }
 
+func WithChannelNamespace(service *corev1.Service) {
+	service.ObjectMeta.Namespace = KafkaChannelNamespace
+}
+
 func WithoutServicePorts(service *corev1.Service) {
 	service.Spec.Ports = []corev1.ServicePort{}
 }
@@ -310,6 +314,14 @@ func WithoutLabels(deployment *appsv1.Deployment) {
 
 func WithExtraLabels(deployment *appsv1.Deployment) {
 	deployment.ObjectMeta.Labels["ExtraLabelName"] = "ExtraLabelValue"
+}
+
+func WithoutAnnotations(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.ObjectMeta.Annotations = map[string]string{}
+}
+
+func WithExtraAnnotations(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.ObjectMeta.Annotations["ExtraAnnotationName"] = "ExtraAnnotationValue"
 }
 
 //
@@ -572,8 +584,8 @@ func WithReceiverServiceFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
 }
 
 // Set The KafkaChannel's Receiver Service As Failed
-func WithReceiverServiceUpdateFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
-	kafkachannel.Status.MarkServiceFailed(event.ReceiverServiceReconciliationFailed.String(), "Receiver Service Failed: inducing failure for update services")
+func WithReceiverServicePatchFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
+	kafkachannel.Status.MarkServiceFailed(event.ReceiverServiceReconciliationFailed.String(), "Receiver Service Failed: inducing failure for patch services")
 }
 
 // Set The KafkaChannel's Receiver Service As Finalized
@@ -618,8 +630,8 @@ func WithDispatcherUpdateFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
 	kafkachannel.Status.MarkDispatcherFailed(event.DispatcherDeploymentUpdateFailed.String(), "Failed To Update Dispatcher Deployment: inducing failure for update deployments")
 }
 
-func WithDispatcherServiceUpdateFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
-	kafkachannel.Status.MarkDispatcherFailed(event.DispatcherServiceUpdateFailed.String(), "Failed To Update Dispatcher Service: inducing failure for update services")
+func WithDispatcherServicePatchFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
+	kafkachannel.Status.MarkDispatcherFailed(event.DispatcherServicePatchFailed.String(), "Failed To Patch Dispatcher Service: inducing failure for patch services")
 }
 
 // Set The KafkaChannel's Topic READY
@@ -748,6 +760,7 @@ func NewKafkaChannelReceiverDeployment(options ...DeploymentOption) *appsv1.Depl
 					Labels: map[string]string{
 						"app": ReceiverDeploymentName,
 					},
+					Annotations: map[string]string{},
 				},
 				Spec: corev1.PodSpec{
 					ServiceAccountName: ServiceAccount,
@@ -763,6 +776,9 @@ func NewKafkaChannelReceiverDeployment(options ...DeploymentOption) *appsv1.Depl
 								},
 								InitialDelaySeconds: constants.ChannelLivenessDelay,
 								PeriodSeconds:       constants.ChannelLivenessPeriod,
+								TimeoutSeconds:      constants.ChannelLivenessTimeout,
+								SuccessThreshold:    constants.ChannelLivenessSuccessThreshold,
+								FailureThreshold:    constants.ChannelLivenessFailureThreshold,
 							},
 							ReadinessProbe: &corev1.Probe{
 								Handler: corev1.Handler{
@@ -773,6 +789,9 @@ func NewKafkaChannelReceiverDeployment(options ...DeploymentOption) *appsv1.Depl
 								},
 								InitialDelaySeconds: constants.ChannelReadinessDelay,
 								PeriodSeconds:       constants.ChannelReadinessPeriod,
+								TimeoutSeconds:      constants.ChannelReadinessTimeout,
+								SuccessThreshold:    constants.ChannelReadinessSuccessThreshold,
+								FailureThreshold:    constants.ChannelReadinessFailureThreshold,
 							},
 							Image: ReceiverImage,
 							Ports: []corev1.ContainerPort{
@@ -946,6 +965,7 @@ func NewKafkaChannelDispatcherDeployment(options ...DeploymentOption) *appsv1.De
 					Labels: map[string]string{
 						"app": dispatcherName,
 					},
+					Annotations: map[string]string{},
 				},
 				Spec: corev1.PodSpec{
 					ServiceAccountName: ServiceAccount,
@@ -962,6 +982,9 @@ func NewKafkaChannelDispatcherDeployment(options ...DeploymentOption) *appsv1.De
 								},
 								InitialDelaySeconds: constants.DispatcherLivenessDelay,
 								PeriodSeconds:       constants.DispatcherLivenessPeriod,
+								TimeoutSeconds:      constants.DispatcherLivenessTimeout,
+								SuccessThreshold:    constants.DispatcherLivenessSuccessThreshold,
+								FailureThreshold:    constants.DispatcherLivenessFailureThreshold,
 							},
 							ReadinessProbe: &corev1.Probe{
 								Handler: corev1.Handler{
@@ -972,6 +995,9 @@ func NewKafkaChannelDispatcherDeployment(options ...DeploymentOption) *appsv1.De
 								},
 								InitialDelaySeconds: constants.DispatcherReadinessDelay,
 								PeriodSeconds:       constants.DispatcherReadinessPeriod,
+								TimeoutSeconds:      constants.DispatcherReadinessTimeout,
+								SuccessThreshold:    constants.DispatcherReadinessSuccessThreshold,
+								FailureThreshold:    constants.DispatcherReadinessFailureThreshold,
 							},
 							Env: []corev1.EnvVar{
 								{
@@ -1125,14 +1151,14 @@ func NewReceiverDeploymentUpdateFailedEvent() string {
 	return reconcilertesting.Eventf(corev1.EventTypeWarning, event.ReceiverDeploymentUpdateFailed.String(), "Receiver Deployment Update Failed")
 }
 
-// Utility Function For Creating A Receiver Service Updated Event
-func NewReceiverServiceUpdatedEvent() string {
-	return reconcilertesting.Eventf(corev1.EventTypeNormal, event.ReceiverServiceUpdated.String(), "Receiver Service Updated")
+// Utility Function For Creating A Receiver Service Patched Event
+func NewReceiverServicePatchedEvent() string {
+	return reconcilertesting.Eventf(corev1.EventTypeNormal, event.ReceiverServicePatched.String(), "Receiver Service Patched")
 }
 
-// Utility Function For Creating A Receiver Service Update Failure Event
-func NewReceiverServiceUpdateFailedEvent() string {
-	return reconcilertesting.Eventf(corev1.EventTypeWarning, event.ReceiverServiceUpdateFailed.String(), "Receiver Service Update Failed")
+// Utility Function For Creating A Receiver Service Patch Failure Event
+func NewReceiverServicePatchFailedEvent() string {
+	return reconcilertesting.Eventf(corev1.EventTypeWarning, event.ReceiverServicePatchFailed.String(), "Receiver Service Patch Failed")
 }
 
 // Utility Function For Creating A Dispatcher Deployment Updated Event
@@ -1150,14 +1176,14 @@ func NewKafkaChannelDispatcherDeploymentUpdateFailedEvent() string {
 	return reconcilertesting.Eventf(corev1.EventTypeWarning, event.DispatcherDeploymentUpdateFailed.String(), "Dispatcher Deployment Update Failed")
 }
 
-// Utility Function For Creating A Dispatcher Service Updated Event
-func NewKafkaChannelDispatcherServiceUpdatedEvent() string {
-	return reconcilertesting.Eventf(corev1.EventTypeNormal, event.DispatcherServiceUpdated.String(), "Dispatcher Service Updated")
+// Utility Function For Creating A Dispatcher Service Patched Event
+func NewKafkaChannelDispatcherServicePatchedEvent() string {
+	return reconcilertesting.Eventf(corev1.EventTypeNormal, event.DispatcherServicePatched.String(), "Dispatcher Service Patched")
 }
 
-// Utility Function For Creating A Dispatcher Service Update Failure Event
-func NewKafkaChannelDispatcherServiceUpdateFailedEvent() string {
-	return reconcilertesting.Eventf(corev1.EventTypeWarning, event.DispatcherServiceUpdateFailed.String(), "Dispatcher Service Update Failed")
+// Utility Function For Creating A Dispatcher Service Patch Failure Event
+func NewKafkaChannelDispatcherServicePatchFailedEvent() string {
+	return reconcilertesting.Eventf(corev1.EventTypeWarning, event.DispatcherServicePatchFailed.String(), "Dispatcher Service Patch Failed")
 }
 
 // Utility Function For Creating A Successful KafkaChannel Reconciled Event

@@ -22,6 +22,8 @@ import (
 	"strconv"
 	"time"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"go.uber.org/zap"
@@ -122,24 +124,24 @@ func (r *Reconciler) reconcileReceiverService(ctx context.Context, logger *zap.L
 
 		// Determine whether the existing service is different in a way that demands an update
 		// such as missing required labels or spec differences
-		updatedService, needsUpdate := util.CheckServiceChanged(existingService, newService)
+		patch, needsUpdate := util.CheckServiceChanged(logger, existingService, newService)
 
 		// Verify Receiver Service Is Not Terminating
-		if updatedService.DeletionTimestamp.IsZero() {
+		if existingService.DeletionTimestamp.IsZero() {
 			logger.Info("Successfully Verified Receiver Service")
 		} else {
-			logger.Warn("Encountered Receiver Service With DeletionTimestamp - Forcing Reconciliation", zap.String("Namespace", updatedService.Namespace), zap.String("Name", updatedService.Name))
-			return fmt.Errorf("encountered Receiver Service with DeletionTimestamp %s/%s - potential race condition", updatedService.Namespace, updatedService.Name)
+			logger.Warn("Encountered Receiver Service With DeletionTimestamp - Forcing Reconciliation", zap.String("Namespace", existingService.Namespace), zap.String("Name", existingService.Name))
+			return fmt.Errorf("encountered Receiver Service with DeletionTimestamp %s/%s - potential race condition", existingService.Namespace, existingService.Name)
 		}
 
 		// Update the service in Kubernetes if necessary
 		if needsUpdate {
-			logger.Info("Receiver Service Changed - Updating")
-			updatedService, err = r.kubeClientset.CoreV1().Services(newService.Namespace).Update(ctx, updatedService, metav1.UpdateOptions{})
+			logger.Info("Receiver Service Changed - Patching")
+			_, err = r.kubeClientset.CoreV1().Services(existingService.Namespace).Patch(ctx, existingService.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 			if err == nil {
-				controller.GetEventRecorder(ctx).Event(secret, corev1.EventTypeNormal, event.ReceiverServiceUpdated.String(), "Receiver Service Updated")
+				controller.GetEventRecorder(ctx).Event(secret, corev1.EventTypeNormal, event.ReceiverServicePatched.String(), "Receiver Service Patched")
 			} else {
-				controller.GetEventRecorder(ctx).Event(secret, corev1.EventTypeWarning, event.ReceiverServiceUpdateFailed.String(), "Receiver Service Update Failed")
+				controller.GetEventRecorder(ctx).Event(secret, corev1.EventTypeWarning, event.ReceiverServicePatchFailed.String(), "Receiver Service Patch Failed")
 				return err
 			}
 		}
@@ -319,6 +321,16 @@ func (r *Reconciler) newReceiverDeployment(logger *zap.Logger, secret *corev1.Se
 		resourceRequests[corev1.ResourceCPU] = r.config.Receiver.CpuRequest
 	}
 
+	// If either the limits or requests are an entirely-empty map, this will be translated to a nil
+	// value in the resource itself, so pre-emptively set that here.  This prevents the CheckDeploymentChanged
+	// function from returning a difference and restarting the receiver unnecessarily.
+	if len(resourceLimits) == 0 {
+		resourceLimits = nil
+	}
+	if len(resourceRequests) == 0 {
+		resourceRequests = nil
+	}
+
 	// Create The Receiver Deployment
 	deployment := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
@@ -363,6 +375,9 @@ func (r *Reconciler) newReceiverDeployment(logger *zap.Logger, secret *corev1.Se
 								},
 								InitialDelaySeconds: constants.ChannelLivenessDelay,
 								PeriodSeconds:       constants.ChannelLivenessPeriod,
+								TimeoutSeconds:      constants.ChannelLivenessTimeout,
+								SuccessThreshold:    constants.ChannelLivenessSuccessThreshold,
+								FailureThreshold:    constants.ChannelLivenessFailureThreshold,
 							},
 							ReadinessProbe: &corev1.Probe{
 								Handler: corev1.Handler{
@@ -373,6 +388,9 @@ func (r *Reconciler) newReceiverDeployment(logger *zap.Logger, secret *corev1.Se
 								},
 								InitialDelaySeconds: constants.ChannelReadinessDelay,
 								PeriodSeconds:       constants.ChannelReadinessPeriod,
+								TimeoutSeconds:      constants.ChannelReadinessTimeout,
+								SuccessThreshold:    constants.ChannelReadinessSuccessThreshold,
+								FailureThreshold:    constants.ChannelReadinessFailureThreshold,
 							},
 							Image: r.environment.ReceiverImage,
 							Ports: []corev1.ContainerPort{

@@ -17,6 +17,7 @@ limitations under the License.
 package util
 
 import (
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -28,6 +29,7 @@ import (
 )
 
 type deploymentOption func(service *appsv1.Deployment)
+type serviceOption func(*corev1.Service)
 
 // Tests the CheckDeploymentChanged functionality.  Note that this is also tested fairly extensively
 // as part of the various reconciler tests, and as such the deployment structs used here are somewhat trivial.
@@ -52,6 +54,12 @@ func TestCheckDeploymentChanged(t *testing.T) {
 			expectUpdated:      true,
 		},
 		{
+			name:               "Missing Required Annotation",
+			existingDeployment: getBasicDeployment(),
+			newDeployment:      getBasicDeployment(withAnnotation),
+			expectUpdated:      true,
+		},
+		{
 			name:               "Missing Existing Container",
 			existingDeployment: getBasicDeployment(withoutContainer),
 			newDeployment:      getBasicDeployment(),
@@ -60,6 +68,11 @@ func TestCheckDeploymentChanged(t *testing.T) {
 		{
 			name:               "Extra Existing Label",
 			existingDeployment: getBasicDeployment(withLabel),
+			newDeployment:      getBasicDeployment(),
+		},
+		{
+			name:               "Extra Existing Annotation",
+			existingDeployment: getBasicDeployment(withAnnotation),
 			newDeployment:      getBasicDeployment(),
 		},
 		{
@@ -99,6 +112,9 @@ func getBasicDeployment(options ...deploymentOption) *appsv1.Deployment {
 		},
 		Spec: appsv1.DeploymentSpec{
 			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: make(map[string]string),
+				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{Name: "TestContainerName"},
@@ -116,8 +132,102 @@ func getBasicDeployment(options ...deploymentOption) *appsv1.Deployment {
 	return deployment
 }
 
+// Tests the CheckServiceChanged functionality.  Note that this is also tested fairly extensively
+// as part of the various reconciler tests, and as such the service structs used here are somewhat trivial.
+func TestCheckServiceChanged(t *testing.T) {
+	logger := logtesting.TestLogger(t).Desugar()
+	tests := []struct {
+		name            string
+		existingService *corev1.Service
+		newService      *corev1.Service
+		expectPatch     bool
+		expectUpdated   bool
+	}{
+		{
+			name:            "Different Cluster IP",
+			existingService: getBasicService(),
+			newService:      getBasicService(withDifferentClusterIP),
+		},
+		{
+			name:            "Missing Required Label",
+			existingService: getBasicService(),
+			newService:      getBasicService(withServiceLabel),
+			expectUpdated:   true,
+			expectPatch:     true,
+		},
+		{
+			name:            "Missing Ports",
+			existingService: getBasicService(withoutPorts),
+			newService:      getBasicService(),
+			expectUpdated:   true,
+			expectPatch:     true,
+		},
+		{
+			name:            "Extra Existing Label",
+			existingService: getBasicService(withServiceLabel),
+			newService:      getBasicService(),
+		},
+		{
+			name:            "Empty Services",
+			existingService: &corev1.Service{},
+			newService:      &corev1.Service{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			newService := tt.newService
+			if newService == nil {
+				newService = getBasicService()
+			}
+			patch, isUpdated := CheckServiceChanged(logger, tt.existingService, tt.newService)
+			assert.Equal(t, tt.expectPatch, patch != nil)
+			assert.Equal(t, tt.expectUpdated, isUpdated)
+		})
+	}
+}
+
+func TestCreateJsonPatch(t *testing.T) {
+	logger := logtesting.TestLogger(t).Desugar()
+	tests := []struct {
+		name        string
+		before      interface{}
+		after       interface{}
+		expectPatch bool
+		expectOk    bool
+	}{
+		{
+			name:   "Invalid Content",
+			before: math.Inf(1),
+			after:  math.Inf(1),
+		},
+		{
+			name:   "No Difference",
+			before: getBasicService(),
+			after:  getBasicService(),
+		},
+		{
+			name:        "Missing Ports",
+			before:      getBasicService(withoutPorts),
+			after:       getBasicService(),
+			expectPatch: true,
+			expectOk:    true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			patch, ok := createJsonPatch(logger, tt.before, tt.after)
+			assert.Equal(t, tt.expectPatch, patch != nil)
+			assert.Equal(t, tt.expectOk, ok)
+		})
+	}
+}
+
 func withLabel(deployment *appsv1.Deployment) {
 	deployment.Labels["TestLabelName"] = "TestLabelValue"
+}
+
+func withAnnotation(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.ObjectMeta.Annotations["TestAnnotationName"] = "TestAnnotationValue"
 }
 
 func withoutContainer(deployment *appsv1.Deployment) {
@@ -133,53 +243,6 @@ func withExtraContainer(deployment *appsv1.Deployment) {
 
 func withDifferentImage(deployment *appsv1.Deployment) {
 	deployment.Spec.Template.Spec.Containers[0].Image = "TestNewImage"
-}
-
-type serviceOption func(*corev1.Service)
-
-// Tests the CheckServiceChanged functionality.  Note that this is also tested fairly extensively
-// as part of the various reconciler tests, and as such the service structs used here are somewhat trivial.
-func TestCheckServiceChanged(t *testing.T) {
-	tests := []struct {
-		name            string
-		existingService *corev1.Service
-		newService      *corev1.Service
-		expectUpdated   bool
-	}{
-		{
-			name:            "Different Cluster IP",
-			existingService: getBasicService(),
-			newService:      getBasicService(withDifferentClusterIP),
-		},
-		{
-			name:            "Missing Required Label",
-			existingService: getBasicService(),
-			newService:      getBasicService(withServiceLabel),
-			expectUpdated:   true,
-		},
-		{
-			name:            "Missing Ports",
-			existingService: getBasicService(withoutPorts),
-			newService:      getBasicService(),
-			expectUpdated:   true,
-		},
-		{
-			name:            "Extra Existing Label",
-			existingService: getBasicService(withServiceLabel),
-			newService:      getBasicService(),
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			newService := tt.newService
-			if newService == nil {
-				newService = getBasicService()
-			}
-			updatedService, isUpdated := CheckServiceChanged(tt.existingService, tt.newService)
-			assert.NotNil(t, updatedService)
-			assert.Equal(t, tt.expectUpdated, isUpdated)
-		})
-	}
 }
 
 func getBasicService(options ...serviceOption) *corev1.Service {

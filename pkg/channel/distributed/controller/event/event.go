@@ -39,10 +39,10 @@ const (
 	// Receiver (Kafka Producer) Reconciliation
 	ReceiverServiceReconciliationFailed
 	ReceiverDeploymentReconciliationFailed
-	ReceiverServiceUpdated
 	ReceiverDeploymentUpdated
-	ReceiverServiceUpdateFailed
 	ReceiverDeploymentUpdateFailed
+	ReceiverServicePatched
+	ReceiverServicePatchFailed
 
 	// Kafka Topic Reconciliation
 	KafkaTopicReconciliationFailed
@@ -54,8 +54,8 @@ const (
 	DispatcherDeploymentFinalizationFailed
 	DispatcherDeploymentUpdated
 	DispatcherDeploymentUpdateFailed
-	DispatcherServiceUpdated
-	DispatcherServiceUpdateFailed
+	DispatcherServicePatched
+	DispatcherServicePatchFailed
 
 	// Kafka Secret Reconciliation
 	KafkaSecretReconciled
@@ -86,12 +86,12 @@ func (et CoreV1EventType) String() string {
 		eventTypeString = "ReceiverServiceReconciliationFailed"
 	case ReceiverDeploymentReconciliationFailed:
 		eventTypeString = "ReceiverDeploymentReconciliationFailed"
-	case ReceiverServiceUpdated:
-		eventTypeString = "ReceiverServiceUpdated"
+	case ReceiverServicePatched:
+		eventTypeString = "ReceiverServicePatched"
 	case ReceiverDeploymentUpdated:
 		eventTypeString = "ReceiverDeploymentUpdated"
-	case ReceiverServiceUpdateFailed:
-		eventTypeString = "ReceiverServiceUpdateFailed"
+	case ReceiverServicePatchFailed:
+		eventTypeString = "ReceiverServicePatchFailed"
 	case ReceiverDeploymentUpdateFailed:
 		eventTypeString = "ReceiverDeploymentUpdateFailed"
 	case ChannelStatusReconciliationFailed:
@@ -110,10 +110,10 @@ func (et CoreV1EventType) String() string {
 		eventTypeString = "DispatcherDeploymentUpdated"
 	case DispatcherDeploymentUpdateFailed:
 		eventTypeString = "DispatcherDeploymentUpdateFailed"
-	case DispatcherServiceUpdated:
-		eventTypeString = "DispatcherServiceUpdated"
-	case DispatcherServiceUpdateFailed:
-		eventTypeString = "DispatcherServiceUpdateFailed"
+	case DispatcherServicePatched:
+		eventTypeString = "DispatcherServicePatched"
+	case DispatcherServicePatchFailed:
+		eventTypeString = "DispatcherServicePatchFailed"
 	case KafkaSecretReconciled:
 		eventTypeString = "KafkaSecretReconciled"
 	case KafkaSecretFinalized:
