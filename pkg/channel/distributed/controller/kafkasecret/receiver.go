@@ -227,23 +227,24 @@ func (r *Reconciler) reconcileReceiverDeployment(ctx context.Context, logger *za
 		// Verify Receiver Deployment Is Not Terminating
 		if deployment.DeletionTimestamp.IsZero() {
 			needsUpdate := false
+			deploymentCopy := deployment.DeepCopy()
 
-			if deployment.Spec.Template.Annotations == nil {
+			if deploymentCopy.Spec.Template.Annotations == nil {
 				logging.FromContext(ctx).Infof("Configmap hash is not set. Updating the receiver deployment.")
-				deployment.Spec.Template.Annotations = map[string]string{
+				deploymentCopy.Spec.Template.Annotations = map[string]string{
 					commonconstants.ConfigMapHashAnnotationKey: r.kafkaConfigMapHash,
 				}
 				needsUpdate = true
 			}
 
-			if deployment.Spec.Template.Annotations[commonconstants.ConfigMapHashAnnotationKey] != r.kafkaConfigMapHash {
+			if deploymentCopy.Spec.Template.Annotations[commonconstants.ConfigMapHashAnnotationKey] != r.kafkaConfigMapHash {
 				logging.FromContext(ctx).Infof("Configmap hash is changed. Updating the receiver deployment.")
-				deployment.Spec.Template.Annotations[commonconstants.ConfigMapHashAnnotationKey] = r.kafkaConfigMapHash
+				deploymentCopy.Spec.Template.Annotations[commonconstants.ConfigMapHashAnnotationKey] = r.kafkaConfigMapHash
 				needsUpdate = true
 			}
 
 			if needsUpdate {
-				deployment, err = r.kubeClientset.AppsV1().Deployments(deployment.Namespace).Update(ctx, deployment, metav1.UpdateOptions{})
+				deploymentCopy, err = r.kubeClientset.AppsV1().Deployments(deploymentCopy.Namespace).Update(ctx, deploymentCopy, metav1.UpdateOptions{})
 				if err != nil {
 					logger.Warn("Unable to update receiver deployment", zap.Error(err))
 					return err
