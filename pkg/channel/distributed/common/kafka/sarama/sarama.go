@@ -25,14 +25,9 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/ghodss/yaml"
-	"go.uber.org/zap"
-
 	"knative.dev/eventing-kafka/pkg/common/client"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
-	"knative.dev/eventing-kafka/pkg/common/configmaploader"
 	"knative.dev/eventing-kafka/pkg/common/constants"
-	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
-	"knative.dev/pkg/logging"
 )
 
 // Utility Function For Enabling Sarama Logging (Debugging)
@@ -46,20 +41,7 @@ func EnableSaramaLogging(enable bool) {
 
 // Load The Sarama & EventingKafka Configuration From The ConfigMap
 // The Provided Context Must Have A Kubernetes Client Associated With It
-func LoadSettings(ctx context.Context, clientId string, kafkaAuthConfig *client.KafkaAuthConfig) (*sarama.Config, *commonconfig.EventingKafkaConfig, error) {
-	logger := logging.FromContext(ctx).Desugar()
-
-	// Get the configmap loader
-	configmapLoader, err := configmaploader.FromContext(ctx)
-	if err != nil {
-		logger.Fatal("Failed To Get ConfigmapLoader From Context - Terminating!", zap.Error(err))
-	}
-
-	configMap, err := configmapLoader(commonconstants.SettingsConfigMapMountPath)
-	if err != nil {
-		logger.Fatal("error loading configuration", zap.Error(err))
-	}
-
+func LoadSettings(ctx context.Context, clientId string, configMap map[string]string, kafkaAuthConfig *client.KafkaAuthConfig) (*sarama.Config, *commonconfig.EventingKafkaConfig, error) {
 	// Validate The ConfigMap Data
 	if configMap == nil {
 		return nil, nil, fmt.Errorf("attempted to merge sarama settings with empty configmap")

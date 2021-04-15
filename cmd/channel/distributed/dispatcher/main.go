@@ -36,7 +36,7 @@ import (
 	dispatcherhealth "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/health"
 	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	"knative.dev/eventing-kafka/pkg/client/informers/externalversions"
-	"knative.dev/eventing-kafka/pkg/common/configmaploader"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
 	"knative.dev/eventing/pkg/kncloudevents"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
@@ -89,17 +89,19 @@ func main() {
 		logger.Fatal("Failed To Load Environment Variables - Terminating!", zap.Error(err))
 	}
 
-	// Put configMapLoader into context
-	ctx = context.WithValue(ctx, configmaploader.Key{}, configmap.Load)
-
 	// Update The Sarama Config - Username/Password Overrides (Values From Secret Take Precedence Over ConfigMap)
 	kafkaAuthCfg, err := distributedcommonconfig.GetAuthConfigFromKubernetes(ctx, environment.KafkaSecretName, environment.KafkaSecretNamespace)
 	if err != nil {
 		logger.Fatal("Failed To Load Auth Config", zap.Error(err))
 	}
 
+	configMap, err := configmap.Load(commonconstants.SettingsConfigMapMountPath)
+	if err != nil {
+		logger.Fatal("error loading configuration", zap.Error(err))
+	}
+
 	// Load The Sarama & Eventing-Kafka Configuration From The ConfigMap
-	saramaConfig, ekConfig, err := sarama.LoadSettings(ctx, constants.Component, kafkaAuthCfg)
+	saramaConfig, ekConfig, err := sarama.LoadSettings(ctx, constants.Component, configMap, kafkaAuthCfg)
 	if err != nil {
 		logger.Fatal("Failed To Load Sarama Settings", zap.Error(err))
 	}
