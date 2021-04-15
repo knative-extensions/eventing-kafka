@@ -22,7 +22,6 @@ import (
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -195,7 +194,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel
 	}
 
 	// Make sure the dispatcher deployment exists and propagate the status to the Channel
-	_, err = r.reconcileDispatcher(ctx, scope, dispatcherNamespace, kc)
+	err = r.reconcileDispatcher(ctx, scope, dispatcherNamespace, kc)
 	if err != nil {
 		return err
 	}
@@ -284,17 +283,17 @@ func (r *Reconciler) reconcileSubscribers(ctx context.Context, ch *v1beta1.Kafka
 	return nil
 }
 
-func (r *Reconciler) reconcileDispatcher(ctx context.Context, scope string, dispatcherNamespace string, kc *v1beta1.KafkaChannel) (*appsv1.Deployment, error) {
+func (r *Reconciler) reconcileDispatcher(ctx context.Context, scope string, dispatcherNamespace string, kc *v1beta1.KafkaChannel) error {
 	if scope == scopeNamespace {
 		// Configure RBAC in namespace to access the configmaps
 		sa, err := r.reconcileServiceAccount(ctx, dispatcherNamespace, kc)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		_, err = r.reconcileRoleBinding(ctx, dispatcherName, dispatcherNamespace, kc, dispatcherName, sa)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		// Reconcile the RoleBinding allowing read access to the shared configmaps.
@@ -304,7 +303,7 @@ func (r *Reconciler) reconcileDispatcher(ctx context.Context, scope string, disp
 		roleBindingName := fmt.Sprintf("%s-%s", dispatcherName, dispatcherNamespace)
 		_, err = r.reconcileRoleBinding(ctx, roleBindingName, r.systemNamespace, kc, "eventing-config-reader", sa)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 	args := resources.DispatcherArgs{
@@ -324,16 +323,16 @@ func (r *Reconciler) reconcileDispatcher(ctx context.Context, scope string, disp
 			if err == nil {
 				controller.GetEventRecorder(ctx).Event(kc, corev1.EventTypeNormal, dispatcherDeploymentCreated, "Dispatcher deployment created")
 				kc.Status.PropagateDispatcherStatus(&d.Status)
-				return d, err
+				return err
 			} else {
 				kc.Status.MarkDispatcherFailed(dispatcherDeploymentFailed, "Failed to create the dispatcher deployment: %v", err)
-				return d, newDeploymentWarn(err)
+				return newDeploymentWarn(err)
 			}
 		}
 
 		logging.FromContext(ctx).Errorw("Unable to get the dispatcher deployment", zap.Error(err))
 		kc.Status.MarkDispatcherUnknown("DispatcherDeploymentFailed", "Failed to get dispatcher deployment: %v", err)
-		return nil, err
+		return err
 	} else {
 		existing := utils.FindContainer(d, resources.DispatcherContainerName)
 		if existing == nil {
@@ -342,16 +341,16 @@ func (r *Reconciler) reconcileDispatcher(ctx context.Context, scope string, disp
 			if err == nil {
 				controller.GetEventRecorder(ctx).Event(kc, corev1.EventTypeNormal, dispatcherDeploymentUpdated, "Dispatcher deployment updated")
 				kc.Status.PropagateDispatcherStatus(&d.Status)
-				return d, nil
+				return nil
 			} else {
 				kc.Status.MarkServiceFailed("DispatcherDeploymentUpdateFailed", "Failed to update the dispatcher deployment: %v", err)
 			}
-			return d, newDeploymentWarn(err)
+			return newDeploymentWarn(err)
 		}
 
 		expectedContainer := utils.FindContainer(expected, resources.DispatcherContainerName)
 		if expectedContainer == nil {
-			return nil, fmt.Errorf("container %s does not exist in expected dispatcher deployment. Cannot check if the deployment needs an update", resources.DispatcherContainerName)
+			return fmt.Errorf("container %s does not exist in expected dispatcher deployment. Cannot check if the deployment needs an update", resources.DispatcherContainerName)
 		}
 
 		expectedConfigMapHash := r.kafkaConfigMapHash
@@ -391,16 +390,16 @@ func (r *Reconciler) reconcileDispatcher(ctx context.Context, scope string, disp
 			if err == nil {
 				controller.GetEventRecorder(ctx).Event(kc, corev1.EventTypeNormal, dispatcherDeploymentUpdated, "Dispatcher deployment updated")
 				kc.Status.PropagateDispatcherStatus(&d.Status)
-				return d, nil
+				return nil
 			} else {
 				kc.Status.MarkServiceFailed("DispatcherDeploymentUpdateFailed", "Failed to update the dispatcher deployment: %v", err)
-				return d, newDeploymentWarn(err)
+				return newDeploymentWarn(err)
 			}
 		}
 	}
 
 	kc.Status.PropagateDispatcherStatus(&d.Status)
-	return d, nil
+	return nil
 }
 
 func (r *Reconciler) reconcileServiceAccount(ctx context.Context, dispatcherNamespace string, kc *v1beta1.KafkaChannel) (*corev1.ServiceAccount, error) {
