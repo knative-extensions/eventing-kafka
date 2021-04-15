@@ -67,6 +67,7 @@ type Reconciler struct {
 	kafkaUsername        string
 	kafkaPassword        string
 	kafkaSaslType        string
+	kafkaConfigMapHash   string
 }
 
 var (
@@ -286,4 +287,6 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 
 	logger.Info("ConfigMap Changed; Updating Sarama Configuration")
 	r.saramaConfig = saramaConfig
+
+	r.kafkaConfigMapHash = commonconfig.ConfigmapDataCheckSum(configMap)
 }

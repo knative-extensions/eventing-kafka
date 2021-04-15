@@ -30,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
+	"knative.dev/eventing-kafka/pkg/channel/consolidated/reconciler/controller/resources"
 	commonenv "knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/health"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
@@ -301,6 +302,30 @@ func (r *Reconciler) reconcileDispatcherDeployment(ctx context.Context, logger *
 
 		// Log Deletion Timestamp & Finalizer State
 		if deployment.DeletionTimestamp.IsZero() {
+			needsUpdate := false
+
+			if deployment.Spec.Template.Annotations == nil {
+				logging.FromContext(ctx).Infof("Configmap hash is not set. Updating the dispatcher deployment.")
+				deployment.Spec.Template.Annotations = map[string]string{
+					resources.ConfigMapHashAnnotationKey: r.kafkaConfigMapHash,
+				}
+				needsUpdate = true
+			}
+
+			if deployment.Spec.Template.Annotations[resources.ConfigMapHashAnnotationKey] != r.kafkaConfigMapHash {
+				logging.FromContext(ctx).Infof("Configmap hash is changed. Updating the dispatcher deployment.")
+				deployment.Spec.Template.Annotations[resources.ConfigMapHashAnnotationKey] = r.kafkaConfigMapHash
+				needsUpdate = true
+			}
+
+			if needsUpdate {
+				deployment, err = r.kubeClientset.AppsV1().Deployments(deployment.Namespace).Update(ctx, deployment, metav1.UpdateOptions{})
+				if err != nil {
+					channel.Status.MarkServiceFailed("DispatcherDeploymentUpdateFailed", "Failed to update the dispatcher deployment: %v", err)
+					return err
+				}
+			}
+
 			logger.Info("Successfully Verified Dispatcher Deployment")
 		} else {
 			if util.HasFinalizer(r.finalizerName(), &deployment.ObjectMeta) {
@@ -420,6 +445,9 @@ func (r *Reconciler) newDispatcherDeployment(logger *zap.Logger, channel *kafkav
 				constants.KafkaChannelDispatcherLabel: "true",            // Identifies the Deployment as being a KafkaChannel "Dispatcher"
 				constants.KafkaChannelNameLabel:       channel.Name,      // Identifies the Deployment's Owning KafkaChannel's Name
 				constants.KafkaChannelNamespaceLabel:  channel.Namespace, // Identifies the Deployment's Owning KafkaChannel's Namespace
+			},
+			Annotations: map[string]string{
+				resources.ConfigMapHashAnnotationKey: r.kafkaConfigMapHash,
 			},
 			// K8S Does NOT Support Cross-Namespace OwnerReferences
 			// Instead Manage The Lifecycle Directly Via Finalizers (No K8S Garbage Collection)

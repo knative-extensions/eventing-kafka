@@ -19,7 +19,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"hash/crc32"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
@@ -47,6 +46,7 @@ import (
 	kafkaChannelReconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
 	listers "knative.dev/eventing-kafka/pkg/client/listers/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/common/client"
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/common/constants"
 	v1 "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/apis/eventing"
@@ -594,7 +594,7 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 	// Eventually the previous config should be snapshotted to delete Kafka topics
 	r.kafkaConfig = kafkaConfig
 	r.kafkaConfigError = err
-	r.kafkaConfigMapHash = configmapDataCheckSum(configMap)
+	r.kafkaConfigMapHash = commonconfig.ConfigmapDataCheckSum(configMap)
 }
 
 func (r *Reconciler) FinalizeKind(ctx context.Context, kc *v1beta1.KafkaChannel) pkgreconciler.Event {
@@ -618,13 +618,4 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, kc *v1beta1.KafkaChannel)
 		r.statusManager.CancelProbing(s)
 	}
 	return newReconciledNormal(kc.Namespace, kc.Name) //ok to remove finalizer
-}
-
-func configmapDataCheckSum(configMap *corev1.ConfigMap) string {
-	if configMap == nil || configMap.Data == nil {
-		return ""
-	}
-	configMapDataStr := fmt.Sprintf("%v", configMap.Data)
-	checksum := fmt.Sprintf("%08x", crc32.ChecksumIEEE([]byte(configMapDataStr)))
-	return checksum
 }

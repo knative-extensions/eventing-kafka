@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/resource"
+	"knative.dev/eventing-kafka/pkg/channel/consolidated/reconciler/controller/resources"
 
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
@@ -227,6 +228,30 @@ func (r *Reconciler) reconcileReceiverDeployment(ctx context.Context, logger *za
 
 		// Verify Receiver Deployment Is Not Terminating
 		if deployment.DeletionTimestamp.IsZero() {
+			needsUpdate := false
+
+			if deployment.Spec.Template.Annotations == nil {
+				logging.FromContext(ctx).Infof("Configmap hash is not set. Updating the receiver deployment.")
+				deployment.Spec.Template.Annotations = map[string]string{
+					resources.ConfigMapHashAnnotationKey: r.kafkaConfigMapHash,
+				}
+				needsUpdate = true
+			}
+
+			if deployment.Spec.Template.Annotations[resources.ConfigMapHashAnnotationKey] != r.kafkaConfigMapHash {
+				logging.FromContext(ctx).Infof("Configmap hash is changed. Updating the receiver deployment.")
+				deployment.Spec.Template.Annotations[resources.ConfigMapHashAnnotationKey] = r.kafkaConfigMapHash
+				needsUpdate = true
+			}
+
+			if needsUpdate {
+				deployment, err = r.kubeClientset.AppsV1().Deployments(deployment.Namespace).Update(ctx, deployment, metav1.UpdateOptions{})
+				if err != nil {
+					logger.Warn("Unable to update receiver deployment", zap.Error(err))
+					return err
+				}
+			}
+
 			logger.Info("Successfully Verified Receiver Deployment")
 			return nil
 		} else {
@@ -296,6 +321,9 @@ func (r *Reconciler) newReceiverDeployment(logger *zap.Logger, secret *corev1.Se
 			Labels: map[string]string{
 				constants.AppLabel:                  deploymentName, // Matches Service Selector Key/Value Below
 				constants.KafkaChannelReceiverLabel: "true",         // Allows for identification of Receivers
+			},
+			Annotations: map[string]string{
+				resources.ConfigMapHashAnnotationKey: r.kafkaConfigMapHash,
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				util.NewSecretOwnerReference(secret),

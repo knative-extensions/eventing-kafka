@@ -45,6 +45,7 @@ type Reconciler struct {
 	kafkachannelLister kafkalisters.KafkaChannelLister
 	deploymentLister   appsv1listers.DeploymentLister
 	serviceLister      corev1listers.ServiceLister
+	kafkaConfigMapHash string
 }
 
 var (

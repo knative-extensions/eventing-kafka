@@ -25,7 +25,8 @@ import (
 )
 
 const (
-	DispatcherContainerName    = "dispatcher"
+	DispatcherContainerName = "dispatcher"
+	// TODO: move to common
 	ConfigMapHashAnnotationKey = "kafka.eventing.knative.dev/configmap-hash"
 )
 
