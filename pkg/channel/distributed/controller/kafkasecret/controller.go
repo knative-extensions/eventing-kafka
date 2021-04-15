@@ -102,7 +102,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 	// Call GlobalResync on kafkachannels.
 	grCh := func(obj interface{}) {
 		logger.Info("Changes detected, doing global resync")
-		controllerImpl.GlobalResync(kafkachannelInformer.Informer())
+		controllerImpl.GlobalResync(kafkaSecretInformer.Informer())
 	}
 
 	handleKafkaConfigMapChange := func(ctx context.Context, configMap *corev1.ConfigMap) {
