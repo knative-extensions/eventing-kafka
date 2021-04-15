@@ -23,14 +23,14 @@ import (
 
 type OpCode uint8
 
-const AckOpCode OpCode = 0
+const AckOpCode = OpCode(^uint8(0))
 
 type ServiceMessage struct {
 	inboundMessage *Message
-	ackFunc        func()
+	ackFunc        func(err error)
 }
 
-func NewServiceMessage(inboundMessage *Message, ackFunc func()) ServiceMessage {
+func NewServiceMessage(inboundMessage *Message, ackFunc func(err error)) ServiceMessage {
 	return ServiceMessage{
 		inboundMessage: inboundMessage,
 		ackFunc:        ackFunc,
@@ -47,7 +47,12 @@ func (c ServiceMessage) Payload() []byte {
 
 // Ack this message to the other end of the connection.
 func (c ServiceMessage) Ack() {
-	c.ackFunc()
+	c.ackFunc(nil)
+}
+
+// Ack this message to the other end of the connection, propagating an error while handling this message.
+func (c ServiceMessage) AckWithError(err error) {
+	c.ackFunc(err)
 }
 
 // MessageHandler is an error handler for ServiceMessage.

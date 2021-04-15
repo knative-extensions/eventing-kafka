@@ -304,6 +304,27 @@ func TestReconcile(t *testing.T) {
 				controllertesting.NewKafkaSecretFailedReconciliationEvent(),
 			},
 		},
+		{
+			Name: "Reconcile Receiver Deployment - Redeployment on ConfigMapHash change",
+			Key:  controllertesting.KafkaSecretKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaSecret(controllertesting.WithKafkaSecretFinalizer),
+				controllertesting.NewKafkaChannel(
+					controllertesting.WithReceiverServiceReady,
+					controllertesting.WithReceiverDeploymentReady,
+				),
+				controllertesting.NewKafkaChannelService(),
+				controllertesting.NewKafkaChannelReceiverService(),
+				controllertesting.NewKafkaChannelReceiverDeployment(controllertesting.WithConfigMapHash("initial-hash-to-be-overridden-by-controller")),
+			},
+			WantUpdates: []clientgotesting.UpdateActionImpl{
+				controllertesting.NewDeploymentUpdateActionImpl(controllertesting.NewKafkaChannelReceiverDeployment()),
+			},
+			WantEvents: []string{
+				controllertesting.NewReceiverDeploymentUpdatedEvent(),
+				controllertesting.NewKafkaSecretSuccessfulReconciliationEvent(),
+			},
+		},
 
 		//
 		// Deployment Updating - Repairing Incorrect Or Missing Fields In Existing Deployments
@@ -323,7 +344,7 @@ func TestReconcile(t *testing.T) {
 		newReceiverUpdateTest("Different LivenessProbe", controllertesting.WithDifferentLivenessProbe),
 		newReceiverUpdateTest("Different ReadinessProbe", controllertesting.WithDifferentReadinessProbe),
 		newReceiverUpdateTest("Missing Labels", controllertesting.WithoutLabels),
-		newReceiverNoUpdateTest("Missing Annotations", controllertesting.WithoutAnnotations), // TODO: When configmap hash is implemented this should be an Update
+		newReceiverUpdateTest("Missing Annotations", controllertesting.WithoutAnnotations),
 		newReceiverNoUpdateTest("Different Lifecycle", controllertesting.WithDifferentLifecycle),
 		newReceiverNoUpdateTest("Different TerminationPath", controllertesting.WithDifferentTerminationPath),
 		newReceiverNoUpdateTest("Different TerminationPolicy", controllertesting.WithDifferentTerminationPolicy),
@@ -396,6 +417,7 @@ func TestReconcile(t *testing.T) {
 			kafkachannelLister: listers.GetKafkaChannelLister(),
 			deploymentLister:   listers.GetDeploymentLister(),
 			serviceLister:      listers.GetServiceLister(),
+			kafkaConfigMapHash: controllertesting.ConfigMapHash,
 		}
 		return kafkasecretinjection.NewReconciler(ctx, r.kubeClientset.CoreV1(), listers.GetSecretLister(), controller.GetEventRecorder(ctx), r)
 	}, logger.Desugar()))

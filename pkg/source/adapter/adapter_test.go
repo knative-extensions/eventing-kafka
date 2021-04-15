@@ -380,10 +380,6 @@ func TestPostMessage_ServeHTTP_binary_mode(t *testing.T) {
 				t.Errorf("Expected traceparent header")
 			}
 			h.header.Del("traceparent")
-			if h.header.Get("ce-traceparent") == "" {
-				t.Errorf("Expected ce-traceparent header")
-			}
-			h.header.Del("ce-traceparent")
 
 			if len(h.header) != 0 {
 				t.Errorf("Unexpected headers: %v", h.header)

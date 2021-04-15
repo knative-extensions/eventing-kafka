@@ -170,7 +170,7 @@ func (a *Adapter) Handle(ctx context.Context, msg *sarama.ConsumerMessage) (bool
 		return false, err
 	}
 
-	err = a.ConsumerMessageToHttpRequest(ctx, span, msg, req)
+	err = a.ConsumerMessageToHttpRequest(ctx, msg, req)
 	if err != nil {
 		a.logger.Debug("failed to create request", zap.Error(err))
 		return true, err

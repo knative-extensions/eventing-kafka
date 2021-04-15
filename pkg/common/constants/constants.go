@@ -38,4 +38,8 @@ const (
 	// Default values for the cloud events connection arguments, if not overridden
 	DefaultMaxIdleConns        = 1000
 	DefaultMaxIdleConnsPerHost = 100
+
+	// This annotation is used by the controller to track updates
+	// to config-kafka and apply them in the dispatcher deployment
+	ConfigMapHashAnnotationKey = "kafka.eventing.knative.dev/configmap-hash"
 )

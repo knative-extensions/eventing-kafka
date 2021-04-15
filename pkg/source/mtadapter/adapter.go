@@ -18,12 +18,15 @@ package mtadapter
 
 import (
 	"context"
+	"math"
+	"strconv"
 	"sync"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -42,7 +45,9 @@ import (
 type AdapterConfig struct {
 	adapter.EnvConfig
 
-	PodName string `envconfig:"POD_NAME" required:"true"`
+	PodName     string `envconfig:"POD_NAME" required:"true"`
+	MPSLimit    int    `envconfig:"VREPLICA_LIMITS_MPS" required:"true"`
+	MemoryLimit string `envconfig:"VREPLICA_LIMITS_MEMORY" required:"true"`
 }
 
 func NewEnvConfig() adapter.EnvConfigAccessor {
@@ -55,6 +60,7 @@ type Adapter struct {
 	client      cloudevents.Client
 	adapterCtor adapter.MessageAdapterConstructor
 	kubeClient  kubernetes.Interface
+	memLimit    int64
 
 	sourcesMu sync.RWMutex
 	sources   map[string]context.CancelFunc
@@ -69,6 +75,7 @@ func NewAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, ceClie
 func newAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, ceClient cloudevents.Client, adapterCtor adapter.MessageAdapterConstructor) adapter.Adapter {
 	logger := logging.FromContext(ctx)
 	config := processed.(*AdapterConfig)
+	ml := resource.MustParse(config.MemoryLimit)
 
 	return &Adapter{
 		client:      ceClient,
@@ -76,6 +83,7 @@ func newAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, ceClie
 		logger:      logger,
 		adapterCtor: adapterCtor,
 		kubeClient:  kubeclient.Get(ctx),
+		memLimit:    ml.Value(),
 		sourcesMu:   sync.RWMutex{},
 		sources:     make(map[string]context.CancelFunc),
 	}
@@ -87,28 +95,116 @@ func (a *Adapter) Start(ctx context.Context) error {
 	return nil
 }
 
+// bufferSize returns the maximum fetch buffer size (in bytes)
+// so that the st adapter memory consumption does not exceed
+// the allocated memory per vreplica (see MemoryLimit).
+// Account pod (consumer) partial outage.
+func (a *Adapter) bufferSize(ctx context.Context,
+	logger *zap.SugaredLogger,
+	kafkaEnvConfig *client.KafkaEnvConfig,
+	topics []string,
+	podCount int) (int, error) {
+
+	// Compute the number of partitions handled by this source
+	// TODO: periodically check for # of resources. Need control-protocol.
+	adminClient, err := client.MakeAdminClient(ctx, kafkaEnvConfig)
+	if err != nil {
+		logger.Errorw("cannot create admin client", zap.Error(err))
+		return 0, err
+	}
+
+	metas, err := adminClient.DescribeTopics(topics)
+	if err != nil {
+		logger.Errorw("cannot describe topics", zap.Error(err))
+		return 0, err
+	}
+
+	totalPartitions := 0
+	for _, meta := range metas {
+		totalPartitions += len(meta.Partitions)
+	}
+	adminClient.Close()
+
+	partitionsPerPod := int(math.Ceil(float64(totalPartitions) / float64(podCount)))
+
+	// Ideally, partitions are evenly spread across Kafka consumers.
+	// However, due to rebalancing or consumer (un)availability, a consumer
+	// might have to handle more partitions than expected.
+	// For now, account for 1 unavailable consumer.
+	handledPartitions := 2 * partitionsPerPod
+	if podCount < 3 {
+		handledPartitions = totalPartitions
+	}
+
+	logger.Infow("partition count",
+		zap.Int("total", totalPartitions),
+		zap.Int("averagePerPod", partitionsPerPod),
+		zap.Int("handled", handledPartitions))
+
+	// A partition consumes about 2 * fetch buffer size.
+	return int(math.Floor(float64(a.memLimit) / float64(handledPartitions) / 2.0)), nil
+}
+
 // Implements MTAdapter
 
 func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) {
 	a.sourcesMu.Lock()
 	defer a.sourcesMu.Unlock()
-	a.logger.Infow("adding source", "name", obj.Name)
 
 	key := obj.Namespace + "/" + obj.Name
+
+	logger := a.logger.With("key", key)
+	logger.Info("updating source")
 
 	cancel, ok := a.sources[key]
 
 	if ok {
 		// TODO: do not stop if the only thing that changes is the number of vreplicas
-		a.logger.Info("stopping adapter", zap.String("key", key))
+		logger.Info("stopping adapter")
 		cancel()
 	}
 
 	placement := scheduler.GetPlacementForPod(obj.GetPlacements(), a.config.PodName)
 	if placement == nil || placement.VReplicas == 0 {
 		// this pod does not handle this source. Skipping
-		a.logger.Infow("no replicas assigned to this source. skipping", zap.String("key", key))
+		logger.Info("no replicas assigned to this source. skipping")
 		return
+	}
+
+	kafkaEnvConfig := client.KafkaEnvConfig{
+		BootstrapServers: obj.Spec.BootstrapServers,
+		Net: client.AdapterNet{
+			SASL: client.AdapterSASL{
+				Enable:   obj.Spec.Net.SASL.Enable,
+				User:     a.ResolveSecret(ctx, obj.Namespace, obj.Spec.Net.SASL.User.SecretKeyRef),
+				Password: a.ResolveSecret(ctx, obj.Namespace, obj.Spec.Net.SASL.Password.SecretKeyRef),
+				Type:     a.ResolveSecret(ctx, obj.Namespace, obj.Spec.Net.SASL.Type.SecretKeyRef),
+			},
+			TLS: client.AdapterTLS{
+				Enable: obj.Spec.Net.TLS.Enable,
+				Cert:   a.ResolveSecret(ctx, obj.Namespace, obj.Spec.Net.TLS.Cert.SecretKeyRef),
+				Key:    a.ResolveSecret(ctx, obj.Namespace, obj.Spec.Net.TLS.Key.SecretKeyRef),
+				CACert: a.ResolveSecret(ctx, obj.Namespace, obj.Spec.Net.TLS.CACert.SecretKeyRef),
+			},
+		},
+	}
+
+	// Enforce memory limits
+	if a.memLimit > 0 {
+		// TODO: periodically enforce limits as the number of partitions can dynamically change
+		bufferSizePerVReplica, err := a.bufferSize(ctx, logger, &kafkaEnvConfig, obj.Spec.Topics, scheduler.GetPodCount(obj.Status.Placement))
+		if err != nil {
+			return
+		}
+		bufferSize := bufferSizePerVReplica * int(placement.VReplicas)
+		a.logger.Infow("setting fetch buffer size", zap.Int("size", bufferSize))
+
+		// Nasty.
+		bufferSizeStr := strconv.Itoa(bufferSize)
+		min := `\n    Min: ` + bufferSizeStr
+		def := `\n    Default: ` + bufferSizeStr
+		max := `\n    Max: ` + bufferSizeStr
+		kafkaEnvConfig.KafkaConfigJson = `{"sarama": "Consumer:\n  Fetch:` + min + def + max + `"}`
 	}
 
 	config := stadapter.AdapterConfig{
@@ -116,23 +212,7 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) {
 			Component: "kafkasource",
 			Namespace: obj.Namespace,
 		},
-		KafkaEnvConfig: client.KafkaEnvConfig{
-			BootstrapServers: obj.Spec.BootstrapServers,
-			Net: client.AdapterNet{
-				SASL: client.AdapterSASL{
-					Enable:   obj.Spec.Net.SASL.Enable,
-					User:     a.ResolveSecret(ctx, obj.Namespace, obj.Spec.Net.SASL.User.SecretKeyRef),
-					Password: a.ResolveSecret(ctx, obj.Namespace, obj.Spec.Net.SASL.Password.SecretKeyRef),
-					Type:     a.ResolveSecret(ctx, obj.Namespace, obj.Spec.Net.SASL.Type.SecretKeyRef),
-				},
-				TLS: client.AdapterTLS{
-					Enable: obj.Spec.Net.TLS.Enable,
-					Cert:   a.ResolveSecret(ctx, obj.Namespace, obj.Spec.Net.TLS.Cert.SecretKeyRef),
-					Key:    a.ResolveSecret(ctx, obj.Namespace, obj.Spec.Net.TLS.Key.SecretKeyRef),
-					CACert: a.ResolveSecret(ctx, obj.Namespace, obj.Spec.Net.TLS.CACert.SecretKeyRef),
-				},
-			},
-		},
+		KafkaEnvConfig:       kafkaEnvConfig,
 		Topics:               obj.Spec.Topics,
 		ConsumerGroup:        obj.Spec.ConsumerGroup,
 		Name:                 obj.Name,
@@ -155,9 +235,9 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) {
 
 	adapter := a.adapterCtor(ctx, &config, httpBindingsSender, reporter)
 
-	if a, ok := adapter.(*stadapter.Adapter); ok {
-		// TODO: configurable
-		a.SetRateLimits(rate.Limit(10.0*placement.VReplicas), 20*int(placement.VReplicas))
+	// TODO: define Limit interface.
+	if sta, ok := adapter.(*stadapter.Adapter); ok {
+		sta.SetRateLimits(rate.Limit(a.config.MPSLimit*int(placement.VReplicas)), 2*a.config.MPSLimit*int(placement.VReplicas))
 	}
 
 	ctx, cancelFn := context.WithCancel(ctx)

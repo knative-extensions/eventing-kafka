@@ -37,6 +37,8 @@ import (
 	kafkachannelreconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
 	commonclient "knative.dev/eventing-kafka/pkg/common/client"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
+	"knative.dev/eventing-kafka/pkg/common/configmaploader"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
 	"knative.dev/pkg/client/injection/kube/informers/core/v1/service"
@@ -63,6 +65,17 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 	environment, err := env.FromContext(ctx)
 	if err != nil {
 		logger.Fatal("Failed To Get Environment From Context - Terminating!", zap.Error(err))
+	}
+
+	// Get the configmap loader
+	configmapLoader, err := configmaploader.FromContext(ctx)
+	if err != nil {
+		logger.Fatal("Failed To Get ConfigmapLoader From Context - Terminating!", zap.Error(err))
+	}
+
+	configMap, err := configmapLoader(commonconstants.SettingsConfigMapMountPath)
+	if err != nil {
+		logger.Fatal("error loading configuration", zap.Error(err))
 	}
 
 	// Get The K8S Client
@@ -97,7 +110,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 	}
 
 	// Load the Sarama and other eventing-kafka settings from our configmap
-	saramaConfig, configuration, err := sarama.LoadSettings(ctx, "", kafkaAuthCfg)
+	saramaConfig, configuration, err := sarama.LoadSettings(ctx, "", configMap, kafkaAuthCfg)
 	if err != nil {
 		logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Error(err))
 	}
@@ -138,6 +151,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		kafkaUsername:        kafkaUsername,
 		kafkaPassword:        kafkaPassword,
 		kafkaSaslType:        kafkaSaslType,
+		kafkaConfigMapHash:   commonconfig.ConfigmapDataCheckSum(configMap),
 	}
 
 	// Create A New KafkaChannel Controller Impl With The Reconciler

@@ -21,8 +21,6 @@ import (
 	"testing"
 	"time"
 
-	duckv1alpha1 "knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	_ "knative.dev/pkg/client/injection/kube/client/fake"
@@ -34,6 +32,7 @@ import (
 	"knative.dev/eventing/pkg/kncloudevents"
 
 	bindingsv1beta1 "knative.dev/eventing-kafka/pkg/apis/bindings/v1beta1"
+	duckv1alpha1 "knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
 	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 )
 
@@ -50,7 +49,7 @@ func TestUpdateRemoveSources(t *testing.T) {
 	ctx, _ := pkgtesting.SetupFakeContext(t)
 	ctx, cancelAdapter := context.WithCancel(ctx)
 
-	env := &AdapterConfig{PodName: podName}
+	env := &AdapterConfig{PodName: podName, MemoryLimit: "0"}
 	ceClient := adaptertest.NewTestClient()
 
 	adapter := newAdapter(ctx, env, ceClient, newSampleAdapter).(*Adapter)

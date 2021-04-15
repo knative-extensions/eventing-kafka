@@ -32,6 +32,9 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/kafkasecretinjection"
 	injectionclient "knative.dev/eventing-kafka/pkg/client/injection/client"
 	"knative.dev/eventing-kafka/pkg/client/injection/informers/messaging/v1beta1/kafkachannel"
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
+	"knative.dev/eventing-kafka/pkg/common/configmaploader"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
 	"knative.dev/pkg/client/injection/kube/informers/core/v1/service"
@@ -41,7 +44,7 @@ import (
 )
 
 // Create A New KafkaSecret Controller
-func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
+func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 
 	// Get A Logger
 	logger := logging.FromContext(ctx).Desugar()
@@ -58,9 +61,20 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 		logger.Fatal("Failed To Get Environment From Context - Terminating!", zap.Error(err))
 	}
 
+	// Get the configmap loader
+	configmapLoader, err := configmaploader.FromContext(ctx)
+	if err != nil {
+		logger.Fatal("Failed To Get ConfigmapLoader From Context - Terminating!", zap.Error(err))
+	}
+
+	configMap, err := configmapLoader(commonconstants.SettingsConfigMapMountPath)
+	if err != nil {
+		logger.Fatal("error loading configuration", zap.Error(err))
+	}
+
 	// Load the Sarama and other eventing-kafka settings from our configmap
 	// (though we don't need the Sarama settings here; the AdminClient loads them from the configmap each time it needs them)
-	_, configuration, err := sarama.LoadSettings(ctx, "", nil)
+	_, configuration, err := sarama.LoadSettings(ctx, "", configMap, nil)
 	if err != nil {
 		logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Error(err))
 	}
@@ -79,10 +93,29 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 		kafkachannelLister: kafkachannelInformer.Lister(),
 		deploymentLister:   deploymentInformer.Lister(),
 		serviceLister:      serviceInformer.Lister(),
+		kafkaConfigMapHash: commonconfig.ConfigmapDataCheckSum(configMap),
 	}
 
 	// Create A New KafkaSecret Controller Impl With The Reconciler
 	controllerImpl := kafkasecretinjection.NewImpl(ctx, r)
+
+	// Call GlobalResync on kafkasecrets.
+	grCh := func(obj interface{}) {
+		logger.Info("Changes detected, doing global resync")
+		controllerImpl.GlobalResync(kafkaSecretInformer.Informer())
+	}
+
+	handleKafkaConfigMapChange := func(ctx context.Context, configMap *corev1.ConfigMap) {
+		logger.Info("Configmap is updated or, it is being read for the first time")
+		r.updateKafkaConfig(ctx, configMap)
+		grCh(configMap)
+	}
+
+	// Watch The Settings ConfigMap For Changes
+	err = commonconfig.InitializeKafkaConfigMapWatcher(ctx, cmw, logger.Sugar(), handleKafkaConfigMapChange, environment.SystemNamespace)
+	if err != nil {
+		logger.Fatal("Failed To Initialize ConfigMap Watcher", zap.Error(err))
+	}
 
 	// Configure The Informers' EventHandlers
 	logger.Info("Setting Up EventHandlers")

@@ -651,6 +651,36 @@ func TestReconcile(t *testing.T) {
 				controllertesting.NewKafkaChannelSuccessfulReconciliationEvent(),
 			},
 		},
+		{
+			Name:                    "Reconcile Dispatcher Deployment - Redeployment on ConfigMapHash change",
+			SkipNamespaceValidation: true,
+			Key:                     controllertesting.KafkaChannelKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaChannel(
+					controllertesting.WithFinalizer,
+					controllertesting.WithMetaData,
+					controllertesting.WithAddress,
+					controllertesting.WithInitializedConditions,
+					controllertesting.WithKafkaChannelServiceReady,
+					controllertesting.WithReceiverServiceReady,
+					controllertesting.WithReceiverDeploymentReady,
+					controllertesting.WithDispatcherDeploymentReady,
+					controllertesting.WithTopicReady,
+				),
+				controllertesting.NewKafkaChannelService(),
+				controllertesting.NewKafkaChannelReceiverService(),
+				controllertesting.NewKafkaChannelReceiverDeployment(),
+				controllertesting.NewKafkaChannelDispatcherService(),
+				controllertesting.NewKafkaChannelDispatcherDeployment(controllertesting.WithConfigMapHash("initial-hash-to-be-overridden-by-controller")),
+			},
+			WantUpdates: []clientgotesting.UpdateActionImpl{
+				controllertesting.NewDeploymentUpdateActionImpl(controllertesting.NewKafkaChannelDispatcherDeployment()),
+			},
+			WantEvents: []string{
+				controllertesting.NewKafkaChannelDispatcherDeploymentUpdatedEvent(),
+				controllertesting.NewKafkaChannelSuccessfulReconciliationEvent(),
+			},
+		},
 
 		//
 		// Deployment Updating - Repairing Incorrect Or Missing Fields In Existing Deployments
@@ -670,7 +700,7 @@ func TestReconcile(t *testing.T) {
 		newDispatcherUpdateTest("Different LivenessProbe", controllertesting.WithDifferentLivenessProbe),
 		newDispatcherUpdateTest("Different ReadinessProbe", controllertesting.WithDifferentReadinessProbe),
 		newDispatcherUpdateTest("Missing Labels", controllertesting.WithoutLabels),
-		newDispatcherNoUpdateTest("Missing Annotations", controllertesting.WithoutAnnotations), // TODO: When configmap hash is implemented this should be an Update
+		newDispatcherUpdateTest("Missing Annotations", controllertesting.WithoutAnnotations),
 		newDispatcherNoUpdateTest("Different Lifecycle", controllertesting.WithDifferentLifecycle),
 		newDispatcherNoUpdateTest("Different TerminationPath", controllertesting.WithDifferentTerminationPath),
 		newDispatcherNoUpdateTest("Different TerminationPolicy", controllertesting.WithDifferentTerminationPolicy),
@@ -762,6 +792,7 @@ func TestReconcile(t *testing.T) {
 			kafkaUsername:        controllertesting.KafkaSecretDataValueUsername,
 			kafkaPassword:        controllertesting.KafkaSecretDataValuePassword,
 			kafkaSaslType:        controllertesting.KafkaSecretDataValueSaslType,
+			kafkaConfigMapHash:   controllertesting.ConfigMapHash,
 		}
 		return kafkachannelreconciler.NewReconciler(ctx, logger, r.kafkaClientSet, listers.GetKafkaChannelLister(), controller.GetEventRecorder(ctx), r)
 	}, logger.Desugar()))

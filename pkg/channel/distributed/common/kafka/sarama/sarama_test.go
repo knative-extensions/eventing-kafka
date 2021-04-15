@@ -27,11 +27,9 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/client-go/kubernetes/fake"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/common/constants"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
-	injectionclient "knative.dev/pkg/client/injection/kube/client"
 )
 
 const (
@@ -98,10 +96,8 @@ func TestEnableSaramaLogging(t *testing.T) {
 func TestLoadDefaultSaramaSettings(t *testing.T) {
 	commontesting.SetTestEnvironment(t)
 	configMap := commontesting.GetTestSaramaConfigMap(EKDefaultSaramaConfig, EKDefaultConfigYaml)
-	fakeK8sClient := fake.NewSimpleClientset(configMap)
-	ctx := context.WithValue(context.Background(), injectionclient.Key{}, fakeK8sClient)
 
-	config, configuration, err := LoadSettings(ctx, "myClient", nil)
+	config, configuration, err := LoadSettings(context.TODO(), "myClient", configMap.Data, nil)
 	assert.Nil(t, err)
 	// Make sure all of our default Sarama settings were loaded properly
 	assert.Equal(t, tls.ClientAuthType(0), config.Net.TLS.Config.ClientAuth)
@@ -135,28 +131,25 @@ func TestLoadEventingKafkaSettings(t *testing.T) {
 	// Set up a configmap and verify that the sarama settings are loaded properly from it
 	commontesting.SetTestEnvironment(t)
 	configMap := commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, commontesting.TestEKConfig)
-	fakeK8sClient := fake.NewSimpleClientset(configMap)
 
-	ctx := context.WithValue(context.Background(), injectionclient.Key{}, fakeK8sClient)
-
-	saramaConfig, eventingKafkaConfig, err := LoadSettings(ctx, "", nil)
+	saramaConfig, eventingKafkaConfig, err := LoadSettings(context.TODO(), "", configMap.Data, nil)
 	assert.Nil(t, err)
 	verifyTestEKConfigSettings(t, saramaConfig, eventingKafkaConfig)
 
 	// Test the LoadEventingKafkaSettings function by itself
-	eventingKafkaConfig, err = LoadEventingKafkaSettings(configMap)
+	eventingKafkaConfig, err = LoadEventingKafkaSettings(configMap.Data)
 	assert.Nil(t, err)
 	assert.Equal(t, commontesting.DispatcherReplicas, fmt.Sprint(eventingKafkaConfig.Dispatcher.Replicas))
 
 	// Verify that invalid YAML returns an error
 	configMap.Data[constants.EventingKafkaSettingsConfigKey] = "\tinvalidYAML"
-	eventingKafkaConfig, err = LoadEventingKafkaSettings(configMap)
+	eventingKafkaConfig, err = LoadEventingKafkaSettings(configMap.Data)
 	assert.Nil(t, eventingKafkaConfig)
 	assert.NotNil(t, err)
 
 	// Verify that a configmap with no data section returns an error
 	configMap.Data = nil
-	eventingKafkaConfig, err = LoadEventingKafkaSettings(configMap)
+	eventingKafkaConfig, err = LoadEventingKafkaSettings(configMap.Data)
 	assert.Nil(t, eventingKafkaConfig)
 	assert.NotNil(t, err)
 
@@ -168,32 +161,25 @@ func TestLoadEventingKafkaSettings(t *testing.T) {
 
 func TestLoadSettings(t *testing.T) {
 	// Set up a configmap and verify that the sarama and eventing-kafka settings are loaded properly from it
-	ctx := getTestSaramaContext(t, commontesting.OldSaramaConfig, commontesting.TestEKConfig)
-	saramaConfig, eventingKafkaConfig, err := LoadSettings(ctx, "", nil)
+	configMap := commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, commontesting.TestEKConfig)
+	saramaConfig, eventingKafkaConfig, err := LoadSettings(context.TODO(), "", configMap.Data, nil)
 	assert.Nil(t, err)
 	verifyTestEKConfigSettings(t, saramaConfig, eventingKafkaConfig)
 
-	// Verify that a context with no configmap returns an error
-	ctx = context.WithValue(context.Background(), injectionclient.Key{}, fake.NewSimpleClientset())
-	saramaConfig, eventingKafkaConfig, err = LoadSettings(ctx, "", nil)
+	// Verify that nil configmap data returns an error
+	saramaConfig, eventingKafkaConfig, err = LoadSettings(context.TODO(), "", nil, nil)
 	assert.Nil(t, saramaConfig)
 	assert.Nil(t, eventingKafkaConfig)
 	assert.NotNil(t, err)
 
-	// Verify that a configmap with no data section returns an error
-	configMap := commontesting.GetTestSaramaConfigMap("", "")
-	configMap.Data = nil
-	ctx = context.WithValue(context.Background(), injectionclient.Key{}, fake.NewSimpleClientset(configMap))
-	saramaConfig, eventingKafkaConfig, err = LoadSettings(ctx, "", nil)
-	assert.Nil(t, saramaConfig)
-	assert.Nil(t, eventingKafkaConfig)
-	assert.NotNil(t, err)
+	// Verify that empty configmap data does not return an error
+	_, _, err = LoadSettings(context.TODO(), "", map[string]string{}, nil)
+	assert.Nil(t, err)
 
 	// Verify that a configmap with invalid YAML returns an error
 	configMap = commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, "")
 	configMap.Data[constants.EventingKafkaSettingsConfigKey] = "\tinvalidYaml"
-	ctx = context.WithValue(context.Background(), injectionclient.Key{}, fake.NewSimpleClientset(configMap))
-	saramaConfig, eventingKafkaConfig, err = LoadSettings(ctx, "", nil)
+	saramaConfig, eventingKafkaConfig, err = LoadSettings(context.TODO(), "", configMap.Data, nil)
 	assert.Nil(t, saramaConfig)
 	assert.Nil(t, eventingKafkaConfig)
 	assert.NotNil(t, err)
@@ -350,14 +336,4 @@ func verifyTestEKConfigSettings(t *testing.T, saramaConfig *sarama.Config, event
 	// Verify that the default CloudEvent settings are set (i.e. not zero)
 	assert.Equal(t, constants.DefaultMaxIdleConns, eventingKafkaConfig.CloudEvents.MaxIdleConns)
 	assert.Equal(t, constants.DefaultMaxIdleConnsPerHost, eventingKafkaConfig.CloudEvents.MaxIdleConnsPerHost)
-}
-
-func getTestSaramaContext(t *testing.T, saramaConfig string, eventingKafkaConfig string) context.Context {
-	// Set up a configmap and return a context containing that configmap (for tests)
-	commontesting.SetTestEnvironment(t)
-	configMap := commontesting.GetTestSaramaConfigMap(saramaConfig, eventingKafkaConfig)
-	fakeK8sClient := fake.NewSimpleClientset(configMap)
-	ctx := context.WithValue(context.Background(), injectionclient.Key{}, fakeK8sClient)
-	assert.NotNil(t, ctx)
-	return ctx
 }
