@@ -595,7 +595,7 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 	// Eventually the previous config should be snapshotted to delete Kafka topics
 	r.kafkaConfig = kafkaConfig
 	r.kafkaConfigError = err
-	r.kafkaConfigMapHash = commonconfig.ConfigmapDataCheckSum(configMap)
+	r.kafkaConfigMapHash = commonconfig.ConfigmapDataCheckSum(configMap.Data)
 }
 
 func (r *Reconciler) FinalizeKind(ctx context.Context, kc *v1beta1.KafkaChannel) pkgreconciler.Event {

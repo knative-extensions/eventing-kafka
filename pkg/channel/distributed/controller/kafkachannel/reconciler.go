@@ -288,5 +288,5 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 	logger.Info("ConfigMap Changed; Updating Sarama Configuration")
 	r.saramaConfig = saramaConfig
 
-	r.kafkaConfigMapHash = commonconfig.ConfigmapDataCheckSum(configMap)
+	r.kafkaConfigMapHash = commonconfig.ConfigmapDataCheckSum(configMap.Data)
 }
