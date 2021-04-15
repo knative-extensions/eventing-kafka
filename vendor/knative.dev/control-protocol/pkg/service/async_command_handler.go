@@ -85,38 +85,40 @@ type asyncCommandHandler struct {
 	svc          control.Service
 	resultOpCode control.OpCode
 
-	asyncCommandType reflect.Type
+	payloadType reflect.Type
 
 	handler func(context.Context, AsyncCommandMessage)
 }
 
 // NewAsyncCommandHandler returns a control.MessageHandler that wraps the provided handler, but passing an AsyncCommandMessage.
 // This handler automatically parses the message payload using the provided type, and using the AsyncCommandMessage it notifies the result of the command to the sender.
-func NewAsyncCommandHandler(svc control.Service, asyncCommandType message.AsyncCommand, resultOpCode control.OpCode, handler func(context.Context, AsyncCommandMessage)) control.MessageHandler {
+func NewAsyncCommandHandler(svc control.Service, payloadType message.AsyncCommand, resultOpCode control.OpCode, handler func(context.Context, AsyncCommandMessage)) control.MessageHandler {
 	return &asyncCommandHandler{
-		svc:              svc,
-		resultOpCode:     resultOpCode,
-		asyncCommandType: reflect.Indirect(reflect.ValueOf(asyncCommandType)).Type(),
-		handler:          handler,
+		svc:          svc,
+		resultOpCode: resultOpCode,
+		payloadType:  reflect.Indirect(reflect.ValueOf(payloadType)).Type(),
+		handler:      handler,
 	}
 }
 
+// HandleServiceMessage implements control.MessageHandler
 func (f *asyncCommandHandler) HandleServiceMessage(ctx context.Context, msg control.ServiceMessage) {
-	// This is a pointer to asyncCommandType
-	commandValue := reflect.New(f.asyncCommandType).Interface()
+	// This creates a new instance of f.payloadType,
+	// payloadValue contains the pointer to such instance
+	payloadValue := reflect.New(f.payloadType).Interface()
 
-	// This assertion is always true b/c asyncCommandType is per contract a message.AsyncCommand,
+	// This assertion is always true b/c payloadType is per contract a message.AsyncCommand,
 	// which implements encoding.BinaryUnmarshaler
-	err := commandValue.(encoding.BinaryUnmarshaler).UnmarshalBinary(msg.Payload())
+	err := payloadValue.(encoding.BinaryUnmarshaler).UnmarshalBinary(msg.Payload())
 	if err != nil {
 		logging.FromContext(ctx).Warnw("Error while parsing the async command", zap.Error(err))
-		msg.AckWithError(fmt.Errorf("error while parsing the async commmand: %w", err))
+		msg.AckWithError(fmt.Errorf("error while parsing the async command: %w", err))
 		return
 	}
 
 	asyncCommandMsg := AsyncCommandMessage{
 		serviceMessage: msg,
-		parsedCommand:  commandValue.(message.AsyncCommand),
+		parsedCommand:  payloadValue.(message.AsyncCommand),
 		service:        f.svc,
 		resultOpCode:   f.resultOpCode,
 		ctx:            ctx,

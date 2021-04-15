@@ -33,7 +33,7 @@ require (
 	k8s.io/apimachinery v0.19.7
 	k8s.io/client-go v0.19.7
 	k8s.io/utils v0.0.0-20200729134348-d5654de09c73
-	knative.dev/control-protocol v0.0.0-20210413150400-e74ca1ccd031
+	knative.dev/control-protocol v0.0.0-20210415092302-eb306a5c8c21
 	knative.dev/eventing v0.22.1-0.20210414182901-fc115ae011e1
 	knative.dev/hack v0.0.0-20210325223819-b6ab329907d3
 	knative.dev/networking v0.0.0-20210413045200-a64b4beb7ef7
