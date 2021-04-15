@@ -234,7 +234,7 @@ func TestKafkaSourceCheckImmutableFields(t *testing.T) {
 				ConsumerGroup: "no-way",
 				SourceSpec:    fullSpec.SourceSpec,
 			},
-			allowed: false,
+			allowed: true,
 		},
 		"Kafka TLS Spec changed": {
 			orig: &fullSpec,

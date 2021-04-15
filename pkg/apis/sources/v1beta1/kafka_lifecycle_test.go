@@ -102,12 +102,13 @@ func TestKafkaSourceStatusGetCondition(t *testing.T) {
 			Status: corev1.ConditionUnknown,
 		},
 	}, {
-		name: "mark sink and deployed",
+		name: "mark sink and deployed and propagated",
 		s: func() *KafkaSourceStatus {
 			s := &KafkaSourceStatus{}
 			s.InitializeConditions()
 			s.MarkSink(apis.HTTP("uri://example"))
 			s.MarkDeployed(availableDeployment)
+			s.MarkDataPlaneContractPropagated()
 			return s
 		}(),
 		condQuery: KafkaConditionReady,
@@ -167,7 +168,7 @@ func TestKafkaSourceStatusGetCondition(t *testing.T) {
 			Message: "hi",
 		},
 	}, {
-		name: "mark sink and not deployed then deploying then deployed",
+		name: "mark sink and not deployed then deploying then deployed then propagating then propagated",
 		s: func() *KafkaSourceStatus {
 			s := &KafkaSourceStatus{}
 			s.InitializeConditions()
@@ -175,6 +176,8 @@ func TestKafkaSourceStatusGetCondition(t *testing.T) {
 			s.MarkNotDeployed("MarkNotDeployed", "%s", "")
 			s.MarkDeploying("MarkDeploying", "%s", "")
 			s.MarkDeployed(availableDeployment)
+			s.MarkPropagatingContractToDataPlane()
+			s.MarkDataPlaneContractPropagated()
 			return s
 		}(),
 		condQuery: KafkaConditionReady,
@@ -199,13 +202,14 @@ func TestKafkaSourceStatusGetCondition(t *testing.T) {
 			Message: "Sink has resolved to empty.",
 		},
 	}, {
-		name: "mark sink empty and deployed then sink",
+		name: "mark sink empty and deployed then sink then propagated",
 		s: func() *KafkaSourceStatus {
 			s := &KafkaSourceStatus{}
 			s.InitializeConditions()
 			s.MarkSink(nil)
 			s.MarkDeployed(availableDeployment)
 			s.MarkSink(apis.HTTP("example"))
+			s.MarkDataPlaneContractPropagated()
 			return s
 		}(),
 		condQuery: KafkaConditionReady,

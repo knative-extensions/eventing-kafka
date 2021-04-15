@@ -212,10 +212,10 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) {
 			Component: "kafkasource",
 			Namespace: obj.Namespace,
 		},
-		KafkaEnvConfig:       kafkaEnvConfig,
-		Topics:               obj.Spec.Topics,
-		ConsumerGroup:        obj.Spec.ConsumerGroup,
-		Name:                 obj.Name,
+		KafkaEnvConfig:         kafkaEnvConfig,
+		Topics:                 obj.Spec.Topics,
+		ConsumerGroup:          obj.Spec.ConsumerGroup,
+		Name:                   obj.Name,
 		DisableControlProtocol: true,
 	}
 
