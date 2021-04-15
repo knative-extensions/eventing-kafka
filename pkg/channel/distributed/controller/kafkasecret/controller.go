@@ -44,7 +44,7 @@ import (
 )
 
 // Create A New KafkaSecret Controller
-func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
+func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 
 	// Get A Logger
 	logger := logging.FromContext(ctx).Desugar()
@@ -98,6 +98,24 @@ func NewController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 
 	// Create A New KafkaSecret Controller Impl With The Reconciler
 	controllerImpl := kafkasecretinjection.NewImpl(ctx, r)
+
+	// Call GlobalResync on kafkachannels.
+	grCh := func(obj interface{}) {
+		logger.Info("Changes detected, doing global resync")
+		controllerImpl.GlobalResync(kafkachannelInformer.Informer())
+	}
+
+	handleKafkaConfigMapChange := func(ctx context.Context, configMap *corev1.ConfigMap) {
+		logger.Info("Configmap is updated or, it is being read for the first time")
+		r.updateKafkaConfig(ctx, configMap)
+		grCh(configMap)
+	}
+
+	// Watch The Settings ConfigMap For Changes
+	err = commonconfig.InitializeKafkaConfigMapWatcher(ctx, cmw, logger.Sugar(), handleKafkaConfigMapChange, environment.SystemNamespace)
+	if err != nil {
+		logger.Fatal("Failed To Initialize ConfigMap Watcher", zap.Error(err))
+	}
 
 	// Configure The Informers' EventHandlers
 	logger.Info("Setting Up EventHandlers")

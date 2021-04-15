@@ -25,6 +25,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
@@ -110,4 +111,37 @@ func (r *Reconciler) reconcile(ctx context.Context, secret *corev1.Secret) error
 
 	// Return Success
 	return nil
+}
+
+// updateKafkaConfig is the callback function that handles changes to our ConfigMap
+func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.ConfigMap) {
+	logger := logging.FromContext(ctx)
+
+	if r == nil {
+		// This typically happens during startup and can be ignored
+		return
+	}
+
+	if configMap == nil {
+		logger.Warn("Nil ConfigMap passed to configMapObserver; ignoring")
+		return
+	}
+
+	logger.Info("Reloading Kafka configuration")
+
+	// Validate The ConfigMap Data
+	if configMap.Data == nil {
+		logger.Fatal("Attempted to merge sarama settings with empty configmap", zap.Any("configMap", configMap))
+		return
+	}
+
+	// Enable Sarama Logging If Specified In ConfigMap
+	if ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap.Data); err == nil && ekConfig != nil {
+		kafkasarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)
+		logger.Debug("Updated Sarama logging", zap.Any("configMap", configMap), zap.Bool("Kafka.EnableSaramaLogging", ekConfig.Kafka.EnableSaramaLogging))
+	} else {
+		logger.Error("Could Not Extract Eventing-Kafka Setting From Updated ConfigMap", zap.Any("configMap", configMap), zap.Error(err))
+	}
+
+	r.kafkaConfigMapHash = commonconfig.ConfigmapDataCheckSum(configMap.Data)
 }
