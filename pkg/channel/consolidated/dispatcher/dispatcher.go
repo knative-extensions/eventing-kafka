@@ -33,7 +33,6 @@ import (
 	"knative.dev/pkg/logging"
 
 	eventingchannels "knative.dev/eventing/pkg/channel"
-	"knative.dev/eventing/pkg/kncloudevents"
 	"knative.dev/pkg/kmeta"
 
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
@@ -50,7 +49,6 @@ const (
 type TopicFunc func(separator, namespace, name string) string
 
 type KafkaDispatcherArgs struct {
-	KnCEConnectionArgs       *kncloudevents.ConnectionArgs
 	ClientID                 string
 	Brokers                  []string
 	KafkaAuthConfig          *client.KafkaAuthConfig
