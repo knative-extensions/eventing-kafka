@@ -21,6 +21,8 @@ import (
 	"sync"
 
 	"go.uber.org/zap"
+
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	kafkachannelv1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
@@ -35,6 +37,8 @@ import (
 	kafkachannelreconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
 	commonclient "knative.dev/eventing-kafka/pkg/common/client"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
+	"knative.dev/eventing-kafka/pkg/common/configmaploader"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
 	"knative.dev/pkg/client/injection/kube/informers/core/v1/service"
@@ -61,6 +65,17 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 	environment, err := env.FromContext(ctx)
 	if err != nil {
 		logger.Fatal("Failed To Get Environment From Context - Terminating!", zap.Error(err))
+	}
+
+	// Get the configmap loader
+	configmapLoader, err := configmaploader.FromContext(ctx)
+	if err != nil {
+		logger.Fatal("Failed To Get ConfigmapLoader From Context - Terminating!", zap.Error(err))
+	}
+
+	configMap, err := configmapLoader(commonconstants.SettingsConfigMapMountPath)
+	if err != nil {
+		logger.Fatal("error loading configuration", zap.Error(err))
 	}
 
 	// Get The K8S Client
@@ -95,7 +110,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 	}
 
 	// Load the Sarama and other eventing-kafka settings from our configmap
-	saramaConfig, configuration, err := sarama.LoadSettings(ctx, "", kafkaAuthCfg)
+	saramaConfig, configuration, err := sarama.LoadSettings(ctx, "", configMap, kafkaAuthCfg)
 	if err != nil {
 		logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Error(err))
 	}
@@ -131,22 +146,34 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		adminClientType:      kafkaAdminClientType,
 		adminClient:          nil,
 		adminMutex:           &sync.Mutex{},
-		configObserver:       rec.configMapObserver, // Maintains a reference so that the ConfigWatcher can call it
 		kafkaSecret:          kafkaSecretName,
 		kafkaBrokers:         configuration.Kafka.Brokers,
 		kafkaUsername:        kafkaUsername,
 		kafkaPassword:        kafkaPassword,
 		kafkaSaslType:        kafkaSaslType,
-	}
-
-	// Watch The Settings ConfigMap For Changes
-	err = commonconfig.InitializeKafkaConfigMapWatcher(ctx, cmw, logger.Sugar(), rec.configMapObserver, environment.SystemNamespace)
-	if err != nil {
-		logger.Fatal("Failed To Initialize ConfigMap Watcher", zap.Error(err))
+		kafkaConfigMapHash:   commonconfig.ConfigmapDataCheckSum(configMap),
 	}
 
 	// Create A New KafkaChannel Controller Impl With The Reconciler
 	controllerImpl := kafkachannelreconciler.NewImpl(ctx, rec)
+
+	// Call GlobalResync on kafkachannels.
+	grCh := func(obj interface{}) {
+		logger.Info("Changes detected, doing global resync")
+		controllerImpl.GlobalResync(kafkachannelInformer.Informer())
+	}
+
+	handleKafkaConfigMapChange := func(ctx context.Context, configMap *corev1.ConfigMap) {
+		logger.Info("Configmap is updated or, it is being read for the first time")
+		rec.updateKafkaConfig(ctx, configMap)
+		grCh(configMap)
+	}
+
+	// Watch The Settings ConfigMap For Changes
+	err = commonconfig.InitializeKafkaConfigMapWatcher(ctx, cmw, logger.Sugar(), handleKafkaConfigMapChange, environment.SystemNamespace)
+	if err != nil {
+		logger.Fatal("Failed To Initialize ConfigMap Watcher", zap.Error(err))
+	}
 
 	//
 	// Configure The Informers' EventHandlers

@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"encoding"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -39,7 +40,7 @@ type service struct {
 	connection ctrl.Connection
 
 	waitingAcksMutex sync.Mutex
-	waitingAcks      map[uuid.UUID]chan interface{}
+	waitingAcks      map[uuid.UUID]chan error
 
 	handlerMutex sync.RWMutex
 	handler      ctrl.MessageHandler
@@ -52,7 +53,7 @@ func NewService(ctx context.Context, connection ctrl.Connection) *service {
 	cs := &service{
 		ctx:          ctx,
 		connection:   connection,
-		waitingAcks:  make(map[uuid.UUID]chan interface{}),
+		waitingAcks:  make(map[uuid.UUID]chan error),
 		handler:      NoopMessageHandler,
 		errorHandler: LoggerErrorHandler,
 	}
@@ -77,7 +78,7 @@ func (c *service) sendBinaryAndWaitForAck(opcode ctrl.OpCode, payload []byte) er
 	logging.FromContext(c.ctx).Debugf("Going to send message with opcode %d and uuid %s", msg.OpCode(), msg.UUID().String())
 
 	// Register the ack between the waiting acks
-	ackCh := make(chan interface{}, 1)
+	ackCh := make(chan error, 1)
 	c.waitingAcksMutex.Lock()
 	c.waitingAcks[msg.UUID()] = ackCh
 	c.waitingAcksMutex.Unlock()
@@ -91,8 +92,8 @@ func (c *service) sendBinaryAndWaitForAck(opcode ctrl.OpCode, payload []byte) er
 	c.connection.OutboundMessages() <- &msg
 
 	select {
-	case <-ackCh:
-		return nil
+	case err := <-ackCh:
+		return err
 	case <-c.ctx.Done():
 		logging.FromContext(c.ctx).Warnf("Dropping message because context cancelled: %s", msg.UUID().String())
 		return c.ctx.Err()
@@ -143,15 +144,20 @@ func (c *service) accept(msg *ctrl.Message) {
 		c.waitingAcksMutex.Lock()
 		ackCh := c.waitingAcks[msg.UUID()]
 		c.waitingAcksMutex.Unlock()
+		var err error
+		if msg.Length() != 0 {
+			err = errors.New(string(msg.Payload()))
+		}
 		if ackCh != nil {
+			ackCh <- err
 			close(ackCh)
 			logging.FromContext(c.ctx).Debugf("Acked message: %s", msg.UUID().String())
 		} else {
 			logging.FromContext(c.ctx).Debugf("Ack received but no channel available: %s", msg.UUID().String())
 		}
 	} else {
-		ackFunc := func() {
-			ackMsg := newAckMessage(msg.UUID())
+		ackFunc := func(err error) {
+			ackMsg := newAckMessage(msg.UUID(), err)
 			// Before resending, check if context is not closed
 			select {
 			case <-c.ctx.Done():
@@ -172,6 +178,10 @@ func (c *service) acceptError(err error) {
 	c.errorHandlerMutex.RUnlock()
 }
 
-func newAckMessage(uuid [16]byte) ctrl.Message {
-	return ctrl.NewMessage(uuid, uint8(ctrl.AckOpCode), nil)
+func newAckMessage(uuid [16]byte, err error) ctrl.Message {
+	var payload []byte
+	if err != nil {
+		payload = []byte(err.Error())
+	}
+	return ctrl.NewMessage(uuid, uint8(ctrl.AckOpCode), payload)
 }

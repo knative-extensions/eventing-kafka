@@ -17,13 +17,16 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"os"
 
+	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/signals"
 
 	controller "knative.dev/eventing-kafka/pkg/channel/consolidated/reconciler/dispatcher"
+	"knative.dev/eventing-kafka/pkg/common/configmaploader"
 )
 
 const component = "kafkachannel-dispatcher"
@@ -35,5 +38,6 @@ func main() {
 		ctx = injection.WithNamespaceScope(ctx, ns)
 	}
 
+	ctx = context.WithValue(ctx, configmaploader.Key{}, configmap.Load)
 	sharedmain.MainWithContext(ctx, component, controller.NewController)
 }

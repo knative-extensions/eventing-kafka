@@ -168,7 +168,11 @@ func NewMessage(uuid [16]byte, opcode uint8, payload []byte, opts ...MessageOpt)
 	return msg
 }
 
-func (msg *Message) ReadFrom(r io.Reader) (count int64, err error) {
+func (m Message) Payload() []byte {
+	return m.payload
+}
+
+func (m *Message) ReadFrom(r io.Reader) (count int64, err error) {
 	var b [24]byte
 	var n int
 	n, err = io.ReadAtLeast(io.LimitReader(r, 24), b[0:24], 24)
@@ -177,26 +181,26 @@ func (msg *Message) ReadFrom(r io.Reader) (count int64, err error) {
 		return count, err
 	}
 
-	msg.MessageHeader = messageHeaderFromBytes(b)
-	if msg.Length() != 0 {
+	m.MessageHeader = messageHeaderFromBytes(b)
+	if m.Length() != 0 {
 		// We need to read the payload
-		msg.payload = make([]byte, msg.Length())
-		n, err = io.ReadAtLeast(io.LimitReader(r, int64(msg.Length())), msg.payload, int(msg.Length()))
+		m.payload = make([]byte, m.Length())
+		n, err = io.ReadAtLeast(io.LimitReader(r, int64(m.Length())), m.payload, int(m.Length()))
 		count = count + int64(n)
 	}
 	return count, err
 }
 
-func (msg *Message) WriteTo(w io.Writer) (count int64, err error) {
-	n, err := msg.MessageHeader.WriteTo(w)
+func (m *Message) WriteTo(w io.Writer) (count int64, err error) {
+	n, err := m.MessageHeader.WriteTo(w)
 	count = count + n
 	if err != nil {
 		return count, err
 	}
 
-	if msg.payload != nil {
+	if m.payload != nil {
 		var n1 int
-		n1, err = w.Write(msg.payload)
+		n1, err = w.Write(m.payload)
 		count = count + int64(n1)
 	}
 	return count, err

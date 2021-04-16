@@ -70,7 +70,6 @@ func NewController(
 	sourcesv1beta1.RegisterAlternateKafkaConditionSet(sourcesv1beta1.KafkaMTSourceCondSet)
 
 	rp := time.Duration(env.SchedulerRefreshPeriod) * time.Second
-
 	c.scheduler = scheduler.NewScheduler(ctx, system.Namespace(), mtadapterName, c.vpodLister, rp, env.PodCapacity)
 
 	logging.FromContext(ctx).Info("Setting up kafka event handlers")

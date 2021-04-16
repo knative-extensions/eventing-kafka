@@ -22,12 +22,11 @@ import (
 	"strconv"
 	"time"
 
-	"k8s.io/apimachinery/pkg/api/resource"
-
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	commonenv "knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
@@ -35,6 +34,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
@@ -226,6 +226,31 @@ func (r *Reconciler) reconcileReceiverDeployment(ctx context.Context, logger *za
 
 		// Verify Receiver Deployment Is Not Terminating
 		if deployment.DeletionTimestamp.IsZero() {
+			needsUpdate := false
+			deploymentCopy := deployment.DeepCopy()
+
+			if deploymentCopy.Spec.Template.Annotations == nil {
+				logger.Info("Configmap hash is not set. Updating the receiver deployment.")
+				deploymentCopy.Spec.Template.Annotations = map[string]string{
+					commonconstants.ConfigMapHashAnnotationKey: r.kafkaConfigMapHash,
+				}
+				needsUpdate = true
+			}
+
+			if deploymentCopy.Spec.Template.Annotations[commonconstants.ConfigMapHashAnnotationKey] != r.kafkaConfigMapHash {
+				logger.Info("Configmap hash is changed. Updating the receiver deployment.")
+				deploymentCopy.Spec.Template.Annotations[commonconstants.ConfigMapHashAnnotationKey] = r.kafkaConfigMapHash
+				needsUpdate = true
+			}
+
+			if needsUpdate {
+				_, err = r.kubeClientset.AppsV1().Deployments(deploymentCopy.Namespace).Update(ctx, deploymentCopy, metav1.UpdateOptions{})
+				if err != nil {
+					logger.Warn("Unable to update receiver deployment", zap.Error(err))
+					return err
+				}
+			}
+
 			logger.Info("Successfully Verified Receiver Deployment")
 			return nil
 		} else {
@@ -312,6 +337,9 @@ func (r *Reconciler) newReceiverDeployment(logger *zap.Logger, secret *corev1.Se
 					Labels: map[string]string{
 						constants.AppLabel: deploymentName, // Matched By Deployment Selector Above
 					},
+					Annotations: map[string]string{
+						commonconstants.ConfigMapHashAnnotationKey: r.kafkaConfigMapHash,
+					},
 				},
 				Spec: corev1.PodSpec{
 					ServiceAccountName: r.environment.ServiceAccount,
@@ -351,6 +379,22 @@ func (r *Reconciler) newReceiverDeployment(logger *zap.Logger, secret *corev1.Se
 								Requests: resourceRequests,
 								Limits:   resourceLimits,
 							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      commonconstants.SettingsConfigMapName,
+									MountPath: commonconstants.SettingsConfigMapMountPath,
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: commonconstants.SettingsConfigMapName,
+							VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: commonconstants.SettingsConfigMapName,
+								},
+							}},
 						},
 					},
 				},

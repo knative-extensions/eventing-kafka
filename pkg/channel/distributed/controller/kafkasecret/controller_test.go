@@ -31,11 +31,15 @@ import (
 	controllertesting "knative.dev/eventing-kafka/pkg/channel/distributed/controller/testing"
 	fakeKafkaClient "knative.dev/eventing-kafka/pkg/client/injection/client/fake"
 	_ "knative.dev/eventing-kafka/pkg/client/injection/informers/messaging/v1beta1/kafkachannel/fake" // Knative Fake Informer Injection
+	"knative.dev/eventing-kafka/pkg/common/configmaploader"
+	fakeConfigmapLoader "knative.dev/eventing-kafka/pkg/common/configmaploader/fake"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 	"knative.dev/pkg/client/injection/kube/client/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment/fake" // Knative Fake Informer Injection
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"    // Knative Fake Informer Injection
 	"knative.dev/pkg/injection"
+	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
 )
@@ -63,11 +67,19 @@ func TestNewController(t *testing.T) {
 	ctx, fakeKafkaClientset := fakeKafkaClient.With(ctx)
 	assert.NotNil(t, fakeKafkaClientset)
 
+	configmapLoader := fakeConfigmapLoader.NewFakeConfigmapLoader()
+	configmapLoader.Register(commonconstants.SettingsConfigMapMountPath, configMap.Data)
+
+	ctx = context.WithValue(ctx, configmaploader.Key{}, configmapLoader.Load)
+
+	// Create A Watcher On The Configuration Settings ConfigMap & Dynamically Update Configuration
+	cmw := sharedmain.SetupConfigMapWatchOrDie(ctx, logger)
+
 	// Perform The Test (Create The KafkaChannel Controller)
 	environment, err := controllerenv.GetEnvironment(logger.Desugar())
 	assert.Nil(t, err)
 	ctx = context.WithValue(ctx, controllerenv.Key{}, environment)
-	controller := NewController(ctx, nil)
+	controller := NewController(ctx, cmw)
 
 	// Verify The Results
 	assert.NotNil(t, controller)
