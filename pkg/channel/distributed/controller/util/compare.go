@@ -25,25 +25,25 @@ import (
 	"knative.dev/pkg/apis/duck"
 )
 
-// CheckDeploymentChanged Modifies An Existing Deployment With New Fields (If Necessary)
+// CheckDeploymentChanged Modifies A Deployment With New Fields (If Necessary)
 // Returns True If Any Modifications Were Made
-func CheckDeploymentChanged(logger *zap.Logger, existingDeployment, newDeployment *appsv1.Deployment) (*appsv1.Deployment, bool) {
+func CheckDeploymentChanged(logger *zap.Logger, oldDeployment, newDeployment *appsv1.Deployment) (*appsv1.Deployment, bool) {
 
-	// Make a copy of the existing labels and annotations so we don't inadvertently
-	// modify the existing deployment fields directly
+	// Make a copy of the old labels and annotations so we don't inadvertently
+	// modify the old deployment fields directly
 	updatedLabels := make(map[string]string)
-	for oldKey, oldValue := range existingDeployment.ObjectMeta.Labels {
+	for oldKey, oldValue := range oldDeployment.ObjectMeta.Labels {
 		updatedLabels[oldKey] = oldValue
 	}
 	updatedAnnotations := make(map[string]string)
-	for oldKey, oldValue := range existingDeployment.Spec.Template.ObjectMeta.Annotations {
+	for oldKey, oldValue := range oldDeployment.Spec.Template.ObjectMeta.Annotations {
 		updatedAnnotations[oldKey] = oldValue
 	}
 
 	metadataChanged := false
 	// Add any labels in the "new" deployment to the copy of the labels from the old deployment.
 	for newKey, newValue := range newDeployment.ObjectMeta.Labels {
-		oldValue, ok := existingDeployment.ObjectMeta.Labels[newKey]
+		oldValue, ok := oldDeployment.ObjectMeta.Labels[newKey]
 		if !ok || oldValue != newValue {
 			metadataChanged = true
 			updatedLabels[newKey] = newValue
@@ -53,7 +53,7 @@ func CheckDeploymentChanged(logger *zap.Logger, existingDeployment, newDeploymen
 	// Add any annotations in the "new" deployment to the copy of the labels from the old deployment.
 	// (In particular this will trigger on differences in "kafka.eventing.knative.dev/configmap-hash")
 	for newKey, newValue := range newDeployment.Spec.Template.ObjectMeta.Annotations {
-		oldValue, ok := existingDeployment.Spec.Template.ObjectMeta.Annotations[newKey]
+		oldValue, ok := oldDeployment.Spec.Template.ObjectMeta.Annotations[newKey]
 		if !ok || oldValue != newValue {
 			metadataChanged = true
 			updatedAnnotations[newKey] = newValue
@@ -64,19 +64,19 @@ func CheckDeploymentChanged(logger *zap.Logger, existingDeployment, newDeploymen
 	//    Spec.Replicas - Since a HorizontalPodAutoscaler explicitly changes this value on the deployment directly
 
 	// Verify everything in the container spec aside from some particular exceptions (see "ignoreFields" below)
-	existingContainerCount := len(existingDeployment.Spec.Template.Spec.Containers)
-	if existingContainerCount == 0 {
-		// This is unlikely but if it happens, replace the entire existing deployment with a proper one
+	oldContainerCount := len(oldDeployment.Spec.Template.Spec.Containers)
+	if oldContainerCount == 0 {
+		// This is unlikely but if it happens, replace the entire old deployment with a proper one
 		logger.Error("Deployment Has No Containers")
 		return newDeployment, true
-	} else if existingContainerCount > 1 {
+	} else if oldContainerCount > 1 {
 		logger.Warn("Deployment Has Multiple Containers; Comparing First Only")
 	}
 	if len(newDeployment.Spec.Template.Spec.Containers) < 1 {
 		logger.Error("New Deployment Has No Containers")
-		return existingDeployment, false
+		return oldDeployment, false
 	}
-	existingContainer := &existingDeployment.Spec.Template.Spec.Containers[0]
+	oldContainer := &oldDeployment.Spec.Template.Spec.Containers[0]
 	newContainer := &newDeployment.Spec.Template.Spec.Containers[0]
 
 	ignoreFields := []cmp.Option{
@@ -99,14 +99,14 @@ func CheckDeploymentChanged(logger *zap.Logger, existingDeployment, newDeploymen
 		cmpopts.IgnoreFields(corev1.HTTPGetAction{}, "Scheme"),           // "" -> "HTTP" (from inside the probes; always HTTP)
 	}
 
-	containersEqual := cmp.Equal(existingContainer, newContainer, ignoreFields...)
+	containersEqual := cmp.Equal(oldContainer, newContainer, ignoreFields...)
 	if containersEqual && !metadataChanged {
-		// Nothing of interest changed, so just keep the existing deployment
-		return existingDeployment, false
+		// Nothing of interest changed, so just keep the old deployment
+		return oldDeployment, false
 	}
 
-	// Create an updated deployment from the existing one, but using the new Container field
-	updatedDeployment := existingDeployment.DeepCopy()
+	// Create an updated deployment from the old one, but using the new Container field
+	updatedDeployment := oldDeployment.DeepCopy()
 	if metadataChanged {
 		updatedDeployment.ObjectMeta.Labels = updatedLabels
 		updatedDeployment.Spec.Template.ObjectMeta.Annotations = updatedAnnotations
@@ -117,13 +117,13 @@ func CheckDeploymentChanged(logger *zap.Logger, existingDeployment, newDeploymen
 	return updatedDeployment, true
 }
 
-// CheckServiceChanged Modifies An Existing Service With New Fields (If Necessary)
+// CheckServiceChanged Modifies A Service With New Fields (If Necessary)
 // Returns True If Any Modifications Were Made
-func CheckServiceChanged(logger *zap.Logger, existingService, newService *corev1.Service) ([]byte, bool) {
+func CheckServiceChanged(logger *zap.Logger, oldService, newService *corev1.Service) ([]byte, bool) {
 
-	// Make a copy of the existing labels so we don't inadvertently modify the existing service fields directly
+	// Make a copy of the old labels so we don't inadvertently modify the old service fields directly
 	updatedLabels := make(map[string]string)
-	for oldKey, oldValue := range existingService.ObjectMeta.Labels {
+	for oldKey, oldValue := range oldService.ObjectMeta.Labels {
 		updatedLabels[oldKey] = oldValue
 	}
 
@@ -132,7 +132,7 @@ func CheckServiceChanged(logger *zap.Logger, existingService, newService *corev1
 	// in new services anyway so it would serve no practical purpose at the moment.
 	labelsChanged := false
 	for newKey, newValue := range newService.ObjectMeta.Labels {
-		oldValue, ok := existingService.ObjectMeta.Labels[newKey]
+		oldValue, ok := oldService.ObjectMeta.Labels[newKey]
 		if !ok || oldValue != newValue {
 			labelsChanged = true
 			updatedLabels[newKey] = newValue
@@ -141,21 +141,21 @@ func CheckServiceChanged(logger *zap.Logger, existingService, newService *corev1
 
 	ignoreFields := []cmp.Option{
 		// Ignore the fields in a Spec struct which are not set directly by the distributed channel reconcilers
-		cmpopts.IgnoreFields(existingService.Spec, "ClusterIP", "Type", "SessionAffinity"),
+		cmpopts.IgnoreFields(oldService.Spec, "ClusterIP", "Type", "SessionAffinity"),
 		// Ignore some other fields buried inside otherwise-relevant ones, mainly "defaults that come from empty strings,"
 		// as there is no reason to restart the deployments for those changes.
 		cmpopts.IgnoreFields(corev1.ServicePort{}, "Protocol"), // "" -> "TCP"
 	}
 
 	// Verify everything in the service spec aside from some particular exceptions (see "ignoreFields" above)
-	specEqual := cmp.Equal(existingService.Spec, newService.Spec, ignoreFields...)
+	specEqual := cmp.Equal(oldService.Spec, newService.Spec, ignoreFields...)
 	if specEqual && !labelsChanged {
-		// Nothing of interest changed, so just keep the existing service
+		// Nothing of interest changed, so just keep the old service
 		return nil, false
 	}
 
-	// Create an updated service from the existing one, but using the new Spec field
-	updatedService := existingService.DeepCopy()
+	// Create an updated service from the old one, but using the new Spec field
+	updatedService := oldService.DeepCopy()
 	if labelsChanged {
 		updatedService.ObjectMeta.Labels = updatedLabels
 	}
@@ -164,9 +164,9 @@ func CheckServiceChanged(logger *zap.Logger, existingService, newService *corev1
 	}
 
 	// Some fields are immutable and need to be guaranteed identical before being used for patching purposes
-	updatedService.Spec.ClusterIP = existingService.Spec.ClusterIP
+	updatedService.Spec.ClusterIP = oldService.Spec.ClusterIP
 
-	return createJsonPatch(logger, existingService, updatedService)
+	return createJsonPatch(logger, oldService, updatedService)
 }
 
 // createJsonPatch generates a byte array patch suitable for a Kubernetes Patch operation
