@@ -124,7 +124,7 @@ func (r *Reconciler) finalizeDispatcher(ctx context.Context, channel *kafkav1bet
 // Reconcile The Dispatcher Service
 func (r *Reconciler) reconcileDispatcherService(ctx context.Context, logger *zap.Logger, channel *kafkav1beta1.KafkaChannel) error {
 
-	// Create A New Deployment For Comparison
+	// Create A New Service For Comparison
 	newService := r.newDispatcherService(channel)
 
 	// Attempt To Get The Dispatcher Service Associated With The Specified Channel
@@ -148,7 +148,7 @@ func (r *Reconciler) reconcileDispatcherService(ctx context.Context, logger *zap
 		}
 	} else {
 
-		// Determine whether the existing service is different in a way that demands an update
+		// Determine whether the existing service is different in a way that demands a patch
 		// such as missing required labels or spec differences
 		patch, needsUpdate := util.CheckServiceChanged(logger, existingService, newService)
 
@@ -163,7 +163,7 @@ func (r *Reconciler) reconcileDispatcherService(ctx context.Context, logger *zap
 			}
 		}
 
-		// Update the service in Kubernetes if necessary
+		// Patch the service in Kubernetes if necessary
 		if needsUpdate {
 			logger.Info("Dispatcher Service Changed - Patching")
 			_, err = r.kubeClientset.CoreV1().Services(existingService.Namespace).Patch(ctx, existingService.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
@@ -321,6 +321,7 @@ func (r *Reconciler) reconcileDispatcherDeployment(ctx context.Context, logger *
 
 		// Determine whether the existing deployment is different in a way that demands an update
 		// such as missing required labels, a different image, or certain container differences.
+		// (This includes the configmap hash annotation, so configmap changes will trigger updates)
 		updatedDeployment, needsUpdate := util.CheckDeploymentChanged(logger, existingDeployment, newDeployment)
 
 		// Log Deletion Timestamp & Finalizer State

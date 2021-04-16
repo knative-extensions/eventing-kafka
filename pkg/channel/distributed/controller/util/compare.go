@@ -29,7 +29,7 @@ import (
 // Returns True If Any Modifications Were Made
 func CheckDeploymentChanged(logger *zap.Logger, existingDeployment, newDeployment *appsv1.Deployment) (*appsv1.Deployment, bool) {
 
-	// Make a copy of the existing labels and annotation so we don't inadvertently
+	// Make a copy of the existing labels and annotations so we don't inadvertently
 	// modify the existing deployment fields directly
 	updatedLabels := make(map[string]string)
 	for oldKey, oldValue := range existingDeployment.ObjectMeta.Labels {
@@ -147,7 +147,7 @@ func CheckServiceChanged(logger *zap.Logger, existingService, newService *corev1
 		cmpopts.IgnoreFields(corev1.ServicePort{}, "Protocol"), // "" -> "TCP"
 	}
 
-	// Verify everything in the service spec
+	// Verify everything in the service spec aside from some particular exceptions (see "ignoreFields" above)
 	specEqual := cmp.Equal(existingService.Spec, newService.Spec, ignoreFields...)
 	if specEqual && !labelsChanged {
 		// Nothing of interest changed, so just keep the existing service
@@ -163,7 +163,7 @@ func CheckServiceChanged(logger *zap.Logger, existingService, newService *corev1
 		updatedService.Spec = newService.Spec
 	}
 
-	// Some fields are immutable and need to be guaranteed identical before being used for update purposes
+	// Some fields are immutable and need to be guaranteed identical before being used for patching purposes
 	updatedService.Spec.ClusterIP = existingService.Spec.ClusterIP
 
 	return createJsonPatch(logger, existingService, updatedService)

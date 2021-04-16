@@ -93,7 +93,7 @@ func (r *Reconciler) reconcileChannel(ctx context.Context, secret *corev1.Secret
 // Reconcile The Receiver Service
 func (r *Reconciler) reconcileReceiverService(ctx context.Context, logger *zap.Logger, secret *corev1.Secret) error {
 
-	// Create A New Deployment For Comparison
+	// Create A New Service For Comparison
 	newService := r.newReceiverService(secret)
 
 	// Attempt To Get The Receiver Service Associated With The Specified Secret
@@ -122,7 +122,7 @@ func (r *Reconciler) reconcileReceiverService(ctx context.Context, logger *zap.L
 		}
 	} else {
 
-		// Determine whether the existing service is different in a way that demands an update
+		// Determine whether the existing service is different in a way that demands a patch
 		// such as missing required labels or spec differences
 		patch, needsUpdate := util.CheckServiceChanged(logger, existingService, newService)
 
@@ -134,7 +134,7 @@ func (r *Reconciler) reconcileReceiverService(ctx context.Context, logger *zap.L
 			return fmt.Errorf("encountered Receiver Service with DeletionTimestamp %s/%s - potential race condition", existingService.Namespace, existingService.Name)
 		}
 
-		// Update the service in Kubernetes if necessary
+		// Patch the service in Kubernetes if necessary
 		if needsUpdate {
 			logger.Info("Receiver Service Changed - Patching")
 			_, err = r.kubeClientset.CoreV1().Services(existingService.Namespace).Patch(ctx, existingService.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
@@ -248,6 +248,7 @@ func (r *Reconciler) reconcileReceiverDeployment(ctx context.Context, logger *za
 
 		// Determine whether the existing deployment is different in a way that demands an update
 		// such as missing required labels, a different image, or certain container differences.
+		// (This includes the configmap hash annotation, so configmap changes will trigger updates)
 		updatedDeployment, needsUpdate := util.CheckDeploymentChanged(logger, existingDeployment, newDeployment)
 
 		// Verify Receiver Deployment Is Not Terminating
