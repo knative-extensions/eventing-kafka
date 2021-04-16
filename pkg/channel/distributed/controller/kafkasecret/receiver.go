@@ -262,7 +262,7 @@ func (r *Reconciler) reconcileReceiverDeployment(ctx context.Context, logger *za
 		// Update the deployment in Kubernetes if necessary
 		if needsUpdate {
 			logger.Info("Receiver Deployment Changed - Updating")
-			updatedDeployment, err = r.kubeClientset.AppsV1().Deployments(newDeployment.Namespace).Update(ctx, updatedDeployment, metav1.UpdateOptions{})
+			_, err = r.kubeClientset.AppsV1().Deployments(newDeployment.Namespace).Update(ctx, updatedDeployment, metav1.UpdateOptions{})
 			if err == nil {
 				controller.GetEventRecorder(ctx).Event(secret, corev1.EventTypeNormal, event.ReceiverDeploymentUpdated.String(), "Receiver Deployment Updated")
 			} else {

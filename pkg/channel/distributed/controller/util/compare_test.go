@@ -92,7 +92,7 @@ func TestCheckDeploymentChanged(t *testing.T) {
 			if newDeployment == nil {
 				newDeployment = getBasicDeployment()
 			}
-			updatedDeployment, isUpdated := CheckDeploymentChanged(logger, tt.existingDeployment, tt.newDeployment)
+			updatedDeployment, isUpdated := CheckDeploymentChanged(logger, tt.existingDeployment, newDeployment)
 			assert.NotNil(t, updatedDeployment)
 			assert.Equal(t, tt.expectUpdated, isUpdated)
 		})
@@ -179,7 +179,7 @@ func TestCheckServiceChanged(t *testing.T) {
 			if newService == nil {
 				newService = getBasicService()
 			}
-			patch, isUpdated := CheckServiceChanged(logger, tt.existingService, tt.newService)
+			patch, isUpdated := CheckServiceChanged(logger, tt.existingService, newService)
 			assert.Equal(t, tt.expectPatch, patch != nil)
 			assert.Equal(t, tt.expectUpdated, isUpdated)
 		})
