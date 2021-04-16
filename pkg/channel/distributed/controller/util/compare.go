@@ -67,17 +67,20 @@ func CheckDeploymentChanged(logger *zap.Logger, oldDeployment, newDeployment *ap
 	oldContainerCount := len(oldDeployment.Spec.Template.Spec.Containers)
 	if oldContainerCount == 0 {
 		// This is unlikely but if it happens, replace the entire old deployment with a proper one
-		logger.Error("Deployment Has No Containers")
+		logger.Warn("Old Deployment Has No Containers - Replacing Entire Deployment")
 		return newDeployment, true
-	} else if oldContainerCount > 1 {
-		logger.Warn("Deployment Has Multiple Containers; Comparing First Only")
 	}
-	if len(newDeployment.Spec.Template.Spec.Containers) < 1 {
-		logger.Error("New Deployment Has No Containers")
+	if len(newDeployment.Spec.Template.Spec.Containers) != 1 {
+		logger.Error("New Deployment Has Incorrect Number Of Containers And Cannot Be Used")
 		return oldDeployment, false
 	}
-	oldContainer := &oldDeployment.Spec.Template.Spec.Containers[0]
+
 	newContainer := &newDeployment.Spec.Template.Spec.Containers[0]
+	oldContainer := findContainer(oldDeployment, newContainer.Name)
+	if oldContainer == nil {
+		logger.Error("Old Deployment Does Not Have Same Container Name - Replacing Entire Deployment")
+		return newDeployment, true
+	}
 
 	ignoreFields := []cmp.Option{
 		// Ignore the fields in a Container struct which are not set directly by the distributed channel reconcilers
@@ -115,6 +118,16 @@ func CheckDeploymentChanged(logger *zap.Logger, oldDeployment, newDeployment *ap
 		updatedDeployment.Spec.Template.Spec.Containers[0] = *newContainer
 	}
 	return updatedDeployment, true
+}
+
+// findContainer returns the Container with the given name in a Deployment, or nil if not found
+func findContainer(deployment *appsv1.Deployment, name string) *corev1.Container {
+	for _, container := range deployment.Spec.Template.Spec.Containers {
+		if container.Name == name {
+			return &container
+		}
+	}
+	return nil
 }
 
 // CheckServiceChanged Modifies A Service With New Fields (If Necessary)

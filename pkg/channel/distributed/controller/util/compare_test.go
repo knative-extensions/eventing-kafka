@@ -85,6 +85,29 @@ func TestCheckDeploymentChanged(t *testing.T) {
 			existingDeployment: getBasicDeployment(withExtraContainer),
 			newDeployment:      getBasicDeployment(),
 		},
+		{
+			name:               "Multiple Existing Containers, Incorrect First",
+			existingDeployment: getBasicDeployment(withExtraContainerFirst),
+			newDeployment:      getBasicDeployment(),
+		},
+		{
+			name:               "Multiple Existing Containers, Missing Required Annotation",
+			existingDeployment: getBasicDeployment(withExtraContainer),
+			newDeployment:      getBasicDeployment(withAnnotation),
+			expectUpdated:      true,
+		},
+		{
+			name:               "Multiple Existing Containers, Incorrect First, Missing Required Annotation",
+			existingDeployment: getBasicDeployment(withExtraContainerFirst),
+			newDeployment:      getBasicDeployment(withAnnotation),
+			expectUpdated:      true,
+		},
+		{
+			name:               "Container With Incorrect Name",
+			existingDeployment: getBasicDeployment(withDifferentContainer),
+			newDeployment:      getBasicDeployment(),
+			expectUpdated:      true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -97,39 +120,6 @@ func TestCheckDeploymentChanged(t *testing.T) {
 			assert.Equal(t, tt.expectUpdated, isUpdated)
 		})
 	}
-}
-
-func getBasicDeployment(options ...deploymentOption) *appsv1.Deployment {
-	deployment := &appsv1.Deployment{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: appsv1.SchemeGroupVersion.String(),
-			Kind:       constants.DeploymentKind,
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "TestDeployment",
-			Namespace: "TestNamespace",
-			Labels:    make(map[string]string),
-		},
-		Spec: appsv1.DeploymentSpec{
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: make(map[string]string),
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{Name: "TestContainerName"},
-					},
-				},
-			},
-		},
-	}
-
-	// Apply any desired customizations
-	for _, option := range options {
-		option(deployment)
-	}
-
-	return deployment
 }
 
 // Tests the CheckServiceChanged functionality.  Note that this is also tested fairly extensively
@@ -222,6 +212,39 @@ func TestCreateJsonPatch(t *testing.T) {
 	}
 }
 
+func getBasicDeployment(options ...deploymentOption) *appsv1.Deployment {
+	deployment := &appsv1.Deployment{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: appsv1.SchemeGroupVersion.String(),
+			Kind:       constants.DeploymentKind,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "TestDeployment",
+			Namespace: "TestNamespace",
+			Labels:    make(map[string]string),
+		},
+		Spec: appsv1.DeploymentSpec{
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: make(map[string]string),
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{Name: "TestContainerName"},
+					},
+				},
+			},
+		},
+	}
+
+	// Apply any desired customizations
+	for _, option := range options {
+		option(deployment)
+	}
+
+	return deployment
+}
+
 func withLabel(deployment *appsv1.Deployment) {
 	deployment.Labels["TestLabelName"] = "TestLabelValue"
 }
@@ -239,6 +262,17 @@ func withExtraContainer(deployment *appsv1.Deployment) {
 		deployment.Spec.Template.Spec.Containers, corev1.Container{
 			Name: "TestExtraContainerName",
 		})
+}
+
+func withExtraContainerFirst(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers = append([]corev1.Container{{
+		Name: "TestExtraContainerName",
+	}},
+	deployment.Spec.Template.Spec.Containers...)
+}
+
+func withDifferentContainer(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].Name = "TestDifferentContainerName"
 }
 
 func withDifferentImage(deployment *appsv1.Deployment) {
