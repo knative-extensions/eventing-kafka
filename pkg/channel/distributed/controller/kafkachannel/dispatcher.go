@@ -320,13 +320,8 @@ func (r *Reconciler) reconcileDispatcherDeployment(ctx context.Context, logger *
 		}
 	} else {
 
-		// Determine whether the existing deployment is different in a way that demands an update
-		// such as missing required labels, a different image, or certain container differences.
-		// (This includes the configmap hash annotation, so configmap changes will trigger updates)
-		updatedDeployment, needsUpdate := util.CheckDeploymentChanged(logger, existingDeployment, newDeployment)
-
 		// Log Deletion Timestamp & Finalizer State
-		if updatedDeployment.DeletionTimestamp.IsZero() {
+		if existingDeployment.DeletionTimestamp.IsZero() {
 			logger.Info("Successfully Verified Dispatcher Deployment")
 		} else {
 			if util.HasFinalizer(r.finalizerName(), &newDeployment.ObjectMeta) {
@@ -335,6 +330,11 @@ func (r *Reconciler) reconcileDispatcherDeployment(ctx context.Context, logger *
 				logger.Warn("Unable To Block Pending Deletion Of Dispatcher Deployment (Finalizer Missing)")
 			}
 		}
+
+		// Determine whether the existing deployment is different in a way that demands an update
+		// such as missing required labels, a different image, or certain container differences.
+		// (This includes the configmap hash annotation, so configmap changes will trigger updates)
+		updatedDeployment, needsUpdate := util.CheckDeploymentChanged(logger, existingDeployment, newDeployment)
 
 		// Update the deployment in Kubernetes if necessary
 		if needsUpdate {

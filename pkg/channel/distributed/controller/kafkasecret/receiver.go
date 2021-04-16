@@ -247,18 +247,18 @@ func (r *Reconciler) reconcileReceiverDeployment(ctx context.Context, logger *za
 		}
 	} else {
 
+		// Verify Receiver Deployment Is Not Terminating
+		if existingDeployment.DeletionTimestamp.IsZero() {
+			logger.Info("Successfully Verified Receiver Deployment")
+		} else {
+			logger.Warn("Encountered Receiver Deployment With DeletionTimestamp - Forcing Reconciliation", zap.String("Namespace", existingDeployment.Namespace), zap.String("Name", existingDeployment.Name))
+			return fmt.Errorf("encountered Receiver Deployment with DeletionTimestamp %s/%s - potential race condition", existingDeployment.Namespace, existingDeployment.Name)
+		}
+
 		// Determine whether the existing deployment is different in a way that demands an update
 		// such as missing required labels, a different image, or certain container differences.
 		// (This includes the configmap hash annotation, so configmap changes will trigger updates)
 		updatedDeployment, needsUpdate := util.CheckDeploymentChanged(logger, existingDeployment, newDeployment)
-
-		// Verify Receiver Deployment Is Not Terminating
-		if updatedDeployment.DeletionTimestamp.IsZero() {
-			logger.Info("Successfully Verified Receiver Deployment")
-		} else {
-			logger.Warn("Encountered Receiver Deployment With DeletionTimestamp - Forcing Reconciliation", zap.String("Namespace", updatedDeployment.Namespace), zap.String("Name", updatedDeployment.Name))
-			return fmt.Errorf("encountered Receiver Deployment with DeletionTimestamp %s/%s - potential race condition", updatedDeployment.Namespace, updatedDeployment.Name)
-		}
 
 		// Update the deployment in Kubernetes if necessary
 		if needsUpdate {
