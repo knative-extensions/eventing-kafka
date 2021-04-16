@@ -8,9 +8,9 @@ import (
 
 	"github.com/Shopify/sarama"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
-	"github.com/golang/protobuf/ptypes"
 	loadastic_common "github.com/slinkydeveloper/loadastic/common"
 	"github.com/slinkydeveloper/loadastic/kafka"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	performance_common "knative.dev/eventing/test/performance/infra/common"
 	"knative.dev/eventing/test/performance/infra/sender"
 )
@@ -71,12 +71,12 @@ func NewKafkaLoadGeneratorFactory(bootstrapUrl string, topic string, minWorkers 
 			sender,
 			kafka.WithInitialWorkers(uint(minWorkers)),
 			kafka.WithBeforeSend(func(request kafka.RecordPayload, tickerTimestamp time.Time, id uint64, uuid string) {
-				ts, _ := ptypes.TimestampProto(tickerTimestamp)
+				ts := timestamppb.New(tickerTimestamp)
 
 				sentCh <- performance_common.EventTimestamp{EventId: uuid, At: ts}
 			}),
 			kafka.WithAfterSend(func(request kafka.RecordPayload, response interface{}, id uint64, uuid string) {
-				acceptedCh <- performance_common.EventTimestamp{EventId: uuid, At: ptypes.TimestampNow()}
+				acceptedCh <- performance_common.EventTimestamp{EventId: uuid, At: timestamppb.Now()}
 			}),
 		)
 
