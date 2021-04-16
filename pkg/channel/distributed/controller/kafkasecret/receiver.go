@@ -122,10 +122,6 @@ func (r *Reconciler) reconcileReceiverService(ctx context.Context, logger *zap.L
 		}
 	} else {
 
-		// Determine whether the existing service is different in a way that demands a patch
-		// such as missing required labels or spec differences
-		patch, needsUpdate := util.CheckServiceChanged(logger, existingService, newService)
-
 		// Verify Receiver Service Is Not Terminating
 		if existingService.DeletionTimestamp.IsZero() {
 			logger.Info("Successfully Verified Receiver Service")
@@ -134,14 +130,19 @@ func (r *Reconciler) reconcileReceiverService(ctx context.Context, logger *zap.L
 			return fmt.Errorf("encountered Receiver Service with DeletionTimestamp %s/%s - potential race condition", existingService.Namespace, existingService.Name)
 		}
 
+		// Determine whether the existing service is different in a way that demands a patch
+		// such as missing required labels or spec differences
+		patch, needsUpdate := util.CheckServiceChanged(logger, existingService, newService)
+
 		// Patch the service in Kubernetes if necessary
 		if needsUpdate {
-			logger.Info("Receiver Service Changed - Patching")
 			_, err = r.kubeClientset.CoreV1().Services(existingService.Namespace).Patch(ctx, existingService.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 			if err == nil {
 				controller.GetEventRecorder(ctx).Event(secret, corev1.EventTypeNormal, event.ReceiverServicePatched.String(), "Receiver Service Patched")
+				logger.Info("Receiver Service Changed - Patch Applied")
 			} else {
 				controller.GetEventRecorder(ctx).Event(secret, corev1.EventTypeWarning, event.ReceiverServicePatchFailed.String(), "Receiver Service Patch Failed")
+				logger.Error("Receiver Service Patch Failed", zap.Error(err))
 				return err
 			}
 		}
@@ -261,12 +262,13 @@ func (r *Reconciler) reconcileReceiverDeployment(ctx context.Context, logger *za
 
 		// Update the deployment in Kubernetes if necessary
 		if needsUpdate {
-			logger.Info("Receiver Deployment Changed - Updating")
 			_, err = r.kubeClientset.AppsV1().Deployments(newDeployment.Namespace).Update(ctx, updatedDeployment, metav1.UpdateOptions{})
 			if err == nil {
 				controller.GetEventRecorder(ctx).Event(secret, corev1.EventTypeNormal, event.ReceiverDeploymentUpdated.String(), "Receiver Deployment Updated")
+				logger.Info("Receiver Deployment Changed - Update Applied")
 			} else {
 				controller.GetEventRecorder(ctx).Event(secret, corev1.EventTypeWarning, event.ReceiverDeploymentUpdateFailed.String(), "Receiver Deployment Update Failed")
+				logger.Info("Receiver Deployment Update Failed", zap.Error(err))
 				return err
 			}
 		}

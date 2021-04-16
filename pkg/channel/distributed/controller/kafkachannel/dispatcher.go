@@ -148,10 +148,6 @@ func (r *Reconciler) reconcileDispatcherService(ctx context.Context, logger *zap
 		}
 	} else {
 
-		// Determine whether the existing service is different in a way that demands a patch
-		// such as missing required labels or spec differences
-		patch, needsUpdate := util.CheckServiceChanged(logger, existingService, newService)
-
 		// Log Deletion Timestamp & Finalizer State
 		if existingService.DeletionTimestamp.IsZero() {
 			logger.Info("Successfully Verified Dispatcher Service")
@@ -163,15 +159,20 @@ func (r *Reconciler) reconcileDispatcherService(ctx context.Context, logger *zap
 			}
 		}
 
+		// Determine whether the existing service is different in a way that demands a patch
+		// such as missing required labels or spec differences
+		patch, needsUpdate := util.CheckServiceChanged(logger, existingService, newService)
+
 		// Patch the service in Kubernetes if necessary
 		if needsUpdate {
-			logger.Info("Dispatcher Service Changed - Patching")
 			_, err = r.kubeClientset.CoreV1().Services(existingService.Namespace).Patch(ctx, existingService.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 			if err == nil {
 				controller.GetEventRecorder(ctx).Event(channel, corev1.EventTypeNormal, event.DispatcherServicePatched.String(), "Dispatcher Service Patched")
+				logger.Info("Dispatcher Service Changed - Patch Applied")
 			} else {
 				controller.GetEventRecorder(ctx).Event(channel, corev1.EventTypeWarning, event.DispatcherServicePatchFailed.String(), "Dispatcher Service Patch Failed")
 				channel.Status.MarkDispatcherFailed(event.DispatcherServicePatchFailed.String(), "Failed To Patch Dispatcher Service: %v", err)
+				logger.Error("Dispatcher Service Patch Failed", zap.Error(err))
 				return err
 			}
 		}
@@ -337,13 +338,14 @@ func (r *Reconciler) reconcileDispatcherDeployment(ctx context.Context, logger *
 
 		// Update the deployment in Kubernetes if necessary
 		if needsUpdate {
-			logger.Info("Dispatcher Deployment Changed - Updating")
 			updatedDeployment, err = r.kubeClientset.AppsV1().Deployments(newDeployment.Namespace).Update(ctx, updatedDeployment, metav1.UpdateOptions{})
 			if err == nil {
 				controller.GetEventRecorder(ctx).Event(channel, corev1.EventTypeNormal, event.DispatcherDeploymentUpdated.String(), "Dispatcher Deployment Updated")
+				logger.Info("Dispatcher Deployment Changed - Update Applied")
 			} else {
 				controller.GetEventRecorder(ctx).Event(channel, corev1.EventTypeWarning, event.DispatcherDeploymentUpdateFailed.String(), "Dispatcher Deployment Update Failed")
 				channel.Status.MarkDispatcherFailed(event.DispatcherDeploymentUpdateFailed.String(), "Failed To Update Dispatcher Deployment: %v", err)
+				logger.Info("Dispatcher Deployment Failed", zap.Error(err))
 				return err
 			}
 		}
