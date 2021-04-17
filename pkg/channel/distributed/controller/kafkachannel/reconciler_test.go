@@ -151,536 +151,536 @@ func TestReconcile(t *testing.T) {
 	commontesting.SetTestEnvironment(t)
 	tableTest := TableTest{
 
-		////
-		//// Top Level Use Cases
-		////
 		//
-		//{
-		//	Name: "Bad KafkaChannel Key",
-		//	Key:  "too/many/parts",
-		//},
-		//{
-		//	Name: "KafkaChannel Key Not Found",
-		//	Key:  "foo/not-found",
-		//},
+		// Top Level Use Cases
 		//
-		////
-		//// Full Reconciliation
-		////
+
+		{
+			Name: "Bad KafkaChannel Key",
+			Key:  "too/many/parts",
+		},
+		{
+			Name: "KafkaChannel Key Not Found",
+			Key:  "foo/not-found",
+		},
+
 		//
-		//{
-		//	Name:                    "Complete Reconciliation Success",
-		//	SkipNamespaceValidation: true,
-		//	Key:                     controllertesting.KafkaChannelKey,
-		//	Objects: []runtime.Object{
-		//		controllertesting.NewKafkaChannel(controllertesting.WithInitializedConditions),
-		//	},
-		//	WantCreates: []runtime.Object{
-		//		controllertesting.NewKafkaChannelService(),
-		//		controllertesting.NewKafkaChannelDispatcherService(),
-		//		controllertesting.NewKafkaChannelDispatcherDeployment(),
-		//	},
-		//	WantStatusUpdates: []clientgotesting.UpdateActionImpl{
-		//		{
-		//			Object: controllertesting.NewKafkaChannel(
-		//				controllertesting.WithAddress,
-		//				controllertesting.WithInitializedConditions,
-		//				controllertesting.WithKafkaChannelServiceReady,
-		//				controllertesting.WithDispatcherDeploymentReady,
-		//				controllertesting.WithTopicReady,
-		//			),
-		//		},
-		//	},
-		//	WantUpdates: []clientgotesting.UpdateActionImpl{
-		//		controllertesting.NewKafkaChannelLabelUpdate(
-		//			controllertesting.NewKafkaChannel(
-		//				controllertesting.WithFinalizer,
-		//				controllertesting.WithMetaData,
-		//				controllertesting.WithAddress,
-		//				controllertesting.WithInitializedConditions,
-		//				controllertesting.WithKafkaChannelServiceReady,
-		//				controllertesting.WithDispatcherDeploymentReady,
-		//				controllertesting.WithTopicReady,
-		//			),
-		//		),
-		//	},
-		//	WantPatches: []clientgotesting.PatchActionImpl{controllertesting.NewFinalizerPatchActionImpl()},
-		//	WantEvents: []string{
-		//		controllertesting.NewKafkaChannelFinalizerUpdateEvent(),
-		//		controllertesting.NewKafkaChannelSuccessfulReconciliationEvent(),
-		//	},
-		//},
-		//{
-		//	Name:                    "Complete Reconciliation Success, No Dispatcher Resource Requests Or Limits",
-		//	SkipNamespaceValidation: true,
-		//	Key:                     controllertesting.KafkaChannelKey,
-		//	Objects: []runtime.Object{
-		//		controllertesting.NewKafkaChannel(controllertesting.WithInitializedConditions),
-		//	},
-		//	WantCreates: []runtime.Object{
-		//		controllertesting.NewKafkaChannelService(),
-		//		controllertesting.NewKafkaChannelDispatcherService(),
-		//		controllertesting.NewKafkaChannelDispatcherDeployment(controllertesting.WithoutResources),
-		//	},
-		//	WantStatusUpdates: []clientgotesting.UpdateActionImpl{
-		//		{
-		//			Object: controllertesting.NewKafkaChannel(
-		//				controllertesting.WithAddress,
-		//				controllertesting.WithInitializedConditions,
-		//				controllertesting.WithKafkaChannelServiceReady,
-		//				controllertesting.WithDispatcherDeploymentReady,
-		//				controllertesting.WithTopicReady,
-		//			),
-		//		},
-		//	},
-		//	WantUpdates: []clientgotesting.UpdateActionImpl{
-		//		controllertesting.NewKafkaChannelLabelUpdate(
-		//			controllertesting.NewKafkaChannel(
-		//				controllertesting.WithFinalizer,
-		//				controllertesting.WithMetaData,
-		//				controllertesting.WithAddress,
-		//				controllertesting.WithInitializedConditions,
-		//				controllertesting.WithKafkaChannelServiceReady,
-		//				controllertesting.WithDispatcherDeploymentReady,
-		//				controllertesting.WithTopicReady,
-		//			),
-		//		),
-		//	},
-		//	WantPatches: []clientgotesting.PatchActionImpl{controllertesting.NewFinalizerPatchActionImpl()},
-		//	WantEvents: []string{
-		//		controllertesting.NewKafkaChannelFinalizerUpdateEvent(),
-		//		controllertesting.NewKafkaChannelSuccessfulReconciliationEvent(),
-		//	},
-		//	OtherTestData: map[string]interface{}{
-		//		"configOptions": []controllertesting.KafkaConfigOption{controllertesting.WithNoDispatcherResources},
-		//	},
-		//},
+		// Full Reconciliation
 		//
-		////
-		//// KafkaChannel Deletion (Finalizer)
-		////
+
+		{
+			Name:                    "Complete Reconciliation Success",
+			SkipNamespaceValidation: true,
+			Key:                     controllertesting.KafkaChannelKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaChannel(controllertesting.WithInitializedConditions),
+			},
+			WantCreates: []runtime.Object{
+				controllertesting.NewKafkaChannelService(),
+				controllertesting.NewKafkaChannelDispatcherService(),
+				controllertesting.NewKafkaChannelDispatcherDeployment(),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
+				{
+					Object: controllertesting.NewKafkaChannel(
+						controllertesting.WithAddress,
+						controllertesting.WithInitializedConditions,
+						controllertesting.WithKafkaChannelServiceReady,
+						controllertesting.WithDispatcherDeploymentReady,
+						controllertesting.WithTopicReady,
+					),
+				},
+			},
+			WantUpdates: []clientgotesting.UpdateActionImpl{
+				controllertesting.NewKafkaChannelLabelUpdate(
+					controllertesting.NewKafkaChannel(
+						controllertesting.WithFinalizer,
+						controllertesting.WithMetaData,
+						controllertesting.WithAddress,
+						controllertesting.WithInitializedConditions,
+						controllertesting.WithKafkaChannelServiceReady,
+						controllertesting.WithDispatcherDeploymentReady,
+						controllertesting.WithTopicReady,
+					),
+				),
+			},
+			WantPatches: []clientgotesting.PatchActionImpl{controllertesting.NewFinalizerPatchActionImpl()},
+			WantEvents: []string{
+				controllertesting.NewKafkaChannelFinalizerUpdateEvent(),
+				controllertesting.NewKafkaChannelSuccessfulReconciliationEvent(),
+			},
+		},
+		{
+			Name:                    "Complete Reconciliation Success, No Dispatcher Resource Requests Or Limits",
+			SkipNamespaceValidation: true,
+			Key:                     controllertesting.KafkaChannelKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaChannel(controllertesting.WithInitializedConditions),
+			},
+			WantCreates: []runtime.Object{
+				controllertesting.NewKafkaChannelService(),
+				controllertesting.NewKafkaChannelDispatcherService(),
+				controllertesting.NewKafkaChannelDispatcherDeployment(controllertesting.WithoutResources),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
+				{
+					Object: controllertesting.NewKafkaChannel(
+						controllertesting.WithAddress,
+						controllertesting.WithInitializedConditions,
+						controllertesting.WithKafkaChannelServiceReady,
+						controllertesting.WithDispatcherDeploymentReady,
+						controllertesting.WithTopicReady,
+					),
+				},
+			},
+			WantUpdates: []clientgotesting.UpdateActionImpl{
+				controllertesting.NewKafkaChannelLabelUpdate(
+					controllertesting.NewKafkaChannel(
+						controllertesting.WithFinalizer,
+						controllertesting.WithMetaData,
+						controllertesting.WithAddress,
+						controllertesting.WithInitializedConditions,
+						controllertesting.WithKafkaChannelServiceReady,
+						controllertesting.WithDispatcherDeploymentReady,
+						controllertesting.WithTopicReady,
+					),
+				),
+			},
+			WantPatches: []clientgotesting.PatchActionImpl{controllertesting.NewFinalizerPatchActionImpl()},
+			WantEvents: []string{
+				controllertesting.NewKafkaChannelFinalizerUpdateEvent(),
+				controllertesting.NewKafkaChannelSuccessfulReconciliationEvent(),
+			},
+			OtherTestData: map[string]interface{}{
+				"configOptions": []controllertesting.KafkaConfigOption{controllertesting.WithNoDispatcherResources},
+			},
+		},
+
 		//
-		//{
-		//	Name: "Finalize Deleted KafkaChannel With Dispatcher",
-		//	Key:  controllertesting.KafkaChannelKey,
-		//	Objects: []runtime.Object{
-		//		controllertesting.NewKafkaChannel(
-		//			controllertesting.WithInitializedConditions,
-		//			controllertesting.WithLabels,
-		//			controllertesting.WithDeletionTimestamp,
-		//		),
-		//		controllertesting.NewKafkaChannelDispatcherService(),
-		//		controllertesting.NewKafkaChannelDispatcherDeployment(),
-		//	},
-		//	WantUpdates: []clientgotesting.UpdateActionImpl{
-		//		controllertesting.NewServiceUpdateActionImpl(controllertesting.NewKafkaChannelDispatcherService(controllertesting.WithoutFinalizersService)),
-		//		controllertesting.NewDeploymentUpdateActionImpl(controllertesting.NewKafkaChannelDispatcherDeployment(controllertesting.WithoutFinalizersDeployment)),
-		//	},
-		//	WantDeletes: []clientgotesting.DeleteActionImpl{
-		//		controllertesting.NewServiceDeleteActionImpl(controllertesting.NewKafkaChannelDispatcherService(controllertesting.WithoutFinalizersService)),
-		//		controllertesting.NewDeploymentDeleteActionImpl(controllertesting.NewKafkaChannelDispatcherDeployment(controllertesting.WithoutFinalizersDeployment)),
-		//	},
-		//	WantEvents: []string{
-		//		controllertesting.NewKafkaChannelSuccessfulFinalizedEvent(),
-		//	},
-		//},
-		//{
-		//	Name: "Finalize Deleted KafkaChannel Without Dispatcher",
-		//	Key:  controllertesting.KafkaChannelKey,
-		//	Objects: []runtime.Object{
-		//		controllertesting.NewKafkaChannel(
-		//			controllertesting.WithInitializedConditions,
-		//			controllertesting.WithLabels,
-		//			controllertesting.WithDeletionTimestamp,
-		//		),
-		//	},
-		//	WantEvents: []string{
-		//		controllertesting.NewKafkaChannelSuccessfulFinalizedEvent(),
-		//	},
-		//},
-		//{
-		//	Name:                    "Finalize Deleted KafkaChannel Errors(Delete)",
-		//	SkipNamespaceValidation: true,
-		//	Key:                     controllertesting.KafkaChannelKey,
-		//	Objects: []runtime.Object{
-		//		controllertesting.NewKafkaChannel(
-		//			controllertesting.WithInitializedConditions,
-		//			controllertesting.WithLabels,
-		//			controllertesting.WithDeletionTimestamp,
-		//		),
-		//		controllertesting.NewKafkaChannelDispatcherService(),
-		//		controllertesting.NewKafkaChannelDispatcherDeployment(),
-		//	},
-		//	WithReactors: []clientgotesting.ReactionFunc{
-		//		InduceFailure("delete", "Services"),
-		//		InduceFailure("delete", "Deployments"),
-		//	},
-		//	WantUpdates: []clientgotesting.UpdateActionImpl{
-		//		controllertesting.NewServiceUpdateActionImpl(controllertesting.NewKafkaChannelDispatcherService(controllertesting.WithoutFinalizersService)),
-		//		controllertesting.NewDeploymentUpdateActionImpl(controllertesting.NewKafkaChannelDispatcherDeployment(controllertesting.WithoutFinalizersDeployment)),
-		//	},
-		//	WantDeletes: []clientgotesting.DeleteActionImpl{
-		//		controllertesting.NewServiceDeleteActionImpl(controllertesting.NewKafkaChannelDispatcherService(controllertesting.WithoutFinalizersService)),
-		//		controllertesting.NewDeploymentDeleteActionImpl(controllertesting.NewKafkaChannelDispatcherDeployment(controllertesting.WithoutFinalizersDeployment)),
-		//	},
-		//	WantErr: true,
-		//	WantEvents: []string{
-		//		Eventf(corev1.EventTypeWarning, event.DispatcherServiceFinalizationFailed.String(), "Failed To Finalize Dispatcher Service: inducing failure for delete services"),
-		//		Eventf(corev1.EventTypeWarning, event.DispatcherDeploymentFinalizationFailed.String(), "Failed To Finalize Dispatcher Deployment: inducing failure for delete deployments"),
-		//		controllertesting.NewKafkaChannelFailedFinalizationEvent(),
-		//	},
-		//},
+		// KafkaChannel Deletion (Finalizer)
 		//
-		////
-		//// KafkaChannel Service
-		////
+
+		{
+			Name: "Finalize Deleted KafkaChannel With Dispatcher",
+			Key:  controllertesting.KafkaChannelKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaChannel(
+					controllertesting.WithInitializedConditions,
+					controllertesting.WithLabels,
+					controllertesting.WithDeletionTimestamp,
+				),
+				controllertesting.NewKafkaChannelDispatcherService(),
+				controllertesting.NewKafkaChannelDispatcherDeployment(),
+			},
+			WantUpdates: []clientgotesting.UpdateActionImpl{
+				controllertesting.NewServiceUpdateActionImpl(controllertesting.NewKafkaChannelDispatcherService(controllertesting.WithoutFinalizersService)),
+				controllertesting.NewDeploymentUpdateActionImpl(controllertesting.NewKafkaChannelDispatcherDeployment(controllertesting.WithoutFinalizersDeployment)),
+			},
+			WantDeletes: []clientgotesting.DeleteActionImpl{
+				controllertesting.NewServiceDeleteActionImpl(controllertesting.NewKafkaChannelDispatcherService(controllertesting.WithoutFinalizersService)),
+				controllertesting.NewDeploymentDeleteActionImpl(controllertesting.NewKafkaChannelDispatcherDeployment(controllertesting.WithoutFinalizersDeployment)),
+			},
+			WantEvents: []string{
+				controllertesting.NewKafkaChannelSuccessfulFinalizedEvent(),
+			},
+		},
+		{
+			Name: "Finalize Deleted KafkaChannel Without Dispatcher",
+			Key:  controllertesting.KafkaChannelKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaChannel(
+					controllertesting.WithInitializedConditions,
+					controllertesting.WithLabels,
+					controllertesting.WithDeletionTimestamp,
+				),
+			},
+			WantEvents: []string{
+				controllertesting.NewKafkaChannelSuccessfulFinalizedEvent(),
+			},
+		},
+		{
+			Name:                    "Finalize Deleted KafkaChannel Errors(Delete)",
+			SkipNamespaceValidation: true,
+			Key:                     controllertesting.KafkaChannelKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaChannel(
+					controllertesting.WithInitializedConditions,
+					controllertesting.WithLabels,
+					controllertesting.WithDeletionTimestamp,
+				),
+				controllertesting.NewKafkaChannelDispatcherService(),
+				controllertesting.NewKafkaChannelDispatcherDeployment(),
+			},
+			WithReactors: []clientgotesting.ReactionFunc{
+				InduceFailure("delete", "Services"),
+				InduceFailure("delete", "Deployments"),
+			},
+			WantUpdates: []clientgotesting.UpdateActionImpl{
+				controllertesting.NewServiceUpdateActionImpl(controllertesting.NewKafkaChannelDispatcherService(controllertesting.WithoutFinalizersService)),
+				controllertesting.NewDeploymentUpdateActionImpl(controllertesting.NewKafkaChannelDispatcherDeployment(controllertesting.WithoutFinalizersDeployment)),
+			},
+			WantDeletes: []clientgotesting.DeleteActionImpl{
+				controllertesting.NewServiceDeleteActionImpl(controllertesting.NewKafkaChannelDispatcherService(controllertesting.WithoutFinalizersService)),
+				controllertesting.NewDeploymentDeleteActionImpl(controllertesting.NewKafkaChannelDispatcherDeployment(controllertesting.WithoutFinalizersDeployment)),
+			},
+			WantErr: true,
+			WantEvents: []string{
+				Eventf(corev1.EventTypeWarning, event.DispatcherServiceFinalizationFailed.String(), "Failed To Finalize Dispatcher Service: inducing failure for delete services"),
+				Eventf(corev1.EventTypeWarning, event.DispatcherDeploymentFinalizationFailed.String(), "Failed To Finalize Dispatcher Deployment: inducing failure for delete deployments"),
+				controllertesting.NewKafkaChannelFailedFinalizationEvent(),
+			},
+		},
+
 		//
-		//{
-		//	Name:                    "Reconcile Missing KafkaChannel Service Success",
-		//	SkipNamespaceValidation: true,
-		//	Key:                     controllertesting.KafkaChannelKey,
-		//	Objects: []runtime.Object{
-		//		controllertesting.NewKafkaChannel(
-		//			controllertesting.WithFinalizer,
-		//			controllertesting.WithMetaData,
-		//			controllertesting.WithAddress,
-		//			controllertesting.WithInitializedConditions,
-		//			controllertesting.WithKafkaChannelServiceReady,
-		//			controllertesting.WithDispatcherDeploymentReady,
-		//			controllertesting.WithTopicReady,
-		//		),
-		//		controllertesting.NewKafkaChannelDispatcherService(),
-		//		controllertesting.NewKafkaChannelDispatcherDeployment(),
-		//	},
-		//	WantCreates: []runtime.Object{controllertesting.NewKafkaChannelService()},
-		//	WantEvents:  []string{controllertesting.NewKafkaChannelSuccessfulReconciliationEvent()},
-		//},
-		//{
-		//	Name:                    "Reconcile Missing KafkaChannel Service Error(Create)",
-		//	SkipNamespaceValidation: true,
-		//	Key:                     controllertesting.KafkaChannelKey,
-		//	Objects: []runtime.Object{
-		//		controllertesting.NewKafkaChannel(
-		//			controllertesting.WithFinalizer,
-		//			controllertesting.WithAddress,
-		//			controllertesting.WithInitializedConditions,
-		//			controllertesting.WithKafkaChannelServiceReady,
-		//			controllertesting.WithDispatcherDeploymentReady,
-		//			controllertesting.WithTopicReady,
-		//		),
-		//		controllertesting.NewKafkaChannelDispatcherService(),
-		//		controllertesting.NewKafkaChannelDispatcherDeployment(),
-		//	},
-		//	WithReactors: []clientgotesting.ReactionFunc{InduceFailure("create", "Services")},
-		//	WantErr:      true,
-		//	WantCreates:  []runtime.Object{controllertesting.NewKafkaChannelService()},
-		//	WantStatusUpdates: []clientgotesting.UpdateActionImpl{
-		//		{
-		//			Object: controllertesting.NewKafkaChannel(
-		//				controllertesting.WithFinalizer,
-		//				controllertesting.WithAddress,
-		//				controllertesting.WithInitializedConditions,
-		//				controllertesting.WithKafkaChannelServiceFailed,
-		//				controllertesting.WithDispatcherDeploymentReady,
-		//				controllertesting.WithTopicReady,
-		//			),
-		//		},
-		//	},
-		//	WantEvents: []string{
-		//		Eventf(corev1.EventTypeWarning, event.KafkaChannelServiceReconciliationFailed.String(), "Failed To Reconcile KafkaChannel Service: inducing failure for create services"),
-		//		controllertesting.NewKafkaChannelFailedReconciliationEvent(),
-		//	},
-		//},
-		//{
-		//	Name:                    "Reconcile KafkaChannel Service With Deletion Timestamp",
-		//	SkipNamespaceValidation: true,
-		//	Key:                     controllertesting.KafkaChannelKey,
-		//	Objects: []runtime.Object{
-		//		controllertesting.NewKafkaChannel(
-		//			controllertesting.WithFinalizer,
-		//			controllertesting.WithMetaData,
-		//			controllertesting.WithAddress,
-		//			controllertesting.WithInitializedConditions,
-		//			controllertesting.WithKafkaChannelServiceReady,
-		//			controllertesting.WithDispatcherDeploymentReady,
-		//			controllertesting.WithTopicReady,
-		//		),
-		//		controllertesting.NewKafkaChannelService(controllertesting.WithDeletionTimestampService),
-		//		controllertesting.NewKafkaChannelReceiverService(),
-		//		controllertesting.NewKafkaChannelReceiverDeployment(),
-		//		controllertesting.NewKafkaChannelDispatcherService(),
-		//		controllertesting.NewKafkaChannelDispatcherDeployment(),
-		//	},
-		//	WantErr: true,
-		//	WantEvents: []string{
-		//		Eventf(corev1.EventTypeWarning, event.KafkaChannelServiceReconciliationFailed.String(), "Failed To Reconcile KafkaChannel Service: encountered KafkaChannel Service with DeletionTimestamp kafkachannel-namespace/kafkachannel-name-kn-channel - potential race condition"),
-		//		controllertesting.NewKafkaChannelFailedReconciliationEvent(),
-		//	},
-		//},
+		// KafkaChannel Service
 		//
-		////
-		//// KafkaChannel Dispatcher Service
-		////
+
+		{
+			Name:                    "Reconcile Missing KafkaChannel Service Success",
+			SkipNamespaceValidation: true,
+			Key:                     controllertesting.KafkaChannelKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaChannel(
+					controllertesting.WithFinalizer,
+					controllertesting.WithMetaData,
+					controllertesting.WithAddress,
+					controllertesting.WithInitializedConditions,
+					controllertesting.WithKafkaChannelServiceReady,
+					controllertesting.WithDispatcherDeploymentReady,
+					controllertesting.WithTopicReady,
+				),
+				controllertesting.NewKafkaChannelDispatcherService(),
+				controllertesting.NewKafkaChannelDispatcherDeployment(),
+			},
+			WantCreates: []runtime.Object{controllertesting.NewKafkaChannelService()},
+			WantEvents:  []string{controllertesting.NewKafkaChannelSuccessfulReconciliationEvent()},
+		},
+		{
+			Name:                    "Reconcile Missing KafkaChannel Service Error(Create)",
+			SkipNamespaceValidation: true,
+			Key:                     controllertesting.KafkaChannelKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaChannel(
+					controllertesting.WithFinalizer,
+					controllertesting.WithAddress,
+					controllertesting.WithInitializedConditions,
+					controllertesting.WithKafkaChannelServiceReady,
+					controllertesting.WithDispatcherDeploymentReady,
+					controllertesting.WithTopicReady,
+				),
+				controllertesting.NewKafkaChannelDispatcherService(),
+				controllertesting.NewKafkaChannelDispatcherDeployment(),
+			},
+			WithReactors: []clientgotesting.ReactionFunc{InduceFailure("create", "Services")},
+			WantErr:      true,
+			WantCreates:  []runtime.Object{controllertesting.NewKafkaChannelService()},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
+				{
+					Object: controllertesting.NewKafkaChannel(
+						controllertesting.WithFinalizer,
+						controllertesting.WithAddress,
+						controllertesting.WithInitializedConditions,
+						controllertesting.WithKafkaChannelServiceFailed,
+						controllertesting.WithDispatcherDeploymentReady,
+						controllertesting.WithTopicReady,
+					),
+				},
+			},
+			WantEvents: []string{
+				Eventf(corev1.EventTypeWarning, event.KafkaChannelServiceReconciliationFailed.String(), "Failed To Reconcile KafkaChannel Service: inducing failure for create services"),
+				controllertesting.NewKafkaChannelFailedReconciliationEvent(),
+			},
+		},
+		{
+			Name:                    "Reconcile KafkaChannel Service With Deletion Timestamp",
+			SkipNamespaceValidation: true,
+			Key:                     controllertesting.KafkaChannelKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaChannel(
+					controllertesting.WithFinalizer,
+					controllertesting.WithMetaData,
+					controllertesting.WithAddress,
+					controllertesting.WithInitializedConditions,
+					controllertesting.WithKafkaChannelServiceReady,
+					controllertesting.WithDispatcherDeploymentReady,
+					controllertesting.WithTopicReady,
+				),
+				controllertesting.NewKafkaChannelService(controllertesting.WithDeletionTimestampService),
+				controllertesting.NewKafkaChannelReceiverService(),
+				controllertesting.NewKafkaChannelReceiverDeployment(),
+				controllertesting.NewKafkaChannelDispatcherService(),
+				controllertesting.NewKafkaChannelDispatcherDeployment(),
+			},
+			WantErr: true,
+			WantEvents: []string{
+				Eventf(corev1.EventTypeWarning, event.KafkaChannelServiceReconciliationFailed.String(), "Failed To Reconcile KafkaChannel Service: encountered KafkaChannel Service with DeletionTimestamp kafkachannel-namespace/kafkachannel-name-kn-channel - potential race condition"),
+				controllertesting.NewKafkaChannelFailedReconciliationEvent(),
+			},
+		},
+
 		//
-		//{
-		//	Name:                    "Reconcile Missing Dispatcher Service Success",
-		//	SkipNamespaceValidation: true,
-		//	Key:                     controllertesting.KafkaChannelKey,
-		//	Objects: []runtime.Object{
-		//		controllertesting.NewKafkaChannel(
-		//			controllertesting.WithFinalizer,
-		//			controllertesting.WithMetaData,
-		//			controllertesting.WithAddress,
-		//			controllertesting.WithInitializedConditions,
-		//			controllertesting.WithKafkaChannelServiceReady,
-		//			controllertesting.WithReceiverServiceReady,
-		//			controllertesting.WithReceiverDeploymentReady,
-		//			controllertesting.WithDispatcherDeploymentReady,
-		//			controllertesting.WithTopicReady,
-		//		),
-		//		controllertesting.NewKafkaChannelService(),
-		//		controllertesting.NewKafkaChannelReceiverService(),
-		//		controllertesting.NewKafkaChannelReceiverDeployment(),
-		//		controllertesting.NewKafkaChannelDispatcherDeployment(),
-		//	},
-		//	WantCreates: []runtime.Object{controllertesting.NewKafkaChannelDispatcherService()},
-		//	WantEvents:  []string{controllertesting.NewKafkaChannelSuccessfulReconciliationEvent()},
-		//},
-		//{
-		//	Name:                    "Reconcile Missing Dispatcher Service Error(Create)",
-		//	SkipNamespaceValidation: true,
-		//	Key:                     controllertesting.KafkaChannelKey,
-		//	Objects: []runtime.Object{
-		//		controllertesting.NewKafkaChannel(
-		//			controllertesting.WithFinalizer,
-		//			controllertesting.WithMetaData,
-		//			controllertesting.WithAddress,
-		//			controllertesting.WithInitializedConditions,
-		//			controllertesting.WithKafkaChannelServiceReady,
-		//			controllertesting.WithReceiverServiceReady,
-		//			controllertesting.WithReceiverDeploymentReady,
-		//			controllertesting.WithDispatcherDeploymentReady,
-		//			controllertesting.WithTopicReady,
-		//		),
-		//		controllertesting.NewKafkaChannelService(),
-		//		controllertesting.NewKafkaChannelReceiverService(),
-		//		controllertesting.NewKafkaChannelReceiverDeployment(),
-		//		controllertesting.NewKafkaChannelDispatcherDeployment(),
-		//	},
-		//	WithReactors:      []clientgotesting.ReactionFunc{InduceFailure("create", "Services")},
-		//	WantErr:           true,
-		//	WantCreates:       []runtime.Object{controllertesting.NewKafkaChannelDispatcherService()},
-		//	WantStatusUpdates: []clientgotesting.UpdateActionImpl{
-		//		// Note - Not currently tracking status for the Dispatcher Service since it is only for Prometheus
-		//	},
-		//	WantEvents: []string{
-		//		Eventf(corev1.EventTypeWarning, event.DispatcherServiceReconciliationFailed.String(), "Failed To Reconcile Dispatcher Service: inducing failure for create services"),
-		//		controllertesting.NewKafkaChannelFailedReconciliationEvent(),
-		//	},
-		//},
-		//{
-		//	Name:                    "Reconcile Dispatcher Service With Deletion Timestamp And Finalizer",
-		//	SkipNamespaceValidation: true,
-		//	Key:                     controllertesting.KafkaChannelKey,
-		//	Objects: []runtime.Object{
-		//		controllertesting.NewKafkaChannel(
-		//			controllertesting.WithFinalizer,
-		//			controllertesting.WithMetaData,
-		//			controllertesting.WithAddress,
-		//			controllertesting.WithInitializedConditions,
-		//			controllertesting.WithKafkaChannelServiceReady,
-		//			controllertesting.WithDispatcherDeploymentReady,
-		//			controllertesting.WithTopicReady,
-		//		),
-		//		controllertesting.NewKafkaChannelService(),
-		//		controllertesting.NewKafkaChannelReceiverService(),
-		//		controllertesting.NewKafkaChannelReceiverDeployment(),
-		//		controllertesting.NewKafkaChannelDispatcherService(controllertesting.WithDeletionTimestampService),
-		//		controllertesting.NewKafkaChannelDispatcherDeployment(),
-		//	},
-		//	WantErr: false,
-		//	WantEvents: []string{
-		//		controllertesting.NewKafkaChannelSuccessfulReconciliationEvent(),
-		//	},
-		//},
-		//{
-		//	Name:                    "Reconcile Dispatcher Service With Deletion Timestamp And Missing Finalizer",
-		//	SkipNamespaceValidation: true,
-		//	Key:                     controllertesting.KafkaChannelKey,
-		//	Objects: []runtime.Object{
-		//		controllertesting.NewKafkaChannel(
-		//			controllertesting.WithFinalizer,
-		//			controllertesting.WithMetaData,
-		//			controllertesting.WithAddress,
-		//			controllertesting.WithInitializedConditions,
-		//			controllertesting.WithKafkaChannelServiceReady,
-		//			controllertesting.WithDispatcherDeploymentReady,
-		//			controllertesting.WithTopicReady,
-		//		),
-		//		controllertesting.NewKafkaChannelService(),
-		//		controllertesting.NewKafkaChannelReceiverService(),
-		//		controllertesting.NewKafkaChannelReceiverDeployment(),
-		//		controllertesting.NewKafkaChannelDispatcherService(controllertesting.WithoutFinalizersService, controllertesting.WithDeletionTimestampService),
-		//		controllertesting.NewKafkaChannelDispatcherDeployment(),
-		//	},
-		//	WantErr: false,
-		//	WantEvents: []string{
-		//		controllertesting.NewKafkaChannelSuccessfulReconciliationEvent(),
-		//	},
-		//},
+		// KafkaChannel Dispatcher Service
 		//
-		////
-		//// KafkaChannel Dispatcher Deployment
-		////
+
+		{
+			Name:                    "Reconcile Missing Dispatcher Service Success",
+			SkipNamespaceValidation: true,
+			Key:                     controllertesting.KafkaChannelKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaChannel(
+					controllertesting.WithFinalizer,
+					controllertesting.WithMetaData,
+					controllertesting.WithAddress,
+					controllertesting.WithInitializedConditions,
+					controllertesting.WithKafkaChannelServiceReady,
+					controllertesting.WithReceiverServiceReady,
+					controllertesting.WithReceiverDeploymentReady,
+					controllertesting.WithDispatcherDeploymentReady,
+					controllertesting.WithTopicReady,
+				),
+				controllertesting.NewKafkaChannelService(),
+				controllertesting.NewKafkaChannelReceiverService(),
+				controllertesting.NewKafkaChannelReceiverDeployment(),
+				controllertesting.NewKafkaChannelDispatcherDeployment(),
+			},
+			WantCreates: []runtime.Object{controllertesting.NewKafkaChannelDispatcherService()},
+			WantEvents:  []string{controllertesting.NewKafkaChannelSuccessfulReconciliationEvent()},
+		},
+		{
+			Name:                    "Reconcile Missing Dispatcher Service Error(Create)",
+			SkipNamespaceValidation: true,
+			Key:                     controllertesting.KafkaChannelKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaChannel(
+					controllertesting.WithFinalizer,
+					controllertesting.WithMetaData,
+					controllertesting.WithAddress,
+					controllertesting.WithInitializedConditions,
+					controllertesting.WithKafkaChannelServiceReady,
+					controllertesting.WithReceiverServiceReady,
+					controllertesting.WithReceiverDeploymentReady,
+					controllertesting.WithDispatcherDeploymentReady,
+					controllertesting.WithTopicReady,
+				),
+				controllertesting.NewKafkaChannelService(),
+				controllertesting.NewKafkaChannelReceiverService(),
+				controllertesting.NewKafkaChannelReceiverDeployment(),
+				controllertesting.NewKafkaChannelDispatcherDeployment(),
+			},
+			WithReactors:      []clientgotesting.ReactionFunc{InduceFailure("create", "Services")},
+			WantErr:           true,
+			WantCreates:       []runtime.Object{controllertesting.NewKafkaChannelDispatcherService()},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
+				// Note - Not currently tracking status for the Dispatcher Service since it is only for Prometheus
+			},
+			WantEvents: []string{
+				Eventf(corev1.EventTypeWarning, event.DispatcherServiceReconciliationFailed.String(), "Failed To Reconcile Dispatcher Service: inducing failure for create services"),
+				controllertesting.NewKafkaChannelFailedReconciliationEvent(),
+			},
+		},
+		{
+			Name:                    "Reconcile Dispatcher Service With Deletion Timestamp And Finalizer",
+			SkipNamespaceValidation: true,
+			Key:                     controllertesting.KafkaChannelKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaChannel(
+					controllertesting.WithFinalizer,
+					controllertesting.WithMetaData,
+					controllertesting.WithAddress,
+					controllertesting.WithInitializedConditions,
+					controllertesting.WithKafkaChannelServiceReady,
+					controllertesting.WithDispatcherDeploymentReady,
+					controllertesting.WithTopicReady,
+				),
+				controllertesting.NewKafkaChannelService(),
+				controllertesting.NewKafkaChannelReceiverService(),
+				controllertesting.NewKafkaChannelReceiverDeployment(),
+				controllertesting.NewKafkaChannelDispatcherService(controllertesting.WithDeletionTimestampService),
+				controllertesting.NewKafkaChannelDispatcherDeployment(),
+			},
+			WantErr: false,
+			WantEvents: []string{
+				controllertesting.NewKafkaChannelSuccessfulReconciliationEvent(),
+			},
+		},
+		{
+			Name:                    "Reconcile Dispatcher Service With Deletion Timestamp And Missing Finalizer",
+			SkipNamespaceValidation: true,
+			Key:                     controllertesting.KafkaChannelKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaChannel(
+					controllertesting.WithFinalizer,
+					controllertesting.WithMetaData,
+					controllertesting.WithAddress,
+					controllertesting.WithInitializedConditions,
+					controllertesting.WithKafkaChannelServiceReady,
+					controllertesting.WithDispatcherDeploymentReady,
+					controllertesting.WithTopicReady,
+				),
+				controllertesting.NewKafkaChannelService(),
+				controllertesting.NewKafkaChannelReceiverService(),
+				controllertesting.NewKafkaChannelReceiverDeployment(),
+				controllertesting.NewKafkaChannelDispatcherService(controllertesting.WithoutFinalizersService, controllertesting.WithDeletionTimestampService),
+				controllertesting.NewKafkaChannelDispatcherDeployment(),
+			},
+			WantErr: false,
+			WantEvents: []string{
+				controllertesting.NewKafkaChannelSuccessfulReconciliationEvent(),
+			},
+		},
+
 		//
-		//{
-		//	Name:                    "Reconcile Missing Dispatcher Deployment Success",
-		//	SkipNamespaceValidation: true,
-		//	Key:                     controllertesting.KafkaChannelKey,
-		//	Objects: []runtime.Object{
-		//		controllertesting.NewKafkaChannel(
-		//			controllertesting.WithFinalizer,
-		//			controllertesting.WithMetaData,
-		//			controllertesting.WithAddress,
-		//			controllertesting.WithInitializedConditions,
-		//			controllertesting.WithKafkaChannelServiceReady,
-		//			controllertesting.WithReceiverServiceReady,
-		//			controllertesting.WithReceiverDeploymentReady,
-		//			controllertesting.WithDispatcherDeploymentReady,
-		//			controllertesting.WithTopicReady,
-		//		),
-		//		controllertesting.NewKafkaChannelService(),
-		//		controllertesting.NewKafkaChannelReceiverService(),
-		//		controllertesting.NewKafkaChannelReceiverDeployment(),
-		//		controllertesting.NewKafkaChannelDispatcherService(),
-		//	},
-		//	WantCreates: []runtime.Object{controllertesting.NewKafkaChannelDispatcherDeployment()},
-		//	WantEvents:  []string{controllertesting.NewKafkaChannelSuccessfulReconciliationEvent()},
-		//},
-		//{
-		//	Name:                    "Reconcile Missing Dispatcher Deployment Error(Create)",
-		//	SkipNamespaceValidation: true,
-		//	Key:                     controllertesting.KafkaChannelKey,
-		//	Objects: []runtime.Object{
-		//		controllertesting.NewKafkaChannel(
-		//			controllertesting.WithFinalizer,
-		//			controllertesting.WithMetaData,
-		//			controllertesting.WithAddress,
-		//			controllertesting.WithInitializedConditions,
-		//			controllertesting.WithKafkaChannelServiceReady,
-		//			controllertesting.WithReceiverServiceReady,
-		//			controllertesting.WithReceiverDeploymentReady,
-		//			controllertesting.WithDispatcherDeploymentReady,
-		//			controllertesting.WithTopicReady,
-		//		),
-		//		controllertesting.NewKafkaChannelService(),
-		//		controllertesting.NewKafkaChannelReceiverService(),
-		//		controllertesting.NewKafkaChannelReceiverDeployment(),
-		//		controllertesting.NewKafkaChannelDispatcherService(),
-		//	},
-		//	WithReactors: []clientgotesting.ReactionFunc{InduceFailure("create", "Deployments")},
-		//	WantErr:      true,
-		//	WantCreates:  []runtime.Object{controllertesting.NewKafkaChannelDispatcherDeployment()},
-		//	WantStatusUpdates: []clientgotesting.UpdateActionImpl{
-		//		{
-		//			Object: controllertesting.NewKafkaChannel(
-		//				controllertesting.WithFinalizer,
-		//				controllertesting.WithMetaData,
-		//				controllertesting.WithAddress,
-		//				controllertesting.WithInitializedConditions,
-		//				controllertesting.WithKafkaChannelServiceReady,
-		//				controllertesting.WithReceiverServiceReady,
-		//				controllertesting.WithReceiverDeploymentReady,
-		//				controllertesting.WithDispatcherFailed,
-		//				controllertesting.WithTopicReady,
-		//			),
-		//		},
-		//	},
-		//	WantEvents: []string{
-		//		Eventf(corev1.EventTypeWarning, event.DispatcherDeploymentReconciliationFailed.String(), "Failed To Reconcile Dispatcher Deployment: inducing failure for create deployments"),
-		//		controllertesting.NewKafkaChannelFailedReconciliationEvent(),
-		//	},
-		//},
-		//{
-		//	Name:                    "Reconcile Dispatcher Deployment With Deletion Timestamp And Finalizer",
-		//	SkipNamespaceValidation: true,
-		//	Key:                     controllertesting.KafkaChannelKey,
-		//	Objects: []runtime.Object{
-		//		controllertesting.NewKafkaChannel(
-		//			controllertesting.WithFinalizer,
-		//			controllertesting.WithMetaData,
-		//			controllertesting.WithAddress,
-		//			controllertesting.WithInitializedConditions,
-		//			controllertesting.WithKafkaChannelServiceReady,
-		//			controllertesting.WithDispatcherDeploymentReady,
-		//			controllertesting.WithTopicReady,
-		//		),
-		//		controllertesting.NewKafkaChannelService(),
-		//		controllertesting.NewKafkaChannelReceiverService(),
-		//		controllertesting.NewKafkaChannelReceiverDeployment(),
-		//		controllertesting.NewKafkaChannelDispatcherService(),
-		//		controllertesting.NewKafkaChannelDispatcherDeployment(controllertesting.WithDeletionTimestampDeployment),
-		//	},
-		//	WantErr: false,
-		//	WantEvents: []string{
-		//		controllertesting.NewKafkaChannelSuccessfulReconciliationEvent(),
-		//	},
-		//},
-		//{
-		//	Name:                    "Reconcile Dispatcher Deployment With Deletion Timestamp And Missing Finalizer",
-		//	SkipNamespaceValidation: true,
-		//	Key:                     controllertesting.KafkaChannelKey,
-		//	Objects: []runtime.Object{
-		//		controllertesting.NewKafkaChannel(
-		//			controllertesting.WithFinalizer,
-		//			controllertesting.WithMetaData,
-		//			controllertesting.WithAddress,
-		//			controllertesting.WithInitializedConditions,
-		//			controllertesting.WithKafkaChannelServiceReady,
-		//			controllertesting.WithDispatcherDeploymentReady,
-		//			controllertesting.WithTopicReady,
-		//		),
-		//		controllertesting.NewKafkaChannelService(),
-		//		controllertesting.NewKafkaChannelReceiverService(),
-		//		controllertesting.NewKafkaChannelReceiverDeployment(),
-		//		controllertesting.NewKafkaChannelDispatcherService(),
-		//		controllertesting.NewKafkaChannelDispatcherDeployment(controllertesting.WithoutFinalizersDeployment, controllertesting.WithDeletionTimestampDeployment),
-		//	},
-		//	WantErr: false,
-		//	WantEvents: []string{
-		//		controllertesting.NewKafkaChannelSuccessfulReconciliationEvent(),
-		//	},
-		//},
-		//{
-		//	Name:                    "Reconcile Dispatcher Deployment - Redeployment on ConfigMapHash change",
-		//	SkipNamespaceValidation: true,
-		//	Key:                     controllertesting.KafkaChannelKey,
-		//	Objects: []runtime.Object{
-		//		controllertesting.NewKafkaChannel(
-		//			controllertesting.WithFinalizer,
-		//			controllertesting.WithMetaData,
-		//			controllertesting.WithAddress,
-		//			controllertesting.WithInitializedConditions,
-		//			controllertesting.WithKafkaChannelServiceReady,
-		//			controllertesting.WithReceiverServiceReady,
-		//			controllertesting.WithReceiverDeploymentReady,
-		//			controllertesting.WithDispatcherDeploymentReady,
-		//			controllertesting.WithTopicReady,
-		//		),
-		//		controllertesting.NewKafkaChannelService(),
-		//		controllertesting.NewKafkaChannelReceiverService(),
-		//		controllertesting.NewKafkaChannelReceiverDeployment(),
-		//		controllertesting.NewKafkaChannelDispatcherService(),
-		//		controllertesting.NewKafkaChannelDispatcherDeployment(controllertesting.WithConfigMapHash("initial-hash-to-be-overridden-by-controller")),
-		//	},
-		//	WantUpdates: []clientgotesting.UpdateActionImpl{
-		//		controllertesting.NewDeploymentUpdateActionImpl(controllertesting.NewKafkaChannelDispatcherDeployment()),
-		//	},
-		//	WantEvents: []string{
-		//		controllertesting.NewKafkaChannelDispatcherDeploymentUpdatedEvent(),
-		//		controllertesting.NewKafkaChannelSuccessfulReconciliationEvent(),
-		//	},
-		//},
+		// KafkaChannel Dispatcher Deployment
+		//
+
+		{
+			Name:                    "Reconcile Missing Dispatcher Deployment Success",
+			SkipNamespaceValidation: true,
+			Key:                     controllertesting.KafkaChannelKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaChannel(
+					controllertesting.WithFinalizer,
+					controllertesting.WithMetaData,
+					controllertesting.WithAddress,
+					controllertesting.WithInitializedConditions,
+					controllertesting.WithKafkaChannelServiceReady,
+					controllertesting.WithReceiverServiceReady,
+					controllertesting.WithReceiverDeploymentReady,
+					controllertesting.WithDispatcherDeploymentReady,
+					controllertesting.WithTopicReady,
+				),
+				controllertesting.NewKafkaChannelService(),
+				controllertesting.NewKafkaChannelReceiverService(),
+				controllertesting.NewKafkaChannelReceiverDeployment(),
+				controllertesting.NewKafkaChannelDispatcherService(),
+			},
+			WantCreates: []runtime.Object{controllertesting.NewKafkaChannelDispatcherDeployment()},
+			WantEvents:  []string{controllertesting.NewKafkaChannelSuccessfulReconciliationEvent()},
+		},
+		{
+			Name:                    "Reconcile Missing Dispatcher Deployment Error(Create)",
+			SkipNamespaceValidation: true,
+			Key:                     controllertesting.KafkaChannelKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaChannel(
+					controllertesting.WithFinalizer,
+					controllertesting.WithMetaData,
+					controllertesting.WithAddress,
+					controllertesting.WithInitializedConditions,
+					controllertesting.WithKafkaChannelServiceReady,
+					controllertesting.WithReceiverServiceReady,
+					controllertesting.WithReceiverDeploymentReady,
+					controllertesting.WithDispatcherDeploymentReady,
+					controllertesting.WithTopicReady,
+				),
+				controllertesting.NewKafkaChannelService(),
+				controllertesting.NewKafkaChannelReceiverService(),
+				controllertesting.NewKafkaChannelReceiverDeployment(),
+				controllertesting.NewKafkaChannelDispatcherService(),
+			},
+			WithReactors: []clientgotesting.ReactionFunc{InduceFailure("create", "Deployments")},
+			WantErr:      true,
+			WantCreates:  []runtime.Object{controllertesting.NewKafkaChannelDispatcherDeployment()},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
+				{
+					Object: controllertesting.NewKafkaChannel(
+						controllertesting.WithFinalizer,
+						controllertesting.WithMetaData,
+						controllertesting.WithAddress,
+						controllertesting.WithInitializedConditions,
+						controllertesting.WithKafkaChannelServiceReady,
+						controllertesting.WithReceiverServiceReady,
+						controllertesting.WithReceiverDeploymentReady,
+						controllertesting.WithDispatcherFailed,
+						controllertesting.WithTopicReady,
+					),
+				},
+			},
+			WantEvents: []string{
+				Eventf(corev1.EventTypeWarning, event.DispatcherDeploymentReconciliationFailed.String(), "Failed To Reconcile Dispatcher Deployment: inducing failure for create deployments"),
+				controllertesting.NewKafkaChannelFailedReconciliationEvent(),
+			},
+		},
+		{
+			Name:                    "Reconcile Dispatcher Deployment With Deletion Timestamp And Finalizer",
+			SkipNamespaceValidation: true,
+			Key:                     controllertesting.KafkaChannelKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaChannel(
+					controllertesting.WithFinalizer,
+					controllertesting.WithMetaData,
+					controllertesting.WithAddress,
+					controllertesting.WithInitializedConditions,
+					controllertesting.WithKafkaChannelServiceReady,
+					controllertesting.WithDispatcherDeploymentReady,
+					controllertesting.WithTopicReady,
+				),
+				controllertesting.NewKafkaChannelService(),
+				controllertesting.NewKafkaChannelReceiverService(),
+				controllertesting.NewKafkaChannelReceiverDeployment(),
+				controllertesting.NewKafkaChannelDispatcherService(),
+				controllertesting.NewKafkaChannelDispatcherDeployment(controllertesting.WithDeletionTimestampDeployment),
+			},
+			WantErr: false,
+			WantEvents: []string{
+				controllertesting.NewKafkaChannelSuccessfulReconciliationEvent(),
+			},
+		},
+		{
+			Name:                    "Reconcile Dispatcher Deployment With Deletion Timestamp And Missing Finalizer",
+			SkipNamespaceValidation: true,
+			Key:                     controllertesting.KafkaChannelKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaChannel(
+					controllertesting.WithFinalizer,
+					controllertesting.WithMetaData,
+					controllertesting.WithAddress,
+					controllertesting.WithInitializedConditions,
+					controllertesting.WithKafkaChannelServiceReady,
+					controllertesting.WithDispatcherDeploymentReady,
+					controllertesting.WithTopicReady,
+				),
+				controllertesting.NewKafkaChannelService(),
+				controllertesting.NewKafkaChannelReceiverService(),
+				controllertesting.NewKafkaChannelReceiverDeployment(),
+				controllertesting.NewKafkaChannelDispatcherService(),
+				controllertesting.NewKafkaChannelDispatcherDeployment(controllertesting.WithoutFinalizersDeployment, controllertesting.WithDeletionTimestampDeployment),
+			},
+			WantErr: false,
+			WantEvents: []string{
+				controllertesting.NewKafkaChannelSuccessfulReconciliationEvent(),
+			},
+		},
+		{
+			Name:                    "Reconcile Dispatcher Deployment - Redeployment on ConfigMapHash change",
+			SkipNamespaceValidation: true,
+			Key:                     controllertesting.KafkaChannelKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaChannel(
+					controllertesting.WithFinalizer,
+					controllertesting.WithMetaData,
+					controllertesting.WithAddress,
+					controllertesting.WithInitializedConditions,
+					controllertesting.WithKafkaChannelServiceReady,
+					controllertesting.WithReceiverServiceReady,
+					controllertesting.WithReceiverDeploymentReady,
+					controllertesting.WithDispatcherDeploymentReady,
+					controllertesting.WithTopicReady,
+				),
+				controllertesting.NewKafkaChannelService(),
+				controllertesting.NewKafkaChannelReceiverService(),
+				controllertesting.NewKafkaChannelReceiverDeployment(),
+				controllertesting.NewKafkaChannelDispatcherService(),
+				controllertesting.NewKafkaChannelDispatcherDeployment(controllertesting.WithConfigMapHash("initial-hash-to-be-overridden-by-controller")),
+			},
+			WantUpdates: []clientgotesting.UpdateActionImpl{
+				controllertesting.NewDeploymentUpdateActionImpl(controllertesting.NewKafkaChannelDispatcherDeployment()),
+			},
+			WantEvents: []string{
+				controllertesting.NewKafkaChannelDispatcherDeploymentUpdatedEvent(),
+				controllertesting.NewKafkaChannelSuccessfulReconciliationEvent(),
+			},
+		},
 		{
 			Name: "Missing KafkaSecret - Error",
 			Key:  controllertesting.KafkaChannelKey,
@@ -706,87 +706,87 @@ func TestReconcile(t *testing.T) {
 			},
 		},
 
-		////
-		//// Deployment Updating - Repairing Incorrect Or Missing Fields In Existing Deployments
-		////
 		//
-		//newDispatcherUpdateTest("No Resources", controllertesting.WithoutResources),
-		//newDispatcherUpdateTest("Different Name", controllertesting.WithDifferentName),
-		//newDispatcherUpdateTest("Different Image", controllertesting.WithDifferentImage),
-		//newDispatcherUpdateTest("Different Command", controllertesting.WithDifferentCommand),
-		//newDispatcherUpdateTest("Different Args", controllertesting.WithDifferentArgs),
-		//newDispatcherUpdateTest("Different WorkingDir", controllertesting.WithDifferentWorkingDir),
-		//newDispatcherUpdateTest("Different Ports", controllertesting.WithDifferentPorts),
-		//newDispatcherUpdateTest("Different Environment", controllertesting.WithMissingEnvironment),
-		//newDispatcherUpdateTest("Different Environment", controllertesting.WithDifferentEnvironment),
-		//newDispatcherUpdateTest("Different VolumeMounts", controllertesting.WithDifferentVolumeMounts),
-		//newDispatcherUpdateTest("Different VolumeDevices", controllertesting.WithDifferentVolumeDevices),
-		//newDispatcherUpdateTest("Different LivenessProbe", controllertesting.WithDifferentLivenessProbe),
-		//newDispatcherUpdateTest("Different ReadinessProbe", controllertesting.WithDifferentReadinessProbe),
-		//newDispatcherUpdateTest("Missing Labels", controllertesting.WithoutLabels),
-		//newDispatcherUpdateTest("Missing Annotations", controllertesting.WithoutAnnotations),
-		//newDispatcherNoUpdateTest("Different Lifecycle", controllertesting.WithDifferentLifecycle),
-		//newDispatcherNoUpdateTest("Different TerminationPath", controllertesting.WithDifferentTerminationPath),
-		//newDispatcherNoUpdateTest("Different TerminationPolicy", controllertesting.WithDifferentTerminationPolicy),
-		//newDispatcherNoUpdateTest("Different ImagePullPolicy", controllertesting.WithDifferentImagePullPolicy),
-		//newDispatcherNoUpdateTest("Different SecurityContext", controllertesting.WithDifferentSecurityContext),
-		//newDispatcherNoUpdateTest("Different Replicas", controllertesting.WithDifferentReplicas),
-		//newDispatcherNoUpdateTest("Extra Labels", controllertesting.WithExtraLabels),
-		//newDispatcherNoUpdateTest("Extra Annotations", controllertesting.WithExtraAnnotations),
+		// Deployment Updating - Repairing Incorrect Or Missing Fields In Existing Deployments
 		//
-		////
-		//// Deployment Update Failure
-		////
+
+		newDispatcherUpdateTest("No Resources", controllertesting.WithoutResources),
+		newDispatcherUpdateTest("Different Name", controllertesting.WithDifferentName),
+		newDispatcherUpdateTest("Different Image", controllertesting.WithDifferentImage),
+		newDispatcherUpdateTest("Different Command", controllertesting.WithDifferentCommand),
+		newDispatcherUpdateTest("Different Args", controllertesting.WithDifferentArgs),
+		newDispatcherUpdateTest("Different WorkingDir", controllertesting.WithDifferentWorkingDir),
+		newDispatcherUpdateTest("Different Ports", controllertesting.WithDifferentPorts),
+		newDispatcherUpdateTest("Different Environment", controllertesting.WithMissingEnvironment),
+		newDispatcherUpdateTest("Different Environment", controllertesting.WithDifferentEnvironment),
+		newDispatcherUpdateTest("Different VolumeMounts", controllertesting.WithDifferentVolumeMounts),
+		newDispatcherUpdateTest("Different VolumeDevices", controllertesting.WithDifferentVolumeDevices),
+		newDispatcherUpdateTest("Different LivenessProbe", controllertesting.WithDifferentLivenessProbe),
+		newDispatcherUpdateTest("Different ReadinessProbe", controllertesting.WithDifferentReadinessProbe),
+		newDispatcherUpdateTest("Missing Labels", controllertesting.WithoutLabels),
+		newDispatcherUpdateTest("Missing Annotations", controllertesting.WithoutAnnotations),
+		newDispatcherNoUpdateTest("Different Lifecycle", controllertesting.WithDifferentLifecycle),
+		newDispatcherNoUpdateTest("Different TerminationPath", controllertesting.WithDifferentTerminationPath),
+		newDispatcherNoUpdateTest("Different TerminationPolicy", controllertesting.WithDifferentTerminationPolicy),
+		newDispatcherNoUpdateTest("Different ImagePullPolicy", controllertesting.WithDifferentImagePullPolicy),
+		newDispatcherNoUpdateTest("Different SecurityContext", controllertesting.WithDifferentSecurityContext),
+		newDispatcherNoUpdateTest("Different Replicas", controllertesting.WithDifferentReplicas),
+		newDispatcherNoUpdateTest("Extra Labels", controllertesting.WithExtraLabels),
+		newDispatcherNoUpdateTest("Extra Annotations", controllertesting.WithExtraAnnotations),
+
 		//
-		//{
-		//	Name: "Existing Dispatcher Deployment, Different Image, Update Error",
-		//	Key:  controllertesting.KafkaChannelKey,
-		//	Objects: []runtime.Object{
-		//		controllertesting.NewKafkaChannel(controllertesting.WithFinalizer),
-		//		controllertesting.NewKafkaChannelService(),
-		//		controllertesting.NewKafkaChannelDispatcherService(),
-		//		controllertesting.NewKafkaChannelDispatcherDeployment(controllertesting.WithDifferentImage),
-		//	},
-		//	WantStatusUpdates: []clientgotesting.UpdateActionImpl{
-		//		{
-		//			Object: controllertesting.NewKafkaChannel(
-		//				controllertesting.WithFinalizer,
-		//				controllertesting.WithAddress,
-		//				controllertesting.WithInitializedConditions,
-		//				controllertesting.WithKafkaChannelServiceReady,
-		//				controllertesting.WithDispatcherUpdateFailed,
-		//				controllertesting.WithTopicReady,
-		//			),
-		//		},
-		//	},
-		//	WantUpdates: []clientgotesting.UpdateActionImpl{{Object: controllertesting.NewKafkaChannelDispatcherDeployment()}},
-		//	WantEvents: []string{
-		//		controllertesting.NewKafkaChannelDispatcherDeploymentUpdateFailedEvent(),
-		//		Eventf(corev1.EventTypeWarning, event.DispatcherDeploymentReconciliationFailed.String(), "Failed To Reconcile Dispatcher Deployment: inducing failure for update deployments"),
-		//		controllertesting.NewKafkaChannelFailedReconciliationEvent(),
-		//	},
-		//	WithReactors: []clientgotesting.ReactionFunc{
-		//		InduceFailure("update", "Deployments"),
-		//	},
-		//	WantErr: true,
-		//},
+		// Deployment Update Failure
 		//
-		////
-		//// Service Patching - Repairing Incorrect Or Missing Fields In Existing Services
-		////
+
+		{
+			Name: "Existing Dispatcher Deployment, Different Image, Update Error",
+			Key:  controllertesting.KafkaChannelKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaChannel(controllertesting.WithFinalizer),
+				controllertesting.NewKafkaChannelService(),
+				controllertesting.NewKafkaChannelDispatcherService(),
+				controllertesting.NewKafkaChannelDispatcherDeployment(controllertesting.WithDifferentImage),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
+				{
+					Object: controllertesting.NewKafkaChannel(
+						controllertesting.WithFinalizer,
+						controllertesting.WithAddress,
+						controllertesting.WithInitializedConditions,
+						controllertesting.WithKafkaChannelServiceReady,
+						controllertesting.WithDispatcherUpdateFailed,
+						controllertesting.WithTopicReady,
+					),
+				},
+			},
+			WantUpdates: []clientgotesting.UpdateActionImpl{{Object: controllertesting.NewKafkaChannelDispatcherDeployment()}},
+			WantEvents: []string{
+				controllertesting.NewKafkaChannelDispatcherDeploymentUpdateFailedEvent(),
+				Eventf(corev1.EventTypeWarning, event.DispatcherDeploymentReconciliationFailed.String(), "Failed To Reconcile Dispatcher Deployment: inducing failure for update deployments"),
+				controllertesting.NewKafkaChannelFailedReconciliationEvent(),
+			},
+			WithReactors: []clientgotesting.ReactionFunc{
+				InduceFailure("update", "Deployments"),
+			},
+			WantErr: true,
+		},
+
 		//
-		//newServicePatchTest("Missing Ports", controllertesting.WithoutServicePorts),
-		//newServicePatchTest("Missing App Label Selector", controllertesting.WithoutServiceSelector),
-		//newServicePatchTest("Missing Labels", controllertesting.WithoutServiceLabels),
-		//newServiceNoPatchTest("Extra Labels", controllertesting.WithExtraServiceLabels),
-		//newServiceNoPatchTest("Different Status", controllertesting.WithDifferentServiceStatus),
+		// Service Patching - Repairing Incorrect Or Missing Fields In Existing Services
 		//
-		////
-		//// Service Patch Failure
-		////
+
+		newServicePatchTest("Missing Ports", controllertesting.WithoutServicePorts),
+		newServicePatchTest("Missing App Label Selector", controllertesting.WithoutServiceSelector),
+		newServicePatchTest("Missing Labels", controllertesting.WithoutServiceLabels),
+		newServiceNoPatchTest("Extra Labels", controllertesting.WithExtraServiceLabels),
+		newServiceNoPatchTest("Different Status", controllertesting.WithDifferentServiceStatus),
+
 		//
-		//newServicePatchFailureTest("Missing Ports", controllertesting.WithoutServicePorts),
-		//newServicePatchFailureTest("Missing Labels", controllertesting.WithoutServiceLabels),
+		// Service Patch Failure
+		//
+
+		newServicePatchFailureTest("Missing Ports", controllertesting.WithoutServicePorts),
+		newServicePatchFailureTest("Missing Labels", controllertesting.WithoutServiceLabels),
 	}
 
 	// Create A Mock AdminClient
