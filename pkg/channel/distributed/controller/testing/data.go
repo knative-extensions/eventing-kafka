@@ -196,10 +196,6 @@ func WithoutFinalizersDeployment(deployment *appsv1.Deployment) {
 	deployment.ObjectMeta.Finalizers = []string{}
 }
 
-func WithChannelNamespace(service *corev1.Service) {
-	service.ObjectMeta.Namespace = KafkaChannelNamespace
-}
-
 func WithoutServicePorts(service *corev1.Service) {
 	service.Spec.Ports = []corev1.ServicePort{}
 }
@@ -287,10 +283,6 @@ func WithDifferentLivenessProbe(deployment *appsv1.Deployment) {
 
 func WithDifferentReadinessProbe(deployment *appsv1.Deployment) {
 	deployment.Spec.Template.Spec.Containers[0].ReadinessProbe = &corev1.Probe{Handler: corev1.Handler{}}
-}
-
-func WithDifferentStartupProbe(deployment *appsv1.Deployment) {
-	deployment.Spec.Template.Spec.Containers[0].StartupProbe = &corev1.Probe{Handler: corev1.Handler{}}
 }
 
 func WithDifferentLifecycle(deployment *appsv1.Deployment) {
@@ -570,6 +562,11 @@ func WithAddress(kafkachannel *kafkav1beta1.KafkaChannel) {
 		Scheme: "http",
 		Host:   fmt.Sprintf("%s-%s.%s.svc.cluster.local", KafkaChannelName, kafkaconstants.KafkaChannelServiceNameSuffix, KafkaChannelNamespace),
 	})
+}
+
+// Set The KafkaChannel's Configuration As Failed - No Secret
+func WithKafkaChannelConfigurationFailedNoSecret(kafkachannel *kafkav1beta1.KafkaChannel) {
+	kafkachannel.Status.GetConditionSet().Manage(&kafkachannel.Status).MarkFalse("ConfigurationReady", "KafkaSecretReconciled", "No Kafka Secret For KafkaChannel")
 }
 
 // Set The KafkaChannel's Service As READY
@@ -1193,11 +1190,6 @@ func NewFinalizerPatchActionImpl() clientgotesting.PatchActionImpl {
 // Utility Function For Creating A Receiver Deployment Updated Event
 func NewReceiverDeploymentUpdatedEvent() string {
 	return reconcilertesting.Eventf(corev1.EventTypeNormal, event.ReceiverDeploymentUpdated.String(), "Receiver Deployment Updated")
-}
-
-// Utility Function For Creating A Receiver Deployment Update Failure Event
-func NewReceiverDeploymentUpdateFailedEvent() string {
-	return reconcilertesting.Eventf(corev1.EventTypeWarning, event.ReceiverDeploymentUpdateFailed.String(), "Receiver Deployment Update Failed")
 }
 
 // Utility Function For Creating A Receiver Service Patched Event

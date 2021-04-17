@@ -214,11 +214,7 @@ func (r *Reconciler) newReceiverService(secret *corev1.Secret) *corev1.Service {
 func (r *Reconciler) reconcileReceiverDeployment(ctx context.Context, logger *zap.Logger, secret *corev1.Secret) error {
 
 	// Create A New Deployment For Comparison
-	newDeployment, err := r.newReceiverDeployment(logger, secret)
-	if err != nil {
-		logger.Error("Failed To Create Receiver Deployment YAML", zap.Error(err))
-		return err
-	}
+	newDeployment := r.newReceiverDeployment(secret)
 
 	// Attempt To Get The Receiver Deployment Associated With The Specified Secret
 	existingDeployment, err := r.getReceiverDeployment(secret)
@@ -290,7 +286,7 @@ func (r *Reconciler) getReceiverDeployment(secret *corev1.Secret) (*appsv1.Deplo
 }
 
 // Create Receiver Deployment Model For The Specified Secret
-func (r *Reconciler) newReceiverDeployment(logger *zap.Logger, secret *corev1.Secret) (*appsv1.Deployment, error) {
+func (r *Reconciler) newReceiverDeployment(secret *corev1.Secret) *appsv1.Deployment {
 
 	// Get The Receiver Deployment Name (One Receiver Deployment Per Kafka Auth Secret)
 	deploymentName := util.ReceiverDnsSafeName(secret.Name)
@@ -299,11 +295,7 @@ func (r *Reconciler) newReceiverDeployment(logger *zap.Logger, secret *corev1.Se
 	replicas := int32(r.config.Receiver.Replicas)
 
 	// Create The Receiver Container Environment Variables
-	channelEnvVars, err := r.receiverDeploymentEnvVars(secret)
-	if err != nil {
-		logger.Error("Failed To Create Receiver Deployment Environment Variables", zap.Error(err))
-		return nil, err
-	}
+	channelEnvVars := r.receiverDeploymentEnvVars(secret)
 
 	// There is a difference between setting an entry in the limits or requests map to the zero-value
 	// of a Quantity and not actually having that entry in the map at all.
@@ -435,11 +427,11 @@ func (r *Reconciler) newReceiverDeployment(logger *zap.Logger, secret *corev1.Se
 	}
 
 	// Return Receiver Deployment
-	return deployment, nil
+	return deployment
 }
 
 // Create The Receiver Deployment's Env Vars
-func (r *Reconciler) receiverDeploymentEnvVars(secret *corev1.Secret) ([]corev1.EnvVar, error) {
+func (r *Reconciler) receiverDeploymentEnvVars(secret *corev1.Secret) []corev1.EnvVar {
 
 	// Create The Receiver Deployment EnvVars
 	envVars := []corev1.EnvVar{
@@ -498,5 +490,5 @@ func (r *Reconciler) receiverDeploymentEnvVars(secret *corev1.Secret) ([]corev1.
 	})
 
 	// Return The Receiver Deployment EnvVars Array
-	return envVars, nil
+	return envVars
 }

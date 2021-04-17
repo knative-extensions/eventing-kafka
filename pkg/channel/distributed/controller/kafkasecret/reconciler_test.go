@@ -408,7 +408,14 @@ func TestReconcile(t *testing.T) {
 
 	// Run The TableTest Using The KafkaChannel Reconciler Provided By The Factory
 	logger := logtesting.TestLogger(t)
-	tableTest.Test(t, controllertesting.MakeFactory(func(ctx context.Context, listers *controllertesting.Listers, cmw configmap.Watcher, configOptions []controllertesting.KafkaConfigOption) controller.Reconciler {
+	tableTest.Test(t, controllertesting.MakeFactory(func(ctx context.Context, listers *controllertesting.Listers, cmw configmap.Watcher, options map[string]interface{}) controller.Reconciler {
+
+		configOptionsInt, ok := options["configOptions"]
+		if !ok || configOptionsInt == nil {
+			configOptionsInt = []controllertesting.KafkaConfigOption{}
+		}
+		configOptions := configOptionsInt.([]controllertesting.KafkaConfigOption)
+
 		r := &Reconciler{
 			kubeClientset:      kubeclient.Get(ctx),
 			environment:        controllertesting.NewEnvironment(),
@@ -419,6 +426,7 @@ func TestReconcile(t *testing.T) {
 			serviceLister:      listers.GetServiceLister(),
 			kafkaConfigMapHash: controllertesting.ConfigMapHash,
 		}
+
 		return kafkasecretinjection.NewReconciler(ctx, r.kubeClientset.CoreV1(), listers.GetSecretLister(), controller.GetEventRecorder(ctx), r)
 	}, logger.Desugar()))
 }

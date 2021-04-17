@@ -268,7 +268,7 @@ func withExtraContainerFirst(deployment *appsv1.Deployment) {
 	deployment.Spec.Template.Spec.Containers = append([]corev1.Container{{
 		Name: "TestExtraContainerName",
 	}},
-	deployment.Spec.Template.Spec.Containers...)
+		deployment.Spec.Template.Spec.Containers...)
 }
 
 func withDifferentContainer(deployment *appsv1.Deployment) {
