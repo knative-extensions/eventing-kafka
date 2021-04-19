@@ -38,8 +38,8 @@ func Suite() pkgupgrade.Suite {
 				SourcePostDowngradeTest(),
 			},
 			Continual: []pkgupgrade.BackgroundOperation{
-				ChannelContinualTest(),
-				SourceContinualTest(),
+				ChannelContinualTest(ContinualTestOptions{}),
+				SourceContinualTest(ContinualTestOptions{}),
 			},
 		},
 		Installations: pkgupgrade.Installations{
