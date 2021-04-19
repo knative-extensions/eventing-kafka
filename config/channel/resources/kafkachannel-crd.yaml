@@ -24,14 +24,13 @@ metadata:
 spec:
   group: messaging.knative.dev
   versions:
-    - &version
-      name: v1alpha1
+    - name: v1beta1
       served: true
-      storage: false
+      storage: true
       subresources:
         status: { }
       schema:
-        openAPIV3Schema: &openAPIV3Schema
+        openAPIV3Schema:
           type: object
           # this is a work around so we don't need to flush out the
           # schema for each version at this time
@@ -51,13 +50,6 @@ spec:
         - name: Age
           type: date
           jsonPath: .metadata.creationTimestamp
-    - <<: *version
-      name: v1beta1
-      served: true
-      storage: true
-      schema:
-        openAPIV3Schema:
-          <<: *openAPIV3Schema
   names:
     kind: KafkaChannel
     plural: kafkachannels

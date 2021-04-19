@@ -21,7 +21,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/eventing-kafka/pkg/apis/messaging"
-	messagingv1alpha1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1alpha1"
 	messagingv1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -33,8 +32,7 @@ import (
 
 var types = map[schema.GroupVersionKind]resourcesemantics.GenericCRD{
 	// For group messaging.knative.dev
-	messagingv1alpha1.SchemeGroupVersion.WithKind("KafkaChannel"): &messagingv1alpha1.KafkaChannel{},
-	messagingv1beta1.SchemeGroupVersion.WithKind("KafkaChannel"):  &messagingv1beta1.KafkaChannel{},
+	messagingv1beta1.SchemeGroupVersion.WithKind("KafkaChannel"): &messagingv1beta1.KafkaChannel{},
 }
 
 var callbacks = map[schema.GroupVersionKind]validation.Callback{}
@@ -86,8 +84,7 @@ func NewValidationAdmissionController(ctx context.Context, _ configmap.Watcher) 
 
 func NewConversionController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	var (
-		messagingv1alpha1_ = messagingv1alpha1.SchemeGroupVersion.Version
-		messagingv1beta1_  = messagingv1beta1.SchemeGroupVersion.Version
+		messagingv1beta1_ = messagingv1beta1.SchemeGroupVersion.Version
 	)
 
 	return conversion.NewConversionController(ctx,
@@ -99,10 +96,9 @@ func NewConversionController(ctx context.Context, _ configmap.Watcher) *controll
 			// KafkaChannel
 			messagingv1beta1.Kind("KafkaChannel"): {
 				DefinitionName: messaging.KafkaChannelsResource.String(),
-				HubVersion:     messagingv1alpha1_,
+				HubVersion:     messagingv1beta1_,
 				Zygotes: map[string]conversion.ConvertibleObject{
-					messagingv1alpha1_: &messagingv1alpha1.KafkaChannel{},
-					messagingv1beta1_:  &messagingv1beta1.KafkaChannel{},
+					messagingv1beta1_: &messagingv1beta1.KafkaChannel{},
 				},
 			},
 		},
