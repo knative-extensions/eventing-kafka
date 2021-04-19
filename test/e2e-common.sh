@@ -354,12 +354,14 @@ function install_consolidated_sources_crds() {
 }
 
 function run_postinstall_jobs {
-  echo "Running post-install jobs using ${KAFKA_POST_INSTALL_DIR}"
-  rm -rf "${KAFKA_POST_INSTALL_DIR}" && mkdir -p "${KAFKA_POST_INSTALL_DIR}"
-  cp "${KAFKA_POST_INSTALL_TEMPLATE_DIR}/"*yaml "${KAFKA_POST_INSTALL_DIR}"
-  sed -i "s/namespace: knative-eventing/namespace: ${SYSTEM_NAMESPACE}/g" \
-    "${KAFKA_POST_INSTALL_DIR}/"*yaml
-  ko apply -f "${KAFKA_POST_INSTALL_DIR}"
+  # There are no post-install scripts today. This needs to be enabled if any post-install script is added
+
+#  echo "Running post-install jobs using ${KAFKA_POST_INSTALL_DIR}"
+#  rm -rf "${KAFKA_POST_INSTALL_DIR}" && mkdir -p "${KAFKA_POST_INSTALL_DIR}"
+#  cp "${KAFKA_POST_INSTALL_TEMPLATE_DIR}/"*yaml "${KAFKA_POST_INSTALL_DIR}"
+#  sed -i "s/namespace: knative-eventing/namespace: ${SYSTEM_NAMESPACE}/g" \
+#    "${KAFKA_POST_INSTALL_DIR}/"*yaml
+#  ko apply -f "${KAFKA_POST_INSTALL_DIR}"
 }
 
 # Uninstall The eventing-kafka KafkaChannel Implementation Via Ko
