@@ -345,10 +345,9 @@ func TestPostMessage_ServeHTTP_binary_mode(t *testing.T) {
 						Sink:      sinkServer.URL,
 						Namespace: "test",
 					},
-					Topics:                 []string{"topic1", "topic2"},
-					ConsumerGroup:          "group",
-					Name:                   "test",
-					DisableControlProtocol: true,
+					Topics:        []string{"topic1", "topic2"},
+					ConsumerGroup: "group",
+					Name:          "test",
 				},
 				httpMessageSender: s,
 				logger:            zap.NewNop().Sugar(),
@@ -437,7 +436,6 @@ func TestAdapter_Start(t *testing.T) { // just increase code coverage
 	_ = os.Setenv("KAFKA_BOOTSTRAP_SERVERS", "my-cluster-kafka-bootstrap.my-kafka-namespace:9092")
 
 	adapterConfig := NewEnvConfig()
-	adapterConfig.(*AdapterConfig).DisableControlProtocol = true
 
 	a := NewAdapter(ctx, adapterConfig, nil, nil)
 	err := a.Start(ctx)

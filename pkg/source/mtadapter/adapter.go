@@ -212,11 +212,10 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) {
 			Component: "kafkasource",
 			Namespace: obj.Namespace,
 		},
-		KafkaEnvConfig:         kafkaEnvConfig,
-		Topics:                 obj.Spec.Topics,
-		ConsumerGroup:          obj.Spec.ConsumerGroup,
-		Name:                   obj.Name,
-		DisableControlProtocol: true,
+		KafkaEnvConfig: kafkaEnvConfig,
+		Topics:         obj.Spec.Topics,
+		ConsumerGroup:  obj.Spec.ConsumerGroup,
+		Name:           obj.Name,
 	}
 
 	if val, ok := obj.GetLabels()[v1beta1.KafkaKeyTypeLabel]; ok {

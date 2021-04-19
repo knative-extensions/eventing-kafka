@@ -22,13 +22,9 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"reflect"
 	"strings"
 
 	"golang.org/x/time/rate"
-	ctrlservice "knative.dev/control-protocol/pkg/service"
-
-	ctrlnetwork "knative.dev/control-protocol/pkg/network"
 
 	"github.com/Shopify/sarama"
 	"go.opencensus.io/trace"
@@ -42,7 +38,6 @@ import (
 
 	"knative.dev/eventing-kafka/pkg/common/consumer"
 	"knative.dev/eventing-kafka/pkg/source/client"
-	kafkasourcecontrol "knative.dev/eventing-kafka/pkg/source/control"
 )
 
 const (
@@ -57,9 +52,6 @@ type AdapterConfig struct {
 	ConsumerGroup string   `envconfig:"KAFKA_CONSUMER_GROUP" required:"false"`
 	Name          string   `envconfig:"NAME" required:"true"`
 	KeyType       string   `envconfig:"KEY_TYPE" required:"false"`
-
-	// Turn off the control server.
-	DisableControlProtocol bool
 }
 
 func NewEnvConfig() adapter.EnvConfigAccessor {
@@ -67,20 +59,13 @@ func NewEnvConfig() adapter.EnvConfigAccessor {
 }
 
 type Adapter struct {
-	config        *AdapterConfig
-	controlServer *ctrlnetwork.ControlServer
+	config *AdapterConfig
 
 	httpMessageSender *kncloudevents.HTTPMessageSender
 	reporter          pkgsource.StatsReporter
 	logger            *zap.SugaredLogger
 	keyTypeMapper     func([]byte) interface{}
 	rateLimiter       *rate.Limiter
-
-	// These are used only in case we're running in the DisableControlServer = false (aka for st kafka source)
-	newContractCh         chan ctrlservice.AsyncCommandMessage
-	actualContract        *kafkasourcecontrol.KafkaSourceContract
-	stopConsumer          context.CancelFunc
-	consumerStoppedSignal context.Context
 }
 
 var _ adapter.MessageAdapter = (*Adapter)(nil)
@@ -113,40 +98,10 @@ func (a *Adapter) Start(ctx context.Context) (err error) {
 		zap.String("Namespace", a.config.Namespace),
 	)
 
-	if a.config.DisableControlProtocol {
-		// Behave the old way!
-		return a.mtSourceStart(ctx)
+	consumerStoppedSignal, startupError := a.startConsumerGroup(ctx, consumer.WithSaramaConsumerLifecycleListener(a))
+	if startupError != nil {
+		return fmt.Errorf("cannot start the consumer group: %w", startupError)
 	}
-
-	a.newContractCh = make(chan ctrlservice.AsyncCommandMessage)
-
-	// Register the control protocol server and the message handler
-	a.controlServer, err = ctrlnetwork.StartInsecureControlServer(ctx)
-	if err != nil {
-		return err
-	}
-	a.controlServer.MessageHandler(ctrlservice.MessageRouter{
-		kafkasourcecontrol.SetContractCommand: ctrlservice.NewAsyncCommandHandler(
-			a.controlServer,
-			&kafkasourcecontrol.KafkaSourceContract{},
-			kafkasourcecontrol.NotifyContractUpdated,
-			func(ctx context.Context, message ctrlservice.AsyncCommandMessage) {
-				a.newContractCh <- message
-			},
-		),
-	})
-
-	go func() {
-		for {
-			select {
-			case newContract := <-a.newContractCh:
-				a.handleSetContract(ctx, newContract)
-			case <-ctx.Done():
-				a.stopConsumerGroup()
-				return
-			}
-		}
-	}()
 
 	// At this point, we do nothing, waiting for the first contract to come
 	// Environment variables are ignored and all the configuration comes from the control plane through the control protocol
@@ -154,42 +109,8 @@ func (a *Adapter) Start(ctx context.Context) (err error) {
 	// This goroutine remains forever blocked until the adapter is closed
 	<-ctx.Done()
 	a.logger.Info("Shutting down...")
-	return nil
-}
-
-func (a *Adapter) mtSourceStart(ctx context.Context) (err error) {
-	// init consumer group
-	addrs, config, err := client.NewConfigWithEnv(context.Background(), &a.config.KafkaEnvConfig)
-	if err != nil {
-		return fmt.Errorf("failed to create the config: %w", err)
-	}
-
-	consumerGroupFactory := consumer.NewConsumerGroupFactory(addrs, config)
-	group, err := consumerGroupFactory.StartConsumerGroup(
-		a.config.ConsumerGroup,
-		a.config.Topics,
-		a.logger,
-		a,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to start consumer group: %w", err)
-	}
-	defer func() {
-		err := group.Close()
-		if err != nil {
-			a.logger.Errorw("Failed to close consumer group", zap.Error(err))
-		}
-	}()
-
-	// Track errors
-	go func() {
-		for err := range group.Errors() {
-			a.logger.Errorw("Error while consuming messages", zap.Error(err))
-		}
-	}()
-
-	<-ctx.Done()
-	a.logger.Info("Shutting down...")
+	<-consumerStoppedSignal.Done()
+	a.logger.Info("Consumer group stopped")
 	return nil
 }
 
@@ -246,52 +167,7 @@ func (a *Adapter) SetRateLimits(r rate.Limit, b int) {
 	a.rateLimiter = rate.NewLimiter(r, b)
 }
 
-func (a *Adapter) handleSetContract(ctx context.Context, msg ctrlservice.AsyncCommandMessage) {
-	newContract := msg.ParsedCommand().(*kafkasourcecontrol.KafkaSourceContract)
-	a.logger.Infof("Setting the new contract, generation: %d", newContract.Generation)
-
-	if reflect.DeepEqual(&newContract, a.actualContract) {
-		// Nothing to do here
-		msg.NotifySuccess()
-		return
-	}
-
-	a.stopConsumerGroup()
-
-	a.actualContract = newContract
-
-	consumerContext, stopConsumer := context.WithCancel(ctx)
-	a.stopConsumer = stopConsumer
-	var startupError error
-	a.consumerStoppedSignal, startupError = a.startConsumerGroup(consumerContext, consumer.WithSaramaConsumerLifecycleListener(a))
-
-	if startupError == nil {
-		msg.NotifySuccess()
-	} else {
-		msg.NotifyFailed(startupError)
-	}
-}
-
-func (a *Adapter) stopConsumerGroup() {
-	if a.stopConsumer != nil {
-		a.stopConsumer()
-	}
-	if a.consumerStoppedSignal != nil {
-		<-a.consumerStoppedSignal.Done()
-	}
-}
-
 func (a *Adapter) startConsumerGroup(ctx context.Context, consumerGroupOptions ...consumer.SaramaConsumerHandlerOption) (context.Context, error) {
-	// I'm overwriting these to avoid creating a too big change
-	// A proper solution is to pass the whole config through the control protocol
-	// But, this is still not possible, because some parts of the config still comes from the env,
-	// hence this can't be trivially removed. It will be, gradually
-	// TODO(slinkydeveloper) make client.NewConfig flexible to accept KafkaSourceContract too
-	a.config.KafkaEnvConfig.BootstrapServers = a.actualContract.BootstrapServers
-	a.keyTypeMapper = getKeyTypeMapper(a.actualContract.KeyType) // Maybe this one needs a lock
-	a.config.ConsumerGroup = a.actualContract.ConsumerGroup
-	a.config.Topics = a.actualContract.Topics
-
 	addrs, config, err := client.NewConfigWithEnv(context.Background(), &a.config.KafkaEnvConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create the config: %w", err)
@@ -330,14 +206,6 @@ func (a *Adapter) startConsumerGroup(ctx context.Context, consumerGroupOptions .
 	return closedSignal, nil
 }
 
-func (a *Adapter) Setup(sess sarama.ConsumerGroupSession) {
-	if err := a.controlServer.SendAndWaitForAck(kafkasourcecontrol.NotifySetupClaimsOpCode, kafkasourcecontrol.Claims(sess.Claims())); err != nil {
-		a.logger.Warnf("Cannot send the claims update: %v", err)
-	}
-}
+func (a *Adapter) Setup(sess sarama.ConsumerGroupSession) {}
 
-func (a *Adapter) Cleanup(sess sarama.ConsumerGroupSession) {
-	if err := a.controlServer.SendAndWaitForAck(kafkasourcecontrol.NotifyCleanupClaimsOpCode, kafkasourcecontrol.Claims(sess.Claims())); err != nil {
-		a.logger.Warnf("Cannot send the claims update: %v", err)
-	}
-}
+func (a *Adapter) Cleanup(sess sarama.ConsumerGroupSession) {}
