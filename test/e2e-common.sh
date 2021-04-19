@@ -363,7 +363,7 @@ function run_postinstall_jobs() {
   #    "${KAFKA_POST_INSTALL_DIR}/"*yaml
   #  ko apply -f "${KAFKA_POST_INSTALL_DIR}"
 
-  echo "No upgrade scripts"
+  echo "No postinstall jobs to run"
 }
 
 # Uninstall The eventing-kafka KafkaChannel Implementation Via Ko
