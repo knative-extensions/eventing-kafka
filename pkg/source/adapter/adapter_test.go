@@ -31,6 +31,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"golang.org/x/time/rate"
 	"knative.dev/eventing-kafka/pkg/common/consumer"
 	"knative.dev/eventing/pkg/adapter/v2"
 	"knative.dev/pkg/source"
@@ -436,6 +437,7 @@ func sinkRejected(writer http.ResponseWriter, _ *http.Request) {
 
 func TestAdapter_Start_Fails(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
 
 	adapterConfig := NewEnvConfig()
 
@@ -444,7 +446,29 @@ func TestAdapter_Start_Fails(t *testing.T) {
 	if err == nil {
 		t.Errorf("expected error, but got nil")
 	}
-	cancel()
+}
+
+func TestAdapter_SetRateLimits(t *testing.T) {
+	// This is to increase coverage
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	adapterConfig := NewEnvConfig()
+	a := NewAdapter(ctx, adapterConfig, nil, nil)
+	a.(*Adapter).SetRateLimits(rate.Every(100*time.Millisecond), 10)
+}
+
+func TestAdapter_GetConsumerGroup(t *testing.T) {
+	// This is to increase coverage
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	consumerGroupName := "abc"
+
+	adapterConfig := NewEnvConfig()
+	adapterConfig.(*AdapterConfig).ConsumerGroup = consumerGroupName
+	a := NewAdapter(ctx, adapterConfig, nil, nil)
+	require.Equal(t, consumerGroupName, a.(*Adapter).GetConsumerGroup())
 }
 
 type kafkaConsumerGroupFactory struct {
