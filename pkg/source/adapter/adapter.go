@@ -66,6 +66,8 @@ type Adapter struct {
 	logger            *zap.SugaredLogger
 	keyTypeMapper     func([]byte) interface{}
 	rateLimiter       *rate.Limiter
+
+	newConsumerGroupFactory func(addrs []string, config *sarama.Config) consumer.KafkaConsumerGroupFactory
 }
 
 var _ adapter.MessageAdapter = (*Adapter)(nil)
@@ -78,11 +80,12 @@ func NewAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, httpMe
 	config := processed.(*AdapterConfig)
 
 	return &Adapter{
-		config:            config,
-		httpMessageSender: httpMessageSender,
-		reporter:          reporter,
-		logger:            logger,
-		keyTypeMapper:     getKeyTypeMapper(config.KeyType),
+		config:                  config,
+		httpMessageSender:       httpMessageSender,
+		reporter:                reporter,
+		logger:                  logger,
+		keyTypeMapper:           getKeyTypeMapper(config.KeyType),
+		newConsumerGroupFactory: consumer.NewConsumerGroupFactory,
 	}
 }
 func (a *Adapter) GetConsumerGroup() string {
@@ -173,7 +176,7 @@ func (a *Adapter) startConsumerGroup(ctx context.Context, consumerGroupOptions .
 		return nil, fmt.Errorf("failed to create the config: %w", err)
 	}
 
-	consumerGroupFactory := consumer.NewConsumerGroupFactory(addrs, config)
+	consumerGroupFactory := a.newConsumerGroupFactory(addrs, config)
 	group, err := consumerGroupFactory.StartConsumerGroup(
 		a.config.ConsumerGroup,
 		a.config.Topics,

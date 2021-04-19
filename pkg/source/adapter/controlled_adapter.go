@@ -92,7 +92,6 @@ func (a *ControlledAdapter) Start(ctx context.Context) (err error) {
 			case newContract := <-a.newContractCh:
 				a.handleSetContract(ctx, newContract)
 			case <-ctx.Done():
-				a.stopConsumerGroup()
 				return
 			}
 		}
@@ -104,6 +103,11 @@ func (a *ControlledAdapter) Start(ctx context.Context) (err error) {
 	// This goroutine remains forever blocked until the adapter is closed
 	<-ctx.Done()
 	a.logger.Info("Shutting down...")
+
+	a.stopConsumerGroup()
+	<-a.controlServer.ClosedCh() // The stop signal is the same as ctx
+	a.logger.Info("Shut down completed")
+
 	return nil
 }
 
