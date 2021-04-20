@@ -146,9 +146,9 @@ func NewProber(
 		workQueue: workqueue.NewNamedRateLimitingQueue(
 			workqueue.NewMaxOfRateLimiter(
 				// Per item exponential backoff
-				workqueue.NewItemExponentialFailureRateLimiter(50*time.Millisecond, 30*time.Second),
+				workqueue.NewItemExponentialFailureRateLimiter(100*time.Millisecond, 5*time.Minute),
 				// Global rate limiter
-				&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Limit(50), 100)},
+				&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Limit(50), 1000)},
 			),
 			"ProbingQueue"),
 		targetLister:     targetLister,
@@ -162,16 +162,17 @@ func (m *Prober) checkReadiness(state *targetState) bool {
 	state.readyLock.Lock()
 	defer state.readyLock.Unlock()
 	partitions := state.ch.Spec.NumPartitions
+	if !state.ready {
+		state.ready = state.readyPartitions.Len() == int(partitions)
+	}
 	m.logger.Debugw("Checking subscription readiness",
 		zap.Any("subscription", state.sub.UID),
 		zap.Any("channel", state.ch.Name),
 		zap.Any("pod ips", state.probedPods),
 		zap.Any("channel partitions", partitions),
 		zap.Any("ready partitions", state.readyPartitions.List()),
+		zap.Bool("ready", state.ready),
 	)
-	if !state.ready {
-		state.ready = state.readyPartitions.Len() == int(partitions)
-	}
 	return state.ready
 }
 
@@ -420,10 +421,17 @@ func (m *Prober) processWorkItem() bool {
 	default:
 	}
 
-	if err != nil || !ok {
+	if err != nil {
 		// In case of error, enqueue for retry
 		m.workQueue.AddRateLimited(obj)
-		item.logger.Debugw("Probing failed",
+		item.logger.Errorw("Error occurred while probing",
+			zap.Any("url", item.url), zap.Any("IP", item.podIP),
+			zap.Any("port", item.podPort), zap.Bool("ready", ok), zap.Error(err),
+			zap.Int("depth", m.workQueue.Len()))
+	} else if !ok {
+		// No error, but verification failed, enqueue for retry
+		m.workQueue.AddRateLimited(obj)
+		item.logger.Debugw("Verification of pod response failedVerification of pod response failed.",
 			zap.Any("url", item.url), zap.Any("IP", item.podIP),
 			zap.Any("port", item.podPort), zap.Bool("ready", ok), zap.Error(err),
 			zap.Int("depth", m.workQueue.Len()))
@@ -488,10 +496,12 @@ func (m *Prober) probeVerifier(item *workItem) prober.Verifier {
 				zap.String("want subscription", uid),
 			)
 			if partitions, ok := subscriptions[uid]; ok {
-				item.targetStates.readyLock.Lock()
-				defer item.targetStates.readyLock.Unlock()
-				item.targetStates.readyPartitions.Insert(partitions...)
-				return true, nil
+				func() {
+					item.targetStates.readyLock.Lock()
+					defer item.targetStates.readyLock.Unlock()
+					item.targetStates.readyPartitions.Insert(partitions...)
+				}()
+				return m.checkReadiness(item.targetStates), nil
 			} else {
 				return false, nil
 			}
