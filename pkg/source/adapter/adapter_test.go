@@ -486,6 +486,9 @@ type mockConsumerGroup struct {
 }
 
 func (m *mockConsumerGroup) Consume(ctx context.Context, addrs []string, h sarama.ConsumerGroupHandler) error {
+	if m.MockConsumerGroup == nil || m.MockConsumerGroup.Closed {
+		m.MockConsumerGroup = consumertesting.NewMockConsumerGroup()
+	}
 	m.invokedConsume.Done()
 	go func() {
 		_ = m.MockConsumerGroup.Consume(ctx, addrs, h)
@@ -501,8 +504,7 @@ func TestAdapter_Start_Succeeds(t *testing.T) {
 	var invokedConsume sync.WaitGroup
 	invokedConsume.Add(1)
 	mockConsumerGroupInstance := &mockConsumerGroup{
-		MockConsumerGroup: consumertesting.NewMockConsumerGroup(),
-		invokedConsume:    &invokedConsume,
+		invokedConsume: &invokedConsume,
 	}
 
 	a := NewAdapter(ctx, adapterConfig, nil, nil)
@@ -528,5 +530,5 @@ func TestAdapter_Start_Succeeds(t *testing.T) {
 	// Start method should end
 	wg.Wait()
 
-	require.True(t, mockConsumerGroupInstance.Closed)
+	require.True(t, mockConsumerGroupInstance.MockConsumerGroup.Closed)
 }

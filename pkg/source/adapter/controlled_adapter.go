@@ -18,7 +18,6 @@ package kafka
 
 import (
 	"context"
-	"reflect"
 	"strings"
 
 	ctrlservice "knative.dev/control-protocol/pkg/service"
@@ -40,7 +39,8 @@ import (
 type ControlledAdapter struct {
 	*Adapter
 
-	controlServer *ctrlnetwork.ControlServer
+	controlServerOptions []ctrlnetwork.ControlServerOption
+	controlServer        *ctrlnetwork.ControlServer
 
 	newContractCh         chan ctrlservice.AsyncCommandMessage
 	actualContract        *kafkasourcecontrol.KafkaSourceContract
@@ -71,7 +71,7 @@ func (a *ControlledAdapter) Start(ctx context.Context) (err error) {
 	a.newContractCh = make(chan ctrlservice.AsyncCommandMessage)
 
 	// Register the control protocol server and the message handler
-	a.controlServer, err = ctrlnetwork.StartInsecureControlServer(ctx)
+	a.controlServer, err = ctrlnetwork.StartInsecureControlServer(ctx, a.controlServerOptions...)
 	if err != nil {
 		return err
 	}
@@ -113,9 +113,11 @@ func (a *ControlledAdapter) Start(ctx context.Context) (err error) {
 
 func (a *ControlledAdapter) handleSetContract(ctx context.Context, msg ctrlservice.AsyncCommandMessage) {
 	newContract := msg.ParsedCommand().(*kafkasourcecontrol.KafkaSourceContract)
-	a.logger.Infof("Setting the new contract, generation: %d", newContract.Generation)
+	a.logger.Infof("Received contract, generation: %d", newContract.Generation)
 
-	if reflect.DeepEqual(&newContract, a.actualContract) {
+	if a.actualContract != nil && newContract.Generation == a.actualContract.Generation {
+		a.logger.Info("The received contract has the same generation of the previous one, ignoring it")
+
 		// Nothing to do here
 		msg.NotifySuccess()
 		return
