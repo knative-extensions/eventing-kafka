@@ -97,7 +97,7 @@ func ChannelSubscriptionScaleReadyHelper(
 			kafkaSub0,
 			kafkaChannelName,
 			&kafkaChannelMeta,
-			resources.WithSubscriberForSubscriptionV1(recordEventsPodName),
+			resources.WithSubscriberForSubscription(recordEventsPodName),
 		)
 		client.WaitForAllTestResourcesReadyOrFail(ctx)
 
@@ -108,7 +108,7 @@ func ChannelSubscriptionScaleReadyHelper(
 			kafkaSub1,
 			kafkaChannelName,
 			&kafkaChannelMeta,
-			resources.WithSubscriberForSubscriptionV1(recordEventsPodName),
+			resources.WithSubscriberForSubscription(recordEventsPodName),
 		)
 		for readyDispatcherPodsCheck(ctx, st, client) < 3 {
 			subObj, err := client.Eventing.MessagingV1().Subscriptions(client.Namespace).Get(ctx, kafkaSub1, metav1.GetOptions{})
