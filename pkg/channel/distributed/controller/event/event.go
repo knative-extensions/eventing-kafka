@@ -39,6 +39,10 @@ const (
 	// Receiver (Kafka Producer) Reconciliation
 	ReceiverServiceReconciliationFailed
 	ReceiverDeploymentReconciliationFailed
+	ReceiverDeploymentUpdated
+	ReceiverDeploymentUpdateFailed
+	ReceiverServicePatched
+	ReceiverServicePatchFailed
 
 	// Kafka Topic Reconciliation
 	KafkaTopicReconciliationFailed
@@ -48,6 +52,10 @@ const (
 	DispatcherDeploymentReconciliationFailed
 	DispatcherServiceFinalizationFailed
 	DispatcherDeploymentFinalizationFailed
+	DispatcherDeploymentUpdated
+	DispatcherDeploymentUpdateFailed
+	DispatcherServicePatched
+	DispatcherServicePatchFailed
 
 	// Kafka Secret Reconciliation
 	KafkaSecretReconciled
@@ -78,6 +86,14 @@ func (et CoreV1EventType) String() string {
 		eventTypeString = "ReceiverServiceReconciliationFailed"
 	case ReceiverDeploymentReconciliationFailed:
 		eventTypeString = "ReceiverDeploymentReconciliationFailed"
+	case ReceiverServicePatched:
+		eventTypeString = "ReceiverServicePatched"
+	case ReceiverDeploymentUpdated:
+		eventTypeString = "ReceiverDeploymentUpdated"
+	case ReceiverServicePatchFailed:
+		eventTypeString = "ReceiverServicePatchFailed"
+	case ReceiverDeploymentUpdateFailed:
+		eventTypeString = "ReceiverDeploymentUpdateFailed"
 	case ChannelStatusReconciliationFailed:
 		eventTypeString = "ChannelStatusReconciliationFailed"
 	case KafkaTopicReconciliationFailed:
@@ -90,6 +106,14 @@ func (et CoreV1EventType) String() string {
 		eventTypeString = "DispatcherServiceFinalizationFailed"
 	case DispatcherDeploymentFinalizationFailed:
 		eventTypeString = "DispatcherDeploymentFinalizationFailed"
+	case DispatcherDeploymentUpdated:
+		eventTypeString = "DispatcherDeploymentUpdated"
+	case DispatcherDeploymentUpdateFailed:
+		eventTypeString = "DispatcherDeploymentUpdateFailed"
+	case DispatcherServicePatched:
+		eventTypeString = "DispatcherServicePatched"
+	case DispatcherServicePatchFailed:
+		eventTypeString = "DispatcherServicePatchFailed"
 	case KafkaSecretReconciled:
 		eventTypeString = "KafkaSecretReconciled"
 	case KafkaSecretFinalized:

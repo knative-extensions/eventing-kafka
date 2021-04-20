@@ -20,14 +20,18 @@ import (
 	"context"
 	"testing"
 
+	apitypes "k8s.io/apimachinery/pkg/types"
+	"knative.dev/pkg/apis/duck"
+
+	corev1 "k8s.io/api/core/v1"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
+
 	clientgotesting "k8s.io/client-go/testing"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/kafkasecretinjection"
 	controllertesting "knative.dev/eventing-kafka/pkg/channel/distributed/controller/testing"
 	fakekafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client/fake"
@@ -316,13 +320,102 @@ func TestReconcile(t *testing.T) {
 			WantUpdates: []clientgotesting.UpdateActionImpl{
 				controllertesting.NewDeploymentUpdateActionImpl(controllertesting.NewKafkaChannelReceiverDeployment()),
 			},
-			WantEvents: []string{controllertesting.NewKafkaSecretSuccessfulReconciliationEvent()},
+			WantEvents: []string{
+				controllertesting.NewReceiverDeploymentUpdatedEvent(),
+				controllertesting.NewKafkaSecretSuccessfulReconciliationEvent(),
+			},
 		},
+
+		//
+		// Deployment Updating - Repairing Incorrect Or Missing Fields In Existing Deployments
+		//
+
+		newReceiverUpdateTest("No Resources", controllertesting.WithoutResources),
+		newReceiverUpdateTest("Different Name", controllertesting.WithDifferentName),
+		newReceiverUpdateTest("Different Image", controllertesting.WithDifferentImage),
+		newReceiverUpdateTest("Different Command", controllertesting.WithDifferentCommand),
+		newReceiverUpdateTest("Different Args", controllertesting.WithDifferentArgs),
+		newReceiverUpdateTest("Different WorkingDir", controllertesting.WithDifferentWorkingDir),
+		newReceiverUpdateTest("Different Ports", controllertesting.WithDifferentPorts),
+		newReceiverUpdateTest("Different Environment", controllertesting.WithMissingEnvironment),
+		newReceiverUpdateTest("Different Environment", controllertesting.WithDifferentEnvironment),
+		newReceiverUpdateTest("Different VolumeMounts", controllertesting.WithDifferentVolumeMounts),
+		newReceiverUpdateTest("Different VolumeDevices", controllertesting.WithDifferentVolumeDevices),
+		newReceiverUpdateTest("Different LivenessProbe", controllertesting.WithDifferentLivenessProbe),
+		newReceiverUpdateTest("Different ReadinessProbe", controllertesting.WithDifferentReadinessProbe),
+		newReceiverUpdateTest("Missing Labels", controllertesting.WithoutLabels),
+		newReceiverUpdateTest("Missing Annotations", controllertesting.WithoutAnnotations),
+		newReceiverNoUpdateTest("Different Lifecycle", controllertesting.WithDifferentLifecycle),
+		newReceiverNoUpdateTest("Different TerminationPath", controllertesting.WithDifferentTerminationPath),
+		newReceiverNoUpdateTest("Different TerminationPolicy", controllertesting.WithDifferentTerminationPolicy),
+		newReceiverNoUpdateTest("Different ImagePullPolicy", controllertesting.WithDifferentImagePullPolicy),
+		newReceiverNoUpdateTest("Different SecurityContext", controllertesting.WithDifferentSecurityContext),
+		newReceiverNoUpdateTest("Different Replicas", controllertesting.WithDifferentReplicas),
+		newReceiverNoUpdateTest("Extra Labels", controllertesting.WithExtraLabels),
+		newReceiverNoUpdateTest("Extra Annotations", controllertesting.WithExtraAnnotations),
+
+		//
+		// Deployment Update Failure
+		//
+
+		{
+			Name: "Existing Receiver Deployment, Different Image, Update Error",
+			Key:  controllertesting.KafkaSecretKey,
+			Objects: []runtime.Object{
+				controllertesting.NewKafkaSecret(controllertesting.WithKafkaSecretFinalizer),
+				controllertesting.NewKafkaChannel(),
+				controllertesting.NewKafkaChannelService(),
+				controllertesting.NewKafkaChannelReceiverService(),
+				controllertesting.NewKafkaChannelReceiverDeployment(controllertesting.WithDifferentImage),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
+				{
+					Object: controllertesting.NewKafkaChannel(
+						controllertesting.WithReceiverServiceReady,
+						controllertesting.WithReceiverDeploymentUpdateFailed,
+					),
+				},
+			},
+			WantUpdates: []clientgotesting.UpdateActionImpl{{Object: controllertesting.NewKafkaChannelReceiverDeployment()}},
+			WantEvents: []string{
+				controllertesting.NewKafkaSecretReceiverDeploymentUpdateFailedEvent(),
+				Eventf(corev1.EventTypeWarning, event.ReceiverDeploymentReconciliationFailed.String(), "Failed To Reconcile Receiver Deployment: inducing failure for update deployments"),
+				controllertesting.NewKafkaSecretFailedReconciliationEvent(),
+			},
+			WithReactors: []clientgotesting.ReactionFunc{
+				InduceFailure("update", "Deployments"),
+			},
+			WantErr: true,
+		},
+
+		//
+		// Service Patching - Repairing Incorrect Or Missing Fields In Existing Services
+		//
+
+		newServicePatchTest("Missing Ports", controllertesting.WithoutServicePorts),
+		newServicePatchTest("Missing App Label Selector", controllertesting.WithoutServiceSelector),
+		newServicePatchTest("Missing Labels", controllertesting.WithoutServiceLabels),
+		newServiceNoPatchTest("Extra Labels", controllertesting.WithExtraServiceLabels),
+		newServiceNoPatchTest("Different Status", controllertesting.WithDifferentServiceStatus),
+
+		//
+		// Service Patch Failure
+		//
+
+		newServicePatchFailureTest("Missing Ports", controllertesting.WithoutServicePorts),
+		newServicePatchFailureTest("Missing Labels", controllertesting.WithoutServiceLabels),
 	}
 
 	// Run The TableTest Using The KafkaChannel Reconciler Provided By The Factory
 	logger := logtesting.TestLogger(t)
-	tableTest.Test(t, controllertesting.MakeFactory(func(ctx context.Context, listers *controllertesting.Listers, cmw configmap.Watcher, configOptions []controllertesting.KafkaConfigOption) controller.Reconciler {
+	tableTest.Test(t, controllertesting.MakeFactory(func(ctx context.Context, listers *controllertesting.Listers, cmw configmap.Watcher, options map[string]interface{}) controller.Reconciler {
+
+		configOptionsInt, ok := options["configOptions"]
+		if !ok || configOptionsInt == nil {
+			configOptionsInt = []controllertesting.KafkaConfigOption{}
+		}
+		configOptions := configOptionsInt.([]controllertesting.KafkaConfigOption)
+
 		r := &Reconciler{
 			kubeClientset:      kubeclient.Get(ctx),
 			environment:        controllertesting.NewEnvironment(),
@@ -333,6 +426,117 @@ func TestReconcile(t *testing.T) {
 			serviceLister:      listers.GetServiceLister(),
 			kafkaConfigMapHash: controllertesting.ConfigMapHash,
 		}
+
 		return kafkasecretinjection.NewReconciler(ctx, r.kubeClientset.CoreV1(), listers.GetSecretLister(), controller.GetEventRecorder(ctx), r)
 	}, logger.Desugar()))
+}
+
+// Utility Functions
+
+// Creates a test that expects a receiver deployment update, using the provided options
+func newReceiverUpdateTest(name string, options ...controllertesting.DeploymentOption) TableRow {
+	test := newReceiverBasicTest("Existing Receiver Deployment, " + name + ", Update Needed")
+	test.Objects = append(test.Objects,
+		controllertesting.NewKafkaChannelReceiverDeployment(options...),
+		controllertesting.NewKafkaChannelReceiverService())
+	test.WantUpdates = append(test.WantUpdates,
+		controllertesting.NewDeploymentUpdateActionImpl(controllertesting.NewKafkaChannelReceiverDeployment()))
+	test.WantEvents = append([]string{controllertesting.NewReceiverDeploymentUpdatedEvent()},
+		test.WantEvents...)
+	return test
+}
+
+// Creates a test that expects to not have a receiver deployment update, using the provided options
+func newReceiverNoUpdateTest(name string, options ...controllertesting.DeploymentOption) TableRow {
+	test := newReceiverBasicTest("Existing Receiver Deployment, " + name + ", No Update")
+	test.Objects = append(test.Objects,
+		controllertesting.NewKafkaChannelReceiverDeployment(options...),
+		controllertesting.NewKafkaChannelReceiverService())
+	return test
+}
+
+// Creates a test that expects a receiver service update, using the provided options
+func newServicePatchTest(name string, options ...controllertesting.ServiceOption) TableRow {
+	newService := controllertesting.NewKafkaChannelReceiverService()
+	existingService := controllertesting.NewKafkaChannelReceiverService(options...)
+
+	test := newReceiverBasicTest("Existing Receiver Service, " + name + ", Patch Needed")
+	test.Objects = append(test.Objects, existingService,
+		controllertesting.NewKafkaChannelReceiverDeployment())
+
+	jsonPatch, _ := duck.CreatePatch(existingService, newService)
+	patch, _ := jsonPatch.MarshalJSON()
+
+	test.WantPatches = []clientgotesting.PatchActionImpl{{
+		Name:      existingService.Name,
+		PatchType: apitypes.JSONPatchType,
+		Patch:     patch,
+	}}
+
+	test.WantEvents = append([]string{controllertesting.NewReceiverServicePatchedEvent()},
+		test.WantEvents...)
+
+	// The "WantPatches" part of the table test assumes that a patch is supposed to be for the namespace
+	// given by the "Key" field, which, in this case, is the namespace for the KafkaChannel.  This assumption
+	// is not correct, so that validation must be skipped here (this is true for the Update commands as well
+	// but the table test code does not verify that updates are done in the same namespace for some reason).
+	test.SkipNamespaceValidation = true
+	return test
+}
+
+func newServicePatchFailureTest(name string, options ...controllertesting.ServiceOption) TableRow {
+	test := newServicePatchTest(name, options...)
+	test.Name = "Existing Receiver Service, " + name + ", Patch Error"
+
+	test.WantEvents = []string{
+		controllertesting.NewReceiverServicePatchFailedEvent(),
+		Eventf(corev1.EventTypeWarning, event.ReceiverServiceReconciliationFailed.String(), "Failed To Reconcile Receiver Service: inducing failure for patch services"),
+		controllertesting.NewKafkaChannelFailedReconciliationEvent(),
+	}
+
+	test.WantStatusUpdates = []clientgotesting.UpdateActionImpl{{
+		Object: controllertesting.NewKafkaChannel(
+			controllertesting.WithReceiverDeploymentReady,
+			controllertesting.WithReceiverServicePatchFailed,
+		),
+	}}
+
+	// If the service fails, the other reconcilers are not executed, so no updates
+	test.WantUpdates = nil
+
+	test.WithReactors = []clientgotesting.ReactionFunc{InduceFailure("patch", "Services")}
+	test.WantErr = true
+
+	return test
+}
+
+// Creates a test that expects to not have a receiver service patch, using the provided options
+func newServiceNoPatchTest(name string, options ...controllertesting.ServiceOption) TableRow {
+	test := newReceiverBasicTest("Existing Receiver Service, " + name + ", No Patch")
+	test.Objects = append(test.Objects,
+		controllertesting.NewKafkaChannelReceiverService(options...),
+		controllertesting.NewKafkaChannelReceiverDeployment())
+	return test
+}
+
+// Creates a test that can serve as a common base for other receiver deployment tests
+func newReceiverBasicTest(name string) TableRow {
+	return TableRow{
+		Name: name,
+		Key:  controllertesting.KafkaSecretKey,
+		Objects: []runtime.Object{
+			controllertesting.NewKafkaSecret(controllertesting.WithKafkaSecretFinalizer),
+			controllertesting.NewKafkaChannel(),
+			controllertesting.NewKafkaChannelService(),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{
+			{
+				Object: controllertesting.NewKafkaChannel(
+					controllertesting.WithReceiverServiceReady,
+					controllertesting.WithReceiverDeploymentReady,
+				),
+			},
+		},
+		WantEvents: []string{controllertesting.NewKafkaSecretSuccessfulReconciliationEvent()},
+	}
 }

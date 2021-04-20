@@ -43,7 +43,7 @@ const (
 )
 
 // Ctor functions create a k8s controller with given params.
-type Ctor func(context.Context, *Listers, configmap.Watcher, []KafkaConfigOption) controller.Reconciler
+type Ctor func(context.Context, *Listers, configmap.Watcher, map[string]interface{}) controller.Reconciler
 
 // MakeFactory creates a reconciler factory with fake clients and controller created by `ctor`.
 func MakeFactory(ctor Ctor, logger *zap.Logger) Factory {
@@ -67,13 +67,8 @@ func MakeFactory(ctor Ctor, logger *zap.Logger) Factory {
 		eventRecorder := record.NewFakeRecorder(maxEventBufferSize)
 		ctx = controller.WithEventRecorder(ctx, eventRecorder)
 
-		configOptions, ok := r.OtherTestData["configOptions"]
-		if !ok || configOptions == nil {
-			configOptions = []KafkaConfigOption{}
-		}
-
 		// Set up our Controller from the fakes.
-		c := ctor(ctx, &ls, configmap.NewStaticWatcher(), configOptions.([]KafkaConfigOption))
+		c := ctor(ctx, &ls, configmap.NewStaticWatcher(), r.OtherTestData)
 
 		// The Reconciler won't do any work until it becomes the leader.
 		if la, ok := c.(reconciler.LeaderAware); ok {

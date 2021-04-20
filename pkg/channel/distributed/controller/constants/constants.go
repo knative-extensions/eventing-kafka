@@ -82,13 +82,28 @@ const (
 	KafkaTopicConfigRetentionMs = "retention.ms"
 
 	// Health Configuration
-	HealthPort                = 8082
-	ChannelLivenessDelay      = 30
-	ChannelLivenessPeriod     = 5
-	ChannelReadinessDelay     = 30
-	ChannelReadinessPeriod    = 5
-	DispatcherLivenessDelay   = 30
-	DispatcherLivenessPeriod  = 5
-	DispatcherReadinessDelay  = 30
-	DispatcherReadinessPeriod = 5
+	// Note that many of these are the default values for a corev1 "Probe" struct,
+	// but we explicitly set them here so that the difference between "0, therefore default"
+	// and a specific value doesn't cause CheckDeploymentChanged to create spurious distinctions
+	HealthPort                          = 8082
+	ChannelLivenessDelay                = 30
+	ChannelLivenessPeriod               = 5
+	ChannelLivenessTimeout              = 10
+	ChannelLivenessSuccessThreshold     = 1
+	ChannelLivenessFailureThreshold     = 3
+	ChannelReadinessDelay               = 30
+	ChannelReadinessPeriod              = 5
+	ChannelReadinessTimeout             = 10
+	ChannelReadinessSuccessThreshold    = 1
+	ChannelReadinessFailureThreshold    = 3
+	DispatcherLivenessDelay             = 30
+	DispatcherLivenessPeriod            = 5
+	DispatcherLivenessTimeout           = 10
+	DispatcherLivenessSuccessThreshold  = 1
+	DispatcherLivenessFailureThreshold  = 3
+	DispatcherReadinessDelay            = 30
+	DispatcherReadinessPeriod           = 5
+	DispatcherReadinessTimeout          = 10
+	DispatcherReadinessSuccessThreshold = 1
+	DispatcherReadinessFailureThreshold = 3
 )

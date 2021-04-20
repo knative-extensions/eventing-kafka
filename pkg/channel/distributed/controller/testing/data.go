@@ -21,6 +21,8 @@ import (
 	"strconv"
 	"time"
 
+	"k8s.io/utils/pointer"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -194,9 +196,133 @@ func WithoutFinalizersDeployment(deployment *appsv1.Deployment) {
 	deployment.ObjectMeta.Finalizers = []string{}
 }
 
+func WithoutServicePorts(service *corev1.Service) {
+	service.Spec.Ports = []corev1.ServicePort{}
+}
+
+func WithoutServiceSelector(service *corev1.Service) {
+	service.Spec.Selector = map[string]string{}
+}
+
+func WithoutServiceLabels(service *corev1.Service) {
+	service.Labels = map[string]string{}
+}
+
+func WithExtraServiceLabels(service *corev1.Service) {
+	service.Labels["ExtraLabelName"] = "ExtraLabelValue"
+}
+
+func WithDifferentServiceStatus(service *corev1.Service) {
+	service.Status.LoadBalancer = corev1.LoadBalancerStatus{
+		Ingress: []corev1.LoadBalancerIngress{
+			{
+				IP:       "1.2.3.4",
+				Hostname: "DifferentHostname",
+			},
+		},
+	}
+}
+
 func WithoutResources(deployment *appsv1.Deployment) {
 	deployment.Spec.Template.Spec.Containers[0].Resources.Limits = nil
 	deployment.Spec.Template.Spec.Containers[0].Resources.Requests = nil
+}
+
+func WithDifferentName(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].Name = "DifferentName"
+}
+
+func WithDifferentImage(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].Image = "DifferentImage"
+}
+
+func WithDifferentCommand(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].Command = []string{"DifferentCommand"}
+}
+
+func WithDifferentArgs(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].Args = []string{"DifferentArgs"}
+}
+
+func WithDifferentWorkingDir(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].WorkingDir = "DifferentWorkingDir"
+}
+
+func WithDifferentPorts(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].Ports = []corev1.ContainerPort{
+		{Name: "DifferentPortName"},
+	}
+}
+
+func WithMissingEnvironment(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].Env = []corev1.EnvVar{}
+}
+
+func WithDifferentEnvironment(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].Env = append(
+		deployment.Spec.Template.Spec.Containers[0].Env,
+		corev1.EnvVar{Name: "NewEnvName", Value: "NewEnvValue"},
+	)
+}
+
+func WithDifferentVolumeMounts(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{
+		{Name: "DifferentVolumeMount"},
+	}
+}
+
+func WithDifferentVolumeDevices(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].VolumeDevices = []corev1.VolumeDevice{
+		{Name: "DifferentVolumeDevice"},
+	}
+}
+
+func WithDifferentLivenessProbe(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].LivenessProbe = &corev1.Probe{Handler: corev1.Handler{}}
+}
+
+func WithDifferentReadinessProbe(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].ReadinessProbe = &corev1.Probe{Handler: corev1.Handler{}}
+}
+
+func WithDifferentLifecycle(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].Lifecycle = &corev1.Lifecycle{PostStart: &corev1.Handler{}}
+}
+
+func WithDifferentTerminationPath(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].TerminationMessagePath = "DifferentTerminationPath"
+}
+
+func WithDifferentTerminationPolicy(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].TerminationMessagePolicy = corev1.TerminationMessageFallbackToLogsOnError
+}
+
+func WithDifferentImagePullPolicy(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].ImagePullPolicy = corev1.PullNever
+}
+
+func WithDifferentSecurityContext(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{}
+}
+
+func WithDifferentReplicas(deployment *appsv1.Deployment) {
+	deployment.Spec.Replicas = pointer.Int32Ptr(10)
+}
+
+func WithoutLabels(deployment *appsv1.Deployment) {
+	deployment.ObjectMeta.Labels = map[string]string{}
+}
+
+func WithExtraLabels(deployment *appsv1.Deployment) {
+	deployment.ObjectMeta.Labels["ExtraLabelName"] = "ExtraLabelValue"
+}
+
+func WithoutAnnotations(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.ObjectMeta.Annotations = map[string]string{}
+}
+
+func WithExtraAnnotations(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.ObjectMeta.Annotations["ExtraAnnotationName"] = "ExtraAnnotationValue"
 }
 
 //
@@ -438,6 +564,11 @@ func WithAddress(kafkachannel *kafkav1beta1.KafkaChannel) {
 	})
 }
 
+// Set The KafkaChannel's Configuration As Failed - No Secret
+func WithKafkaChannelConfigurationFailedNoSecret(kafkachannel *kafkav1beta1.KafkaChannel) {
+	kafkachannel.Status.GetConditionSet().Manage(&kafkachannel.Status).MarkFalse("ConfigurationReady", "KafkaSecretReconciled", "No Kafka Secret For KafkaChannel")
+}
+
 // Set The KafkaChannel's Service As READY
 func WithKafkaChannelServiceReady(kafkachannel *kafkav1beta1.KafkaChannel) {
 	kafkachannel.Status.MarkChannelServiceTrue()
@@ -458,6 +589,11 @@ func WithReceiverServiceFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
 	kafkachannel.Status.MarkServiceFailed(event.ReceiverServiceReconciliationFailed.String(), "Receiver Service Failed: inducing failure for create services")
 }
 
+// Set The KafkaChannel's Receiver Service As Failed
+func WithReceiverServicePatchFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
+	kafkachannel.Status.MarkServiceFailed(event.ReceiverServiceReconciliationFailed.String(), "Receiver Service Failed: inducing failure for patch services")
+}
+
 // Set The KafkaChannel's Receiver Service As Finalized
 func WithReceiverServiceFinalized(kafkachannel *kafkav1beta1.KafkaChannel) {
 	kafkachannel.Status.MarkServiceFailed("ChannelServiceUnavailable", "Kafka Auth Secret Finalized")
@@ -471,6 +607,11 @@ func WithReceiverDeploymentReady(kafkachannel *kafkav1beta1.KafkaChannel) {
 // Set The KafkaChannel's Receiver Deployment As Failed
 func WithReceiverDeploymentFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
 	kafkachannel.Status.MarkEndpointsFailed(event.ReceiverDeploymentReconciliationFailed.String(), "Receiver Deployment Failed: inducing failure for create deployments")
+}
+
+// Set The KafkaChannel's Receiver Deployment Update As Failed
+func WithReceiverDeploymentUpdateFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
+	kafkachannel.Status.MarkEndpointsFailed(event.ReceiverDeploymentReconciliationFailed.String(), "Receiver Deployment Failed: inducing failure for update deployments")
 }
 
 // Set The KafkaChannel's Receiver Deployment As Finalized
@@ -488,6 +629,15 @@ func WithDispatcherDeploymentReady(_ *kafkav1beta1.KafkaChannel) {
 // Set The KafkaChannel's Dispatcher Deployment As Failed
 func WithDispatcherFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
 	kafkachannel.Status.MarkDispatcherFailed(event.DispatcherDeploymentReconciliationFailed.String(), "Failed To Create Dispatcher Deployment: inducing failure for create deployments")
+}
+
+// Set The KafkaChannel's Dispatcher Update As Failed
+func WithDispatcherUpdateFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
+	kafkachannel.Status.MarkDispatcherFailed(event.DispatcherDeploymentUpdateFailed.String(), "Failed To Update Dispatcher Deployment: inducing failure for update deployments")
+}
+
+func WithDispatcherServicePatchFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
+	kafkachannel.Status.MarkDispatcherFailed(event.DispatcherServicePatchFailed.String(), "Failed To Patch Dispatcher Service: inducing failure for patch services")
 }
 
 // Set The KafkaChannel's Topic READY
@@ -634,6 +784,9 @@ func NewKafkaChannelReceiverDeployment(options ...DeploymentOption) *appsv1.Depl
 								},
 								InitialDelaySeconds: constants.ChannelLivenessDelay,
 								PeriodSeconds:       constants.ChannelLivenessPeriod,
+								TimeoutSeconds:      constants.ChannelLivenessTimeout,
+								SuccessThreshold:    constants.ChannelLivenessSuccessThreshold,
+								FailureThreshold:    constants.ChannelLivenessFailureThreshold,
 							},
 							ReadinessProbe: &corev1.Probe{
 								Handler: corev1.Handler{
@@ -644,6 +797,9 @@ func NewKafkaChannelReceiverDeployment(options ...DeploymentOption) *appsv1.Depl
 								},
 								InitialDelaySeconds: constants.ChannelReadinessDelay,
 								PeriodSeconds:       constants.ChannelReadinessPeriod,
+								TimeoutSeconds:      constants.ChannelReadinessTimeout,
+								SuccessThreshold:    constants.ChannelReadinessSuccessThreshold,
+								FailureThreshold:    constants.ChannelReadinessFailureThreshold,
 							},
 							Image: ReceiverImage,
 							Ports: []corev1.ContainerPort{
@@ -854,6 +1010,9 @@ func NewKafkaChannelDispatcherDeployment(options ...DeploymentOption) *appsv1.De
 								},
 								InitialDelaySeconds: constants.DispatcherLivenessDelay,
 								PeriodSeconds:       constants.DispatcherLivenessPeriod,
+								TimeoutSeconds:      constants.DispatcherLivenessTimeout,
+								SuccessThreshold:    constants.DispatcherLivenessSuccessThreshold,
+								FailureThreshold:    constants.DispatcherLivenessFailureThreshold,
 							},
 							ReadinessProbe: &corev1.Probe{
 								Handler: corev1.Handler{
@@ -864,6 +1023,9 @@ func NewKafkaChannelDispatcherDeployment(options ...DeploymentOption) *appsv1.De
 								},
 								InitialDelaySeconds: constants.DispatcherReadinessDelay,
 								PeriodSeconds:       constants.DispatcherReadinessPeriod,
+								TimeoutSeconds:      constants.DispatcherReadinessTimeout,
+								SuccessThreshold:    constants.DispatcherReadinessSuccessThreshold,
+								FailureThreshold:    constants.DispatcherReadinessFailureThreshold,
 							},
 							Env: []corev1.EnvVar{
 								{
@@ -1023,6 +1185,46 @@ func NewFinalizerPatchActionImpl() clientgotesting.PatchActionImpl {
 		Patch:     []byte(`{"metadata":{"finalizers":["kafkachannels.messaging.knative.dev"],"resourceVersion":""}}`),
 		// Above finalizer name matches package private "defaultFinalizerName" constant in injection/reconciler/messaging/v1beta1/kafkachannel ;)
 	}
+}
+
+// Utility Function For Creating A Receiver Deployment Updated Event
+func NewReceiverDeploymentUpdatedEvent() string {
+	return reconcilertesting.Eventf(corev1.EventTypeNormal, event.ReceiverDeploymentUpdated.String(), "Receiver Deployment Updated")
+}
+
+// Utility Function For Creating A Receiver Service Patched Event
+func NewReceiverServicePatchedEvent() string {
+	return reconcilertesting.Eventf(corev1.EventTypeNormal, event.ReceiverServicePatched.String(), "Receiver Service Patched")
+}
+
+// Utility Function For Creating A Receiver Service Patch Failure Event
+func NewReceiverServicePatchFailedEvent() string {
+	return reconcilertesting.Eventf(corev1.EventTypeWarning, event.ReceiverServicePatchFailed.String(), "Receiver Service Patch Failed")
+}
+
+// Utility Function For Creating A Dispatcher Deployment Updated Event
+func NewKafkaChannelDispatcherDeploymentUpdatedEvent() string {
+	return reconcilertesting.Eventf(corev1.EventTypeNormal, event.DispatcherDeploymentUpdated.String(), "Dispatcher Deployment Updated")
+}
+
+// Utility Function For Creating A Dispatcher Deployment Update Failure Event
+func NewKafkaSecretReceiverDeploymentUpdateFailedEvent() string {
+	return reconcilertesting.Eventf(corev1.EventTypeWarning, event.ReceiverDeploymentUpdateFailed.String(), "Receiver Deployment Update Failed")
+}
+
+// Utility Function For Creating A Dispatcher Deployment Update Failure Event
+func NewKafkaChannelDispatcherDeploymentUpdateFailedEvent() string {
+	return reconcilertesting.Eventf(corev1.EventTypeWarning, event.DispatcherDeploymentUpdateFailed.String(), "Dispatcher Deployment Update Failed")
+}
+
+// Utility Function For Creating A Dispatcher Service Patched Event
+func NewKafkaChannelDispatcherServicePatchedEvent() string {
+	return reconcilertesting.Eventf(corev1.EventTypeNormal, event.DispatcherServicePatched.String(), "Dispatcher Service Patched")
+}
+
+// Utility Function For Creating A Dispatcher Service Patch Failure Event
+func NewKafkaChannelDispatcherServicePatchFailedEvent() string {
+	return reconcilertesting.Eventf(corev1.EventTypeWarning, event.DispatcherServicePatchFailed.String(), "Dispatcher Service Patch Failed")
 }
 
 // Utility Function For Creating A Successful KafkaChannel Reconciled Event
