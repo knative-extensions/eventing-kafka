@@ -513,7 +513,8 @@ func (r *Reconciler) reconcileTopic(ctx context.Context, channel *v1beta1.KafkaC
 	logger := logging.FromContext(ctx)
 
 	topicName := utils.TopicName(utils.KafkaChannelSeparator, channel.Namespace, channel.Name)
-	logger.Infow("Creating topic on Kafka cluster", zap.String("topic", topicName))
+	logger.Infow("Creating topic on Kafka cluster", zap.String("topic", topicName),
+		zap.Int32("partitions", channel.Spec.NumPartitions), zap.Int16("replication", channel.Spec.ReplicationFactor))
 	err := kafkaClusterAdmin.CreateTopic(topicName, &sarama.TopicDetail{
 		ReplicationFactor: channel.Spec.ReplicationFactor,
 		NumPartitions:     channel.Spec.NumPartitions,
