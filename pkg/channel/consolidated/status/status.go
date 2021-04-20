@@ -431,7 +431,7 @@ func (m *Prober) processWorkItem() bool {
 	} else if !ok {
 		// No error, but verification failed, enqueue for retry
 		m.workQueue.AddRateLimited(obj)
-		item.logger.Debugw("Verification of pod response failedVerification of pod response failed.",
+		item.logger.Debugw("Verification of pod response failed.",
 			zap.Any("url", item.url), zap.Any("IP", item.podIP),
 			zap.Any("port", item.podPort), zap.Bool("ready", ok), zap.Error(err),
 			zap.Int("depth", m.workQueue.Len()))
