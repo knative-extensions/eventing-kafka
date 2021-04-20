@@ -25,10 +25,40 @@ import (
 
 	bindingsv1alpha1 "knative.dev/eventing-kafka/pkg/apis/bindings/v1alpha1"
 	bindingsv1beta1 "knative.dev/eventing-kafka/pkg/apis/bindings/v1beta1"
+	channelsv1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	sourcesv1alpha1 "knative.dev/eventing-kafka/pkg/apis/sources/v1alpha1"
 	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 )
+
+func CreateKafkaChannelV1Beta1OrFail(c *testlib.Client, kafkaChannel *channelsv1beta1.KafkaChannel) {
+	kafkaChannelClientSet, err := kafkaclientset.NewForConfig(c.Config)
+	if err != nil {
+		c.T.Fatalf("Failed to create v1beta1 KafkaChannel client: %v", err)
+	}
+
+	kChannels := kafkaChannelClientSet.MessagingV1beta1().KafkaChannels(c.Namespace)
+	if createdKafkaChannel, err := kChannels.Create(context.Background(), kafkaChannel, metav1.CreateOptions{}); err != nil {
+		c.T.Fatalf("Failed to create v1beta1 KafkaChannel %q: %v", kafkaChannel.Name, err)
+	} else {
+		c.Tracker.AddObj(createdKafkaChannel)
+	}
+}
+
+func GetKafkaChannelV1Beta1OrFail(c *testlib.Client, kafkaChannel string) *channelsv1beta1.KafkaChannel {
+	kafkaChannelClientSet, err := kafkaclientset.NewForConfig(c.Config)
+	if err != nil {
+		c.T.Fatalf("Failed to create v1beta1 KafkaChannel client: %v", err)
+	}
+
+	kChannels := kafkaChannelClientSet.MessagingV1beta1().KafkaChannels(c.Namespace)
+	if kcObj, err := kChannels.Get(context.Background(), kafkaChannel, metav1.GetOptions{}); err != nil {
+		c.T.Fatalf("Failed to get v1beta1 KafkaChannel %q: %v", kafkaChannel, err)
+	} else {
+		return kcObj
+	}
+	return nil
+}
 
 func CreateKafkaSourceV1Alpha1OrFail(c *testlib.Client, kafkaSource *sourcesv1alpha1.KafkaSource) {
 	kafkaSourceClientSet, err := kafkaclientset.NewForConfig(c.Config)

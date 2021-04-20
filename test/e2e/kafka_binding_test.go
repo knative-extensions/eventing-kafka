@@ -44,7 +44,7 @@ func testKafkaBinding(t *testing.T, version string, messageKey string, messageHe
 
 	defer testlib.TearDown(client)
 
-	helpers.MustCreateTopic(client, kafkaClusterName, kafkaClusterNamespace, kafkaTopicName)
+	helpers.MustCreateTopic(client, kafkaClusterName, kafkaClusterNamespace, kafkaTopicName, 10)
 
 	t.Logf("Creating EventRecord")
 	eventTracker, _ := recordevents.StartEventRecordOrFail(context.Background(), client, loggerPodName)

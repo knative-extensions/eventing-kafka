@@ -42,7 +42,7 @@ func KafkaSourceV1B1ClientSetupOption(name string, kafkaClusterName string, kafk
 			consumerGroup  = uuid.New().String()
 		)
 
-		helpers.MustCreateTopic(client, kafkaClusterName, kafkaClusterNamespace, kafkaTopicName)
+		helpers.MustCreateTopic(client, kafkaClusterName, kafkaClusterNamespace, kafkaTopicName, 10)
 
 		recordevents.StartEventRecordOrFail(context.Background(), client, recordEventsPodName)
 

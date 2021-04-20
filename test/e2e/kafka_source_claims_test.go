@@ -60,7 +60,7 @@ func TestKafkaSourceClaims(t *testing.T) {
 	defer testlib.TearDown(client)
 
 	t.Logf("Creating topic: %s\n", topic)
-	helpers.MustCreateTopic(client, kafkaClusterName, kafkaClusterNamespace, topic)
+	helpers.MustCreateTopic(client, kafkaClusterName, kafkaClusterNamespace, topic, 10)
 
 	t.Logf("Creating default eventrecorder pod: %s\n", sink)
 	eventTracker, _ := recordevents.StartEventRecordOrFail(context.Background(), client, sink)
