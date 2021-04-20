@@ -482,15 +482,20 @@ func (k *kafkaConsumerGroupFactory) StartConsumerGroup(groupID string, topics []
 
 type mockConsumerGroup struct {
 	*consumertesting.MockConsumerGroup
+	mutex          sync.Mutex
 	invokedConsume *sync.WaitGroup
 }
 
 func (m *mockConsumerGroup) Consume(ctx context.Context, addrs []string, h sarama.ConsumerGroupHandler) error {
+	m.mutex.Lock()
 	if m.MockConsumerGroup == nil || m.MockConsumerGroup.Closed {
 		m.MockConsumerGroup = consumertesting.NewMockConsumerGroup()
 	}
+	m.mutex.Unlock()
 	m.invokedConsume.Done()
 	go func() {
+		m.mutex.Lock()
+		defer m.mutex.Unlock()
 		_ = m.MockConsumerGroup.Consume(ctx, addrs, h)
 	}()
 	return nil
