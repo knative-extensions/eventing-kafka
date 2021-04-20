@@ -19,14 +19,12 @@ package helpers
 import (
 	"context"
 	"fmt"
-	"strings"
 	"testing"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	. "github.com/cloudevents/sdk-go/v2/test"
 	"github.com/google/uuid"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	channelsv1alpha1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1alpha1"
 	channelsv1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	contribtestlib "knative.dev/eventing-kafka/test/lib"
 	testlib "knative.dev/eventing/test/lib"
@@ -67,27 +65,15 @@ func readyDispatcherPodsCheck(ctx context.Context, t *testing.T, client *testlib
 }
 
 func createKafkaChannel(client *testlib.Client, kafkaChannelMeta metav1.TypeMeta, kafkaChannelName string) {
-	if strings.HasSuffix(kafkaChannelMeta.APIVersion, "/v1beta1") {
-		kafkaChannelV1Beta1 := &channelsv1beta1.KafkaChannel{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: kafkaChannelName,
-			},
-			Spec: channelsv1beta1.KafkaChannelSpec{
-				NumPartitions: 3,
-			},
-		}
-		contribtestlib.CreateKafkaChannelV1Beta1OrFail(client, kafkaChannelV1Beta1)
-	} else {
-		kafkaChannelV1Alpha1 := &channelsv1alpha1.KafkaChannel{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: kafkaChannelName,
-			},
-			Spec: channelsv1alpha1.KafkaChannelSpec{
-				NumPartitions: 3,
-			},
-		}
-		contribtestlib.CreateKafkaChannelV1Alpha1OrFail(client, kafkaChannelV1Alpha1)
+	kafkaChannelV1Beta1 := &channelsv1beta1.KafkaChannel{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: kafkaChannelName,
+		},
+		Spec: channelsv1beta1.KafkaChannelSpec{
+			NumPartitions: 3,
+		},
 	}
+	contribtestlib.CreateKafkaChannelV1Beta1OrFail(client, kafkaChannelV1Beta1)
 }
 
 func ChannelSubscriptionScaleReadyHelper(
