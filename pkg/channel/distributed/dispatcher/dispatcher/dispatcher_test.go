@@ -27,16 +27,17 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	consumertesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer/testing"
-	consumerwrapper "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer/wrapper"
-	commonclient "knative.dev/eventing-kafka/pkg/common/client"
-	clienttesting "knative.dev/eventing-kafka/pkg/common/client/testing"
-	configtesting "knative.dev/eventing-kafka/pkg/common/config/testing"
-	"knative.dev/eventing-kafka/pkg/common/metrics"
-	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
+
+	consumertesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer/testing"
+	commonclient "knative.dev/eventing-kafka/pkg/common/client"
+	clienttesting "knative.dev/eventing-kafka/pkg/common/client/testing"
+	configtesting "knative.dev/eventing-kafka/pkg/common/config/testing"
+	commonconsumertesting "knative.dev/eventing-kafka/pkg/common/consumer/testing"
+	"knative.dev/eventing-kafka/pkg/common/metrics"
+	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 )
 
 // Test Data
@@ -65,7 +66,6 @@ func TestNewSubscriberWrapper(t *testing.T) {
 	assert.Equal(t, subscriber.UID, subscriberWrapper.UID)
 	assert.Equal(t, consumerGroup, subscriberWrapper.ConsumerGroup)
 	assert.Equal(t, groupId, subscriberWrapper.GroupId)
-	assert.NotNil(t, subscriberWrapper.StopChan)
 }
 
 // Test The NewDispatcher() Functionality
@@ -248,18 +248,11 @@ func TestUpdateSubscriptions(t *testing.T) {
 	for _, testCase := range filteredTestCases {
 		t.Run(testCase.name, func(t *testing.T) {
 
-			// Mock The ConsumerGroup & Stub The NewSyncConsumerGroupWrapper()
-			mockConsumerGroup := consumertesting.NewMockConsumerGroup()
-			consumertesting.StubNewConsumerGroupFn(customValidationNewConsumerGroupFn(t,
-				testCase.fields.DispatcherConfig.Brokers,
-				testCase.args.subscriberSpecs,
-				testCase.fields.DispatcherConfig.SaramaConfig,
-				mockConsumerGroup))
-
 			// Create A New DispatcherImpl To Test
 			dispatcher := &DispatcherImpl{
-				DispatcherConfig: testCase.fields.DispatcherConfig,
-				subscribers:      testCase.fields.subscribers,
+				DispatcherConfig:     testCase.fields.DispatcherConfig,
+				subscribers:          testCase.fields.subscribers,
+				consumerGroupFactory: &commonconsumertesting.MockKafkaConsumerGroupFactory{},
 			}
 
 			// Perform The Test
@@ -433,26 +426,6 @@ func createTestDispatcher(t *testing.T, brokers []string, config *sarama.Config)
 
 	// Return The Dispatcher
 	return dispatcher
-}
-
-// Custom Validation Function For NewConsumerGroup - Capable Of Verifying Multiple GroupIds
-func customValidationNewConsumerGroupFn(t *testing.T,
-	expectedBrokers []string,
-	subscriberSpecs []eventingduck.SubscriberSpec,
-	expectedConfig *sarama.Config,
-	mockConsumerGroup sarama.ConsumerGroup) consumerwrapper.NewConsumerGroupFnType {
-
-	expectedGroupIds := make([]string, len(subscriberSpecs))
-	for _, subscriberSpec := range subscriberSpecs {
-		expectedGroupIds = append(expectedGroupIds, fmt.Sprintf("kafka.%s", subscriberSpec.UID))
-	}
-
-	return func(brokers []string, groupId string, config *sarama.Config) (sarama.ConsumerGroup, error) {
-		assert.Equal(t, brokers, expectedBrokers)
-		assert.Contains(t, expectedGroupIds, groupId)
-		assert.Equal(t, config, expectedConfig)
-		return mockConsumerGroup, nil
-	}
 }
 
 func TestConfigImpl_ObserveMetrics(t *testing.T) {
