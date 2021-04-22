@@ -38,8 +38,9 @@ import (
 )
 
 type envConfig struct {
-	SchedulerRefreshPeriod int64 `envconfig:"AUTOSCALER_REFRESH_PERIOD" required:"true"`
-	PodCapacity            int32 `envconfig:"POD_CAPACITY" required:"true"`
+	SchedulerRefreshPeriod int64                         `envconfig:"AUTOSCALER_REFRESH_PERIOD" required:"true"`
+	PodCapacity            int32                         `envconfig:"POD_CAPACITY" required:"true"`
+	SchedulerPolicy        scheduler.SchedulerPolicyType `envconfig:"SCHEDULER_POLICY_TYPE" required:"true"`
 }
 
 func NewController(
@@ -70,7 +71,7 @@ func NewController(
 	sourcesv1beta1.RegisterAlternateKafkaConditionSet(sourcesv1beta1.KafkaMTSourceCondSet)
 
 	rp := time.Duration(env.SchedulerRefreshPeriod) * time.Second
-	c.scheduler = scheduler.NewScheduler(ctx, system.Namespace(), mtadapterName, c.vpodLister, rp, env.PodCapacity)
+	c.scheduler = scheduler.NewScheduler(ctx, system.Namespace(), mtadapterName, c.vpodLister, rp, env.PodCapacity, env.SchedulerPolicy)
 
 	logging.FromContext(ctx).Info("Setting up kafka event handlers")
 	kafkaInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))

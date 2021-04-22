@@ -21,8 +21,6 @@ import (
 	"reflect"
 	"testing"
 
-	logtesting "knative.dev/pkg/logging/testing"
-
 	duckv1alpha1 "knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
 	tscheduler "knative.dev/eventing-kafka/pkg/common/scheduler/testing"
 )
@@ -71,6 +69,7 @@ func TestStateBuilder(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			ctx, _ := setupFakeContext(t)
 			vpodClient := tscheduler.NewVPodClient()
 
 			for i, placements := range tc.vpods {
@@ -80,7 +79,7 @@ func TestStateBuilder(t *testing.T) {
 				vpodClient.Create(vpodNamespace, vpodName, 1, placements)
 			}
 
-			stateBuilder := newStateBuilder(logtesting.TestLogger(t), vpodClient.List, int32(10))
+			stateBuilder := newStateBuilder(ctx, vpodClient.List, int32(10), MaxFillup)
 			state, err := stateBuilder.State()
 			if err != nil {
 				t.Fatal("unexpected error", err)

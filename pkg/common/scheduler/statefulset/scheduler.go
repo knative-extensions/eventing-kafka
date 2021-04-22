@@ -18,13 +18,18 @@ package statefulset
 
 import (
 	"context"
+	"errors"
+	"math"
+	"sort"
 	"sync"
 	"time"
 
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	clientappsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
+	clientcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/integer"
 
@@ -37,14 +42,28 @@ import (
 	"knative.dev/eventing-kafka/pkg/common/scheduler"
 )
 
+type SchedulerPolicyType int
+
+const (
+	// MaxFillup policy type adds replicas to existing pods to fill them up before adding to new pods
+	MaxFillup SchedulerPolicyType = iota
+	// EvenSpread policy type spreads replicas uniformly across zones in different regions for HA, and within each zone, fills up replicas in existing and new pods
+	EvenSpread
+)
+
+const (
+	ZoneLabel = "topology.kubernetes.io/zone"
+)
+
 // NewScheduler creates a new scheduler with pod autoscaling enabled.
 func NewScheduler(ctx context.Context,
 	namespace, name string,
 	lister scheduler.VPodLister,
 	refreshPeriod time.Duration,
-	capacity int32) scheduler.Scheduler {
+	capacity int32,
+	schedulerPolicy SchedulerPolicyType) scheduler.Scheduler {
 
-	stateAccessor := newStateBuilder(logging.FromContext(ctx), lister, capacity)
+	stateAccessor := newStateBuilder(ctx, lister, capacity, schedulerPolicy)
 	autoscaler := NewAutoscaler(ctx, namespace, name, stateAccessor, refreshPeriod, capacity)
 
 	go autoscaler.Start(ctx)
@@ -57,6 +76,7 @@ type StatefulSetScheduler struct {
 	logger            *zap.SugaredLogger
 	statefulSetName   string
 	statefulSetClient clientappsv1.StatefulSetInterface
+	podClient         clientcorev1.PodInterface
 	vpodLister        scheduler.VPodLister
 	lock              sync.Locker
 	stateAccessor     stateAccessor
@@ -80,6 +100,7 @@ func NewStatefulSetScheduler(ctx context.Context,
 		logger:            logging.FromContext(ctx),
 		statefulSetName:   name,
 		statefulSetClient: kubeclient.Get(ctx).AppsV1().StatefulSets(namespace),
+		podClient:         kubeclient.Get(ctx).CoreV1().Pods(namespace),
 		vpodLister:        lister,
 		pending:           make(map[types.NamespacedName]int32),
 		lock:              new(sync.Mutex),
@@ -113,10 +134,16 @@ func (s *StatefulSetScheduler) Schedule(vpod scheduler.VPod) ([]duckv1alpha1.Pla
 	}
 
 	placements := vpod.GetPlacements()
+	var spreadVal, left int32
 
-	// The scheduler
-	// - allocates as many vreplicas as possible to the same pod(s) (TODO: HA)
+	// The scheduler when policy type is
+	// Policy: MaxFillup (SchedulerPolicyType == MaxFillup)
+	// - allocates as many vreplicas as possible to the same pod(s)
 	// - allocates remaining vreplicas to new pods
+	// Policy: EvenSpread (SchedulerPolicyType == EvenSpread)
+	// - divides up vreplicas equally between the zones and
+	// - allocates as many vreplicas as possible to existing pods while not going over the equal spread value
+	// - allocates remaining vreplicas to new pods created in new zones still satisfying equal spread
 
 	// Exact number of vreplicas => do nothing
 	tr := scheduler.GetTotalVReplicas(placements)
@@ -128,10 +155,20 @@ func (s *StatefulSetScheduler) Schedule(vpod scheduler.VPod) ([]duckv1alpha1.Pla
 		return placements, nil
 	}
 
+	if state.schedulerPolicy == EvenSpread {
+		//spreadVal is the minimum number of replicas to be placed in each zone for high availability (total replicas divided by number of zones in cluster)
+		spreadVal = int32(math.Ceil(float64(vpod.GetVReplicas()) / float64(state.numZones)))
+		logger.Infow("number of replicas per zone", zap.Int32("spreadVal", spreadVal))
+	}
+
 	// Need less => scale down
 	if tr > vpod.GetVReplicas() {
 		logger.Infow("scaling down", zap.Int32("vreplicas", tr), zap.Int32("new vreplicas", vpod.GetVReplicas()))
-		placements := s.removeReplicas(tr-vpod.GetVReplicas(), placements)
+		if state.schedulerPolicy == MaxFillup {
+			placements = s.removeReplicas(tr-vpod.GetVReplicas(), placements)
+		} else {
+			placements = s.removeReplicasEvenSpread(tr-vpod.GetVReplicas(), placements, spreadVal)
+		}
 
 		// Do not trigger the autoscaler to avoid unnecessary churn
 
@@ -140,10 +177,14 @@ func (s *StatefulSetScheduler) Schedule(vpod scheduler.VPod) ([]duckv1alpha1.Pla
 
 	// Need more => scale up
 	logger.Infow("scaling up", zap.Int32("vreplicas", tr), zap.Int32("new vreplicas", vpod.GetVReplicas()))
-	placements, left := s.addReplicas(state, vpod.GetVReplicas()-tr, placements)
+	if state.schedulerPolicy == MaxFillup {
+		placements, left = s.addReplicas(state, vpod.GetVReplicas()-tr, placements)
+	} else {
+		placements, left = s.addReplicasEvenSpread(state, vpod.GetVReplicas()-tr, placements, spreadVal)
+	}
 	if left > 0 {
 		// Give time for the autoscaler to do its job
-		logger.Info("scheduling failed (not enough pod replicas)", zap.Any("placement", placements))
+		logger.Info("scheduling failed (not enough pod replicas)", zap.Any("placement", placements), zap.Int32("left", left))
 
 		s.pending[vpod.GetKey()] = left
 
@@ -172,6 +213,51 @@ func (s *StatefulSetScheduler) removeReplicas(diff int32, placements []duckv1alp
 				VReplicas: placements[i].VReplicas - diff,
 			})
 			diff = 0
+		}
+	}
+	return newPlacements
+}
+
+func (s *StatefulSetScheduler) removeReplicasEvenSpread(diff int32, placements []duckv1alpha1.Placement, evenSpread int32) []duckv1alpha1.Placement {
+	newPlacements := make([]duckv1alpha1.Placement, 0, len(placements))
+	logger := s.logger.Named("remove replicas")
+
+	placementsByZone := getPlacementsByZoneKey(placements)
+	zoneNames := make([]string, 0, len(placementsByZone))
+	for zoneName := range placementsByZone {
+		zoneNames = append(zoneNames, zoneName)
+	}
+	sort.Strings(zoneNames) //for ordered accessing of map
+
+	for i := 0; i < len(zoneNames); i++ { //iterate through each zone
+		totalInZone := getTotalVReplicasInZone(placements, zoneNames[i])
+		logger.Info(zap.String("zoneName", zoneNames[i]), zap.Int32("totalInZone", totalInZone))
+
+		placementOrdinals := placementsByZone[zoneNames[i]]
+		for j := 0; j < len(placementOrdinals); j++ { //iterating through all existing pods belonging to a single zone
+			ordinal := placementOrdinals[j]
+			placement := s.getPlacementFromPodOrdinal(placements, ordinal)
+
+			if diff >= 0 && totalInZone > evenSpread {
+				deallocation := integer.Int32Min(diff, integer.Int32Min(placement.VReplicas, totalInZone-evenSpread))
+				logger.Info(zap.Int32("diff", diff), zap.Int32("deallocation", deallocation))
+
+				if deallocation < placement.VReplicas {
+					newPlacements = append(newPlacements, duckv1alpha1.Placement{
+						PodName:   placement.PodName,
+						ZoneName:  placement.ZoneName,
+						VReplicas: placement.VReplicas - deallocation,
+					})
+				}
+				diff -= deallocation
+				totalInZone -= deallocation
+			} else {
+				newPlacements = append(newPlacements, duckv1alpha1.Placement{
+					PodName:   placement.PodName,
+					ZoneName:  placement.ZoneName,
+					VReplicas: placement.VReplicas,
+				})
+			}
 		}
 	}
 	return newPlacements
@@ -225,6 +311,129 @@ func (s *StatefulSetScheduler) addReplicas(state *state, diff int32, placements 
 	}
 
 	return newPlacements, diff
+}
+
+func (s *StatefulSetScheduler) addReplicasEvenSpread(state *state, diff int32, placements []duckv1alpha1.Placement, evenSpread int32) ([]duckv1alpha1.Placement, int32) {
+	// Pod affinity MaxFillup algorithm prefer adding replicas to existing pods to fill them up before adding to new pods
+	// Pod affinity EvenSpread algorithm spread replicas across pods in different regions for HA
+	newPlacements := make([]duckv1alpha1.Placement, 0, len(placements))
+	logger := s.logger.Named("add replicas")
+
+	placementsByZone := getPlacementsByZoneKey(placements)
+	zoneNames := make([]string, 0, len(placementsByZone))
+	for zoneName := range placementsByZone {
+		zoneNames = append(zoneNames, zoneName)
+	}
+	sort.Strings(zoneNames) //for ordered accessing of map
+
+	for i := 0; i < len(zoneNames); i++ { //iterate through each zone
+		totalInZone := getTotalVReplicasInZone(placements, zoneNames[i])
+		logger.Info(zap.String("zoneName", zoneNames[i]), zap.Int32("totalInZone", totalInZone))
+
+		placementOrdinals := placementsByZone[zoneNames[i]]
+		for j := 0; j < len(placementOrdinals); j++ { //iterating through all existing pods belonging to a single zone
+			ordinal := placementOrdinals[j]
+			placement := s.getPlacementFromPodOrdinal(placements, ordinal)
+
+			// Is there space in Pod?
+			f := state.Free(ordinal)
+			if diff >= 0 && f > 0 && totalInZone < evenSpread {
+				allocation := integer.Int32Min(diff, integer.Int32Min(f, (evenSpread-totalInZone)))
+				logger.Info(zap.Int32("diff", diff), zap.Int32("allocation", allocation))
+
+				newPlacements = append(newPlacements, duckv1alpha1.Placement{
+					PodName:   placement.PodName,
+					ZoneName:  placement.ZoneName,
+					VReplicas: placement.VReplicas + allocation,
+				})
+
+				diff -= allocation
+				state.SetFree(ordinal, f-allocation)
+				totalInZone += allocation
+			} else {
+				newPlacements = append(newPlacements, placement)
+			}
+		}
+	}
+
+	if diff > 0 {
+		for ordinal := int32(0); ordinal < s.replicas; ordinal++ {
+			f := state.Free(ordinal)
+			if f > 0 { //here it is possible to hit pods that are in existing placements
+				podName := podNameFromOrdinal(s.statefulSetName, ordinal)
+				zoneName, err := s.getZoneNameFromPod(state, podName)
+				if err != nil {
+					logger.Errorw("Error getting zone info from pod", zap.Error(err))
+					continue //TODO: not continue?
+				}
+
+				totalInZone := getTotalVReplicasInZone(newPlacements, zoneName)
+				if totalInZone >= evenSpread {
+					continue //since current zone that pod belongs to is already at max spread
+				}
+				logger.Info("Need to schedule on a new pod", zap.Int32("ordinal", ordinal), zap.Int32("free", f), zap.String("zoneName", zoneName), zap.Int32("totalInZone", totalInZone))
+
+				allocation := integer.Int32Min(diff, integer.Int32Min(f, (evenSpread-totalInZone)))
+				logger.Info(zap.Int32("diff", diff), zap.Int32("allocation", allocation))
+
+				newPlacements = append(newPlacements, duckv1alpha1.Placement{
+					PodName:   podName,
+					ZoneName:  zoneName,
+					VReplicas: allocation, //TODO could there be existing vreplicas already?
+				})
+
+				diff -= allocation
+				state.SetFree(ordinal, f-allocation)
+				placementsByZone[zoneName] = append(placementsByZone[zoneName], ordinal)
+			}
+
+			if diff == 0 {
+				break
+			}
+		}
+	}
+	return newPlacements, diff
+}
+
+func (s *StatefulSetScheduler) getZoneNameFromPod(state *state, podName string) (zoneName string, err error) {
+	pod, err := s.podClient.Get(context.Background(), podName, metav1.GetOptions{})
+	if err != nil {
+		return zoneName, err
+	}
+
+	zoneName, ok := state.nodeToZoneMap[pod.Spec.NodeName]
+	if !ok {
+		return zoneName, errors.New("Could not find zone")
+	}
+	return zoneName, nil
+}
+
+func getPlacementsByZoneKey(placements []duckv1alpha1.Placement) map[string][]int32 {
+	placementsByZone := make(map[string][]int32)
+	for i := 0; i < len(placements); i++ {
+		zoneName := placements[i].ZoneName
+		placementsByZone[zoneName] = append(placementsByZone[zoneName], ordinalFromPodName(placements[i].PodName))
+	}
+	return placementsByZone
+}
+
+func getTotalVReplicasInZone(placements []duckv1alpha1.Placement, zoneName string) int32 {
+	var totalReplicasInZone int32
+	for i := 0; i < len(placements); i++ {
+		if placements[i].ZoneName == zoneName {
+			totalReplicasInZone += placements[i].VReplicas
+		}
+	}
+	return totalReplicasInZone
+}
+
+func (s *StatefulSetScheduler) getPlacementFromPodOrdinal(placements []duckv1alpha1.Placement, ordinal int32) (placement duckv1alpha1.Placement) {
+	for i := 0; i < len(placements); i++ {
+		if placements[i].PodName == podNameFromOrdinal(s.statefulSetName, ordinal) {
+			return placements[i]
+		}
+	}
+	return placement
 }
 
 // pendingReplicas returns the total number of vreplicas

@@ -26,7 +26,6 @@ import (
 
 	kubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/apps/v1/statefulset/fake"
-	"knative.dev/pkg/logging"
 
 	duckv1alpha1 "knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
 	"knative.dev/eventing-kafka/pkg/common/scheduler"
@@ -188,7 +187,7 @@ func TestAutoscaler(t *testing.T) {
 			ctx, _ := setupFakeContext(t)
 
 			vpodClient := tscheduler.NewVPodClient()
-			stateAccessor := newStateBuilder(logging.FromContext(ctx), vpodClient.List, 10)
+			stateAccessor := newStateBuilder(ctx, vpodClient.List, 10, MaxFillup)
 
 			sfsClient := kubeclient.Get(ctx).AppsV1().StatefulSets(testNs)
 			_, err := sfsClient.Create(ctx, makeStatefulset(ctx, testNs, sfsName, tc.replicas), metav1.CreateOptions{})
@@ -231,7 +230,7 @@ func TestAutoscalerScaleDownToZero(t *testing.T) {
 	})
 
 	vpodClient := tscheduler.NewVPodClient()
-	stateAccessor := newStateBuilder(logging.FromContext(ctx), vpodClient.List, 10)
+	stateAccessor := newStateBuilder(ctx, vpodClient.List, 10, MaxFillup)
 
 	sfsClient := kubeclient.Get(ctx).AppsV1().StatefulSets(testNs)
 	_, err := sfsClient.Create(ctx, makeStatefulset(ctx, testNs, sfsName, 10), metav1.CreateOptions{})
