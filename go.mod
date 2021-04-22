@@ -37,5 +37,7 @@ require (
 	knative.dev/eventing v0.22.1-0.20210414182901-fc115ae011e1
 	knative.dev/hack v0.0.0-20210325223819-b6ab329907d3
 	knative.dev/networking v0.0.0-20210413045200-a64b4beb7ef7
-	knative.dev/pkg v0.0.0-20210412173742-b51994e3b312
+	knative.dev/pkg v0.0.0-20210416161310-b80a1926251c
 )
+
+replace knative.dev/eventing => github.com/cardil/eventing v0.11.1-0.20210419165543-603d63ee180d

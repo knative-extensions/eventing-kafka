@@ -14,20 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package sender
+package main
 
-import cloudevents "github.com/cloudevents/sdk-go/v2"
+import (
+	"knative.dev/eventing-kafka/test/upgrade/continual"
+	"knative.dev/eventing/test/upgrade/prober/wathola/sender"
+)
 
-// Sender will send messages continuously until process receives a SIGINT
-type Sender interface {
-	SendContinually()
-}
-
-// EventSender will be used to send events to configured endpoint.
-type EventSender interface {
-	// Supports will check given endpoint definition and decide if it's valid for
-	// this sender.
-	Supports(endpoint interface{}) bool
-	// SendEvent will send event to given endpoint.
-	SendEvent(ce cloudevents.Event, endpoint interface{}) error
+func main() {
+	es := continual.BuildKafkaSender()
+	sender.RegisterEventSender(es)
+	sender.New().SendContinually()
 }
