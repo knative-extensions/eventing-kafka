@@ -35,7 +35,7 @@ func ChannelTest(opts TestOptions) pkgupgrade.BackgroundOperation {
 	var probe prober.Prober
 	setup := func(c pkgupgrade.Context) {
 		// setup
-		opts = fillInDefaults(c, opts)
+		opts = fillInDefaults(c, targetChannel, opts)
 		client = testlib.Setup(c.T, false)
 		opts.SetKafkaChannelAsDefault(KafkaChannelAsDefaultOptions{
 			UpgradeCtx:         c,

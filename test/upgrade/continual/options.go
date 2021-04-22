@@ -22,10 +22,11 @@ import (
 	eventingduckv1 "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/test/lib/resources"
 	"knative.dev/eventing/test/upgrade/prober"
+	pkgTest "knative.dev/pkg/test"
 )
 
 var (
-	defaultCustomizeConfig = func(config *prober.Config) {
+	defaultChannelCustomizeConfig = func(config *prober.Config) {
 		config.FailOnErrors = true
 		config.Interval = 2 * time.Millisecond
 		config.BrokerOpts = append(config.BrokerOpts,
@@ -34,6 +35,15 @@ var (
 				BackoffPolicy: &backoffPolicy,
 				BackoffDelay:  &backoffDelay,
 			}))
+	}
+	defaultSourceCustomizeConfig = func(config *prober.Config) {
+		defaultChannelCustomizeConfig(config)
+		config.Wathola.ContainerImageResolver = func(component string) string {
+			if component == "wathola-sender" {
+				component = "wathola-kafka-sender"
+			}
+			return pkgTest.ImagePath(component)
+		}
 	}
 	retryCount    = int32(12)
 	backoffPolicy = eventingduckv1.BackoffPolicyExponential

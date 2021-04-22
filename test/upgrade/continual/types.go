@@ -60,11 +60,24 @@ type KafkaChannelAsDefaultOptions struct {
 	ReplicationOptions
 	RetryOptions
 }
+type testTarget int
 
-func fillInDefaults(c pkgupgrade.Context, opts TestOptions) TestOptions {
+const (
+	targetChannel testTarget = iota
+	targetSource
+)
+
+func fillInDefaults(c pkgupgrade.Context, tt testTarget, opts TestOptions) TestOptions {
 	o := opts
 	if opts.ConfigCustomize == nil {
-		o.ConfigCustomize = defaultCustomizeConfig
+		switch tt {
+		case targetChannel:
+			o.ConfigCustomize = defaultChannelCustomizeConfig
+		case targetSource:
+			o.ConfigCustomize = defaultSourceCustomizeConfig
+		default:
+			c.T.Fatal("unsupported test target: ", tt)
+		}
 	}
 	if opts.SetKafkaChannelAsDefault == nil {
 		o.SetKafkaChannelAsDefault = configureKafkaChannelAsDefault
