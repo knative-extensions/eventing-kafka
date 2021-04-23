@@ -27,15 +27,15 @@ require (
 	go.uber.org/atomic v1.7.0
 	go.uber.org/zap v1.16.0
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
+	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
 	google.golang.org/protobuf v1.26.0
 	k8s.io/api v0.19.7
 	k8s.io/apimachinery v0.19.7
 	k8s.io/client-go v0.19.7
 	k8s.io/utils v0.0.0-20200729134348-d5654de09c73
-	knative.dev/control-protocol v0.0.0-20210413150400-e74ca1ccd031
-	knative.dev/eventing v0.22.1-0.20210414182901-fc115ae011e1
+	knative.dev/control-protocol v0.0.0-20210420064235-b21afd8cad23
+	knative.dev/eventing v0.22.1-0.20210422065937-7775e372bdc0
 	knative.dev/hack v0.0.0-20210325223819-b6ab329907d3
-	knative.dev/networking v0.0.0-20210413045200-a64b4beb7ef7
-	knative.dev/pkg v0.0.0-20210412173742-b51994e3b312
+	knative.dev/networking v0.0.0-20210420125836-57bee6625a8a
+	knative.dev/pkg v0.0.0-20210422210038-0c5259d6504d
 )
