@@ -17,22 +17,111 @@ limitations under the License.
 package continual
 
 import (
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+
+	"github.com/Shopify/sarama"
+	protocolkafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	"github.com/cloudevents/sdk-go/v2/binding"
+	"go.uber.org/zap"
+	"knative.dev/eventing-kafka/pkg/common/client"
 	"knative.dev/eventing/test/upgrade/prober/wathola/sender"
 )
 
-// BuildKafkaSender will create a wathola sender that sends events to Kafka
-// topic directly.
-func BuildKafkaSender() sender.EventSender {
-	return &kafkaSender{}
-}
+var (
+	// ErrIllegalEndpointFormat if given endpoint structure is illegal and can't
+	// be used.
+	ErrIllegalEndpointFormat = errors.New(
+		"given illegal format for Kafka topic endpoint")
 
-type kafkaSender struct{}
+	// ErrCantConnectToKafka if connection to kafka can't be established.
+	ErrCantConnectToKafka = errors.New(
+		"unable to connect to Kafka bootstrap servers")
+
+	// ErrCantSend if event can't be sent to given Kafka topic
+	ErrCantSend = errors.New("can't send event to kafka topic")
+)
+
+// CreateKafkaSender will create a wathola sender that sends events to Kafka
+// topic directly.
+func CreateKafkaSender(ctx context.Context, log *zap.SugaredLogger) sender.EventSender {
+	return &kafkaSender{
+		ctx: ctx,
+		log: log,
+	}
+}
 
 func (k *kafkaSender) Supports(endpoint interface{}) bool {
-	panic("implement me")
+	switch endpoint.(type) {
+	case map[string]string:
+		_, err := castAsTopicEndpoint(endpoint)
+		return err == nil
+	default:
+		return false
+	}
 }
 
-func (k *kafkaSender) SendEvent(ce cloudevents.Event, endpoint interface{}) error {
-	panic("implement me")
+func (k *kafkaSender) SendEvent(ce cloudevents.Event, rawEndpoint interface{}) error {
+	endpoint, err := castAsTopicEndpoint(rawEndpoint)
+	if err != nil {
+		// this should never happen, as Supports func should be called first.
+		return err
+	}
+	conf, err := client.NewConfigBuilder().
+		WithClientId("continualtests-kafka-sender").
+		WithDefaults().
+		Build(k.ctx)
+	if err != nil {
+		return err
+	}
+	producer, err := sarama.NewSyncProducer(endpoint.bootstrapServers, conf)
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrCantConnectToKafka, err)
+	}
+	message := binding.ToMessage(&ce)
+	kafkaProducerMessage := &sarama.ProducerMessage{
+		Topic: endpoint.topicName,
+	}
+	transformers := make([]binding.Transformer, 0)
+	err = protocolkafka.WriteProducerMessage(k.ctx, message, kafkaProducerMessage, transformers...)
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrCantSend, err)
+	}
+	part, offset, err := producer.SendMessage(kafkaProducerMessage)
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrCantSend, err)
+	}
+	k.log.Infof("Event %s has been send to kafka topic %s (partition: %d, offset: %d)",
+		ce.ID(), endpoint.topicName, part, offset)
+	return nil
+}
+
+type kafkaSender struct {
+	log *zap.SugaredLogger
+	ctx context.Context
+}
+
+type kafkaTopicEndpoint struct {
+	bootstrapServers []string
+	topicName        string
+}
+
+func castAsTopicEndpoint(endpoint interface{}) (kafkaTopicEndpoint, error) {
+	m := endpoint.(map[string]string)
+	serversLine := m["bootstrapServers"]
+	if serversLine == "" {
+		return kafkaTopicEndpoint{}, ErrIllegalEndpointFormat
+	}
+	servers := strings.Split(serversLine, ",")
+	topic := m["topicName"]
+	if topic == "" {
+		return kafkaTopicEndpoint{}, ErrIllegalEndpointFormat
+	}
+	return kafkaTopicEndpoint{
+		bootstrapServers: servers,
+		topicName:        topic,
+	}, nil
 }

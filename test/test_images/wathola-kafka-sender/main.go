@@ -17,12 +17,19 @@ limitations under the License.
 package main
 
 import (
+	"go.uber.org/zap"
 	"knative.dev/eventing-kafka/test/upgrade/continual"
 	"knative.dev/eventing/test/upgrade/prober/wathola/sender"
+	"knative.dev/pkg/signals"
 )
 
 func main() {
-	es := continual.BuildKafkaSender()
+	ctx := signals.NewContext()
+	log, err := zap.NewDevelopment()
+	if err != nil {
+		panic(err)
+	}
+	es := continual.CreateKafkaSender(ctx, log.Sugar())
 	sender.RegisterEventSender(es)
 	sender.New().SendContinually()
 }
