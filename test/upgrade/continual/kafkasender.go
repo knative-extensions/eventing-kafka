@@ -27,7 +27,7 @@ func BuildKafkaSender() sender.EventSender {
 	return &kafkaSender{}
 }
 
-type kafkaSender struct {}
+type kafkaSender struct{}
 
 func (k *kafkaSender) Supports(endpoint interface{}) bool {
 	panic("implement me")
@@ -36,4 +36,3 @@ func (k *kafkaSender) Supports(endpoint interface{}) bool {
 func (k *kafkaSender) SendEvent(ce cloudevents.Event, endpoint interface{}) error {
 	panic("implement me")
 }
-

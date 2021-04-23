@@ -24,11 +24,11 @@ import pkgupgrade "knative.dev/pkg/test/upgrade"
 func SourceTest(_ TestOptions) pkgupgrade.BackgroundOperation {
 	setup := func(c pkgupgrade.Context) {
 		// TODO: not yet implemented
-		c.Log.Warn("TODO: not yet implemented")
+		c.T.Skip("TODO: not yet implemented")
 	}
 	verify := func(c pkgupgrade.Context) {
 		// TODO: not yet implemented
-		c.Log.Warn("TODO: not yet implemented")
+		c.T.Skip("TODO: not yet implemented")
 	}
 	return pkgupgrade.NewBackgroundVerification(
 		"SourceContinualTest", setup, verify)

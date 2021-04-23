@@ -40,6 +40,7 @@ var (
 		defaultChannelCustomizeConfig(config)
 		config.Wathola.ContainerImageResolver = func(component string) string {
 			if component == "wathola-sender" {
+				// replacing the original image with modified one from this repo
 				component = "wathola-kafka-sender"
 			}
 			return pkgTest.ImagePath(component)
