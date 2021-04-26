@@ -215,7 +215,7 @@ func MustPublishKafkaMessageViaBinding(client *testlib.Client, selector map[stri
 	}
 }
 
-func MustCreateTopic(client *testlib.Client, clusterName, clusterNamespace, topicName string, partitions int) {
+func MustCreateTopic(client *testlib.Client, clusterName string, clusterNamespace string, topicName string) {
 	obj := unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": topicGVR.GroupVersion().String(),
@@ -227,7 +227,7 @@ func MustCreateTopic(client *testlib.Client, clusterName, clusterNamespace, topi
 				},
 			},
 			"spec": map[string]interface{}{
-				"partitions": partitions,
+				"partitions": 10,
 				"replicas":   1,
 			},
 		},

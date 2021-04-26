@@ -103,7 +103,7 @@ func testKafkaSourceUpdate(t *testing.T, name string, test updateTest) {
 	defer testlib.TearDown(client)
 
 	t.Logf("Creating topic: %s\n", defaultKafkaSource.topicName+name)
-	helpers.MustCreateTopic(client, kafkaClusterName, kafkaClusterNamespace, defaultKafkaSource.topicName+name, 10)
+	helpers.MustCreateTopic(client, kafkaClusterName, kafkaClusterNamespace, defaultKafkaSource.topicName+name)
 
 	t.Logf("Copying secrets: %s\n", defaultKafkaSource.topicName+name)
 	_, err := utils.CopySecret(client.Kube.CoreV1(), "knative-eventing", kafkaTLSSecret, client.Namespace, "default")
@@ -152,7 +152,7 @@ func testKafkaSourceUpdate(t *testing.T, name string, test updateTest) {
 		t.Fatalf("Unabled to Get kafkasource: %s/%s\n", client.Namespace, kafkaSourceName)
 	}
 	if test.topicName != defaultKafkaSource.topicName {
-		helpers.MustCreateTopic(client, kafkaClusterName, kafkaClusterNamespace, test.topicName+name, 10)
+		helpers.MustCreateTopic(client, kafkaClusterName, kafkaClusterNamespace, test.topicName+name)
 		ksObj.Spec.Topics = []string{test.topicName + name}
 		eventSourceName = sourcesv1beta1.KafkaEventSource(client.Namespace, kafkaSourceName, test.topicName+name)
 	}
