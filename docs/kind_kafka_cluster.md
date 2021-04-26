@@ -126,7 +126,7 @@ steps could be used for the Consolidated KafkaChannel or Source.
     export KO_DOCKER_REPO=<docker-registry-path>
 
     # Build / Deploy
-    ko apply --strict -f config/channel/distributed/
+    ko apply -f config/channel/distributed/
     ```
 
 ## Uninstall Distributed KafkaChannel
