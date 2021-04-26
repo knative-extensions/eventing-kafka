@@ -116,6 +116,7 @@ func CheckDeploymentChanged(logger *zap.Logger, oldDeployment, newDeployment *ap
 	}
 	if !containersEqual {
 		updatedDeployment.Spec.Template.Spec.Containers[0] = *newContainer
+		updatedDeployment.Spec.Template.Spec.Volumes = newDeployment.Spec.Template.Spec.Volumes
 	}
 	return updatedDeployment, true
 }

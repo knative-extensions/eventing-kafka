@@ -14,13 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package kafkasecret
+package kafkachannel
 
 import (
 	"context"
 	"fmt"
 	"strconv"
 	"time"
+
+	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -43,13 +45,13 @@ import (
 )
 
 // Reconcile The Receiver (Kafka Producer) For The Specified KafkaChannel
-func (r *Reconciler) reconcileChannel(ctx context.Context, secret *corev1.Secret) error {
+func (r *Reconciler) reconcileReceiver(ctx context.Context, channel *v1beta1.KafkaChannel, secret *corev1.Secret, secretExists bool) error {
 
-	// Get Secret Specific Logger
-	logger := util.SecretLogger(logging.FromContext(ctx).Desugar(), secret)
+	// Get A Logger With Secret Info
+	logger := logging.FromContext(ctx).Desugar().With(zap.String("Secret", fmt.Sprintf("%s/%s", secret.Namespace, secret.Name)))
 
 	// Reconcile The Receiver Service
-	serviceErr := r.reconcileReceiverService(ctx, logger, secret)
+	serviceErr := r.reconcileReceiverService(ctx, logger, secret, secretExists)
 	if serviceErr != nil {
 		controller.GetEventRecorder(ctx).Eventf(secret, corev1.EventTypeWarning, event.ReceiverServiceReconciliationFailed.String(), "Failed To Reconcile Receiver Service: %v", serviceErr)
 		logger.Error("Failed To Reconcile Receiver Service", zap.Error(serviceErr))
@@ -58,7 +60,7 @@ func (r *Reconciler) reconcileChannel(ctx context.Context, secret *corev1.Secret
 	}
 
 	// Reconcile The Receiver Deployment
-	deploymentErr := r.reconcileReceiverDeployment(ctx, logger, secret)
+	deploymentErr := r.reconcileReceiverDeployment(ctx, logger, secret, secretExists)
 	if deploymentErr != nil {
 		controller.GetEventRecorder(ctx).Eventf(secret, corev1.EventTypeWarning, event.ReceiverDeploymentReconciliationFailed.String(), "Failed To Reconcile Receiver Deployment: %v", deploymentErr)
 		logger.Error("Failed To Reconcile Receiver Deployment", zap.Error(deploymentErr))
@@ -66,9 +68,17 @@ func (r *Reconciler) reconcileChannel(ctx context.Context, secret *corev1.Secret
 		logger.Info("Successfully Reconciled Receiver Deployment")
 	}
 
+	if serviceErr == nil && !secretExists {
+		serviceErr = fmt.Errorf("no secret found")
+	}
+
+	if deploymentErr == nil && !secretExists {
+		deploymentErr = fmt.Errorf("no secret found")
+	}
+
 	// Reconcile Channel's KafkaChannel Status
-	statusErr := r.reconcileKafkaChannelStatus(ctx,
-		secret,
+	statusErr := r.updateKafkaChannelStatus(ctx,
+		channel,
 		serviceErr == nil, event.ReceiverServiceReconciliationFailed.String(), fmt.Sprintf("Receiver Service Failed: %v", serviceErr),
 		deploymentErr == nil, event.ReceiverDeploymentReconciliationFailed.String(), fmt.Sprintf("Receiver Deployment Failed: %v", deploymentErr))
 	if statusErr != nil {
@@ -91,13 +101,23 @@ func (r *Reconciler) reconcileChannel(ctx context.Context, secret *corev1.Secret
 //
 
 // Reconcile The Receiver Service
-func (r *Reconciler) reconcileReceiverService(ctx context.Context, logger *zap.Logger, secret *corev1.Secret) error {
+func (r *Reconciler) reconcileReceiverService(ctx context.Context, logger *zap.Logger, secret *corev1.Secret, secretExists bool) error {
 
 	// Create A New Service For Comparison
 	newService := r.newReceiverService(secret)
 
 	// Attempt To Get The Receiver Service Associated With The Specified Secret
 	existingService, err := r.getReceiverService(secret)
+
+	if !secretExists {
+		// If there is no secret, the receiver service must be deleted (if it exists)
+		if existingService != nil {
+			logger.Info("Secret Removed - Deleting Receiver Service")
+			return r.kubeClientset.CoreV1().Services(newService.Namespace).Delete(ctx, newService.Name, metav1.DeleteOptions{})
+		}
+		return nil // No secret, no service, no change
+	}
+
 	if existingService == nil || err != nil {
 
 		// If The Service Was Not Found - Then Create A New One For The Secret
@@ -182,9 +202,6 @@ func (r *Reconciler) newReceiverService(secret *corev1.Secret) *corev1.Service {
 				constants.KafkaChannelReceiverLabel:  "true",                               // Allows for identification of Receivers
 				constants.K8sAppChannelSelectorLabel: constants.K8sAppChannelSelectorValue, // Prometheus ServiceMonitor
 			},
-			OwnerReferences: []metav1.OwnerReference{
-				util.NewSecretOwnerReference(secret),
-			},
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
@@ -211,13 +228,23 @@ func (r *Reconciler) newReceiverService(secret *corev1.Secret) *corev1.Service {
 //
 
 // Reconcile The Receiver Deployment
-func (r *Reconciler) reconcileReceiverDeployment(ctx context.Context, logger *zap.Logger, secret *corev1.Secret) error {
+func (r *Reconciler) reconcileReceiverDeployment(ctx context.Context, logger *zap.Logger, secret *corev1.Secret, secretExists bool) error {
 
 	// Create A New Deployment For Comparison
 	newDeployment := r.newReceiverDeployment(secret)
 
 	// Attempt To Get The Receiver Deployment Associated With The Specified Secret
 	existingDeployment, err := r.getReceiverDeployment(secret)
+
+	if !secretExists {
+		// If there is no secret, the receiver deployment must be deleted (if it exists)
+		if existingDeployment != nil {
+			logger.Info("Secret Removed - Deleting Receiver Service")
+			return r.kubeClientset.AppsV1().Deployments(newDeployment.Namespace).Delete(ctx, newDeployment.Name, metav1.DeleteOptions{})
+		}
+		return nil // No secret, no deployment, no change
+	}
+
 	if existingDeployment == nil || err != nil {
 
 		// If The Receiver Deployment Was Not Found - Then Create A New Deployment For The Secret
@@ -264,7 +291,7 @@ func (r *Reconciler) reconcileReceiverDeployment(ctx context.Context, logger *za
 				logger.Info("Receiver Deployment Changed - Update Applied")
 			} else {
 				controller.GetEventRecorder(ctx).Event(secret, corev1.EventTypeWarning, event.ReceiverDeploymentUpdateFailed.String(), "Receiver Deployment Update Failed")
-				logger.Info("Receiver Deployment Update Failed", zap.Error(err))
+				logger.Error("Receiver Deployment Update Failed", zap.Error(err))
 				return err
 			}
 		}
@@ -338,9 +365,6 @@ func (r *Reconciler) newReceiverDeployment(secret *corev1.Secret) *appsv1.Deploy
 			Labels: map[string]string{
 				constants.AppLabel:                  deploymentName, // Matches Service Selector Key/Value Below
 				constants.KafkaChannelReceiverLabel: "true",         // Allows for identification of Receivers
-			},
-			OwnerReferences: []metav1.OwnerReference{
-				util.NewSecretOwnerReference(secret),
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -486,7 +510,7 @@ func (r *Reconciler) receiverDeploymentEnvVars(secret *corev1.Secret) []corev1.E
 	// Append The Secret Namespace As Env Var
 	envVars = append(envVars, corev1.EnvVar{
 		Name:  commonenv.KafkaSecretNamespaceEnvVarKey,
-		Value: r.environment.SystemNamespace,
+		Value: secret.Namespace,
 	})
 
 	// Return The Receiver Deployment EnvVars Array

@@ -23,12 +23,16 @@ import (
 	"log"
 	"os"
 
+	"knative.dev/pkg/system"
+
 	"github.com/Shopify/sarama"
 	"github.com/ghodss/yaml"
 	"knative.dev/eventing-kafka/pkg/common/client"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/common/constants"
 )
+
+const DefaultAuthSecretName = "kafka-cluster"
 
 // Utility Function For Enabling Sarama Logging (Debugging)
 func EnableSaramaLogging(enable bool) {
@@ -94,6 +98,12 @@ func LoadEventingKafkaSettings(configMap map[string]string) (*commonconfig.Event
 		}
 		if eventingKafkaConfig.CloudEvents.MaxIdleConnsPerHost == 0 {
 			eventingKafkaConfig.CloudEvents.MaxIdleConnsPerHost = constants.DefaultMaxIdleConnsPerHost
+		}
+		if len(eventingKafkaConfig.Kafka.AuthSecretNamespace) == 0 {
+			eventingKafkaConfig.Kafka.AuthSecretNamespace = system.Namespace()
+		}
+		if len(eventingKafkaConfig.Kafka.AuthSecretName) == 0 {
+			eventingKafkaConfig.Kafka.AuthSecretName = DefaultAuthSecretName
 		}
 	}
 

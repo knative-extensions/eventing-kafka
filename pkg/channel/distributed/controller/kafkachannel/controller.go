@@ -31,7 +31,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
 	kafkaclientsetinjection "knative.dev/eventing-kafka/pkg/client/injection/client"
 	"knative.dev/eventing-kafka/pkg/client/injection/informers/messaging/v1beta1/kafkachannel"
 	kafkachannelreconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
@@ -81,10 +80,18 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 	// Get The K8S Client
 	kubeClientset := kubeclient.Get(ctx)
 
-	// Get & Validate The Kafka Auth Secret
-	kafkaSecret, err := util.GetKafkaSecret(ctx, kubeClientset, environment.SystemNamespace)
+	configuration, err := sarama.LoadEventingKafkaSettings(configMap)
 	if err != nil {
-		logger.Fatal("Failed To Load Kafka Auth Secret", zap.Error(err))
+		logger.Fatal("error loading eventing-kafka configuration", zap.Error(err))
+	}
+
+	// Get & Validate The Kafka Auth Secret
+	kafkaSecret, err := kubeClientset.CoreV1().Secrets(configuration.Kafka.AuthSecretNamespace).
+		Get(ctx, configuration.Kafka.AuthSecretName, metav1.GetOptions{})
+	if err != nil {
+		logger.Fatal("Failed To Load Kafka Auth Secret", zap.Error(err),
+			zap.String("AuthSecretName", configuration.Kafka.AuthSecretName),
+			zap.String("AuthSecretNamespace", configuration.Kafka.AuthSecretNamespace))
 	} else if kafkaSecret == nil {
 		logger.Fatal("No Kafka Auth Secret Found")
 	} else {
@@ -92,10 +99,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 	}
 
 	// Extract The Relevant Data From The Kafka Secret
-	kafkaSecretName := kafkaSecret.Name
 	kafkaUsername := string(kafkaSecret.Data[clientconstants.KafkaSecretKeyUsername])
-	kafkaPassword := string(kafkaSecret.Data[clientconstants.KafkaSecretKeyPassword])
-	kafkaSaslType := string(kafkaSecret.Data[clientconstants.KafkaSecretKeySaslType])
 
 	// Create A Kafka Auth Config From Current Credentials (Secret Data Takes Precedence Over ConfigMap)
 	var kafkaAuthCfg *commonclient.KafkaAuthConfig
@@ -103,14 +107,14 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		kafkaAuthCfg = &commonclient.KafkaAuthConfig{
 			SASL: &commonclient.KafkaSaslConfig{
 				User:     kafkaUsername,
-				Password: kafkaPassword,
-				SaslType: kafkaSaslType,
+				Password: string(kafkaSecret.Data[clientconstants.KafkaSecretKeyPassword]),
+				SaslType: string(kafkaSecret.Data[clientconstants.KafkaSecretKeySaslType]),
 			},
 		}
 	}
 
-	// Load the Sarama and other eventing-kafka settings from our configmap
-	saramaConfig, configuration, err := sarama.LoadSettings(ctx, "", configMap, kafkaAuthCfg)
+	// Load the Sarama settings from our configmap (kafka configuration is already loaded)
+	saramaConfig, _, err := sarama.LoadSettings(ctx, "", configMap, kafkaAuthCfg)
 	if err != nil {
 		logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Error(err))
 	}
@@ -146,11 +150,6 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		adminClientType:      kafkaAdminClientType,
 		adminClient:          nil,
 		adminMutex:           &sync.Mutex{},
-		kafkaSecret:          kafkaSecretName,
-		kafkaBrokers:         configuration.Kafka.Brokers,
-		kafkaUsername:        kafkaUsername,
-		kafkaPassword:        kafkaPassword,
-		kafkaSaslType:        kafkaSaslType,
 		kafkaConfigMapHash:   commonconfig.ConfigmapDataCheckSum(configMap),
 	}
 

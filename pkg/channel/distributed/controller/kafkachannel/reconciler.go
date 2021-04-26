@@ -22,6 +22,11 @@ import (
 	"strings"
 	"sync"
 
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/system"
+
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -62,11 +67,7 @@ type Reconciler struct {
 	deploymentLister     appsv1listers.DeploymentLister
 	serviceLister        corev1listers.ServiceLister
 	adminMutex           *sync.Mutex
-	kafkaSecret          string
-	kafkaBrokers         string
-	kafkaUsername        string
-	kafkaPassword        string
-	kafkaSaslType        string
+	authConfig           *client.KafkaAuthConfig
 	kafkaConfigMapHash   string
 }
 
@@ -76,7 +77,7 @@ var (
 )
 
 //
-// Clear / Re-Set The Kafka AdminClient On The Reconciler
+// SetKafkaAdminClient Clears / Re-Sets The Kafka AdminClient On The Reconciler
 //
 // Ideally we would re-use the Kafka AdminClient but due to Issues with the Sarama ClusterAdmin we're
 // forced to recreate a new connection every time.  We were seeing "broken-pipe" failures (non-recoverable)
@@ -91,7 +92,7 @@ var (
 func (r *Reconciler) SetKafkaAdminClient(ctx context.Context) {
 	r.ClearKafkaAdminClient(ctx)
 	var err error
-	brokers := strings.Split(r.kafkaBrokers, ",")
+	brokers := strings.Split(r.config.Kafka.Brokers, ",")
 	r.adminClient, err = admin.CreateAdminClient(ctx, brokers, r.saramaConfig, r.adminClientType)
 	if err != nil {
 		logger := logging.FromContext(ctx)
@@ -99,7 +100,7 @@ func (r *Reconciler) SetKafkaAdminClient(ctx context.Context) {
 	}
 }
 
-// Clear (Close) The Reconciler's Kafka AdminClient
+// ClearKafkaAdminClient Clears (Closes) The Reconciler's Kafka AdminClient
 func (r *Reconciler) ClearKafkaAdminClient(ctx context.Context) {
 	if r.adminClient != nil {
 		err := r.adminClient.Close()
@@ -117,6 +118,13 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, channel *kafkav1beta1.Ka
 	// Get The Logger Via The Context
 	logger := logging.FromContext(ctx).Desugar()
 	logger.Debug("<==========  START KAFKA-CHANNEL RECONCILIATION  ==========>")
+
+	// Verify channel is valid.
+	channel.SetDefaults(ctx)
+	if err := channel.Validate(ctx); err != nil {
+		logger.Error("Invalid kafka channel", zap.String("channel", channel.Name), zap.Error(err))
+		return err
+	}
 
 	// Add The K8S ClientSet To The Reconcile Context
 	ctx = context.WithValue(ctx, kubeclient.Key{}, r.kubeClientset)
@@ -148,7 +156,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, channel *kafkav1beta1.Ka
 	return reconciler.NewEvent(corev1.EventTypeNormal, event.KafkaChannelReconciled.String(), "KafkaChannel Reconciled Successfully: \"%s/%s\"", channel.Namespace, channel.Name)
 }
 
-// ReconcileKind Implements The Finalizer Interface & Is Responsible For Performing The Finalization (Topic Deletion)
+// FinalizeKind Implements The Finalizer Interface & Is Responsible For Performing The Finalization (Topic Deletion)
 func (r *Reconciler) FinalizeKind(ctx context.Context, channel *kafkav1beta1.KafkaChannel) reconciler.Event {
 
 	// Get The Logger Via The Context
@@ -206,17 +214,33 @@ func (r *Reconciler) reconcile(ctx context.Context, channel *kafkav1beta1.KafkaC
 	// ConfigMap.  Therefore, we will instead check the Kafka Secret associated with the
 	// KafkaChannel here.
 	//
-	if len(r.kafkaSecret) > 0 {
+	if len(r.config.Kafka.AuthSecretName) > 0 {
 		channel.Status.MarkConfigTrue()
 	} else {
 		channel.Status.MarkConfigFailed(event.KafkaSecretReconciled.String(), "No Kafka Secret For KafkaChannel")
 		return fmt.Errorf(constants.ReconciliationFailedError)
 	}
 
+	// Reconcile the Receiver Deployment/Service
+	secret, receiverError := r.kubeClientset.CoreV1().Secrets(system.Namespace()).Get(ctx, r.config.Kafka.AuthSecretName, metav1.GetOptions{})
+	if receiverError != nil && apierrs.IsNotFound(receiverError) {
+		// The Receiver reconciler needs the namespace and name for various purposes, so construct a dummy Secret
+		receiverError = r.reconcileReceiver(ctx, channel, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: r.config.Kafka.AuthSecretName, Namespace: r.config.Kafka.AuthSecretNamespace}}, false)
+
+		// Not having a Receiver is a problem
+		channel.Status.MarkConfigFailed(event.KafkaSecretReconciled.String(), "No Kafka Secret For KafkaChannel")
+		return fmt.Errorf(constants.ReconciliationFailedError)
+	}
+
+	if receiverError == nil {
+		receiverError = r.reconcileReceiver(ctx, channel, secret, true)
+	}
+
 	// Reconcile The KafkaChannel's Channel & Dispatcher Deployment/Service
 	channelError := r.reconcileChannel(ctx, channel)
+
 	dispatcherError := r.reconcileDispatcher(ctx, channel)
-	if channelError != nil || dispatcherError != nil {
+	if channelError != nil || dispatcherError != nil || receiverError != nil {
 		return fmt.Errorf(constants.ReconciliationFailedError)
 	}
 
@@ -263,22 +287,10 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 	// Get The Sarama Config Yaml From The ConfigMap
 	saramaSettingsYamlString := configMap.Data[commonconstants.SaramaSettingsConfigKey]
 
-	// Create A Kafka Auth Config From Current Credentials (Secret Data Takes Precedence Over ConfigMap)
-	var kafkaAuthCfg *client.KafkaAuthConfig
-	if r.kafkaUsername != "" {
-		kafkaAuthCfg = &client.KafkaAuthConfig{
-			SASL: &client.KafkaSaslConfig{
-				User:     r.kafkaUsername,
-				Password: r.kafkaPassword,
-				SaslType: r.kafkaSaslType,
-			},
-		}
-	}
-
 	// Build A New Sarama Config With Auth From Secret And YAML Config From ConfigMap
 	saramaConfig, err := client.NewConfigBuilder().
 		WithDefaults().
-		WithAuth(kafkaAuthCfg).
+		WithAuth(r.authConfig).
 		FromYaml(saramaSettingsYamlString).
 		Build(ctx)
 	if err != nil {

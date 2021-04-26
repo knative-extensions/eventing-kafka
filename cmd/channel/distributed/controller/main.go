@@ -27,7 +27,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/kafkachannel"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/kafkasecret"
 	"knative.dev/eventing-kafka/pkg/common/configmaploader"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -41,7 +40,6 @@ func main() {
 
 	// Shutdown / Cleanup Hook For Controllers
 	defer kafkachannel.Shutdown()
-	defer kafkasecret.Shutdown()
 
 	// Create The SharedMain Instance With The Various Controllers
 	ctx := signals.NewContext()
@@ -53,5 +51,5 @@ func main() {
 	ctx = controller.WithResyncPeriod(ctx, environment.ResyncPeriod)
 	ctx = context.WithValue(ctx, env.Key{}, environment)
 	ctx = context.WithValue(ctx, configmaploader.Key{}, configmap.Load)
-	sharedmain.MainWithContext(ctx, constants.ControllerComponentName, kafkachannel.NewController, kafkasecret.NewController)
+	sharedmain.MainWithContext(ctx, constants.ControllerComponentName, kafkachannel.NewController)
 }

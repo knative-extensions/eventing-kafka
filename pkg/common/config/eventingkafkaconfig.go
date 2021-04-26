@@ -20,7 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
-// The EventingKafkaConfig and these EK sub-structs contain our custom configuration settings,
+// EKKubernetesConfig and these EK sub-structs contain our custom configuration settings,
 // stored in the config-kafka configmap.  The sub-structs are explicitly declared so that they
 // can have their own JSON tags in the overall EventingKafkaConfig
 type EKKubernetesConfig struct {
@@ -31,12 +31,12 @@ type EKKubernetesConfig struct {
 	Replicas      int               `json:"replicas,omitempty"`
 }
 
-// The Receiver config has the base Kubernetes fields (Cpu, Memory, Replicas) only
+// EKReceiverConfig has the base Kubernetes fields (Cpu, Memory, Replicas) only
 type EKReceiverConfig struct {
 	EKKubernetesConfig
 }
 
-// The Dispatcher config has the base Kubernetes fields (Cpu, Memory, Replicas) only
+// EKDispatcherConfig has the base Kubernetes fields (Cpu, Memory, Replicas) only
 type EKDispatcherConfig struct {
 	EKKubernetesConfig
 }
@@ -61,6 +61,8 @@ type EKKafkaConfig struct {
 	EnableSaramaLogging bool               `json:"enableSaramaLogging,omitempty"`
 	Topic               EKKafkaTopicConfig `json:"topic,omitempty"`
 	AdminType           string             `json:"adminType,omitempty"`
+	AuthSecretName      string             `json:"authSecretName,omitempty"`
+	AuthSecretNamespace string             `json:"authSecretNamespace,omitempty"`
 }
 
 // EventingKafkaConfig is the main struct that holds the Receiver, Dispatcher, and Kafka sub-items

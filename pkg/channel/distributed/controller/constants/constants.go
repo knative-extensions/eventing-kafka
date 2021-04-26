@@ -31,6 +31,7 @@ const (
 
 	// CRD Kinds
 	SecretKind              = "Secret"
+	ConfigMapKind           = "ConfigMap"
 	ServiceKind             = "Service"
 	DeploymentKind          = "Deployment"
 	KnativeSubscriptionKind = "Subscription"
@@ -69,7 +70,6 @@ const (
 	KafkaChannelNamespaceLabel  = "kafkachannel-namespace"
 	KafkaChannelReceiverLabel   = "kafkachannel-receiver"   // Receiver Label - Used To Mark Deployment As Receiver
 	KafkaChannelDispatcherLabel = "kafkachannel-dispatcher" // Dispatcher Label - Used To Mark Deployment As Dispatcher
-	KafkaSecretLabel            = "kafkasecret"             // Secret Label - Indicates The Kafka Secret Of The KafkaChannel
 	KafkaTopicLabel             = "kafkaTopic"              // Topic Label - Indicates The Kafka Topic Of The KnativeChannel
 
 	// Prometheus ServiceMonitor Selector Labels / Values
