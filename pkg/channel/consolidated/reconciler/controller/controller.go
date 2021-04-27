@@ -107,7 +107,7 @@ func NewController(
 
 	// Call GlobalResync on kafkachannels.
 	grCh := func(obj interface{}) {
-		logger.Info("Changes detected, doing global resync")
+		logger.Debug("Changes detected, doing global resync")
 		impl.GlobalResync(kafkaChannelInformer.Informer())
 	}
 
