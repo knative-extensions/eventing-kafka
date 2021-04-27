@@ -18,8 +18,8 @@ correctly populated for the user provided Kafka cluster. Similarly the **data**
 values of the [eventing-kafka-configmap.yaml](300-eventing-kafka-configmap.yaml)
 file should be configured for your particular use case.
 
-Install via `ko apply -f ./config/channel/distributed` from the
-repository root directory in order to build and deploy the project.
+Install via `ko apply -f ./config/channel/distributed` from the repository root
+directory in order to build and deploy the project.
 
 ## Kafka Admin Types
 
