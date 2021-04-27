@@ -1,26 +1,10 @@
 # Initial set of approvers taken from eventing WG leads, Kafka approvers and original developers of the channel added
 approvers:
-- vaikas
-- lionelvillard
-- grantr
-- matzew
-- lberk
-- slinkydeveloper
-- davyodom
-- travis-minke-sap
-- phamilton
-- aliok
+- technical-oversight-committee
+- knative-release-leads
+- eventing-writers
+- eventing-kafka-approvers
 
 reviewers:
-- vaikas
-- lionelvillard
-- grantr
-- matzew
-- lberk
-- slinkydeveloper
-- steven0711dong
-- davyodom
-- travis-minke-sap
-- phamilton
-- devguyio
-- aliok
+- eventing-writers
+- eventing-kafka-approvers
