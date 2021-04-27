@@ -62,9 +62,13 @@ func NewService(ctx context.Context, connection ctrl.Connection) *service {
 }
 
 func (c *service) SendAndWaitForAck(opcode ctrl.OpCode, payload encoding.BinaryMarshaler) error {
-	b, err := payload.MarshalBinary()
-	if err != nil {
-		return err
+	var b []byte
+	var err error
+	if payload != nil {
+		b, err = payload.MarshalBinary()
+		if err != nil {
+			return err
+		}
 	}
 	return c.sendBinaryAndWaitForAck(opcode, b)
 }
