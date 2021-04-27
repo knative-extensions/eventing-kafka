@@ -14,14 +14,14 @@ limitations under the License.
 package main
 
 import (
+	"log"
+
 	bindingv1beta1 "knative.dev/eventing-kafka/pkg/apis/bindings/v1beta1"
 	messagingv1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	sourcev1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
-	"log"
 
 	"knative.dev/hack/schema/commands"
 	"knative.dev/hack/schema/registry"
-
 )
 
 // schema is a tool to dump the schema for Eventing resources.
