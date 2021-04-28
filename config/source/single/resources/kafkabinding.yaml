@@ -31,12 +31,225 @@ spec:
         status: { }
       schema:
         openAPIV3Schema: &openAPIV3Schema
+          description: 'KafkaBinding is responsible for injecting Kafka bootstrap connection information into a Kubernetes resource that embed a PodSpec. This enables easy bootstrapping of a Kafka client.'
           type: object
-          # this is a work around so we don't need to flush out the
-          # schema for each version at this time
-          #
-          # see issue: https://github.com/knative/serving/issues/912
-          x-kubernetes-preserve-unknown-fields: true
+          properties:
+            spec:
+              type: object
+              required:
+                - bootstrapServers
+              properties:
+                bootstrapServers:
+                  description: Bootstrap servers are the Kafka servers the consumer will connect to.
+                  type: array
+                  items:
+                    type: string
+                net:
+                  type: object
+                  properties:
+                    sasl:
+                      type: object
+                      properties:
+                        enable:
+                          type: boolean
+                        password:
+                          description: Password is the Kubernetes secret containing the SASL password.
+                          type: object
+                          required:
+                            - secretKeyRef
+                          properties:
+                            secretKeyRef:
+                              description: The Secret key to select from.
+                              type: object
+                              properties:
+                                key:
+                                  description: The key of the secret to select from.  Must be a valid secret key.
+                                  type: string
+                                name:
+                                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                  type: string
+                                optional:
+                                  description: Specify whether the Secret or its key must be defined
+                                  type: boolean
+                        type:
+                          description: Type of saslType, defaults to plain (vs SCRAM-SHA-512 or SCRAM-SHA-256)
+                          type: object
+                          required:
+                            - secretKeyRef
+                          properties:
+                            secretKeyRef:
+                              description: The Secret key to select from.
+                              type: object
+                              properties:
+                                key:
+                                  description: The key of the secret to select from.  Must be a valid secret key.
+                                  type: string
+                                name:
+                                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                  type: string
+                                optional:
+                                  description: Specify whether the Secret or its key must be defined
+                                  type: boolean
+                        user:
+                          description: User is the Kubernetes secret containing the SASL username.
+                          type: object
+                          required:
+                            - secretKeyRef
+                          properties:
+                            secretKeyRef:
+                              description: The Secret key to select from.
+                              type: object
+                              properties:
+                                key:
+                                  description: The key of the secret to select from.  Must be a valid secret key.
+                                  type: string
+                                name:
+                                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                  type: string
+                                optional:
+                                  description: Specify whether the Secret or its key must be defined
+                                  type: boolean
+                    tls:
+                      type: object
+                      properties:
+                        caCert:
+                          description: CACert is the Kubernetes secret containing the server CA cert.
+                          type: object
+                          required:
+                            - secretKeyRef
+                          properties:
+                            secretKeyRef:
+                              description: The Secret key to select from.
+                              type: object
+                              properties:
+                                key:
+                                  description: The key of the secret to select from.  Must be a valid secret key.
+                                  type: string
+                                name:
+                                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                  type: string
+                                optional:
+                                  description: Specify whether the Secret or its key must be defined
+                                  type: boolean
+                        cert:
+                          description: Cert is the Kubernetes secret containing the client certificate.
+                          type: object
+                          required:
+                            - secretKeyRef
+                          properties:
+                            secretKeyRef:
+                              description: The Secret key to select from.
+                              type: object
+                              properties:
+                                key:
+                                  description: The key of the secret to select from.  Must be a valid secret key.
+                                  type: string
+                                name:
+                                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                  type: string
+                                optional:
+                                  description: Specify whether the Secret or its key must be defined
+                                  type: boolean
+                        enable:
+                          type: boolean
+                        key:
+                          description: Key is the Kubernetes secret containing the client key.
+                          type: object
+                          required:
+                            - secretKeyRef
+                          properties:
+                            secretKeyRef:
+                              description: The Secret key to select from.
+                              type: object
+                              properties:
+                                key:
+                                  description: The key of the secret to select from.  Must be a valid secret key.
+                                  type: string
+                                name:
+                                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                  type: string
+                                optional:
+                                  description: Specify whether the Secret or its key must be defined
+                                  type: boolean
+                subject:
+                  description: Subject references the resource(s) whose "runtime contract" should be augmented by Binding implementations.
+                  type: object
+                  properties:
+                    apiVersion:
+                      description: API version of the referent.
+                      type: string
+                    kind:
+                      description: Kind of the referent.
+                      type: string
+                    name:
+                      description: Name of the referent. Mutually exclusive with Selector.
+                      type: string
+                    namespace:
+                      description: Namespace of the referent.
+                      type: string
+                    selector:
+                      description: Selector of the referents. Mutually exclusive with Name.
+                      type: object
+                      properties:
+                        matchExpressions:
+                          description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              key:
+                                description: key is the label key that the selector applies to.
+                                type: string
+                              operator:
+                                description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                                type: string
+                              values:
+                                description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                                type: array
+                                items:
+                                  type: string
+                        matchLabels:
+                          description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
+            status:
+              type: object
+              properties:
+                annotations:
+                  description: Annotations is additional Status fields for the Resource to save some additional State as well as convey more information to the user. This is roughly akin to Annotations on any k8s resource, just the reconciler conveying richer information outwards.
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+                conditions:
+                  description: Conditions the latest available observations of a resource's current state.
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - type
+                      - status
+                    properties:
+                      lastTransitionTime:
+                        description: LastTransitionTime is the last time the condition transitioned from one status to another. We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic differences (all other things held constant).
+                        type: string
+                      message:
+                        description: A human readable message indicating details about the transition.
+                        type: string
+                      reason:
+                        description: The reason for the condition's last transition.
+                        type: string
+                      severity:
+                        description: Severity with which to treat failures of this type of condition. When this is not specified, it defaults to Error.
+                        type: string
+                      status:
+                        description: Status of the condition, one of True, False, Unknown.
+                        type: string
+                      type:
+                        description: Type of condition.
+                        type: string
+                observedGeneration:
+                  description: ObservedGeneration is the 'Generation' of the Service that was last processed by the controller.
+                  type: integer
+                  format: int64
       additionalPrinterColumns:
         - name: BootstrapServers
           type: string
