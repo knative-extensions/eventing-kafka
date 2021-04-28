@@ -35,21 +35,265 @@ spec:
       storage: false
       schema:
         openAPIV3Schema: &openAPIV3Schema
+          description: 'KafkaSource is an event source that brings Apache Kafka records into Knative.'
           type: object
-          # this is a work around so we don't need to flush out the
-          # schema for each version at this time
-          #
-          # see issue: https://github.com/knative/serving/issues/912
-          x-kubernetes-preserve-unknown-fields: true
-      subresources:
-        status: { }
-        scale:
-          # specReplicasPath defines the JSONPath inside of a custom resource that corresponds to Scale.Spec.Replicas.
-          specReplicasPath: .spec.consumers
-          # statusReplicasPath defines the JSONPath inside of a custom resource that corresponds to Scale.Status.Replicas.
-          statusReplicasPath: .status.consumers
-          # labelSelectorPath defines the JSONPath inside of a custom resource that corresponds to Scale.Status.Selector
-          labelSelectorPath: .status.selector
+          properties:
+            spec:
+              type: object
+              required:
+                - bootstrapServers
+                - topics
+              properties:
+                bootstrapServers:
+                  description: Bootstrap servers are the Kafka servers the consumer will connect to.
+                  type: array
+                  items:
+                    type: string
+                ceOverrides:
+                  description: CloudEventOverrides defines overrides to control the output format and modifications of the event sent to the sink.
+                  type: object
+                  properties:
+                    extensions:
+                      description: Extensions specify what attribute are added or overridden on the outbound event. Each `Extensions` key-value pair are set on the event as an attribute extension independently.
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                consumerGroup:
+                  description: ConsumerGroupID is the consumer group ID.
+                  type: string
+                consumers:
+                  description: Number of desired consumers running in the consumer group. Defaults to 1.  This is a pointer to distinguish between explicit zero and not specified.
+                  type: integer
+                  format: int32
+                net:
+                  type: object
+                  properties:
+                    sasl:
+                      type: object
+                      properties:
+                        enable:
+                          type: boolean
+                        password:
+                          description: Password is the Kubernetes secret containing the SASL password.
+                          type: object
+                          required:
+                            - secretKeyRef
+                          properties:
+                            secretKeyRef:
+                              description: The Secret key to select from.
+                              type: object
+                              properties:
+                                key:
+                                  description: The key of the secret to select from.  Must be a valid secret key.
+                                  type: string
+                                name:
+                                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                  type: string
+                                optional:
+                                  description: Specify whether the Secret or its key must be defined
+                                  type: boolean
+                        type:
+                          description: Type of saslType, defaults to plain (vs SCRAM-SHA-512 or SCRAM-SHA-256)
+                          type: object
+                          required:
+                            - secretKeyRef
+                          properties:
+                            secretKeyRef:
+                              description: The Secret key to select from.
+                              type: object
+                              properties:
+                                key:
+                                  description: The key of the secret to select from.  Must be a valid secret key.
+                                  type: string
+                                name:
+                                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                  type: string
+                                optional:
+                                  description: Specify whether the Secret or its key must be defined
+                                  type: boolean
+                        user:
+                          description: User is the Kubernetes secret containing the SASL username.
+                          type: object
+                          required:
+                            - secretKeyRef
+                          properties:
+                            secretKeyRef:
+                              description: The Secret key to select from.
+                              type: object
+                              properties:
+                                key:
+                                  description: The key of the secret to select from.  Must be a valid secret key.
+                                  type: string
+                                name:
+                                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                  type: string
+                                optional:
+                                  description: Specify whether the Secret or its key must be defined
+                                  type: boolean
+                    tls:
+                      type: object
+                      properties:
+                        caCert:
+                          description: CACert is the Kubernetes secret containing the server CA cert.
+                          type: object
+                          required:
+                            - secretKeyRef
+                          properties:
+                            secretKeyRef:
+                              description: The Secret key to select from.
+                              type: object
+                              properties:
+                                key:
+                                  description: The key of the secret to select from.  Must be a valid secret key.
+                                  type: string
+                                name:
+                                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                  type: string
+                                optional:
+                                  description: Specify whether the Secret or its key must be defined
+                                  type: boolean
+                        cert:
+                          description: Cert is the Kubernetes secret containing the client certificate.
+                          type: object
+                          required:
+                            - secretKeyRef
+                          properties:
+                            secretKeyRef:
+                              description: The Secret key to select from.
+                              type: object
+                              properties:
+                                key:
+                                  description: The key of the secret to select from.  Must be a valid secret key.
+                                  type: string
+                                name:
+                                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                  type: string
+                                optional:
+                                  description: Specify whether the Secret or its key must be defined
+                                  type: boolean
+                        enable:
+                          type: boolean
+                        key:
+                          description: Key is the Kubernetes secret containing the client key.
+                          type: object
+                          required:
+                            - secretKeyRef
+                          properties:
+                            secretKeyRef:
+                              description: The Secret key to select from.
+                              type: object
+                              properties:
+                                key:
+                                  description: The key of the secret to select from.  Must be a valid secret key.
+                                  type: string
+                                name:
+                                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                  type: string
+                                optional:
+                                  description: Specify whether the Secret or its key must be defined
+                                  type: boolean
+                sink:
+                  description: Sink is a reference to an object that will resolve to a uri to use as the sink.
+                  type: object
+                  properties:
+                    ref:
+                      description: Ref points to an Addressable.
+                      type: object
+                      properties:
+                        apiVersion:
+                          description: API version of the referent.
+                          type: string
+                        kind:
+                          description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                          type: string
+                        name:
+                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                          type: string
+                        namespace:
+                          description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/ This is optional field, it gets defaulted to the object holding it if left out.'
+                          type: string
+                    uri:
+                      description: URI can be an absolute URL(non-empty scheme and non-empty host) pointing to the target or a relative URI. Relative URIs will be resolved using the base URI retrieved from Ref.
+                      type: string
+                topics:
+                  description: Topic topics to consume messages from
+                  type: array
+                  items:
+                    type: string
+            status:
+              type: object
+              properties:
+                annotations:
+                  description: Annotations is additional Status fields for the Resource to save some additional State as well as convey more information to the user. This is roughly akin to Annotations on any k8s resource, just the reconciler conveying richer information outwards.
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+                ceAttributes:
+                  description: CloudEventAttributes are the specific attributes that the Source uses as part of its CloudEvents.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      source:
+                        description: Source is the CloudEvents source attribute.
+                        type: string
+                      type:
+                        description: Type refers to the CloudEvent type attribute.
+                        type: string
+                claims:
+                  description: Claims consumed by this KafkaSource instance
+                  type: string
+                conditions:
+                  description: Conditions the latest available observations of a resource's current state.
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - type
+                      - status
+                    properties:
+                      lastTransitionTime:
+                        description: LastTransitionTime is the last time the condition transitioned from one status to another. We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic differences (all other things held constant).
+                        type: string
+                      message:
+                        description: A human readable message indicating details about the transition.
+                        type: string
+                      reason:
+                        description: The reason for the condition's last transition.
+                        type: string
+                      severity:
+                        description: Severity with which to treat failures of this type of condition. When this is not specified, it defaults to Error.
+                        type: string
+                      status:
+                        description: Status of the condition, one of True, False, Unknown.
+                        type: string
+                      type:
+                        description: Type of condition.
+                        type: string
+                consumers:
+                  description: Total number of consumers actually running in the consumer group.
+                  type: integer
+                  format: int32
+                observedGeneration:
+                  description: ObservedGeneration is the 'Generation' of the Service that was last processed by the controller.
+                  type: integer
+                  format: int64
+                placements:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      podName:
+                        description: PodName is the name of the pod where the resource is placed
+                        type: string
+                      vreplicas:
+                        description: VReplicas is the number of virtual replicas assigned to in the pod
+                        type: integer
+                        format: int32
+                selector:
+                  description: Use for labelSelectorPath when scaling Kafka source
+                  type: string
+                sinkUri:
+                  description: SinkURI is the current active sink URI that has been configured for the Source.
+                  type: string
       additionalPrinterColumns:
         - name: Topics
           type: string
