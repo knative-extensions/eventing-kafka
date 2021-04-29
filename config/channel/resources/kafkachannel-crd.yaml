@@ -42,10 +42,12 @@ spec:
                   description: NumPartitions is the number of partitions of a Kafka topic. By default, it is set to 1.
                   type: integer
                   format: int32
+                  default: 1
                 replicationFactor:
                   description: ReplicationFactor is the replication factor of a Kafka topic. By default, it is set to 1.
                   type: integer
                   maximum: 32767
+                  default: 1
                 delivery:
                   description: DeliverySpec contains the default delivery spec for each subscription to this Channelable. Each subscription delivery spec, if any, overrides this global delivery spec.
                   type: object
