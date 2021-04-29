@@ -29,7 +29,7 @@ func (ro *ResetOffset) Validate(ctx context.Context) *apis.FieldError {
 
 // Validate verifies the ResetOffsetSpec and returns errors for an invalid fields.
 func (ros *ResetOffsetSpec) Validate(ctx context.Context) *apis.FieldError {
-	
+
 	var errs *apis.FieldError
 
 	// Validate The Offset String ("earliest", "latest", or valid date string)
