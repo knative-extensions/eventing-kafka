@@ -34,7 +34,7 @@ type OffsetMapping struct {
 	NewOffset int64 `json:"newOffset"`
 }
 
-// GetTopicAnnotation sets the specified Kafka Topic name annotation if populated or "" otherwise.
+// GetTopicAnnotation gets the specified Kafka Topic name annotation if populated or "" otherwise.
 func (ros *ResetOffsetStatus) GetTopicAnnotation() string {
 	ros.initializeStatusAnnotations()
 	return ros.Annotations[ResetOffsetAnnotationTopic]
@@ -46,7 +46,7 @@ func (ros *ResetOffsetStatus) SetTopicAnnotation(topic string) {
 	ros.Annotations[ResetOffsetAnnotationTopic] = topic
 }
 
-// GetGroupAnnotation sets the specified Kafka ConsumerGroup name annotation if populated or "" otherwise.
+// GetGroupAnnotation gets the specified Kafka ConsumerGroup name annotation if populated or "" otherwise.
 func (ros *ResetOffsetStatus) GetGroupAnnotation() string {
 	ros.initializeStatusAnnotations()
 	return ros.Annotations[ResetOffsetAnnotationGroup]

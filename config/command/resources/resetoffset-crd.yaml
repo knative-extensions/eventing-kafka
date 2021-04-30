@@ -90,7 +90,7 @@ spec:
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
               conditions:
-                description: 'Conditions the latest available observations of a resource''s current state.'
+                description: 'Conditions is the latest available observations of a resource''s current state.'
                 type: array
                 items:
                   type: object

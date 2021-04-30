@@ -224,7 +224,7 @@ func TestResetOffsetStatus_InitializeConditions(t *testing.T) {
 	}
 }
 
-func TestResetOffsetStatus_IsReady(t *testing.T) {
+func TestResetOffsetStatus_IsCompleted(t *testing.T) {
 	tests := []struct {
 		name                      string
 		markResetInitiated        bool
