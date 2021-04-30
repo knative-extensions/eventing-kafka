@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"context"
+	"time"
 
 	"knative.dev/pkg/apis"
 )
@@ -34,7 +35,8 @@ func (ros *ResetOffsetSpec) Validate(ctx context.Context) *apis.FieldError {
 
 	// Validate The Offset String ("earliest", "latest", or valid date string)
 	if !ros.IsOffsetEarliest() && !ros.IsOffsetLatest() {
-		if _, err := ros.ParseOffsetTime(); err != nil {
+		offsetTime, err := ros.ParseOffsetTime()
+		if err != nil || offsetTime.After(time.Now()) {
 			errs = errs.Also(apis.ErrInvalidValue(ros.Offset, "offset"))
 		}
 	}

@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"knative.dev/pkg/apis"
@@ -32,6 +33,9 @@ func TestResetOffset_Validate(t *testing.T) {
 	refKind := "Subscription"
 	refNamespace := "ref-namespace"
 	refName := "ref-name"
+
+	futureTime := time.Now().Add(1 * time.Hour).Format(time.RFC3339)
+	pastTime := time.Now().Add(-1 * time.Hour).Format(time.RFC3339)
 
 	reference := duckv1.KReference{
 		APIVersion: refAPIVersion,
@@ -60,11 +64,23 @@ func TestResetOffset_Validate(t *testing.T) {
 		{
 			name: "valid offset time",
 			cr: &ResetOffset{
-				Spec: ResetOffsetSpec{Offset: "2021-05-04T05:04:01Z", Ref: reference}, // RFC3339
+				Spec: ResetOffsetSpec{Offset: pastTime, Ref: reference},
 			},
 		},
 		{
-			name: "invalid offset",
+			name: "invalid offset time",
+			cr: &ResetOffset{
+				Spec: ResetOffsetSpec{Offset: futureTime, Ref: reference},
+			},
+			want: func() *apis.FieldError {
+				var errs *apis.FieldError
+				fe := apis.ErrInvalidValue(futureTime, "spec.offset")
+				errs = errs.Also(fe)
+				return errs
+			}(),
+		},
+		{
+			name: "invalid offset string",
 			cr: &ResetOffset{
 				Spec: ResetOffsetSpec{Offset: "foo", Ref: reference},
 			},
