@@ -24,12 +24,10 @@ import (
 
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/pkg/system"
-
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -222,7 +220,7 @@ func (r *Reconciler) reconcile(ctx context.Context, channel *kafkav1beta1.KafkaC
 	}
 
 	// Reconcile the Receiver Deployment/Service
-	secret, receiverError := r.kubeClientset.CoreV1().Secrets(system.Namespace()).Get(ctx, r.config.Kafka.AuthSecretName, metav1.GetOptions{})
+	secret, receiverError := r.kubeClientset.CoreV1().Secrets(r.config.Kafka.AuthSecretNamespace).Get(ctx, r.config.Kafka.AuthSecretName, metav1.GetOptions{})
 	if receiverError != nil && apierrs.IsNotFound(receiverError) {
 		// The Receiver reconciler needs the namespace and name for various purposes, so construct a dummy Secret
 		receiverError = r.reconcileReceiver(ctx, channel, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: r.config.Kafka.AuthSecretName, Namespace: r.config.Kafka.AuthSecretNamespace}}, false)
@@ -230,11 +228,12 @@ func (r *Reconciler) reconcile(ctx context.Context, channel *kafkav1beta1.KafkaC
 		// Not having a Receiver is a problem
 		channel.Status.MarkConfigFailed(event.KafkaSecretReconciled.String(), "No Kafka Secret For KafkaChannel")
 		return fmt.Errorf(constants.ReconciliationFailedError)
+	} else if receiverError != nil {
+		logging.FromContext(ctx).Error("Error reading receiver secret", zap.Error(receiverError))
+		return fmt.Errorf(constants.ReconciliationFailedError)
 	}
 
-	if receiverError == nil {
-		receiverError = r.reconcileReceiver(ctx, channel, secret, true)
-	}
+	receiverError = r.reconcileReceiver(ctx, channel, secret, true)
 
 	// Reconcile The KafkaChannel's Channel & Dispatcher Deployment/Service
 	channelError := r.reconcileChannel(ctx, channel)
@@ -277,7 +276,8 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 	}
 
 	// Enable Sarama Logging If Specified In ConfigMap
-	if ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap.Data); err == nil && ekConfig != nil {
+	ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap.Data)
+	if err == nil && ekConfig != nil {
 		kafkasarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)
 		logger.Debug("Updated Sarama logging", zap.Any("configMap", configMap), zap.Bool("Kafka.EnableSaramaLogging", ekConfig.Kafka.EnableSaramaLogging))
 	} else {
@@ -294,11 +294,12 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 		FromYaml(saramaSettingsYamlString).
 		Build(ctx)
 	if err != nil {
-		logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Any("configMap", configMap), zap.Error(err))
+		logger.Fatal("Failed To Load Sarama Settings", zap.Any("configMap", configMap), zap.Error(err))
 	}
 
-	logger.Info("ConfigMap Changed; Updating Sarama Configuration")
+	logger.Info("ConfigMap Changed; Updating Sarama And Eventing-Kafka Configuration")
 	r.saramaConfig = saramaConfig
+	r.config = ekConfig
 
 	r.kafkaConfigMapHash = commonconfig.ConfigmapDataCheckSum(configMap.Data)
 }
