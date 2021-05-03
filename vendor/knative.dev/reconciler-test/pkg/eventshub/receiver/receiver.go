@@ -30,8 +30,8 @@ import (
 	"go.uber.org/zap"
 	"knative.dev/pkg/logging"
 
-	"knative.dev/reconciler-test/pkg/test_images/eventshub"
-	"knative.dev/reconciler-test/pkg/test_images/eventshub/dropevents"
+	"knative.dev/reconciler-test/pkg/eventshub"
+	"knative.dev/reconciler-test/pkg/eventshub/dropevents"
 )
 
 // Receiver is the entry point for sinking events into the event log.
@@ -152,6 +152,12 @@ func (o *Receiver) Start(ctx context.Context, handlerFuncs ...func(handler http.
 }
 
 func (o *Receiver) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+	// Special case probe events.
+	if request.Method == http.MethodHead {
+		writer.WriteHeader(http.StatusOK)
+		return
+	}
+
 	m := cloudeventshttp.NewMessageFromHttpRequest(request)
 	defer m.Finish(nil)
 
