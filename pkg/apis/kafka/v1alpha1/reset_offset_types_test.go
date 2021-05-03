@@ -76,7 +76,7 @@ func TestResetOffsetSpec_IsOffsetEarliest(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			resetOffsetSpec := &ResetOffsetSpec{Offset: test.offset}
+			resetOffsetSpec := &ResetOffsetSpec{Offset: OffsetIndicator{Time: test.offset}}
 			got := resetOffsetSpec.IsOffsetEarliest()
 			if diff := cmp.Diff(test.want, got); diff != "" {
 				t.Errorf("unexpected conditions (-want, +got) = %v", diff)
@@ -116,7 +116,7 @@ func TestResetOffsetSpec_IsOffsetLatest(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			resetOffsetSpec := &ResetOffsetSpec{Offset: test.offset}
+			resetOffsetSpec := &ResetOffsetSpec{Offset: OffsetIndicator{Time: test.offset}}
 			got := resetOffsetSpec.IsOffsetLatest()
 			if diff := cmp.Diff(test.want, got); diff != "" {
 				t.Errorf("unexpected conditions (-want, +got) = %v", diff)
@@ -152,7 +152,7 @@ func TestResetOffsetSpec_ParseOffsetTime(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			resetOffsetSpec := &ResetOffsetSpec{Offset: test.offset}
+			resetOffsetSpec := &ResetOffsetSpec{Offset: OffsetIndicator{Time: test.offset}}
 			offsetTime, err := resetOffsetSpec.ParseOffsetTime()
 			if test.expectErr {
 				assert.NotNil(t, err)

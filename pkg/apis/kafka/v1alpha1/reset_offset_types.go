@@ -75,7 +75,7 @@ type ResetOffsetSpec struct {
 	// beginning and end, respectively, of the persistence window of the Topic.  There is no
 	// default value, and invalid values will result in the ResetOffset operation being
 	// rejected as failed.
-	Offset string `json:"offset"`
+	Offset OffsetIndicator `json:"offset"`
 
 	// Ref is a KReference specifying the Knative resource, related to a Kafka ConsumerGroup,
 	// whose partitions offsets will be reset (e.g. Subscription, Trigger, etc.)  The referenced
@@ -87,19 +87,26 @@ type ResetOffsetSpec struct {
 	Ref duckv1.KReference `json:"ref"`
 }
 
+// OffsetIndicator defines the intended values to move the offsets to.
+// Note: This simple wrapper might seem unnecessary, but is provided to allow future extension
+//       in order to support specifying explicit offset (int64) values for each Partition.
+type OffsetIndicator struct {
+	Time string `json:"time"`
+}
+
 // IsOffsetEarliest returns True if the Offset value is "earliest"
 func (ros *ResetOffsetSpec) IsOffsetEarliest() bool {
-	return ros.Offset == OffsetEarliest
+	return ros.Offset.Time == OffsetEarliest
 }
 
 // IsOffsetLatest returns True if the Offset value is "latest"
 func (ros *ResetOffsetSpec) IsOffsetLatest() bool {
-	return ros.Offset == OffsetLatest
+	return ros.Offset.Time == OffsetLatest
 }
 
 // ParseOffsetTime returns the parsed Offset Time if valid (RFC3339 format) or an error for invalid content.
 func (ros *ResetOffsetSpec) ParseOffsetTime() (time.Time, error) {
-	return time.Parse(time.RFC3339, ros.Offset)
+	return time.Parse(time.RFC3339, ros.Offset.Time)
 }
 
 // ResetOffsetStatus represents the current state of a ResetOffset.

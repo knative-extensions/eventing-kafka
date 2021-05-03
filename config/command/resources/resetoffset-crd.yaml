@@ -29,22 +29,28 @@ spec:
       status: { }
     schema:
       openAPIV3Schema:
-        type: object
         description: 'ResetOffset is a one-time "command" or "request" indicating the desire to
             reposition the Kafka Topic/Partition Offsets of a specific ConsumerGroup as referenced
             by a Subscription / Trigger, etc.  The ResetOffset status tracks the progress of the
             steps involved in this repositioning. Once the Succeeded status is set (true / false),
             the ResetOffset is "finished" and cannot be re-executed.  Another ResetOffset will be
             required in order to make another attempt once the underlying issue has been resolved.'
+        type: object
         properties:
           spec:
-            type: object
             description: 'Specifies the desired "time" to reposition the Offsets, as well as
                 a reference object which is used to identify the specific ConsumerGroups to be
                 repositioned.'
+            type: object
             properties:
               offset:
-                description: 'String defining the time to which the Kafka Topic / Partition
+                description: 'Wrapper containing various options for specifying the desired Offset.
+                Currently only the "time" option is provided, but this will allow for additional
+                configuration (e.g. explicit partition/offset values) to be added in the future.'
+                type: object
+                properties:
+                  time:
+                    description: 'String defining the time to which the Kafka Topic / Partition
                     Offsets will be reset. Supported values include "earliest", "latest", or a
                     valid date / time string in the RFC3339 format (e.g. "2021-05-04T05:04:01Z").
                     The "earliest" and "latest" values indicate the beginning and end, respectively,
@@ -52,7 +58,7 @@ spec:
                     the exact time/offset will depend on the state of the persistence window when
                     the ResetOffset command is executed. There is no default value, and invalid
                     values will result in the ResetOffset operation being rejected as failed.'
-                type: string
+                    type: string
               ref:
                 description: 'Reference to a Kafka resource which can be mapped to a specific
                     ConsumerGroup, such as a Subscription or Trigger. This open type allows various
@@ -79,8 +85,8 @@ spec:
                     description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
                     type: string
           status:
-            type: object
             description: "Status (computed) for a ResetOffset"
+            type: object
             properties:
               annotations:
                 description: 'Annotations is additional Status fields for the Resource to save some

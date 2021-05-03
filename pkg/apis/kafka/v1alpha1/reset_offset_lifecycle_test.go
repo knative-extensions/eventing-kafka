@@ -134,11 +134,11 @@ func TestResetOffsetStatus_InitializeConditions(t *testing.T) {
 			wantStatus: &ResetOffsetStatus{
 				Status: duckv1.Status{
 					Conditions: []apis.Condition{
-						{Type: ResetOffsetConditionResetInitiated, Status: corev1.ConditionUnknown},
-						{Type: ResetOffsetConditionOffsetsCalculated, Status: corev1.ConditionUnknown},
-						{Type: ResetOffsetConditionConsumerGroupsStopped, Status: corev1.ConditionUnknown},
-						{Type: ResetOffsetConditionOffsetsUpdated, Status: corev1.ConditionUnknown},
 						{Type: ResetOffsetConditionConsumerGroupsStarted, Status: corev1.ConditionUnknown},
+						{Type: ResetOffsetConditionConsumerGroupsStopped, Status: corev1.ConditionUnknown},
+						{Type: ResetOffsetConditionOffsetsCalculated, Status: corev1.ConditionUnknown},
+						{Type: ResetOffsetConditionOffsetsUpdated, Status: corev1.ConditionUnknown},
+						{Type: ResetOffsetConditionResetInitiated, Status: corev1.ConditionUnknown},
 						{Type: ResetOffsetConditionSucceeded, Status: corev1.ConditionUnknown},
 					},
 				},
@@ -156,11 +156,11 @@ func TestResetOffsetStatus_InitializeConditions(t *testing.T) {
 			wantStatus: &ResetOffsetStatus{
 				Status: duckv1.Status{
 					Conditions: []apis.Condition{
-						{Type: ResetOffsetConditionResetInitiated, Status: corev1.ConditionUnknown},
-						{Type: ResetOffsetConditionOffsetsCalculated, Status: corev1.ConditionFalse},
-						{Type: ResetOffsetConditionConsumerGroupsStopped, Status: corev1.ConditionUnknown},
-						{Type: ResetOffsetConditionOffsetsUpdated, Status: corev1.ConditionUnknown},
 						{Type: ResetOffsetConditionConsumerGroupsStarted, Status: corev1.ConditionUnknown},
+						{Type: ResetOffsetConditionConsumerGroupsStopped, Status: corev1.ConditionUnknown},
+						{Type: ResetOffsetConditionOffsetsCalculated, Status: corev1.ConditionFalse},
+						{Type: ResetOffsetConditionOffsetsUpdated, Status: corev1.ConditionUnknown},
+						{Type: ResetOffsetConditionResetInitiated, Status: corev1.ConditionUnknown},
 						{Type: ResetOffsetConditionSucceeded, Status: corev1.ConditionUnknown},
 					},
 				},
@@ -178,11 +178,11 @@ func TestResetOffsetStatus_InitializeConditions(t *testing.T) {
 			wantStatus: &ResetOffsetStatus{
 				Status: duckv1.Status{
 					Conditions: []apis.Condition{
-						{Type: ResetOffsetConditionResetInitiated, Status: corev1.ConditionUnknown},
-						{Type: ResetOffsetConditionOffsetsCalculated, Status: corev1.ConditionUnknown},
-						{Type: ResetOffsetConditionConsumerGroupsStopped, Status: corev1.ConditionUnknown},
-						{Type: ResetOffsetConditionOffsetsUpdated, Status: corev1.ConditionTrue},
 						{Type: ResetOffsetConditionConsumerGroupsStarted, Status: corev1.ConditionUnknown},
+						{Type: ResetOffsetConditionConsumerGroupsStopped, Status: corev1.ConditionUnknown},
+						{Type: ResetOffsetConditionOffsetsCalculated, Status: corev1.ConditionUnknown},
+						{Type: ResetOffsetConditionOffsetsUpdated, Status: corev1.ConditionTrue},
+						{Type: ResetOffsetConditionResetInitiated, Status: corev1.ConditionUnknown},
 						{Type: ResetOffsetConditionSucceeded, Status: corev1.ConditionUnknown},
 					},
 				},
@@ -200,11 +200,11 @@ func TestResetOffsetStatus_InitializeConditions(t *testing.T) {
 			wantStatus: &ResetOffsetStatus{
 				Status: duckv1.Status{
 					Conditions: []apis.Condition{
-						{Type: ResetOffsetConditionResetInitiated, Status: corev1.ConditionTrue},
-						{Type: ResetOffsetConditionOffsetsCalculated, Status: corev1.ConditionTrue},
-						{Type: ResetOffsetConditionConsumerGroupsStopped, Status: corev1.ConditionTrue},
-						{Type: ResetOffsetConditionOffsetsUpdated, Status: corev1.ConditionTrue},
 						{Type: ResetOffsetConditionConsumerGroupsStarted, Status: corev1.ConditionTrue},
+						{Type: ResetOffsetConditionConsumerGroupsStopped, Status: corev1.ConditionTrue},
+						{Type: ResetOffsetConditionOffsetsCalculated, Status: corev1.ConditionTrue},
+						{Type: ResetOffsetConditionOffsetsUpdated, Status: corev1.ConditionTrue},
+						{Type: ResetOffsetConditionResetInitiated, Status: corev1.ConditionTrue},
 						{Type: ResetOffsetConditionSucceeded, Status: corev1.ConditionTrue},
 					},
 				},
@@ -253,19 +253,19 @@ func TestResetOffsetStatus_IsCompleted(t *testing.T) {
 			wantSucceeded:             false,
 		},
 		{
-			name:                      "OffsetsCalculated Failed",
+			name:                      "ConsumerGroupsStopped Failed",
 			markResetInitiated:        true,
-			markOffsetsCalculated:     false,
-			markConsumerGroupsStopped: true,
+			markOffsetsCalculated:     true,
+			markConsumerGroupsStopped: false,
 			markOffsetsUpdated:        true,
 			markConsumerGroupsStarted: true,
 			wantSucceeded:             false,
 		},
 		{
-			name:                      "ConsumerGroupsStopped Failed",
+			name:                      "OffsetsCalculated Failed",
 			markResetInitiated:        true,
-			markOffsetsCalculated:     true,
-			markConsumerGroupsStopped: false,
+			markOffsetsCalculated:     false,
+			markConsumerGroupsStopped: true,
 			markOffsetsUpdated:        true,
 			markConsumerGroupsStarted: true,
 			wantSucceeded:             false,
@@ -299,15 +299,15 @@ func TestResetOffsetStatus_IsCompleted(t *testing.T) {
 			} else {
 				resetOffsetStatus.MarkResetInitiatedFailed("TestingOffsetsResetInitiatedStatus", "TestMessage")
 			}
-			if test.markOffsetsCalculated {
-				resetOffsetStatus.MarkOffsetsCalculatedTrue()
-			} else {
-				resetOffsetStatus.MarkOffsetsCalculatedFailed("TestingOffsetsCalculatedFailedStatus", "TestMessage")
-			}
 			if test.markConsumerGroupsStopped {
 				resetOffsetStatus.MarkConsumerGroupsStoppedTrue()
 			} else {
 				resetOffsetStatus.MarkConsumerGroupsStoppedFailed("TestingConsumerGroupsStoppedStatus", "TestMessage")
+			}
+			if test.markOffsetsCalculated {
+				resetOffsetStatus.MarkOffsetsCalculatedTrue()
+			} else {
+				resetOffsetStatus.MarkOffsetsCalculatedFailed("TestingOffsetsCalculatedFailedStatus", "TestMessage")
 			}
 			if test.markOffsetsUpdated {
 				resetOffsetStatus.MarkOffsetsUpdatedTrue()

@@ -24,6 +24,6 @@ func (ro *ResetOffset) SetDefaults(ctx context.Context) {
 	ro.Spec.SetDefaults(ctx)
 }
 
-func (ros *ResetOffsetSpec) SetDefaults(ctx context.Context) {
+func (ros *ResetOffsetSpec) SetDefaults(_ context.Context) {
 	// Currently no fields can be defaulted.
 }

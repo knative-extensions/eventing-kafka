@@ -37,7 +37,7 @@ func (ros *ResetOffsetSpec) Validate(ctx context.Context) *apis.FieldError {
 	if !ros.IsOffsetEarliest() && !ros.IsOffsetLatest() {
 		offsetTime, err := ros.ParseOffsetTime()
 		if err != nil || offsetTime.After(time.Now()) {
-			errs = errs.Also(apis.ErrInvalidValue(ros.Offset, "offset"))
+			errs = errs.Also(apis.ErrInvalidValue(ros.Offset.Time, "offset"))
 		}
 	}
 

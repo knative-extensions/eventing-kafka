@@ -38,24 +38,24 @@ const (
 	// ResetOffsetConditionResetInitiated has status True when the ResetOffset is being processed
 	// Until that time it is either "Unknown" when first encountered, or "Blocked" if another
 	// ResetOffset is being processed for the same "Ref" resource.
-	ResetOffsetConditionResetInitiated apis.ConditionType = "1-ResetInitiated"
+	ResetOffsetConditionResetInitiated apis.ConditionType = "ResetInitiated"
+
+	// ResetOffsetConditionConsumerGroupsStopped has status True when all of the ConsumerGroups
+	// associated with the referenced object (Subscription, Trigger, etc.) have been stopped.
+	ResetOffsetConditionConsumerGroupsStopped apis.ConditionType = "ConsumerGroupsStopped"
 
 	// ResetOffsetConditionOffsetsCalculated has status True when the individual offsets of each
 	// Partition in the Topic have been calculated from the "offset" indicator in the Spec and
 	// have been verified as valid relative to the persistence window.
-	ResetOffsetConditionOffsetsCalculated apis.ConditionType = "2-OffsetsCalculated"
-
-	// ResetOffsetConditionConsumerGroupsStopped has status True when all of the ConsumerGroups
-	// associated with the referenced object (Subscription, Trigger, etc.) have been stopped.
-	ResetOffsetConditionConsumerGroupsStopped apis.ConditionType = "3-ConsumerGroupsStopped"
+	ResetOffsetConditionOffsetsCalculated apis.ConditionType = "OffsetsCalculated"
 
 	// ResetOffsetConditionOffsetsUpdated has status True when all of the individual offsets
 	// of each Partition in the Topic have been updated to their new values.
-	ResetOffsetConditionOffsetsUpdated apis.ConditionType = "4-OffsetsUpdated"
+	ResetOffsetConditionOffsetsUpdated apis.ConditionType = "OffsetsUpdated"
 
 	// ResetOffsetConditionConsumerGroupsStarted has status True when all of the ConsumerGroups
 	// associated with the referenced object (Subscription, Trigger, etc.) have been restarted.
-	ResetOffsetConditionConsumerGroupsStarted apis.ConditionType = "5-ConsumerGroupsStarted"
+	ResetOffsetConditionConsumerGroupsStarted apis.ConditionType = "ConsumerGroupsStarted"
 )
 
 // RegisterAlternateResetOffsetConditionSet register a different apis.ConditionSet.
