@@ -21,28 +21,33 @@ import (
 	"reflect"
 	"testing"
 
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	duckv1alpha1 "knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
 	tscheduler "knative.dev/eventing-kafka/pkg/common/scheduler/testing"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
 )
 
 func TestStateBuilder(t *testing.T) {
 	testCases := []struct {
-		name     string
-		vpods    [][]duckv1alpha1.Placement
-		expected state
-		freec    int32
-		err      error
+		name            string
+		vpods           [][]duckv1alpha1.Placement
+		expected        state
+		freec           int32
+		schedulerPolicy SchedulerPolicyType
+		nodes           []*v1.Node
+		err             error
 	}{
 		{
 			name:     "no vpods",
 			vpods:    [][]duckv1alpha1.Placement{},
-			expected: state{capacity: 10, free: []int32{}, lastOrdinal: -1},
+			expected: state{capacity: 10, free: []int32{}, lastOrdinal: -1, schedulerPolicy: MaxFillup},
 			freec:    int32(0),
 		},
 		{
 			name:     "one vpods",
 			vpods:    [][]duckv1alpha1.Placement{{{PodName: "statefulset-name-0", VReplicas: 1}}},
-			expected: state{capacity: 10, free: []int32{int32(9)}, lastOrdinal: 0},
+			expected: state{capacity: 10, free: []int32{int32(9)}, lastOrdinal: 0, schedulerPolicy: MaxFillup},
 			freec:    int32(9),
 		},
 		{
@@ -52,7 +57,7 @@ func TestStateBuilder(t *testing.T) {
 				{{PodName: "statefulset-name-1", VReplicas: 2}},
 				{{PodName: "statefulset-name-1", VReplicas: 3}, {PodName: "statefulset-name-0", VReplicas: 1}},
 			},
-			expected: state{capacity: 10, free: []int32{int32(8), int32(5), int32(5)}, lastOrdinal: 2},
+			expected: state{capacity: 10, free: []int32{int32(8), int32(5), int32(5)}, lastOrdinal: 2, schedulerPolicy: MaxFillup},
 			freec:    int32(18),
 		},
 		{
@@ -62,8 +67,24 @@ func TestStateBuilder(t *testing.T) {
 				{{PodName: "statefulset-name-1", VReplicas: 0}},
 				{{PodName: "statefulset-name-1", VReplicas: 0}, {PodName: "statefulset-name-3", VReplicas: 0}},
 			},
-			expected: state{capacity: 10, free: []int32{int32(9), int32(10), int32(5), int32(10)}, lastOrdinal: 2},
+			expected: state{capacity: 10, free: []int32{int32(9), int32(10), int32(5), int32(10)}, lastOrdinal: 2, schedulerPolicy: MaxFillup},
 			freec:    int32(24),
+		},
+		{
+			name:            "no vpods, all nodes with zone labels",
+			vpods:           [][]duckv1alpha1.Placement{},
+			expected:        state{capacity: 10, free: []int32{}, lastOrdinal: -1, numZones: 3, schedulerPolicy: EvenSpread, nodeToZoneMap: map[string]string{"node-0": "zone-0", "node-1": "zone-1", "node-2": "zone-2", "node-3": "zone-2"}},
+			freec:           int32(0),
+			schedulerPolicy: EvenSpread,
+			nodes:           []*v1.Node{makeNode("node-0", "zone-0"), makeNode("node-1", "zone-1"), makeNode("node-2", "zone-2"), makeNode("node-3", "zone-2")},
+		},
+		{
+			name:            "no vpods, one node with no label",
+			vpods:           [][]duckv1alpha1.Placement{},
+			expected:        state{capacity: 10, free: []int32{}, lastOrdinal: -1, numZones: 2, schedulerPolicy: EvenSpread, nodeToZoneMap: map[string]string{"node-0": "zone-0", "node-2": "zone-2", "node-3": "zone-2"}},
+			freec:           int32(0),
+			schedulerPolicy: EvenSpread,
+			nodes:           []*v1.Node{makeNode("node-0", "zone-0"), makeNodeNoLabel("node-1"), makeNode("node-2", "zone-2"), makeNode("node-3", "zone-2")},
 		},
 	}
 
@@ -79,7 +100,16 @@ func TestStateBuilder(t *testing.T) {
 				vpodClient.Create(vpodNamespace, vpodName, 1, placements)
 			}
 
-			stateBuilder := newStateBuilder(ctx, vpodClient.List, int32(10), MaxFillup)
+			if tc.schedulerPolicy == EvenSpread {
+				for i := 0; i < len(tc.nodes); i++ {
+					_, err := kubeclient.Get(ctx).CoreV1().Nodes().Create(ctx, tc.nodes[i], metav1.CreateOptions{})
+					if err != nil {
+						t.Fatal("unexpected error", err)
+					}
+				}
+			}
+
+			stateBuilder := newStateBuilder(ctx, vpodClient.List, int32(10), tc.schedulerPolicy)
 			state, err := stateBuilder.State()
 			if err != nil {
 				t.Fatal("unexpected error", err)

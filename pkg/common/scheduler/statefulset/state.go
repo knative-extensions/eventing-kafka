@@ -18,7 +18,6 @@ package statefulset
 
 import (
 	"context"
-	"errors"
 
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -145,7 +144,7 @@ func (s *stateBuilder) State() (*state, error) {
 			node := nodes.Items[i]
 			zoneName, ok := node.GetLabels()[ZoneLabel]
 			if !ok {
-				return nil, errors.New("Could not find label for zone")
+				continue //ignore node that doesn't have zone info (maybe a test setup or control node)
 			}
 
 			nodeToZoneMap[node.Name] = zoneName

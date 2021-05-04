@@ -267,7 +267,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 				for i := int32(0); i < numZones; i++ {
 					nodeName := "node" + fmt.Sprint(i)
 					zoneName := "zone" + fmt.Sprint(i)
-					_, err := kubeclient.Get(ctx).CoreV1().Nodes().Create(ctx, makeNode(ctx, nodeName, zoneName), metav1.CreateOptions{})
+					_, err := kubeclient.Get(ctx).CoreV1().Nodes().Create(ctx, makeNode(nodeName, zoneName), metav1.CreateOptions{})
 					if err != nil {
 						t.Fatal("unexpected error", err)
 					}
@@ -275,14 +275,14 @@ func TestStatefulsetScheduler(t *testing.T) {
 				for i := int32(0); i < tc.replicas; i++ {
 					nodeName := "node" + fmt.Sprint(i)
 					podName := sfsName + "-" + fmt.Sprint(i)
-					_, err := kubeclient.Get(ctx).CoreV1().Pods(testNs).Create(ctx, makePod(ctx, testNs, podName, nodeName), metav1.CreateOptions{})
+					_, err := kubeclient.Get(ctx).CoreV1().Pods(testNs).Create(ctx, makePod(testNs, podName, nodeName), metav1.CreateOptions{})
 					if err != nil {
 						t.Fatal("unexpected error", err)
 					}
 				}
 			}
 
-			_, err := kubeclient.Get(ctx).AppsV1().StatefulSets(testNs).Create(ctx, makeStatefulset(ctx, testNs, sfsName, tc.replicas), metav1.CreateOptions{})
+			_, err := kubeclient.Get(ctx).AppsV1().StatefulSets(testNs).Create(ctx, makeStatefulset(testNs, sfsName, tc.replicas), metav1.CreateOptions{})
 			if err != nil {
 				t.Fatal("unexpected error", err)
 			}
@@ -320,7 +320,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 	}
 }
 
-func makeStatefulset(ctx context.Context, ns, name string, replicas int32) *appsv1.StatefulSet {
+func makeStatefulset(ns, name string, replicas int32) *appsv1.StatefulSet {
 	obj := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -337,7 +337,7 @@ func makeStatefulset(ctx context.Context, ns, name string, replicas int32) *apps
 	return obj
 }
 
-func makeNode(ctx context.Context, name, zonename string) *corev1.Node {
+func makeNode(name, zonename string) *corev1.Node {
 	obj := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -349,7 +349,16 @@ func makeNode(ctx context.Context, name, zonename string) *corev1.Node {
 	return obj
 }
 
-func makePod(ctx context.Context, ns, name, nodename string) *corev1.Pod {
+func makeNodeNoLabel(name string) *corev1.Node {
+	obj := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+	}
+	return obj
+}
+
+func makePod(ns, name, nodename string) *corev1.Pod {
 	obj := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,

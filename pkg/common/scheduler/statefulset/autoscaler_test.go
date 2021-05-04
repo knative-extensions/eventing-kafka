@@ -190,7 +190,7 @@ func TestAutoscaler(t *testing.T) {
 			stateAccessor := newStateBuilder(ctx, vpodClient.List, 10, MaxFillup)
 
 			sfsClient := kubeclient.Get(ctx).AppsV1().StatefulSets(testNs)
-			_, err := sfsClient.Create(ctx, makeStatefulset(ctx, testNs, sfsName, tc.replicas), metav1.CreateOptions{})
+			_, err := sfsClient.Create(ctx, makeStatefulset(testNs, sfsName, tc.replicas), metav1.CreateOptions{})
 			if err != nil {
 				t.Fatal("unexpected error", err)
 			}
@@ -233,7 +233,7 @@ func TestAutoscalerScaleDownToZero(t *testing.T) {
 	stateAccessor := newStateBuilder(ctx, vpodClient.List, 10, MaxFillup)
 
 	sfsClient := kubeclient.Get(ctx).AppsV1().StatefulSets(testNs)
-	_, err := sfsClient.Create(ctx, makeStatefulset(ctx, testNs, sfsName, 10), metav1.CreateOptions{})
+	_, err := sfsClient.Create(ctx, makeStatefulset(testNs, sfsName, 10), metav1.CreateOptions{})
 	if err != nil {
 		t.Fatal("unexpected error", err)
 	}
