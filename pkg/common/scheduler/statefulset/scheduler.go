@@ -155,18 +155,15 @@ func (s *StatefulSetScheduler) Schedule(vpod scheduler.VPod) ([]duckv1alpha1.Pla
 		return placements, nil
 	}
 
-	if state.schedulerPolicy == EvenSpread {
-		//spreadVal is the minimum number of replicas to be placed in each zone for high availability (total replicas divided by number of zones in cluster)
-		spreadVal = int32(math.Ceil(float64(vpod.GetVReplicas()) / float64(state.numZones)))
-		logger.Infow("number of replicas per zone", zap.Int32("spreadVal", spreadVal))
-	}
-
 	// Need less => scale down
 	if tr > vpod.GetVReplicas() {
 		logger.Infow("scaling down", zap.Int32("vreplicas", tr), zap.Int32("new vreplicas", vpod.GetVReplicas()))
 		if state.schedulerPolicy == MaxFillup {
 			placements = s.removeReplicas(tr-vpod.GetVReplicas(), placements)
 		} else {
+			//spreadVal is the minimum number of replicas to be left behind in each zone for high availability
+			spreadVal = int32(math.Floor(float64(vpod.GetVReplicas()) / float64(state.numZones)))
+			logger.Infow("number of replicas per zone", zap.Int32("spreadVal", spreadVal))
 			placements = s.removeReplicasEvenSpread(tr-vpod.GetVReplicas(), placements, spreadVal)
 		}
 
@@ -180,6 +177,9 @@ func (s *StatefulSetScheduler) Schedule(vpod scheduler.VPod) ([]duckv1alpha1.Pla
 	if state.schedulerPolicy == MaxFillup {
 		placements, left = s.addReplicas(state, vpod.GetVReplicas()-tr, placements)
 	} else {
+		//spreadVal is the minimum number of replicas to be placed in each zone for high availability
+		spreadVal = int32(math.Ceil(float64(vpod.GetVReplicas()) / float64(state.numZones)))
+		logger.Infow("number of replicas per zone", zap.Int32("spreadVal", spreadVal))
 		placements, left = s.addReplicasEvenSpread(state, vpod.GetVReplicas()-tr, placements, spreadVal)
 	}
 	if left > 0 {
@@ -238,19 +238,22 @@ func (s *StatefulSetScheduler) removeReplicasEvenSpread(diff int32, placements [
 			ordinal := placementOrdinals[j]
 			placement := s.getPlacementFromPodOrdinal(placements, ordinal)
 
-			if diff >= 0 && totalInZone > evenSpread {
+			if diff > 0 && totalInZone >= evenSpread {
 				deallocation := integer.Int32Min(diff, integer.Int32Min(placement.VReplicas, totalInZone-evenSpread))
 				logger.Info(zap.Int32("diff", diff), zap.Int32("deallocation", deallocation))
 
-				if deallocation < placement.VReplicas {
+				if deallocation > 0 && deallocation < placement.VReplicas {
 					newPlacements = append(newPlacements, duckv1alpha1.Placement{
 						PodName:   placement.PodName,
 						ZoneName:  placement.ZoneName,
 						VReplicas: placement.VReplicas - deallocation,
 					})
+					diff -= deallocation
+					totalInZone -= deallocation
+				} else {
+					diff -= placement.VReplicas
+					totalInZone -= placement.VReplicas
 				}
-				diff -= deallocation
-				totalInZone -= deallocation
 			} else {
 				newPlacements = append(newPlacements, duckv1alpha1.Placement{
 					PodName:   placement.PodName,
