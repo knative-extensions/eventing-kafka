@@ -1091,7 +1091,7 @@ k8s.io/utils/buffer
 k8s.io/utils/integer
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# knative.dev/control-protocol v0.0.0-20210428072553-79468156aad1
+# knative.dev/control-protocol v0.0.0-20210504094437-d6392770de44
 ## explicit
 knative.dev/control-protocol/pkg
 knative.dev/control-protocol/pkg/certificates
@@ -1099,7 +1099,7 @@ knative.dev/control-protocol/pkg/message
 knative.dev/control-protocol/pkg/network
 knative.dev/control-protocol/pkg/reconciler
 knative.dev/control-protocol/pkg/service
-# knative.dev/eventing v0.22.1-0.20210428222054-c2d6649ea36d
+# knative.dev/eventing v0.22.1-0.20210504001137-8a094e6031f2
 ## explicit
 knative.dev/eventing/pkg/adapter/v2
 knative.dev/eventing/pkg/adapter/v2/test
@@ -1119,7 +1119,6 @@ knative.dev/eventing/pkg/apis/messaging/v1
 knative.dev/eventing/pkg/apis/sources
 knative.dev/eventing/pkg/apis/sources/config
 knative.dev/eventing/pkg/apis/sources/v1
-knative.dev/eventing/pkg/apis/sources/v1beta1
 knative.dev/eventing/pkg/apis/sources/v1beta2
 knative.dev/eventing/pkg/channel
 knative.dev/eventing/pkg/channel/attributes
@@ -1137,8 +1136,6 @@ knative.dev/eventing/pkg/client/clientset/versioned/typed/messaging/v1
 knative.dev/eventing/pkg/client/clientset/versioned/typed/messaging/v1/fake
 knative.dev/eventing/pkg/client/clientset/versioned/typed/sources/v1
 knative.dev/eventing/pkg/client/clientset/versioned/typed/sources/v1/fake
-knative.dev/eventing/pkg/client/clientset/versioned/typed/sources/v1beta1
-knative.dev/eventing/pkg/client/clientset/versioned/typed/sources/v1beta1/fake
 knative.dev/eventing/pkg/client/clientset/versioned/typed/sources/v1beta2
 knative.dev/eventing/pkg/client/clientset/versioned/typed/sources/v1beta2/fake
 knative.dev/eventing/pkg/client/informers/externalversions
@@ -1152,7 +1149,6 @@ knative.dev/eventing/pkg/client/informers/externalversions/messaging
 knative.dev/eventing/pkg/client/informers/externalversions/messaging/v1
 knative.dev/eventing/pkg/client/informers/externalversions/sources
 knative.dev/eventing/pkg/client/informers/externalversions/sources/v1
-knative.dev/eventing/pkg/client/informers/externalversions/sources/v1beta1
 knative.dev/eventing/pkg/client/informers/externalversions/sources/v1beta2
 knative.dev/eventing/pkg/client/injection/client
 knative.dev/eventing/pkg/client/injection/client/fake
@@ -1164,7 +1160,6 @@ knative.dev/eventing/pkg/client/listers/eventing/v1beta1
 knative.dev/eventing/pkg/client/listers/flows/v1
 knative.dev/eventing/pkg/client/listers/messaging/v1
 knative.dev/eventing/pkg/client/listers/sources/v1
-knative.dev/eventing/pkg/client/listers/sources/v1beta1
 knative.dev/eventing/pkg/client/listers/sources/v1beta2
 knative.dev/eventing/pkg/duck
 knative.dev/eventing/pkg/kncloudevents
