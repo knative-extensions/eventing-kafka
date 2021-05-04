@@ -128,8 +128,8 @@ func (r *Reconciler) newKafkaChannelService(channel *kafkav1beta1.KafkaChannel) 
 	// Get The KafkaChannel Service Name
 	serviceName := kafkautil.AppendKafkaChannelServiceNameSuffix(channel.Name)
 
-	// Get The Receiver Service Name For The Kafka Secret (One Receiver Service Per Kafka Secret)
-	deploymentName := util.ReceiverDnsSafeName(r.config.Kafka.AuthSecretName)
+	// Get The Receiver Service Name For The Kafka Secret (Only One Receiver Service)
+	deploymentName := util.ReceiverDnsSafeName(constants.ReceiverPrefix)
 	serviceAddress := network.GetServiceHostname(deploymentName, r.environment.SystemNamespace)
 
 	// Create & Return The Service Model

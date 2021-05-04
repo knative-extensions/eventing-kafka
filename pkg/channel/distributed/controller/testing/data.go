@@ -77,7 +77,7 @@ const (
 	KafkaChannelKey        = KafkaChannelNamespace + "/" + KafkaChannelName
 	KafkaSecretNamespace   = "eventing-test-ns" // Needs To Match system.Namespace() Call In Reconciliation
 	KafkaSecretName        = "kafkasecret-name"
-	ReceiverDeploymentName = KafkaSecretName + "-b9176d5f-receiver" // Truncated MD5 Hash Of KafkaSecretName
+	ReceiverDeploymentName = constants.ReceiverPrefix + "-receiver"
 	ReceiverServiceName    = ReceiverDeploymentName
 	TopicName              = KafkaChannelNamespace + "." + KafkaChannelName
 
@@ -614,12 +614,12 @@ func WithReceiverServiceFailedNoSecret(kafkachannel *kafkav1beta1.KafkaChannel) 
 
 // WithReceiverServiceFailedTimestamp Sets The KafkaChannel's Receiver Service As Failed ("encountered Receiver Service with DeletionTimestamp" ...)
 func WithReceiverServiceFailedTimestamp(kafkachannel *kafkav1beta1.KafkaChannel) {
-	kafkachannel.Status.MarkServiceFailed(event.ReceiverServiceReconciliationFailed.String(), "Receiver Service Failed: encountered Receiver Service with DeletionTimestamp eventing-test-ns/kafkasecret-name-b9176d5f-receiver - potential race condition")
+	kafkachannel.Status.MarkServiceFailed(event.ReceiverServiceReconciliationFailed.String(), "Receiver Service Failed: encountered Receiver Service with DeletionTimestamp eventing-test-ns/kafka-cluster-receiver - potential race condition")
 }
 
 // WithReceiverDeploymentFailedTimestamp Sets The KafkaChannel's Receiver Deployment As Failed ("encountered Receiver Deployment with DeletionTimestamp" ...)
 func WithReceiverDeploymentFailedTimestamp(kafkachannel *kafkav1beta1.KafkaChannel) {
-	kafkachannel.Status.MarkEndpointsFailed(event.ReceiverDeploymentReconciliationFailed.String(), "Receiver Deployment Failed: encountered Receiver Deployment with DeletionTimestamp eventing-test-ns/kafkasecret-name-b9176d5f-receiver - potential race condition")
+	kafkachannel.Status.MarkEndpointsFailed(event.ReceiverDeploymentReconciliationFailed.String(), "Receiver Deployment Failed: encountered Receiver Deployment with DeletionTimestamp eventing-test-ns/kafka-cluster-receiver - potential race condition")
 }
 
 // WithReceiverDeploymentReady Sets The KafkaChannel's Receiver Deployment As READY  ("EndpointsReady")

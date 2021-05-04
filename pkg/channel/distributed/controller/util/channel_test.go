@@ -31,7 +31,7 @@ import (
 
 // Test Data
 const (
-	kafkaSecret              = "testkafkasecret"
+	testPrefix               = "testkafkaprefix"
 	channelName              = "testname"
 	channelNamespace         = "testnamespace"
 	numPartitions            = int32(123)
@@ -97,11 +97,13 @@ func TestNewChannelOwnerReference(t *testing.T) {
 func TestReceiverDnsSafeName(t *testing.T) {
 
 	// Perform The Test
-	actualResult := ReceiverDnsSafeName(kafkaSecret)
+	actualTestResult := ReceiverDnsSafeName(testPrefix)
+	actualReceiverResult := ReceiverDnsSafeName(constants.ReceiverPrefix)
 
 	// Verify The Results
-	expectedResult := fmt.Sprintf("%s-%s-receiver", strings.ToLower(kafkaSecret), GenerateHash(kafkaSecret, 8))
-	assert.Equal(t, expectedResult, actualResult)
+	assert.Equal(t, strings.ToLower(testPrefix) + "-receiver", actualTestResult)
+	assert.Equal(t, strings.ToLower(constants.ReceiverPrefix) + "-receiver", actualReceiverResult)
+	assert.NotEqual(t, actualTestResult, actualReceiverResult)
 }
 
 // Test The Channel Host Name Formatter / Generator

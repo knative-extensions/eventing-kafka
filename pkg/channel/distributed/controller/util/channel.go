@@ -28,17 +28,17 @@ import (
 	"knative.dev/pkg/network"
 )
 
-// Get A Logger With Channel Info
+// ChannelLogger Gets A Logger With Channel Info
 func ChannelLogger(logger *zap.Logger, channel *kafkav1beta1.KafkaChannel) *zap.Logger {
 	return logger.With(zap.String("Channel", fmt.Sprintf("%s/%s", channel.Namespace, channel.Name)))
 }
 
-// Create A Knative Reconciler "Key" Formatted Representation Of The Specified Channel
+// ChannelKey Creates A Knative Reconciler "Key" Formatted Representation Of The Specified Channel
 func ChannelKey(channel *kafkav1beta1.KafkaChannel) string {
 	return fmt.Sprintf("%s/%s", channel.Namespace, channel.Name)
 }
 
-// Create A New OwnerReference For The Specified KafkaChannel (Controller)
+// NewChannelOwnerReference Creates A New OwnerReference For The Specified KafkaChannel (Controller)
 func NewChannelOwnerReference(channel *kafkav1beta1.KafkaChannel) metav1.OwnerReference {
 
 	kafkaChannelGroupVersion := schema.GroupVersion{
@@ -60,27 +60,25 @@ func NewChannelOwnerReference(channel *kafkav1beta1.KafkaChannel) metav1.OwnerRe
 }
 
 //
-// Create A DNS Safe Name For The Receiver Deployment Using The Specified Kafka Secret
+// ReceiverDnsSafeName Creates A DNS Safe Name For The Receiver Deployment Using The Specified Kafka Secret
 //
 // Note - The current implementation creates a single Receiver Deployment for each
 //        Kafka Authentication (K8S Secrets) instance.
 //
-func ReceiverDnsSafeName(kafkaSecretName string) string {
+func ReceiverDnsSafeName(prefix string) string {
 
 	// In order for the resulting name to be a valid DNS component it's length must be no more than 63 characters.
-	// We are consuming 18 chars for the component separators, hash, and Receiver suffix, which reduces the
-	// available length to 45. We will allocate 40 characters to the kafka secret name leaving an extra buffer.
-	safeSecretName := GenerateValidDnsName(kafkaSecretName, 40, true, false)
-
-	return fmt.Sprintf("%s-%s-receiver", safeSecretName, GenerateHash(kafkaSecretName, 8))
+	// We are consuming 9 chars for the component separator and Receiver suffix, which reduces the
+	// available length to 54. We will allocate 50 characters to the prefix leaving an extra buffer.
+	return GenerateValidDnsName(prefix, 50, true, false) + "-receiver"
 }
 
-// Channel Host Naming Utility
+// ChannelHostName Creates A Name For The Channel Host
 func ChannelHostName(channelName, channelNamespace string) string {
 	return fmt.Sprintf("%s.%s.channels.%s", channelName, channelNamespace, network.GetClusterDomainName())
 }
 
-// Utility Function To Get The NumPartitions - First From Channel Spec And Then From ConfigMap-Provided Settings
+// NumPartitions Gets The NumPartitions - First From Channel Spec And Then From ConfigMap-Provided Settings
 func NumPartitions(channel *kafkav1beta1.KafkaChannel, configuration *commonconfig.EventingKafkaConfig, logger *zap.Logger) int32 {
 	value := channel.Spec.NumPartitions
 	if value <= 0 {
@@ -90,7 +88,7 @@ func NumPartitions(channel *kafkav1beta1.KafkaChannel, configuration *commonconf
 	return value
 }
 
-// Utility Function To Get The ReplicationFactor - First From Channel Spec And Then From ConfigMap-Provided Settings
+// ReplicationFactor Gets The ReplicationFactor - First From Channel Spec And Then From ConfigMap-Provided Settings
 func ReplicationFactor(channel *kafkav1beta1.KafkaChannel, configuration *commonconfig.EventingKafkaConfig, logger *zap.Logger) int16 {
 	value := channel.Spec.ReplicationFactor
 	if value <= 0 {
@@ -100,7 +98,7 @@ func ReplicationFactor(channel *kafkav1beta1.KafkaChannel, configuration *common
 	return value
 }
 
-// Utility Function To Get The RetentionMillis - First From Channel Spec And Then From ConfigMap-Provided Settings
+// RetentionMillis Gets The RetentionMillis - First From Channel Spec And Then From ConfigMap-Provided Settings
 func RetentionMillis(channel *kafkav1beta1.KafkaChannel, configuration *commonconfig.EventingKafkaConfig, logger *zap.Logger) int64 {
 	//
 	// TODO - The eventing-contrib KafkaChannel CRD does not include RetentionMillis so we're

@@ -64,6 +64,9 @@ const (
 	DispatcherContainerName = "kafkachannel-dispatcher"
 	ReceiverContainerName   = "kafkachannel-receiver"
 
+	// ReceiverPrefix is the prefix given to the (single) Receiver deployment and service
+	ReceiverPrefix = "kafka-cluster"
+
 	// Labels
 	AppLabel                    = "app"
 	KafkaChannelNameLabel       = "kafkachannel-name"

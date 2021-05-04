@@ -44,7 +44,7 @@ import (
 	"knative.dev/pkg/system"
 )
 
-// Reconcile The Receiver (Kafka Producer) For The Specified KafkaChannel
+// reconcileReceiver Reconciles The Receiver (Kafka Producer) For The Specified KafkaChannel
 func (r *Reconciler) reconcileReceiver(ctx context.Context, channel *v1beta1.KafkaChannel, secret *corev1.Secret, secretExists bool) error {
 
 	// Get A Logger With Secret Info
@@ -100,14 +100,14 @@ func (r *Reconciler) reconcileReceiver(ctx context.Context, channel *v1beta1.Kaf
 // Kafka Receiver Service
 //
 
-// Reconcile The Receiver Service
+// reconcileReceiverService Reconciles The Receiver Service
 func (r *Reconciler) reconcileReceiverService(ctx context.Context, logger *zap.Logger, secret *corev1.Secret, secretExists bool) error {
 
 	// Create A New Service For Comparison
-	newService := r.newReceiverService(secret)
+	newService := r.newReceiverService()
 
 	// Attempt To Get The Receiver Service Associated With The Specified Secret
-	existingService, err := r.getReceiverService(secret)
+	existingService, err := r.getReceiverService()
 
 	if !secretExists {
 		// If there is no secret, the receiver service must be deleted (if it exists)
@@ -170,11 +170,11 @@ func (r *Reconciler) reconcileReceiverService(ctx context.Context, logger *zap.L
 	return nil
 }
 
-// Get The Kafka Receiver Service Associated With The Specified Channel
-func (r *Reconciler) getReceiverService(secret *corev1.Secret) (*corev1.Service, error) {
+// getReceiverService Gets The Kafka Receiver Service Associated With The Specified Channel
+func (r *Reconciler) getReceiverService() (*corev1.Service, error) {
 
-	// Get The Receiver Deployment Name For The Receiver - Use Same For Service
-	deploymentName := util.ReceiverDnsSafeName(secret.Name)
+	// Get The (Single) Receiver Deployment Name For The Receiver - Use Same For Service
+	deploymentName := util.ReceiverDnsSafeName(constants.ReceiverPrefix)
 
 	// Get The Receiver Service By Namespace / Name
 	service, err := r.serviceLister.Services(r.environment.SystemNamespace).Get(deploymentName)
@@ -183,11 +183,11 @@ func (r *Reconciler) getReceiverService(secret *corev1.Secret) (*corev1.Service,
 	return service, err
 }
 
-// Create Receiver Service Model For The Specified Secret
-func (r *Reconciler) newReceiverService(secret *corev1.Secret) *corev1.Service {
+// newReceiverService Creates The Receiver Service Model For The Specified Secret
+func (r *Reconciler) newReceiverService() *corev1.Service {
 
-	// Get The Receiver Deployment Name For The Secret - Use Same For Service
-	deploymentName := util.ReceiverDnsSafeName(secret.Name)
+	// Get The (Single) Receiver Deployment Name - Use Same For Service
+	deploymentName := util.ReceiverDnsSafeName(constants.ReceiverPrefix)
 
 	// Create & Return The Receiver Service Model
 	return &corev1.Service{
@@ -227,14 +227,14 @@ func (r *Reconciler) newReceiverService(secret *corev1.Secret) *corev1.Service {
 // Kafka Receiver Deployment - The Kafka Producer Implementation
 //
 
-// Reconcile The Receiver Deployment
+// reconcileReceiverDeployment Reconciles The Receiver Deployment
 func (r *Reconciler) reconcileReceiverDeployment(ctx context.Context, logger *zap.Logger, secret *corev1.Secret, secretExists bool) error {
 
 	// Create A New Deployment For Comparison
 	newDeployment := r.newReceiverDeployment(secret)
 
 	// Attempt To Get The Receiver Deployment Associated With The Specified Secret
-	existingDeployment, err := r.getReceiverDeployment(secret)
+	existingDeployment, err := r.getReceiverDeployment()
 
 	if !secretExists {
 		// If there is no secret, the receiver deployment must be deleted (if it exists)
@@ -299,11 +299,11 @@ func (r *Reconciler) reconcileReceiverDeployment(ctx context.Context, logger *za
 	}
 }
 
-// Get The Receiver Deployment Associated With The Specified Secret
-func (r *Reconciler) getReceiverDeployment(secret *corev1.Secret) (*appsv1.Deployment, error) {
+// getReceiverDeployment Gets The Receiver Deployment Associated With The Specified Secret
+func (r *Reconciler) getReceiverDeployment() (*appsv1.Deployment, error) {
 
-	// Get The Receiver Deployment Name (One Receiver Deployment Per Kafka Auth Secret)
-	deploymentName := util.ReceiverDnsSafeName(secret.Name)
+	// Get The (Single) Receiver Deployment Name
+	deploymentName := util.ReceiverDnsSafeName(constants.ReceiverPrefix)
 
 	// Get The Receiver Deployment By Namespace / Name
 	deployment, err := r.deploymentLister.Deployments(r.environment.SystemNamespace).Get(deploymentName)
@@ -312,11 +312,11 @@ func (r *Reconciler) getReceiverDeployment(secret *corev1.Secret) (*appsv1.Deplo
 	return deployment, err
 }
 
-// Create Receiver Deployment Model For The Specified Secret
+// newReceiverDeployment creates The Receiver Deployment Model For The Specified Secret
 func (r *Reconciler) newReceiverDeployment(secret *corev1.Secret) *appsv1.Deployment {
 
-	// Get The Receiver Deployment Name (One Receiver Deployment Per Kafka Auth Secret)
-	deploymentName := util.ReceiverDnsSafeName(secret.Name)
+	// Get The (Single) Receiver Deployment Name
+	deploymentName := util.ReceiverDnsSafeName(constants.ReceiverPrefix)
 
 	// Replicas Int Value For De-Referencing
 	replicas := int32(r.config.Receiver.Replicas)
@@ -454,7 +454,7 @@ func (r *Reconciler) newReceiverDeployment(secret *corev1.Secret) *appsv1.Deploy
 	return deployment
 }
 
-// Create The Receiver Deployment's Env Vars
+// receiverDeploymentEnvVars creates The Receiver Deployment's Env Vars
 func (r *Reconciler) receiverDeploymentEnvVars(secret *corev1.Secret) []corev1.EnvVar {
 
 	// Create The Receiver Deployment EnvVars
@@ -481,7 +481,7 @@ func (r *Reconciler) receiverDeploymentEnvVars(secret *corev1.Secret) []corev1.E
 		},
 		{
 			Name:  commonenv.ServiceNameEnvVarKey,
-			Value: util.ReceiverDnsSafeName(secret.Name),
+			Value: util.ReceiverDnsSafeName(constants.ReceiverPrefix),
 		},
 		{
 			Name:  commonenv.MetricsPortEnvVarKey,
