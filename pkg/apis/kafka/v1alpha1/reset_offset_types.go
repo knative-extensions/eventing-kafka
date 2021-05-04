@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/Shopify/sarama"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -69,13 +70,10 @@ var (
 // ResetOffsetSpec defines the specification for a ResetOffset.
 type ResetOffsetSpec struct {
 
-	// Offset is a String representing the desired offset position to which all partitions
-	// will be reset.  Supported values include "earliest", "latest", or a valid date / time
-	// string in the time.RFC3339 format. The "earliest" and "latest" values indicate the
-	// beginning and end, respectively, of the persistence window of the Topic.  There is no
-	// default value, and invalid values will result in the ResetOffset operation being
-	// rejected as failed.
-	Offset OffsetIndicator `json:"offset"`
+	// Offset is an object representing the desired offset position to which all partitions
+	// will be reset. It provides for future extensibility in supporting various types of
+	// offset information (time based, explicit offset numbers, etc.)
+	Offset OffsetSpec `json:"offset"`
 
 	// Ref is a KReference specifying the Knative resource, related to a Kafka ConsumerGroup,
 	// whose partitions offsets will be reset (e.g. Subscription, Trigger, etc.)  The referenced
@@ -87,10 +85,17 @@ type ResetOffsetSpec struct {
 	Ref duckv1.KReference `json:"ref"`
 }
 
-// OffsetIndicator defines the intended values to move the offsets to.
+// OffsetSpec defines the intended values to move the offsets to.
 // Note: This simple wrapper might seem unnecessary, but is provided to allow future extension
 //       in order to support specifying explicit offset (int64) values for each Partition.
-type OffsetIndicator struct {
+type OffsetSpec struct {
+
+	// Time is an string representing the desired offset position to which all partitions
+	// will be reset.  Supported values include "earliest", "latest", or a valid date / time
+	// string in the time.RFC3339 format. The "earliest" and "latest" values indicate the
+	// beginning and end, respectively, of the persistence window of the Topic.  There is no
+	// default value, and invalid values will result in the ResetOffset operation being
+	// rejected as failed.
 	Time string `json:"time"`
 }
 
@@ -107,6 +112,23 @@ func (ros *ResetOffsetSpec) IsOffsetLatest() bool {
 // ParseOffsetTime returns the parsed Offset Time if valid (RFC3339 format) or an error for invalid content.
 func (ros *ResetOffsetSpec) ParseOffsetTime() (time.Time, error) {
 	return time.Parse(time.RFC3339, ros.Offset.Time)
+}
+
+// ParseSaramaOffsetTime returns the Sarama Offset Time (millis since epoch) int64 as parsed from the specified ResetOffset.Spec
+func (ros *ResetOffsetSpec) ParseSaramaOffsetTime() (int64, error) {
+	var saramaOffsetTime int64
+	if ros.IsOffsetEarliest() {
+		saramaOffsetTime = sarama.OffsetOldest
+	} else if ros.IsOffsetLatest() {
+		saramaOffsetTime = sarama.OffsetNewest
+	} else {
+		offsetTime, err := ros.ParseOffsetTime()
+		if err != nil {
+			return 0, err
+		}
+		saramaOffsetTime = offsetTime.UnixNano() / 1000000 // Convert Nanos To Millis For Sarama
+	}
+	return saramaOffsetTime, nil
 }
 
 // ResetOffsetStatus represents the current state of a ResetOffset.

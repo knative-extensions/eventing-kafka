@@ -52,25 +52,25 @@ func TestResetOffset_Validate(t *testing.T) {
 		{
 			name: "valid offset earliest",
 			cr: &ResetOffset{
-				Spec: ResetOffsetSpec{Offset: OffsetIndicator{Time: OffsetEarliest}, Ref: reference},
+				Spec: ResetOffsetSpec{Offset: OffsetSpec{Time: OffsetEarliest}, Ref: reference},
 			},
 		},
 		{
 			name: "valid offset latest",
 			cr: &ResetOffset{
-				Spec: ResetOffsetSpec{Offset: OffsetIndicator{Time: OffsetLatest}, Ref: reference},
+				Spec: ResetOffsetSpec{Offset: OffsetSpec{Time: OffsetLatest}, Ref: reference},
 			},
 		},
 		{
 			name: "valid offset time",
 			cr: &ResetOffset{
-				Spec: ResetOffsetSpec{Offset: OffsetIndicator{Time: pastTime}, Ref: reference},
+				Spec: ResetOffsetSpec{Offset: OffsetSpec{Time: pastTime}, Ref: reference},
 			},
 		},
 		{
 			name: "invalid offset time",
 			cr: &ResetOffset{
-				Spec: ResetOffsetSpec{Offset: OffsetIndicator{Time: futureTime}, Ref: reference},
+				Spec: ResetOffsetSpec{Offset: OffsetSpec{Time: futureTime}, Ref: reference},
 			},
 			want: func() *apis.FieldError {
 				var errs *apis.FieldError
@@ -82,7 +82,7 @@ func TestResetOffset_Validate(t *testing.T) {
 		{
 			name: "invalid offset string",
 			cr: &ResetOffset{
-				Spec: ResetOffsetSpec{Offset: OffsetIndicator{Time: "foo"}, Ref: reference},
+				Spec: ResetOffsetSpec{Offset: OffsetSpec{Time: "foo"}, Ref: reference},
 			},
 			want: func() *apis.FieldError {
 				var errs *apis.FieldError
@@ -94,7 +94,7 @@ func TestResetOffset_Validate(t *testing.T) {
 		{
 			name: "invalid ref nil",
 			cr: &ResetOffset{
-				Spec: ResetOffsetSpec{Offset: OffsetIndicator{Time: OffsetEarliest}},
+				Spec: ResetOffsetSpec{Offset: OffsetSpec{Time: OffsetEarliest}},
 			},
 			want: func() *apis.FieldError {
 				var errs *apis.FieldError
@@ -107,7 +107,7 @@ func TestResetOffset_Validate(t *testing.T) {
 			name: "invalid ref missing APIVersion",
 			cr: &ResetOffset{
 				Spec: ResetOffsetSpec{
-					Offset: OffsetIndicator{Time: OffsetEarliest},
+					Offset: OffsetSpec{Time: OffsetEarliest},
 					Ref: duckv1.KReference{
 						Kind:      refKind,
 						Namespace: refNamespace,
@@ -126,7 +126,7 @@ func TestResetOffset_Validate(t *testing.T) {
 			name: "invalid ref missing Kind",
 			cr: &ResetOffset{
 				Spec: ResetOffsetSpec{
-					Offset: OffsetIndicator{Time: OffsetEarliest},
+					Offset: OffsetSpec{Time: OffsetEarliest},
 					Ref: duckv1.KReference{
 						APIVersion: refAPIVersion,
 						Namespace:  refNamespace,
@@ -145,7 +145,7 @@ func TestResetOffset_Validate(t *testing.T) {
 			name: "invalid ref missing Name",
 			cr: &ResetOffset{
 				Spec: ResetOffsetSpec{
-					Offset: OffsetIndicator{Time: OffsetEarliest},
+					Offset: OffsetSpec{Time: OffsetEarliest},
 					Ref: duckv1.KReference{
 						APIVersion: refAPIVersion,
 						Kind:       refKind,

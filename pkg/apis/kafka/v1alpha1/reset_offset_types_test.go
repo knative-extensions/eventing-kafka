@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Shopify/sarama"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
@@ -76,7 +77,7 @@ func TestResetOffsetSpec_IsOffsetEarliest(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			resetOffsetSpec := &ResetOffsetSpec{Offset: OffsetIndicator{Time: test.offset}}
+			resetOffsetSpec := &ResetOffsetSpec{Offset: OffsetSpec{Time: test.offset}}
 			got := resetOffsetSpec.IsOffsetEarliest()
 			if diff := cmp.Diff(test.want, got); diff != "" {
 				t.Errorf("unexpected conditions (-want, +got) = %v", diff)
@@ -116,7 +117,7 @@ func TestResetOffsetSpec_IsOffsetLatest(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			resetOffsetSpec := &ResetOffsetSpec{Offset: OffsetIndicator{Time: test.offset}}
+			resetOffsetSpec := &ResetOffsetSpec{Offset: OffsetSpec{Time: test.offset}}
 			got := resetOffsetSpec.IsOffsetLatest()
 			if diff := cmp.Diff(test.want, got); diff != "" {
 				t.Errorf("unexpected conditions (-want, +got) = %v", diff)
@@ -127,7 +128,7 @@ func TestResetOffsetSpec_IsOffsetLatest(t *testing.T) {
 
 func TestResetOffsetSpec_ParseOffsetTime(t *testing.T) {
 
-	offsetRFC3339 := "2021-05-04T05:04:01Z" // RFC3339
+	offsetRFC3339 := time.Now().UTC().Add(-1 * time.Hour).Format(time.RFC3339)
 	timeRFC3339, _ := time.Parse(time.RFC3339, offsetRFC3339)
 
 	tests := []struct {
@@ -152,7 +153,7 @@ func TestResetOffsetSpec_ParseOffsetTime(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			resetOffsetSpec := &ResetOffsetSpec{Offset: OffsetIndicator{Time: test.offset}}
+			resetOffsetSpec := &ResetOffsetSpec{Offset: OffsetSpec{Time: test.offset}}
 			offsetTime, err := resetOffsetSpec.ParseOffsetTime()
 			if test.expectErr {
 				assert.NotNil(t, err)
@@ -161,6 +162,53 @@ func TestResetOffsetSpec_ParseOffsetTime(t *testing.T) {
 				assert.Nil(t, err)
 				assert.Equal(t, test.expectTime, offsetTime)
 			}
+		})
+	}
+}
+
+func TestResetOffsetSpec_ParseSaramaOffsetTime(t *testing.T) {
+
+	offsetRFC3339 := time.Now().UTC().Add(-1 * time.Hour).Format(time.RFC3339)
+	timeRFC3339, _ := time.Parse(time.RFC3339, offsetRFC3339)
+
+	tests := []struct {
+		name       string
+		offset     string
+		expectTime int64
+		expectErr  bool
+	}{
+		{
+			name:       "valid earliest",
+			offset:     OffsetEarliest,
+			expectTime: sarama.OffsetOldest,
+			expectErr:  false,
+		},
+		{
+			name:       "valid latest",
+			offset:     OffsetLatest,
+			expectTime: sarama.OffsetNewest,
+			expectErr:  false,
+		},
+		{
+			name:       "valid time",
+			offset:     offsetRFC3339,
+			expectTime: timeRFC3339.UnixNano() / 1000000,
+			expectErr:  false,
+		},
+		{
+			name:       "invalid time",
+			offset:     "foo",
+			expectTime: 0,
+			expectErr:  true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			resetOffsetSpec := &ResetOffsetSpec{Offset: OffsetSpec{Time: test.offset}}
+			saramaOffsetTime, err := resetOffsetSpec.ParseSaramaOffsetTime()
+			assert.Equal(t, test.expectErr, err != nil)
+			assert.Equal(t, test.expectTime, saramaOffsetTime)
 		})
 	}
 }
