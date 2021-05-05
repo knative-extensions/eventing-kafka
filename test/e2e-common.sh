@@ -433,6 +433,7 @@ function kafka_setup() {
   sed "s/namespace: .*/namespace: ${STRIMZI_KAFKA_NAMESPACE}/" ${STRIMZI_INSTALLATION_CONFIG_TEMPLATE} > "${STRIMZI_INSTALLATION_CONFIG}"
 
   echo "Create The Actual Kafka Cluster Instance For The Cluster Operator To Setup using: ${STRIMZI_INSTALLATION_CONFIG}"
+  kubectl apply -f "${STRIMZI_INSTALLATION_CONFIG}" -n "${STRIMZI_KAFKA_NAMESPACE}" -l strimzi.io/crd-install=true
   kubectl apply -f "${STRIMZI_INSTALLATION_CONFIG}" -n "${STRIMZI_KAFKA_NAMESPACE}"
   kubectl apply -f "${KAFKA_INSTALLATION_CONFIG}" -n "${STRIMZI_KAFKA_NAMESPACE}"
 
@@ -549,6 +550,12 @@ function test_mt_source() {
   install_mt_source || return 1
 
   export TEST_MT_SOURCE
+
+  echo "Run rekt tests"
+  go_test_e2e -tags=e2e -timeout=20m -test.parallel=${TEST_PARALLEL} ./test/rekt/... || fail_test
+
+  # still run those since some test cases are still missing
+  echo "Run classic tests"
   go_test_e2e -tags=source,mtsource -timeout=20m -test.parallel=${TEST_PARALLEL} ./test/e2e/...  || fail_test
 
   # wait for all KafkaSources to be deleted
