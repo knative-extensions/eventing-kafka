@@ -85,22 +85,14 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		logger.Fatal("error loading eventing-kafka configuration", zap.Error(err))
 	}
 
-	// Get & Validate The Kafka Auth Secret
-	kafkaSecret, err := kubeClientset.CoreV1().Secrets(configuration.Kafka.AuthSecretNamespace).
-		Get(ctx, configuration.Kafka.AuthSecretName, metav1.GetOptions{})
-	if err != nil {
-		logger.Fatal("Failed To Load Kafka Auth Secret", zap.Error(err),
-			zap.String("AuthSecretName", configuration.Kafka.AuthSecretName),
-			zap.String("AuthSecretNamespace", configuration.Kafka.AuthSecretNamespace))
-	} else if kafkaSecret == nil {
-		logger.Fatal("No Kafka Auth Secret Found")
-	} else {
-		logger.Info("Found Valid Kafka Auth Secret")
-	}
-
 	// Extract The Relevant Data From The Kafka Secret And Create A Kafka Auth Config From The
 	// Current Credentials (Secret Data Takes Precedence Over ConfigMap)
-	kafkaAuthCfg := config.GetAuthConfigFromSecret(kafkaSecret)
+	kafkaAuthCfg, err := config.GetAuthConfigFromKubernetes(ctx, configuration.Kafka.AuthSecretName, configuration.Kafka.AuthSecretNamespace)
+	if err != nil {
+		logger.Fatal("Failed To Load Kafka Auth From Secret", zap.Error(err),
+			zap.String("AuthSecretName", configuration.Kafka.AuthSecretName),
+			zap.String("AuthSecretNamespace", configuration.Kafka.AuthSecretNamespace))
+	}
 	if kafkaAuthCfg != nil && kafkaAuthCfg.SASL != nil && kafkaAuthCfg.SASL.User == "" {
 		kafkaAuthCfg = nil // The Sarama builder expects a nil KafakAuthConfig if no authentication is desired
 	}
