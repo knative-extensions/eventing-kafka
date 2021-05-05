@@ -178,6 +178,7 @@ github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e/go.mod h1:nSuG5e5P
 github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1/go.mod h1:Q3SI9o4m/ZMnBNeIyt5eFwwo7qiLfzFZmjNmxjkiQlU=
 github.com/clbanning/x2j v0.0.0-20191024224557-825249438eec/go.mod h1:jMjuTZXRI4dUb/I5gc9Hdhagfvm9+RyrPryS/auMzxE=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
+github.com/cloudevents/conformance v0.2.0 h1:NvSXOKlagcsOWMEbi8U7Ex/0oQ4JZE1HQ45bnxYf2zk=
 github.com/cloudevents/conformance v0.2.0/go.mod h1:rHKDwylBH89Rns6U3wL9ww8bg9/4GbwRCDNuyoC6bcc=
 github.com/cloudevents/sdk-go/observability/opencensus/v2 v2.4.1 h1:UHjY9+DJyjELyFA8vU/KHHXix1F1z7QLFskzdJZkP+0=
 github.com/cloudevents/sdk-go/observability/opencensus/v2 v2.4.1/go.mod h1:lhEpxMrIUkeu9rVRgoAbyqZ8GR8Hd3DUy+thHUxAHoI=
@@ -1324,6 +1325,8 @@ knative.dev/pkg v0.0.0-20210428141353-878c85083565 h1:4I8Pm2IlSJbdJ1R9fC18kOlZlf
 knative.dev/pkg v0.0.0-20210428141353-878c85083565/go.mod h1:fIl4l4OmZodkElyaHoT0LCF5wT+3+P/kinawQ4XlLtE=
 knative.dev/reconciler-test v0.0.0-20210426151439-cd315b0f06aa/go.mod h1:yZihS1XoBt7oxU6Jq+U2hMKmUvfKFEaj3vMqOMBt/tI=
 knative.dev/reconciler-test v0.0.0-20210428195854-3db87491edb3/go.mod h1:yZihS1XoBt7oxU6Jq+U2hMKmUvfKFEaj3vMqOMBt/tI=
+knative.dev/reconciler-test v0.0.0-20210504161438-9b758be62893 h1:9TDtFpfxkAX2gehqeYm9EUWLStIDyGYmOdxQOVOHQAQ=
+knative.dev/reconciler-test v0.0.0-20210504161438-9b758be62893/go.mod h1:pUozU+xgCWG9eH+4bYBXM0zWPl8lwvan34gCi/ZDP8o=
 pgregory.net/rapid v0.3.3 h1:jCjBsY4ln4Atz78QoBWxUEvAHaFyNDQg9+WU62aCn1U=
 pgregory.net/rapid v0.3.3/go.mod h1:UYpPVyjFHzYBGHIxLFoupi8vwk6rXNzRY9OMvVxFIOU=
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=

@@ -38,4 +38,5 @@ require (
 	knative.dev/hack v0.0.0-20210428122153-93ad9129c268
 	knative.dev/networking v0.0.0-20210428161254-1ad047ce063f
 	knative.dev/pkg v0.0.0-20210428141353-878c85083565
+	knative.dev/reconciler-test v0.0.0-20210504161438-9b758be62893
 )
