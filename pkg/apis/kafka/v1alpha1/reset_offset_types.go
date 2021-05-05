@@ -134,6 +134,19 @@ func (ros *ResetOffsetSpec) ParseSaramaOffsetTime() (int64, error) {
 // ResetOffsetStatus represents the current state of a ResetOffset.
 type ResetOffsetStatus struct {
 
+	// Topic is a string representing the Kafka Topic name associated with the ResetOffsetSpec.Ref
+	// +optional
+	Topic string `json:"topic,omitempty"`
+
+	// Group is a string representing the Kafka ConsumerGroup ID associated with the ResetOffsetSpec.Ref
+	// +optional
+	Group string `json:"group,omitempty"`
+
+	// Partitions is an array of OffsetMapping structs which represent the Offsets (old / new) of
+	// all Kafka Partitions associated with the ResetOffsetSpec.Ref
+	// +optional
+	Partitions []OffsetMapping `json:"partitions,omitempty"`
+
 	// inherits duck/v1 Status, which currently provides:
 	// * ObservedGeneration - the 'Generation' of the Service that was last processed by the controller.
 	// * Conditions - the latest available observations of a resource's current state.
@@ -159,4 +172,11 @@ func (ro *ResetOffset) GetGroupVersionKind() schema.GroupVersionKind {
 // GetStatus retrieves the duck status for this resource. Implements the KRShaped interface.
 func (ro *ResetOffset) GetStatus() *duckv1.Status {
 	return &ro.Status.Status
+}
+
+// OffsetMapping represents a single Kafka Partition's Offset values before and after repositioning.
+type OffsetMapping struct {
+	Partition int32 `json:"partition"`
+	OldOffset int64 `json:"oldOffset"`
+	NewOffset int64 `json:"newOffset"`
 }

@@ -88,6 +88,27 @@ spec:
             description: "Status (computed) for a ResetOffset"
             type: object
             properties:
+              topic:
+                description: 'The Kafka Topic name associated with the specified Spec.Ref instance.'
+                type: string
+              group:
+                description: 'The Kafka ConsumerGroup ID associated with the specified Spec.Ref instance.'
+                type: string
+              partitions:
+                description: 'The Offset information for each Kafka Partition associated with the specified Spec.Ref instance.'
+                type: array
+                items:
+                  type: object
+                  properties:
+                    partition:
+                      description: 'The Partition number for the associated Topic / ConsumerGroup.'
+                      type: integer
+                    oldOffset:
+                      description: 'The current Offset of the Kafka Partition prior to being reset.'
+                      type: integer
+                    newOffset:
+                      description: 'The new Offset to which the Kafka Partition will be reset.'
+                      type: integer
               annotations:
                 description: 'Annotations is additional Status fields for the Resource to save some
                     additional State as well as convey more information to the user. This is roughly

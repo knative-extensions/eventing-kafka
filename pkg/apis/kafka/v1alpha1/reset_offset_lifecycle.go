@@ -24,7 +24,6 @@ import (
 
 var cs = apis.NewBatchConditionSet(
 	ResetOffsetConditionResetInitiated,
-	ResetOffsetConditionOffsetsCalculated,
 	ResetOffsetConditionConsumerGroupsStopped,
 	ResetOffsetConditionOffsetsUpdated,
 	ResetOffsetConditionConsumerGroupsStarted)
@@ -43,11 +42,6 @@ const (
 	// ResetOffsetConditionConsumerGroupsStopped has status True when all of the ConsumerGroups
 	// associated with the referenced object (Subscription, Trigger, etc.) have been stopped.
 	ResetOffsetConditionConsumerGroupsStopped apis.ConditionType = "ConsumerGroupsStopped"
-
-	// ResetOffsetConditionOffsetsCalculated has status True when the individual offsets of each
-	// Partition in the Topic have been calculated from the "offset" indicator in the Spec and
-	// have been verified as valid relative to the persistence window.
-	ResetOffsetConditionOffsetsCalculated apis.ConditionType = "OffsetsCalculated"
 
 	// ResetOffsetConditionOffsetsUpdated has status True when all of the individual offsets
 	// of each Partition in the Topic have been updated to their new values.
@@ -102,14 +96,6 @@ func (ros *ResetOffsetStatus) MarkResetInitiatedTrue() {
 	ros.GetConditionSet().Manage(ros).MarkTrue(ResetOffsetConditionResetInitiated)
 }
 
-func (ros *ResetOffsetStatus) MarkOffsetsCalculatedFailed(reason, messageFormat string, messageA ...interface{}) {
-	ros.GetConditionSet().Manage(ros).MarkFalse(ResetOffsetConditionOffsetsCalculated, reason, messageFormat, messageA...)
-}
-
-func (ros *ResetOffsetStatus) MarkOffsetsCalculatedTrue() {
-	ros.GetConditionSet().Manage(ros).MarkTrue(ResetOffsetConditionOffsetsCalculated)
-}
-
 func (ros *ResetOffsetStatus) MarkConsumerGroupsStoppedFailed(reason, messageFormat string, messageA ...interface{}) {
 	ros.GetConditionSet().Manage(ros).MarkFalse(ResetOffsetConditionConsumerGroupsStopped, reason, messageFormat, messageA...)
 }
@@ -132,4 +118,28 @@ func (ros *ResetOffsetStatus) MarkConsumerGroupsStartedFailed(reason, messageFor
 
 func (ros *ResetOffsetStatus) MarkConsumerGroupsStartedTrue() {
 	ros.GetConditionSet().Manage(ros).MarkTrue(ResetOffsetConditionConsumerGroupsStarted)
+}
+
+func (ros *ResetOffsetStatus) GetTopic() string {
+	return ros.Topic
+}
+
+func (ros *ResetOffsetStatus) SetTopic(topic string) {
+	ros.Topic = topic
+}
+
+func (ros *ResetOffsetStatus) GetGroup() string {
+	return ros.Group
+}
+
+func (ros *ResetOffsetStatus) SetGroup(group string) {
+	ros.Group = group
+}
+
+func (ros *ResetOffsetStatus) GetPartitions() []OffsetMapping {
+	return ros.Partitions
+}
+
+func (ros *ResetOffsetStatus) SetPartitions(offsetMappings []OffsetMapping) {
+	ros.Partitions = offsetMappings
 }

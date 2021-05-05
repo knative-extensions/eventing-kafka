@@ -30,7 +30,6 @@ import (
 var (
 	condSucceeded             = apis.Condition{Type: ResetOffsetConditionSucceeded, Status: corev1.ConditionTrue}
 	condResetInitiated        = apis.Condition{Type: ResetOffsetConditionResetInitiated, Status: corev1.ConditionTrue}
-	condOffsetsCalculated     = apis.Condition{Type: ResetOffsetConditionOffsetsCalculated, Status: corev1.ConditionTrue}
 	condConsumerGroupsStopped = apis.Condition{Type: ResetOffsetConditionConsumerGroupsStopped, Status: corev1.ConditionTrue}
 	condOffsetsUpdated        = apis.Condition{Type: ResetOffsetConditionOffsetsUpdated, Status: corev1.ConditionTrue}
 	condConsumerGroupsStarted = apis.Condition{Type: ResetOffsetConditionConsumerGroupsStarted, Status: corev1.ConditionTrue}
@@ -69,16 +68,6 @@ func TestResetOffsetStatus_GetCondition(t *testing.T) {
 			},
 			conditionType: ResetOffsetConditionResetInitiated,
 			wantCondition: &condResetInitiated,
-		},
-		{
-			name: "ResetOffsetConditionOffsetsCalculated",
-			status: &ResetOffsetStatus{
-				Status: duckv1.Status{
-					Conditions: []apis.Condition{condOffsetsCalculated},
-				},
-			},
-			conditionType: ResetOffsetConditionOffsetsCalculated,
-			wantCondition: &condOffsetsCalculated,
 		},
 		{
 			name: "ResetOffsetConditionConsumerGroupsStopped",
@@ -136,7 +125,6 @@ func TestResetOffsetStatus_InitializeConditions(t *testing.T) {
 					Conditions: []apis.Condition{
 						{Type: ResetOffsetConditionConsumerGroupsStarted, Status: corev1.ConditionUnknown},
 						{Type: ResetOffsetConditionConsumerGroupsStopped, Status: corev1.ConditionUnknown},
-						{Type: ResetOffsetConditionOffsetsCalculated, Status: corev1.ConditionUnknown},
 						{Type: ResetOffsetConditionOffsetsUpdated, Status: corev1.ConditionUnknown},
 						{Type: ResetOffsetConditionResetInitiated, Status: corev1.ConditionUnknown},
 						{Type: ResetOffsetConditionSucceeded, Status: corev1.ConditionUnknown},
@@ -149,16 +137,15 @@ func TestResetOffsetStatus_InitializeConditions(t *testing.T) {
 			initialStatus: &ResetOffsetStatus{
 				Status: duckv1.Status{
 					Conditions: []apis.Condition{
-						{Type: ResetOffsetConditionOffsetsCalculated, Status: corev1.ConditionFalse},
+						{Type: ResetOffsetConditionConsumerGroupsStarted, Status: corev1.ConditionFalse},
 					},
 				},
 			},
 			wantStatus: &ResetOffsetStatus{
 				Status: duckv1.Status{
 					Conditions: []apis.Condition{
-						{Type: ResetOffsetConditionConsumerGroupsStarted, Status: corev1.ConditionUnknown},
+						{Type: ResetOffsetConditionConsumerGroupsStarted, Status: corev1.ConditionFalse},
 						{Type: ResetOffsetConditionConsumerGroupsStopped, Status: corev1.ConditionUnknown},
-						{Type: ResetOffsetConditionOffsetsCalculated, Status: corev1.ConditionFalse},
 						{Type: ResetOffsetConditionOffsetsUpdated, Status: corev1.ConditionUnknown},
 						{Type: ResetOffsetConditionResetInitiated, Status: corev1.ConditionUnknown},
 						{Type: ResetOffsetConditionSucceeded, Status: corev1.ConditionUnknown},
@@ -180,7 +167,6 @@ func TestResetOffsetStatus_InitializeConditions(t *testing.T) {
 					Conditions: []apis.Condition{
 						{Type: ResetOffsetConditionConsumerGroupsStarted, Status: corev1.ConditionUnknown},
 						{Type: ResetOffsetConditionConsumerGroupsStopped, Status: corev1.ConditionUnknown},
-						{Type: ResetOffsetConditionOffsetsCalculated, Status: corev1.ConditionUnknown},
 						{Type: ResetOffsetConditionOffsetsUpdated, Status: corev1.ConditionTrue},
 						{Type: ResetOffsetConditionResetInitiated, Status: corev1.ConditionUnknown},
 						{Type: ResetOffsetConditionSucceeded, Status: corev1.ConditionUnknown},
@@ -202,7 +188,6 @@ func TestResetOffsetStatus_InitializeConditions(t *testing.T) {
 					Conditions: []apis.Condition{
 						{Type: ResetOffsetConditionConsumerGroupsStarted, Status: corev1.ConditionTrue},
 						{Type: ResetOffsetConditionConsumerGroupsStopped, Status: corev1.ConditionTrue},
-						{Type: ResetOffsetConditionOffsetsCalculated, Status: corev1.ConditionTrue},
 						{Type: ResetOffsetConditionOffsetsUpdated, Status: corev1.ConditionTrue},
 						{Type: ResetOffsetConditionResetInitiated, Status: corev1.ConditionTrue},
 						{Type: ResetOffsetConditionSucceeded, Status: corev1.ConditionTrue},
@@ -228,7 +213,6 @@ func TestResetOffsetStatus_IsCompleted(t *testing.T) {
 	tests := []struct {
 		name                      string
 		markResetInitiated        bool
-		markOffsetsCalculated     bool
 		markConsumerGroupsStopped bool
 		markOffsetsUpdated        bool
 		markConsumerGroupsStarted bool
@@ -237,7 +221,6 @@ func TestResetOffsetStatus_IsCompleted(t *testing.T) {
 		{
 			name:                      "Happy",
 			markResetInitiated:        true,
-			markOffsetsCalculated:     true,
 			markConsumerGroupsStopped: true,
 			markOffsetsUpdated:        true,
 			markConsumerGroupsStarted: true,
@@ -246,7 +229,6 @@ func TestResetOffsetStatus_IsCompleted(t *testing.T) {
 		{
 			name:                      "ResetInitiated Failed",
 			markResetInitiated:        false,
-			markOffsetsCalculated:     true,
 			markConsumerGroupsStopped: true,
 			markOffsetsUpdated:        true,
 			markConsumerGroupsStarted: true,
@@ -255,17 +237,7 @@ func TestResetOffsetStatus_IsCompleted(t *testing.T) {
 		{
 			name:                      "ConsumerGroupsStopped Failed",
 			markResetInitiated:        true,
-			markOffsetsCalculated:     true,
 			markConsumerGroupsStopped: false,
-			markOffsetsUpdated:        true,
-			markConsumerGroupsStarted: true,
-			wantSucceeded:             false,
-		},
-		{
-			name:                      "OffsetsCalculated Failed",
-			markResetInitiated:        true,
-			markOffsetsCalculated:     false,
-			markConsumerGroupsStopped: true,
 			markOffsetsUpdated:        true,
 			markConsumerGroupsStarted: true,
 			wantSucceeded:             false,
@@ -273,7 +245,6 @@ func TestResetOffsetStatus_IsCompleted(t *testing.T) {
 		{
 			name:                      "OffsetsUpdated Failed",
 			markResetInitiated:        true,
-			markOffsetsCalculated:     true,
 			markConsumerGroupsStopped: true,
 			markOffsetsUpdated:        false,
 			markConsumerGroupsStarted: true,
@@ -282,7 +253,6 @@ func TestResetOffsetStatus_IsCompleted(t *testing.T) {
 		{
 			name:                      "ConsumerGroupsStarted Failed",
 			markResetInitiated:        true,
-			markOffsetsCalculated:     true,
 			markConsumerGroupsStopped: true,
 			markOffsetsUpdated:        true,
 			markConsumerGroupsStarted: false,
@@ -303,11 +273,6 @@ func TestResetOffsetStatus_IsCompleted(t *testing.T) {
 				resetOffsetStatus.MarkConsumerGroupsStoppedTrue()
 			} else {
 				resetOffsetStatus.MarkConsumerGroupsStoppedFailed("TestingConsumerGroupsStoppedStatus", "TestMessage")
-			}
-			if test.markOffsetsCalculated {
-				resetOffsetStatus.MarkOffsetsCalculatedTrue()
-			} else {
-				resetOffsetStatus.MarkOffsetsCalculatedFailed("TestingOffsetsCalculatedFailedStatus", "TestMessage")
 			}
 			if test.markOffsetsUpdated {
 				resetOffsetStatus.MarkOffsetsUpdatedTrue()
@@ -333,4 +298,34 @@ func TestRegisterAlternateResetOffsetConditionSet(t *testing.T) {
 	resetOffset := ResetOffset{}
 	assert.Equal(t, conditionSet, resetOffset.GetConditionSet())
 	assert.Equal(t, conditionSet, resetOffset.Status.GetConditionSet())
+}
+
+func TestResetOffsetStatus_Topic(t *testing.T) {
+	topic := "test-topic-name"
+	resetOffset := ResetOffset{}
+	assert.Equal(t, "", resetOffset.Status.GetTopic())
+	assert.Equal(t, resetOffset.Status.Topic, resetOffset.Status.GetTopic())
+	resetOffset.Status.SetTopic(topic)
+	assert.Equal(t, topic, resetOffset.Status.GetTopic())
+	assert.Equal(t, resetOffset.Status.Topic, resetOffset.Status.GetTopic())
+}
+
+func TestResetOffsetStatus_Group(t *testing.T) {
+	group := "test-group-id"
+	resetOffset := ResetOffset{}
+	assert.Equal(t, "", resetOffset.Status.GetGroup())
+	assert.Equal(t, resetOffset.Status.Group, resetOffset.Status.GetGroup())
+	resetOffset.Status.SetGroup(group)
+	assert.Equal(t, group, resetOffset.Status.GetGroup())
+	assert.Equal(t, resetOffset.Status.Group, resetOffset.Status.GetGroup())
+}
+
+func TestResetOffsetStatus_Partitions(t *testing.T) {
+	partitions := []OffsetMapping{{Partition: 0, OldOffset: 1, NewOffset: 2}, {Partition: 1, OldOffset: 2, NewOffset: 3}}
+	resetOffset := ResetOffset{}
+	assert.Nil(t, resetOffset.Status.GetPartitions())
+	assert.Equal(t, resetOffset.Status.Partitions, resetOffset.Status.GetPartitions())
+	resetOffset.Status.SetPartitions(partitions)
+	assert.Equal(t, partitions, resetOffset.Status.GetPartitions())
+	assert.Equal(t, resetOffset.Status.Partitions, resetOffset.Status.GetPartitions())
 }
