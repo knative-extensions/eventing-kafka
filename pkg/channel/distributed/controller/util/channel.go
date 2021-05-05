@@ -69,8 +69,8 @@ func ReceiverDnsSafeName(prefix string) string {
 
 	// In order for the resulting name to be a valid DNS component it's length must be no more than 63 characters.
 	// We are consuming 9 chars for the component separator and Receiver suffix, which reduces the
-	// available length to 54. We will allocate 50 characters to the prefix leaving an extra buffer.
-	return GenerateValidDnsName(prefix, 50, true, false) + "-receiver"
+	// available length to 54. We will allocate 49 characters to the prefix leaving an extra buffer.
+	return GenerateValidDnsName(prefix, 49, true, false) + "-receiver"
 }
 
 // ChannelHostName Creates A Name For The Channel Host

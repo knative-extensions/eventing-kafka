@@ -53,7 +53,7 @@ import (
 
 // Constants
 const (
-	// MetricsPortName is the Prometheus MetricsPort
+	// MetricsPortName - Prometheus MetricsPort
 	MetricsPortName = "metrics"
 
 	// Environment Test Data
@@ -85,32 +85,32 @@ const (
 	KafkaSecretDataValuePassword = "TestKafkaSecretDataPassword"
 	KafkaSecretDataValueSaslType = "PLAIN"
 
-	// NumPartitions ChannelSpec Test Data
+	// NumPartitions - ChannelSpec Test Data
 	NumPartitions = 123
-	// ReplicationFactor ChannelSpec Test Data
+	// ReplicationFactor - ChannelSpec Test Data
 	ReplicationFactor = 456
 
-	// ErrorString Mock Test Error MetaData
+	// ErrorString - Mock Test Error MetaData
 	ErrorString = "Expected Mock Test Error"
-	// SuccessString Mock Test Success MetaData
+	// SuccessString - Mock Test Success MetaData
 	SuccessString = "Expected Mock Test Success"
 
-	// DispatcherMemoryRequest Test Dispatcher Memory Request Resource
+	// DispatcherMemoryRequest - Test Dispatcher Memory Request Resource
 	DispatcherMemoryRequest = "20Mi"
-	// DispatcherCpuRequest Test Dispatcher CPU Request Resource
+	// DispatcherCpuRequest - Test Dispatcher CPU Request Resource
 	DispatcherCpuRequest = "100m"
-	// DispatcherMemoryLimit Test Dispatcher Memory Limit Resource
+	// DispatcherMemoryLimit - Test Dispatcher Memory Limit Resource
 	DispatcherMemoryLimit = "50Mi"
-	// DispatcherCpuLimit Test Dispatcher CPU Limit Resource
+	// DispatcherCpuLimit - Test Dispatcher CPU Limit Resource
 	DispatcherCpuLimit = "300m"
 
-	// ReceiverMemoryRequest Test Receiver Memory Request Resource
+	// ReceiverMemoryRequest - Test Receiver Memory Request Resource
 	ReceiverMemoryRequest = "10Mi"
-	// ReceiverMemoryLimit Test Receiver Memory Limit Resource
+	// ReceiverMemoryLimit - Test Receiver Memory Limit Resource
 	ReceiverMemoryLimit = "20Mi"
-	// ReceiverCpuRequest Test Receiver CPU Request Resource
+	// ReceiverCpuRequest - Test Receiver CPU Request Resource
 	ReceiverCpuRequest = "10m"
-	// ReceiverCpuLimit Test Receiver CPU Limit Resource
+	// ReceiverCpuLimit - Test Receiver CPU Limit Resource
 	ReceiverCpuLimit = "100m"
 
 	ConfigMapHash = "deadbeef"

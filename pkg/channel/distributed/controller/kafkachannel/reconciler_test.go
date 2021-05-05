@@ -452,7 +452,7 @@ func withEmptyKafkaSecret(reconciler *Reconciler) {
 	reconciler.config.Kafka.AuthSecretName = ""
 }
 
-// Creates a test that expects to not have a dispatcher service patch, using the provided options
+// newServiceNoPatchTest creates a test that expects to not have a dispatcher service patch, using the provided options
 func newServiceNoPatchTest(name string, options ...controllertesting.ServiceOption) TableRow {
 	test := newStableSystemTest("Existing Dispatcher Service, " + name + ", No Patch")
 	test.Objects = append(test.Objects,
@@ -560,13 +560,13 @@ func withReceiverDeployment(options ...controllertesting.DeploymentOption) testO
 	return withDeployment(controllertesting.ReceiverDeploymentName, controllertesting.NewKafkaChannelReceiverDeployment(options...))
 }
 
-// wantDeleteReceiverService adds to the WantDeletes field and entry corresponding to a Receiver service
+// wantDeleteReceiverService adds to the WantDeletes field an entry corresponding to a Receiver service
 func wantDeleteReceiverService(test *TableRow) {
 	test.WantDeletes = append(test.WantDeletes,
 		controllertesting.NewServiceDeleteActionImpl(controllertesting.NewKafkaChannelReceiverService(controllertesting.WithoutFinalizersService)))
 }
 
-// wantDeleteReceiverDeployment adds to the WantDeletes field and entry corresponding to a Receiver deployment
+// wantDeleteReceiverDeployment adds to the WantDeletes field an entry corresponding to a Receiver deployment
 func wantDeleteReceiverDeployment(test *TableRow) {
 	test.WantDeletes = append(test.WantDeletes,
 		controllertesting.NewDeploymentDeleteActionImpl(controllertesting.NewKafkaChannelReceiverDeployment(controllertesting.WithoutFinalizersDeployment)))
@@ -931,7 +931,7 @@ func newServicePatchFailureTest(name string, options ...controllertesting.Servic
 	return test
 }
 
-// newDeletedKafkaChannelTest creates a TableRow for a test that involved a KafkaChannel that
+// newDeletedKafkaChannelTest creates a TableRow for a test that involves a KafkaChannel that
 // is in the process of being deleted (i.e. has a DeletionTimestamp).
 func newDeletedKafkaChannelTest(name string, options ...testOption) TableRow {
 
@@ -1103,7 +1103,7 @@ func TestReconciler_updateKafkaConfig(t *testing.T) {
 		{
 			name:      "Nil ConfigMap",
 			configMap: nil,
-			expectErr: "^nil configMap passed to configMapObserver$",
+			expectErr: "^nil configMap passed to updateKafkaConfig$",
 		},
 		{
 			name:      "Nil ConfigMap Data",
@@ -1185,6 +1185,6 @@ func TestReconciler_updateKafkaConfig(t *testing.T) {
 	// Verify that a nil reconciler doesn't panic
 	var nilReconciler *Reconciler
 	//goland:noinspection GoNilness
-	assert.Equal(t, fmt.Errorf("reconciler is nil (possibe startup race condition)"), nilReconciler.updateKafkaConfig(context.TODO(), nil))
+	assert.Equal(t, fmt.Errorf("reconciler is nil (possible startup race condition)"), nilReconciler.updateKafkaConfig(context.TODO(), nil))
 
 }

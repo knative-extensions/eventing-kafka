@@ -97,7 +97,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		kafkaAuthCfg = nil // The Sarama builder expects a nil KafakAuthConfig if no authentication is desired
 	}
 
-	// Load the Sarama settings from our configmap (kafka configuration is already loaded)
+	// Load the Sarama settings from our configmap (eventing-kafka configuration is already loaded)
 	saramaConfig, _, err := sarama.LoadSettings(ctx, "", configMap, kafkaAuthCfg)
 	if err != nil {
 		logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Error(err))
@@ -134,6 +134,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		adminClientType:      kafkaAdminClientType,
 		adminClient:          nil,
 		adminMutex:           &sync.Mutex{},
+		authConfig:           kafkaAuthCfg,
 		kafkaConfigMapHash:   commonconfig.ConfigmapDataCheckSum(configMap),
 	}
 

@@ -173,7 +173,7 @@ func (r *Reconciler) reconcileReceiverService(ctx context.Context, logger *zap.L
 // getReceiverService Gets The Kafka Receiver Service Associated With The Specified Channel
 func (r *Reconciler) getReceiverService() (*corev1.Service, error) {
 
-	// Get The (Single) Receiver Deployment Name For The Receiver - Use Same For Service
+	// Get The (Single) Receiver Deployment Name - Use Same For Service
 	deploymentName := util.ReceiverDnsSafeName(constants.ReceiverPrefix)
 
 	// Get The Receiver Service By Namespace / Name
@@ -239,7 +239,7 @@ func (r *Reconciler) reconcileReceiverDeployment(ctx context.Context, logger *za
 	if !secretExists {
 		// If there is no secret, the receiver deployment must be deleted (if it exists)
 		if existingDeployment != nil {
-			logger.Info("Secret Removed - Deleting Receiver Service")
+			logger.Info("Secret Removed - Deleting Receiver Deployment")
 			return r.kubeClientset.AppsV1().Deployments(newDeployment.Namespace).Delete(ctx, newDeployment.Name, metav1.DeleteOptions{})
 		}
 		return nil // No secret, no deployment, no change

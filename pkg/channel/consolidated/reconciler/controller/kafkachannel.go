@@ -579,7 +579,7 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 	}
 
 	if configMap == nil {
-		logger.Warn("Nil ConfigMap passed to configMapObserver; ignoring")
+		logger.Warn("Nil ConfigMap passed to updateKafkaConfig; ignoring")
 		return
 	}
 

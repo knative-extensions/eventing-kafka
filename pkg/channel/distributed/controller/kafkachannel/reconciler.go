@@ -227,7 +227,7 @@ func (r *Reconciler) reconcile(ctx context.Context, channel *kafkav1beta1.KafkaC
 		// The Receiver reconciler needs the namespace and name for various purposes, so construct a dummy Secret
 		err = r.reconcileReceiver(ctx, channel, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: r.config.Kafka.AuthSecretName, Namespace: r.config.Kafka.AuthSecretNamespace}}, false)
 
-		// Not having a Receiver is a problem
+		// Not having an auth secret for the Receiver is a problem
 		channel.Status.MarkConfigFailed(event.KafkaSecretReconciled.String(), "No Kafka Secret For KafkaChannel")
 		return fmt.Errorf(constants.ReconciliationFailedError)
 	} else if err != nil {
@@ -260,11 +260,11 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 	logger := logging.FromContext(ctx)
 
 	if r == nil {
-		return fmt.Errorf("reconciler is nil (possibe startup race condition)")
+		return fmt.Errorf("reconciler is nil (possible startup race condition)")
 	}
 
 	if configMap == nil {
-		return fmt.Errorf("nil configMap passed to configMapObserver")
+		return fmt.Errorf("nil configMap passed to updateKafkaConfig")
 	}
 
 	logger.Info("Reloading Kafka configuration")
