@@ -284,7 +284,7 @@ func TestLoadSettings(t *testing.T) {
 			config: map[string]string{constants.SaramaSettingsConfigKey: commontesting.OldSaramaConfig},
 		},
 		{
-			name:      "Invalid YAML",
+			name:      "Invalid Sarama YAML",
 			config:    map[string]string{constants.SaramaSettingsConfigKey: "\tinvalidYAML"},
 			expectErr: true,
 		},
@@ -294,13 +294,9 @@ func TestLoadSettings(t *testing.T) {
 			expectErr: true,
 		},
 		{
-			name:   "Auth Config With Empty User",
-			config: map[string]string{constants.SaramaSettingsConfigKey: commontesting.OldSaramaConfig},
-			authConfig: &client.KafkaAuthConfig{
-				SASL: &client.KafkaSaslConfig{
-					User: "",
-				},
-			},
+			name:       "Auth Config With Empty User",
+			config:     map[string]string{constants.SaramaSettingsConfigKey: commontesting.OldSaramaConfig},
+			authConfig: &client.KafkaAuthConfig{SASL: &client.KafkaSaslConfig{User: ""}},
 		},
 		{
 			name:           "Empty Config (Defaults Only)",

@@ -613,11 +613,11 @@ func (r *Reconciler) dispatcherDeploymentEnvVars(channel *kafkav1beta1.KafkaChan
 		},
 	}
 
-	// If The Kafka Secret Env Var Is Specified Then Append Relevant Env Vars
+	// If The Kafka Secret Name Is Specified Then Append Relevant Env Vars
 	if len(r.config.Kafka.AuthSecretName) <= 0 {
 
-		// Received Invalid Kafka Secret - Cannot Proceed
-		return nil, fmt.Errorf("invalid kafkaSecret for topic '%s'", topicName)
+		// Received Invalid Kafka Secret Name - Cannot Proceed
+		return nil, fmt.Errorf("invalid authSecretName for topic '%s'", topicName)
 
 	} else {
 

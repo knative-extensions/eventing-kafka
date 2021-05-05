@@ -22,6 +22,8 @@ import (
 	"strings"
 	"sync"
 
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
+
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/Shopify/sarama"
@@ -220,20 +222,20 @@ func (r *Reconciler) reconcile(ctx context.Context, channel *kafkav1beta1.KafkaC
 	}
 
 	// Reconcile the Receiver Deployment/Service
-	secret, receiverError := r.kubeClientset.CoreV1().Secrets(r.config.Kafka.AuthSecretNamespace).Get(ctx, r.config.Kafka.AuthSecretName, metav1.GetOptions{})
-	if receiverError != nil && apierrs.IsNotFound(receiverError) {
+	secret, err := r.kubeClientset.CoreV1().Secrets(r.config.Kafka.AuthSecretNamespace).Get(ctx, r.config.Kafka.AuthSecretName, metav1.GetOptions{})
+	if err != nil && apierrs.IsNotFound(err) {
 		// The Receiver reconciler needs the namespace and name for various purposes, so construct a dummy Secret
-		receiverError = r.reconcileReceiver(ctx, channel, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: r.config.Kafka.AuthSecretName, Namespace: r.config.Kafka.AuthSecretNamespace}}, false)
+		err = r.reconcileReceiver(ctx, channel, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: r.config.Kafka.AuthSecretName, Namespace: r.config.Kafka.AuthSecretNamespace}}, false)
 
 		// Not having a Receiver is a problem
 		channel.Status.MarkConfigFailed(event.KafkaSecretReconciled.String(), "No Kafka Secret For KafkaChannel")
 		return fmt.Errorf(constants.ReconciliationFailedError)
-	} else if receiverError != nil {
-		logging.FromContext(ctx).Error("Error reading receiver secret", zap.Error(receiverError))
+	} else if err != nil {
+		logging.FromContext(ctx).Error("Error reading receiver secret", zap.Error(err))
 		return fmt.Errorf(constants.ReconciliationFailedError)
 	}
 
-	receiverError = r.reconcileReceiver(ctx, channel, secret, true)
+	receiverError := r.reconcileReceiver(ctx, channel, secret, true)
 
 	// Reconcile The KafkaChannel's Channel & Dispatcher Deployment/Service
 	channelError := r.reconcileChannel(ctx, channel)
@@ -254,34 +256,45 @@ func (r *Reconciler) reconcile(ctx context.Context, channel *kafkav1beta1.KafkaC
 }
 
 // updateKafkaConfig is the callback function that handles changes to our ConfigMap
-func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.ConfigMap) {
+func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.ConfigMap) error {
 	logger := logging.FromContext(ctx)
 
 	if r == nil {
-		// This typically happens during startup and can be ignored
-		return
+		return fmt.Errorf("reconciler is nil (possibe startup race condition)")
 	}
 
 	if configMap == nil {
-		logger.Warn("Nil ConfigMap passed to configMapObserver; ignoring")
-		return
+		return fmt.Errorf("nil configMap passed to configMapObserver")
 	}
 
 	logger.Info("Reloading Kafka configuration")
 
 	// Validate The ConfigMap Data
 	if configMap.Data == nil {
-		logger.Fatal("Attempted to merge sarama settings with empty configmap", zap.Any("configMap", configMap))
-		return
+		return fmt.Errorf("configMap.Data is nil")
 	}
 
 	// Enable Sarama Logging If Specified In ConfigMap
 	ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap.Data)
-	if err == nil && ekConfig != nil {
-		kafkasarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)
-		logger.Debug("Updated Sarama logging", zap.Any("configMap", configMap), zap.Bool("Kafka.EnableSaramaLogging", ekConfig.Kafka.EnableSaramaLogging))
+	if err != nil {
+		return err
+	} else if ekConfig == nil {
+		return fmt.Errorf("eventing-kafka config is nil")
+	}
+	kafkasarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)
+	logger.Debug("Updated Sarama logging", zap.Bool("Kafka.EnableSaramaLogging", ekConfig.Kafka.EnableSaramaLogging))
+
+	// Re-Read The Auth Config From The Secret As It May Have Changed
+	kafkaAuthCfg, err := config.GetAuthConfigFromKubernetes(ctx, ekConfig.Kafka.AuthSecretName, ekConfig.Kafka.AuthSecretNamespace)
+	if err != nil {
+		logger.Error("Could Not Read New Auth Config From Secret - Keeping Existing",
+			zap.String("authSecretName", ekConfig.Kafka.AuthSecretName),
+			zap.String("authSecretNamespace", ekConfig.Kafka.AuthSecretNamespace), zap.Error(err))
 	} else {
-		logger.Error("Could Not Extract Eventing-Kafka Setting From Updated ConfigMap", zap.Any("configMap", configMap), zap.Error(err))
+		if kafkaAuthCfg != nil && kafkaAuthCfg.SASL != nil && kafkaAuthCfg.SASL.User == "" {
+			kafkaAuthCfg = nil // The Sarama builder expects a nil KafkaAuthConfig if no authentication is desired
+		}
+		r.authConfig = kafkaAuthCfg
 	}
 
 	// Get The Sarama Config Yaml From The ConfigMap
@@ -294,7 +307,7 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 		FromYaml(saramaSettingsYamlString).
 		Build(ctx)
 	if err != nil {
-		logger.Fatal("Failed To Load Sarama Settings", zap.Any("configMap", configMap), zap.Error(err))
+		return err
 	}
 
 	logger.Info("ConfigMap Changed; Updating Sarama And Eventing-Kafka Configuration")
@@ -302,4 +315,5 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 	r.config = ekConfig
 
 	r.kafkaConfigMapHash = commonconfig.ConfigmapDataCheckSum(configMap.Data)
+	return nil
 }

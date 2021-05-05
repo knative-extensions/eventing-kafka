@@ -19,9 +19,15 @@ package kafkachannel
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/Shopify/sarama"
+	"k8s.io/client-go/kubernetes/fake"
+	"knative.dev/eventing-kafka/pkg/common/constants"
+	"knative.dev/pkg/system"
 
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 
@@ -1073,4 +1079,112 @@ func newReconciliationTest(name string, options ...testOption) TableRow {
 	}
 
 	return test
+}
+
+func TestReconciler_updateKafkaConfig(t *testing.T) {
+
+	commontesting.SetTestEnvironment(t)
+
+	ekConfig := strings.Replace(commontesting.TestEKConfig, "kafka:", `kafka:
+  authSecretName: `+commontesting.SecretName+`
+  authSecretNamespace: `+system.Namespace(), 1)
+
+	tests := []struct {
+		name         string
+		config       *commonconfig.EventingKafkaConfig
+		saramaConfig *sarama.Config
+		authConfig   *client.KafkaAuthConfig
+		configMap    *corev1.ConfigMap
+		hash         string
+		user         string
+		secretErr    bool
+		expectErr    string
+	}{
+		{
+			name:      "Nil ConfigMap",
+			configMap: nil,
+			expectErr: "^nil configMap passed to configMapObserver$",
+		},
+		{
+			name:      "Nil ConfigMap Data",
+			configMap: &corev1.ConfigMap{},
+			expectErr: "^configMap.Data is nil$",
+		},
+		{
+			name:      "Empty Eventing-Kafka YAML",
+			configMap: &corev1.ConfigMap{Data: map[string]string{constants.EventingKafkaSettingsConfigKey: ""}},
+			expectErr: "^eventing-kafka config is nil$",
+		},
+		{
+			name:      "Invalid Eventing-Kafka YAML",
+			configMap: &corev1.ConfigMap{Data: map[string]string{constants.EventingKafkaSettingsConfigKey: "\tInvalid"}},
+			expectErr: "^ConfigMap's eventing-kafka value could not be converted to an EventingKafkaConfig struct",
+		},
+		{
+			name:      "Error Reading Secret",
+			configMap: &corev1.ConfigMap{Data: map[string]string{constants.EventingKafkaSettingsConfigKey: commontesting.TestEKConfig}},
+			secretErr: true,
+		},
+		{
+			name:      "Empty User",
+			configMap: &corev1.ConfigMap{Data: map[string]string{constants.EventingKafkaSettingsConfigKey: ekConfig}},
+		},
+		{
+			name:      "Non-Empty User",
+			configMap: &corev1.ConfigMap{Data: map[string]string{constants.EventingKafkaSettingsConfigKey: ekConfig}},
+			user:      commontesting.OldAuthUsername,
+		},
+		{
+			name: "Invalid Sarama YAML",
+			configMap: &corev1.ConfigMap{Data: map[string]string{
+				constants.EventingKafkaSettingsConfigKey: commontesting.TestEKConfig,
+				constants.SaramaSettingsConfigKey:        "\tInvalid",
+			}},
+			expectErr: "^failed to extract KafkaVersion from Sarama Config YAML",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			secret := commontesting.GetTestSaramaSecret(
+				commontesting.SecretName,
+				tt.user,
+				commontesting.OldAuthPassword,
+				commontesting.OldAuthNamespace,
+				commontesting.OldAuthSaslType)
+			fakeK8sClient := fake.NewSimpleClientset(secret)
+			ctx := context.WithValue(context.TODO(), kubeclient.Key{}, fakeK8sClient)
+			if tt.secretErr {
+				fakeK8sClient.PrependReactor("get", "Secrets", InduceFailure("get", "Secrets"))
+			}
+			r := &Reconciler{
+				kubeClientset:      fakeK8sClient,
+				config:             tt.config,
+				saramaConfig:       tt.saramaConfig,
+				authConfig:         tt.authConfig,
+				kafkaConfigMapHash: tt.hash,
+			}
+			err := r.updateKafkaConfig(ctx, tt.configMap)
+			if tt.expectErr == "" {
+				assert.Nil(t, err)
+				// If no error was expected, verify that the settings in the reconciler were changed to new values
+				assert.NotEqual(t, tt.hash, r.kafkaConfigMapHash)
+				assert.NotEqual(t, tt.saramaConfig, r.saramaConfig)
+				assert.NotEqual(t, tt.config, r.config)
+			} else {
+				assert.NotNil(t, err)
+				assert.Regexp(t, tt.expectErr, err.Error())
+				// If an error occurred, verify that the settings in the reconciler do not change from what they were
+				assert.Equal(t, tt.hash, r.kafkaConfigMapHash)
+				assert.Equal(t, tt.saramaConfig, r.saramaConfig)
+				assert.Equal(t, tt.config, r.config)
+			}
+		})
+	}
+
+	// Verify that a nil reconciler doesn't panic
+	var nilReconciler *Reconciler
+	//goland:noinspection GoNilness
+	assert.Equal(t, fmt.Errorf("reconciler is nil (possibe startup race condition)"), nilReconciler.updateKafkaConfig(context.TODO(), nil))
+
 }
