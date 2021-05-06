@@ -4,12 +4,10 @@ The Receiver implementation is a Kafka Producer which is responsible for
 receiving CloudEvents, converting them to Kafka Messages, and writing them to
 the appropriate Kafka Topic.
 
-A unique Deployment / Service is created for every Kafka Secret (in the
-knative-eventing namespace and labelled with
-`eventing-kafka.knative.dev/kafka-secret: "true"`). The single Deployment is
-horizontally scalable as necessary (via controller environment variables.) This
-allows for an efficient use of cluster resources while still supporting high
-volume and multi-tenant use cases.
+A unique Deployment / Service is created for every installation.
+The single Deployment is horizontally scalable as necessary (via controller
+environment variables). This allows for an efficient use of cluster resources
+while still supporting high volume and multi-tenant use cases.
 
 An additional Service for each KafkaChannel is created in the user namespace
 where the KafkaChannel exists. This is the actual endpoint of the `KafkaChannel`
@@ -18,8 +16,11 @@ knative-eventing namespace. This is all necessary so that the Receiver
 implementation can use the hostname of the request to map incoming CloudEvents
 to the appropriate Kafka Topic.
 
-The Kafka brokers and credentials are obtained from mounted Secret data from the
-aforementioned Kafka Secret.
+The Kafka brokers and credentials are obtained from mounted data in the Kafka
+Secret (by default named `kafka-cluster` in the knative-eventing namespace,
+configurable by altering the kafka.authSecretName and/or the
+kafka.authSecretNamespace in the
+[ConfigMap](../../../../config/channel/distributed/300-eventing-kafka-configmap.yaml)).
 
 ## Tracing, Profiling, and Metrics
 
@@ -29,7 +30,7 @@ config-observability configmaps (see
 and
 [Installing logging, metrics, and traces](https://knative.dev/docs/serving/installing-logging-metrics-traces)
 for more information on the basic Knative-Eventing concepts behind these
-features. The default behavior for tracing and profiling is provided such that
+features). The default behavior for tracing and profiling is provided such that
 accessing a tracing server (such as Zipkin), and the debug profiling
 information, should work as described in those links. For example, you might
 access your zipkin server via

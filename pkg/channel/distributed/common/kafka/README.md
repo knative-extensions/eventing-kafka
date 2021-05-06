@@ -13,14 +13,15 @@ a simple sidecar Container.
 
 ## AdminClient & K8S Secrets
 
-The AdminClient expects there to be a single K8S Secret (or one Secret per
-EventHub Namespace when using Azure) in the `knative-eventing` namespace. The
-Secret MUST be labelled with the `eventing-kafka.knative.dev/kafka-secret` label
-and contain the following fields...
+The AdminClient expects there to be a single K8S Secret which by default is
+named `kafka-cluster` and exists in the `knative-eventing` namespace (this may
+be changed by altering the kafka.authSecretName and/or the
+kafka.authSecretNamespace in the
+[ConfigMap](../../../../../config/channel/distributed/300-eventing-kafka-configmap.yaml))
+, containing the following fields...
 
 ```
 data:
-    brokers:   Kafka Brokers String (comma separated)
     password:  SASL Password or Azure Connection String of Azure Namespace
     username:  SASL Username or '$ConnectionString' for Azure Namespace
     namespace: Only required for Azure AdminClient usage - specifies the Azure EventHub Namespace
@@ -46,13 +47,11 @@ layer. Instead, users are required to either use their
 [REST API](https://docs.microsoft.com/en-us/rest/api/eventhub/) or the
 [go-client](https://github.com/Azure/azure-event-hubs-go/tree/master). The
 go-client is easier to use but only provides limited EventHub related
-functionality (e.g - No "namespace" management, etc...) This implementation is
+functionality (e.g. - No "namespace" management, etc...) This implementation is
 currently based on the go-client and expects Azure Namespaces to be manually
 allocated and pre-existing. The implementation does, however, abstract away
 these Azure Namespaces so that a user's Azure Subscription looks like one big
-allocation of possible EventHubs. The creation of new Topics / EventHubs will be
-load-balanced across the available Azure EventHub Namespaces as identified by
-their K8S Secret (instead of dynamic lookup via the Azure REST API).
+allocation of possible EventHubs.
 
 ## Custom (REST Sidecar)
 
@@ -66,7 +65,7 @@ requirements in order for this proxying of requests to work successfully.
 
 1. Eventing-Kafka Configuration
 
-   The following changes to the default config/ YAML will be required in order
+   The following changes to the default config YAML will be required in order
    to deploy a custom sidecar as part of the eventing-kafka Controller
    Deployment...
 
