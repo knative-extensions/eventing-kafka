@@ -93,10 +93,7 @@ func (c *service) sendBinaryAndWaitForAck(opcode ctrl.OpCode, payload []byte) er
 		c.waitingAcksMutex.Unlock()
 	}()
 
-	err := c.connection.WriteMessage(c.ctx, &msg)
-	if err != nil {
-		return err
-	}
+	c.connection.WriteMessage(&msg)
 
 	select {
 	case err := <-ackCh:
@@ -125,12 +122,10 @@ func (c *service) ErrorHandler(handler ctrl.ErrorHandler) {
 func (c *service) startPolling() {
 	go func() {
 		for {
-			msg, err := c.connection.ReadMessage(c.ctx)
-			if err != nil && err == c.ctx.Err() {
-				// Context closed, service closed
+			msg := c.connection.ReadMessage()
+			if msg == nil {
+				// Connection closed
 				return
-			} else if err != nil {
-				logging.FromContext(c.ctx).Debugf("Error while reading message from the connection")
 			}
 			go c.accept(msg)
 		}
@@ -171,9 +166,7 @@ func (c *service) accept(msg *ctrl.Message) {
 	} else {
 		ackFunc := func(err error) {
 			ackMsg := newAckMessage(msg.UUID(), err)
-			if err := c.connection.WriteMessage(c.ctx, &ackMsg); err != nil && err != c.ctx.Err() {
-				logging.FromContext(c.ctx).Warnf("Unexpected failure while acking back: %v", err)
-			}
+			c.connection.WriteMessage(&ackMsg)
 		}
 		c.handlerMutex.RLock()
 		c.handler.HandleServiceMessage(c.ctx, ctrl.NewServiceMessage(msg, ackFunc))

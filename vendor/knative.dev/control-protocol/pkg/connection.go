@@ -16,19 +16,16 @@ limitations under the License.
 
 package control
 
-import "context"
-
 // Connection handles the low level stuff, reading and writing to the wire
 type Connection interface {
 	// WriteMessage writes a message to the wire.
-	// This blocks until the message is written to the wire.
-	// Returns ctx.Error() if the provided context is closed.
-	WriteMessage(ctx context.Context, msg *Message) error
+	// This method may not perform the actual writing, but it could just add the message to a local queue, which then dispatch the actual message.
+	WriteMessage(msg *Message)
 
 	// ReadMessage reads a message from the wire.
 	// This blocks until there's a message available to read.
-	// Returns ctx.Error() if the provided context is closed.
-	ReadMessage(ctx context.Context) (*Message, error)
+	// Returns nil if the Connection is closed.
+	ReadMessage() *Message
 
 	// Errors returns a channel that signals very bad, usually fatal, errors
 	// (like cannot re-establish the connection after several attempts)
