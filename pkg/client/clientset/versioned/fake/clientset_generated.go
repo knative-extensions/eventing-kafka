@@ -29,6 +29,8 @@ import (
 	fakebindingsv1alpha1 "knative.dev/eventing-kafka/pkg/client/clientset/versioned/typed/bindings/v1alpha1/fake"
 	bindingsv1beta1 "knative.dev/eventing-kafka/pkg/client/clientset/versioned/typed/bindings/v1beta1"
 	fakebindingsv1beta1 "knative.dev/eventing-kafka/pkg/client/clientset/versioned/typed/bindings/v1beta1/fake"
+	kafkav1alpha1 "knative.dev/eventing-kafka/pkg/client/clientset/versioned/typed/kafka/v1alpha1"
+	fakekafkav1alpha1 "knative.dev/eventing-kafka/pkg/client/clientset/versioned/typed/kafka/v1alpha1/fake"
 	messagingv1beta1 "knative.dev/eventing-kafka/pkg/client/clientset/versioned/typed/messaging/v1beta1"
 	fakemessagingv1beta1 "knative.dev/eventing-kafka/pkg/client/clientset/versioned/typed/messaging/v1beta1/fake"
 	sourcesv1alpha1 "knative.dev/eventing-kafka/pkg/client/clientset/versioned/typed/sources/v1alpha1"
@@ -92,6 +94,11 @@ func (c *Clientset) BindingsV1alpha1() bindingsv1alpha1.BindingsV1alpha1Interfac
 // BindingsV1beta1 retrieves the BindingsV1beta1Client
 func (c *Clientset) BindingsV1beta1() bindingsv1beta1.BindingsV1beta1Interface {
 	return &fakebindingsv1beta1.FakeBindingsV1beta1{Fake: &c.Fake}
+}
+
+// KafkaV1alpha1 retrieves the KafkaV1alpha1Client
+func (c *Clientset) KafkaV1alpha1() kafkav1alpha1.KafkaV1alpha1Interface {
+	return &fakekafkav1alpha1.FakeKafkaV1alpha1{Fake: &c.Fake}
 }
 
 // MessagingV1beta1 retrieves the MessagingV1beta1Client

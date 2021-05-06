@@ -26,6 +26,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	bindingsv1alpha1 "knative.dev/eventing-kafka/pkg/apis/bindings/v1alpha1"
 	bindingsv1beta1 "knative.dev/eventing-kafka/pkg/apis/bindings/v1beta1"
+	kafkav1alpha1 "knative.dev/eventing-kafka/pkg/apis/kafka/v1alpha1"
 	messagingv1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	sourcesv1alpha1 "knative.dev/eventing-kafka/pkg/apis/sources/v1alpha1"
 	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
@@ -37,6 +38,7 @@ var ParameterCodec = runtime.NewParameterCodec(Scheme)
 var localSchemeBuilder = runtime.SchemeBuilder{
 	bindingsv1alpha1.AddToScheme,
 	bindingsv1beta1.AddToScheme,
+	kafkav1alpha1.AddToScheme,
 	messagingv1beta1.AddToScheme,
 	sourcesv1alpha1.AddToScheme,
 	sourcesv1beta1.AddToScheme,
