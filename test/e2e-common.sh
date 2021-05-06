@@ -184,7 +184,7 @@ function install_knative_eventing {
     # Install MT Channel Based Broker
     ko apply -f "${EVENTING_MT_CHANNEL_BROKER_CONFIG}"
     # Install IMC
-    ko apply -f "${EVENTING_IN_MEMORY_CHANNEL_CONFIG}"
+    ko apply -Rf "${EVENTING_IN_MEMORY_CHANNEL_CONFIG}"
     popd
   fi
    wait_until_pods_running "${EVENTING_NAMESPACE}" || fail_test "Knative Eventing did not come up"
@@ -219,7 +219,7 @@ function knative_teardown() {
     pushd .
     cd ${GOPATH}/src/knative.dev/eventing
     # Remove IMC
-    ko delete -f "${EVENTING_IN_MEMORY_CHANNEL_CONFIG}"
+    ko delete -Rf "${EVENTING_IN_MEMORY_CHANNEL_CONFIG}"
     # Remove MT Channel Based Broker
     ko delete -f "${EVENTING_MT_CHANNEL_BROKER_CONFIG}"
     # Remove eventing
