@@ -26,11 +26,9 @@ import (
 
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	clientappsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
-	clientcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	corev1 "k8s.io/client-go/listers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/integer"
 
@@ -41,6 +39,7 @@ import (
 
 	duckv1alpha1 "knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
 	"knative.dev/eventing-kafka/pkg/common/scheduler"
+	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
 )
 
 type SchedulerPolicyType string
@@ -63,14 +62,16 @@ func NewScheduler(ctx context.Context,
 	refreshPeriod time.Duration,
 	capacity int32,
 	schedulerPolicy SchedulerPolicyType,
-	nodeLister corev1.NodeLister) scheduler.Scheduler {
+	nodeLister corev1listers.NodeLister) scheduler.Scheduler {
 
 	stateAccessor := newStateBuilder(ctx, lister, capacity, schedulerPolicy, nodeLister)
 	autoscaler := NewAutoscaler(ctx, namespace, name, stateAccessor, refreshPeriod, capacity)
+	podInformer := podinformer.Get(ctx)
+	podLister := podInformer.Lister().Pods(namespace)
 
 	go autoscaler.Start(ctx)
 
-	return NewStatefulSetScheduler(ctx, namespace, name, lister, stateAccessor, autoscaler)
+	return NewStatefulSetScheduler(ctx, namespace, name, lister, stateAccessor, autoscaler, podLister)
 }
 
 // StatefulSetScheduler is a scheduler placing VPod into statefulset-managed set of pods
@@ -78,7 +79,7 @@ type StatefulSetScheduler struct {
 	logger            *zap.SugaredLogger
 	statefulSetName   string
 	statefulSetClient clientappsv1.StatefulSetInterface
-	podClient         clientcorev1.PodInterface
+	podLister         corev1listers.PodNamespaceLister
 	vpodLister        scheduler.VPodLister
 	lock              sync.Locker
 	stateAccessor     stateAccessor
@@ -96,13 +97,13 @@ func NewStatefulSetScheduler(ctx context.Context,
 	namespace, name string,
 	lister scheduler.VPodLister,
 	stateAccessor stateAccessor,
-	autoscaler Autoscaler) scheduler.Scheduler {
+	autoscaler Autoscaler, podlister corev1listers.PodNamespaceLister) scheduler.Scheduler {
 
 	scheduler := &StatefulSetScheduler{
 		logger:            logging.FromContext(ctx),
 		statefulSetName:   name,
 		statefulSetClient: kubeclient.Get(ctx).AppsV1().StatefulSets(namespace),
-		podClient:         kubeclient.Get(ctx).CoreV1().Pods(namespace),
+		podLister:         podlister,
 		vpodLister:        lister,
 		pending:           make(map[types.NamespacedName]int32),
 		lock:              new(sync.Mutex),
@@ -177,7 +178,7 @@ func (s *StatefulSetScheduler) Schedule(vpod scheduler.VPod) ([]duckv1alpha1.Pla
 	// Need more => scale up
 	logger.Infow("scaling up", zap.Int32("vreplicas", tr), zap.Int32("new vreplicas", vpod.GetVReplicas()))
 	if state.schedulerPolicy == EVENSPREAD {
-		//spreadVal is the minimum number of replicas to be placed in each zone for high availability
+		//spreadVal is the maximum number of replicas to be placed in each zone for high availability
 		spreadVal = int32(math.Ceil(float64(vpod.GetVReplicas()) / float64(state.numZones)))
 		logger.Infow("number of replicas per zone", zap.Int32("spreadVal", spreadVal))
 		placements, left = s.addReplicasEvenSpread(state, vpod.GetVReplicas()-tr, placements, spreadVal)
@@ -236,13 +237,13 @@ func (s *StatefulSetScheduler) removeReplicasEvenSpread(diff int32, placements [
 		logger.Info(zap.String("zoneName", zoneNames[i]), zap.Int32("totalInZone", totalInZone))
 
 		placementOrdinals := placementsByZone[zoneNames[i]]
-		for j := 0; j < len(placementOrdinals); j++ { //iterating through all existing pods belonging to a single zone
+		for j := len(placementOrdinals) - 1; j >= 0; j-- { //iterating through all existing pods belonging to a single zone from larger cardinal to smaller
 			ordinal := placementOrdinals[j]
 			placement := s.getPlacementFromPodOrdinal(placements, ordinal)
 
 			if diff > 0 && totalInZone >= evenSpread {
 				deallocation := integer.Int32Min(diff, integer.Int32Min(placement.VReplicas, totalInZone-evenSpread))
-				logger.Info(zap.Int32("diff", diff), zap.Int32("deallocation", deallocation))
+				logger.Info(zap.Int32("diff", diff), zap.Int32("ordinal", ordinal), zap.Int32("deallocation", deallocation))
 
 				if deallocation > 0 && deallocation < placement.VReplicas {
 					newPlacements = append(newPlacements, duckv1alpha1.Placement{
@@ -252,9 +253,15 @@ func (s *StatefulSetScheduler) removeReplicasEvenSpread(diff int32, placements [
 					})
 					diff -= deallocation
 					totalInZone -= deallocation
-				} else {
+				} else if deallocation >= placement.VReplicas {
 					diff -= placement.VReplicas
 					totalInZone -= placement.VReplicas
+				} else {
+					newPlacements = append(newPlacements, duckv1alpha1.Placement{
+						PodName:   placement.PodName,
+						ZoneName:  placement.ZoneName,
+						VReplicas: placement.VReplicas,
+					})
 				}
 			} else {
 				newPlacements = append(newPlacements, duckv1alpha1.Placement{
@@ -262,6 +269,7 @@ func (s *StatefulSetScheduler) removeReplicasEvenSpread(diff int32, placements [
 					ZoneName:  placement.ZoneName,
 					VReplicas: placement.VReplicas,
 				})
+
 			}
 		}
 	}
@@ -401,7 +409,7 @@ func (s *StatefulSetScheduler) addReplicasEvenSpread(state *state, diff int32, p
 }
 
 func (s *StatefulSetScheduler) getZoneNameFromPod(state *state, podName string) (zoneName string, err error) {
-	pod, err := s.podClient.Get(context.Background(), podName, metav1.GetOptions{})
+	pod, err := s.podLister.Get(podName)
 	if err != nil {
 		return zoneName, err
 	}

@@ -21,8 +21,6 @@ import (
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
-	corev1 "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/cache"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -37,6 +35,7 @@ import (
 	kafkainformer "knative.dev/eventing-kafka/pkg/client/injection/informers/sources/v1beta1/kafkasource"
 	"knative.dev/eventing-kafka/pkg/client/injection/reconciler/sources/v1beta1/kafkasource"
 	scheduler "knative.dev/eventing-kafka/pkg/common/scheduler/statefulset"
+	nodeinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/node"
 )
 
 type envConfig struct {
@@ -57,6 +56,7 @@ func NewController(
 	}
 
 	kafkaInformer := kafkainformer.Get(ctx)
+	nodeInformer := nodeinformer.Get(ctx)
 
 	c := &Reconciler{
 		KubeClientSet:  kubeclient.Get(ctx),
@@ -73,8 +73,7 @@ func NewController(
 	sourcesv1beta1.RegisterAlternateKafkaConditionSet(sourcesv1beta1.KafkaMTSourceCondSet)
 
 	rp := time.Duration(env.SchedulerRefreshPeriod) * time.Second
-	nodeLister := corev1.NewNodeLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{}))
-	c.scheduler = scheduler.NewScheduler(ctx, system.Namespace(), mtadapterName, c.vpodLister, rp, env.PodCapacity, env.SchedulerPolicy, nodeLister)
+	c.scheduler = scheduler.NewScheduler(ctx, system.Namespace(), mtadapterName, c.vpodLister, rp, env.PodCapacity, env.SchedulerPolicy, nodeInformer.Lister())
 
 	logging.FromContext(ctx).Info("Setting up kafka event handlers")
 	kafkaInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))

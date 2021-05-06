@@ -29,9 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	corelister "k8s.io/client-go/listers/core/v1"
 	gtesting "k8s.io/client-go/testing"
-	"k8s.io/client-go/tools/cache"
 
 	kubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/apps/v1/statefulset/fake"
@@ -41,6 +39,7 @@ import (
 	duckv1alpha1 "knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
 	"knative.dev/eventing-kafka/pkg/common/scheduler"
 	tscheduler "knative.dev/eventing-kafka/pkg/common/scheduler/testing"
+	listers "knative.dev/eventing/pkg/reconciler/testing/v1"
 )
 
 const (
@@ -284,7 +283,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 			},
 			expected: []duckv1alpha1.Placement{
 				{PodName: "statefulset-name-0", ZoneName: "zone0", VReplicas: 1},
-				{PodName: "statefulset-name-2", ZoneName: "zone1", VReplicas: 1},
+				{PodName: "statefulset-name-1", ZoneName: "zone1", VReplicas: 1},
 				{PodName: "statefulset-name-3", ZoneName: "zone2", VReplicas: 1},
 			},
 			schedulerPolicy: EVENSPREAD,
@@ -301,7 +300,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 			},
 			expected: []duckv1alpha1.Placement{
 				{PodName: "statefulset-name-0", ZoneName: "zone0", VReplicas: 2},
-				{PodName: "statefulset-name-2", ZoneName: "zone1", VReplicas: 2},
+				{PodName: "statefulset-name-1", ZoneName: "zone1", VReplicas: 2},
 				{PodName: "statefulset-name-3", ZoneName: "zone2", VReplicas: 3},
 			},
 			schedulerPolicy: EVENSPREAD,
@@ -311,25 +310,28 @@ func TestStatefulsetScheduler(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, _ := setupFakeContext(t)
-
+			nodelist := make([]runtime.Object, 0, numZones)
+			podlist := make([]runtime.Object, 0, tc.replicas)
 			vpodClient := tscheduler.NewVPodClient()
 
 			if tc.schedulerPolicy == EVENSPREAD {
 				for i := int32(0); i < numZones; i++ {
 					nodeName := "node" + fmt.Sprint(i)
 					zoneName := "zone" + fmt.Sprint(i)
-					_, err := kubeclient.Get(ctx).CoreV1().Nodes().Create(ctx, makeNode(nodeName, zoneName), metav1.CreateOptions{})
+					node, err := kubeclient.Get(ctx).CoreV1().Nodes().Create(ctx, makeNode(nodeName, zoneName), metav1.CreateOptions{})
 					if err != nil {
 						t.Fatal("unexpected error", err)
 					}
+					nodelist = append(nodelist, node)
 				}
 				for i := int32(0); i < tc.replicas; i++ {
 					nodeName := "node" + fmt.Sprint(i)
 					podName := sfsName + "-" + fmt.Sprint(i)
-					_, err := kubeclient.Get(ctx).CoreV1().Pods(testNs).Create(ctx, makePod(testNs, podName, nodeName), metav1.CreateOptions{})
+					pod, err := kubeclient.Get(ctx).CoreV1().Pods(testNs).Create(ctx, makePod(testNs, podName, nodeName), metav1.CreateOptions{})
 					if err != nil {
 						t.Fatal("unexpected error", err)
 					}
+					podlist = append(podlist, pod)
 				}
 			}
 
@@ -337,10 +339,10 @@ func TestStatefulsetScheduler(t *testing.T) {
 			if err != nil {
 				t.Fatal("unexpected error", err)
 			}
-
-			nodeLister := corelister.NewNodeLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{}))
-			sa := newStateBuilder(ctx, vpodClient.List, 10, tc.schedulerPolicy, nodeLister)
-			s := NewStatefulSetScheduler(ctx, testNs, sfsName, vpodClient.List, sa, nil).(*StatefulSetScheduler)
+			lsn := listers.NewListers(nodelist)
+			sa := newStateBuilder(ctx, vpodClient.List, 10, tc.schedulerPolicy, lsn.GetNodeLister())
+			lsp := listers.NewListers(podlist)
+			s := NewStatefulSetScheduler(ctx, testNs, sfsName, vpodClient.List, sa, nil, lsp.GetPodLister().Pods(testNs)).(*StatefulSetScheduler)
 
 			// Give some time for the informer to notify the scheduler and set the number of replicas
 			time.Sleep(200 * time.Millisecond)

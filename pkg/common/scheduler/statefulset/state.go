@@ -20,10 +20,9 @@ import (
 	"context"
 
 	"go.uber.org/zap"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	corev1 "k8s.io/client-go/listers/core/v1"
 	"knative.dev/eventing-kafka/pkg/common/scheduler"
-	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
 )
 
@@ -136,16 +135,15 @@ func (s *stateBuilder) State() (*state, error) {
 
 	if s.schedulerPolicy == EVENSPREAD {
 		//TODO: need a node watch to see if # nodes/ # zones have gone up or down
-		nodes, err := kubeclient.Get(s.ctx).CoreV1().Nodes().List(s.ctx, metav1.ListOptions{})
-		// nodes, err := s.nodeLister.List(labels.Everything()) // Not working yet!!
+		nodes, err := s.nodeLister.List(labels.Everything())
 		if err != nil {
 			return nil, err
 		}
 
-		nodeToZoneMap := make(map[string]string, len(nodes.Items))
+		nodeToZoneMap := make(map[string]string, len(nodes))
 		zoneMap := make(map[string]struct{})
-		for i := 0; i < len(nodes.Items); i++ {
-			node := nodes.Items[i]
+		for i := 0; i < len(nodes); i++ {
+			node := nodes[i]
 			zoneName, ok := node.GetLabels()[ZoneLabel]
 			if !ok {
 				continue //ignore node that doesn't have zone info (maybe a test setup or control node)

@@ -23,10 +23,10 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	corev1 "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/cache"
+	"k8s.io/apimachinery/pkg/runtime"
 	duckv1alpha1 "knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
 	tscheduler "knative.dev/eventing-kafka/pkg/common/scheduler/testing"
+	listers "knative.dev/eventing/pkg/reconciler/testing/v1"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 )
 
@@ -98,6 +98,7 @@ func TestStateBuilder(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, _ := setupFakeContext(t)
 			vpodClient := tscheduler.NewVPodClient()
+			nodelist := make([]runtime.Object, 0, len(tc.nodes))
 
 			for i, placements := range tc.vpods {
 				vpodName := fmt.Sprint("vpod-name-", i)
@@ -108,15 +109,16 @@ func TestStateBuilder(t *testing.T) {
 
 			if tc.schedulerPolicy == EVENSPREAD {
 				for i := 0; i < len(tc.nodes); i++ {
-					_, err := kubeclient.Get(ctx).CoreV1().Nodes().Create(ctx, tc.nodes[i], metav1.CreateOptions{})
+					node, err := kubeclient.Get(ctx).CoreV1().Nodes().Create(ctx, tc.nodes[i], metav1.CreateOptions{})
 					if err != nil {
 						t.Fatal("unexpected error", err)
 					}
+					nodelist = append(nodelist, node)
 				}
 			}
 
-			nodeLister := corev1.NewNodeLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{}))
-			stateBuilder := newStateBuilder(ctx, vpodClient.List, int32(10), tc.schedulerPolicy, nodeLister)
+			ls := listers.NewListers(nodelist)
+			stateBuilder := newStateBuilder(ctx, vpodClient.List, int32(10), tc.schedulerPolicy, ls.GetNodeLister())
 			state, err := stateBuilder.State()
 			if err != nil {
 				t.Fatal("unexpected error", err)
