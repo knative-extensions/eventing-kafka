@@ -21,6 +21,7 @@ import (
 
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1 "k8s.io/client-go/listers/core/v1"
 	"knative.dev/eventing-kafka/pkg/common/scheduler"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
@@ -85,16 +86,18 @@ type stateBuilder struct {
 	vpodLister      scheduler.VPodLister
 	capacity        int32
 	schedulerPolicy SchedulerPolicyType
+	nodeLister      corev1.NodeLister
 }
 
 // newStateBuilder returns a StateAccessor recreating the state from scratch each time it is requested
-func newStateBuilder(ctx context.Context, lister scheduler.VPodLister, podCapacity int32, schedulerPolicy SchedulerPolicyType) stateAccessor {
+func newStateBuilder(ctx context.Context, lister scheduler.VPodLister, podCapacity int32, schedulerPolicy SchedulerPolicyType, nodeLister corev1.NodeLister) stateAccessor {
 	return &stateBuilder{
 		ctx:             ctx,
 		logger:          logging.FromContext(ctx),
 		vpodLister:      lister,
 		capacity:        podCapacity,
 		schedulerPolicy: schedulerPolicy,
+		nodeLister:      nodeLister,
 	}
 }
 
@@ -131,9 +134,10 @@ func (s *stateBuilder) State() (*state, error) {
 		}
 	}
 
-	if s.schedulerPolicy == EvenSpread {
+	if s.schedulerPolicy == EVENSPREAD {
 		//TODO: need a node watch to see if # nodes/ # zones have gone up or down
 		nodes, err := kubeclient.Get(s.ctx).CoreV1().Nodes().List(s.ctx, metav1.ListOptions{})
+		// nodes, err := s.nodeLister.List(labels.Everything()) // Not working yet!!
 		if err != nil {
 			return nil, err
 		}

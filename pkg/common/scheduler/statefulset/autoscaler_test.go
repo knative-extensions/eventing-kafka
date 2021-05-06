@@ -22,7 +22,9 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	corev1 "k8s.io/client-go/listers/core/v1"
 	gtesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 
 	kubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/apps/v1/statefulset/fake"
@@ -38,12 +40,13 @@ const (
 
 func TestAutoscaler(t *testing.T) {
 	testCases := []struct {
-		name         string
-		replicas     int32
-		vpods        []scheduler.VPod
-		pendings     int32
-		scaleDown    bool
-		wantReplicas int32
+		name            string
+		replicas        int32
+		vpods           []scheduler.VPod
+		pendings        int32
+		scaleDown       bool
+		wantReplicas    int32
+		schedulerPolicy SchedulerPolicyType
 	}{
 		{
 			name:     "no replicas, no placements, no pending",
@@ -180,6 +183,30 @@ func TestAutoscaler(t *testing.T) {
 			pendings:     int32(8),
 			wantReplicas: int32(3),
 		},
+		{
+			name:     "no replicas, with placements, with pending, enough capacity",
+			replicas: int32(0),
+			vpods: []scheduler.VPod{
+				tscheduler.NewVPod(testNs, "vpod-1", 15, []duckv1alpha1.Placement{
+					{PodName: "pod-0", VReplicas: int32(8)},
+					{PodName: "pod-1", VReplicas: int32(7)}}),
+			},
+			pendings:        int32(3),
+			wantReplicas:    int32(3),
+			schedulerPolicy: EVENSPREAD,
+		},
+		{
+			name:     "with replicas, with placements, with pending, enough capacity",
+			replicas: int32(2),
+			vpods: []scheduler.VPod{
+				tscheduler.NewVPod(testNs, "vpod-1", 15, []duckv1alpha1.Placement{
+					{PodName: "pod-0", VReplicas: int32(8)},
+					{PodName: "pod-1", VReplicas: int32(7)}}),
+			},
+			pendings:        int32(3),
+			wantReplicas:    int32(3),
+			schedulerPolicy: EVENSPREAD,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -187,7 +214,8 @@ func TestAutoscaler(t *testing.T) {
 			ctx, _ := setupFakeContext(t)
 
 			vpodClient := tscheduler.NewVPodClient()
-			stateAccessor := newStateBuilder(ctx, vpodClient.List, 10, MaxFillup)
+			nodeLister := corev1.NewNodeLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{}))
+			stateAccessor := newStateBuilder(ctx, vpodClient.List, 10, tc.schedulerPolicy, nodeLister)
 
 			sfsClient := kubeclient.Get(ctx).AppsV1().StatefulSets(testNs)
 			_, err := sfsClient.Create(ctx, makeStatefulset(testNs, sfsName, tc.replicas), metav1.CreateOptions{})
@@ -230,7 +258,8 @@ func TestAutoscalerScaleDownToZero(t *testing.T) {
 	})
 
 	vpodClient := tscheduler.NewVPodClient()
-	stateAccessor := newStateBuilder(ctx, vpodClient.List, 10, MaxFillup)
+	nodeLister := corev1.NewNodeLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{}))
+	stateAccessor := newStateBuilder(ctx, vpodClient.List, 10, MAXFILLUP, nodeLister)
 
 	sfsClient := kubeclient.Get(ctx).AppsV1().StatefulSets(testNs)
 	_, err := sfsClient.Create(ctx, makeStatefulset(testNs, sfsName, 10), metav1.CreateOptions{})

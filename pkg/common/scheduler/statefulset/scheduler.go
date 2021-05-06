@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	clientappsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 	clientcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	corev1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/integer"
 
@@ -42,13 +43,13 @@ import (
 	"knative.dev/eventing-kafka/pkg/common/scheduler"
 )
 
-type SchedulerPolicyType int
+type SchedulerPolicyType string
 
 const (
-	// MaxFillup policy type adds replicas to existing pods to fill them up before adding to new pods
-	MaxFillup SchedulerPolicyType = iota
-	// EvenSpread policy type spreads replicas uniformly across zones in different regions for HA, and within each zone, fills up replicas in existing and new pods
-	EvenSpread
+	// MAXFILLUP policy type adds replicas to existing pods to fill them up before adding to new pods
+	MAXFILLUP SchedulerPolicyType = "MAXFILLUP"
+	// EVENSPREAD policy type spreads replicas uniformly across failure-domains such as regions, zones, nodes, etc
+	EVENSPREAD = "EVENSPREAD"
 )
 
 const (
@@ -61,9 +62,10 @@ func NewScheduler(ctx context.Context,
 	lister scheduler.VPodLister,
 	refreshPeriod time.Duration,
 	capacity int32,
-	schedulerPolicy SchedulerPolicyType) scheduler.Scheduler {
+	schedulerPolicy SchedulerPolicyType,
+	nodeLister corev1.NodeLister) scheduler.Scheduler {
 
-	stateAccessor := newStateBuilder(ctx, lister, capacity, schedulerPolicy)
+	stateAccessor := newStateBuilder(ctx, lister, capacity, schedulerPolicy, nodeLister)
 	autoscaler := NewAutoscaler(ctx, namespace, name, stateAccessor, refreshPeriod, capacity)
 
 	go autoscaler.Start(ctx)
@@ -137,10 +139,10 @@ func (s *StatefulSetScheduler) Schedule(vpod scheduler.VPod) ([]duckv1alpha1.Pla
 	var spreadVal, left int32
 
 	// The scheduler when policy type is
-	// Policy: MaxFillup (SchedulerPolicyType == MaxFillup)
+	// Policy: MAXFILLUP (SchedulerPolicyType == MAXFILLUP)
 	// - allocates as many vreplicas as possible to the same pod(s)
 	// - allocates remaining vreplicas to new pods
-	// Policy: EvenSpread (SchedulerPolicyType == EvenSpread)
+	// Policy: EVENSPREAD (SchedulerPolicyType == EVENSPREAD)
 	// - divides up vreplicas equally between the zones and
 	// - allocates as many vreplicas as possible to existing pods while not going over the equal spread value
 	// - allocates remaining vreplicas to new pods created in new zones still satisfying equal spread
@@ -158,13 +160,13 @@ func (s *StatefulSetScheduler) Schedule(vpod scheduler.VPod) ([]duckv1alpha1.Pla
 	// Need less => scale down
 	if tr > vpod.GetVReplicas() {
 		logger.Infow("scaling down", zap.Int32("vreplicas", tr), zap.Int32("new vreplicas", vpod.GetVReplicas()))
-		if state.schedulerPolicy == MaxFillup {
-			placements = s.removeReplicas(tr-vpod.GetVReplicas(), placements)
-		} else {
+		if state.schedulerPolicy == EVENSPREAD {
 			//spreadVal is the minimum number of replicas to be left behind in each zone for high availability
 			spreadVal = int32(math.Floor(float64(vpod.GetVReplicas()) / float64(state.numZones)))
 			logger.Infow("number of replicas per zone", zap.Int32("spreadVal", spreadVal))
 			placements = s.removeReplicasEvenSpread(tr-vpod.GetVReplicas(), placements, spreadVal)
+		} else {
+			placements = s.removeReplicas(tr-vpod.GetVReplicas(), placements)
 		}
 
 		// Do not trigger the autoscaler to avoid unnecessary churn
@@ -174,13 +176,13 @@ func (s *StatefulSetScheduler) Schedule(vpod scheduler.VPod) ([]duckv1alpha1.Pla
 
 	// Need more => scale up
 	logger.Infow("scaling up", zap.Int32("vreplicas", tr), zap.Int32("new vreplicas", vpod.GetVReplicas()))
-	if state.schedulerPolicy == MaxFillup {
-		placements, left = s.addReplicas(state, vpod.GetVReplicas()-tr, placements)
-	} else {
+	if state.schedulerPolicy == EVENSPREAD {
 		//spreadVal is the minimum number of replicas to be placed in each zone for high availability
 		spreadVal = int32(math.Ceil(float64(vpod.GetVReplicas()) / float64(state.numZones)))
 		logger.Infow("number of replicas per zone", zap.Int32("spreadVal", spreadVal))
 		placements, left = s.addReplicasEvenSpread(state, vpod.GetVReplicas()-tr, placements, spreadVal)
+	} else {
+		placements, left = s.addReplicas(state, vpod.GetVReplicas()-tr, placements)
 	}
 	if left > 0 {
 		// Give time for the autoscaler to do its job
@@ -317,8 +319,8 @@ func (s *StatefulSetScheduler) addReplicas(state *state, diff int32, placements 
 }
 
 func (s *StatefulSetScheduler) addReplicasEvenSpread(state *state, diff int32, placements []duckv1alpha1.Placement, evenSpread int32) ([]duckv1alpha1.Placement, int32) {
-	// Pod affinity MaxFillup algorithm prefer adding replicas to existing pods to fill them up before adding to new pods
-	// Pod affinity EvenSpread algorithm spread replicas across pods in different regions for HA
+	// Pod affinity MAXFILLUP algorithm prefer adding replicas to existing pods to fill them up before adding to new pods
+	// Pod affinity EVENSPREAD algorithm spread replicas across pods in different regions for HA
 	newPlacements := make([]duckv1alpha1.Placement, 0, len(placements))
 	logger := s.logger.Named("add replicas")
 

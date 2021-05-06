@@ -29,7 +29,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	corelister "k8s.io/client-go/listers/core/v1"
 	gtesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 
 	kubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/apps/v1/statefulset/fake"
@@ -143,7 +145,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 			vreplicas:       0,
 			replicas:        int32(0),
 			expected:        nil,
-			schedulerPolicy: EvenSpread,
+			schedulerPolicy: EVENSPREAD,
 		},
 		{
 			name:            "no replicas, 1 vreplicas, fail, HA scheduling",
@@ -151,14 +153,14 @@ func TestStatefulsetScheduler(t *testing.T) {
 			replicas:        int32(0),
 			err:             scheduler.ErrNotEnoughReplicas,
 			expected:        []duckv1alpha1.Placement{},
-			schedulerPolicy: EvenSpread,
+			schedulerPolicy: EVENSPREAD,
 		},
 		{
 			name:            "one replica, one vreplicas, HA scheduling",
 			vreplicas:       1,
 			replicas:        int32(1),
 			expected:        []duckv1alpha1.Placement{{PodName: "statefulset-name-0", ZoneName: "zone0", VReplicas: 1}},
-			schedulerPolicy: EvenSpread,
+			schedulerPolicy: EVENSPREAD,
 		},
 		{
 			name:            "one replica, 3 vreplicas, HA scheduling",
@@ -166,7 +168,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 			replicas:        int32(1),
 			err:             scheduler.ErrNotEnoughReplicas,
 			expected:        []duckv1alpha1.Placement{{PodName: "statefulset-name-0", ZoneName: "zone0", VReplicas: 1}},
-			schedulerPolicy: EvenSpread,
+			schedulerPolicy: EVENSPREAD,
 		},
 		{
 			name:            "one replica, 15 vreplicas, unschedulable, HA scheduling",
@@ -174,7 +176,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 			replicas:        int32(1),
 			err:             scheduler.ErrNotEnoughReplicas,
 			expected:        []duckv1alpha1.Placement{{PodName: "statefulset-name-0", ZoneName: "zone0", VReplicas: 5}},
-			schedulerPolicy: EvenSpread,
+			schedulerPolicy: EVENSPREAD,
 		},
 		{
 			name:      "two replicas, 15 vreplicas, scheduled, HA scheduling",
@@ -185,7 +187,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-0", ZoneName: "zone0", VReplicas: 5},
 				{PodName: "statefulset-name-1", ZoneName: "zone1", VReplicas: 5},
 			},
-			schedulerPolicy: EvenSpread,
+			schedulerPolicy: EVENSPREAD,
 		},
 		{
 			name:      "two replicas, 15 vreplicas, already scheduled, HA scheduling",
@@ -199,7 +201,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-0", ZoneName: "zone0", VReplicas: 10},
 				{PodName: "statefulset-name-1", ZoneName: "zone1", VReplicas: 5},
 			},
-			schedulerPolicy: EvenSpread,
+			schedulerPolicy: EVENSPREAD,
 		},
 		{
 			name:      "three replicas, 30 vreplicas, HA scheduling",
@@ -215,7 +217,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-1", ZoneName: "zone1", VReplicas: 10},
 				{PodName: "statefulset-name-2", ZoneName: "zone2", VReplicas: 10},
 			},
-			schedulerPolicy: EvenSpread,
+			schedulerPolicy: EVENSPREAD,
 		},
 		{
 			name:      "three replicas, 15 vreplicas, too much scheduled (scale down), HA scheduling",
@@ -231,7 +233,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-1", ZoneName: "zone1", VReplicas: 5},
 				{PodName: "statefulset-name-2", ZoneName: "zone2", VReplicas: 5},
 			},
-			schedulerPolicy: EvenSpread,
+			schedulerPolicy: EVENSPREAD,
 		},
 		{
 			name:      "three replicas, 15 vreplicas, HA scheduling",
@@ -242,7 +244,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-1", ZoneName: "zone1", VReplicas: 5},
 				{PodName: "statefulset-name-2", ZoneName: "zone2", VReplicas: 5},
 			},
-			schedulerPolicy: EvenSpread,
+			schedulerPolicy: EVENSPREAD,
 		},
 		{
 			name:      "three replicas, 15 vreplicas, HA scheduling",
@@ -253,7 +255,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-1", ZoneName: "zone1", VReplicas: 7},
 				{PodName: "statefulset-name-2", ZoneName: "zone2", VReplicas: 6},
 			},
-			schedulerPolicy: EvenSpread,
+			schedulerPolicy: EVENSPREAD,
 		},
 		{
 			name:      "three replicas, 2 vreplicas, too much scheduled (scale down), HA scheduling",
@@ -268,7 +270,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-1", ZoneName: "zone1", VReplicas: 1},
 				{PodName: "statefulset-name-2", ZoneName: "zone2", VReplicas: 1},
 			},
-			schedulerPolicy: EvenSpread,
+			schedulerPolicy: EVENSPREAD,
 		},
 		{
 			name:      "three replicas, 3 vreplicas, too much scheduled (scale down), HA scheduling",
@@ -285,7 +287,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-2", ZoneName: "zone1", VReplicas: 1},
 				{PodName: "statefulset-name-3", ZoneName: "zone2", VReplicas: 1},
 			},
-			schedulerPolicy: EvenSpread,
+			schedulerPolicy: EVENSPREAD,
 		},
 		{
 			name:      "three replicas, 7 vreplicas, too much scheduled (scale down), HA scheduling",
@@ -302,7 +304,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-2", ZoneName: "zone1", VReplicas: 2},
 				{PodName: "statefulset-name-3", ZoneName: "zone2", VReplicas: 3},
 			},
-			schedulerPolicy: EvenSpread,
+			schedulerPolicy: EVENSPREAD,
 		},
 	}
 
@@ -312,7 +314,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 
 			vpodClient := tscheduler.NewVPodClient()
 
-			if tc.schedulerPolicy == EvenSpread {
+			if tc.schedulerPolicy == EVENSPREAD {
 				for i := int32(0); i < numZones; i++ {
 					nodeName := "node" + fmt.Sprint(i)
 					zoneName := "zone" + fmt.Sprint(i)
@@ -336,7 +338,8 @@ func TestStatefulsetScheduler(t *testing.T) {
 				t.Fatal("unexpected error", err)
 			}
 
-			sa := newStateBuilder(ctx, vpodClient.List, 10, tc.schedulerPolicy)
+			nodeLister := corelister.NewNodeLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{}))
+			sa := newStateBuilder(ctx, vpodClient.List, 10, tc.schedulerPolicy, nodeLister)
 			s := NewStatefulSetScheduler(ctx, testNs, sfsName, vpodClient.List, sa, nil).(*StatefulSetScheduler)
 
 			// Give some time for the informer to notify the scheduler and set the number of replicas
