@@ -224,7 +224,7 @@ func (r *Reconciler) reconcile(ctx context.Context, channel *kafkav1beta1.KafkaC
 	// Reconcile the Receiver Deployment/Service
 	secret, err := r.kubeClientset.CoreV1().Secrets(r.config.Kafka.AuthSecretNamespace).Get(ctx, r.config.Kafka.AuthSecretName, metav1.GetOptions{})
 	if err != nil && apierrs.IsNotFound(err) {
-		// The Receiver reconciler needs the namespace and name for various purposes, so construct a dummy Secret
+		// The Receiver reconciler needs the namespace and name for various purposes, so construct a Secret with the required values
 		err = r.reconcileReceiver(ctx, channel, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: r.config.Kafka.AuthSecretName, Namespace: r.config.Kafka.AuthSecretNamespace}}, false)
 		if err != nil {
 			logging.FromContext(ctx).Error("Reconcile Receiver With Empty Secret Failed", zap.Error(err))
