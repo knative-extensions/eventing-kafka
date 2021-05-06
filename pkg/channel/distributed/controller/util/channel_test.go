@@ -101,8 +101,8 @@ func TestReceiverDnsSafeName(t *testing.T) {
 	actualReceiverResult := ReceiverDnsSafeName(constants.ReceiverPrefix)
 
 	// Verify The Results
-	assert.Equal(t, strings.ToLower(testPrefix) + "-receiver", actualTestResult)
-	assert.Equal(t, strings.ToLower(constants.ReceiverPrefix) + "-receiver", actualReceiverResult)
+	assert.Equal(t, strings.ToLower(testPrefix)+"-receiver", actualTestResult)
+	assert.Equal(t, strings.ToLower(constants.ReceiverPrefix)+"-receiver", actualReceiverResult)
 	assert.NotEqual(t, actualTestResult, actualReceiverResult)
 }
 
