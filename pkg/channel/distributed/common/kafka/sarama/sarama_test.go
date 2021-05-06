@@ -274,7 +274,6 @@ func TestLoadSettings(t *testing.T) {
 		authConfig     *client.KafkaAuthConfig
 		expectErr      bool
 		expectDefaults bool
-		expectConfig   *commonconfig.EventingKafkaConfig
 	}
 
 	// Create The TestCases

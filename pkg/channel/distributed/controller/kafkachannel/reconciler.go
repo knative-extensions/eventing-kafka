@@ -226,6 +226,9 @@ func (r *Reconciler) reconcile(ctx context.Context, channel *kafkav1beta1.KafkaC
 	if err != nil && apierrs.IsNotFound(err) {
 		// The Receiver reconciler needs the namespace and name for various purposes, so construct a dummy Secret
 		err = r.reconcileReceiver(ctx, channel, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: r.config.Kafka.AuthSecretName, Namespace: r.config.Kafka.AuthSecretNamespace}}, false)
+		if err != nil {
+			logging.FromContext(ctx).Error("Reconcile Receiver With Empty Secret Failed", zap.Error(err))
+		}
 
 		// Not having an auth secret for the Receiver is a problem
 		channel.Status.MarkConfigFailed(event.KafkaSecretReconciled.String(), "No Kafka Secret For KafkaChannel")
