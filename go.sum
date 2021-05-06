@@ -1308,10 +1308,10 @@ k8s.io/kube-openapi v0.0.0-20200805222855-6aeccd4b50c6 h1:+WnxoVtG8TMiudHBSEtrVL
 k8s.io/kube-openapi v0.0.0-20200805222855-6aeccd4b50c6/go.mod h1:UuqjUnNftUyPE5H64/qeyjQoUZhGpeFDVdxjTeEVN2o=
 k8s.io/utils v0.0.0-20200729134348-d5654de09c73 h1:uJmqzgNWG7XyClnU/mLPBWwfKKF1K8Hf8whTseBgJcg=
 k8s.io/utils v0.0.0-20200729134348-d5654de09c73/go.mod h1:jPW/WVKK9YHAvNhRxK0md/EJ228hCsBRufyofKtW8HA=
-knative.dev/control-protocol v0.0.0-20210504094437-d6392770de44 h1:TCxTd2U4OUhcLDbwfvl03xHd3JVg+4lXp7QEYIqG4+g=
-knative.dev/control-protocol v0.0.0-20210504094437-d6392770de44/go.mod h1:HFKVsvZvmEkyWOUdwu3OJiO9ovxV20YNi6o0UsxufSY=
-knative.dev/eventing v0.22.1-0.20210504001137-8a094e6031f2 h1:m1Thy5RduRcPY60QRWXRHO5P2gZDex9uk7aF4rnvd4k=
-knative.dev/eventing v0.22.1-0.20210504001137-8a094e6031f2/go.mod h1:p7FKFj0dYMKI1Ji0GSKdRg2YzLMWVXABm0QHN2RtkSI=
+knative.dev/control-protocol v0.0.0-20210505115553-b8b0ea0dbe6c h1:rA5L5/Mm9Ft/PPjNTjFXMhVwfUM0rT86Jx1QNt7QIN8=
+knative.dev/control-protocol v0.0.0-20210505115553-b8b0ea0dbe6c/go.mod h1:HFKVsvZvmEkyWOUdwu3OJiO9ovxV20YNi6o0UsxufSY=
+knative.dev/eventing v0.22.1-0.20210505200553-20871ab466aa h1:0IJvh0BEEQbZC9gvtXebAinmYrfRiBiUTwIUbHpDCpY=
+knative.dev/eventing v0.22.1-0.20210505200553-20871ab466aa/go.mod h1:p7FKFj0dYMKI1Ji0GSKdRg2YzLMWVXABm0QHN2RtkSI=
 knative.dev/hack v0.0.0-20210325223819-b6ab329907d3/go.mod h1:PHt8x8yX5Z9pPquBEfIj0X66f8iWkWfR0S/sarACJrI=
 knative.dev/hack v0.0.0-20210427190353-86f9adc0c8e2/go.mod h1:PHt8x8yX5Z9pPquBEfIj0X66f8iWkWfR0S/sarACJrI=
 knative.dev/hack v0.0.0-20210428122153-93ad9129c268 h1:lBIj9Epd9UQ55NEaHzAdY/UZbuaegCdGPKVC2+Z68Q0=
