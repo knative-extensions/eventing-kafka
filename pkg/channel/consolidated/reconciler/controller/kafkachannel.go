@@ -611,6 +611,7 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, kc *v1beta1.KafkaChannel)
 	if err != nil || r.kafkaConfig == nil {
 		logger.Errorw("Can't obtain Kafka Client", zap.String("channel", channel), zap.Error(err))
 	} else {
+		defer kafkaClusterAdmin.Close()
 		logger.Debugw("Got client, about to delete topic")
 		if err := r.deleteTopic(ctx, kc, kafkaClusterAdmin); err != nil {
 			logger.Errorw("Error deleting Kafka channel topic", zap.String("channel", channel), zap.Error(err))

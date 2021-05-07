@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"go.uber.org/zap"
 	"knative.dev/pkg/logging"
@@ -36,7 +37,9 @@ func (c MessageRouter) HandleServiceMessage(ctx context.Context, message control
 		return
 	}
 
-	message.Ack()
+	message.AckWithError(
+		fmt.Errorf("received an unknown opcode '%d', I don't know what to do with it", message.Headers().OpCode()),
+	)
 	logger.Warnw(
 		"Received an unknown message, I don't know what to do with it",
 		zap.Uint8("opcode", message.Headers().OpCode()),

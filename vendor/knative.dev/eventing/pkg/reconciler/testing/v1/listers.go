@@ -50,12 +50,12 @@ import (
 )
 
 var subscriberAddToScheme = func(scheme *runtime.Scheme) error {
-	scheme.AddKnownTypeWithName(schema.GroupVersionKind{Group: "testing.eventing.knative.dev", Version: "v1alpha1", Kind: "Subscriber"}, &unstructured.Unstructured{})
+	scheme.AddKnownTypeWithName(schema.GroupVersionKind{Group: "testing.eventing.knative.dev", Version: "v1", Kind: "Subscriber"}, &unstructured.Unstructured{})
 	return nil
 }
 
 var sourceAddToScheme = func(scheme *runtime.Scheme) error {
-	scheme.AddKnownTypeWithName(schema.GroupVersionKind{Group: "testing.sources.knative.dev", Version: "v1alpha1", Kind: "TestSource"}, &duckv1.Source{})
+	scheme.AddKnownTypeWithName(schema.GroupVersionKind{Group: "testing.sources.knative.dev", Version: "v1", Kind: "TestSource"}, &duckv1.Source{})
 	return nil
 }
 
@@ -206,4 +206,8 @@ func (l *Listers) GetConfigMapLister() corev1listers.ConfigMapLister {
 
 func (l *Listers) GetCustomResourceDefinitionLister() apiextensionsv1listers.CustomResourceDefinitionLister {
 	return apiextensionsv1listers.NewCustomResourceDefinitionLister(l.indexerFor(&apiextensionsv1.CustomResourceDefinition{}))
+}
+
+func (l *Listers) GetNodeLister() corev1listers.NodeLister {
+	return corev1listers.NewNodeLister(l.indexerFor(&corev1.Node{}))
 }
