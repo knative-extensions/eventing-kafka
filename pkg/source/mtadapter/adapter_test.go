@@ -33,6 +33,7 @@ import (
 	adaptertest "knative.dev/eventing/pkg/adapter/v2/test"
 	"knative.dev/eventing/pkg/kncloudevents"
 
+	bindingsv1beta1 "knative.dev/eventing-kafka/pkg/apis/bindings/v1beta1"
 	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 )
 
@@ -81,6 +82,28 @@ func TestUpdateRemoveSources(t *testing.T) {
 		t.Error(`Expected adapter to contain "test-ns/test-name"`)
 	}
 
+	adapter.Update(ctx, &sourcesv1beta1.KafkaSource{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-name-badBroker",
+			Namespace: "test-ns",
+		},
+		Spec: sourcesv1beta1.KafkaSourceSpec{
+			KafkaAuthSpec: bindingsv1beta1.KafkaAuthSpec{
+				BootstrapServers: []string{"my-cluster-kafka-bootstrap-badBroker.kafka.svc:9092"},
+			},
+		},
+		Status: sourcesv1beta1.KafkaSourceStatus{
+			Placeable: duckv1alpha1.Placeable{
+				Placement: []duckv1alpha1.Placement{
+					{PodName: podName, VReplicas: int32(1)},
+				}},
+		},
+	})
+
+	if _, ok := adapter.sources["test-ns/test-name-badBroker"]; !ok {
+		t.Error(`Expected adapter to contain "test-ns/test-name-badBroker"`)
+	}
+
 	select {
 	case a := <-runningAdapterChan:
 		if !a.running {
@@ -101,6 +124,19 @@ func TestUpdateRemoveSources(t *testing.T) {
 
 	if _, ok := adapter.sources["test-ns/test-name"]; ok {
 		t.Error(`Expected adapter to not contain "test-ns/test-name"`)
+	}
+
+	adapter.Remove(&sourcesv1beta1.KafkaSource{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-name-badBroker",
+			Namespace: "test-ns",
+		},
+		Spec:   sourcesv1beta1.KafkaSourceSpec{},
+		Status: sourcesv1beta1.KafkaSourceStatus{},
+	})
+
+	if _, ok := adapter.sources["test-ns/test-name-badBroker"]; ok {
+		t.Error(`Expected adapter to not contain "test-ns/test-name-badBroker"`)
 	}
 
 	select {
