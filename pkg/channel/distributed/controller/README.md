@@ -7,9 +7,11 @@ framework and utilities.
 The controller is based against the KafkaChannel CRD and reconciles all such
 instances in the K8S Cluster, watching `KafkaChannel` resources and performing
 the following functions:
- - Provision the Kafka Topic
- - Create the Dispatcher / Consumer Deployment And Service
- - Create the Receiver / Producer Deployment And Service
+- Provision the Kafka Topic
+- Create the single Receiver (Kafka Producer) Deployment and Service, if it
+  does not already exist
+- Create a uniquely-named (per KafkaChannel) Dispatcher (Kafka Consumer)
+  Deployment and Service
 
 **Note** - Deleting a KafkaChannel CRD instance is destructive in that it will
 Remove the Kafka Topic resulting in the loss of all events therein. While the

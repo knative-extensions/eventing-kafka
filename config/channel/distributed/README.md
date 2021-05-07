@@ -88,10 +88,10 @@ kafka.authSecretName and/or kafka.authSecretNamespace fields in the
 changed if another secret location is desired). The
 [kakfa-secret.yaml](300-kafka-secret.yaml) is included in the config directory,
 but must be modified to hold real values. The values from this file will
-override the username/password in the
-[eventing-kafka-configmap.yaml](300-eventing-kafka-configmap.yaml).
-It is also expected that the `Config.Net.SASL` and `Config.Net.TLS` are enabled
-to perform the required authentication with the Kafka cluster.
+override any values of `sarama.Net.SASL.User` or `sarama.Net.SASL.Password`
+in [eventing-kafka-configmap.yaml](300-eventing-kafka-configmap.yaml).
+It is also expected that `sarama.Net.SASL.Enable` and `sarama.Net.TLS.Enable`
+are set to true to perform the required authentication with the Kafka cluster.
 
 Example values for a standard Kafka (must be base64 encoded):
 

@@ -49,9 +49,9 @@ layer. Instead, users are required to either use their
 go-client is easier to use but only provides limited EventHub related
 functionality (e.g. - No "namespace" management, etc...) This implementation is
 currently based on the go-client and expects Azure Namespaces to be manually
-allocated and pre-existing. The implementation does, however, abstract away
-these Azure Namespaces so that a user's Azure Subscription looks like one big
-allocation of possible EventHubs.
+allocated and pre-existing.  Since Azure requires unique authentication for each
+EventHub Namespace, we are currently limited to supporting a single instance
+with its inherent limitations as to the number of Topics that can be created.
 
 ## Custom (REST Sidecar)
 

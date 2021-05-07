@@ -297,7 +297,7 @@ func TestReconcile(t *testing.T) {
 			withReceiverService(controllertesting.WithDeletionTimestampService),
 			withErrorEvent(controllertesting.NewKafkaChannelFailedReconciliationEvent(),
 				event.ReceiverServiceReconciliationFailed.String(),
-				"Failed To Reconcile Receiver Service: encountered Receiver Service with DeletionTimestamp eventing-test-ns/kafka-cluster-receiver - potential race condition")),
+				"Failed To Reconcile Receiver Service: encountered Receiver Service with DeletionTimestamp eventing-test-ns/kafkasecret-name-b9176d5f-receiver - potential race condition")),
 
 		//
 		// KafkaChannel Receiver Deployment
@@ -316,7 +316,7 @@ func TestReconcile(t *testing.T) {
 			withReceiverDeployment(controllertesting.WithDeletionTimestampDeployment),
 			withErrorEvent(controllertesting.NewKafkaChannelFailedReconciliationEvent(),
 				event.ReceiverDeploymentReconciliationFailed.String(),
-				"Failed To Reconcile Receiver Deployment: encountered Receiver Deployment with DeletionTimestamp eventing-test-ns/kafka-cluster-receiver - potential race condition")),
+				"Failed To Reconcile Receiver Deployment: encountered Receiver Deployment with DeletionTimestamp eventing-test-ns/kafkasecret-name-b9176d5f-receiver - potential race condition")),
 
 		//
 		// Miscellaneous

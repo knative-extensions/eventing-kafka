@@ -65,12 +65,14 @@ func NewChannelOwnerReference(channel *kafkav1beta1.KafkaChannel) metav1.OwnerRe
 // Note - The current implementation creates a single Receiver Deployment for each
 //        Kafka Authentication (K8S Secrets) instance.
 //
-func ReceiverDnsSafeName(prefix string) string {
+func ReceiverDnsSafeName(kafkaSecretName string) string {
 
 	// In order for the resulting name to be a valid DNS component it's length must be no more than 63 characters.
-	// We are consuming 9 chars for the component separator and Receiver suffix, which reduces the
-	// available length to 54. We will allocate 49 characters to the prefix leaving an extra buffer.
-	return GenerateValidDnsName(prefix, 49, true, false) + "-receiver"
+	// We are consuming 18 chars for the component separators, hash, and Receiver suffix, which reduces the
+	// available length to 45. We will allocate 40 characters to the kafka secret name leaving an extra buffer.
+	safeSecretName := GenerateValidDnsName(kafkaSecretName, 40, true, false)
+
+	return fmt.Sprintf("%s-%s-receiver", safeSecretName, GenerateHash(kafkaSecretName, 8))
 }
 
 // ChannelHostName Creates A Name For The Channel Host

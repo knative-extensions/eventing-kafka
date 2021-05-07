@@ -45,7 +45,19 @@ import (
 )
 
 // reconcileReceiver Reconciles The Receiver (Kafka Producer) For The Specified KafkaChannel
-func (r *Reconciler) reconcileReceiver(ctx context.Context, channel *v1beta1.KafkaChannel, secret *corev1.Secret, secretExists bool) error {
+func (r *Reconciler) reconcileReceiver(ctx context.Context, channel *v1beta1.KafkaChannel) error {
+
+	secretExists := true
+	secret, err := r.kubeClientset.CoreV1().Secrets(r.config.Kafka.AuthSecretNamespace).Get(ctx, r.config.Kafka.AuthSecretName, metav1.GetOptions{})
+	if err != nil && errors.IsNotFound(err) {
+		// The Service and Deployment reconciler functions need the namespace and name in order to remove
+		// the resources, so construct a Secret with the required values even though it couldn't be found
+		secret = &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: r.config.Kafka.AuthSecretName, Namespace: r.config.Kafka.AuthSecretNamespace}}
+		secretExists = false
+	} else if err != nil {
+		logging.FromContext(ctx).Error("Error reading receiver secret", zap.Error(err))
+		return fmt.Errorf(constants.ReconciliationFailedError)
+	}
 
 	// Get A Logger With Secret Info
 	logger := logging.FromContext(ctx).Desugar().With(zap.String("Secret", fmt.Sprintf("%s/%s", secret.Namespace, secret.Name)))
@@ -86,6 +98,12 @@ func (r *Reconciler) reconcileReceiver(ctx context.Context, channel *v1beta1.Kaf
 		logger.Error("Failed To Reconcile KafkaChannel Status", zap.Error(statusErr))
 	} else {
 		logger.Info("Successfully Reconciled KafkaChannel Status")
+	}
+
+	if !secretExists {
+		// Not having an auth secret for the Receiver is a problem; fail the reconciliation
+		channel.Status.MarkConfigFailed(event.KafkaSecretReconciled.String(), "No Kafka Secret For KafkaChannel")
+		return fmt.Errorf(constants.ReconciliationFailedError)
 	}
 
 	// Return Results
@@ -174,7 +192,7 @@ func (r *Reconciler) reconcileReceiverService(ctx context.Context, logger *zap.L
 func (r *Reconciler) getReceiverService() (*corev1.Service, error) {
 
 	// Get The (Single) Receiver Deployment Name - Use Same For Service
-	deploymentName := util.ReceiverDnsSafeName(constants.ReceiverPrefix)
+	deploymentName := util.ReceiverDnsSafeName(r.config.Kafka.AuthSecretName)
 
 	// Get The Receiver Service By Namespace / Name
 	service, err := r.serviceLister.Services(r.environment.SystemNamespace).Get(deploymentName)
@@ -187,7 +205,7 @@ func (r *Reconciler) getReceiverService() (*corev1.Service, error) {
 func (r *Reconciler) newReceiverService() *corev1.Service {
 
 	// Get The (Single) Receiver Deployment Name - Use Same For Service
-	deploymentName := util.ReceiverDnsSafeName(constants.ReceiverPrefix)
+	deploymentName := util.ReceiverDnsSafeName(r.config.Kafka.AuthSecretName)
 
 	// Create & Return The Receiver Service Model
 	return &corev1.Service{
@@ -303,7 +321,7 @@ func (r *Reconciler) reconcileReceiverDeployment(ctx context.Context, logger *za
 func (r *Reconciler) getReceiverDeployment() (*appsv1.Deployment, error) {
 
 	// Get The (Single) Receiver Deployment Name
-	deploymentName := util.ReceiverDnsSafeName(constants.ReceiverPrefix)
+	deploymentName := util.ReceiverDnsSafeName(r.config.Kafka.AuthSecretName)
 
 	// Get The Receiver Deployment By Namespace / Name
 	deployment, err := r.deploymentLister.Deployments(r.environment.SystemNamespace).Get(deploymentName)
@@ -316,7 +334,7 @@ func (r *Reconciler) getReceiverDeployment() (*appsv1.Deployment, error) {
 func (r *Reconciler) newReceiverDeployment(secret *corev1.Secret) *appsv1.Deployment {
 
 	// Get The (Single) Receiver Deployment Name
-	deploymentName := util.ReceiverDnsSafeName(constants.ReceiverPrefix)
+	deploymentName := util.ReceiverDnsSafeName(r.config.Kafka.AuthSecretName)
 
 	// Replicas Int Value For De-Referencing
 	replicas := int32(r.config.Receiver.Replicas)
@@ -481,7 +499,7 @@ func (r *Reconciler) receiverDeploymentEnvVars(secret *corev1.Secret) []corev1.E
 		},
 		{
 			Name:  commonenv.ServiceNameEnvVarKey,
-			Value: util.ReceiverDnsSafeName(constants.ReceiverPrefix),
+			Value: util.ReceiverDnsSafeName(secret.Name),
 		},
 		{
 			Name:  commonenv.MetricsPortEnvVarKey,

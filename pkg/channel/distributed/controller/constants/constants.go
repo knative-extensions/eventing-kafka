@@ -58,14 +58,10 @@ const (
 	// Eventing-Kafka Finalizers Prefix
 	EventingKafkaFinalizerPrefix = "eventing-kafka/"
 	KafkaChannelFinalizerSuffix  = "kafkachannels.messaging.knative.dev" // Matches default value in client/injection/reconciler/messaging/v1beta1/kafkachannel
-	KafkaSecretFinalizerSuffix   = "kafkasecrets.eventing-kafka.knative.dev"
 
 	// Container Names
 	DispatcherContainerName = "kafkachannel-dispatcher"
 	ReceiverContainerName   = "kafkachannel-receiver"
-
-	// ReceiverPrefix is the prefix given to the (single) Receiver deployment and service
-	ReceiverPrefix = "kafka-cluster"
 
 	// Labels
 	AppLabel                    = "app"

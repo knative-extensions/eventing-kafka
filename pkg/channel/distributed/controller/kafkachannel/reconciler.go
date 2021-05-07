@@ -24,12 +24,9 @@ import (
 
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 
-	apierrs "k8s.io/apimachinery/pkg/api/errors"
-
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -222,23 +219,7 @@ func (r *Reconciler) reconcile(ctx context.Context, channel *kafkav1beta1.KafkaC
 	}
 
 	// Reconcile the Receiver Deployment/Service
-	secret, err := r.kubeClientset.CoreV1().Secrets(r.config.Kafka.AuthSecretNamespace).Get(ctx, r.config.Kafka.AuthSecretName, metav1.GetOptions{})
-	if err != nil && apierrs.IsNotFound(err) {
-		// The Receiver reconciler needs the namespace and name for various purposes, so construct a Secret with the required values
-		err = r.reconcileReceiver(ctx, channel, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: r.config.Kafka.AuthSecretName, Namespace: r.config.Kafka.AuthSecretNamespace}}, false)
-		if err != nil {
-			logging.FromContext(ctx).Error("Reconcile Receiver With Empty Secret Failed", zap.Error(err))
-		}
-
-		// Not having an auth secret for the Receiver is a problem
-		channel.Status.MarkConfigFailed(event.KafkaSecretReconciled.String(), "No Kafka Secret For KafkaChannel")
-		return fmt.Errorf(constants.ReconciliationFailedError)
-	} else if err != nil {
-		logging.FromContext(ctx).Error("Error reading receiver secret", zap.Error(err))
-		return fmt.Errorf(constants.ReconciliationFailedError)
-	}
-
-	receiverError := r.reconcileReceiver(ctx, channel, secret, true)
+	receiverError := r.reconcileReceiver(ctx, channel)
 
 	// Reconcile The KafkaChannel's Channel & Dispatcher Deployment/Service
 	channelError := r.reconcileChannel(ctx, channel)

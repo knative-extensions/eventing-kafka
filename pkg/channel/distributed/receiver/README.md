@@ -4,10 +4,13 @@ The Receiver implementation is a Kafka Producer which is responsible for
 receiving CloudEvents, converting them to Kafka Messages, and writing them to
 the appropriate Kafka Topic.
 
-A unique Deployment / Service is created for every installation.
-The single Deployment is horizontally scalable as necessary (via controller
-environment variables). This allows for an efficient use of cluster resources
-while still supporting high volume and multi-tenant use cases.
+A unique Deployment / Service is created for every installation.  The single
+Deployment is horizontally scalable as necessary; the replicas will initially
+be configured by the eventing-kafka.receiver.replicas field in the
+[ConfigMap](../../../../config/channel/distributed/300-eventing-kafka-configmap.yaml) 
+and can be modified directly after that, for example through the use of a
+Horizontal Pod Autoscaler). This allows for an efficient use of cluster
+resources while still supporting high volume and multi-tenant use cases.
 
 An additional Service for each KafkaChannel is created in the user namespace
 where the KafkaChannel exists. This is the actual endpoint of the `KafkaChannel`
