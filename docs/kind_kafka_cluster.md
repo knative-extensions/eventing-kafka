@@ -68,7 +68,7 @@ data:
 
 ```
 Specify Strimzi Kafka Version (See... https://github.com/strimzi/strimzi-kafka-operator/releases)
-export STRIMZI_VERSION=0.22.1
+export STRIMZI_VERSION=0.21.1
 
 # Create A "kafka" Namespace
 kubectl create namespace kafka
