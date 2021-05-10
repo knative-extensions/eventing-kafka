@@ -73,7 +73,7 @@ Example value for Azure Event Hubs:
       brokers: my-cluster-name-1.servicebus.windows.net:9093
 ```
 
-Example value for a multi-broker Kafka (must be base64 encoded):
+Example value for a multi-broker Kafka:
 
 ```
   eventing-kafka: |
@@ -82,17 +82,16 @@ Example value for a multi-broker Kafka (must be base64 encoded):
 ```
 
 The associated auth information is specified in a Kubernetes Secret in the
-`knative-eventing` namespace which has been labelled as
-`eventing-kafka.knative.dev/kafka-secret="true"`. For the `kafka` and `custom`
-Admin Types (see above) there should be exactly 1 such Secret. For the `azure`
-Admin Type (see above) multiple such Secrets are possible, each representing a
-different EventHub Namespace. In that case Topics will be load balanced across
-all EventHub Namespaces. The [kakfa-secret.yaml](300-kafka-secret.yaml) is
-included in the config directory, but must be modified to hold real values. The
-values from this file will override the username/password in the
-[eventing-kafka-configmap.yaml](300-eventing-kafka-configmap.yaml). It is also
-expected that the `Config.Net.SASL` and `Config.Net.TLS` are enabled to perform
-the required authentication with the Kafka cluster.
+`knative-eventing` namespace which is by default named `kafka-cluster` (the
+kafka.authSecretName and/or kafka.authSecretNamespace fields in the
+[eventing-kafka-configmap.yaml](300-eventing-kafka-configmap.yaml) may be
+changed if another secret location is desired). The
+[kakfa-secret.yaml](300-kafka-secret.yaml) is included in the config directory,
+but must be modified to hold real values. The values from this file will
+override any values of `sarama.Net.SASL.User` or `sarama.Net.SASL.Password`
+in [eventing-kafka-configmap.yaml](300-eventing-kafka-configmap.yaml).
+It is also expected that `sarama.Net.SASL.Enable` and `sarama.Net.TLS.Enable`
+are set to true to perform the required authentication with the Kafka cluster.
 
 Example values for a standard Kafka (must be base64 encoded):
 
@@ -114,11 +113,10 @@ installation, they may also be created manually:
 
 ```
 # Example A Creating A Kafka Secret In Knative-Eventing
-kubectl create secret -n knative-eventing generic kafka-credentials \
+kubectl create secret -n knative-eventing generic kafka-cluster \
     --from-literal=username=<USERNAME> \
     --from-literal=password=<PASSWORD> \
-    --from-literal=namespace=<AZURE EVENTHUBS NAMESPACE> \
-kubectl label secret -n knative-eventing kafka-credentials eventing-kafka.knative.dev/kafka-secret="true"
+    --from-literal=namespace=<AZURE EVENTHUBS NAMESPACE>
 ```
 
 ## Configuration
@@ -140,7 +138,7 @@ your Kafka cluster.
     private storage of the version numbers and cannot be easily parsed.
     Therefore, we have implemented custom parsing which requires you to enter
     `2.3.0` instead of the Sarama value of `V2_3_0_0`. Further it should be
-    noted that when using with `azure` it should be set to `1.0.0`.
+    noted that when using with the `azure` adminType it should be set to `1.0.0`.
   - **Net.SASL.Enable** Enable (true) / disable (false) according to your
     authentication needs.
   - **Net.SASL.User:** If you specify the username in the ConfigMap it will be
@@ -183,15 +181,15 @@ your Kafka cluster.
     paired with the Idempotent value below to provide in-order guarantees.
   - **Producer.Idempotent:** This value is expected to be `true` in order to
     help provide the in-order guarantees of eventing-kafka. The exception is
-    when using `azure`, in which case it must be `false`.
+    when using the `azure` adminType, in which case it must be `false`.
   - **Producer.RequiredAcks:** Same `in-order` concerns as above ; )
 
 - **eventing-kafka:** This section provides customization of runtime behavior of
   the eventing-kafka implementation as follows...
 
   - **receiver:** Controls the Deployment runtime characteristics of the
-    Receiver (one Deployment per Kafka Secret).
-  - **dispatcher:** Controls the Deployment runtime characterstics of the
+    Receiver (one Deployment per Installation).
+  - **dispatcher:** Controls the Deployment runtime characteristics of the
     Dispatcher (one Deployment per KafkaChannel CR).
   - **kafka.defaultReplicationFactor:** Cannot exceed the number of Kafka
     Brokers configured in your system.

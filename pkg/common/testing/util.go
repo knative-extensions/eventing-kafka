@@ -45,7 +45,6 @@ func GetTestSaramaSecret(name string, username string, password string, namespac
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: system.Namespace(),
-			Labels:    map[string]string{kafkaconstants.KafkaSecretLabel: "true"},
 		},
 		Data: map[string][]byte{
 			kafkaconstants.KafkaSecretKeyUsername:  []byte(username),

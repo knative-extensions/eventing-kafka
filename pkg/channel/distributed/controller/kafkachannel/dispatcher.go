@@ -613,24 +613,24 @@ func (r *Reconciler) dispatcherDeploymentEnvVars(channel *kafkav1beta1.KafkaChan
 		},
 	}
 
-	// If The Kafka Secret Env Var Is Specified Then Append Relevant Env Vars
-	if len(r.kafkaSecret) <= 0 {
+	// If The Kafka Secret Name Is Specified Then Append Relevant Env Vars
+	if len(r.config.Kafka.AuthSecretName) <= 0 {
 
-		// Received Invalid Kafka Secret - Cannot Proceed
-		return nil, fmt.Errorf("invalid kafkaSecret for topic '%s'", topicName)
+		// Received Invalid Kafka Secret Name - Cannot Proceed
+		return nil, fmt.Errorf("invalid authSecretName for topic '%s'", topicName)
 
 	} else {
 
 		// Append The Secret Name As Env Var
 		envVars = append(envVars, corev1.EnvVar{
 			Name:  commonenv.KafkaSecretNameEnvVarKey,
-			Value: r.kafkaSecret,
+			Value: r.config.Kafka.AuthSecretName,
 		})
 
 		// Append The Secret Namespace As Env Var
 		envVars = append(envVars, corev1.EnvVar{
 			Name:  commonenv.KafkaSecretNamespaceEnvVarKey,
-			Value: r.environment.SystemNamespace,
+			Value: r.config.Kafka.AuthSecretNamespace,
 		})
 
 	}

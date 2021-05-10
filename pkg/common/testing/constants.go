@@ -26,20 +26,44 @@ const (
 	OldPassword = "TestOldPassword"
 	NewPassword = "TestNewPassword"
 
-	DispatcherReplicas     = "3"
-	DispatcherRetryInitial = "5000"
-	DispatcherRetry        = "500000"
+	ReceiverCpuLimit        = "501m"
+	ReceiverCpuRequest      = "301m"
+	ReceiverMemoryLimit     = "129Mi"
+	ReceiverMemoryRequest   = "51Mi"
+	ReceiverReplicas        = "4"
+	DispatcherReplicas      = "3"
+	DispatcherRetryInitial  = "5000"
+	DispatcherRetry         = "500000"
+	DispatcherCpuLimit      = "500m"
+	DispatcherCpuRequest    = "300m"
+	DispatcherMemoryLimit   = "128Mi"
+	DispatcherMemoryRequest = "50Mi"
+	BrokerString            = "test-broker-string"
 
 	TestEKConfig = `
+receiver:
+  cpuRequest: ` + ReceiverCpuRequest + `
+  memoryRequest: ` + ReceiverMemoryRequest + `
+  cpuLimit: ` + ReceiverCpuLimit + `
+  memoryLimit: ` + ReceiverMemoryLimit + `
+  replicas: ` + ReceiverReplicas + `
 dispatcher:
-  cpuLimit: 500m
-  cpuRequest: 300m
-  memoryLimit: 128Mi
-  memoryRequest: 50Mi
+  cpuRequest: ` + DispatcherCpuRequest + `
+  memoryRequest: ` + DispatcherMemoryRequest + `
+  cpuLimit: ` + DispatcherCpuLimit + `
+  memoryLimit: ` + DispatcherMemoryLimit + `
   replicas: ` + DispatcherReplicas + `
   retryInitialIntervalMillis: ` + DispatcherRetryInitial + `
   retryTimeMillis: ` + DispatcherRetry + `
   retryExponentialBackoff: true
+kafka:
+  brokers: ` + BrokerString + `
+  enableSaramaLogging: false
+  topic:
+    defaultNumPartitions: 4
+    defaultReplicationFactor: 1 # Cannot exceed the number of Kafka Brokers!
+    defaultRetentionMillis: 604800000  # 1 week
+  adminType: kafka # One of "kafka", "azure", "custom"
 `
 
 	OldSaramaConfig = `
