@@ -38,10 +38,10 @@ func Suite() pkgupgrade.Suite {
 				ChannelPostDowngradeTest(),
 				SourcePostDowngradeTest(),
 			},
-			Continual: []pkgupgrade.BackgroundOperation{
-				ChannelContinualTest(continual.TestOptions{}),
-				SourceContinualTest(continual.TestOptions{}),
-			},
+			Continual: append(
+				ChannelContinualTests(&continual.TestOptions{}),
+				SourceContinualTest(&continual.TestOptions{}),
+			),
 		},
 		Installations: pkgupgrade.Installations{
 			Base: []pkgupgrade.Operation{

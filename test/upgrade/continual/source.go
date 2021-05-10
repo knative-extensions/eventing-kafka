@@ -16,20 +16,34 @@ limitations under the License.
 
 package continual
 
-import pkgupgrade "knative.dev/pkg/test/upgrade"
+import (
+	"knative.dev/eventing/test/upgrade/prober/sut"
+	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
+	pkgupgrade "knative.dev/pkg/test/upgrade"
+)
 
 // SourceTest tests source operation in continual manner during the
 // whole upgrade and downgrade process asserting that all event are propagated
 // well.
-func SourceTest(_ TestOptions) pkgupgrade.BackgroundOperation {
-	setup := func(c pkgupgrade.Context) {
-		// TODO: not yet implemented
-		c.T.Skip("TODO: not yet implemented")
-	}
-	verify := func(c pkgupgrade.Context) {
-		// TODO: not yet implemented
-		c.T.Skip("TODO: not yet implemented")
-	}
-	return pkgupgrade.NewBackgroundVerification(
-		"SourceContinualTest", setup, verify)
+func SourceTest(opts *TestOptions) pkgupgrade.BackgroundOperation {
+	return continualVerification(
+		"SourceContinualTest",
+		opts,
+		sourceSut(),
+	)
+}
+
+func sourceSut() sut.SystemUnderTest {
+	return &kafkaSourceSut{}
+}
+
+type kafkaSourceSut struct{}
+
+func (k kafkaSourceSut) Deploy(ctx sut.Context, destination duckv1.Destination) *apis.URL {
+	panic("implement me")
+}
+
+func (k kafkaSourceSut) Teardown(ctx sut.Context) {
+	panic("implement me")
 }

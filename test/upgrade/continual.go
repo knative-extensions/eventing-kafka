@@ -21,21 +21,28 @@ import (
 	pkgupgrade "knative.dev/pkg/test/upgrade"
 )
 
-// ChannelContinualTest tests channel operation in continual manner during the
-// whole upgrade and downgrade process asserting that all event are propagated
-// well.
-func ChannelContinualTest(opts continual.TestOptions) pkgupgrade.BackgroundOperation {
-	return continual.ChannelTest(fillInDefaults(opts))
+// ChannelContinualTests returns background operations to test channel
+// functionality in continual manner during the whole upgrade and downgrade
+// process asserting that all event are propagated well.
+func ChannelContinualTests(opts *continual.TestOptions) []pkgupgrade.BackgroundOperation {
+	opts = fillInDefaults(opts)
+	return []pkgupgrade.BackgroundOperation {
+		continual.ChannelTest(opts),
+		continual.BrokerBackedByChannelTest(opts),
+	}
 }
 
 // SourceContinualTest tests source operation in continual manner during the
 // whole upgrade and downgrade process asserting that all event are propagated
 // well.
-func SourceContinualTest(opts continual.TestOptions) pkgupgrade.BackgroundOperation {
+func SourceContinualTest(opts *continual.TestOptions) pkgupgrade.BackgroundOperation {
 	return continual.SourceTest(fillInDefaults(opts))
 }
 
-func fillInDefaults(opts continual.TestOptions) continual.TestOptions {
+func fillInDefaults(opts *continual.TestOptions) *continual.TestOptions {
+	if opts == nil {
+		opts = &continual.TestOptions{}
+	}
 	if opts.ChannelTypeMeta == nil {
 		opts.ChannelTypeMeta = &defaultChannelType
 	}

@@ -17,16 +17,13 @@ limitations under the License.
 package continual
 
 import (
-	"context"
-	"fmt"
+	"errors"
 
-	"github.com/stretchr/testify/assert"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	eventingduckv1 "knative.dev/eventing/pkg/apis/duck/v1"
-	testlib "knative.dev/eventing/test/lib"
 	"knative.dev/eventing/test/upgrade/prober"
-	pkgupgrade "knative.dev/pkg/test/upgrade"
+	"knative.dev/eventing/test/upgrade/prober/sut"
+	watholaevent "knative.dev/eventing/test/upgrade/prober/wathola/event"
 )
 
 // ReplicationOptions hold options for replication.
@@ -44,94 +41,20 @@ type RetryOptions struct {
 
 // TestOptions holds options for EventingKafka continual tests.
 type TestOptions struct {
-	ConfigCustomize          func(config *prober.Config)
-	SetKafkaChannelAsDefault func(ctx KafkaChannelAsDefaultOptions)
-	ChannelTypeMeta          *metav1.TypeMeta
-	*ReplicationOptions
-	*RetryOptions
-}
-
-// KafkaChannelAsDefaultOptions holds a options to run SetKafkaChannelAsDefault func.
-type KafkaChannelAsDefaultOptions struct {
-	UpgradeCtx      pkgupgrade.Context
-	Ctx             context.Context
+	prober.ContinualVerificationOptions
 	ChannelTypeMeta *metav1.TypeMeta
-	*testlib.Client
-	ReplicationOptions
-	RetryOptions
+	SUTs            map[string]sut.SystemUnderTest
 }
-type testTarget int
 
-const (
-	targetChannel testTarget = iota
-	targetSource
-)
+var eventTypes = []string{
+	watholaevent.Step{}.Type(),
+	watholaevent.Finished{}.Type(),
+}
 
-func fillInDefaults(c pkgupgrade.Context, tt testTarget, opts TestOptions) TestOptions {
+func fillInDefaults(opts *TestOptions) (*TestOptions, error) {
 	o := opts
-	if opts.ConfigCustomize == nil {
-		switch tt {
-		case targetChannel:
-			o.ConfigCustomize = defaultChannelCustomizeConfig
-		case targetSource:
-			o.ConfigCustomize = defaultSourceCustomizeConfig
-		default:
-			c.T.Fatal("unsupported test target: ", tt)
-		}
-	}
-	if opts.SetKafkaChannelAsDefault == nil {
-		o.SetKafkaChannelAsDefault = configureKafkaChannelAsDefault
-	}
-	if opts.RetryOptions == nil {
-		o.RetryOptions = &RetryOptions{
-			RetryCount:    int(retryCount),
-			BackoffPolicy: backoffPolicy,
-			BackoffDelay:  backoffDelay,
-		}
-	}
-	if opts.ReplicationOptions == nil {
-		o.ReplicationOptions = &ReplicationOptions{
-			NumPartitions:     6,
-			ReplicationFactor: 3,
-		}
-	}
 	if opts.ChannelTypeMeta == nil {
-		c.T.Fatal("option ChannelTypeMeta was't set on TestOptions struct")
+		return nil, errors.New("option ChannelTypeMeta was't set on TestOptions struct")
 	}
-	return o
-}
-
-func configureKafkaChannelAsDefault(opts KafkaChannelAsDefaultOptions) {
-	c := opts.UpgradeCtx
-	systemNs := "knative-eventing"
-	configmaps := opts.Client.Kube.CoreV1().ConfigMaps(systemNs)
-	cm := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: systemNs,
-			Name:      "config-br-default-channel",
-		},
-		Data: map[string]string{
-			"channelTemplateSpec": fmt.Sprintf(`apiVersion: %s
-kind: %s
-spec:
-  numPartitions: %d
-  replicationFactor: %d
-  delivery:
-    retry: %d
-    backoffPolicy: %s
-    backoffDelay: %s`,
-				opts.ChannelTypeMeta.APIVersion, opts.ChannelTypeMeta.Kind,
-				opts.NumPartitions, opts.ReplicationFactor,
-				opts.RetryCount, opts.BackoffPolicy, opts.BackoffDelay,
-			),
-		},
-	}
-	cm, err := configmaps.Update(opts.Ctx, cm, metav1.UpdateOptions{})
-
-	if !assert.NoError(c.T, err) {
-		c.T.FailNow()
-	}
-
-	c.Log.Info("Updated config-br-default-channel in ns knative-eventing"+
-		" to eq: ", cm.Data)
+	return o, nil
 }

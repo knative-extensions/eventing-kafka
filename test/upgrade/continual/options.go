@@ -17,27 +17,13 @@ limitations under the License.
 package continual
 
 import (
-	"time"
-
 	eventingduckv1 "knative.dev/eventing/pkg/apis/duck/v1"
-	"knative.dev/eventing/test/lib/resources"
 	"knative.dev/eventing/test/upgrade/prober"
 	pkgTest "knative.dev/pkg/test"
 )
 
 var (
-	defaultChannelCustomizeConfig = func(config *prober.Config) {
-		config.FailOnErrors = true
-		config.Interval = 2 * time.Millisecond
-		config.BrokerOpts = append(config.BrokerOpts,
-			resources.WithDeliveryForBroker(&eventingduckv1.DeliverySpec{
-				Retry:         &retryCount,
-				BackoffPolicy: &backoffPolicy,
-				BackoffDelay:  &backoffDelay,
-			}))
-	}
 	defaultSourceCustomizeConfig = func(config *prober.Config) {
-		defaultChannelCustomizeConfig(config)
 		config.Wathola.ContainerImageResolver = func(component string) string {
 			if component == "wathola-sender" {
 				// replacing the original image with modified one from this repo
@@ -46,7 +32,7 @@ var (
 			return pkgTest.ImagePath(component)
 		}
 	}
-	retryCount    = int32(12)
+	retryCount    = 12
 	backoffPolicy = eventingduckv1.BackoffPolicyExponential
 	backoffDelay  = "PT1S"
 )
