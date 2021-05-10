@@ -43,6 +43,17 @@ spec:
             fieldRef:
               fieldPath: metadata.name
 
+        # The maximum number of messages per second, per vreplica
+        - name: VREPLICA_LIMITS_MPS
+          value: '50'
+
+        # The memory limit, per vreplica. Must be a quantity.
+        # see https://github.com/kubernetes/apimachinery/blob/master/pkg/api/resource/quantity.go#L31
+        # Should be pod requested memory / pod capacity (see controller.yaml)
+        - name: VREPLICA_LIMITS_MEMORY
+          value: '2Mi'
+
+
         # DO NOT MODIFY: The values below are being filled by the kafka source controller
         # See 500-controller.yaml
         - name: K_METRICS_CONFIG
