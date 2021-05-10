@@ -20,6 +20,9 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/equality"
+	"knative.dev/pkg/reconciler"
+
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
@@ -127,13 +130,6 @@ func (r *Reconciler) reconcileLabels(channel *kafkav1beta1.KafkaChannel) bool {
 		modified = true
 	}
 
-	// Add Kafka Secret Label If Missing
-	safeSecretName := commonk8s.TruncateLabelValue(r.kafkaSecret)
-	if labels[constants.KafkaSecretLabel] != safeSecretName {
-		labels[constants.KafkaSecretLabel] = safeSecretName
-		modified = true
-	}
-
 	// Update The Channel's Labels
 	if modified {
 		channel.ObjectMeta.Labels = labels
@@ -141,4 +137,75 @@ func (r *Reconciler) reconcileLabels(channel *kafkav1beta1.KafkaChannel) bool {
 
 	// Return The Modified Status
 	return modified
+}
+
+//
+// KafkaChannel Status Reconciliation
+//
+
+//Update A Single KafkaChannel's Status To Reflect The Specified Channel Service/Deployment State
+func (r *Reconciler) updateKafkaChannelStatus(ctx context.Context, originalChannel *kafkav1beta1.KafkaChannel,
+	serviceValid bool, serviceReason string, serviceMessage string,
+	deploymentValid bool, deploymentReason string, deploymentMessage string) error {
+
+	// Get A KafkaChannel Logger
+	logger := util.ChannelLogger(logging.FromContext(ctx).Desugar(), originalChannel)
+
+	// Update The KafkaChannel (Retry On Conflict - KafkaChannel Controller Will Also Be Updating KafkaChannel Status)
+	return reconciler.RetryUpdateConflicts(func(attempts int) error {
+
+		var err error
+
+		// After First Attempt - Reload The Original KafkaChannel From K8S
+		if attempts > 0 {
+			originalChannel, err = r.kafkachannelLister.KafkaChannels(originalChannel.Namespace).Get(originalChannel.Name)
+			if err != nil {
+				logger.Error("Failed To Reload KafkaChannel For Status Update", zap.Error(err))
+				return err
+			}
+		}
+
+		// Clone The KafkaChannel So As Not To Perturb Informers Copy
+		updatedChannel := originalChannel.DeepCopy()
+
+		// Update Service Status Based On Specified State
+		if serviceValid {
+			updatedChannel.Status.MarkServiceTrue()
+		} else {
+			updatedChannel.Status.MarkServiceFailed(serviceReason, serviceMessage)
+		}
+
+		//
+		// Update Deployment Status Based On Specified State
+		//
+		// TODO - As part of the conversion to the eventing-contrib KafkaChannel CRD and its associated
+		//        Status, we've not yet implemented Endpoint tracking.  Until this is done we'll track
+		//        the Deployments As Endpoints (since they will result in the Endpoints being up anyway).
+		//
+		if deploymentValid {
+			updatedChannel.Status.MarkEndpointsTrue()
+		} else {
+			updatedChannel.Status.MarkEndpointsFailed(deploymentReason, deploymentMessage)
+		}
+
+		// If The KafkaChannel Status Changed
+		if !equality.Semantic.DeepEqual(originalChannel.Status, updatedChannel.Status) {
+
+			// Then Attempt To Update The KafkaChannel Status
+			_, err = r.kafkaClientSet.MessagingV1beta1().KafkaChannels(updatedChannel.Namespace).UpdateStatus(ctx, updatedChannel, metav1.UpdateOptions{})
+			if err != nil {
+				logger.Error("Failed To Update KafkaChannel Status", zap.Error(err))
+				return err
+			} else {
+				logger.Info("Successfully Updated KafkaChannel Status")
+				return nil
+			}
+
+		} else {
+
+			// Otherwise No Change To Status - Return Success
+			logger.Info("Successfully Verified KafkaChannel Status")
+			return nil
+		}
+	})
 }
