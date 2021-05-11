@@ -18,30 +18,28 @@ package dispatcher
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
 
-	dispatcherconstants "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/constants"
-
-	gometrics "github.com/rcrowley/go-metrics"
-
-	distributedcommonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
-	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
-
 	"github.com/Shopify/sarama"
+	gometrics "github.com/rcrowley/go-metrics"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/eventing/pkg/channel"
+
+	distributedcommonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer"
+	commonkafkautil "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/util"
+	dispatcherconstants "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/constants"
 	"knative.dev/eventing-kafka/pkg/common/client"
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
-	"knative.dev/eventing/pkg/channel"
 )
 
-// Define A Dispatcher Config Struct To Hold Configuration
+// DispatcherConfig Struct To Hold Configuration
 type DispatcherConfig struct {
 	Logger          *zap.Logger
 	ClientId        string
@@ -56,7 +54,7 @@ type DispatcherConfig struct {
 	SubscriberSpecs []eventingduck.SubscriberSpec
 }
 
-// Knative Eventing SubscriberSpec Wrapper Enhanced With Sarama ConsumerGroup
+// SubscriberWrapper wraps SubscriberSpec with Sarama ConsumerGroup
 type SubscriberWrapper struct {
 	eventingduck.SubscriberSpec
 	GroupId       string
@@ -64,19 +62,19 @@ type SubscriberWrapper struct {
 	StopChan      chan struct{}
 }
 
-// SubscriberWrapper Constructor
+// NewSubscriberWrapper Constructor
 func NewSubscriberWrapper(subscriberSpec eventingduck.SubscriberSpec, groupId string, consumerGroup sarama.ConsumerGroup) *SubscriberWrapper {
 	return &SubscriberWrapper{subscriberSpec, groupId, consumerGroup, make(chan struct{})}
 }
 
-//  Dispatcher Interface
+// Dispatcher Interface
 type Dispatcher interface {
 	SecretChanged(ctx context.Context, secret *corev1.Secret) Dispatcher
 	Shutdown()
 	UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error
 }
 
-// Define A DispatcherImpl Struct With Configuration & ConsumerGroup State
+// DispatcherImpl Struct With Configuration & ConsumerGroup State
 type DispatcherImpl struct {
 	DispatcherConfig
 	subscribers        map[types.UID]*SubscriberWrapper
@@ -89,7 +87,7 @@ type DispatcherImpl struct {
 // Verify The DispatcherImpl Implements The Dispatcher Interface
 var _ Dispatcher = &DispatcherImpl{}
 
-// Dispatcher Constructor
+// NewDispatcher Constructor
 func NewDispatcher(dispatcherConfig DispatcherConfig) Dispatcher {
 
 	// Create The DispatcherImpl With Specified Configuration
@@ -123,7 +121,7 @@ func (d *DispatcherImpl) Shutdown() {
 	}
 }
 
-// Update The Dispatcher's Subscriptions To Align With New State
+// UpdateSubscriptions updates the Dispatcher's Subscriptions to align with the new state
 func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error {
 
 	if d.SaramaConfig == nil {
@@ -146,7 +144,7 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 		if _, ok := d.subscribers[subscriberSpec.UID]; !ok {
 
 			// Format The GroupId For The Specified Subscriber
-			groupId := fmt.Sprintf("kafka.%s", subscriberSpec.UID)
+			groupId := commonkafkautil.GroupId(string(subscriberSpec.UID))
 
 			// Create A ConsumerGroup Logger
 			logger := d.Logger.With(zap.String("GroupId", groupId))
@@ -332,7 +330,7 @@ func (d *DispatcherImpl) reconfigure(newConfig *sarama.Config, ekConfig *commonc
 	return newDispatcher
 }
 
-// Async Process For Observing Kafka Metrics
+// ObserveMetrics is an async Kafka Metrics observer
 func (d *DispatcherImpl) ObserveMetrics(interval time.Duration) {
 
 	// Fork A New Process To Run Async Metrics Collection

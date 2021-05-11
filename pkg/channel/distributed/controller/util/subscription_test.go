@@ -17,13 +17,18 @@ limitations under the License.
 package util
 
 import (
+	"fmt"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	messagingv1 "knative.dev/eventing/pkg/apis/messaging/v1"
 	logtesting "knative.dev/pkg/logging/testing"
+
+	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 )
 
 // Test The SubscriptionLogger Functionality
@@ -61,4 +66,124 @@ func TestNewSubscriptionControllerRef(t *testing.T) {
 	assert.Equal(t, constants.KnativeSubscriptionKind, controllerRef.Kind)
 	assert.Equal(t, subscription.ObjectMeta.Name, controllerRef.Name)
 	assert.True(t, *controllerRef.Controller)
+}
+
+// Test The TopicNameMapper Functionality
+func TestTopicNameMapper(t *testing.T) {
+
+	// Test Data
+	kafkaChannelGroupVersion := schema.GroupVersion{
+		Group:   messagingv1.SchemeGroupVersion.Group,
+		Version: messagingv1.SchemeGroupVersion.Version,
+	}
+
+	// Define The TestCases
+	tests := []struct {
+		name         string
+		subscription *messagingv1.Subscription
+		expected     string
+		err          bool
+	}{
+		{
+			name: "fully populated subscription",
+			subscription: &messagingv1.Subscription{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      subscriptionName,
+					Namespace: subscriptionNamespace,
+				},
+				Spec: messagingv1.SubscriptionSpec{
+					Channel: v1.ObjectReference{
+						Kind:       constants.KafkaChannelKind,
+						Namespace:  channelNamespace,
+						Name:       channelName,
+						APIVersion: kafkaChannelGroupVersion.String(),
+					},
+				},
+			},
+			expected: fmt.Sprintf("%s.%s", channelNamespace, channelName),
+			err:      false,
+		},
+		{
+			name: "sparsely populated subscription",
+			subscription: &messagingv1.Subscription{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      subscriptionName,
+					Namespace: subscriptionNamespace,
+				},
+				Spec: messagingv1.SubscriptionSpec{
+					Channel: v1.ObjectReference{
+						Kind:       constants.KafkaChannelKind,
+						Name:       channelName,
+						APIVersion: kafkaChannelGroupVersion.String(),
+					},
+				},
+			},
+			expected: fmt.Sprintf("%s.%s", subscriptionNamespace, channelName),
+			err:      false,
+		},
+		{
+			name:         "nil subscription",
+			subscription: nil,
+			expected:     "",
+			err:          true,
+		},
+	}
+
+	// Execute The Tests
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+
+			// Perform The Test
+			actual, err := TopicNameMapper(test.subscription)
+
+			// Verify Results
+			assert.Equal(t, test.err, err != nil)
+			assert.Equal(t, test.expected, actual)
+		})
+	}
+}
+
+// Test The GroupIdMapper Functionality
+func TestGroupIdMapper(t *testing.T) {
+
+	// Test Data
+	subscriptionUID := "TestSubscriptionUID"
+
+	// Define The TestCases
+	tests := []struct {
+		name         string
+		subscription *messagingv1.Subscription
+		expected     string
+		err          bool
+	}{
+		{
+			name: "valid subscription",
+			subscription: &messagingv1.Subscription{
+				ObjectMeta: metav1.ObjectMeta{
+					UID: types.UID(subscriptionUID),
+				},
+			},
+			expected: fmt.Sprintf("kafka.%s", subscriptionUID),
+			err:      false,
+		},
+		{
+			name:         "nil subscription",
+			subscription: nil,
+			expected:     "",
+			err:          true,
+		},
+	}
+
+	// Execute The Tests
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+
+			// Perform The Test
+			actual, err := GroupIdMapper(test.subscription)
+
+			// Verify Results
+			assert.Equal(t, test.err, err != nil)
+			assert.Equal(t, test.expected, actual)
+		})
+	}
 }

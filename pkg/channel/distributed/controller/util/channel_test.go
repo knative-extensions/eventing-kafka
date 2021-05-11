@@ -32,8 +32,10 @@ import (
 // Test Data
 const (
 	testPrefix               = "testkafkaprefix"
-	channelName              = "testname"
-	channelNamespace         = "testnamespace"
+	channelName              = "test-channel-name"
+	channelNamespace         = "test-channel-namespace"
+	subscriptionName         = "test-subscription-name"
+	subscriptionNamespace    = "test-subscription-namespace"
 	numPartitions            = int32(123)
 	defaultNumPartitions     = int32(987)
 	replicationFactor        = int16(22)
