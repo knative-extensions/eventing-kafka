@@ -17,10 +17,22 @@ limitations under the License.
 package continual
 
 import (
+	"github.com/google/uuid"
+	corev1 "k8s.io/api/core/v1"
+	"knative.dev/eventing-kafka/test/e2e/helpers"
+	contribtestlib "knative.dev/eventing-kafka/test/lib"
+	contribresources "knative.dev/eventing-kafka/test/lib/resources"
+	"knative.dev/eventing/test/upgrade/prober"
 	"knative.dev/eventing/test/upgrade/prober/sut"
-	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+	pkgTest "knative.dev/pkg/test"
 	pkgupgrade "knative.dev/pkg/test/upgrade"
+)
+
+const (
+	kafkaBootstrapUrlPlain = "my-cluster-kafka-bootstrap.kafka.svc:9092"
+	kafkaClusterName       = "my-cluster"
+	kafkaClusterNamespace  = "kafka"
 )
 
 // SourceTest tests source operation in continual manner during the
@@ -29,21 +41,51 @@ import (
 func SourceTest(opts *TestOptions) pkgupgrade.BackgroundOperation {
 	return continualVerification(
 		"SourceContinualTest",
-		opts,
-		sourceSut(),
+		ensureKafkaSender(opts),
+		&kafkaSourceSut{},
 	)
 }
 
-func sourceSut() sut.SystemUnderTest {
-	return &kafkaSourceSut{}
+func ensureKafkaSender(opts *TestOptions) *TestOptions {
+	opts.Configurators = append([]prober.Configurator{
+		func(config *prober.Config) error {
+			config.Wathola.ContainerImageResolver = kafkaSourceSenderImageResolver
+			return nil
+		},
+	}, opts.Configurators...)
+	return opts
+}
+
+func kafkaSourceSenderImageResolver(component string) string {
+	if component == "wathola-sender" {
+		// replacing the original image with modified one from this repo
+		component = "wathola-kafka-sender"
+	}
+	return pkgTest.ImagePath(component)
 }
 
 type kafkaSourceSut struct{}
 
-func (k kafkaSourceSut) Deploy(ctx sut.Context, destination duckv1.Destination) *apis.URL {
-	panic("implement me")
+func (k kafkaSourceSut) Deploy(ctx sut.Context, destination duckv1.Destination) interface{} {
+	topicName := uuid.NewString()
+	helpers.MustCreateTopic(ctx.Client, kafkaClusterName, kafkaClusterNamespace,
+		topicName, 6)
+	contribtestlib.CreateKafkaSourceV1Beta1OrFail(ctx.Client, contribresources.KafkaSourceV1Beta1(
+		kafkaBootstrapUrlPlain,
+		topicName,
+		toObjectReference(destination),
+	))
+	return kafkaTopicEndpoint{
+		bootstrapServers: kafkaBootstrapUrlPlain,
+		topicName:        topicName,
+	}
 }
 
-func (k kafkaSourceSut) Teardown(ctx sut.Context) {
-	panic("implement me")
+func toObjectReference(destination duckv1.Destination) *corev1.ObjectReference {
+	return &corev1.ObjectReference{
+		APIVersion: destination.Ref.APIVersion,
+		Kind:       destination.Ref.Kind,
+		Namespace:  destination.Ref.Namespace,
+		Name:       destination.Ref.Name,
+	}
 }

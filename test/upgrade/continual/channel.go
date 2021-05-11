@@ -40,7 +40,7 @@ import (
 // well.
 func ChannelTest(opts *TestOptions) pkgupgrade.BackgroundOperation {
 	return continualVerification(
-		"ChannelTest",
+		"ChannelContinualTest",
 		opts,
 		channelSut(opts.ChannelTypeMeta),
 	)
@@ -51,7 +51,7 @@ func ChannelTest(opts *TestOptions) pkgupgrade.BackgroundOperation {
 // that all event are propagated well.
 func BrokerBackedByChannelTest(opts *TestOptions) pkgupgrade.BackgroundOperation {
 	return continualVerification(
-		"BrokerBackedByChannelTest",
+		"BrokerBackedByChannelContinualTest",
 		opts,
 		brokerBackedByChannelSut(opts.ChannelTypeMeta),
 	)
@@ -94,7 +94,7 @@ type kafkaChannelSut struct {
 	RetryOptions
 }
 
-func (k kafkaChannelSut) Deploy(ctx sut.Context, destination duckv1.Destination) *apis.URL {
+func (k kafkaChannelSut) Deploy(ctx sut.Context, destination duckv1.Destination) interface{} {
 	c := ctx.Client
 	name := "sut"
 	ch := reconcilertesting.NewKafkaChannel(
@@ -180,24 +180,20 @@ func simpleType(name string) string {
 	return parts[len(parts)-1]
 }
 
-func (k kafkaChannelSut) Teardown(ctx sut.Context) {
-	ctx.Log.Debug("KafkaChannel SUT will auto teardown")
-}
-
 type brokerBackedByKafkaChannelSut struct {
-	channelTypeMeta *metav1.TypeMeta
 	ReplicationOptions
 	RetryOptions
-	defaultSut *sut.BrokerAndTriggers
+	channelTypeMeta *metav1.TypeMeta
+	defaultSut      sut.SystemUnderTest
 }
 
 func (b brokerBackedByKafkaChannelSut) Deploy(
 	ctx sut.Context,
 	destination duckv1.Destination,
-) *apis.URL {
+) interface{} {
 	b.setKafkaAsDefaultForBroker(ctx)
 
-	b.defaultSut = sut.NewDefault().(*sut.BrokerAndTriggers)
+	b.defaultSut = sut.NewDefault()
 	return b.defaultSut.Deploy(ctx, destination)
 }
 
@@ -205,7 +201,9 @@ func (b brokerBackedByKafkaChannelSut) Teardown(ctx sut.Context) {
 	if b.defaultSut == nil {
 		ctx.T.Fatal("default SUT isn't set!?!")
 	}
-	b.defaultSut.Teardown(ctx)
+	if tr, ok := b.defaultSut.(sut.HasManualTeardown); ok {
+		tr.Teardown(ctx)
+	}
 }
 
 func (b brokerBackedByKafkaChannelSut) setKafkaAsDefaultForBroker(ctx sut.Context) {

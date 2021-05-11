@@ -18,20 +18,9 @@ package continual
 
 import (
 	eventingduckv1 "knative.dev/eventing/pkg/apis/duck/v1"
-	"knative.dev/eventing/test/upgrade/prober"
-	pkgTest "knative.dev/pkg/test"
 )
 
 var (
-	defaultSourceCustomizeConfig = func(config *prober.Config) {
-		config.Wathola.ContainerImageResolver = func(component string) string {
-			if component == "wathola-sender" {
-				// replacing the original image with modified one from this repo
-				component = "wathola-kafka-sender"
-			}
-			return pkgTest.ImagePath(component)
-		}
-	}
 	retryCount    = 12
 	backoffPolicy = eventingduckv1.BackoffPolicyExponential
 	backoffDelay  = "PT1S"

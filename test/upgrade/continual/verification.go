@@ -74,11 +74,11 @@ func configurator(
 		}
 		config.SystemUnderTest = theSut
 		// TODO: knative/eventing#5176 - this is cumbersome
-		config.ConfigTemplate = "../../../../../../test/upgrade/config.toml"
+		config.ConfigTemplate = "../../../../../../test/upgrade/continual/channel-config.toml"
 		// envconfig.Process invocation is repeated from within prober.NewConfig to
 		// make sure every knob is configurable, but using defaults from Eventing
 		// Kafka instead of Core. The prefix is also changed.
-		err = envconfig.Process("eventing_kafka_source_upgrade_tests", config)
+		err = envconfig.Process("eventing_kafka_upgrade_tests", config)
 		return err
 	}
 }

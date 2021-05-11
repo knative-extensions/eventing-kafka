@@ -1,6 +1,9 @@
 # logLevel = 5 # DEBUG(5)
 [sender]
-address = '{{- .Endpoint -}}'
 interval = {{ .Config.Interval.Nanoseconds }}
+  [sender.address]
+    bootstrapServers = '{{- .Endpoint.bootstrapServers -}}'
+    topicName = '{{- .Endpoint.topicName -}}'
+
 [forwarder]
 target = 'http://wathola-receiver.{{- .Namespace -}}.svc.cluster.local'

@@ -77,7 +77,7 @@ func (k *kafkaSender) SendEvent(ce cloudevents.Event, rawEndpoint interface{}) e
 	if err != nil {
 		return err
 	}
-	producer, err := sarama.NewSyncProducer(endpoint.bootstrapServers, conf)
+	producer, err := sarama.NewSyncProducer(endpoint.bootstrapServersSlice(), conf)
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrCantConnectToKafka, err)
 	}
@@ -105,17 +105,23 @@ type kafkaSender struct {
 }
 
 type kafkaTopicEndpoint struct {
-	bootstrapServers []string
+	bootstrapServers string
 	topicName        string
 }
 
+func (e kafkaTopicEndpoint) bootstrapServersSlice() []string {
+	return strings.Split(e.bootstrapServers, ",")
+}
+
 func castAsTopicEndpoint(endpoint interface{}) (kafkaTopicEndpoint, error) {
-	m := endpoint.(map[string]string)
-	serversLine := m["bootstrapServers"]
-	if serversLine == "" {
+	m, ok := endpoint.(map[string]string)
+	if !ok {
 		return kafkaTopicEndpoint{}, ErrIllegalEndpointFormat
 	}
-	servers := strings.Split(serversLine, ",")
+	servers := m["bootstrapServers"]
+	if servers == "" {
+		return kafkaTopicEndpoint{}, ErrIllegalEndpointFormat
+	}
 	topic := m["topicName"]
 	if topic == "" {
 		return kafkaTopicEndpoint{}, ErrIllegalEndpointFormat
