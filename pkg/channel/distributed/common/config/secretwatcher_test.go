@@ -29,7 +29,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	kafkaconstants "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
-	"knative.dev/eventing-kafka/pkg/common/constants"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/system"
@@ -116,7 +115,7 @@ func TestGetConfigFromSecret_Invalid(t *testing.T) {
 // Test The InitializeSecretWatcher() Functionality
 func TestInitializeSecretWatcher(t *testing.T) {
 	secret := getSaramaTestSecret(t,
-		constants.SettingsSecretName,
+		commontesting.SecretName,
 		commontesting.OldAuthUsername,
 		commontesting.OldAuthPassword,
 		commontesting.OldAuthNamespace,
@@ -127,7 +126,7 @@ func TestInitializeSecretWatcher(t *testing.T) {
 
 	// The secretWatcherHandler should change the nil "watchedSecret" to a valid Secret when the watcher triggers
 
-	testSecret, err := fakeK8sClient.CoreV1().Secrets(system.Namespace()).Get(ctx, constants.SettingsSecretName, metav1.GetOptions{})
+	testSecret, err := fakeK8sClient.CoreV1().Secrets(system.Namespace()).Get(ctx, commontesting.SecretName, metav1.GetOptions{})
 	assert.Nil(t, err)
 	assert.Equal(t, string(testSecret.Data[kafkaconstants.KafkaSecretKeyUsername]), commontesting.OldAuthUsername)
 	assert.Equal(t, string(testSecret.Data[kafkaconstants.KafkaSecretKeyPassword]), commontesting.OldAuthPassword)
@@ -135,7 +134,7 @@ func TestInitializeSecretWatcher(t *testing.T) {
 	assert.Equal(t, string(testSecret.Data[kafkaconstants.KafkaSecretKeySaslType]), commontesting.OldAuthSaslType)
 
 	// Perform The Test (Initialize The Secret Watcher)
-	err = InitializeSecretWatcher(ctx, system.Namespace(), constants.SettingsSecretName, 10*time.Second, secretWatcherHandler)
+	err = InitializeSecretWatcher(ctx, system.Namespace(), commontesting.SecretName, 10*time.Second, secretWatcherHandler)
 	assert.Nil(t, err)
 
 	// The secretWatcherHandler should change this back to a valid Secret after the watcher is triggered

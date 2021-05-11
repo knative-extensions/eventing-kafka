@@ -23,6 +23,8 @@ import (
 	"log"
 	"os"
 
+	"knative.dev/pkg/system"
+
 	"github.com/Shopify/sarama"
 	"github.com/ghodss/yaml"
 	"knative.dev/eventing-kafka/pkg/common/client"
@@ -30,7 +32,9 @@ import (
 	"knative.dev/eventing-kafka/pkg/common/constants"
 )
 
-// Utility Function For Enabling Sarama Logging (Debugging)
+const DefaultAuthSecretName = "kafka-cluster"
+
+// EnableSaramaLogging Is A Utility Function For Enabling Sarama Logging (Debugging)
 func EnableSaramaLogging(enable bool) {
 	if enable {
 		sarama.Logger = log.New(os.Stdout, "[sarama] ", log.LstdFlags)
@@ -39,7 +43,7 @@ func EnableSaramaLogging(enable bool) {
 	}
 }
 
-// Load The Sarama & EventingKafka Configuration From The ConfigMap
+// LoadSettings Loads The Sarama & EventingKafka Configuration From The ConfigMap
 // The Provided Context Must Have A Kubernetes Client Associated With It
 func LoadSettings(ctx context.Context, clientId string, configMap map[string]string, kafkaAuthConfig *client.KafkaAuthConfig) (*sarama.Config, *commonconfig.EventingKafkaConfig, error) {
 	// Validate The ConfigMap Data
@@ -95,6 +99,12 @@ func LoadEventingKafkaSettings(configMap map[string]string) (*commonconfig.Event
 		if eventingKafkaConfig.CloudEvents.MaxIdleConnsPerHost == 0 {
 			eventingKafkaConfig.CloudEvents.MaxIdleConnsPerHost = constants.DefaultMaxIdleConnsPerHost
 		}
+		if len(eventingKafkaConfig.Kafka.AuthSecretNamespace) == 0 {
+			eventingKafkaConfig.Kafka.AuthSecretNamespace = system.Namespace()
+		}
+		if len(eventingKafkaConfig.Kafka.AuthSecretName) == 0 {
+			eventingKafkaConfig.Kafka.AuthSecretName = DefaultAuthSecretName
+		}
 	}
 
 	return eventingKafkaConfig, nil
@@ -118,7 +128,7 @@ func AuthFromSarama(config *sarama.Config) *client.KafkaAuthConfig {
 	}
 }
 
-// Utility function to convert []byte headers to string ones for logging purposes
+// StringifyHeaders Is A Utility function to convert []byte headers to string ones for logging purposes
 func StringifyHeaders(headers []sarama.RecordHeader) map[string][]string {
 	stringHeaders := make(map[string][]string)
 	for _, header := range headers {
@@ -128,7 +138,7 @@ func StringifyHeaders(headers []sarama.RecordHeader) map[string][]string {
 	return stringHeaders
 }
 
-// Pointer-version of the StringifyHeaders function
+// StringifyHeaderPtrs Is A Pointer-version of the StringifyHeaders function
 func StringifyHeaderPtrs(headers []*sarama.RecordHeader) map[string][]string {
 	stringHeaders := make(map[string][]string)
 	for _, header := range headers {

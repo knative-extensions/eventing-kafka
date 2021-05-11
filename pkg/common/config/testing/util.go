@@ -17,36 +17,15 @@ limitations under the License.
 package testing
 
 import (
-	"regexp"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kafkaconstants "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
-	clienttesting "knative.dev/eventing-kafka/pkg/common/client/testing"
-	"knative.dev/eventing-kafka/pkg/common/constants"
+	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 	"knative.dev/pkg/system"
 )
 
 // Constants
 const (
-	DefaultEventingKafkaConfigYaml = `
-receiver:
-  cpuRequest: 100m
-  memoryRequest: 64Mi
-  replicas: 1
-dispatcher:
-  cpuRequest: 300m
-  memoryRequest: 64Mi
-  replicas: 1
-kafka:
-  enableSaramaLogging: false
-  brokers: ` + DefaultKafkaBroker + `
-  topic:
-    defaultNumPartitions: 4
-    defaultReplicationFactor: 1
-    defaultRetentionMillis: 604800000
-    adminType: kafka
-`
 	DefaultKafkaBroker     = "TestBroker"
 	DefaultSecretUsername  = "TestUsername"
 	DefaultSecretPassword  = "TestPassword"
@@ -54,86 +33,10 @@ kafka:
 	DefaultSecretNamespace = "TestNamespace"
 )
 
-// KafkaConfigMapOption Enables Customization Of An Eventing-Kafka ConfigMap
-type KafkaConfigMapOption func(configMap *corev1.ConfigMap)
-
-// Create A New Eventing-Kafka ConfigMap For Testing
-func NewKafkaConfigMap(options ...KafkaConfigMapOption) *corev1.ConfigMap {
-
-	// Create A Base Kafka ConfigMap With Default Sarama & EventingKafka Configuration
-	configMap := &corev1.ConfigMap{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "ConfigMap",
-			APIVersion: corev1.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.SettingsConfigMapName,
-			Namespace: system.Namespace(),
-		},
-		Data: map[string]string{
-			constants.SaramaSettingsConfigKey:        clienttesting.DefaultSaramaConfigYaml,
-			constants.EventingKafkaSettingsConfigKey: DefaultEventingKafkaConfigYaml,
-		},
-	}
-
-	// Apply The Specified Eventing-Kafka ConfigMap Options
-	for _, option := range options {
-		option(configMap)
-	}
-
-	// Return The Custom Eventing-Kafka ConfigMap
-	return configMap
-}
-
-// Modify The Default "Admin" Section Of The Sarama Config YAML
-func WithModifiedSaramaAdmin(configMap *corev1.ConfigMap) {
-	timeoutRegExp := regexp.MustCompile(`Timeout: 10000000000`)
-	currentSaramaString := configMap.Data[constants.SaramaSettingsConfigKey]
-	updatedSaramaString := timeoutRegExp.ReplaceAllString(currentSaramaString, "Timeout: 20000000000")
-	configMap.Data[constants.SaramaSettingsConfigKey] = updatedSaramaString
-}
-
-// Modify The Default "Net" Section Of The Sarama Config YAML
-func WithModifiedSaramaNet(configMap *corev1.ConfigMap) {
-	maxOpenRequestsRegExp := regexp.MustCompile(`MaxOpenRequests: 1`)
-	currentSaramaString := configMap.Data[constants.SaramaSettingsConfigKey]
-	updatedSaramaString := maxOpenRequestsRegExp.ReplaceAllString(currentSaramaString, "MaxOpenRequests: 2")
-	configMap.Data[constants.SaramaSettingsConfigKey] = updatedSaramaString
-}
-
-// Modify The Default "Net" Section Of The Sarama Config YAML
-func WithModifiedSaramaMetadata(configMap *corev1.ConfigMap) {
-	refreshFrequencyRegExp := regexp.MustCompile(`RefreshFrequency: 300000000000`)
-	currentSaramaString := configMap.Data[constants.SaramaSettingsConfigKey]
-	updatedSaramaString := refreshFrequencyRegExp.ReplaceAllString(currentSaramaString, "RefreshFrequency: 400000000000")
-	configMap.Data[constants.SaramaSettingsConfigKey] = updatedSaramaString
-}
-
-// Modify The Default "Consumer" Section Of The Sarama Config YAML
-func WithModifiedSaramaConsumer(configMap *corev1.ConfigMap) {
-	intervalRegExp := regexp.MustCompile(`Interval: 5000000000`)
-	currentSaramaString := configMap.Data[constants.SaramaSettingsConfigKey]
-	updatedSaramaString := intervalRegExp.ReplaceAllString(currentSaramaString, "Interval: 6000000000")
-	configMap.Data[constants.SaramaSettingsConfigKey] = updatedSaramaString
-}
-
-// Modify The Default "Producer" Section Of The Sarama Config YAML
-func WithModifiedSaramaProducer(configMap *corev1.ConfigMap) {
-	requiredAcksRegExp := regexp.MustCompile(`RequiredAcks: -1`)
-	currentSaramaString := configMap.Data[constants.SaramaSettingsConfigKey]
-	updatedSaramaString := requiredAcksRegExp.ReplaceAllString(currentSaramaString, "RequiredAcks: 0")
-	configMap.Data[constants.SaramaSettingsConfigKey] = updatedSaramaString
-}
-
-// Remove The Entire Eventing-Kafka Configuration
-func WithoutEventingKafkaConfiguration(configMap *corev1.ConfigMap) {
-	delete(configMap.Data, constants.EventingKafkaSettingsConfigKey)
-}
-
-// KafkaConfigMapOption Enables Customization Of An Eventing-Kafka Secret
+// KafkaSecretOption Enables Customization Of An Eventing-Kafka Secret
 type KafkaSecretOption func(secret *corev1.Secret)
 
-// Create A New Eventing-Kafka Secret For Testing
+// NewKafkaSecret Creates A New Eventing-Kafka Secret For Testing
 func NewKafkaSecret(options ...KafkaSecretOption) *corev1.Secret {
 
 	// Create A Base Kafka Secret With Default Auth Configuration
@@ -143,7 +46,7 @@ func NewKafkaSecret(options ...KafkaSecretOption) *corev1.Secret {
 			APIVersion: corev1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.SettingsSecretName,
+			Name:      commontesting.SecretName,
 			Namespace: system.Namespace(),
 		},
 		Data: map[string][]byte{
@@ -163,32 +66,32 @@ func NewKafkaSecret(options ...KafkaSecretOption) *corev1.Secret {
 	return secret
 }
 
-// Modify The Default Password Section Of The Secret Data
+// WithModifiedPassword Modifies The Default Password Section Of The Secret Data
 func WithModifiedPassword(secret *corev1.Secret) {
 	secret.Data[kafkaconstants.KafkaSecretKeyPassword] = []byte("TestModifiedPassword")
 }
 
-// Modify The Default Username Section Of The Secret Data
+// WithModifiedUsername Modifies The Default Username Section Of The Secret Data
 func WithModifiedUsername(secret *corev1.Secret) {
 	secret.Data[kafkaconstants.KafkaSecretKeyUsername] = []byte("TestModifiedUsername")
 }
 
-// Empty The Default Username Section Of The Secret Data
+// WithEmptyUsername Empties The Default Username Section Of The Secret Data
 func WithEmptyUsername(secret *corev1.Secret) {
 	secret.Data[kafkaconstants.KafkaSecretKeyUsername] = []byte("")
 }
 
-// Modify The Default SaslType Section Of The Secret Data
+// WithModifiedSaslType Modifies The Default SaslType Section Of The Secret Data
 func WithModifiedSaslType(secret *corev1.Secret) {
 	secret.Data[kafkaconstants.KafkaSecretKeySaslType] = []byte("TestModifiedSaslType")
 }
 
-// Modify The Default Namespace Section Of The Secret Data
+// WithModifiedNamespace Modifies The Default Namespace Section Of The Secret Data
 func WithModifiedNamespace(secret *corev1.Secret) {
 	secret.Data[kafkaconstants.KafkaSecretKeyNamespace] = []byte("TestModifiedNamespace")
 }
 
-// Remove the Data From The Secret
+// WithMissingConfig Removes the Data From The Secret
 func WithMissingConfig(secret *corev1.Secret) {
 	secret.Data = nil
 }
