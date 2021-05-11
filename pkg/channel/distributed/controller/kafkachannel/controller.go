@@ -26,7 +26,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	kafkachannelv1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/types"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
@@ -79,35 +78,18 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 	// Get The K8S Client
 	kubeClientset := kubeclient.Get(ctx)
 
-	configuration, err := sarama.LoadEventingKafkaSettings(configMap)
-	if err != nil {
-		logger.Fatal("error loading eventing-kafka configuration", zap.Error(err))
-	}
-
-	// Extract The Relevant Data From The Kafka Secret And Create A Kafka Auth Config From The
-	// Current Credentials (Secret Data Takes Precedence Over ConfigMap)
-	kafkaAuthCfg, err := config.GetAuthConfigFromKubernetes(ctx, configuration.Kafka.AuthSecretName, configuration.Kafka.AuthSecretNamespace)
-	if err != nil {
-		logger.Fatal("Failed To Load Kafka Auth From Secret", zap.Error(err),
-			zap.String("AuthSecretName", configuration.Kafka.AuthSecretName),
-			zap.String("AuthSecretNamespace", configuration.Kafka.AuthSecretNamespace))
-	}
-	if kafkaAuthCfg != nil && kafkaAuthCfg.SASL != nil && kafkaAuthCfg.SASL.User == "" {
-		kafkaAuthCfg = nil // The Sarama builder expects a nil KafakAuthConfig if no authentication is desired
-	}
-
-	// Load the Sarama settings from our configmap (eventing-kafka configuration is already loaded)
-	saramaConfig, _, err := sarama.LoadSettings(ctx, "", configMap, kafkaAuthCfg)
+	// Load the Sarama and other eventing-kafka settings from our configmap
+	configuration, err := sarama.LoadSettings(ctx, constants.Component, configMap, sarama.LoadAuthConfig)
 	if err != nil {
 		logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Error(err))
 	}
 
 	// Enable Sarama Logging If Specified In ConfigMap
-	sarama.EnableSaramaLogging(configuration.Kafka.EnableSaramaLogging)
+	sarama.EnableSaramaLogging(configuration.Sarama.EnableLogging)
 
 	// Determine The Kafka AdminClient Type (Assume Kafka Unless Otherwise Specified)
 	var kafkaAdminClientType types.AdminClientType
-	switch configuration.Kafka.AdminType {
+	switch configuration.Channel.Distributed.AdminType {
 	case constants.KafkaAdminTypeValueKafka:
 		kafkaAdminClientType = types.Kafka
 	case constants.KafkaAdminTypeValueAzure:
@@ -115,7 +97,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 	case constants.KafkaAdminTypeValueCustom:
 		kafkaAdminClientType = types.Custom
 	default:
-		logger.Warn("Encountered Unexpected Kafka AdminType - Defaulting To 'kafka'", zap.String("AdminType", configuration.Kafka.AdminType))
+		logger.Warn("Encountered Unexpected Kafka AdminType - Defaulting To 'kafka'", zap.String("AdminType", configuration.Channel.Distributed.AdminType))
 		kafkaAdminClientType = types.Kafka
 	}
 
@@ -124,7 +106,6 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		kubeClientset:        kubeClientset,
 		environment:          environment,
 		config:               configuration,
-		saramaConfig:         saramaConfig,
 		kafkaClientSet:       kafkaclientsetinjection.Get(ctx),
 		kafkachannelLister:   kafkachannelInformer.Lister(),
 		kafkachannelInformer: kafkachannelInformer.Informer(),
@@ -133,7 +114,6 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		adminClientType:      kafkaAdminClientType,
 		adminClient:          nil,
 		adminMutex:           &sync.Mutex{},
-		authConfig:           kafkaAuthCfg,
 		kafkaConfigMapHash:   commonconfig.ConfigmapDataCheckSum(configMap),
 	}
 

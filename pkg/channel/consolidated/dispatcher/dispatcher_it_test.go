@@ -27,6 +27,8 @@ import (
 	"testing"
 	"time"
 
+	"knative.dev/eventing-kafka/pkg/common/config"
+
 	"github.com/stretchr/testify/require"
 
 	"knative.dev/eventing-kafka/pkg/common/constants"
@@ -75,7 +77,7 @@ func TestDispatcher(t *testing.T) {
 	})
 
 	dispatcherArgs := KafkaDispatcherArgs{
-		ClientID:  "testing",
+		Config:    &config.EventingKafkaConfig{},
 		Brokers:   []string{"localhost:9092"},
 		TopicFunc: utils.TopicName,
 	}

@@ -22,9 +22,6 @@ import (
 	"strings"
 	"sync"
 
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
-
-	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -42,9 +39,7 @@ import (
 	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	"knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
 	kafkalisters "knative.dev/eventing-kafka/pkg/client/listers/messaging/v1beta1"
-	"knative.dev/eventing-kafka/pkg/common/client"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
-	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/reconciler"
@@ -58,13 +53,11 @@ type Reconciler struct {
 	adminClient          types.AdminClientInterface
 	environment          *env.Environment
 	config               *commonconfig.EventingKafkaConfig
-	saramaConfig         *sarama.Config
 	kafkachannelLister   kafkalisters.KafkaChannelLister
 	kafkachannelInformer cache.SharedIndexInformer
 	deploymentLister     appsv1listers.DeploymentLister
 	serviceLister        corev1listers.ServiceLister
 	adminMutex           *sync.Mutex
-	authConfig           *client.KafkaAuthConfig
 	kafkaConfigMapHash   string
 }
 
@@ -90,7 +83,7 @@ func (r *Reconciler) SetKafkaAdminClient(ctx context.Context) {
 	r.ClearKafkaAdminClient(ctx)
 	var err error
 	brokers := strings.Split(r.config.Kafka.Brokers, ",")
-	r.adminClient, err = admin.CreateAdminClient(ctx, brokers, r.saramaConfig, r.adminClientType)
+	r.adminClient, err = admin.CreateAdminClient(ctx, brokers, r.config.Sarama.Config, r.adminClientType)
 	if err != nil {
 		logger := logging.FromContext(ctx)
 		logger.Error("Failed To Create Kafka AdminClient", zap.Error(err))
@@ -258,45 +251,30 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 		return fmt.Errorf("configMap.Data is nil")
 	}
 
-	// Enable Sarama Logging If Specified In ConfigMap
-	ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap.Data)
+	ekConfig, err := kafkasarama.LoadSettings(ctx, constants.Component, configMap.Data, kafkasarama.LoadAuthConfig)
 	if err != nil {
 		return err
 	} else if ekConfig == nil {
 		return fmt.Errorf("eventing-kafka config is nil")
 	}
-	kafkasarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)
-	logger.Debug("Updated Sarama logging", zap.Bool("Kafka.EnableSaramaLogging", ekConfig.Kafka.EnableSaramaLogging))
+	// Enable Sarama Logging If Specified In ConfigMap
+	kafkasarama.EnableSaramaLogging(ekConfig.Sarama.EnableLogging)
+	logger.Debug("Updated Sarama logging", zap.Bool("Kafka.EnableSaramaLogging", ekConfig.Sarama.EnableLogging))
 
 	// Re-Read The Auth Config From The Secret As It May Have Changed
-	kafkaAuthCfg, err := config.GetAuthConfigFromKubernetes(ctx, ekConfig.Kafka.AuthSecretName, ekConfig.Kafka.AuthSecretNamespace)
+	kafkaAuthCfg, err := kafkasarama.LoadAuthConfig(ctx, ekConfig.Kafka.AuthSecretName, ekConfig.Kafka.AuthSecretNamespace)
 	if err != nil {
 		logger.Error("Could Not Read New Auth Config From Secret - Keeping Existing",
 			zap.String("authSecretName", ekConfig.Kafka.AuthSecretName),
 			zap.String("authSecretNamespace", ekConfig.Kafka.AuthSecretNamespace), zap.Error(err))
-	} else {
-		if kafkaAuthCfg != nil && kafkaAuthCfg.SASL != nil && kafkaAuthCfg.SASL.User == "" {
-			kafkaAuthCfg = nil // The Sarama builder expects a nil KafkaAuthConfig if no authentication is desired
-		}
-		r.authConfig = kafkaAuthCfg
-	}
-
-	// Get The Sarama Config Yaml From The ConfigMap
-	saramaSettingsYamlString := configMap.Data[commonconstants.SaramaSettingsConfigKey]
-
-	// Build A New Sarama Config With Auth From Secret And YAML Config From ConfigMap
-	saramaConfig, err := client.NewConfigBuilder().
-		WithDefaults().
-		WithAuth(r.authConfig).
-		FromYaml(saramaSettingsYamlString).
-		Build(ctx)
-	if err != nil {
 		return err
 	}
 
 	logger.Info("ConfigMap Changed; Updating Sarama And Eventing-Kafka Configuration")
-	r.saramaConfig = saramaConfig
 	r.config = ekConfig
+
+	// Auth from the secret overrides anything that was specified in the configmap
+	r.config.Auth = kafkaAuthCfg
 
 	r.kafkaConfigMapHash = commonconfig.ConfigmapDataCheckSum(configMap.Data)
 	return nil

@@ -21,6 +21,8 @@ import (
 	"strconv"
 	"time"
 
+	"knative.dev/eventing-kafka/pkg/common/client"
+
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"k8s.io/utils/pointer"
@@ -128,9 +130,6 @@ dispatcher:
   memoryLimit: 128Mi
   memoryRequest: 50Mi
   replicas: 1
-  retryInitialIntervalMillis: 500
-  retryTimeMillis: 300000
-  retryExponentialBackoff: true
 kafka:
   authSecretName: ` + KafkaSecretName + `
   authSecretNamespace: ` + KafkaSecretNamespace + `
@@ -165,6 +164,7 @@ Producer:
   Idempotent: true
   RequiredAcks: -1
 `
+	ConfigMapVersion = "1.0.0"
 )
 
 var (
@@ -396,22 +396,11 @@ type KafkaConfigOption func(kafkaConfig *commonconfig.EventingKafkaConfig)
 // NewConfig Sets The Required Config Fields
 func NewConfig(options ...KafkaConfigOption) *commonconfig.EventingKafkaConfig {
 	kafkaConfig := &commonconfig.EventingKafkaConfig{
-		Dispatcher: commonconfig.EKDispatcherConfig{
-			EKKubernetesConfig: commonconfig.EKKubernetesConfig{
-				Replicas:      DispatcherReplicas,
-				CpuLimit:      resource.MustParse(DispatcherCpuLimit),
-				CpuRequest:    resource.MustParse(DispatcherCpuRequest),
-				MemoryLimit:   resource.MustParse(DispatcherMemoryLimit),
-				MemoryRequest: resource.MustParse(DispatcherMemoryRequest),
-			},
-		},
-		Receiver: commonconfig.EKReceiverConfig{
-			EKKubernetesConfig: commonconfig.EKKubernetesConfig{
-				Replicas:      ReceiverReplicas,
-				CpuLimit:      resource.MustParse(ReceiverCpuLimit),
-				CpuRequest:    resource.MustParse(ReceiverCpuRequest),
-				MemoryLimit:   resource.MustParse(ReceiverMemoryLimit),
-				MemoryRequest: resource.MustParse(ReceiverMemoryRequest),
+		Auth: &client.KafkaAuthConfig{
+			SASL: &client.KafkaSaslConfig{
+				User:     KafkaSecretDataValueUsername,
+				Password: KafkaSecretDataValuePassword,
+				SaslType: KafkaSecretDataValueSaslType,
 			},
 		},
 		Kafka: commonconfig.EKKafkaConfig{
@@ -422,7 +411,29 @@ func NewConfig(options ...KafkaConfigOption) *commonconfig.EventingKafkaConfig {
 				DefaultReplicationFactor: DefaultReplicationFactor,
 				DefaultRetentionMillis:   DefaultRetentionMillis,
 			},
-			AdminType: KafkaAdminType,
+		},
+		Channel: commonconfig.EKChannelConfig{
+			Dispatcher: commonconfig.EKDispatcherConfig{
+				EKKubernetesConfig: commonconfig.EKKubernetesConfig{
+					Replicas:      DispatcherReplicas,
+					CpuLimit:      resource.MustParse(DispatcherCpuLimit),
+					CpuRequest:    resource.MustParse(DispatcherCpuRequest),
+					MemoryLimit:   resource.MustParse(DispatcherMemoryLimit),
+					MemoryRequest: resource.MustParse(DispatcherMemoryRequest),
+				},
+			},
+			Distributed: commonconfig.EKDistributedConfig{
+				AdminType: KafkaAdminType,
+				Receiver: commonconfig.EKReceiverConfig{
+					EKKubernetesConfig: commonconfig.EKKubernetesConfig{
+						Replicas:      ReceiverReplicas,
+						CpuLimit:      resource.MustParse(ReceiverCpuLimit),
+						CpuRequest:    resource.MustParse(ReceiverCpuRequest),
+						MemoryLimit:   resource.MustParse(ReceiverMemoryLimit),
+						MemoryRequest: resource.MustParse(ReceiverMemoryRequest),
+					},
+				},
+			},
 		},
 	}
 
@@ -436,18 +447,18 @@ func NewConfig(options ...KafkaConfigOption) *commonconfig.EventingKafkaConfig {
 
 // WithNoReceiverResources Removes The Receiver Resource Requests And Limits
 func WithNoReceiverResources(kafkaConfig *commonconfig.EventingKafkaConfig) {
-	kafkaConfig.Receiver.EKKubernetesConfig.CpuLimit = resource.Quantity{}
-	kafkaConfig.Receiver.EKKubernetesConfig.CpuRequest = resource.Quantity{}
-	kafkaConfig.Receiver.EKKubernetesConfig.MemoryLimit = resource.Quantity{}
-	kafkaConfig.Receiver.EKKubernetesConfig.MemoryRequest = resource.Quantity{}
+	kafkaConfig.Channel.Distributed.Receiver.EKKubernetesConfig.CpuLimit = resource.Quantity{}
+	kafkaConfig.Channel.Distributed.Receiver.EKKubernetesConfig.CpuRequest = resource.Quantity{}
+	kafkaConfig.Channel.Distributed.Receiver.EKKubernetesConfig.MemoryLimit = resource.Quantity{}
+	kafkaConfig.Channel.Distributed.Receiver.EKKubernetesConfig.MemoryRequest = resource.Quantity{}
 }
 
 // WithNoDispatcherResources Removes The Dispatcher Resource Requests And Limits
 func WithNoDispatcherResources(kafkaConfig *commonconfig.EventingKafkaConfig) {
-	kafkaConfig.Dispatcher.EKKubernetesConfig.CpuLimit = resource.Quantity{}
-	kafkaConfig.Dispatcher.EKKubernetesConfig.CpuRequest = resource.Quantity{}
-	kafkaConfig.Dispatcher.EKKubernetesConfig.MemoryLimit = resource.Quantity{}
-	kafkaConfig.Dispatcher.EKKubernetesConfig.MemoryRequest = resource.Quantity{}
+	kafkaConfig.Channel.Dispatcher.EKKubernetesConfig.CpuLimit = resource.Quantity{}
+	kafkaConfig.Channel.Dispatcher.EKKubernetesConfig.CpuRequest = resource.Quantity{}
+	kafkaConfig.Channel.Dispatcher.EKKubernetesConfig.MemoryLimit = resource.Quantity{}
+	kafkaConfig.Channel.Dispatcher.EKKubernetesConfig.MemoryRequest = resource.Quantity{}
 }
 
 //
@@ -1141,20 +1152,6 @@ func NewKafkaChannelDispatcherDeployment(options ...DeploymentOption) *appsv1.De
 
 	// Return The Test Dispatcher Deployment
 	return deployment
-}
-
-// NewSecretOwnerRef Creates A New OwnerReference Model For The Test Kafka Secret
-func NewSecretOwnerRef() metav1.OwnerReference {
-	blockOwnerDeletion := true
-	controller := true
-	return metav1.OwnerReference{
-		APIVersion:         corev1.SchemeGroupVersion.String(),
-		Kind:               constants.SecretKind,
-		Name:               KafkaSecretName,
-		UID:                "",
-		BlockOwnerDeletion: &blockOwnerDeletion,
-		Controller:         &controller,
-	}
 }
 
 // NewChannelOwnerRef Creates A New OwnerReference Model For The Test Channel

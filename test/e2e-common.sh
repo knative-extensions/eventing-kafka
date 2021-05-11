@@ -370,7 +370,14 @@ function run_postinstall_jobs() {
 function uninstall_channel_crds() {
   echo "Uninstalling Kafka Channel CRD"
   kubectl delete secret -n "${SYSTEM_NAMESPACE}" kafka-cluster
-  sleep 10 # Give Controller Time To React To Kafka Secret Deletion ; )
+
+  # The distributed channel controller no longer actively monitors the kafka-cluster secret,
+  # so the receiver will only be torn down if there is a change to the kafkachannels or the
+  # config-kafka configmap.  However, if the secret is missing, the global resync does not happen
+  # (the controller presumes this missing secret is an error and reacts accordingly), so this
+  # manual deletion of the receiver deployment is the easiest solution here.
+  [[ $1 == "distributed" ]] && kubectl delete deployment -n "${SYSTEM_NAMESPACE}" kafka-cluster-32603413-receiver
+
   echo "Current namespaces:"
   kubectl get namespaces
   echo "Current kafkachannels:"
@@ -541,7 +548,7 @@ function test_distributed_channel() {
   go_test_e2e -tags=e2e -timeout=40m -test.parallel=${TEST_PARALLEL} ./test/e2e -channels=messaging.knative.dev/v1beta1:KafkaChannel  || fail_test
   go_test_e2e -tags=e2e -timeout=5m -test.parallel=${TEST_PARALLEL} ./test/conformance -channels=messaging.knative.dev/v1beta1:KafkaChannel || fail_test
 
-  uninstall_channel_crds || return 1
+  uninstall_channel_crds distributed || return 1
 }
 
 # Installs the resources necessary to test the multi-tenant source, runs those tests, and then cleans up those resources

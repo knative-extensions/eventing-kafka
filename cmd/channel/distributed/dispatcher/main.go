@@ -89,25 +89,19 @@ func main() {
 		logger.Fatal("Failed To Load Environment Variables - Terminating!", zap.Error(err))
 	}
 
-	// Update The Sarama Config - Username/Password Overrides (Values From Secret Take Precedence Over ConfigMap)
-	kafkaAuthCfg, err := distributedcommonconfig.GetAuthConfigFromKubernetes(ctx, environment.KafkaSecretName, environment.KafkaSecretNamespace)
-	if err != nil {
-		logger.Fatal("Failed To Load Auth Config", zap.Error(err))
-	}
-
 	configMap, err := configmap.Load(commonconstants.SettingsConfigMapMountPath)
 	if err != nil {
 		logger.Fatal("error loading configuration", zap.Error(err))
 	}
 
 	// Load The Sarama & Eventing-Kafka Configuration From The ConfigMap
-	saramaConfig, ekConfig, err := sarama.LoadSettings(ctx, constants.Component, configMap, kafkaAuthCfg)
+	ekConfig, err := sarama.LoadSettings(ctx, constants.Component, configMap, sarama.LoadAuthConfig)
 	if err != nil {
 		logger.Fatal("Failed To Load Sarama Settings", zap.Error(err))
 	}
 
 	// Enable Sarama Logging If Specified In ConfigMap
-	sarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)
+	sarama.EnableSaramaLogging(ekConfig.Sarama.EnableLogging)
 
 	// Initialize Tracing (Watches config-tracing ConfigMap, Assumes Context Came From LoggingContext With Embedded K8S Client Key)
 	err = distributedcommonconfig.InitializeTracing(logger.Sugar(), ctx, environment.ServiceName, environment.SystemNamespace)
@@ -138,18 +132,25 @@ func main() {
 		MaxIdleConnsPerHost: ekConfig.CloudEvents.MaxIdleConnsPerHost,
 	})
 
+	user := ""
+	password := ""
+	if ekConfig.Auth != nil {
+		user = ekConfig.Auth.SASL.User
+		password = ekConfig.Auth.SASL.Password
+	}
+
 	// Create The Dispatcher With Specified Configuration
 	dispatcherConfig := dispatch.DispatcherConfig{
 		Logger:          logger,
 		ClientId:        constants.Component,
 		Brokers:         strings.Split(ekConfig.Kafka.Brokers, ","),
 		Topic:           environment.KafkaTopic,
-		Username:        kafkaAuthCfg.SASL.User,
-		Password:        kafkaAuthCfg.SASL.Password,
+		Username:        user,
+		Password:        password,
 		ChannelKey:      environment.ChannelKey,
 		StatsReporter:   statsReporter,
-		MetricsRegistry: saramaConfig.MetricRegistry,
-		SaramaConfig:    saramaConfig,
+		MetricsRegistry: ekConfig.Sarama.Config.MetricRegistry,
+		SaramaConfig:    ekConfig.Sarama.Config,
 	}
 	dispatcher = dispatch.NewDispatcher(dispatcherConfig)
 

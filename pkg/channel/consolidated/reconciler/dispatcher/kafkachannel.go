@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
+
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/cache"
@@ -88,33 +90,29 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		logger.Fatalw("error loading configuration", zap.Error(err))
 	}
 
-	kafkaConfig, err := utils.GetKafkaConfig(configMap)
+	kafkaConfig, err := utils.GetKafkaConfig(ctx, configMap, sarama.LoadAuthConfig)
 	if err != nil {
 		logger.Fatalw("Error loading kafka config", zap.Error(err))
 	}
 
-	kafkaAuthCfg := utils.GetKafkaAuthData(ctx, kafkaConfig.AuthSecretName, kafkaConfig.AuthSecretNamespace)
-
 	// Configure connection arguments - to be done exactly once per process
 	kncloudevents.ConfigureConnectionArgs(&kncloudevents.ConnectionArgs{
-		MaxIdleConns:        int(kafkaConfig.MaxIdleConns),
-		MaxIdleConnsPerHost: int(kafkaConfig.MaxIdleConnsPerHost),
+		MaxIdleConns:        int(kafkaConfig.EventingKafka.CloudEvents.MaxIdleConns),
+		MaxIdleConnsPerHost: int(kafkaConfig.EventingKafka.CloudEvents.MaxIdleConnsPerHost),
 	})
 
 	kafkaChannelInformer := kafkachannel.Get(ctx)
 	args := &dispatcher.KafkaDispatcherArgs{
-		ClientID:                 "kafka-ch-dispatcher",
-		Brokers:                  kafkaConfig.Brokers,
-		KafkaAuthConfig:          kafkaAuthCfg,
-		SaramaSettingsYamlString: kafkaConfig.SaramaSettingsYamlString,
-		TopicFunc:                utils.TopicName,
+		Brokers:   kafkaConfig.Brokers,
+		Config:    kafkaConfig.EventingKafka,
+		TopicFunc: utils.TopicName,
 	}
 	kafkaDispatcher, err := dispatcher.NewDispatcher(ctx, args)
 	if err != nil {
 		logger.Fatalw("Unable to create kafka dispatcher", zap.Error(err))
 	}
 	logger.Info("Starting the Kafka dispatcher")
-	logger.Infow("Kafka broker configuration", zap.Strings(utils.BrokerConfigMapKey, kafkaConfig.Brokers))
+	logger.Infow("Kafka broker configuration", zap.Strings("Brokers", kafkaConfig.Brokers))
 
 	r := &Reconciler{
 		kafkaDispatcher:      kafkaDispatcher,

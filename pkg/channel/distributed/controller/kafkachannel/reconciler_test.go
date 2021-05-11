@@ -24,6 +24,8 @@ import (
 	"sync"
 	"testing"
 
+	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
+
 	"github.com/Shopify/sarama"
 	"k8s.io/client-go/kubernetes/fake"
 	"knative.dev/eventing-kafka/pkg/common/constants"
@@ -423,12 +425,7 @@ func TestReconcile(t *testing.T) {
 			serviceLister:        listers.GetServiceLister(),
 			kafkaClientSet:       fakekafkaclient.Get(ctx),
 			adminMutex:           &sync.Mutex{},
-			authConfig: &client.KafkaAuthConfig{SASL: &client.KafkaSaslConfig{
-				User:     controllertesting.KafkaSecretDataValueUsername,
-				Password: controllertesting.KafkaSecretDataValuePassword,
-				SaslType: controllertesting.KafkaSecretDataValueSaslType,
-			}},
-			kafkaConfigMapHash: controllertesting.ConfigMapHash,
+			kafkaConfigMapHash:   controllertesting.ConfigMapHash,
 		}
 
 		reconcilerOptions, ok := options["reconcilerOptions"]
@@ -1111,9 +1108,9 @@ func TestReconciler_updateKafkaConfig(t *testing.T) {
 			expectErr: "^configMap.Data is nil$",
 		},
 		{
-			name:      "Empty Eventing-Kafka YAML",
+			name:      "Empty Eventing-Kafka YAML (default for authSecretName)",
 			configMap: &corev1.ConfigMap{Data: map[string]string{constants.EventingKafkaSettingsConfigKey: ""}},
-			expectErr: "^eventing-kafka config is nil$",
+			expectErr: `^could not load auth config: secrets "` + kafkasarama.DefaultAuthSecretName + `" not found$`,
 		},
 		{
 			name:      "Invalid Eventing-Kafka YAML",
@@ -1121,23 +1118,38 @@ func TestReconciler_updateKafkaConfig(t *testing.T) {
 			expectErr: "^ConfigMap's eventing-kafka value could not be converted to an EventingKafkaConfig struct",
 		},
 		{
-			name:      "Error Reading Secret",
-			configMap: &corev1.ConfigMap{Data: map[string]string{constants.EventingKafkaSettingsConfigKey: commontesting.TestEKConfig}},
+			name: "Missing Sarama YAML (creates default sarama.Config)",
+			configMap: &corev1.ConfigMap{Data: map[string]string{
+				constants.VersionConfigKey:               kafkasarama.CurrentConfigVersion,
+				constants.EventingKafkaSettingsConfigKey: ekConfig}},
+		},
+		{
+			name: "Error Reading Secret",
+			configMap: &corev1.ConfigMap{Data: map[string]string{
+				constants.VersionConfigKey:               kafkasarama.CurrentConfigVersion,
+				constants.EventingKafkaSettingsConfigKey: ekConfig,
+				constants.SaramaSettingsConfigKey:        commontesting.OldSaramaConfig}},
 			secretErr: true,
 		},
 		{
-			name:      "Empty User",
-			configMap: &corev1.ConfigMap{Data: map[string]string{constants.EventingKafkaSettingsConfigKey: ekConfig}},
+			name: "Empty User",
+			configMap: &corev1.ConfigMap{Data: map[string]string{
+				constants.VersionConfigKey:               kafkasarama.CurrentConfigVersion,
+				constants.EventingKafkaSettingsConfigKey: ekConfig,
+				constants.SaramaSettingsConfigKey:        commontesting.OldSaramaConfig}},
 		},
 		{
-			name:      "Non-Empty User",
-			configMap: &corev1.ConfigMap{Data: map[string]string{constants.EventingKafkaSettingsConfigKey: ekConfig}},
-			user:      commontesting.OldAuthUsername,
+			name: "Non-Empty User",
+			configMap: &corev1.ConfigMap{Data: map[string]string{
+				constants.VersionConfigKey:               kafkasarama.CurrentConfigVersion,
+				constants.EventingKafkaSettingsConfigKey: ekConfig,
+				constants.SaramaSettingsConfigKey:        commontesting.OldSaramaConfig}},
+			user: commontesting.OldAuthUsername,
 		},
 		{
 			name: "Invalid Sarama YAML",
 			configMap: &corev1.ConfigMap{Data: map[string]string{
-				constants.EventingKafkaSettingsConfigKey: commontesting.TestEKConfig,
+				constants.EventingKafkaSettingsConfigKey: ekConfig,
 				constants.SaramaSettingsConfigKey:        "\tInvalid",
 			}},
 			expectErr: "^failed to extract KafkaVersion from Sarama Config YAML",
@@ -1160,8 +1172,6 @@ func TestReconciler_updateKafkaConfig(t *testing.T) {
 			r := &Reconciler{
 				kubeClientset:      fakeK8sClient,
 				config:             tt.config,
-				saramaConfig:       tt.saramaConfig,
-				authConfig:         tt.authConfig,
 				kafkaConfigMapHash: tt.hash,
 			}
 			err := r.updateKafkaConfig(ctx, tt.configMap)
@@ -1169,14 +1179,12 @@ func TestReconciler_updateKafkaConfig(t *testing.T) {
 				assert.Nil(t, err)
 				// If no error was expected, verify that the settings in the reconciler were changed to new values
 				assert.NotEqual(t, tt.hash, r.kafkaConfigMapHash)
-				assert.NotEqual(t, tt.saramaConfig, r.saramaConfig)
 				assert.NotEqual(t, tt.config, r.config)
 			} else {
 				assert.NotNil(t, err)
 				assert.Regexp(t, tt.expectErr, err.Error())
 				// If an error occurred, verify that the settings in the reconciler do not change from what they were
 				assert.Equal(t, tt.hash, r.kafkaConfigMapHash)
-				assert.Equal(t, tt.saramaConfig, r.saramaConfig)
 				assert.Equal(t, tt.config, r.config)
 			}
 		})

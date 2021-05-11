@@ -18,6 +18,9 @@ package constants
 
 const (
 
+	// Component For Sarama Config
+	Component = "eventing-kafka-channel-controller"
+
 	// Kafka Admin Type Types
 	KafkaAdminTypeValueKafka  = "kafka"
 	KafkaAdminTypeValueAzure  = "azure"

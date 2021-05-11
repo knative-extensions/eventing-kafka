@@ -417,7 +417,7 @@ func (r *Reconciler) newDispatcherDeployment(logger *zap.Logger, channel *kafkav
 	deploymentName := util.DispatcherDnsSafeName(channel)
 
 	// Replicas Int Value For De-Referencing
-	replicas := int32(r.config.Dispatcher.Replicas)
+	replicas := int32(r.config.Channel.Dispatcher.Replicas)
 
 	// Create The Dispatcher Container Environment Variables
 	envVars, err := r.dispatcherDeploymentEnvVars(channel)
@@ -431,18 +431,18 @@ func (r *Reconciler) newDispatcherDeployment(logger *zap.Logger, channel *kafkav
 	// If we want "no limit" or "no request" then the entry must not be present in the map.
 	// Note: Since a "Quantity" type has no nil value, we use the Zero value to represent unlimited.
 	resourceLimits := make(map[corev1.ResourceName]resource.Quantity)
-	if !r.config.Dispatcher.MemoryLimit.IsZero() {
-		resourceLimits[corev1.ResourceMemory] = r.config.Dispatcher.MemoryLimit
+	if !r.config.Channel.Dispatcher.MemoryLimit.IsZero() {
+		resourceLimits[corev1.ResourceMemory] = r.config.Channel.Dispatcher.MemoryLimit
 	}
-	if !r.config.Dispatcher.CpuLimit.IsZero() {
-		resourceLimits[corev1.ResourceCPU] = r.config.Dispatcher.CpuLimit
+	if !r.config.Channel.Dispatcher.CpuLimit.IsZero() {
+		resourceLimits[corev1.ResourceCPU] = r.config.Channel.Dispatcher.CpuLimit
 	}
 	resourceRequests := make(map[corev1.ResourceName]resource.Quantity)
-	if !r.config.Dispatcher.MemoryRequest.IsZero() {
-		resourceRequests[corev1.ResourceMemory] = r.config.Dispatcher.MemoryRequest
+	if !r.config.Channel.Dispatcher.MemoryRequest.IsZero() {
+		resourceRequests[corev1.ResourceMemory] = r.config.Channel.Dispatcher.MemoryRequest
 	}
-	if !r.config.Dispatcher.CpuRequest.IsZero() {
-		resourceRequests[corev1.ResourceCPU] = r.config.Dispatcher.CpuRequest
+	if !r.config.Channel.Dispatcher.CpuRequest.IsZero() {
+		resourceRequests[corev1.ResourceCPU] = r.config.Channel.Dispatcher.CpuRequest
 	}
 
 	// If either the limits or requests are an entirely-empty map, this will be translated to a nil

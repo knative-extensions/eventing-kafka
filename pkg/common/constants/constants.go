@@ -35,6 +35,9 @@ const (
 	// SaramaSettingsConfigKey is the name of the field in the Data section of the eventing-kafka configmap that holds Sarama config YAML
 	SaramaSettingsConfigKey = "sarama"
 
+	// VersionConfigKey is the name of the field used to store the version of the configmap data, for upgrade purposes
+	VersionConfigKey = "version"
+
 	// DefaultMaxIdleConns is the default values for the cloud events connection argument "MaxIdleConns", if not overridden
 	DefaultMaxIdleConns = 1000
 	// DefaultMaxIdleConnsPerHost is the default values for the cloud events connection argument "MaxIdleConnsPerHost", if not overridden

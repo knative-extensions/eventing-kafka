@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 
+	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
+
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -525,7 +527,7 @@ func (r *Reconciler) createClient(ctx context.Context) (sarama.ClusterAdmin, err
 	kafkaClusterAdmin := r.kafkaClusterAdmin
 	if kafkaClusterAdmin == nil {
 		var err error
-		kafkaClusterAdmin, err = client.MakeAdminClient(ctx, controllerAgentName, r.kafkaAuthConfig, r.kafkaConfig.SaramaSettingsYamlString, r.kafkaConfig.Brokers)
+		kafkaClusterAdmin, err = client.MakeAdminClient(r.kafkaConfig.EventingKafka.Sarama.Config, r.kafkaConfig.Brokers)
 		if err != nil {
 			return nil, err
 		}
@@ -584,16 +586,13 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 	}
 
 	logger.Info("Reloading Kafka configuration")
-	kafkaConfig, err := utils.GetKafkaConfig(configMap.Data)
+	kafkaConfig, err := utils.GetKafkaConfig(ctx, configMap.Data, kafkasarama.LoadAuthConfig)
 	if err != nil {
 		logger.Errorw("Error reading Kafka configuration", zap.Error(err))
 		return
 	}
 
-	if kafkaConfig.AuthSecretName != "" {
-		kafkaAuthConfig := utils.GetKafkaAuthData(ctx, kafkaConfig.AuthSecretName, kafkaConfig.AuthSecretNamespace)
-		r.kafkaAuthConfig = kafkaAuthConfig
-	}
+	r.kafkaAuthConfig = kafkaConfig.EventingKafka.Auth
 	// For now just override the previous config.
 	// Eventually the previous config should be snapshotted to delete Kafka topics
 	r.kafkaConfig = kafkaConfig

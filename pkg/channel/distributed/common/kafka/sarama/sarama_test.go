@@ -19,9 +19,14 @@ package sarama
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"strconv"
 	"testing"
 	"time"
+
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes/fake"
+	injectionclient "knative.dev/pkg/client/injection/kube/client"
 
 	"knative.dev/eventing-kafka/pkg/common/client"
 	"knative.dev/pkg/system"
@@ -37,6 +42,46 @@ import (
 const (
 	// EKDefaultConfigYaml is intended to match what's in 300-eventing-kafka-configmap.yaml
 	EKDefaultConfigYaml = `
+channel:
+  distributed:
+    adminType: azure
+    receiver:
+      cpuRequest: 100m
+      memoryRequest: 50Mi
+  dispatcher:
+    cpuRequest: 100m
+    memoryRequest: 50Mi
+kafka:
+  brokers: REPLACE_WITH_CLUSTER_URL
+  enableSaramaLogging: false
+  topic:
+    defaultNumPartitions: 4
+    defaultReplicationFactor: 1
+    defaultRetentionMillis: 604800000
+`
+	EKDefaultSaramaConfig = `
+enableLogging: false
+config: |
+  Net:
+    TLS:
+      Config:
+        ClientAuth: 0
+    SASL:
+      Mechanism: PLAIN
+      Version: 1
+  Metadata:
+    RefreshFrequency: 300000000000
+  Consumer:
+    Offsets:
+      AutoCommit:
+          Interval: 5000000000
+      Retention: 604800000000000
+    Return:
+      Errors: true
+`
+	// EKDefaultConfigYamlOld is intended to match what used to be in 300-eventing-kafka-configmap.yaml
+	// (still supported/tested for backwards compatibility)
+	EKDefaultConfigYamlOld = `
 receiver:
   cpuRequest: 100m
   memoryRequest: 50Mi
@@ -54,7 +99,7 @@ kafka:
     defaultRetentionMillis: 604800000
   adminType: azure
 `
-	EKDefaultSaramaConfig = `
+	EKDefaultSaramaConfigOld = `
 Net:
   TLS:
     Config:
@@ -95,41 +140,210 @@ func TestEnableSaramaLogging(t *testing.T) {
 	sarama.Logger.Print("TestMessage - Should Be Hidden")
 }
 
+// mockGetAuth returns a function that satisfies the GetAuth prototype, returning the provided values
+func mockGetAuth(authConfig *client.KafkaAuthConfig, err error) GetAuth {
+	return func(_ context.Context, _ string, _ string) (*client.KafkaAuthConfig, error) {
+		return authConfig, err
+	}
+}
+
 // This test is specifically to validate that our default settings (used in 200-eventing-kafka-configmap.yaml)
 // are valid.  If the defaults in the file change, change this test to match for verification purposes.
 func TestLoadDefaultSaramaSettings(t *testing.T) {
+
+	// Define The TestCase Struct
+	type TestCase struct {
+		name string
+		data map[string]string
+	}
+
+	// Required for GetTestSaramaConfigMap
 	commontesting.SetTestEnvironment(t)
-	configMap := commontesting.GetTestSaramaConfigMap(EKDefaultSaramaConfig, EKDefaultConfigYaml)
 
-	config, configuration, err := LoadSettings(context.TODO(), "myClient", configMap.Data, nil)
-	assert.Nil(t, err)
+	// Backward-compatibility test needs a missing version key
+	noVersionData := commontesting.GetTestSaramaConfigMap("", EKDefaultSaramaConfigOld, EKDefaultConfigYamlOld).Data
+	delete(noVersionData, constants.VersionConfigKey)
+
+	// Create The TestCases
+	testCases := []TestCase{
+		{
+			name: "Current Config (1.0.0)",
+			data: commontesting.GetTestSaramaConfigMap(CurrentConfigVersion, EKDefaultSaramaConfig, EKDefaultConfigYaml).Data,
+		},
+		{
+			name: "Upgrade Config (no version)",
+			data: noVersionData,
+		},
+	}
+
+	// Run The TestCases
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			settings, err := LoadSettings(context.TODO(), "myClient", testCase.data, mockGetAuth(nil, nil))
+			assert.Nil(t, err)
+			verifySaramaSettings(t, settings)
+			verifyEventingKafkaSettings(t, settings)
+		})
+	}
+}
+
+func verifySaramaSettings(t *testing.T, settings *commonconfig.EventingKafkaConfig) {
 	// Make sure all of our default Sarama settings were loaded properly
-	assert.Equal(t, tls.ClientAuthType(0), config.Net.TLS.Config.ClientAuth)
-	assert.Equal(t, sarama.SASLMechanism("PLAIN"), config.Net.SASL.Mechanism)
-	assert.Equal(t, int16(1), config.Net.SASL.Version)
-	assert.Equal(t, time.Duration(300000000000), config.Metadata.RefreshFrequency)
-	assert.Equal(t, time.Duration(5000000000), config.Consumer.Offsets.AutoCommit.Interval)
-	assert.Equal(t, time.Duration(604800000000000), config.Consumer.Offsets.Retention)
-	assert.Equal(t, true, config.Consumer.Return.Errors)
-	assert.Equal(t, "myClient", config.ClientID)
+	assert.Equal(t, tls.ClientAuthType(0), settings.Sarama.Config.Net.TLS.Config.ClientAuth)
+	assert.Equal(t, sarama.SASLMechanism("PLAIN"), settings.Sarama.Config.Net.SASL.Mechanism)
+	assert.Equal(t, int16(1), settings.Sarama.Config.Net.SASL.Version)
+	assert.Equal(t, time.Duration(300000000000), settings.Sarama.Config.Metadata.RefreshFrequency)
+	assert.Equal(t, time.Duration(5000000000), settings.Sarama.Config.Consumer.Offsets.AutoCommit.Interval)
+	assert.Equal(t, time.Duration(604800000000000), settings.Sarama.Config.Consumer.Offsets.Retention)
+	assert.Equal(t, true, settings.Sarama.Config.Consumer.Return.Errors)
+	assert.Equal(t, "myClient", settings.Sarama.Config.ClientID)
+}
 
+func verifyEventingKafkaSettings(t *testing.T, settings *commonconfig.EventingKafkaConfig) {
 	// Make sure all of our default eventing-kafka settings were loaded properly
 	// Specifically checking the type (e.g. int64, int16, int) is important
-	assert.Equal(t, resource.Quantity{}, configuration.Receiver.CpuLimit)
-	assert.Equal(t, resource.MustParse("100m"), configuration.Receiver.CpuRequest)
-	assert.Equal(t, resource.Quantity{}, configuration.Receiver.MemoryLimit)
-	assert.Equal(t, resource.MustParse("50Mi"), configuration.Receiver.MemoryRequest)
-	assert.Equal(t, 1, configuration.Receiver.Replicas)
-	assert.Equal(t, int32(4), configuration.Kafka.Topic.DefaultNumPartitions)
-	assert.Equal(t, int16(1), configuration.Kafka.Topic.DefaultReplicationFactor)
-	assert.Equal(t, int64(604800000), configuration.Kafka.Topic.DefaultRetentionMillis)
-	assert.Equal(t, resource.Quantity{}, configuration.Dispatcher.CpuLimit)
-	assert.Equal(t, resource.MustParse("100m"), configuration.Dispatcher.CpuRequest)
-	assert.Equal(t, resource.Quantity{}, configuration.Dispatcher.MemoryLimit)
-	assert.Equal(t, resource.MustParse("50Mi"), configuration.Dispatcher.MemoryRequest)
-	assert.Equal(t, 1, configuration.Dispatcher.Replicas)
-	assert.Equal(t, "azure", configuration.Kafka.AdminType)
-	assert.Equal(t, "REPLACE_WITH_CLUSTER_URL", configuration.Kafka.Brokers)
+	assert.Equal(t, resource.Quantity{}, settings.Channel.Distributed.Receiver.CpuLimit)
+	assert.Equal(t, resource.MustParse("100m"), settings.Channel.Distributed.Receiver.CpuRequest)
+	assert.Equal(t, resource.Quantity{}, settings.Channel.Distributed.Receiver.MemoryLimit)
+	assert.Equal(t, resource.MustParse("50Mi"), settings.Channel.Distributed.Receiver.MemoryRequest)
+	assert.Equal(t, 1, settings.Channel.Distributed.Receiver.Replicas)
+	assert.Equal(t, int32(4), settings.Kafka.Topic.DefaultNumPartitions)
+	assert.Equal(t, int16(1), settings.Kafka.Topic.DefaultReplicationFactor)
+	assert.Equal(t, int64(604800000), settings.Kafka.Topic.DefaultRetentionMillis)
+	assert.Equal(t, resource.Quantity{}, settings.Channel.Dispatcher.CpuLimit)
+	assert.Equal(t, resource.MustParse("100m"), settings.Channel.Dispatcher.CpuRequest)
+	assert.Equal(t, resource.Quantity{}, settings.Channel.Dispatcher.MemoryLimit)
+	assert.Equal(t, resource.MustParse("50Mi"), settings.Channel.Dispatcher.MemoryRequest)
+	assert.Equal(t, 1, settings.Channel.Dispatcher.Replicas)
+	assert.Equal(t, "azure", settings.Channel.Distributed.AdminType)
+	assert.Equal(t, "REPLACE_WITH_CLUSTER_URL", settings.Kafka.Brokers)
+}
+
+func Test_upgradeConfig(t *testing.T) {
+	// Define The TestCase Struct
+	type TestCase struct {
+		name      string
+		data      map[string]string
+		expectNew bool
+	}
+
+	// Required for GetTestSaramaConfigMap
+	commontesting.SetTestEnvironment(t)
+
+	// Backward-compatibility test needs a missing version key
+	noVersionData := commontesting.GetTestSaramaConfigMap("", EKDefaultSaramaConfigOld, EKDefaultConfigYamlOld).Data
+	delete(noVersionData, constants.VersionConfigKey)
+
+	// Create The TestCases
+	testCases := []TestCase{
+		{
+			name: "Nil map",
+			data: nil,
+		},
+		{
+			name: "Missing eventing-kafka config",
+			data: map[string]string{constants.SaramaSettingsConfigKey: "exists"},
+		},
+		{
+			name: "Invalid eventing-kafka config",
+			data: map[string]string{
+				constants.EventingKafkaSettingsConfigKey: "\tInvalid",
+				constants.SaramaSettingsConfigKey:        "exists",
+			},
+		},
+		{
+			name:      "Upgrade Config (no version)",
+			data:      noVersionData,
+			expectNew: true,
+		},
+		{
+			name: "Upgrade Not Necessary (current version)",
+			data: commontesting.GetTestSaramaConfigMap(CurrentConfigVersion, EKDefaultSaramaConfig, EKDefaultConfigYaml).Data,
+		},
+	}
+
+	// Run The TestCases
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			newConfig := upgradeConfig(testCase.data)
+			if testCase.expectNew {
+				assert.NotNil(t, newConfig)
+				verifyEventingKafkaSettings(t, newConfig)
+			} else {
+				assert.Nil(t, newConfig)
+			}
+		})
+	}
+}
+
+func TestLoadAuthConfig(t *testing.T) {
+	// Setup Test Environment Namespaces
+	commontesting.SetTestEnvironment(t)
+
+	authSecret := commontesting.GetTestSaramaSecret(
+		commontesting.SecretName,
+		commontesting.OldAuthUsername,
+		commontesting.OldAuthPassword,
+		commontesting.OldAuthNamespace,
+		commontesting.OldAuthSaslType)
+
+	authSecretNoUser := commontesting.GetTestSaramaSecret(
+		commontesting.SecretName,
+		"",
+		commontesting.OldAuthPassword,
+		commontesting.OldAuthNamespace,
+		commontesting.OldAuthSaslType)
+
+	// Define The TestCase Struct
+	type TestCase struct {
+		name          string
+		secret        *corev1.Secret
+		secretName    string
+		wantErr       bool
+		wantNilConfig bool
+	}
+
+	// Create The TestCases
+	testCases := []TestCase{
+		{
+			name:       "Valid secret, valid request",
+			secret:     authSecret,
+			secretName: commontesting.SecretName,
+		},
+		{
+			name:       "Valid secret, not found",
+			secret:     authSecret,
+			secretName: "invalid-secret",
+			wantErr:    true,
+		},
+		{
+			name:          "Valid secret, empty user",
+			secret:        authSecretNoUser,
+			secretName:    commontesting.SecretName,
+			wantNilConfig: true,
+		},
+	}
+
+	// Run The TestCases
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			ctx := context.WithValue(context.TODO(), injectionclient.Key{}, fake.NewSimpleClientset(testCase.secret))
+			kafkaAuth, err := LoadAuthConfig(ctx, testCase.secretName, system.Namespace())
+			if !testCase.wantErr {
+				assert.Nil(t, err)
+				if testCase.wantNilConfig {
+					assert.Nil(t, kafkaAuth)
+				} else {
+					assert.NotNil(t, kafkaAuth)
+					assert.Equal(t, commontesting.OldAuthUsername, kafkaAuth.SASL.User)
+					assert.Equal(t, commontesting.OldAuthPassword, kafkaAuth.SASL.Password)
+					assert.Equal(t, commontesting.OldAuthSaslType, kafkaAuth.SASL.SaslType)
+				}
+			} else {
+				assert.NotNil(t, err)
+			}
+		})
+	}
 }
 
 func TestLoadEventingKafkaSettings(t *testing.T) {
@@ -138,11 +352,11 @@ func TestLoadEventingKafkaSettings(t *testing.T) {
 
 	// Define The TestCase Struct
 	type TestCase struct {
-		name            string
-		ekConfig        map[string]string
-		expectErr       bool
-		expectNilConfig bool
-		expectConfig    *commonconfig.EventingKafkaConfig
+		name         string
+		ekConfig     map[string]string
+		expectErr    bool
+		expectConfig *commonconfig.EventingKafkaConfig
+		expectEmpty  bool
 	}
 
 	receiverReplicas, _ := strconv.Atoi(commontesting.ReceiverReplicas)
@@ -150,22 +364,26 @@ func TestLoadEventingKafkaSettings(t *testing.T) {
 
 	// testEKConfig represents the expected EventingKafkaConfig struct when using the TestEKConfig string
 	testEKConfig := &commonconfig.EventingKafkaConfig{
-		Receiver: commonconfig.EKReceiverConfig{
-			EKKubernetesConfig: commonconfig.EKKubernetesConfig{
-				CpuLimit:      resource.MustParse(commontesting.ReceiverCpuLimit),
-				CpuRequest:    resource.MustParse(commontesting.ReceiverCpuRequest),
-				MemoryLimit:   resource.MustParse(commontesting.ReceiverMemoryLimit),
-				MemoryRequest: resource.MustParse(commontesting.ReceiverMemoryRequest),
-				Replicas:      receiverReplicas,
+		Channel: commonconfig.EKChannelConfig{
+			Distributed: commonconfig.EKDistributedConfig{
+				Receiver: commonconfig.EKReceiverConfig{
+					EKKubernetesConfig: commonconfig.EKKubernetesConfig{
+						CpuLimit:      resource.MustParse(commontesting.ReceiverCpuLimit),
+						CpuRequest:    resource.MustParse(commontesting.ReceiverCpuRequest),
+						MemoryLimit:   resource.MustParse(commontesting.ReceiverMemoryLimit),
+						MemoryRequest: resource.MustParse(commontesting.ReceiverMemoryRequest),
+						Replicas:      receiverReplicas,
+					},
+				},
 			},
-		},
-		Dispatcher: commonconfig.EKDispatcherConfig{
-			EKKubernetesConfig: commonconfig.EKKubernetesConfig{
-				CpuLimit:      resource.MustParse(commontesting.DispatcherCpuLimit),
-				CpuRequest:    resource.MustParse(commontesting.DispatcherCpuRequest),
-				MemoryLimit:   resource.MustParse(commontesting.DispatcherMemoryLimit),
-				MemoryRequest: resource.MustParse(commontesting.DispatcherMemoryRequest),
-				Replicas:      dispatcherReplicas,
+			Dispatcher: commonconfig.EKDispatcherConfig{
+				EKKubernetesConfig: commonconfig.EKKubernetesConfig{
+					CpuLimit:      resource.MustParse(commontesting.DispatcherCpuLimit),
+					CpuRequest:    resource.MustParse(commontesting.DispatcherCpuRequest),
+					MemoryLimit:   resource.MustParse(commontesting.DispatcherMemoryLimit),
+					MemoryRequest: resource.MustParse(commontesting.DispatcherMemoryRequest),
+					Replicas:      dispatcherReplicas,
+				},
 			},
 		},
 		Kafka: commonconfig.EKKafkaConfig{
@@ -176,8 +394,17 @@ func TestLoadEventingKafkaSettings(t *testing.T) {
 	// Create The TestCases
 	testCases := []TestCase{
 		{
-			name:     "Basic",
-			ekConfig: map[string]string{constants.EventingKafkaSettingsConfigKey: commontesting.TestEKConfig},
+			name: "Basic",
+			ekConfig: map[string]string{
+				constants.VersionConfigKey:               CurrentConfigVersion,
+				constants.EventingKafkaSettingsConfigKey: commontesting.TestEKConfig,
+				constants.SaramaSettingsConfigKey:        commontesting.OldSaramaConfig},
+		},
+		{
+			name: "Empty Sarama Config (creates default sarama.Config)",
+			ekConfig: map[string]string{
+				constants.VersionConfigKey:               CurrentConfigVersion,
+				constants.EventingKafkaSettingsConfigKey: commontesting.TestEKConfig},
 		},
 		{
 			name:      "Invalid YAML",
@@ -185,9 +412,12 @@ func TestLoadEventingKafkaSettings(t *testing.T) {
 			expectErr: true,
 		},
 		{
-			name:            "Empty Config (Defaults Only)",
-			ekConfig:        map[string]string{constants.EventingKafkaSettingsConfigKey: ""},
-			expectNilConfig: true,
+			name: "Empty Config (Defaults Only)",
+			ekConfig: map[string]string{
+				constants.VersionConfigKey:               CurrentConfigVersion,
+				constants.EventingKafkaSettingsConfigKey: "",
+				constants.SaramaSettingsConfigKey:        commontesting.OldSaramaConfig},
+			expectEmpty: true,
 		},
 		{
 			name: "Defaults Overridden",
@@ -220,15 +450,12 @@ kafka:
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 
-			// Perform The Test (note: LoadSettings calls LoadEventingKafkaSettings)
-			eventingKafkaConfig, err := LoadEventingKafkaSettings(testCase.ekConfig)
+			// Perform The Test (note: LoadSettings calls loadEventingKafkaSettings)
+			eventingKafkaConfig, err := LoadSettings(context.TODO(), "", testCase.ekConfig, mockGetAuth(nil, nil))
 
 			// Verify Expected State
 			if testCase.expectErr {
 				assert.NotNil(t, err)
-			} else if testCase.expectNilConfig {
-				assert.Nil(t, err)
-				assert.Nil(t, eventingKafkaConfig)
 			} else {
 				assert.Nil(t, err)
 				assert.NotNil(t, eventingKafkaConfig)
@@ -246,18 +473,20 @@ kafka:
 					assert.Equal(t, system.Namespace(), eventingKafkaConfig.Kafka.AuthSecretNamespace)
 					assert.Equal(t, DefaultAuthSecretName, eventingKafkaConfig.Kafka.AuthSecretName)
 
-					// Verify other settings in the eventing-kafka config
-					assert.Equal(t, testEKConfig.Receiver.CpuLimit, eventingKafkaConfig.Receiver.CpuLimit)
-					assert.Equal(t, testEKConfig.Receiver.CpuRequest, eventingKafkaConfig.Receiver.CpuRequest)
-					assert.Equal(t, testEKConfig.Receiver.MemoryLimit, eventingKafkaConfig.Receiver.MemoryLimit)
-					assert.Equal(t, testEKConfig.Receiver.MemoryRequest, eventingKafkaConfig.Receiver.MemoryRequest)
-					assert.Equal(t, testEKConfig.Receiver.Replicas, eventingKafkaConfig.Receiver.Replicas)
-					assert.Equal(t, testEKConfig.Dispatcher.CpuLimit, eventingKafkaConfig.Dispatcher.CpuLimit)
-					assert.Equal(t, testEKConfig.Dispatcher.CpuRequest, eventingKafkaConfig.Dispatcher.CpuRequest)
-					assert.Equal(t, testEKConfig.Dispatcher.MemoryLimit, eventingKafkaConfig.Dispatcher.MemoryLimit)
-					assert.Equal(t, testEKConfig.Dispatcher.MemoryRequest, eventingKafkaConfig.Dispatcher.MemoryRequest)
-					assert.Equal(t, testEKConfig.Dispatcher.Replicas, eventingKafkaConfig.Dispatcher.Replicas)
-					assert.Equal(t, testEKConfig.Kafka.Brokers, eventingKafkaConfig.Kafka.Brokers)
+					if !testCase.expectEmpty {
+						// Verify other settings in the eventing-kafka config
+						assert.Equal(t, testEKConfig.Channel.Distributed.Receiver.CpuLimit, eventingKafkaConfig.Channel.Distributed.Receiver.CpuLimit)
+						assert.Equal(t, testEKConfig.Channel.Distributed.Receiver.CpuRequest, eventingKafkaConfig.Channel.Distributed.Receiver.CpuRequest)
+						assert.Equal(t, testEKConfig.Channel.Distributed.Receiver.MemoryLimit, eventingKafkaConfig.Channel.Distributed.Receiver.MemoryLimit)
+						assert.Equal(t, testEKConfig.Channel.Distributed.Receiver.MemoryRequest, eventingKafkaConfig.Channel.Distributed.Receiver.MemoryRequest)
+						assert.Equal(t, testEKConfig.Channel.Distributed.Receiver.Replicas, eventingKafkaConfig.Channel.Distributed.Receiver.Replicas)
+						assert.Equal(t, testEKConfig.Channel.Dispatcher.CpuLimit, eventingKafkaConfig.Channel.Dispatcher.CpuLimit)
+						assert.Equal(t, testEKConfig.Channel.Dispatcher.CpuRequest, eventingKafkaConfig.Channel.Dispatcher.CpuRequest)
+						assert.Equal(t, testEKConfig.Channel.Dispatcher.MemoryLimit, eventingKafkaConfig.Channel.Dispatcher.MemoryLimit)
+						assert.Equal(t, testEKConfig.Channel.Dispatcher.MemoryRequest, eventingKafkaConfig.Channel.Dispatcher.MemoryRequest)
+						assert.Equal(t, testEKConfig.Channel.Dispatcher.Replicas, eventingKafkaConfig.Channel.Dispatcher.Replicas)
+						assert.Equal(t, testEKConfig.Kafka.Brokers, eventingKafkaConfig.Kafka.Brokers)
+					}
 				}
 			}
 		})
@@ -272,6 +501,7 @@ func TestLoadSettings(t *testing.T) {
 		name           string
 		config         map[string]string
 		authConfig     *client.KafkaAuthConfig
+		authErr        error
 		expectErr      bool
 		expectDefaults bool
 	}
@@ -279,8 +509,12 @@ func TestLoadSettings(t *testing.T) {
 	// Create The TestCases
 	testCases := []TestCase{
 		{
-			name:   "Basic",
-			config: map[string]string{constants.SaramaSettingsConfigKey: commontesting.OldSaramaConfig},
+			name: "Basic",
+			config: map[string]string{
+				constants.VersionConfigKey:               CurrentConfigVersion,
+				constants.SaramaSettingsConfigKey:        commontesting.OldSaramaConfig,
+				constants.EventingKafkaSettingsConfigKey: commontesting.TestEKConfig,
+			},
 		},
 		{
 			name:      "Invalid Sarama YAML",
@@ -293,9 +527,24 @@ func TestLoadSettings(t *testing.T) {
 			expectErr: true,
 		},
 		{
-			name:       "Auth Config With Empty User",
-			config:     map[string]string{constants.SaramaSettingsConfigKey: commontesting.OldSaramaConfig},
-			authConfig: &client.KafkaAuthConfig{SASL: &client.KafkaSaslConfig{User: ""}},
+			name: "Auth Config With Empty User",
+			config: map[string]string{
+				constants.VersionConfigKey:               CurrentConfigVersion,
+				constants.SaramaSettingsConfigKey:        commontesting.OldSaramaConfig,
+				constants.EventingKafkaSettingsConfigKey: commontesting.TestEKConfig,
+			},
+			authConfig:     &client.KafkaAuthConfig{SASL: &client.KafkaSaslConfig{User: ""}},
+			expectDefaults: true, // The empty auth will remove the user/password from the OldSaramaConfig
+		},
+		{
+			name: "Auth Error",
+			config: map[string]string{
+				constants.VersionConfigKey:               CurrentConfigVersion,
+				constants.SaramaSettingsConfigKey:        commontesting.OldSaramaConfig,
+				constants.EventingKafkaSettingsConfigKey: commontesting.TestEKConfig,
+			},
+			authErr:   fmt.Errorf("test error"),
+			expectErr: true,
 		},
 		{
 			name:           "Empty Config (Defaults Only)",
@@ -314,22 +563,21 @@ func TestLoadSettings(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 
 			// Perform The Test (note that the eventingKafkaConfig is tested separately in TestLoadEventingKafkaSettings)
-			saramaConfig, eventingKafkaConfig, err := LoadSettings(context.TODO(), "", testCase.config, testCase.authConfig)
+			settings, err := LoadSettings(context.TODO(), "", testCase.config, mockGetAuth(testCase.authConfig, testCase.authErr))
 
 			// Verify Expected State
-			assert.Nil(t, eventingKafkaConfig)
 			if testCase.expectErr {
 				assert.NotNil(t, err)
 			} else {
 				assert.Nil(t, err)
-				assert.NotNil(t, saramaConfig)
+				assert.NotNil(t, settings)
 				// Verify a few Sarama settings; this isn't testing the ConfigBuilder itself so it doesn't need to be detailed
 				if testCase.expectDefaults {
-					assert.Equal(t, "", saramaConfig.Net.SASL.User)
-					assert.Equal(t, "", saramaConfig.Net.SASL.Password)
+					assert.Equal(t, "", settings.Sarama.Config.Net.SASL.User)
+					assert.Equal(t, "", settings.Sarama.Config.Net.SASL.Password)
 				} else {
-					assert.Equal(t, commontesting.OldUsername, saramaConfig.Net.SASL.User)
-					assert.Equal(t, commontesting.OldPassword, saramaConfig.Net.SASL.Password)
+					assert.Equal(t, commontesting.OldUsername, settings.Sarama.Config.Net.SASL.User)
+					assert.Equal(t, commontesting.OldPassword, settings.Sarama.Config.Net.SASL.Password)
 				}
 			}
 		})

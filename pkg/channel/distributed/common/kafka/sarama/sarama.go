@@ -23,6 +23,7 @@ import (
 	"log"
 	"os"
 
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	"knative.dev/pkg/system"
 
 	"github.com/Shopify/sarama"
@@ -33,6 +34,7 @@ import (
 )
 
 const DefaultAuthSecretName = "kafka-cluster"
+const CurrentConfigVersion = "1.0.0"
 
 // EnableSaramaLogging Is A Utility Function For Enabling Sarama Logging (Debugging)
 func EnableSaramaLogging(enable bool) {
@@ -43,68 +45,181 @@ func EnableSaramaLogging(enable bool) {
 	}
 }
 
+// GetAuth Is The Function Type Used To Delay Loading Auth Config Until The Secret Name/Namespace Are Known
+type GetAuth func(context.Context, string, string) (*client.KafkaAuthConfig, error)
+
+// LoadAuthConfig Creates A Sarama-Safe KafkaAuthConfig From The Specified Secret Name/Namespace
+func LoadAuthConfig(ctx context.Context, name string, namespace string) (*client.KafkaAuthConfig, error) {
+	// Extract The Relevant Data From The Kafka Secret And Create A Kafka Auth Config
+	kafkaAuthCfg, err := config.GetAuthConfigFromKubernetes(ctx, name, namespace)
+	if err != nil {
+		return nil, err
+	}
+	if kafkaAuthCfg != nil && kafkaAuthCfg.SASL != nil && kafkaAuthCfg.SASL.User == "" {
+		kafkaAuthCfg = nil // The Sarama builder expects a nil KafakAuthConfig if no authentication is desired
+	}
+	return kafkaAuthCfg, nil
+}
+
 // LoadSettings Loads The Sarama & EventingKafka Configuration From The ConfigMap
 // The Provided Context Must Have A Kubernetes Client Associated With It
-func LoadSettings(ctx context.Context, clientId string, configMap map[string]string, kafkaAuthConfig *client.KafkaAuthConfig) (*sarama.Config, *commonconfig.EventingKafkaConfig, error) {
+func LoadSettings(ctx context.Context, clientId string, configMap map[string]string, getAuthConfig GetAuth) (*commonconfig.EventingKafkaConfig, error) {
 	// Validate The ConfigMap Data
 	if configMap == nil {
-		return nil, nil, fmt.Errorf("attempted to merge sarama settings with empty configmap")
+		return nil, fmt.Errorf("attempted to merge sarama settings with empty configmap")
 	}
 
-	eventingKafkaConfig, err := LoadEventingKafkaSettings(configMap)
+	ekConfig, err := loadEventingKafkaSettings(configMap)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
+
+	authConfig, err := getAuthConfig(ctx, ekConfig.Kafka.AuthSecretName, ekConfig.Kafka.AuthSecretNamespace)
+	if err != nil {
+		return nil, fmt.Errorf("could not load auth config: %v", err)
+	}
+	ekConfig.Auth = authConfig
 
 	// Merge The ConfigMap Settings Into The Provided Config
-	saramaSettingsYamlString := configMap[constants.SaramaSettingsConfigKey]
+	saramaShell := &struct {
+		EnableLogging bool   `json:"enableLogging"`
+		Config        string `json:"config"`
+	}{}
+	var saramaConfigString string
 
-	if kafkaAuthConfig != nil && kafkaAuthConfig.SASL.User == "" {
-		// The config builder expects the entire config object to be nil if not using auth
-		// (Otherwise it will end up with "PLAIN" SASL by default and fail due to having no user/password)
-		kafkaAuthConfig = nil
+	if configMap[constants.VersionConfigKey] != CurrentConfigVersion {
+		// In the old version, the sarama config string was the entire field
+		saramaConfigString = configMap[constants.SaramaSettingsConfigKey]
+	} else {
+		err = yaml.Unmarshal([]byte(configMap[constants.SaramaSettingsConfigKey]), &saramaShell)
+		if err != nil {
+			return nil, err
+		}
+		if saramaShell == nil {
+			// An empty or missing sarama field will create a default sarama.Config
+			ekConfig.Sarama.EnableLogging = false
+		} else {
+			ekConfig.Sarama.EnableLogging = saramaShell.EnableLogging
+			saramaConfigString = saramaShell.Config
+		}
 	}
 
 	// Merge The Sarama Settings In The ConfigMap Into A New Base Sarama Config
-	saramaConfig, err := client.NewConfigBuilder().
+	ekConfig.Sarama.Config, err = client.NewConfigBuilder().
 		WithDefaults().
-		FromYaml(saramaSettingsYamlString).
-		WithAuth(kafkaAuthConfig).
+		FromYaml(saramaConfigString).
+		WithAuth(authConfig).
 		WithClientId(clientId).
 		Build(ctx)
 
-	return saramaConfig, eventingKafkaConfig, err
+	return ekConfig, err
 }
 
-func LoadEventingKafkaSettings(configMap map[string]string) (*commonconfig.EventingKafkaConfig, error) {
-	// Validate The ConfigMap Data
-	if configMap == nil {
-		return nil, fmt.Errorf("attempted to load configuration from empty configmap")
+// upgradeConfig converts an old configmap into a new EventingKafkaConfig
+// Returns nil if an upgrade is either unnecessary or impossible
+func upgradeConfig(data map[string]string) *commonconfig.EventingKafkaConfig {
+
+	// If the map is nil or missing the top values, it can't be upgraded
+	if data == nil {
+		return nil
+	}
+	if _, ok := data[constants.EventingKafkaSettingsConfigKey]; !ok {
+		return nil
 	}
 
-	// Unmarshal The Eventing-Kafka ConfigMap YAML Into A EventingKafkaSettings Struct
-	eventingKafkaConfig := &commonconfig.EventingKafkaConfig{}
-	err := yaml.Unmarshal([]byte(configMap[constants.EventingKafkaSettingsConfigKey]), &eventingKafkaConfig)
-	if err != nil {
-		return nil, fmt.Errorf("ConfigMap's eventing-kafka value could not be converted to an EventingKafkaConfig struct: %s : %v", err, configMap[constants.EventingKafkaSettingsConfigKey])
+	version, ok := data[constants.VersionConfigKey]
+	if ok && version == CurrentConfigVersion {
+		// Current version; no changes necessary
+		return nil
 	}
 
-	if eventingKafkaConfig != nil {
-		// If Any Config Was Provided, Set Some Default Values If Missing
+	// Pre-1.0.0 structs
+	type oldKafkaConfig struct {
+		Brokers             string                          `json:"brokers,omitempty"`
+		EnableSaramaLogging bool                            `json:"enableSaramaLogging,omitempty"`
+		Topic               commonconfig.EKKafkaTopicConfig `json:"topic,omitempty"`
+		AdminType           string                          `json:"adminType,omitempty"`
+		AuthSecretName      string                          `json:"authSecretName,omitempty"`
+		AuthSecretNamespace string                          `json:"authSecretNamespace,omitempty"`
+	}
+	type oldEventingKafkaConfig struct {
+		Receiver    commonconfig.EKReceiverConfig   `json:"receiver,omitempty"`
+		Dispatcher  commonconfig.EKDispatcherConfig `json:"dispatcher,omitempty"`
+		CloudEvents commonconfig.EKCloudEventConfig `json:"cloudevents,omitempty"`
+		Kafka       oldKafkaConfig                  `json:"kafka,omitempty"`
+	}
 
-		// Increase The Idle Connection Limits From Transport Defaults If Not Provided (see net/http/DefaultTransport)
-		if eventingKafkaConfig.CloudEvents.MaxIdleConns == 0 {
-			eventingKafkaConfig.CloudEvents.MaxIdleConns = constants.DefaultMaxIdleConns
+	oldConfig := &oldEventingKafkaConfig{}
+	err := yaml.Unmarshal([]byte(data[constants.EventingKafkaSettingsConfigKey]), &oldConfig)
+	if err != nil || oldConfig == nil {
+		return nil // Can't be upgraded
+	}
+
+	// Upgrade the eventing-kafka config by placing old values into the new struct and marshalling it
+	return &commonconfig.EventingKafkaConfig{
+		Channel: commonconfig.EKChannelConfig{
+			Dispatcher: oldConfig.Dispatcher,
+			Distributed: commonconfig.EKDistributedConfig{
+				Receiver:  oldConfig.Receiver,
+				AdminType: oldConfig.Kafka.AdminType,
+			},
+		},
+		CloudEvents: oldConfig.CloudEvents,
+		Kafka: commonconfig.EKKafkaConfig{
+			Brokers:             oldConfig.Kafka.Brokers,
+			AuthSecretName:      oldConfig.Kafka.AuthSecretName,
+			AuthSecretNamespace: oldConfig.Kafka.AuthSecretNamespace,
+			Topic:               oldConfig.Kafka.Topic,
+		},
+		Sarama: commonconfig.EKSaramaConfig{
+			EnableLogging: oldConfig.Kafka.EnableSaramaLogging,
+			Config:        nil,
+		},
+	}
+}
+
+func loadEventingKafkaSettings(configMap map[string]string) (*commonconfig.EventingKafkaConfig, error) {
+	eventingKafkaConfig := upgradeConfig(configMap)
+	if eventingKafkaConfig == nil {
+		// Upgrade didn't produce an EventingKafkaConfig, so assume it is the current version
+
+		// Unmarshal The Eventing-Kafka ConfigMap YAML Into A EventingKafkaSettings Struct
+		eventingKafkaConfig = &commonconfig.EventingKafkaConfig{}
+		err := yaml.Unmarshal([]byte(configMap[constants.EventingKafkaSettingsConfigKey]), &eventingKafkaConfig)
+		if err != nil {
+			return nil, fmt.Errorf("ConfigMap's eventing-kafka value could not be converted to an EventingKafkaConfig struct: %s : %v", err, configMap[constants.EventingKafkaSettingsConfigKey])
 		}
-		if eventingKafkaConfig.CloudEvents.MaxIdleConnsPerHost == 0 {
-			eventingKafkaConfig.CloudEvents.MaxIdleConnsPerHost = constants.DefaultMaxIdleConnsPerHost
-		}
-		if len(eventingKafkaConfig.Kafka.AuthSecretNamespace) == 0 {
-			eventingKafkaConfig.Kafka.AuthSecretNamespace = system.Namespace()
-		}
-		if len(eventingKafkaConfig.Kafka.AuthSecretName) == 0 {
-			eventingKafkaConfig.Kafka.AuthSecretName = DefaultAuthSecretName
-		}
+	}
+
+	if eventingKafkaConfig == nil {
+		// A nil config is not valid; create an empty config so that defaults may be set
+		eventingKafkaConfig = &commonconfig.EventingKafkaConfig{}
+	}
+
+	// Set Some Default Values If Missing
+
+	// Increase The Idle Connection Limits From Transport Defaults If Not Provided (see net/http/DefaultTransport)
+	if eventingKafkaConfig.CloudEvents.MaxIdleConns == 0 {
+		eventingKafkaConfig.CloudEvents.MaxIdleConns = constants.DefaultMaxIdleConns
+	}
+	if eventingKafkaConfig.CloudEvents.MaxIdleConnsPerHost == 0 {
+		eventingKafkaConfig.CloudEvents.MaxIdleConnsPerHost = constants.DefaultMaxIdleConnsPerHost
+	}
+
+	// Default Replicas To 1 If Not Specified
+	if eventingKafkaConfig.Channel.Distributed.Receiver.Replicas < 1 {
+		eventingKafkaConfig.Channel.Distributed.Receiver.Replicas = 1
+	}
+	if eventingKafkaConfig.Channel.Dispatcher.Replicas < 1 {
+		eventingKafkaConfig.Channel.Dispatcher.Replicas = 1
+	}
+
+	// Set Default Values For Secret
+	if len(eventingKafkaConfig.Kafka.AuthSecretNamespace) == 0 {
+		eventingKafkaConfig.Kafka.AuthSecretNamespace = system.Namespace()
+	}
+	if len(eventingKafkaConfig.Kafka.AuthSecretName) == 0 {
+		eventingKafkaConfig.Kafka.AuthSecretName = DefaultAuthSecretName
 	}
 
 	return eventingKafkaConfig, nil

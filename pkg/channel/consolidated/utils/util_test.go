@@ -18,14 +18,20 @@ package utils
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"testing"
+
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	clientcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/common/client"
+	"knative.dev/eventing-kafka/pkg/common/config"
+	"knative.dev/eventing-kafka/pkg/common/constants"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
-
-	"testing"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -208,6 +214,22 @@ func TestGetKafkaAuthData(t *testing.T) {
 
 func TestGetKafkaConfig(t *testing.T) {
 
+	// Create an empty Sarama config for comparisons involving a missing "sarama" field in the configmap
+	saramaEmptyConfig, _ := client.NewConfigBuilder().
+		WithDefaults().
+		FromYaml("").
+		WithAuth(nil).
+		WithClientId("kafka-ch-dispatcher").
+		Build(context.TODO())
+
+	// Comparing Sarama structs requires ignoring some obstinate (and irrelevant to our concerns) fields
+	saramaIgnoreOpts := []cmp.Option{
+		cmpopts.IgnoreUnexported(saramaEmptyConfig.Version, x509.CertPool{}, tls.Config{}),
+		cmpopts.IgnoreFields(saramaEmptyConfig.Consumer.Group.Rebalance, "Strategy"),
+		cmpopts.IgnoreFields(*saramaEmptyConfig, "MetricRegistry"),
+		cmpopts.IgnoreFields(saramaEmptyConfig.Producer, "Partitioner"),
+	}
+
 	testCases := []struct {
 		name     string
 		data     map[string]string
@@ -225,69 +247,160 @@ func TestGetKafkaConfig(t *testing.T) {
 			getError: "missing configuration",
 		},
 		{
-			name:     "configmap with no bootstrapServers key",
+			name:     "configmap with no bootstrapServers key (backwards-compatibility)",
 			data:     map[string]string{"key": "value"},
-			getError: "missing or empty key bootstrapServers in configuration",
+			getError: "missing or empty brokers in configuration",
 		},
 		{
-			name:     "configmap with empty bootstrapServers value",
+			name:     "configmap with empty bootstrapServers value (backwards-compatibility)",
 			data:     map[string]string{"bootstrapServers": ""},
-			getError: "missing or empty key bootstrapServers in configuration",
+			getError: "missing or empty brokers in configuration",
 		},
 		{
-			name: "single bootstrapServers",
+			name: "single bootstrapServers (backwards-compatibility)",
 			data: map[string]string{"bootstrapServers": "kafkabroker.kafka:9092"},
 			expected: &KafkaConfig{
-				Brokers:             []string{"kafkabroker.kafka:9092"},
-				MaxIdleConns:        1000,
-				MaxIdleConnsPerHost: 100,
+				Brokers: []string{"kafkabroker.kafka:9092"},
+				EventingKafka: &config.EventingKafkaConfig{
+					Kafka: config.EKKafkaConfig{
+						Brokers: "kafkabroker.kafka:9092",
+					},
+					CloudEvents: config.EKCloudEventConfig{
+						MaxIdleConns:        1000,
+						MaxIdleConnsPerHost: 100,
+					},
+				},
 			},
 		},
 		{
-			name: "single bootstrapServers and auth secret name and namespace",
+			name: "single bootstrapServers and auth secret name and namespace (backwards-compatibility)",
 			data: map[string]string{"bootstrapServers": "kafkabroker.kafka:9092", "authSecretName": "kafka-auth-secret", "authSecretNamespace": "default"},
 			expected: &KafkaConfig{
-				Brokers:             []string{"kafkabroker.kafka:9092"},
-				MaxIdleConns:        1000,
-				MaxIdleConnsPerHost: 100,
-				AuthSecretName:      "kafka-auth-secret",
-				AuthSecretNamespace: "default",
+				Brokers: []string{"kafkabroker.kafka:9092"},
+				EventingKafka: &config.EventingKafkaConfig{
+					CloudEvents: config.EKCloudEventConfig{
+						MaxIdleConns:        1000,
+						MaxIdleConnsPerHost: 100,
+					},
+					Kafka: config.EKKafkaConfig{
+						Brokers:             "kafkabroker.kafka:9092",
+						AuthSecretName:      "kafka-auth-secret",
+						AuthSecretNamespace: "default",
+					},
+				},
 			},
 		},
 		{
-			name: "multiple bootstrapServers",
+			name: "multiple bootstrapServers (backwards-compatibility)",
 			data: map[string]string{"bootstrapServers": "kafkabroker1.kafka:9092,kafkabroker2.kafka:9092"},
 			expected: &KafkaConfig{
-				Brokers:             []string{"kafkabroker1.kafka:9092", "kafkabroker2.kafka:9092"},
-				MaxIdleConns:        1000,
-				MaxIdleConnsPerHost: 100,
+				Brokers: []string{"kafkabroker1.kafka:9092", "kafkabroker2.kafka:9092"},
+				EventingKafka: &config.EventingKafkaConfig{
+					CloudEvents: config.EKCloudEventConfig{
+						MaxIdleConns:        1000,
+						MaxIdleConnsPerHost: 100,
+					},
+					Kafka: config.EKKafkaConfig{
+						Brokers: "kafkabroker1.kafka:9092,kafkabroker2.kafka:9092",
+					},
+				},
 			},
 		},
 		{
-			name: "elevated max idle connections",
+			name: "elevated max idle connections (backwards-compatibility)",
 			data: map[string]string{"bootstrapServers": "kafkabroker.kafka:9092", "maxIdleConns": "9000"},
 			expected: &KafkaConfig{
-				Brokers:             []string{"kafkabroker.kafka:9092"},
-				MaxIdleConns:        9000,
-				MaxIdleConnsPerHost: 100,
+				Brokers: []string{"kafkabroker.kafka:9092"},
+				EventingKafka: &config.EventingKafkaConfig{
+					CloudEvents: config.EKCloudEventConfig{
+						MaxIdleConns:        9000,
+						MaxIdleConnsPerHost: 100,
+					},
+					Kafka: config.EKKafkaConfig{
+						Brokers: "kafkabroker.kafka:9092",
+					},
+				},
 			},
 		},
 		{
-			name: "elevated max idle connections per host",
+			name: "elevated max idle connections per host (backwards-compatibility)",
 			data: map[string]string{"bootstrapServers": "kafkabroker.kafka:9092", "maxIdleConnsPerHost": "900"},
 			expected: &KafkaConfig{
-				Brokers:             []string{"kafkabroker.kafka:9092"},
-				MaxIdleConns:        1000,
-				MaxIdleConnsPerHost: 900,
+				Brokers: []string{"kafkabroker.kafka:9092"},
+				EventingKafka: &config.EventingKafkaConfig{
+					CloudEvents: config.EKCloudEventConfig{
+						MaxIdleConns:        1000,
+						MaxIdleConnsPerHost: 900,
+					},
+					Kafka: config.EKKafkaConfig{
+						Brokers: "kafkabroker.kafka:9092",
+					},
+				},
 			},
 		},
 		{
-			name: "elevated max idle values",
+			name: "elevated max idle values (backwards-compatibility)",
 			data: map[string]string{"bootstrapServers": "kafkabroker.kafka:9092", "maxIdleConns": "9000", "maxIdleConnsPerHost": "600"},
 			expected: &KafkaConfig{
-				Brokers:             []string{"kafkabroker.kafka:9092"},
-				MaxIdleConns:        9000,
-				MaxIdleConnsPerHost: 600,
+				Brokers: []string{"kafkabroker.kafka:9092"},
+				EventingKafka: &config.EventingKafkaConfig{
+					CloudEvents: config.EKCloudEventConfig{
+						MaxIdleConns:        9000,
+						MaxIdleConnsPerHost: 600,
+					},
+					Kafka: config.EKKafkaConfig{
+						Brokers: "kafkabroker.kafka:9092",
+					},
+				},
+			},
+		},
+		{
+			name:     "invalid strings in configmap",
+			data:     map[string]string{"bootstrapServers": "kafkabroker.kafka:9092", "maxIdleConns": "invalid-int"},
+			getError: `failed to parse "maxIdleConns": strconv.Atoi: parsing "invalid-int": invalid syntax`,
+		},
+		{
+			name:     "empty string in brokers",
+			data:     map[string]string{"bootstrapServers": "kafkabroker.kafka:9092,"},
+			getError: "empty brokers value in configuration",
+		},
+		// Tests for the versioned/consolidated configmap are light, as the LoadSettings function has its own unit tests
+		{
+			name: "versioned, multiple brokers, empty sarama field",
+			data: map[string]string{
+				constants.VersionConfigKey:               kafkasarama.CurrentConfigVersion,
+				constants.EventingKafkaSettingsConfigKey: "kafka:\n  brokers: kafkabroker1.kafka:9092,kafkabroker2.kafka:9092",
+			},
+			expected: &KafkaConfig{
+				Brokers: []string{"kafkabroker1.kafka:9092", "kafkabroker2.kafka:9092"},
+				EventingKafka: &config.EventingKafkaConfig{
+					Channel: config.EKChannelConfig{
+						Dispatcher: config.EKDispatcherConfig{
+							EKKubernetesConfig: config.EKKubernetesConfig{
+								Replicas: 1,
+							},
+						},
+						Distributed: config.EKDistributedConfig{
+							Receiver: config.EKReceiverConfig{
+								EKKubernetesConfig: config.EKKubernetesConfig{
+									Replicas: 1,
+								},
+							},
+						},
+					},
+					CloudEvents: config.EKCloudEventConfig{
+						MaxIdleConns:        1000,
+						MaxIdleConnsPerHost: 100,
+					},
+					Kafka: config.EKKafkaConfig{
+						Brokers:             "kafkabroker1.kafka:9092,kafkabroker2.kafka:9092",
+						AuthSecretName:      kafkasarama.DefaultAuthSecretName,
+						AuthSecretNamespace: "knative-testing",
+					},
+					Sarama: config.EKSaramaConfig{
+						Config: saramaEmptyConfig,
+					},
+				},
 			},
 		},
 	}
@@ -296,7 +409,10 @@ func TestGetKafkaConfig(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Logf("Running %s", t.Name())
 
-			got, err := GetKafkaConfig(tc.data)
+			got, err := GetKafkaConfig(context.TODO(), tc.data,
+				func(context.Context, string, string) (*client.KafkaAuthConfig, error) {
+					return nil, nil
+				})
 
 			if tc.getError != "" {
 				if err == nil {
@@ -309,7 +425,7 @@ func TestGetKafkaConfig(t *testing.T) {
 				t.Errorf("Unexpected Config error. Expected nil. Actual '%v'", err)
 			}
 
-			if diff := cmp.Diff(tc.expected, got); diff != "" {
+			if diff := cmp.Diff(tc.expected, got, saramaIgnoreOpts...); diff != "" {
 				t.Errorf("unexpected Config (-want, +got) = %v", diff)
 			}
 
