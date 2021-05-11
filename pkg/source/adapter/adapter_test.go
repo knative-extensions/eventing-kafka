@@ -442,3 +442,195 @@ func TestAdapter_Start(t *testing.T) { // just increase code coverage
 	}
 	cancel()
 }
+
+func TestInitOffset(t *testing.T) {
+	testCases := map[string]struct {
+		topics       []string
+		topicOffsets map[string]map[int32]int64
+		cgOffsets    map[string]map[int32]int64
+		wantCommit   bool
+	}{
+		"one topic, one partition, initialized": {
+			topics: []string{"my-topic"},
+			topicOffsets: map[string]map[int32]int64{
+				"my-topic": {
+					0: 5,
+				},
+			},
+			cgOffsets: map[string]map[int32]int64{
+				"my-topic": {
+					0: 2,
+				},
+			},
+			wantCommit: false,
+		},
+		"one topic, one partition, uninitialized": {
+			topics: []string{"my-topic"},
+			topicOffsets: map[string]map[int32]int64{
+				"my-topic": {
+					0: 5,
+				},
+			},
+			cgOffsets: map[string]map[int32]int64{
+				"my-topic": {
+					0: -1,
+				},
+			},
+			wantCommit: true,
+		},
+		"several topics, several partitions, not all initialized": {
+			topics: []string{"my-topic", "my-topic-2", "my-topic-3"},
+			topicOffsets: map[string]map[int32]int64{
+				"my-topic":   {0: 5, 1: 7},
+				"my-topic-2": {0: 5, 1: 7, 2: 9},
+				"my-topic-3": {0: 5, 1: 7, 2: 2, 3: 10},
+			},
+			cgOffsets: map[string]map[int32]int64{
+				"my-topic":   {0: -1, 1: 7},
+				"my-topic-2": {0: 5, 1: -1, 2: -1},
+				"my-topic-3": {0: 5, 1: 7, 2: -1, 3: 10},
+			},
+			wantCommit: true,
+		},
+	}
+
+	for n, tc := range testCases {
+		t.Run(n, func(t *testing.T) {
+
+			broker := sarama.NewMockBroker(t, 1)
+			defer broker.Close()
+
+			group := "my-group"
+
+			offsetResponse := sarama.NewMockOffsetResponse(t).SetVersion(1)
+			for topic, partitions := range tc.topicOffsets {
+				for partition, offset := range partitions {
+					offsetResponse = offsetResponse.SetOffset(topic, partition, -1, offset)
+				}
+			}
+
+			offsetFetchResponse := sarama.NewMockOffsetFetchResponse(t).SetError(sarama.ErrNoError)
+			for topic, partitions := range tc.cgOffsets {
+				for partition, offset := range partitions {
+					offsetFetchResponse = offsetFetchResponse.SetOffset(group, topic, partition, offset, "", sarama.ErrNoError)
+				}
+			}
+
+			metadataResponse := sarama.NewMockMetadataResponse(t).
+				SetController(broker.BrokerID()).
+				SetBroker(broker.Addr(), broker.BrokerID())
+			for topic, partitions := range tc.topicOffsets {
+				for partition, _ := range partitions {
+					metadataResponse = metadataResponse.SetLeader(topic, partition, broker.BrokerID())
+				}
+			}
+
+			broker.SetHandlerByMap(map[string]sarama.MockResponse{
+				"OffsetRequest":      offsetResponse,
+				"OffsetFetchRequest": offsetFetchResponse,
+
+				"FindCoordinatorRequest": sarama.NewMockFindCoordinatorResponse(t).
+					SetCoordinator(sarama.CoordinatorGroup, group, broker),
+
+				"MetadataRequest": metadataResponse,
+			})
+
+			adapter := NewAdapter(context.Background(), NewEnvConfig(), nil, nil).(*Adapter)
+			adapter.config.ConsumerGroup = group
+			adapter.config.Topics = tc.topics
+
+			config := sarama.NewConfig()
+			config.Version = sarama.MaxVersion
+
+			fn := adapter.InitOffsets([]string{broker.Addr()}, config)
+			session := new(sampleConsumerSession)
+			err := fn(session)
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+
+			// Check uninitialized offsets have been processed.
+			for topic, partitions := range tc.cgOffsets {
+				for partition, offset := range partitions {
+					if offset == -1 {
+						got := session.GetOffset(topic, partition)
+
+						if got != tc.topicOffsets[topic][partition] {
+							t.Errorf("wanted partition offset %d, got %d", tc.topicOffsets[topic][partition], got)
+						}
+
+					}
+				}
+			}
+
+			if tc.wantCommit && !session.committed {
+				t.Errorf("wanted offsets to be committed")
+			}
+
+			if !tc.wantCommit && session.committed {
+				t.Errorf("wanted offsets to not be committed")
+			}
+		})
+	}
+}
+
+type sampleConsumerSession struct {
+	offsets   map[string]map[int32]int64
+	committed bool
+}
+
+func (s *sampleConsumerSession) Claims() map[string][]int32 {
+	return nil
+}
+
+func (s *sampleConsumerSession) MemberID() string {
+	return ""
+}
+
+func (s *sampleConsumerSession) GenerationID() int32 {
+	return int32(0)
+}
+
+func (s *sampleConsumerSession) GetOffset(topic string, partition int32) int64 {
+	if s.offsets == nil {
+		return -2
+	}
+	partitions, ok := s.offsets[topic]
+	if !ok {
+		return -2
+	}
+	offset, ok := partitions[partition]
+	if !ok {
+		return -2
+	}
+	return offset
+}
+
+func (s *sampleConsumerSession) MarkOffset(topic string, partition int32, offset int64, metadata string) {
+	if s.offsets == nil {
+		s.offsets = make(map[string]map[int32]int64)
+	}
+
+	partitions, ok := s.offsets[topic]
+	if !ok {
+		partitions = make(map[int32]int64)
+		s.offsets[topic] = partitions
+	}
+	partitions[partition] = offset
+}
+
+func (s *sampleConsumerSession) Commit() {
+	s.committed = true
+}
+
+func (s *sampleConsumerSession) ResetOffset(topic string, partition int32, offset int64, metadata string) {
+
+}
+
+func (s *sampleConsumerSession) MarkMessage(msg *sarama.ConsumerMessage, metadata string) {
+
+}
+
+func (s *sampleConsumerSession) Context() context.Context {
+	return nil
+}

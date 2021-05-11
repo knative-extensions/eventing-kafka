@@ -125,6 +125,8 @@ func (a *Adapter) Start(ctx context.Context) (err error) {
 		return fmt.Errorf("failed to create the config: %w", err)
 	}
 
+	// Preemptively initialize consumer group offsets to be able to mark the source as ready
+	// as soon as possible.
 	if config.Consumer.Offsets.Initial == sarama.OffsetNewest {
 		options = append(options, consumer.WithOffsetInitializer(a.InitOffsets(addrs, config)))
 	}
@@ -231,6 +233,7 @@ func (a *Adapter) Cleanup(sess sarama.ConsumerGroupSession) {
 	}
 }
 
+// InitOffsets makes sure all consumer group offsets are set.
 func (a *Adapter) InitOffsets(addrs []string, config *sarama.Config) func(sarama.ConsumerGroupSession) error {
 	return func(session sarama.ConsumerGroupSession) error {
 		// We want to make sure that ALL consumer group offsets are set to avoid
@@ -238,7 +241,6 @@ func (a *Adapter) InitOffsets(addrs []string, config *sarama.Config) func(sarama
 		// consumed from ALL partitions.
 		// If not, an event sent to a partition with an uninitialized offset
 		// will not be forwarded when the session is closed (or a rebalancing is in progress).
-
 		kafkaClient, err := sarama.NewClient(addrs, config)
 		if err != nil {
 			return fmt.Errorf("failed to create a Kafka client: %w", err)
@@ -249,9 +251,10 @@ func (a *Adapter) InitOffsets(addrs []string, config *sarama.Config) func(sarama
 		if err != nil {
 			return fmt.Errorf("failed to create a Kafka admin client: %w", err)
 		}
+		defer kafkaAdminClient.Close()
 
+		// Retrieve all partitions
 		topicPartitions := make(map[string][]int32)
-
 		for _, topic := range a.config.Topics {
 			partitions, err := kafkaClient.Partitions(topic)
 
@@ -262,10 +265,12 @@ func (a *Adapter) InitOffsets(addrs []string, config *sarama.Config) func(sarama
 			topicPartitions[topic] = partitions
 		}
 
+		// Look for uninitialized offset (-1)
 		offsets, err := kafkaAdminClient.ListConsumerGroupOffsets(a.config.ConsumerGroup, topicPartitions)
 		if err != nil {
 			return err
 		}
+
 		dirty := false
 		for topic, partitions := range offsets.Blocks {
 			for partition, block := range partitions {
@@ -287,10 +292,11 @@ func (a *Adapter) InitOffsets(addrs []string, config *sarama.Config) func(sarama
 
 		if dirty {
 			session.Commit()
-			a.logger.Info("offset committed")
+
+			a.logger.Infow("consumer group offsets committed", zap.String("consumergroup", a.config.ConsumerGroup))
 		}
 
-		// At this stage the KafkaSource instance is considered Ready.
+		// At this stage the KafkaSource instance is considered Ready (TODO: update KafkaSource status)
 		return nil
 	}
 }
