@@ -24,7 +24,7 @@ import (
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/tools/cache"
+	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/reconciler"
 
@@ -44,11 +44,10 @@ var (
 
 // Reconciler Implements controller.Reconciler for ResetOffset Resources
 type Reconciler struct {
-	kafkaBrokers        []string
-	saramaConfig        *sarama.Config
-	resetoffsetInformer cache.SharedIndexInformer
-	resetoffsetLister   kafkalisters.ResetOffsetLister
-	refMapper           refmappers.ResetOffsetRefMapper
+	kafkaBrokers      []string
+	saramaConfig      *sarama.Config
+	resetoffsetLister kafkalisters.ResetOffsetLister
+	refMapper         refmappers.ResetOffsetRefMapper
 }
 
 // ReconcileKind Implements The Reconciler Interface & Is Responsible For Performing The Reconciliation (Creation)
@@ -56,39 +55,35 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, resetOffset *kafkav1alph
 
 	// Get The Logger From Context
 	logger := logging.FromContext(ctx).Desugar()
+	logger.Debug("<==========  START RESET-OFFSET RECONCILIATION  ==========>")
 
-	// TODO - REMOVE
-	logger.Info("STATUS 1",
-		zap.Bool("IsInitiated", resetOffset.Status.IsInitiated()),
-		zap.Bool("IsCompleted", resetOffset.Status.IsCompleted()),
-		zap.Bool("IsSucceeded", resetOffset.Status.IsSucceeded()))
+	// Get The EventRecorder From Context
+	eventRecorder := controller.GetEventRecorder(ctx)
 
 	// Ignore Previously Initiated ResetOffset Instances
-	if resetOffset == nil || resetOffset.Status.IsInitiated() || resetOffset.Status.IsCompleted() {
+	if resetOffset.Status.IsInitiated() || resetOffset.Status.IsCompleted() {
 		logger.Debug("Skipping reconciliation of previously executed ResetOffset instance")
-		return reconciler.NewEvent(corev1.EventTypeNormal, ResetOffsetSkipped.String(), "Skipped \"%s/%s\"", resetOffset.Namespace, resetOffset.Name)
+		return reconciler.NewEvent(corev1.EventTypeNormal, ResetOffsetSkipped.String(), "Skipped previously executed ResetOffset")
 	}
-	logger.Debug("<==========  START RESET-OFFSET RECONCILIATION  ==========>")
 
 	// Set Defaults & Verify The ResetOffset Is Valid
 	resetOffset.SetDefaults(ctx)
 	if err := resetOffset.Validate(ctx); err != nil {
-		logger.Error("Invalid ResetOffset", zap.Error(err))
+		logger.Error("Received invalid ResetOffset", zap.Error(err))
 		return err
 	}
 
 	// Reset The ResetOffset's Status Conditions To Unknown
 	resetOffset.Status.InitializeConditions()
 
-	// TODO - REMOVE
-	logger.Info("STATUS 2",
-		zap.Bool("IsInitiated", resetOffset.Status.IsInitiated()),
-		zap.Bool("IsCompleted", resetOffset.Status.IsCompleted()),
-		zap.Bool("IsSucceeded", resetOffset.Status.IsSucceeded()))
-
-	// Initialize A New Sarama Client
+	// Initialize A New Sarama Client Every Time
+	//
+	// ResetOffset is an infrequently used feature so there is no need for reuse, and
+	// there are  "broken-pipe" failures (non-recoverable) after periods of inactivity.
+	//   https://github.com/Shopify/sarama/issues/1162
+	//   https://github.com/Shopify/sarama/issues/866
 	saramaClient, err := sarama.NewClient(r.kafkaBrokers, r.saramaConfig)
-	if err != nil {
+	if saramaClient == nil || err != nil {
 		logger.Error("Failed to create a new Sarama Client", zap.Error(err))
 		return err
 	}
@@ -97,47 +92,52 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, resetOffset *kafkav1alph
 	// Map The ResetOffset's Ref To Kafka Topic Name / ConsumerGroup ID
 	topic, group, err := r.refMapper.MapRef(resetOffset)
 	if err != nil {
-		resetOffset.Status.MarkRefMappedFailed("FailedToMapRef", "TODO") // TODO - message - !!!
-		logger.Error("Failed to map ResetOffset.Spec.Ref to Kafka Topic name / ConsumerGroup ID", zap.Error(err))
+		logger.Error("Failed to map ResetOffset.Spec.Ref to Kafka Topic name and ConsumerGroup ID", zap.Error(err))
+		resetOffset.Status.MarkRefMappedFailed("FailedToMapRef", "Failed to map 'ref' to Kafka Topic and Group: %v", err)
+		eventRecorder.Event(resetOffset, corev1.EventTypeWarning, ResetOffsetMappedRef.String(), "Failed to map 'ref' to Kafka Topic and Group")
 		return err
 	}
+	logger.Info("Successfully mapped ResetOffset.Spec.Ref to Kafka Topic name and ConsumerGroup ID", zap.String("Topic", topic), zap.String("Group", group))
 	resetOffset.Status.SetTopic(topic)
 	resetOffset.Status.SetGroup(group)
 	resetOffset.Status.MarkRefMappedTrue()
+	eventRecorder.Event(resetOffset, corev1.EventTypeNormal, ResetOffsetMappedRef.String(), "Successfully mapped 'ref' to Kafka Topic and Group")
 
 	// Parse The Sarama Offset Time From ResetOffset Spec
-	time, err := resetOffset.Spec.ParseSaramaOffsetTime()
+	offsetTime, err := resetOffset.Spec.ParseSaramaOffsetTime()
 	if err != nil {
-		logger.Error("Failed to parse Sarama Offset Time (millis) from ResetOffset Spec", zap.Error(err))
+		logger.Error("Failed to parse Sarama Offset Time from ResetOffset Spec", zap.Error(err))
 		return err // Should never happen assuming Validation is in place
 	}
+	logger.Info("Successfully parsed Sarama Offset time from ResetOffset Spec", zap.Int64("Time (millis)", offsetTime))
+	eventRecorder.Event(resetOffset, corev1.EventTypeNormal, ResetOffsetParsedTime.String(), "Successfully parsed Sarama offset time from Spec")
 
 	// TODO - Map ResetOffset.Spec.Ref to "owning" Dispatcher Deployment/Service (Consolidated = one, Distributed = many)
 
 	// TODO - Send "Initiate" Message to Dispatcher Replicas to lock mutext and start process.
 	resetOffset.Status.MarkResetInitiatedTrue()
 
-	// TODO - Send "Stop" Message to Dispatcher Replicas to stop ConsumerGroups (Initiate & Stop might be the same message)
+	// TODO - Send "Stop" Message to Dispatcher Replicas to stop ConsumerGroups
 	resetOffset.Status.MarkConsumerGroupsStoppedTrue()
 
 	// Update The Sarama Offsets & Update ResetOffset CRD With OffsetMappings
-	offsetMappings, err := r.updateOffsets(ctx, saramaClient, topic, group, time)
+	offsetMappings, err := r.updateOffsets(ctx, saramaClient, topic, group, offsetTime)
 	if err != nil {
-		logger.Error("Failed to update Offsets", zap.Error(err))
-		resetOffset.Status.MarkOffsetsUpdatedFailed("FailedToUpdateOffsets", "TODO") // TODO - message - !!!
-		// TODO reconciler.NewEvent(corev1.EventTypeWarning, "Reconciliation", "Failed to reconcile \"%s/%s\"", resetOffset.Namespace, resetOffset.Name)
+		logger.Error("Failed to update Offsets of one or more partitions", zap.Error(err))
+		resetOffset.Status.MarkOffsetsUpdatedFailed("FailedToUpdateOffsets", "Failed to update offsets of one or more partitions: %v", err)
+		eventRecorder.Event(resetOffset, corev1.EventTypeWarning, ResetOffsetUpdatedOffsets.String(), "Failed to update offsets of one or more partitions")
 		return err
 	}
+	logger.Info("Successfully updated Offsets of all partitions")
 	resetOffset.Status.MarkOffsetsUpdatedTrue()
 	resetOffset.Status.SetPartitions(offsetMappings)
+	eventRecorder.Event(resetOffset, corev1.EventTypeNormal, ResetOffsetUpdatedOffsets.String(), "Successfully updated offsets of all partitions")
 
 	// TODO - Send "Start" Message to Dispatcher Replicas to restart ConsumerGroups
-	resetOffset.Status.MarkConsumerGroupsStartedFailed("FailedToStartConsumerGroup", "failed to start consumergroup 123")
-
-	// TODO - if error do rollback/restart!!!???
+	resetOffset.Status.MarkConsumerGroupsStartedTrue()
 
 	// Return Reconciled Success Event
-	return reconciler.NewEvent(corev1.EventTypeNormal, ResetOffsetReconciled.String(), "Reconciled \"%s/%s\" successfully", resetOffset.Namespace, resetOffset.Name)
+	return reconciler.NewEvent(corev1.EventTypeNormal, ResetOffsetReconciled.String(), "Reconciled successfully")
 }
 
 // FinalizeKind Implements The Finalizer Interface & Is Responsible For Performing The Finalization (Deletion)
@@ -145,21 +145,19 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, resetOffset *kafkav1alpha
 
 	// Get The Logger From Context
 	logger := logging.FromContext(ctx)
-
-	// TODO - this is bad?   won't be able to remove incomplete (succeeded != unknown) resetoffsets ?  is that ok?
-	//        trying to prevent removing in-progress ResetOffset?
-	// Ignore Previously Initiated ResetOffset Instances
-	if resetOffset == nil || (resetOffset.Status.IsInitiated() && !resetOffset.Status.IsCompleted()) {
-		logger.Debug("Skipping finalization of non-completed ResetOffset instance")
-		return nil
-	}
 	logger.Debug("<==========  START RESET-OFFSET FINALIZATION  ==========>")
 
-	// TODO - Implement Finalizer
-	logger.Info("FinalizeKind() - TODO - IMPLEMENT ME !")
+	// Do NOT Finalize ResetOffset Instances That Are "Executing"
+	if resetOffset.Status.IsInitiated() && !resetOffset.Status.IsCompleted() {
+		logger.Debug("Skipping finalization of in-progress ResetOffset instance")
+		return nil
+	}
+
+	// No-Op Finalization - Nothing To Do
+	logger.Info("No-Op Finalization Successful")
 
 	// Return Finalized Success Event
-	return reconciler.NewEvent(corev1.EventTypeNormal, "Finalization", "Finalized \"%s\" successfully", resetOffset.Name)
+	return reconciler.NewEvent(corev1.EventTypeNormal, ResetOffsetFinalized.String(), "Finalized successfully")
 }
 
 // safeCloseSaramaClient will attempt to close the specified Sarama Client and will reset the Reconciler reference
@@ -172,12 +170,12 @@ func (r *Reconciler) safeCloseSaramaClient(ctx context.Context, client sarama.Cl
 	}
 }
 
-// TODO - This function will need to be refactored once the new "common" ConfigMap implementation is in place!
+// TODO - Refactor once the new "common" ConfigMap implementation is in place - currently supports distributed implementation ConfigMap!
 // updateKafkaConfig is the callback function that handles changes to the ConfigMap
 func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.ConfigMap) {
 
 	// Get The Logger From Context
-	logger := logging.FromContext(ctx)
+	logger := logging.FromContext(ctx).Desugar()
 
 	// Validate Reconciler Reference (Sometimes nil on startup and can be ignored)
 	if r == nil {
@@ -195,7 +193,7 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 
 	// Validate ConfigMap.Data
 	if configMap.Data == nil {
-		logger.Warn("Ignoring nil ConfigMap.Data") // TODO - this was Fatal() in other implementations?
+		logger.Warn("Ignoring nil ConfigMap.Data")
 		return
 	}
 
@@ -217,7 +215,7 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 	saramaSettingsYamlString := configMap.Data[commonconstants.SaramaSettingsConfigKey]
 
 	// Create A Kafka Auth Config From Current Credentials (Secret Data Takes Precedence Over ConfigMap)
-	var kafkaAuthCfg *client.KafkaAuthConfig // TODO - temporarily using nil for testing locally with Strimzi - will use new configmap structs ; )
+	var kafkaAuthCfg *client.KafkaAuthConfig // TODO - temporarily using nil for testing locally with Strimzi -  use new ConfigMap when available.
 
 	// Build A New Sarama Config With Auth From Secret And YAML Config From ConfigMap
 	saramaConfig, err := client.NewConfigBuilder().

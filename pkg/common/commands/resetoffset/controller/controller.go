@@ -49,9 +49,8 @@ func NewControllerFactory(refMapperFactory refmappers.ResetOffsetRefMapperFactor
 
 		// Create A ResetOffset Reconciler
 		reconciler := &Reconciler{
-			resetoffsetInformer: resetoffsetInformer.Informer(),
-			resetoffsetLister:   resetoffsetInformer.Lister(),
-			refMapper:           refMapper,
+			resetoffsetLister: resetoffsetInformer.Lister(),
+			refMapper:         refMapper,
 		}
 
 		// Setup Reconciler To Watch The Kafka ConfigMap For Changes
