@@ -124,8 +124,10 @@ func (a *autoscaler) doautoscale(ctx context.Context, attemptScaleDown bool, pen
 		// The number of replicas may be lower than the last ordinal, for instance
 		// when the statefulset is manually scaled down. In that case, replicas above
 		// scale.Spec.Replicas have not been considered when scheduling vreplicas.
-		// Adjust accordingly
-		pending -= state.freeCapacity()
+		// Adjust accordingly (applicable only for MAXFILLUP scheduling policy and not for HA)
+		if state.schedulerPolicy != EVENSPREAD {
+			pending -= state.freeCapacity()
+		}
 
 		// Still need more?
 		if pending > 0 {

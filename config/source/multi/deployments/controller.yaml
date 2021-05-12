@@ -47,11 +47,15 @@ spec:
 
         # How often (in seconds) the autoscaler tries to scale down the statefulset.
         - name: AUTOSCALER_REFRESH_PERIOD
-          value: '10'
+          value: '100'
 
         # The number of virtual replicas this pod can handle.
         - name: POD_CAPACITY
           value: '100'
+
+        # The scheduling policy type for placing vreplicas on pods (see type SchedulerPolicyType for enum list)
+        - name: SCHEDULER_POLICY_TYPE
+          value: 'MAXFILLUP'
 
         resources:
           requests:
