@@ -15,7 +15,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: knative-kafka-post-install-job-role
+  name: knative-kafka-eventing-post-install-job-role
   labels:
     eventing.knative.dev/release: devel
 rules:
