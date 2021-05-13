@@ -76,19 +76,6 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, resetOffset *kafkav1alph
 	// Reset The ResetOffset's Status Conditions To Unknown
 	resetOffset.Status.InitializeConditions()
 
-	// Initialize A New Sarama Client Every Time
-	//
-	// ResetOffset is an infrequently used feature so there is no need for reuse, and
-	// there are  "broken-pipe" failures (non-recoverable) after periods of inactivity.
-	//   https://github.com/Shopify/sarama/issues/1162
-	//   https://github.com/Shopify/sarama/issues/866
-	saramaClient, err := sarama.NewClient(r.kafkaBrokers, r.saramaConfig)
-	if saramaClient == nil || err != nil {
-		logger.Error("Failed to create a new Sarama Client", zap.Error(err))
-		return err
-	}
-	defer r.safeCloseSaramaClient(ctx, saramaClient)
-
 	// Map The ResetOffset's Ref To Kafka Topic Name / ConsumerGroup ID
 	topic, group, err := r.refMapper.MapRef(resetOffset)
 	if err != nil {
@@ -121,7 +108,8 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, resetOffset *kafkav1alph
 	resetOffset.Status.MarkConsumerGroupsStoppedTrue()
 
 	// Update The Sarama Offsets & Update ResetOffset CRD With OffsetMappings
-	offsetMappings, err := r.updateOffsets(ctx, saramaClient, topic, group, offsetTime)
+	// TODO offsetMappings, err := UpdateOffsetsFn(logger, r.kafkaBrokers, r.saramaConfig, topic, group, offsetTime)
+	offsetMappings, err := r.reconcileOffsets(ctx, topic, group, offsetTime)
 	if err != nil {
 		logger.Error("Failed to update Offsets of one or more partitions", zap.Error(err))
 		resetOffset.Status.MarkOffsetsUpdatedFailed("FailedToUpdateOffsets", "Failed to update offsets of one or more partitions: %v", err)

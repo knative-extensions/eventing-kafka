@@ -28,18 +28,67 @@ import (
 	kafkav1alpha1 "knative.dev/eventing-kafka/pkg/apis/kafka/v1alpha1"
 )
 
-// updateOffsets performs an update of all Partitions Offsets for the specified
-// Topic / Group and returns OffsetMappings representing the old/new state.
-func (r *Reconciler) updateOffsets(ctx context.Context, saramaClient sarama.Client, topic string, group string, offsetTime int64) ([]kafkav1alpha1.OffsetMapping, error) {
+// SaramaNewClientFnType defines the Sarama NewClient() function signature.
+type SaramaNewClientFnType func([]string, *sarama.Config) (sarama.Client, error)
 
-	// Get The Logger From Context & And Enhance With Topic
+// SaramaNewClientFn is a reference to the Sarama NewClient() function used
+// when reconciling offsets which facilitates stubbing in unit tests.
+var SaramaNewClientFn SaramaNewClientFnType = sarama.NewClient
+
+// SaramaNewOffsetManagerFromClientFnType defines the Sarama NewOffsetManagerFromClient() function signature.
+type SaramaNewOffsetManagerFromClientFnType func(group string, client sarama.Client) (sarama.OffsetManager, error)
+
+// SaramaNewOffsetManagerFromClientFn is a reference to the Sarama NewOffsetManagerFromClient()
+// function used when reconciling offsets which facilitates stubbing in unit tests.
+var SaramaNewOffsetManagerFromClientFn SaramaNewOffsetManagerFromClientFnType = sarama.NewOffsetManagerFromClient
+
+// updateOffsetsError is the general error for any failure in updating offsets, exposed for test use.
+var updateOffsetsError = fmt.Errorf("failed to update all Offsets, skipping commit")
+
+// TODO - old impl for separating from reconciler !!!
+//// UpdateOffsetsFnType defines a function type for repositioning Kafka Offsets of all Partitions of a Topic/Group to the specified timestamp (millis).
+//type UpdateOffsetsFnType func(logger *zap.Logger, brokers []string, config *sarama.Config, topicName string, groupId string, offsetTime int64) ([]kafkav1alpha1.OffsetMapping, error)
+//
+//// UpdateOffsetsFn is the UpdateOffsetsFnType instance that will be used by the reconciler which allows for test mocking.
+//var UpdateOffsetsFn UpdateOffsetsFnType = UpdateOffsetsFnImpl
+//
+//// UpdateOffsetsFnImpl is the official UpdateOffsetsFnType implementation used
+//// in production. It will update the Offsets of all Partitions for the
+//// specified Topic / ConsumerGroup to the Offset value corresponding to the
+//// specified offsetTime (millis since epoch) and return OffsetMappings of the
+//// old/new state.  An error will be returned and the Offsets will not be
+//// committed if any problems occur.
+// TODO func UpdateOffsetsFnImpl(logger *zap.Logger, brokers []string, config *sarama.Config, topicName string, groupId string, offsetTime int64) ([]kafkav1alpha1.OffsetMapping, error) {
+
+// reconcileOffsets updates the Offsets of all Partitions for the specified
+// Topic / ConsumerGroup to the Offset value corresponding to the specified
+// offsetTime (millis since epoch) and return OffsetMappings of the old/new
+// state.  An error will be returned and the Offsets will not be committed
+// if any problems occur.
+func (r *Reconciler) reconcileOffsets(ctx context.Context, topicName string, groupId string, offsetTime int64) ([]kafkav1alpha1.OffsetMapping, error) {
+
+	// Get The Logger From The Context & Enhance The With Parameters
 	logger := logging.FromContext(ctx).Desugar().With(
-		zap.String("Topic", topic),
-		zap.String("Group", group),
+		zap.String("Topic", topicName),
+		zap.String("Group", groupId),
 		zap.Int64("Time", offsetTime))
 
+	// Initialize A New Sarama Client
+	//
+	// ResetOffset is an infrequently used feature so there is no need for
+	// reuse, and there are also "broken-pipe" failures (non-recoverable)
+	// after periods of inactivity to deal with...
+	//   https://github.com/Shopify/sarama/issues/1162
+	//   https://github.com/Shopify/sarama/issues/866
+	saramaClient, err := SaramaNewClientFn(r.kafkaBrokers, r.saramaConfig)
+	defer safeCloseSaramaClient(logger, saramaClient)
+	if saramaClient == nil || err != nil {
+		logger.Error("Failed to create a new Sarama Client", zap.Error(err))
+		return nil, err
+	}
+
 	// Create An OffsetManager For The Specified ConsumerGroup
-	offsetManager, err := sarama.NewOffsetManagerFromClient(group, saramaClient)
+	offsetManager, err := SaramaNewOffsetManagerFromClientFn(groupId, saramaClient)
 	defer safeCloseOffsetManager(logger, offsetManager)
 	if err != nil {
 		logger.Error("Failed to create OffsetManager for ConsumerGroup", zap.Error(err))
@@ -47,7 +96,7 @@ func (r *Reconciler) updateOffsets(ctx context.Context, saramaClient sarama.Clie
 	}
 
 	// Get The Partitions Of The Specified Kafka Topic
-	partitions, err := saramaClient.Partitions(topic)
+	partitions, err := saramaClient.Partitions(topicName)
 	if err != nil {
 		logger.Error("Failed to determine Partitions for Topic", zap.Error(err))
 		return nil, err
@@ -65,12 +114,14 @@ func (r *Reconciler) updateOffsets(ctx context.Context, saramaClient sarama.Clie
 		partitionLogger := logger.With(zap.Int32("Partition", partition))
 
 		// Update The Partition's Offset (Process all partitions even on error in order to populate OffsetMappings for CRD)
-		offsetMapping, err := r.updateOffset(partitionLogger, saramaClient, offsetManager, topic, partition, offsetTime)
-		if offsetMapping == nil || err != nil {
-			partitionLogger.Error("Failed to update offset", zap.Error(err))
+		offsetMapping, updateErr := updateOffset(partitionLogger, saramaClient, offsetManager, topicName, partition, offsetTime)
+		if offsetMapping != nil {
+			offsetMappings[index] = *offsetMapping
+		}
+		if updateErr != nil {
+			partitionLogger.Error("Failed to update offset", zap.Error(updateErr))
 			commitOffsets = false
 		} else {
-			offsetMappings[index] = *offsetMapping
 			partitionLogger.Info("Successfully updated offset", zap.Any("OffsetMapping", offsetMapping))
 		}
 	}
@@ -82,13 +133,13 @@ func (r *Reconciler) updateOffsets(ctx context.Context, saramaClient sarama.Clie
 		return offsetMappings, nil
 	} else {
 		logger.Error("Failed to update all Offsets - skipping Commit")
-		return offsetMappings, fmt.Errorf("failed to update all Offsets, skipping commit")
+		return offsetMappings, updateOffsetsError
 	}
 }
 
 // updateOffset performs the update of a single Partition's Offset and
 // returns an OffsetMapping representing the old/new state.
-func (r *Reconciler) updateOffset(logger *zap.Logger,
+func updateOffset(logger *zap.Logger,
 	saramaClient sarama.Client,
 	offsetManager sarama.OffsetManager,
 	topic string,
@@ -141,6 +192,16 @@ func (r *Reconciler) updateOffset(logger *zap.Logger,
 // formatOffsetMetaData returns a "metadata" string, suitable for use with MarkOffset/ResetOffset, for the specified time.
 func formatOffsetMetaData(time int64) string {
 	return fmt.Sprintf("resetoffset.%d", time)
+}
+
+// safeCloseSaramaClient will attempt to close the specified Sarama Client and will reset the Reconciler reference
+func safeCloseSaramaClient(logger *zap.Logger, client sarama.Client) {
+	if client != nil && !client.Closed() {
+		err := client.Close()
+		if err != nil {
+			logger.Warn("Failed to close Sarama Client", zap.Error(err))
+		}
+	}
 }
 
 // safeCloseOffsetManager wraps the Sarama OffsetManager.Close() call for safe usage as a defer statement
