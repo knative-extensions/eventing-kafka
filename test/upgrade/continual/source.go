@@ -78,8 +78,8 @@ func (k kafkaSourceSut) Deploy(ctx sut.Context, destination duckv1.Destination) 
 		toObjectReference(destination),
 	))
 	return kafkaTopicEndpoint{
-		bootstrapServers: kafkaBootstrapUrlPlain,
-		topicName:        topicName,
+		BootstrapServers: kafkaBootstrapUrlPlain,
+		TopicName:        topicName,
 	}
 }
 

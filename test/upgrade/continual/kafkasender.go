@@ -83,7 +83,7 @@ func (k *kafkaSender) SendEvent(ce cloudevents.Event, rawEndpoint interface{}) e
 	}
 	message := binding.ToMessage(&ce)
 	kafkaProducerMessage := &sarama.ProducerMessage{
-		Topic: endpoint.topicName,
+		Topic: endpoint.TopicName,
 	}
 	transformers := make([]binding.Transformer, 0)
 	err = protocolkafka.WriteProducerMessage(k.ctx, message, kafkaProducerMessage, transformers...)
@@ -95,7 +95,7 @@ func (k *kafkaSender) SendEvent(ce cloudevents.Event, rawEndpoint interface{}) e
 		return fmt.Errorf("%w: %v", ErrCantSend, err)
 	}
 	k.log.Infof("Event %s has been send to kafka topic %s (partition: %d, offset: %d)",
-		ce.ID(), endpoint.topicName, part, offset)
+		ce.ID(), endpoint.TopicName, part, offset)
 	return nil
 }
 
@@ -105,12 +105,12 @@ type kafkaSender struct {
 }
 
 type kafkaTopicEndpoint struct {
-	bootstrapServers string
-	topicName        string
+	BootstrapServers string
+	TopicName        string
 }
 
 func (e kafkaTopicEndpoint) bootstrapServersSlice() []string {
-	return strings.Split(e.bootstrapServers, ",")
+	return strings.Split(e.BootstrapServers, ",")
 }
 
 func castAsTopicEndpoint(endpoint interface{}) (kafkaTopicEndpoint, error) {
@@ -118,16 +118,16 @@ func castAsTopicEndpoint(endpoint interface{}) (kafkaTopicEndpoint, error) {
 	if !ok {
 		return kafkaTopicEndpoint{}, ErrIllegalEndpointFormat
 	}
-	servers := m["bootstrapServers"]
+	servers := m["BootstrapServers"]
 	if servers == "" {
 		return kafkaTopicEndpoint{}, ErrIllegalEndpointFormat
 	}
-	topic := m["topicName"]
+	topic := m["TopicName"]
 	if topic == "" {
 		return kafkaTopicEndpoint{}, ErrIllegalEndpointFormat
 	}
 	return kafkaTopicEndpoint{
-		bootstrapServers: servers,
-		topicName:        topic,
+		BootstrapServers: servers,
+		TopicName:        topic,
 	}, nil
 }

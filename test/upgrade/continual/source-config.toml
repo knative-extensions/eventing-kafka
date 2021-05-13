@@ -2,8 +2,8 @@
 [sender]
 interval = {{ .Config.Interval.Nanoseconds }}
   [sender.address]
-    bootstrapServers = '{{- .Endpoint.bootstrapServers -}}'
-    topicName = '{{- .Endpoint.topicName -}}'
+    bootstrapServers = '{{- .Endpoint.BootstrapServers -}}'
+    topicName = '{{- .Endpoint.TopicName -}}'
 
 [forwarder]
 target = 'http://wathola-receiver.{{- .Namespace -}}.svc.cluster.local'
