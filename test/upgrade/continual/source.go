@@ -30,9 +30,10 @@ import (
 )
 
 const (
-	kafkaBootstrapUrlPlain = "my-cluster-kafka-bootstrap.kafka.svc:9092"
-	kafkaClusterName       = "my-cluster"
-	kafkaClusterNamespace  = "kafka"
+	kafkaBootstrapUrlPlain   = "my-cluster-kafka-bootstrap.kafka.svc:9092"
+	kafkaClusterName         = "my-cluster"
+	kafkaClusterNamespace    = "kafka"
+	sourceConfigTemplatePath = "test/upgrade/continual/source-config.toml"
 )
 
 // SourceTest tests source operation in continual manner during the
@@ -43,6 +44,7 @@ func SourceTest(opts *TestOptions) pkgupgrade.BackgroundOperation {
 		"SourceContinualTest",
 		ensureKafkaSender(opts),
 		&kafkaSourceSut{},
+		sourceConfigTemplatePath,
 	)
 }
 

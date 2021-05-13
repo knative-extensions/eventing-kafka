@@ -35,6 +35,10 @@ import (
 	pkgupgrade "knative.dev/pkg/test/upgrade"
 )
 
+const (
+	channelConfigTemplatePath = "test/upgrade/continual/channel-config.toml"
+)
+
 // ChannelTest tests channel operation in continual manner during the
 // whole upgrade and downgrade process asserting that all event are propagated
 // well.
@@ -43,6 +47,7 @@ func ChannelTest(opts *TestOptions) pkgupgrade.BackgroundOperation {
 		"ChannelContinualTest",
 		opts,
 		channelSut(opts.ChannelTypeMeta),
+		channelConfigTemplatePath,
 	)
 }
 
@@ -54,6 +59,7 @@ func BrokerBackedByChannelTest(opts *TestOptions) pkgupgrade.BackgroundOperation
 		"BrokerBackedByChannelContinualTest",
 		opts,
 		brokerBackedByChannelSut(opts.ChannelTypeMeta),
+		channelConfigTemplatePath,
 	)
 }
 

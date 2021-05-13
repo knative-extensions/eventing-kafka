@@ -17,6 +17,8 @@ limitations under the License.
 package continual
 
 import (
+	"fmt"
+
 	"github.com/kelseyhightower/envconfig"
 	"knative.dev/eventing/test/upgrade/prober"
 	"knative.dev/eventing/test/upgrade/prober/sut"
@@ -27,10 +29,15 @@ func continualVerification(
 	testname string,
 	opts *TestOptions,
 	defaultSut sut.SystemUnderTest,
+	configTemplate string,
 ) pkgupgrade.BackgroundOperation {
 	return prober.NewContinualVerification(
 		testname,
-		verificationOptions(opts, resolveSut(testname, opts, defaultSut)),
+		verificationOptions(
+			opts,
+			resolveSut(testname, opts, defaultSut),
+			configTemplate,
+		),
 	)
 }
 
@@ -52,11 +59,12 @@ func resolveSut(
 func verificationOptions(
 	opts *TestOptions,
 	theSut sut.SystemUnderTest,
+	configTemplate string,
 ) prober.ContinualVerificationOptions {
 	return prober.ContinualVerificationOptions{
 		Configurators: append(
 			opts.Configurators,
-			configurator(opts, theSut),
+			configurator(opts, theSut, configTemplate),
 		),
 		ClientOptions: opts.ClientOptions,
 	}
@@ -65,6 +73,7 @@ func verificationOptions(
 func configurator(
 	opts *TestOptions,
 	theSut sut.SystemUnderTest,
+	configTemplate string,
 ) prober.Configurator {
 	return func(config *prober.Config) error {
 		var err error
@@ -74,7 +83,8 @@ func configurator(
 		}
 		config.SystemUnderTest = theSut
 		// TODO: knative/eventing#5176 - this is cumbersome
-		config.ConfigTemplate = "../../../../../../test/upgrade/continual/channel-config.toml"
+		config.ConfigTemplate = fmt.Sprintf("../../../../../../%s",
+			configTemplate)
 		// envconfig.Process invocation is repeated from within prober.NewConfig to
 		// make sure every knob is configurable, but using defaults from Eventing
 		// Kafka instead of Core. The prefix is also changed.
