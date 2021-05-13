@@ -26,7 +26,7 @@ import (
 // process asserting that all event are propagated well.
 func ChannelContinualTests(opts *continual.TestOptions) []pkgupgrade.BackgroundOperation {
 	opts = fillInDefaults(opts)
-	return []pkgupgrade.BackgroundOperation {
+	return []pkgupgrade.BackgroundOperation{
 		continual.ChannelTest(opts),
 		continual.BrokerBackedByChannelTest(opts),
 	}
