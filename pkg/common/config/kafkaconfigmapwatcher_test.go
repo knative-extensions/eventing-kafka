@@ -28,7 +28,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	"knative.dev/eventing-kafka/pkg/common/constants"
-	"knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/injection/sharedmain"
@@ -52,7 +51,7 @@ func TestInitializeKafkaConfigMapWatcher(t *testing.T) {
 	commontesting.SetTestEnvironment(t)
 
 	// Create A Test Sarama ConfigMap For The InitializeKafkaConfigMapWatcher() Call To Watch
-	configMap := commontesting.GetTestSaramaConfigMap(sarama.CurrentConfigVersion, commontesting.OldSaramaConfig, commontesting.TestEKConfig)
+	configMap := commontesting.GetTestSaramaConfigMap(constants.CurrentConfigVersion, commontesting.OldSaramaConfig, commontesting.TestEKConfig)
 
 	// Create The Fake K8S Client And Add It To The ConfigMap
 	fakeK8sClient := fake.NewSimpleClientset(configMap)

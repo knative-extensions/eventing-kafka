@@ -47,6 +47,9 @@ const (
 	// to config-kafka and apply them in the dispatcher deployment
 	ConfigMapHashAnnotationKey = "kafka.eventing.knative.dev/configmap-hash"
 
+	// CurrentConfigVersion is the current version which should be in the "version" field of the config-kafka configmap
+	CurrentConfigVersion = "1.0.0"
+
 	// KafkaSecretKeyNamespace is the username key in the Kafka Auth Config Secret
 	KafkaSecretKeyNamespace = "namespace"
 	// KafkaSecretKeyUsername is the username key in the Kafka Auth Config Secret

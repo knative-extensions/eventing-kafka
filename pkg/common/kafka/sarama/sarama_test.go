@@ -167,8 +167,8 @@ func TestLoadDefaultSaramaSettings(t *testing.T) {
 	// Create The TestCases
 	testCases := []TestCase{
 		{
-			name: "Current Config (1.0.0)",
-			data: commontesting.GetTestSaramaConfigMap(CurrentConfigVersion, EKDefaultSaramaConfig, EKDefaultConfigYaml).Data,
+			name: "Current Config (" + constants.CurrentConfigVersion + ")",
+			data: commontesting.GetTestSaramaConfigMap(constants.CurrentConfigVersion, EKDefaultSaramaConfig, EKDefaultConfigYaml).Data,
 		},
 		{
 			name: "Upgrade Config (no version)",
@@ -258,7 +258,7 @@ func Test_upgradeConfig(t *testing.T) {
 		},
 		{
 			name: "Upgrade Not Necessary (current version)",
-			data: commontesting.GetTestSaramaConfigMap(CurrentConfigVersion, EKDefaultSaramaConfig, EKDefaultConfigYaml).Data,
+			data: commontesting.GetTestSaramaConfigMap(constants.CurrentConfigVersion, EKDefaultSaramaConfig, EKDefaultConfigYaml).Data,
 		},
 	}
 
@@ -396,14 +396,14 @@ func TestLoadEventingKafkaSettings(t *testing.T) {
 		{
 			name: "Basic",
 			ekConfig: map[string]string{
-				constants.VersionConfigKey:               CurrentConfigVersion,
+				constants.VersionConfigKey:               constants.CurrentConfigVersion,
 				constants.EventingKafkaSettingsConfigKey: commontesting.TestEKConfig,
 				constants.SaramaSettingsConfigKey:        commontesting.OldSaramaConfig},
 		},
 		{
 			name: "Empty Sarama Config (creates default sarama.Config)",
 			ekConfig: map[string]string{
-				constants.VersionConfigKey:               CurrentConfigVersion,
+				constants.VersionConfigKey:               constants.CurrentConfigVersion,
 				constants.EventingKafkaSettingsConfigKey: commontesting.TestEKConfig},
 		},
 		{
@@ -414,7 +414,7 @@ func TestLoadEventingKafkaSettings(t *testing.T) {
 		{
 			name: "Empty Config (Defaults Only)",
 			ekConfig: map[string]string{
-				constants.VersionConfigKey:               CurrentConfigVersion,
+				constants.VersionConfigKey:               constants.CurrentConfigVersion,
 				constants.EventingKafkaSettingsConfigKey: "",
 				constants.SaramaSettingsConfigKey:        commontesting.OldSaramaConfig},
 			expectEmpty: true,
@@ -511,7 +511,7 @@ func TestLoadSettings(t *testing.T) {
 		{
 			name: "Basic",
 			config: map[string]string{
-				constants.VersionConfigKey:               CurrentConfigVersion,
+				constants.VersionConfigKey:               constants.CurrentConfigVersion,
 				constants.SaramaSettingsConfigKey:        commontesting.OldSaramaConfig,
 				constants.EventingKafkaSettingsConfigKey: commontesting.TestEKConfig,
 			},
@@ -529,7 +529,7 @@ func TestLoadSettings(t *testing.T) {
 		{
 			name: "Auth Config With Empty User",
 			config: map[string]string{
-				constants.VersionConfigKey:               CurrentConfigVersion,
+				constants.VersionConfigKey:               constants.CurrentConfigVersion,
 				constants.SaramaSettingsConfigKey:        commontesting.OldSaramaConfig,
 				constants.EventingKafkaSettingsConfigKey: commontesting.TestEKConfig,
 			},
@@ -539,7 +539,7 @@ func TestLoadSettings(t *testing.T) {
 		{
 			name: "Auth Error",
 			config: map[string]string{
-				constants.VersionConfigKey:               CurrentConfigVersion,
+				constants.VersionConfigKey:               constants.CurrentConfigVersion,
 				constants.SaramaSettingsConfigKey:        commontesting.OldSaramaConfig,
 				constants.EventingKafkaSettingsConfigKey: commontesting.TestEKConfig,
 			},

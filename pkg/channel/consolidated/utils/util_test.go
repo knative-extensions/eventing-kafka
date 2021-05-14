@@ -368,7 +368,7 @@ func TestGetKafkaConfig(t *testing.T) {
 		{
 			name: "versioned, multiple brokers, empty sarama field",
 			data: map[string]string{
-				constants.VersionConfigKey:               kafkasarama.CurrentConfigVersion,
+				constants.VersionConfigKey:               constants.CurrentConfigVersion,
 				constants.EventingKafkaSettingsConfigKey: "kafka:\n  brokers: kafkabroker1.kafka:9092,kafkabroker2.kafka:9092",
 			},
 			expected: &KafkaConfig{

@@ -1120,13 +1120,13 @@ func TestReconciler_updateKafkaConfig(t *testing.T) {
 		{
 			name: "Missing Sarama YAML (creates default sarama.Config)",
 			configMap: &corev1.ConfigMap{Data: map[string]string{
-				constants.VersionConfigKey:               kafkasarama.CurrentConfigVersion,
+				constants.VersionConfigKey:               constants.CurrentConfigVersion,
 				constants.EventingKafkaSettingsConfigKey: ekConfig}},
 		},
 		{
 			name: "Error Reading Secret",
 			configMap: &corev1.ConfigMap{Data: map[string]string{
-				constants.VersionConfigKey:               kafkasarama.CurrentConfigVersion,
+				constants.VersionConfigKey:               constants.CurrentConfigVersion,
 				constants.EventingKafkaSettingsConfigKey: ekConfig,
 				constants.SaramaSettingsConfigKey:        commontesting.OldSaramaConfig}},
 			secretErr: true,
@@ -1134,14 +1134,14 @@ func TestReconciler_updateKafkaConfig(t *testing.T) {
 		{
 			name: "Empty User",
 			configMap: &corev1.ConfigMap{Data: map[string]string{
-				constants.VersionConfigKey:               kafkasarama.CurrentConfigVersion,
+				constants.VersionConfigKey:               constants.CurrentConfigVersion,
 				constants.EventingKafkaSettingsConfigKey: ekConfig,
 				constants.SaramaSettingsConfigKey:        commontesting.OldSaramaConfig}},
 		},
 		{
 			name: "Non-Empty User",
 			configMap: &corev1.ConfigMap{Data: map[string]string{
-				constants.VersionConfigKey:               kafkasarama.CurrentConfigVersion,
+				constants.VersionConfigKey:               constants.CurrentConfigVersion,
 				constants.EventingKafkaSettingsConfigKey: ekConfig,
 				constants.SaramaSettingsConfigKey:        commontesting.OldSaramaConfig}},
 			user: commontesting.OldAuthUsername,

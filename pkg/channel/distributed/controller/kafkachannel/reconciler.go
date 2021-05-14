@@ -261,20 +261,8 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 	kafkasarama.EnableSaramaLogging(ekConfig.Sarama.EnableLogging)
 	logger.Debug("Updated Sarama logging", zap.Bool("Kafka.EnableSaramaLogging", ekConfig.Sarama.EnableLogging))
 
-	// Re-Read The Auth Config From The Secret As It May Have Changed
-	kafkaAuthCfg, err := kafkasarama.LoadAuthConfig(ctx, ekConfig.Kafka.AuthSecretName, ekConfig.Kafka.AuthSecretNamespace)
-	if err != nil {
-		logger.Error("Could Not Read New Auth Config From Secret - Keeping Existing",
-			zap.String("authSecretName", ekConfig.Kafka.AuthSecretName),
-			zap.String("authSecretNamespace", ekConfig.Kafka.AuthSecretNamespace), zap.Error(err))
-		return err
-	}
-
 	logger.Info("ConfigMap Changed; Updating Sarama And Eventing-Kafka Configuration")
 	r.config = ekConfig
-
-	// Auth from the secret overrides anything that was specified in the configmap
-	r.config.Auth = kafkaAuthCfg
 
 	r.kafkaConfigMapHash = commonconfig.ConfigmapDataCheckSum(configMap.Data)
 	return nil

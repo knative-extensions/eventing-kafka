@@ -34,7 +34,6 @@ import (
 )
 
 const DefaultAuthSecretName = "kafka-cluster"
-const CurrentConfigVersion = "1.0.0"
 
 // EnableSaramaLogging Is A Utility Function For Enabling Sarama Logging (Debugging)
 func EnableSaramaLogging(enable bool) {
@@ -87,7 +86,7 @@ func LoadSettings(ctx context.Context, clientId string, configMap map[string]str
 	}{}
 	var saramaConfigString string
 
-	if configMap[constants.VersionConfigKey] != CurrentConfigVersion {
+	if configMap[constants.VersionConfigKey] != constants.CurrentConfigVersion {
 		// In the old version, the sarama config string was the entire field
 		saramaConfigString = configMap[constants.SaramaSettingsConfigKey]
 	} else {
@@ -128,7 +127,7 @@ func upgradeConfig(data map[string]string) *commonconfig.EventingKafkaConfig {
 	}
 
 	version, ok := data[constants.VersionConfigKey]
-	if ok && version == CurrentConfigVersion {
+	if ok && version == constants.CurrentConfigVersion {
 		// Current version; no changes necessary
 		return nil
 	}

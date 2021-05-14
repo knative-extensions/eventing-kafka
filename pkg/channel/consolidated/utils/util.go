@@ -132,7 +132,7 @@ func GetKafkaConfig(ctx context.Context, configMap map[string]string, getAuth sa
 	}
 	var err error
 
-	if configMap[constants.VersionConfigKey] != sarama.CurrentConfigVersion {
+	if configMap[constants.VersionConfigKey] != constants.CurrentConfigVersion {
 		// Backwards-compatibility: Support old configmap format
 		err = configmap.Parse(configMap,
 			configmap.AsString(BrokerConfigMapKey, &eventingKafkaConfig.Kafka.Brokers),
