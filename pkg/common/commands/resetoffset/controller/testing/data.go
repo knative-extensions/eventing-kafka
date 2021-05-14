@@ -88,6 +88,12 @@ func WithSpecOffsetTime(time string) ResetOffsetOption {
 	}
 }
 
+func WithSpecRef(ref *duckv1.KReference) ResetOffsetOption {
+	return func(resetOffset *kafkav1alpha1.ResetOffset) {
+		resetOffset.Spec.Ref = *ref
+	}
+}
+
 func WithFinalizer(resetOffset *kafkav1alpha1.ResetOffset) {
 	resetOffset.ObjectMeta.Finalizers = []string{ResetOffsetFinalizer}
 }

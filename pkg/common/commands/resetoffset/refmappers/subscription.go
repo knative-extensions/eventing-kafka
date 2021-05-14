@@ -107,7 +107,7 @@ func (m *SubscriptionRefMapper) MapRef(resetOffset *kafkav1alpha1.ResetOffset) (
 		return "", "", fmt.Errorf("unable to map nil ResetOffset")
 	}
 
-	// Get The ResetOffset Reference From Spec & Enhance Logger
+	// Get The ResetOffset Ref From Spec & Enhance Logger
 	ref := resetOffset.Spec.Ref
 	logger := m.logger.With(zap.Any("Ref", ref))
 

@@ -21,7 +21,6 @@ import (
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 	fakeeventingclientset "knative.dev/eventing/pkg/client/clientset/versioned/fake"
-	fakeeventsclientset "knative.dev/eventing/pkg/client/clientset/versioned/fake"
 	"knative.dev/pkg/reconciler/testing"
 
 	kafkav1alpha1 "knative.dev/eventing-kafka/pkg/apis/kafka/v1alpha1"
@@ -31,7 +30,6 @@ import (
 
 var clientSetSchemes = []func(*runtime.Scheme) error{
 	fakekubeclientset.AddToScheme,
-	fakeeventsclientset.AddToScheme,
 	fakekafkaclientset.AddToScheme,
 	fakeeventingclientset.AddToScheme,
 }
@@ -69,17 +67,12 @@ func (l *Listers) GetEventingObjects() []runtime.Object {
 	return l.sorter.ObjectsForSchemeFunc(fakeeventingclientset.AddToScheme)
 }
 
-func (l *Listers) GetEventsObjects() []runtime.Object {
-	return l.sorter.ObjectsForSchemeFunc(fakeeventsclientset.AddToScheme)
-}
-
 func (l *Listers) GetResetOffsetObjects() []runtime.Object {
 	return l.sorter.ObjectsForSchemeFunc(fakekafkaclientset.AddToScheme)
 }
 
 func (l *Listers) GetAllObjects() []runtime.Object {
 	all := l.GetResetOffsetObjects()
-	all = append(all, l.GetEventsObjects()...)
 	all = append(all, l.GetKubeObjects()...)
 	return all
 }
