@@ -80,3 +80,18 @@ spec:
           containerPort: 8008
 
       terminationGracePeriodSeconds: 10
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  control-plane: kafkasource-mt-adapter
+              topologyKey: kubernetes.io/hostname
+            weight: 50
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  control-plane: kafkasource-mt-adapter
+              topologyKey: topology.kubernetes.io/zone
+            weight: 50
