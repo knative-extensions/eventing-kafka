@@ -31,8 +31,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ghodss/yaml"
 	"github.com/Shopify/sarama"
+	"github.com/ghodss/yaml"
 	"github.com/stretchr/testify/assert"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 	"knative.dev/pkg/logging"
