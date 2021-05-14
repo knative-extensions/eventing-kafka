@@ -299,7 +299,7 @@ func TestReconciler_ReconcileOffsets(t *testing.T) {
 			} else {
 				stubSaramaNewClientFn(t, kafkaBrokers, saramaConfig, test.client, nil)
 			}
-			defer restoreSaramaNewClient()
+			defer restoreSaramaNewClientFn()
 
 			// Stub The Sarama NewOffsetManagerFromClient() Implementation To Return Mock Sarama OffsetManager
 			if test.offsetManager == nil {
@@ -360,7 +360,7 @@ func stubSaramaNewClientFn(t *testing.T, expectedBrokers []string, expectedConfi
 }
 
 // restoreSaramaNewClient restores the default/official Sarama NewClient function.
-func restoreSaramaNewClient() {
+func restoreSaramaNewClientFn() {
 	SaramaNewClientFn = sarama.NewClient
 }
 
@@ -378,96 +378,3 @@ func stubSaramaNewOffsetManagerFromClientFn(t *testing.T, expectedGroupId string
 func restoreSaramaNewOffsetManagerFromClientFn() {
 	SaramaNewOffsetManagerFromClientFn = sarama.NewOffsetManagerFromClient
 }
-
-// TODO - REMOVE
-//func TestReconciler_ReconcileOffsets_SINGLE(t *testing.T) {
-//
-//	// Test Data
-//	kafkaBrokers := []string{controllertesting.Brokers}
-//	saramaConfig := sarama.NewConfig()
-//	topicName := controllertesting.TopicName
-//	groupId := controllertesting.GroupId
-//
-//	partition1 := int32(0)
-//	oldOffset1 := int64(100)
-//	newOffset1 := int64(50) // TODO - need to test forward as well
-//
-//	partition2 := int32(1)
-//	oldOffset2 := int64(200)
-//	newOffset2 := int64(150)
-//
-//	offsetTime := int64(123456789) // TODO - some relevant date an hour ago or something? - no a fixed value is better to test against right?
-//	metadata := formatOffsetMetaData(offsetTime)
-//
-//	partitionOffsetManagerErrorChannel1 := make(<-chan *sarama.ConsumerError) // TODO - test sending errors
-//	partitionOffsetManagerErrorChannel2 := make(<-chan *sarama.ConsumerError) // TODO - test sending errors
-//
-//	expectedOffsetMappings := []kafkav1alpha1.OffsetMapping{
-//		{Partition: partition1, OldOffset: oldOffset1, NewOffset: newOffset1},
-//		{Partition: partition2, OldOffset: oldOffset2, NewOffset: newOffset2},
-//	}
-//
-//	// Create A Mock PartitionOffsetManager For Partition 1
-//	mockPartitionOffsetManager1 := &controllertesting.MockPartitionOffsetManager{}
-//	mockPartitionOffsetManager1.On("NextOffset").Return(oldOffset1, "")
-//	// tODO only one of "mark" vs "reset" will occur..
-//	//mockPartitionOffsetManager1.On("MarkOffset", newOffset1, metadata).Return()
-//	mockPartitionOffsetManager1.On("ResetOffset", newOffset1, metadata).Return()
-//	mockPartitionOffsetManager1.On("Errors").Return(partitionOffsetManagerErrorChannel1)
-//	mockPartitionOffsetManager1.On("Close").Return(nil) // TODO - test with/without errs
-//
-//	// Create A Mock PartitionOffsetManager For Partition 2
-//	mockPartitionOffsetManager2 := &controllertesting.MockPartitionOffsetManager{}
-//	mockPartitionOffsetManager2.On("NextOffset").Return(oldOffset2, "")
-//	// tODO only one of "mark" vs "reset" will occur..
-//	//mockPartitionOffsetManager2.On("MarkOffset", newOffset2, metadata).Return()
-//	mockPartitionOffsetManager2.On("ResetOffset", newOffset2, metadata).Return()
-//	mockPartitionOffsetManager2.On("Errors").Return(partitionOffsetManagerErrorChannel2)
-//	mockPartitionOffsetManager2.On("Close").Return(nil) // TODO - test with/without errs
-//
-//	// Create A Mock Sarama OffsetManager
-//	mockOffsetManager := &controllertesting.MockOffsetManager{}
-//	mockOffsetManager.On("ManagePartition", topicName, partition1).Return(mockPartitionOffsetManager1, nil) // TODO - test with/without errs
-//	mockOffsetManager.On("ManagePartition", topicName, partition2).Return(mockPartitionOffsetManager2, nil) // TODO - do we need different mocks for each?
-//	mockOffsetManager.On("Commit").Return()
-//	mockOffsetManager.On("Close").Return(nil)
-//
-//	// Create A Mock Sarama Client
-//	mockSaramaClient := &controllertesting.MockClient{}
-//	mockSaramaClient.On("Partitions", topicName).Return([]int32{partition1, partition2}, nil)   // TODO - test with/without errs
-//	mockSaramaClient.On("GetOffset", topicName, partition1, offsetTime).Return(newOffset1, nil) // TODO - test with/without errs
-//	mockSaramaClient.On("GetOffset", topicName, partition2, offsetTime).Return(newOffset2, nil) // TODO - test with/without errs
-//	mockSaramaClient.On("Closed").Return(false)
-//	mockSaramaClient.On("Close").Return(nil) // TODO - test with/without errs
-//
-//	// Stub The Sarama NewClient() Implementation To Return Mock Sarama Client
-//	stubSaramaNewClientFn(t, kafkaBrokers, saramaConfig, mockSaramaClient, nil) // TODO - test with/without errs
-//	defer restoreSaramaNewClient()
-//
-//	// Stub The Sarama NewOffsetManagerFromClient() Implementation To Return Mock Sarama OffsetManager
-//	stubSaramaNewOffsetManagerFromClientFn(t, groupId, mockSaramaClient, mockOffsetManager, nil)
-//	defer restoreSaramaNewOffsetManagerFromClientFn()
-//
-//	// Create A Context With Test Logger
-//	logger := logtesting.TestLogger(t)
-//	ctx := logging.WithLogger(context.Background(), logger)
-//
-//	// Create A Reconciler
-//	reconciler := &Reconciler{
-//		kafkaBrokers:      kafkaBrokers,
-//		saramaConfig:      saramaConfig,
-//		resetoffsetLister: nil,
-//		refMapper:         nil,
-//	}
-//
-//	// Perform The Test
-//	offsetMappings, err := reconciler.reconcileOffsets(ctx, topicName, groupId, offsetTime)
-//
-//	// Verify The Results
-//	assert.Nil(t, err)
-//	assert.Equal(t, expectedOffsetMappings, offsetMappings)
-//	mockSaramaClient.AssertExpectations(t)
-//	mockOffsetManager.AssertExpectations(t)
-//	mockPartitionOffsetManager1.AssertExpectations(t)
-//	mockPartitionOffsetManager2.AssertExpectations(t)
-//}

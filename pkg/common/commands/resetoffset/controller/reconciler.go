@@ -70,6 +70,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, resetOffset *kafkav1alph
 	resetOffset.SetDefaults(ctx)
 	if err := resetOffset.Validate(ctx); err != nil {
 		logger.Error("Received invalid ResetOffset", zap.Error(err))
+		eventRecorder.Event(resetOffset, corev1.EventTypeWarning, ResetOffsetSkipped.String(), "Skipping invalid ResetOffset")
 		return err
 	}
 

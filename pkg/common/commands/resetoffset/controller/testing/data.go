@@ -44,11 +44,11 @@ const (
 // ResetOffset Resources
 //
 
-// ResetOffsetOptions allow for customizing a ResetOffset
-type ResetOffsetOptions func(resetOffset *kafkav1alpha1.ResetOffset)
+// ResetOffsetOption allow for customizing a ResetOffset
+type ResetOffsetOption func(resetOffset *kafkav1alpha1.ResetOffset)
 
 // NewResetOffset creates a custom ResetOffset
-func NewResetOffset(options ...ResetOffsetOptions) *kafkav1alpha1.ResetOffset {
+func NewResetOffset(options ...ResetOffsetOption) *kafkav1alpha1.ResetOffset {
 
 	// Create The Base ResetOffset
 	resetOffset := &kafkav1alpha1.ResetOffset{
@@ -82,7 +82,84 @@ func NewResetOffset(options ...ResetOffsetOptions) *kafkav1alpha1.ResetOffset {
 	return resetOffset
 }
 
-// WithFinalizer Sets The ResetOffset's Finalizer
+func WithSpecOffsetTime(time string) ResetOffsetOption {
+	return func(resetOffset *kafkav1alpha1.ResetOffset) {
+		resetOffset.Spec.Offset.Time = time
+	}
+}
+
 func WithFinalizer(resetOffset *kafkav1alpha1.ResetOffset) {
 	resetOffset.ObjectMeta.Finalizers = []string{ResetOffsetFinalizer}
+}
+
+func WithStatusTopic(topic string) ResetOffsetOption {
+	return func(resetOffset *kafkav1alpha1.ResetOffset) {
+		resetOffset.Status.Topic = topic
+	}
+}
+
+func WithStatusGroup(group string) ResetOffsetOption {
+	return func(resetOffset *kafkav1alpha1.ResetOffset) {
+		resetOffset.Status.Group = group
+	}
+}
+
+func WithStatusPartitions(partitions []kafkav1alpha1.OffsetMapping) ResetOffsetOption {
+	return func(resetOffset *kafkav1alpha1.ResetOffset) {
+		resetOffset.Status.Partitions = partitions
+	}
+}
+
+func WithStatusInitialized(resetOffset *kafkav1alpha1.ResetOffset) {
+	resetOffset.Status.InitializeConditions()
+}
+
+func WithStatusRefMapped(state bool, failed ...string) ResetOffsetOption {
+	return func(resetOffset *kafkav1alpha1.ResetOffset) {
+		if state {
+			resetOffset.Status.MarkRefMappedTrue()
+		} else {
+			resetOffset.Status.MarkRefMappedFailed(failed[0], failed[1])
+		}
+	}
+}
+
+func WithStatusResetInitiated(state bool, failed ...string) ResetOffsetOption {
+	return func(resetOffset *kafkav1alpha1.ResetOffset) {
+		if state {
+			resetOffset.Status.MarkResetInitiatedTrue()
+		} else {
+			resetOffset.Status.MarkResetInitiatedFailed(failed[0], failed[1])
+		}
+	}
+}
+
+func WithStatusConsumerGroupsStopped(state bool, failed ...string) ResetOffsetOption {
+	return func(resetOffset *kafkav1alpha1.ResetOffset) {
+		if state {
+			resetOffset.Status.MarkConsumerGroupsStoppedTrue()
+		} else {
+			resetOffset.Status.MarkConsumerGroupsStoppedFailed(failed[0], failed[1])
+		}
+	}
+}
+
+func WithStatusOffsetsUpdated(state bool, failed ...string) ResetOffsetOption {
+	return func(resetOffset *kafkav1alpha1.ResetOffset) {
+		if state {
+			resetOffset.Status.MarkOffsetsUpdatedTrue()
+		} else {
+			resetOffset.Status.MarkOffsetsUpdatedFailed(failed[0], failed[1])
+		}
+	}
+}
+
+func WithStatusConsumerGroupsStarted(state bool, failed ...string) ResetOffsetOption {
+	return func(resetOffset *kafkav1alpha1.ResetOffset) {
+		if state {
+			resetOffset.Status.MarkConsumerGroupsStartedTrue()
+		} else {
+			resetOffset.Status.MarkConsumerGroupsStartedFailed(failed[0], failed[1])
+		}
+	}
 }
