@@ -482,9 +482,9 @@ func NewKafkaSecret(options ...KafkaSecretOption) *corev1.Secret {
 			Namespace: KafkaSecretNamespace,
 		},
 		Data: map[string][]byte{
-			kafkaconstants.KafkaSecretKeyUsername: []byte(KafkaSecretDataValueUsername),
-			kafkaconstants.KafkaSecretKeyPassword: []byte(KafkaSecretDataValuePassword),
-			kafkaconstants.KafkaSecretKeySaslType: []byte(KafkaSecretDataValueSaslType),
+			commonconstants.KafkaSecretKeyUsername: []byte(KafkaSecretDataValueUsername),
+			commonconstants.KafkaSecretKeyPassword: []byte(KafkaSecretDataValuePassword),
+			commonconstants.KafkaSecretKeySaslType: []byte(KafkaSecretDataValueSaslType),
 		},
 		Type: "opaque",
 	}
@@ -850,7 +850,7 @@ func NewKafkaChannelReceiverDeployment(options ...DeploymentOption) *appsv1.Depl
 									Value: constants.ReceiverContainerName,
 								},
 								{
-									Name:  commonenv.KnativeLoggingConfigMapNameEnvVarKey,
+									Name:  commonconstants.KnativeLoggingConfigMapNameEnvVarKey,
 									Value: logging.ConfigMapName(),
 								},
 								{
@@ -1069,7 +1069,7 @@ func NewKafkaChannelDispatcherDeployment(options ...DeploymentOption) *appsv1.De
 									Value: constants.DispatcherContainerName,
 								},
 								{
-									Name:  commonenv.KnativeLoggingConfigMapNameEnvVarKey,
+									Name:  commonconstants.KnativeLoggingConfigMapNameEnvVarKey,
 									Value: logging.ConfigMapName(),
 								},
 								{

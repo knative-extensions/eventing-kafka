@@ -19,7 +19,7 @@ package testing
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kafkaconstants "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 	"knative.dev/pkg/system"
 )
@@ -50,10 +50,10 @@ func NewKafkaSecret(options ...KafkaSecretOption) *corev1.Secret {
 			Namespace: system.Namespace(),
 		},
 		Data: map[string][]byte{
-			kafkaconstants.KafkaSecretKeyPassword:  []byte(DefaultSecretPassword),
-			kafkaconstants.KafkaSecretKeySaslType:  []byte(DefaultSecretSaslType),
-			kafkaconstants.KafkaSecretKeyUsername:  []byte(DefaultSecretUsername),
-			kafkaconstants.KafkaSecretKeyNamespace: []byte(DefaultSecretNamespace),
+			commonconstants.KafkaSecretKeyPassword:  []byte(DefaultSecretPassword),
+			commonconstants.KafkaSecretKeySaslType:  []byte(DefaultSecretSaslType),
+			commonconstants.KafkaSecretKeyUsername:  []byte(DefaultSecretUsername),
+			commonconstants.KafkaSecretKeyNamespace: []byte(DefaultSecretNamespace),
 		},
 	}
 
@@ -68,27 +68,27 @@ func NewKafkaSecret(options ...KafkaSecretOption) *corev1.Secret {
 
 // WithModifiedPassword Modifies The Default Password Section Of The Secret Data
 func WithModifiedPassword(secret *corev1.Secret) {
-	secret.Data[kafkaconstants.KafkaSecretKeyPassword] = []byte("TestModifiedPassword")
+	secret.Data[commonconstants.KafkaSecretKeyPassword] = []byte("TestModifiedPassword")
 }
 
 // WithModifiedUsername Modifies The Default Username Section Of The Secret Data
 func WithModifiedUsername(secret *corev1.Secret) {
-	secret.Data[kafkaconstants.KafkaSecretKeyUsername] = []byte("TestModifiedUsername")
+	secret.Data[commonconstants.KafkaSecretKeyUsername] = []byte("TestModifiedUsername")
 }
 
 // WithEmptyUsername Empties The Default Username Section Of The Secret Data
 func WithEmptyUsername(secret *corev1.Secret) {
-	secret.Data[kafkaconstants.KafkaSecretKeyUsername] = []byte("")
+	secret.Data[commonconstants.KafkaSecretKeyUsername] = []byte("")
 }
 
 // WithModifiedSaslType Modifies The Default SaslType Section Of The Secret Data
 func WithModifiedSaslType(secret *corev1.Secret) {
-	secret.Data[kafkaconstants.KafkaSecretKeySaslType] = []byte("TestModifiedSaslType")
+	secret.Data[commonconstants.KafkaSecretKeySaslType] = []byte("TestModifiedSaslType")
 }
 
 // WithModifiedNamespace Modifies The Default Namespace Section Of The Secret Data
 func WithModifiedNamespace(secret *corev1.Secret) {
-	secret.Data[kafkaconstants.KafkaSecretKeyNamespace] = []byte("TestModifiedNamespace")
+	secret.Data[commonconstants.KafkaSecretKeyNamespace] = []byte("TestModifiedNamespace")
 }
 
 // WithMissingConfig Removes the Data From The Secret

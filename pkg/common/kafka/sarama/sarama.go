@@ -23,7 +23,7 @@ import (
 	"log"
 	"os"
 
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
+	"knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/pkg/system"
 
 	"github.com/Shopify/sarama"

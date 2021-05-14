@@ -25,11 +25,8 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 
-	"github.com/Shopify/sarama"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
-	"knative.dev/eventing-kafka/pkg/common/client"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 )
 
@@ -67,37 +64,4 @@ func InitializeSecretWatcher(ctx context.Context, namespace string, name string,
 
 	logger.Info("Started Secret Watcher")
 	return nil
-}
-
-// Look Up And Return Kafka Auth ConfigAnd Brokers From Named Secret
-func GetAuthConfigFromKubernetes(ctx context.Context, secretName string, secretNamespace string) (*client.KafkaAuthConfig, error) {
-	secrets := kubeclient.Get(ctx).CoreV1().Secrets(secretNamespace)
-	secret, err := secrets.Get(ctx, secretName, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-	kafkaAuthCfg := GetAuthConfigFromSecret(secret)
-	return kafkaAuthCfg, nil
-}
-
-// Look Up And Return Kafka Auth Config And Brokers From Provided Secret
-func GetAuthConfigFromSecret(secret *corev1.Secret) *client.KafkaAuthConfig {
-	if secret == nil || secret.Data == nil {
-		return nil
-	}
-
-	// If we don't convert the empty string to the "PLAIN" default, the client.HasSameSettings()
-	// function will assume that they should be treated as differences and needlessly reconfigure
-	saslType := string(secret.Data[constants.KafkaSecretKeySaslType])
-	if saslType == "" {
-		saslType = sarama.SASLTypePlaintext
-	}
-
-	return &client.KafkaAuthConfig{
-		SASL: &client.KafkaSaslConfig{
-			User:     string(secret.Data[constants.KafkaSecretKeyUsername]),
-			Password: string(secret.Data[constants.KafkaSecretKeyPassword]),
-			SaslType: saslType,
-		},
-	}
 }

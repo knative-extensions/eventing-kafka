@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
+	"knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes/scheme"

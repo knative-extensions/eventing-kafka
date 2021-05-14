@@ -21,6 +21,8 @@ import (
 	"strconv"
 	"strings"
 
+	"knative.dev/eventing-kafka/pkg/common/kafka/sarama"
+
 	"go.uber.org/zap"
 
 	corev1 "k8s.io/api/core/v1"
@@ -28,7 +30,6 @@ import (
 	"k8s.io/client-go/rest"
 	distributedcommonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	commonk8s "knative.dev/eventing-kafka/pkg/channel/distributed/common/k8s"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/controller"
 	dispatch "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/dispatcher"

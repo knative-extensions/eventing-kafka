@@ -23,8 +23,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
-	kafkaconstants "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 	"knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
@@ -47,10 +45,10 @@ func GetTestSaramaSecret(name string, username string, password string, namespac
 			Namespace: system.Namespace(),
 		},
 		Data: map[string][]byte{
-			kafkaconstants.KafkaSecretKeyUsername:  []byte(username),
-			kafkaconstants.KafkaSecretKeyPassword:  []byte(password),
-			kafkaconstants.KafkaSecretKeyNamespace: []byte(namespace),
-			kafkaconstants.KafkaSecretKeySaslType:  []byte(saslType),
+			constants.KafkaSecretKeyUsername:  []byte(username),
+			constants.KafkaSecretKeyPassword:  []byte(password),
+			constants.KafkaSecretKeyNamespace: []byte(namespace),
+			constants.KafkaSecretKeySaslType:  []byte(saslType),
 		},
 	}
 }
@@ -81,5 +79,5 @@ func SetTestEnvironment(t *testing.T) {
 	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, SystemNamespace))
 	// The logging.ConfigMapName() has a default if it isn't present, so this just uses that
 	// function directly to ensure that the CONFIG_LOGGING_NAME variable is set
-	assert.Nil(t, os.Setenv(env.KnativeLoggingConfigMapNameEnvVarKey, logging.ConfigMapName()))
+	assert.Nil(t, os.Setenv(constants.KnativeLoggingConfigMapNameEnvVarKey, logging.ConfigMapName()))
 }

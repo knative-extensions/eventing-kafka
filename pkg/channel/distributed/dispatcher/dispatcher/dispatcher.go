@@ -27,7 +27,6 @@ import (
 
 	gometrics "github.com/rcrowley/go-metrics"
 
-	distributedcommonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 
 	"github.com/Shopify/sarama"
@@ -285,7 +284,7 @@ func (d *DispatcherImpl) SecretChanged(ctx context.Context, secret *corev1.Secre
 	// Debug Log The Secret Change
 	d.Logger.Debug("New Secret Received", zap.String("secret.Name", secret.ObjectMeta.Name))
 
-	kafkaAuthCfg := distributedcommonconfig.GetAuthConfigFromSecret(secret)
+	kafkaAuthCfg := commonconfig.GetAuthConfigFromSecret(secret)
 	if kafkaAuthCfg == nil {
 		d.Logger.Warn("No auth config found in secret; ignoring update")
 		return nil

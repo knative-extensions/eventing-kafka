@@ -24,7 +24,7 @@ import (
 	"sync"
 	"testing"
 
-	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
+	kafkasarama "knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 
 	"github.com/Shopify/sarama"
 	"k8s.io/client-go/kubernetes/fake"

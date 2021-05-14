@@ -60,10 +60,6 @@ data:
         receiver:
           cpuRequest: 100m
           memoryRequest: 50Mi
-      consolidated:
-        reserved: for-future-use
-    source:
-      reserved: for-future-use
 kind: ConfigMap
 metadata:
   name: config-kafka

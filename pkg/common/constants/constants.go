@@ -46,4 +46,16 @@ const (
 	// ConfigMapHashAnnotationKey is an annotation is used by the controller to track updates
 	// to config-kafka and apply them in the dispatcher deployment
 	ConfigMapHashAnnotationKey = "kafka.eventing.knative.dev/configmap-hash"
+
+	// KafkaSecretKeyNamespace is the username key in the Kafka Auth Config Secret
+	KafkaSecretKeyNamespace = "namespace"
+	// KafkaSecretKeyUsername is the username key in the Kafka Auth Config Secret
+	KafkaSecretKeyUsername = "username"
+	// KafkaSecretKeyPassword is the password key in the Kafka Auth Config Secret
+	KafkaSecretKeyPassword = "password"
+	// KafkaSecretKeySaslType is the SASL type key in the Kafka Auth Config Secret
+	KafkaSecretKeySaslType = "sasltype"
+
+	// KnativeLoggingConfigMapNameEnvVarKey Is The Environment Variable Used For Knative Logging Configuration
+	KnativeLoggingConfigMapNameEnvVarKey = "CONFIG_LOGGING_NAME" // Note - Matches value of configMapNameEnv constant in Knative.dev/pkg/logging !
 )

@@ -494,7 +494,7 @@ func (r *Reconciler) receiverDeploymentEnvVars(secret *corev1.Secret) []corev1.E
 			Value: constants.ReceiverContainerName,
 		},
 		{
-			Name:  commonenv.KnativeLoggingConfigMapNameEnvVarKey,
+			Name:  commonconstants.KnativeLoggingConfigMapNameEnvVarKey,
 			Value: logging.ConfigMapName(),
 		},
 		{
