@@ -132,21 +132,12 @@ func main() {
 		MaxIdleConnsPerHost: ekConfig.CloudEvents.MaxIdleConnsPerHost,
 	})
 
-	user := ""
-	password := ""
-	if ekConfig.Auth != nil {
-		user = ekConfig.Auth.SASL.User
-		password = ekConfig.Auth.SASL.Password
-	}
-
 	// Create The Dispatcher With Specified Configuration
 	dispatcherConfig := dispatch.DispatcherConfig{
 		Logger:          logger,
 		ClientId:        constants.Component,
 		Brokers:         strings.Split(ekConfig.Kafka.Brokers, ","),
 		Topic:           environment.KafkaTopic,
-		Username:        user,
-		Password:        password,
 		ChannelKey:      environment.ChannelKey,
 		StatsReporter:   statsReporter,
 		MetricsRegistry: ekConfig.Sarama.Config.MetricRegistry,
