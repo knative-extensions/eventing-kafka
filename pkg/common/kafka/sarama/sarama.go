@@ -154,7 +154,7 @@ func upgradeConfig(data map[string]string) *commonconfig.EventingKafkaConfig {
 		return nil // Can't be upgraded
 	}
 
-	// Upgrade the eventing-kafka config by placing old values into the new struct and marshalling it
+	// Upgrade the eventing-kafka config by placing old values into the new struct
 	return &commonconfig.EventingKafkaConfig{
 		Channel: commonconfig.EKChannelConfig{
 			Dispatcher: oldConfig.Dispatcher,
