@@ -119,7 +119,7 @@ func GetKafkaAuthData(ctx context.Context, secretname string, secretNS string) *
 }
 
 // GetKafkaConfig returns the details of the Kafka cluster.
-func GetKafkaConfig(ctx context.Context, configMap map[string]string, getAuth sarama.GetAuth) (*KafkaConfig, error) {
+func GetKafkaConfig(ctx context.Context, clientId string, configMap map[string]string, getAuth sarama.GetAuth) (*KafkaConfig, error) {
 	if len(configMap) == 0 {
 		return nil, fmt.Errorf("missing configuration")
 	}
@@ -142,7 +142,7 @@ func GetKafkaConfig(ctx context.Context, configMap map[string]string, getAuth sa
 			configmap.AsInt(MaxIdleConnectionsPerHostKey, &eventingKafkaConfig.CloudEvents.MaxIdleConnsPerHost),
 		)
 	} else {
-		eventingKafkaConfig, err = sarama.LoadSettings(ctx, "kafka-ch-dispatcher", configMap, getAuth)
+		eventingKafkaConfig, err = sarama.LoadSettings(ctx, clientId, configMap, getAuth)
 	}
 	if err != nil {
 		return nil, err

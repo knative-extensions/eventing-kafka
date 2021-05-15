@@ -206,6 +206,9 @@ func TestAdminClient(t *testing.T) {
 		WithClientId("test-client").
 		FromYaml("").
 		Build(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
 	admin, err := client.MakeAdminClient(saramaConf, []string{seedBroker.Addr()})
 	if err != nil {
 		t.Fatal(err)

@@ -51,6 +51,8 @@ import (
 	listers "knative.dev/eventing-kafka/pkg/client/listers/messaging/v1beta1"
 )
 
+const dispatcherClientId = "kafka-ch-dispatcher"
+
 func init() {
 	// Add run types to the default Kubernetes Scheme so Events can be
 	// logged for run types.
@@ -90,15 +92,15 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		logger.Fatalw("error loading configuration", zap.Error(err))
 	}
 
-	kafkaConfig, err := utils.GetKafkaConfig(ctx, configMap, sarama.LoadAuthConfig)
+	kafkaConfig, err := utils.GetKafkaConfig(ctx, dispatcherClientId, configMap, sarama.LoadAuthConfig)
 	if err != nil {
 		logger.Fatalw("Error loading kafka config", zap.Error(err))
 	}
 
 	// Configure connection arguments - to be done exactly once per process
 	kncloudevents.ConfigureConnectionArgs(&kncloudevents.ConnectionArgs{
-		MaxIdleConns:        int(kafkaConfig.EventingKafka.CloudEvents.MaxIdleConns),
-		MaxIdleConnsPerHost: int(kafkaConfig.EventingKafka.CloudEvents.MaxIdleConnsPerHost),
+		MaxIdleConns:        kafkaConfig.EventingKafka.CloudEvents.MaxIdleConns,
+		MaxIdleConnsPerHost: kafkaConfig.EventingKafka.CloudEvents.MaxIdleConnsPerHost,
 	})
 
 	kafkaChannelInformer := kafkachannel.Get(ctx)

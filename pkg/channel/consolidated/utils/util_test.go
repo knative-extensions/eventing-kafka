@@ -219,7 +219,7 @@ func TestGetKafkaConfig(t *testing.T) {
 		WithDefaults().
 		FromYaml("").
 		WithAuth(nil).
-		WithClientId("kafka-ch-dispatcher").
+		WithClientId("test-client-id").
 		Build(context.TODO())
 
 	// Comparing Sarama structs requires ignoring some obstinate (and irrelevant to our concerns) fields
@@ -409,7 +409,7 @@ func TestGetKafkaConfig(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Logf("Running %s", t.Name())
 
-			got, err := GetKafkaConfig(context.TODO(), tc.data,
+			got, err := GetKafkaConfig(context.TODO(), "test-client-id", tc.data,
 				func(context.Context, string, string) (*client.KafkaAuthConfig, error) {
 					return nil, nil
 				})
