@@ -40,6 +40,8 @@ const (
 	GroupId   = "TestGroupId"
 )
 
+var DeletionTimestamp = metav1.Now()
+
 //
 // ResetOffset Resources
 //
@@ -92,6 +94,10 @@ func WithSpecRef(ref *duckv1.KReference) ResetOffsetOption {
 	return func(resetOffset *kafkav1alpha1.ResetOffset) {
 		resetOffset.Spec.Ref = *ref
 	}
+}
+
+func WithDeletionTimestamp(resetOffset *kafkav1alpha1.ResetOffset) {
+	resetOffset.ObjectMeta.SetDeletionTimestamp(&DeletionTimestamp)
 }
 
 func WithFinalizer(resetOffset *kafkav1alpha1.ResetOffset) {

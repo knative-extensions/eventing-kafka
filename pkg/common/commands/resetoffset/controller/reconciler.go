@@ -139,7 +139,7 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, resetOffset *kafkav1alpha
 	// Do NOT Finalize ResetOffset Instances That Are "Executing"
 	if resetOffset.Status.IsInitiated() && !resetOffset.Status.IsCompleted() {
 		logger.Debug("Skipping finalization of in-progress ResetOffset instance")
-		return nil
+		return fmt.Errorf("skipping finalization of in-progress ResetOffset instance")
 	}
 
 	// No-Op Finalization - Nothing To Do
@@ -147,16 +147,6 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, resetOffset *kafkav1alpha
 
 	// Return Finalized Success Event
 	return reconciler.NewEvent(corev1.EventTypeNormal, ResetOffsetFinalized.String(), "Finalized successfully")
-}
-
-// safeCloseSaramaClient will attempt to close the specified Sarama Client and will reset the Reconciler reference
-func (r *Reconciler) safeCloseSaramaClient(ctx context.Context, client sarama.Client) {
-	if client != nil {
-		err := client.Close()
-		if err != nil && ctx != nil {
-			logging.FromContext(ctx).Warn("Failed to close Sarama Client", zap.Error(err))
-		}
-	}
 }
 
 // TODO - Refactor once the new "common" ConfigMap implementation is in place - currently supports distributed implementation ConfigMap!

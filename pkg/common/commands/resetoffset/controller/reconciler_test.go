@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"testing"
 
 	"github.com/Shopify/sarama"
@@ -220,6 +221,60 @@ func TestReconcile(t *testing.T) {
 				Eventf(corev1.EventTypeNormal, ResetOffsetParsedTime.String(), "Successfully parsed Sarama offset time from Spec"),
 				Eventf(corev1.EventTypeWarning, ResetOffsetUpdatedOffsets.String(), "Failed to update offsets of one or more partitions"),
 				Eventf(corev1.EventTypeWarning, "InternalError", testErr.Error()),
+			},
+		},
+
+		//
+		// Finalize Tests
+		//
+
+		{
+			Name: "Full Finalization Success",
+			Key:  controllertesting.ResetOffsetKey,
+			Objects: []runtime.Object{controllertesting.NewResetOffset(
+				controllertesting.WithFinalizer,
+				controllertesting.WithDeletionTimestamp,
+				controllertesting.WithStatusTopic(topicName),
+				controllertesting.WithStatusGroup(groupId),
+				controllertesting.WithStatusPartitions(offsetMappings),
+				controllertesting.WithStatusRefMapped(true),
+				controllertesting.WithStatusResetInitiated(true),
+				controllertesting.WithStatusConsumerGroupsStopped(true),
+				controllertesting.WithStatusOffsetsUpdated(true),
+				controllertesting.WithStatusConsumerGroupsStarted(true))},
+			WantPatches: []clientgotesting.PatchActionImpl{
+				{
+					ActionImpl: clientgotesting.ActionImpl{
+						Namespace:   controllertesting.ResetOffsetNamespace,
+						Verb:        "patch",
+						Resource:    schema.GroupVersionResource{Group: kafkav1alpha1.SchemeGroupVersion.Group, Version: kafkav1alpha1.SchemeGroupVersion.Version, Resource: "resetoffset"},
+						Subresource: "",
+					},
+					Name:      controllertesting.ResetOffsetName,
+					PatchType: "application/merge-patch+json",
+					Patch:     []byte(`{"metadata":{"finalizers":[],"resourceVersion":""}}`),
+				},
+			},
+			WantEvents: []string{
+				Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated \"resetoffset-name\" finalizers"),
+				Eventf(corev1.EventTypeNormal, ResetOffsetFinalized.String(), "Finalized successfully"),
+			},
+		},
+		{
+			Name: "Finalization Executing Instance",
+			Key:  controllertesting.ResetOffsetKey,
+			Objects: []runtime.Object{controllertesting.NewResetOffset(
+				controllertesting.WithFinalizer,
+				controllertesting.WithDeletionTimestamp,
+				controllertesting.WithStatusTopic(topicName),
+				controllertesting.WithStatusGroup(groupId),
+				controllertesting.WithStatusPartitions(offsetMappings),
+				controllertesting.WithStatusRefMapped(true),
+				controllertesting.WithStatusResetInitiated(true),
+				controllertesting.WithStatusConsumerGroupsStopped(true))},
+			WantErr: true,
+			WantEvents: []string{
+				Eventf(corev1.EventTypeWarning, "InternalError", "skipping finalization of in-progress ResetOffset instance"),
 			},
 		},
 	}

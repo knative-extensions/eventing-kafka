@@ -217,8 +217,6 @@ func TestResetOffsetSubscriptionRefMapper_MapRef(t *testing.T) {
 			assert.Equal(t, test.wantErr, err != nil)
 			assert.Equal(t, test.wantTopic, topicName)
 			assert.Equal(t, test.wantGroup, groupId)
-			//tODO - make dynamic
-			//mockSubscriptionLister.AssertExpectations(t)
 		})
 	}
 }
