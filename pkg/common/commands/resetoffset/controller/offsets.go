@@ -179,7 +179,7 @@ func formatOffsetMetaData(time int64) string {
 	return fmt.Sprintf("resetoffset.%d", time)
 }
 
-// safeCloseSaramaClient will attempt to close the specified Sarama Client and will reset the Reconciler reference
+// safeCloseSaramaClient will attempt to close the specified Sarama Client
 func safeCloseSaramaClient(logger *zap.Logger, client sarama.Client) {
 	if client != nil && !client.Closed() {
 		err := client.Close()

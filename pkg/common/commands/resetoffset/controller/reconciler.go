@@ -50,7 +50,7 @@ type Reconciler struct {
 	refMapper         refmappers.ResetOffsetRefMapper
 }
 
-// ReconcileKind Implements The Reconciler Interface & Is Responsible For Performing The Reconciliation (Creation)
+// ReconcileKind implements the Reconciler Interface and is responsible for performing Offset repositioning.
 func (r *Reconciler) ReconcileKind(ctx context.Context, resetOffset *kafkav1alpha1.ResetOffset) reconciler.Event {
 
 	// Get The Logger From Context
@@ -129,7 +129,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, resetOffset *kafkav1alph
 	return reconciler.NewEvent(corev1.EventTypeNormal, ResetOffsetReconciled.String(), "Reconciled successfully")
 }
 
-// FinalizeKind Implements The Finalizer Interface & Is Responsible For Performing The Finalization (Deletion)
+// FinalizeKind implements the Finalizer Interface and is responsible for performing any necessary cleanup.
 func (r *Reconciler) FinalizeKind(ctx context.Context, resetOffset *kafkav1alpha1.ResetOffset) reconciler.Event {
 
 	// Get The Logger From Context

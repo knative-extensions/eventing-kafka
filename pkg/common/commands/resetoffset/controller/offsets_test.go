@@ -310,10 +310,8 @@ func TestReconciler_ReconcileOffsets(t *testing.T) {
 			defer restoreSaramaNewOffsetManagerFromClientFn()
 
 			// Configure The Test OffsetManager With Partitions
-			if len(test.partitionOffsetManagers) > 0 {
-				for partition, partitionOffsetManager := range test.partitionOffsetManagers {
-					controllertesting.WithOffsetManagerMockManagePartition(topicName, partition, partitionOffsetManager, nil)(test.offsetManager)
-				}
+			for partition, partitionOffsetManager := range test.partitionOffsetManagers {
+				controllertesting.WithOffsetManagerMockManagePartition(topicName, partition, partitionOffsetManager, nil)(test.offsetManager)
 			}
 
 			// Create A Reconciler
