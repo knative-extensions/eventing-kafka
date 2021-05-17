@@ -45,21 +45,6 @@ var SaramaNewOffsetManagerFromClientFn SaramaNewOffsetManagerFromClientFnType = 
 // updateOffsetsError is the general error for any failure in updating offsets, exposed for test use.
 var updateOffsetsError = fmt.Errorf("failed to update all Offsets, skipping commit")
 
-// TODO - old impl for separating from reconciler !!!
-//// UpdateOffsetsFnType defines a function type for repositioning Kafka Offsets of all Partitions of a Topic/Group to the specified timestamp (millis).
-//type UpdateOffsetsFnType func(logger *zap.Logger, brokers []string, config *sarama.Config, topicName string, groupId string, offsetTime int64) ([]kafkav1alpha1.OffsetMapping, error)
-//
-//// UpdateOffsetsFn is the UpdateOffsetsFnType instance that will be used by the reconciler which allows for test mocking.
-//var UpdateOffsetsFn UpdateOffsetsFnType = UpdateOffsetsFnImpl
-//
-//// UpdateOffsetsFnImpl is the official UpdateOffsetsFnType implementation used
-//// in production. It will update the Offsets of all Partitions for the
-//// specified Topic / ConsumerGroup to the Offset value corresponding to the
-//// specified offsetTime (millis since epoch) and return OffsetMappings of the
-//// old/new state.  An error will be returned and the Offsets will not be
-//// committed if any problems occur.
-// TODO func UpdateOffsetsFnImpl(logger *zap.Logger, brokers []string, config *sarama.Config, topicName string, groupId string, offsetTime int64) ([]kafkav1alpha1.OffsetMapping, error) {
-
 // reconcileOffsets updates the Offsets of all Partitions for the specified
 // Topic / ConsumerGroup to the Offset value corresponding to the specified
 // offsetTime (millis since epoch) and return OffsetMappings of the old/new
