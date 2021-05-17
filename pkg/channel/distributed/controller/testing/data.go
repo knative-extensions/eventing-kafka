@@ -164,7 +164,6 @@ Producer:
   Idempotent: true
   RequiredAcks: -1
 `
-	ConfigMapVersion = "1.0.0"
 )
 
 var (

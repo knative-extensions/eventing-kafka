@@ -45,7 +45,7 @@ func EnableSaramaLogging(enable bool) {
 }
 
 // GetAuth Is The Function Type Used To Delay Loading Auth Config Until The Secret Name/Namespace Are Known
-type GetAuth func(context.Context, string, string) (*client.KafkaAuthConfig, error)
+type GetAuth func(ctx context.Context, authSecretName string, authSecretNamespace string) (*client.KafkaAuthConfig, error)
 
 // LoadAuthConfig Creates A Sarama-Safe KafkaAuthConfig From The Specified Secret Name/Namespace
 func LoadAuthConfig(ctx context.Context, name string, namespace string) (*client.KafkaAuthConfig, error) {
