@@ -21,15 +21,21 @@ import (
 	"strconv"
 	"strings"
 
-	"knative.dev/eventing-kafka/pkg/common/kafka/sarama"
-
 	"go.uber.org/zap"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	injectionclient "knative.dev/pkg/client/injection/kube/client"
+	"knative.dev/pkg/configmap"
+	kncontroller "knative.dev/pkg/controller"
+	"knative.dev/pkg/injection"
+	"knative.dev/pkg/logging"
+	eventingmetrics "knative.dev/pkg/metrics"
+	"knative.dev/pkg/signals"
+
 	distributedcommonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	commonk8s "knative.dev/eventing-kafka/pkg/channel/distributed/common/k8s"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/config"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/controller"
 	dispatch "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/dispatcher"
@@ -38,15 +44,9 @@ import (
 	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	"knative.dev/eventing-kafka/pkg/client/informers/externalversions"
 	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
+	"knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
 	"knative.dev/eventing/pkg/kncloudevents"
-	injectionclient "knative.dev/pkg/client/injection/kube/client"
-	"knative.dev/pkg/configmap"
-	kncontroller "knative.dev/pkg/controller"
-	"knative.dev/pkg/injection"
-	"knative.dev/pkg/logging"
-	eventingmetrics "knative.dev/pkg/metrics"
-	"knative.dev/pkg/signals"
 )
 
 // Variables
@@ -98,7 +98,11 @@ func main() {
 	// Load The Sarama & Eventing-Kafka Configuration From The ConfigMap
 	ekConfig, err := sarama.LoadSettings(ctx, constants.Component, configMap, sarama.LoadAuthConfig)
 	if err != nil {
-		logger.Fatal("Failed To Load Sarama Settings", zap.Error(err))
+		logger.Fatal("Failed To Load Configuration Settings", zap.Error(err))
+	}
+	err = config.VerifyConfiguration(ekConfig)
+	if err != nil {
+		logger.Fatal("Failed To Verify Configuration Settings", zap.Error(err))
 	}
 
 	// Enable Sarama Logging If Specified In ConfigMap

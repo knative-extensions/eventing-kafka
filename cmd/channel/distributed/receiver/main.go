@@ -27,9 +27,19 @@ import (
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
+	eventingchannel "knative.dev/eventing/pkg/channel"
+	injectionclient "knative.dev/pkg/client/injection/kube/client"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/injection"
+	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/logging"
+	eventingmetrics "knative.dev/pkg/metrics"
+	"knative.dev/pkg/signals"
+
 	distributedcommonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	commonk8s "knative.dev/eventing-kafka/pkg/channel/distributed/common/k8s"
 	kafkautil "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/util"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/config"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/channel"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/env"
@@ -39,14 +49,6 @@ import (
 	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
-	eventingchannel "knative.dev/eventing/pkg/channel"
-	injectionclient "knative.dev/pkg/client/injection/kube/client"
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/injection"
-	"knative.dev/pkg/kmeta"
-	"knative.dev/pkg/logging"
-	eventingmetrics "knative.dev/pkg/metrics"
-	"knative.dev/pkg/signals"
 )
 
 // Variables
@@ -93,7 +95,11 @@ func main() {
 	// Load The Sarama & Eventing-Kafka Configuration From The ConfigMap
 	ekConfig, err := sarama.LoadSettings(ctx, constants.Component, configMap, sarama.LoadAuthConfig)
 	if err != nil {
-		logger.Fatal("Failed To Load Sarama Settings", zap.Error(err))
+		logger.Fatal("Failed To Load Configuration Settings", zap.Error(err))
+	}
+	err = config.VerifyConfiguration(ekConfig)
+	if err != nil {
+		logger.Fatal("Failed To Verify Configuration Settings", zap.Error(err))
 	}
 
 	// Enable Sarama Logging If Specified In ConfigMap

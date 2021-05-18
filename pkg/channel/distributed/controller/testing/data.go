@@ -21,19 +21,22 @@ import (
 	"strconv"
 	"time"
 
-	"knative.dev/eventing-kafka/pkg/common/client"
-
-	"k8s.io/apimachinery/pkg/runtime"
-
-	"k8s.io/utils/pointer"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgotesting "k8s.io/client-go/testing"
+	"k8s.io/utils/pointer"
+	"knative.dev/eventing-kafka/pkg/common/client"
+	"knative.dev/eventing/pkg/apis/messaging"
+	"knative.dev/pkg/apis"
+	"knative.dev/pkg/logging"
+	reconcilertesting "knative.dev/pkg/reconciler/testing"
+	"knative.dev/pkg/system"
+
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	commonenv "knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/health"
@@ -46,11 +49,6 @@ import (
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
-	"knative.dev/eventing/pkg/apis/messaging"
-	"knative.dev/pkg/apis"
-	"knative.dev/pkg/logging"
-	reconcilertesting "knative.dev/pkg/reconciler/testing"
-	"knative.dev/pkg/system"
 )
 
 // Constants
@@ -412,17 +410,17 @@ func NewConfig(options ...KafkaConfigOption) *commonconfig.EventingKafkaConfig {
 			},
 		},
 		Channel: commonconfig.EKChannelConfig{
-			Dispatcher: commonconfig.EKDispatcherConfig{
-				EKKubernetesConfig: commonconfig.EKKubernetesConfig{
-					Replicas:      DispatcherReplicas,
-					CpuLimit:      resource.MustParse(DispatcherCpuLimit),
-					CpuRequest:    resource.MustParse(DispatcherCpuRequest),
-					MemoryLimit:   resource.MustParse(DispatcherMemoryLimit),
-					MemoryRequest: resource.MustParse(DispatcherMemoryRequest),
-				},
-			},
 			Distributed: commonconfig.EKDistributedConfig{
 				AdminType: KafkaAdminType,
+				Dispatcher: commonconfig.EKDispatcherConfig{
+					EKKubernetesConfig: commonconfig.EKKubernetesConfig{
+						Replicas:      DispatcherReplicas,
+						CpuLimit:      resource.MustParse(DispatcherCpuLimit),
+						CpuRequest:    resource.MustParse(DispatcherCpuRequest),
+						MemoryLimit:   resource.MustParse(DispatcherMemoryLimit),
+						MemoryRequest: resource.MustParse(DispatcherMemoryRequest),
+					},
+				},
 				Receiver: commonconfig.EKReceiverConfig{
 					EKKubernetesConfig: commonconfig.EKKubernetesConfig{
 						Replicas:      ReceiverReplicas,
@@ -454,10 +452,10 @@ func WithNoReceiverResources(kafkaConfig *commonconfig.EventingKafkaConfig) {
 
 // WithNoDispatcherResources Removes The Dispatcher Resource Requests And Limits
 func WithNoDispatcherResources(kafkaConfig *commonconfig.EventingKafkaConfig) {
-	kafkaConfig.Channel.Dispatcher.EKKubernetesConfig.CpuLimit = resource.Quantity{}
-	kafkaConfig.Channel.Dispatcher.EKKubernetesConfig.CpuRequest = resource.Quantity{}
-	kafkaConfig.Channel.Dispatcher.EKKubernetesConfig.MemoryLimit = resource.Quantity{}
-	kafkaConfig.Channel.Dispatcher.EKKubernetesConfig.MemoryRequest = resource.Quantity{}
+	kafkaConfig.Channel.Distributed.Dispatcher.EKKubernetesConfig.CpuLimit = resource.Quantity{}
+	kafkaConfig.Channel.Distributed.Dispatcher.EKKubernetesConfig.CpuRequest = resource.Quantity{}
+	kafkaConfig.Channel.Distributed.Dispatcher.EKKubernetesConfig.MemoryLimit = resource.Quantity{}
+	kafkaConfig.Channel.Distributed.Dispatcher.EKKubernetesConfig.MemoryRequest = resource.Quantity{}
 }
 
 //

@@ -19,6 +19,7 @@ package config
 import (
 	"github.com/Shopify/sarama"
 	"k8s.io/apimachinery/pkg/api/resource"
+
 	"knative.dev/eventing-kafka/pkg/common/client"
 )
 
@@ -57,7 +58,7 @@ type EKCloudEventConfig struct {
 	MaxIdleConnsPerHost int `json:"maxIdleConnsPerHost,omitempty"`
 }
 
-// EKKafkaConfig contains items relevant to Kafka specifically, and the Sarama logging flag
+// EKKafkaConfig contains items relevant to Kafka specifically
 type EKKafkaConfig struct {
 	Brokers             string             `json:"brokers,omitempty"`
 	AuthSecretName      string             `json:"authSecretName,omitempty"`
@@ -65,14 +66,16 @@ type EKKafkaConfig struct {
 	Topic               EKKafkaTopicConfig `json:"topic,omitempty"`
 }
 
-// EKDistributedConfig holds fields needed only by the Distributed Channel component
+// EKDistributedConfig contains configuration fields needed by the Distributed Channel component
 type EKDistributedConfig struct {
-	Receiver  EKReceiverConfig `json:"receiver,omitempty"`
-	AdminType string           `json:"adminType,omitempty"`
+	Dispatcher EKDispatcherConfig `json:"dispatcher,omitempty"`
+	Receiver   EKReceiverConfig   `json:"receiver,omitempty"`
+	AdminType  string             `json:"adminType,omitempty"`
 }
 
-// EKConsolidatedConfig is reserved for configuration fields needed only by the Consolidated Channel component
+// EKConsolidatedConfig contains configuration fields needed by the Consolidated Channel component
 type EKConsolidatedConfig struct {
+	Dispatcher EKDispatcherConfig `json:"dispatcher,omitempty"`
 }
 
 // EKSourceConfig is reserved for configuration fields needed by the Kafka Source component
@@ -81,7 +84,6 @@ type EKSourceConfig struct {
 
 // EKChannelConfig contains items relevant to the eventing-kafka channels (distributed and consolidated)
 type EKChannelConfig struct {
-	Dispatcher   EKDispatcherConfig   `json:"dispatcher,omitempty"`
 	Distributed  EKDistributedConfig  `json:"distributed,omitempty"`
 	Consolidated EKConsolidatedConfig `json:"consolidated,omitempty"`
 }
@@ -98,5 +100,6 @@ type EventingKafkaConfig struct {
 	CloudEvents EKCloudEventConfig      `json:"cloudevents,omitempty"`
 	Kafka       EKKafkaConfig           `json:"kafka,omitempty"`
 	Sarama      EKSaramaConfig          `json:"sarama,omitempty"`
-	Auth        *client.KafkaAuthConfig `json:"-"` // Not directly part of the configmap; stored here for convenience
+	Source      EKSourceConfig          `json:"source,omitempty"`
+	Auth        *client.KafkaAuthConfig `json:"-"` // Not directly part of the configmap; loaded from the secret
 }

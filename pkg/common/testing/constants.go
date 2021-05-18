@@ -48,12 +48,12 @@ channel:
       cpuLimit: ` + ReceiverCpuLimit + `
       memoryLimit: ` + ReceiverMemoryLimit + `
       replicas: ` + ReceiverReplicas + `
-  dispatcher:
-    cpuRequest: ` + DispatcherCpuRequest + `
-    memoryRequest: ` + DispatcherMemoryRequest + `
-    cpuLimit: ` + DispatcherCpuLimit + `
-    memoryLimit: ` + DispatcherMemoryLimit + `
-    replicas: ` + DispatcherReplicas + `
+    dispatcher:
+      cpuRequest: ` + DispatcherCpuRequest + `
+      memoryRequest: ` + DispatcherMemoryRequest + `
+      cpuLimit: ` + DispatcherCpuLimit + `
+      memoryLimit: ` + DispatcherMemoryLimit + `
+      replicas: ` + DispatcherReplicas + `
 kafka:
   brokers: ` + BrokerString + `
   topic:

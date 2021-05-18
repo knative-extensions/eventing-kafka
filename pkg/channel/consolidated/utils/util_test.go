@@ -22,23 +22,21 @@ import (
 	"crypto/x509"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	clientcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	injectionclient "knative.dev/pkg/client/injection/kube/client"
+	_ "knative.dev/pkg/system/testing"
+
 	"knative.dev/eventing-kafka/pkg/common/client"
 	"knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/common/constants"
 	kafkasarama "knative.dev/eventing-kafka/pkg/common/kafka/sarama"
-	injectionclient "knative.dev/pkg/client/injection/kube/client"
-
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/google/go-cmp/cmp"
-	_ "knative.dev/pkg/system/testing"
 )
 
 type KubernetesAPI struct {
@@ -230,6 +228,9 @@ func TestGetKafkaConfig(t *testing.T) {
 		cmpopts.IgnoreFields(saramaEmptyConfig.Producer, "Partitioner"),
 	}
 
+	// The loadEventingKafkaSettings function defaults the number of replicas to one
+	defaultK8SConfig := config.EKKubernetesConfig{Replicas: 1}
+
 	testCases := []struct {
 		name     string
 		data     map[string]string
@@ -375,17 +376,12 @@ func TestGetKafkaConfig(t *testing.T) {
 				Brokers: []string{"kafkabroker1.kafka:9092", "kafkabroker2.kafka:9092"},
 				EventingKafka: &config.EventingKafkaConfig{
 					Channel: config.EKChannelConfig{
-						Dispatcher: config.EKDispatcherConfig{
-							EKKubernetesConfig: config.EKKubernetesConfig{
-								Replicas: 1,
-							},
+						Consolidated: config.EKConsolidatedConfig{
+							Dispatcher: config.EKDispatcherConfig{EKKubernetesConfig: defaultK8SConfig},
 						},
 						Distributed: config.EKDistributedConfig{
-							Receiver: config.EKReceiverConfig{
-								EKKubernetesConfig: config.EKKubernetesConfig{
-									Replicas: 1,
-								},
-							},
+							Receiver:   config.EKReceiverConfig{EKKubernetesConfig: defaultK8SConfig},
+							Dispatcher: config.EKDispatcherConfig{EKKubernetesConfig: defaultK8SConfig},
 						},
 					},
 					CloudEvents: config.EKCloudEventConfig{

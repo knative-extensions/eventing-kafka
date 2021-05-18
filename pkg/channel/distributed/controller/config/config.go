@@ -52,10 +52,12 @@ func VerifyConfiguration(configuration *commonconfig.EventingKafkaConfig) error 
 		return ControllerConfigurationError("Kafka.Topic.DefaultReplicationFactor must be > 0")
 	case configuration.Kafka.Topic.DefaultRetentionMillis < 1:
 		return ControllerConfigurationError("Kafka.Topic.DefaultRetentionMillis must be > 0")
-	case configuration.Channel.Dispatcher.Replicas < 1:
-		return ControllerConfigurationError("Dispatcher.Replicas must be > 0")
+	case configuration.Channel.Distributed.Dispatcher.Replicas < 1:
+		return ControllerConfigurationError("Distributed.Dispatcher.Replicas must be > 0")
 	case configuration.Channel.Distributed.Receiver.Replicas < 1:
-		return ControllerConfigurationError("Receiver.Replicas must be > 0")
+		return ControllerConfigurationError("Distributed.Receiver.Replicas must be > 0")
+	case configuration.Channel.Consolidated.Dispatcher.Replicas < 1:
+		return ControllerConfigurationError("Consolidated.Dispatcher.Replicas must be > 0")
 	}
 	return nil // no problems found
 }

@@ -24,16 +24,15 @@ import (
 	"testing"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes/fake"
-	injectionclient "knative.dev/pkg/client/injection/kube/client"
-
-	"knative.dev/eventing-kafka/pkg/common/client"
-	"knative.dev/pkg/system"
-
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/client-go/kubernetes/fake"
+	injectionclient "knative.dev/pkg/client/injection/kube/client"
+	"knative.dev/pkg/system"
+
+	"knative.dev/eventing-kafka/pkg/common/client"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/common/constants"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
@@ -48,9 +47,9 @@ channel:
     receiver:
       cpuRequest: 100m
       memoryRequest: 50Mi
-  dispatcher:
-    cpuRequest: 100m
-    memoryRequest: 50Mi
+    dispatcher:
+      cpuRequest: 100m
+      memoryRequest: 50Mi
 kafka:
   brokers: REPLACE_WITH_CLUSTER_URL
   enableSaramaLogging: false
@@ -210,11 +209,11 @@ func verifyEventingKafkaSettings(t *testing.T, settings *commonconfig.EventingKa
 	assert.Equal(t, int32(4), settings.Kafka.Topic.DefaultNumPartitions)
 	assert.Equal(t, int16(1), settings.Kafka.Topic.DefaultReplicationFactor)
 	assert.Equal(t, int64(604800000), settings.Kafka.Topic.DefaultRetentionMillis)
-	assert.Equal(t, resource.Quantity{}, settings.Channel.Dispatcher.CpuLimit)
-	assert.Equal(t, resource.MustParse("100m"), settings.Channel.Dispatcher.CpuRequest)
-	assert.Equal(t, resource.Quantity{}, settings.Channel.Dispatcher.MemoryLimit)
-	assert.Equal(t, resource.MustParse("50Mi"), settings.Channel.Dispatcher.MemoryRequest)
-	assert.Equal(t, 1, settings.Channel.Dispatcher.Replicas)
+	assert.Equal(t, resource.Quantity{}, settings.Channel.Distributed.Dispatcher.CpuLimit)
+	assert.Equal(t, resource.MustParse("100m"), settings.Channel.Distributed.Dispatcher.CpuRequest)
+	assert.Equal(t, resource.Quantity{}, settings.Channel.Distributed.Dispatcher.MemoryLimit)
+	assert.Equal(t, resource.MustParse("50Mi"), settings.Channel.Distributed.Dispatcher.MemoryRequest)
+	assert.Equal(t, 1, settings.Channel.Distributed.Dispatcher.Replicas)
 	assert.Equal(t, "azure", settings.Channel.Distributed.AdminType)
 	assert.Equal(t, "REPLACE_WITH_CLUSTER_URL", settings.Kafka.Brokers)
 }
@@ -366,6 +365,15 @@ func TestLoadEventingKafkaSettings(t *testing.T) {
 	testEKConfig := &commonconfig.EventingKafkaConfig{
 		Channel: commonconfig.EKChannelConfig{
 			Distributed: commonconfig.EKDistributedConfig{
+				Dispatcher: commonconfig.EKDispatcherConfig{
+					EKKubernetesConfig: commonconfig.EKKubernetesConfig{
+						CpuLimit:      resource.MustParse(commontesting.DispatcherCpuLimit),
+						CpuRequest:    resource.MustParse(commontesting.DispatcherCpuRequest),
+						MemoryLimit:   resource.MustParse(commontesting.DispatcherMemoryLimit),
+						MemoryRequest: resource.MustParse(commontesting.DispatcherMemoryRequest),
+						Replicas:      dispatcherReplicas,
+					},
+				},
 				Receiver: commonconfig.EKReceiverConfig{
 					EKKubernetesConfig: commonconfig.EKKubernetesConfig{
 						CpuLimit:      resource.MustParse(commontesting.ReceiverCpuLimit),
@@ -374,15 +382,6 @@ func TestLoadEventingKafkaSettings(t *testing.T) {
 						MemoryRequest: resource.MustParse(commontesting.ReceiverMemoryRequest),
 						Replicas:      receiverReplicas,
 					},
-				},
-			},
-			Dispatcher: commonconfig.EKDispatcherConfig{
-				EKKubernetesConfig: commonconfig.EKKubernetesConfig{
-					CpuLimit:      resource.MustParse(commontesting.DispatcherCpuLimit),
-					CpuRequest:    resource.MustParse(commontesting.DispatcherCpuRequest),
-					MemoryLimit:   resource.MustParse(commontesting.DispatcherMemoryLimit),
-					MemoryRequest: resource.MustParse(commontesting.DispatcherMemoryRequest),
-					Replicas:      dispatcherReplicas,
 				},
 			},
 		},
@@ -480,11 +479,11 @@ kafka:
 						assert.Equal(t, testEKConfig.Channel.Distributed.Receiver.MemoryLimit, eventingKafkaConfig.Channel.Distributed.Receiver.MemoryLimit)
 						assert.Equal(t, testEKConfig.Channel.Distributed.Receiver.MemoryRequest, eventingKafkaConfig.Channel.Distributed.Receiver.MemoryRequest)
 						assert.Equal(t, testEKConfig.Channel.Distributed.Receiver.Replicas, eventingKafkaConfig.Channel.Distributed.Receiver.Replicas)
-						assert.Equal(t, testEKConfig.Channel.Dispatcher.CpuLimit, eventingKafkaConfig.Channel.Dispatcher.CpuLimit)
-						assert.Equal(t, testEKConfig.Channel.Dispatcher.CpuRequest, eventingKafkaConfig.Channel.Dispatcher.CpuRequest)
-						assert.Equal(t, testEKConfig.Channel.Dispatcher.MemoryLimit, eventingKafkaConfig.Channel.Dispatcher.MemoryLimit)
-						assert.Equal(t, testEKConfig.Channel.Dispatcher.MemoryRequest, eventingKafkaConfig.Channel.Dispatcher.MemoryRequest)
-						assert.Equal(t, testEKConfig.Channel.Dispatcher.Replicas, eventingKafkaConfig.Channel.Dispatcher.Replicas)
+						assert.Equal(t, testEKConfig.Channel.Distributed.Dispatcher.CpuLimit, eventingKafkaConfig.Channel.Distributed.Dispatcher.CpuLimit)
+						assert.Equal(t, testEKConfig.Channel.Distributed.Dispatcher.CpuRequest, eventingKafkaConfig.Channel.Distributed.Dispatcher.CpuRequest)
+						assert.Equal(t, testEKConfig.Channel.Distributed.Dispatcher.MemoryLimit, eventingKafkaConfig.Channel.Distributed.Dispatcher.MemoryLimit)
+						assert.Equal(t, testEKConfig.Channel.Distributed.Dispatcher.MemoryRequest, eventingKafkaConfig.Channel.Distributed.Dispatcher.MemoryRequest)
+						assert.Equal(t, testEKConfig.Channel.Distributed.Dispatcher.Replicas, eventingKafkaConfig.Channel.Distributed.Dispatcher.Replicas)
 						assert.Equal(t, testEKConfig.Kafka.Brokers, eventingKafkaConfig.Kafka.Brokers)
 					}
 				}

@@ -6,11 +6,14 @@ import (
 	"hash/crc32"
 
 	"github.com/Shopify/sarama"
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
+
+	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/common/client"
 	"knative.dev/eventing-kafka/pkg/common/constants"
-	kubeclient "knative.dev/pkg/client/injection/kube/client"
 )
 
 func ConfigmapDataCheckSum(configMapData map[string]string) string {
@@ -53,4 +56,39 @@ func GetAuthConfigFromSecret(secret *corev1.Secret) *client.KafkaAuthConfig {
 			SaslType: saslType,
 		},
 	}
+}
+
+// NumPartitions Gets The NumPartitions - First From Channel Spec And Then From ConfigMap-Provided Settings
+func NumPartitions(channel *kafkav1beta1.KafkaChannel, configuration *EventingKafkaConfig, logger *zap.SugaredLogger) int32 {
+	value := channel.Spec.NumPartitions
+	if value <= 0 && configuration != nil {
+		logger.Debug("Kafka Channel Spec 'NumPartitions' Not Specified - Using Default", zap.Int32("Value", configuration.Kafka.Topic.DefaultNumPartitions))
+		value = configuration.Kafka.Topic.DefaultNumPartitions
+	}
+	return value
+}
+
+// ReplicationFactor Gets The ReplicationFactor - First From Channel Spec And Then From ConfigMap-Provided Settings
+func ReplicationFactor(channel *kafkav1beta1.KafkaChannel, configuration *EventingKafkaConfig, logger *zap.SugaredLogger) int16 {
+	value := channel.Spec.ReplicationFactor
+	if value <= 0 && configuration != nil {
+		logger.Debug("Kafka Channel Spec 'ReplicationFactor' Not Specified - Using Default", zap.Int16("Value", configuration.Kafka.Topic.DefaultReplicationFactor))
+		value = configuration.Kafka.Topic.DefaultReplicationFactor
+	}
+	return value
+}
+
+// RetentionMillis Gets The RetentionMillis - First From Channel Spec And Then From ConfigMap-Provided Settings
+func RetentionMillis(channel *kafkav1beta1.KafkaChannel, configuration *EventingKafkaConfig, logger *zap.SugaredLogger) int64 {
+	//
+	// TODO - The eventing-contrib KafkaChannel CRD does not include RetentionMillis so we're
+	//        currently just using the default value specified in Controller Environment Variables.
+	//
+	//value := channel.Spec.RetentionMillis
+	//if value <= 0 && configuration != nil {
+	//	logger.Debug("Kafka Channel Spec 'RetentionMillis' Not Specified - Using Default", zap.Int64("Value", environment.DefaultRetentionMillis))
+	//	value = environment.DefaultRetentionMillis
+	//}
+	//return value
+	return configuration.Kafka.Topic.DefaultRetentionMillis
 }

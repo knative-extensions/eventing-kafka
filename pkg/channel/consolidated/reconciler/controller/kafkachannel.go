@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
@@ -35,6 +36,14 @@ import (
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/pointer"
+	v1 "knative.dev/eventing/pkg/apis/duck/v1"
+	"knative.dev/eventing/pkg/apis/eventing"
+	"knative.dev/pkg/apis"
+	"knative.dev/pkg/apis/duck"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/network"
+	pkgreconciler "knative.dev/pkg/reconciler"
 
 	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/reconciler/controller/resources"
@@ -49,15 +58,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/common/constants"
 	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	kafkasarama "knative.dev/eventing-kafka/pkg/common/kafka/sarama"
-	v1 "knative.dev/eventing/pkg/apis/duck/v1"
-	"knative.dev/eventing/pkg/apis/eventing"
 	eventingclientset "knative.dev/eventing/pkg/client/clientset/versioned"
-	"knative.dev/pkg/apis"
-	"knative.dev/pkg/apis/duck"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/network"
-	pkgreconciler "knative.dev/pkg/reconciler"
 )
 
 const (
@@ -540,9 +541,13 @@ func (r *Reconciler) reconcileTopic(ctx context.Context, channel *v1beta1.KafkaC
 	topicName := utils.TopicName(utils.KafkaChannelSeparator, channel.Namespace, channel.Name)
 	logger.Infow("Creating topic on Kafka cluster", zap.String("topic", topicName),
 		zap.Int32("partitions", channel.Spec.NumPartitions), zap.Int16("replication", channel.Spec.ReplicationFactor))
+	retentionMillisString := strconv.FormatInt(commonconfig.RetentionMillis(channel, r.kafkaConfig.EventingKafka, logger), 10)
 	err := kafkaClusterAdmin.CreateTopic(topicName, &sarama.TopicDetail{
-		ReplicationFactor: channel.Spec.ReplicationFactor,
-		NumPartitions:     channel.Spec.NumPartitions,
+		ReplicationFactor: commonconfig.ReplicationFactor(channel, r.kafkaConfig.EventingKafka, logger),
+		NumPartitions:     commonconfig.NumPartitions(channel, r.kafkaConfig.EventingKafka, logger),
+		ConfigEntries: map[string]*string{
+			constants.KafkaTopicConfigRetentionMs: &retentionMillisString,
+		},
 	}, false)
 	if e, ok := err.(*sarama.TopicError); ok && e.Err == sarama.ErrTopicAlreadyExists {
 		return nil

@@ -61,4 +61,7 @@ const (
 
 	// KnativeLoggingConfigMapNameEnvVarKey Is The Environment Variable Used For Knative Logging Configuration
 	KnativeLoggingConfigMapNameEnvVarKey = "CONFIG_LOGGING_NAME" // Note - Matches value of configMapNameEnv constant in Knative.dev/pkg/logging !
+
+	// KafkaTopicConfigRetentionMs is the key in the Sarama TopicDetail ConfigEntries map for retention time (in ms)
+	KafkaTopicConfigRetentionMs = "retention.ms"
 )

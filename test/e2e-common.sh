@@ -376,7 +376,10 @@ function uninstall_channel_crds() {
   # config-kafka configmap.  However, if the secret is missing, the global resync does not happen
   # (the controller presumes this missing secret is an error and reacts accordingly), so this
   # manual deletion of the receiver deployment is the easiest solution here.
-  [[ $1 == "distributed" ]] && kubectl delete deployment -n "${SYSTEM_NAMESPACE}" kafka-cluster-32603413-receiver
+  if [[ $1 == "distributed" ]]; then
+    kubectl delete deployment -n "${SYSTEM_NAMESPACE}" kafka-cluster-32603413-receiver
+    kubectl delete service -n "${SYSTEM_NAMESPACE}" kafka-cluster-32603413-receiver
+  fi
 
   echo "Current namespaces:"
   kubectl get namespaces

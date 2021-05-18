@@ -23,12 +23,12 @@ import (
 	"log"
 	"os"
 
-	"knative.dev/eventing-kafka/pkg/common/config"
-	"knative.dev/pkg/system"
-
 	"github.com/Shopify/sarama"
 	"github.com/ghodss/yaml"
+	"knative.dev/pkg/system"
+
 	"knative.dev/eventing-kafka/pkg/common/client"
+	"knative.dev/eventing-kafka/pkg/common/config"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/common/constants"
 )
@@ -157,10 +157,10 @@ func upgradeConfig(data map[string]string) *commonconfig.EventingKafkaConfig {
 	// Upgrade the eventing-kafka config by placing old values into the new struct
 	return &commonconfig.EventingKafkaConfig{
 		Channel: commonconfig.EKChannelConfig{
-			Dispatcher: oldConfig.Dispatcher,
 			Distributed: commonconfig.EKDistributedConfig{
-				Receiver:  oldConfig.Receiver,
-				AdminType: oldConfig.Kafka.AdminType,
+				Dispatcher: oldConfig.Dispatcher,
+				Receiver:   oldConfig.Receiver,
+				AdminType:  oldConfig.Kafka.AdminType,
 			},
 		},
 		CloudEvents: oldConfig.CloudEvents,
@@ -209,8 +209,11 @@ func loadEventingKafkaSettings(configMap map[string]string) (*commonconfig.Event
 	if eventingKafkaConfig.Channel.Distributed.Receiver.Replicas < 1 {
 		eventingKafkaConfig.Channel.Distributed.Receiver.Replicas = 1
 	}
-	if eventingKafkaConfig.Channel.Dispatcher.Replicas < 1 {
-		eventingKafkaConfig.Channel.Dispatcher.Replicas = 1
+	if eventingKafkaConfig.Channel.Distributed.Dispatcher.Replicas < 1 {
+		eventingKafkaConfig.Channel.Distributed.Dispatcher.Replicas = 1
+	}
+	if eventingKafkaConfig.Channel.Consolidated.Dispatcher.Replicas < 1 {
+		eventingKafkaConfig.Channel.Consolidated.Dispatcher.Replicas = 1
 	}
 
 	// Set Default Values For Secret

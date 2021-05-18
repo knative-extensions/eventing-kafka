@@ -80,9 +80,6 @@ const (
 	K8sAppDispatcherSelectorLabel = "k8s-app"
 	K8sAppDispatcherSelectorValue = "eventing-kafka-dispatchers"
 
-	// Kafka Topic Configuration
-	KafkaTopicConfigRetentionMs = "retention.ms"
-
 	// Health Configuration
 	// Note that many of these are the default values for a corev1 "Probe" struct,
 	// but we explicitly set them here so that the difference between "0, therefore default"
