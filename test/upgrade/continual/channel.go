@@ -199,7 +199,7 @@ func (b *brokerBackedByKafkaChannelSut) Teardown(ctx sut.Context) {
 	if b.defaultSut == nil {
 		ctx.T.Fatal("default SUT isn't set!?!")
 	}
-	if tr, ok := b.defaultSut.(sut.HasManualTeardown); ok {
+	if tr, ok := b.defaultSut.(sut.HasTeardown); ok {
 		tr.Teardown(ctx)
 	}
 }
