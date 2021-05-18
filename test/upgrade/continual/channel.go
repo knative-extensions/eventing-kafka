@@ -18,7 +18,6 @@ package continual
 
 import (
 	"fmt"
-	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -125,14 +124,12 @@ func (k kafkaChannelSut) Deploy(ctx sut.Context, destination duckv1.Destination)
 		}
 	}
 
-	for _, eventType := range eventTypes {
-		c.CreateSubscriptionOrFail(
-			fmt.Sprintf("%s-%s", name, simpleType(eventType)),
-			name, k.channelTypeMeta,
-			withDestinationForSubscription(&destination),
-			k.RetryOptions.subscriptionOption(),
-		)
-	}
+	c.CreateSubscriptionOrFail(
+		name, name, k.channelTypeMeta,
+		withDestinationForSubscription(&destination),
+		k.RetryOptions.subscriptionOption(),
+	)
+
 	return sutUrl
 }
 
@@ -181,11 +178,6 @@ func ensureSubscriptionHasDelivery(subscription *messagingv1.Subscription) {
 	}
 }
 
-func simpleType(name string) string {
-	parts := strings.Split(name, ".")
-	return parts[len(parts)-1]
-}
-
 type brokerBackedByKafkaChannelSut struct {
 	ReplicationOptions
 	RetryOptions
@@ -193,7 +185,7 @@ type brokerBackedByKafkaChannelSut struct {
 	defaultSut      sut.SystemUnderTest
 }
 
-func (b brokerBackedByKafkaChannelSut) Deploy(
+func (b *brokerBackedByKafkaChannelSut) Deploy(
 	ctx sut.Context,
 	destination duckv1.Destination,
 ) interface{} {
@@ -203,7 +195,7 @@ func (b brokerBackedByKafkaChannelSut) Deploy(
 	return b.defaultSut.Deploy(ctx, destination)
 }
 
-func (b brokerBackedByKafkaChannelSut) Teardown(ctx sut.Context) {
+func (b *brokerBackedByKafkaChannelSut) Teardown(ctx sut.Context) {
 	if b.defaultSut == nil {
 		ctx.T.Fatal("default SUT isn't set!?!")
 	}
@@ -212,7 +204,7 @@ func (b brokerBackedByKafkaChannelSut) Teardown(ctx sut.Context) {
 	}
 }
 
-func (b brokerBackedByKafkaChannelSut) setKafkaAsDefaultForBroker(ctx sut.Context) {
+func (b *brokerBackedByKafkaChannelSut) setKafkaAsDefaultForBroker(ctx sut.Context) {
 	systemNs := "knative-eventing"
 	configmaps := ctx.Client.Kube.CoreV1().ConfigMaps(systemNs)
 	cm := &corev1.ConfigMap{
