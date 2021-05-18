@@ -23,7 +23,6 @@ import (
 	eventingduckv1 "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/test/upgrade/prober"
 	"knative.dev/eventing/test/upgrade/prober/sut"
-	watholaevent "knative.dev/eventing/test/upgrade/prober/wathola/event"
 )
 
 // ReplicationOptions hold options for replication.
@@ -52,11 +51,6 @@ type TestOptions struct {
 	prober.ContinualVerificationOptions
 	ChannelTypeMeta *metav1.TypeMeta
 	SUTs            map[string]sut.SystemUnderTest
-}
-
-var eventTypes = []string{
-	watholaevent.Step{}.Type(),
-	watholaevent.Finished{}.Type(),
 }
 
 func fillInDefaults(opts *TestOptions) (*TestOptions, error) {
