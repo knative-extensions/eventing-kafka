@@ -56,7 +56,7 @@ func CreateKafkaSender(ctx context.Context, log *zap.SugaredLogger) sender.Event
 
 func (k *kafkaSender) Supports(endpoint interface{}) bool {
 	switch endpoint.(type) {
-	case map[string]string:
+	case map[string]interface{}:
 		_, err := castAsTopicEndpoint(endpoint)
 		return err == nil
 	default:
@@ -114,20 +114,20 @@ func (e kafkaTopicEndpoint) bootstrapServersSlice() []string {
 }
 
 func castAsTopicEndpoint(endpoint interface{}) (kafkaTopicEndpoint, error) {
-	m, ok := endpoint.(map[string]string)
+	m, ok := endpoint.(map[string]interface{})
 	if !ok {
 		return kafkaTopicEndpoint{}, ErrIllegalEndpointFormat
 	}
-	servers := m["BootstrapServers"]
+	servers := m["bootstrapServers"]
 	if servers == "" {
 		return kafkaTopicEndpoint{}, ErrIllegalEndpointFormat
 	}
-	topic := m["TopicName"]
+	topic := m["topicName"]
 	if topic == "" {
 		return kafkaTopicEndpoint{}, ErrIllegalEndpointFormat
 	}
 	return kafkaTopicEndpoint{
-		BootstrapServers: servers,
-		TopicName:        topic,
+		BootstrapServers: fmt.Sprintf("%v", servers),
+		TopicName:        fmt.Sprintf("%v", topic),
 	}, nil
 }

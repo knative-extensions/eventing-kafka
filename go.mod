@@ -18,10 +18,12 @@ require (
 	github.com/google/uuid v1.2.0
 	github.com/influxdata/tdigest v0.0.1 // indirect
 	github.com/kelseyhightower/envconfig v1.4.0
+	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.3.3 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475
 	github.com/slinkydeveloper/loadastic v0.0.0-20201218203601-5c69eea3b7d8
 	github.com/stretchr/testify v1.7.0
+	github.com/wavesoftware/go-ensure v1.0.0
 	github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c
 	go.opencensus.io v0.23.0
 	go.uber.org/atomic v1.7.0
@@ -41,4 +43,4 @@ require (
 	knative.dev/reconciler-test v0.0.0-20210506205310-ed3c37806817
 )
 
-replace knative.dev/eventing => github.com/cardil/eventing v0.11.1-0.20210514000946-73d34aaeee5a
+replace knative.dev/eventing => github.com/cardil/eventing v0.11.1-0.20210517213744-6188fa204db5

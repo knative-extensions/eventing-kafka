@@ -333,6 +333,7 @@ github.com/mailru/easyjson/jwriter
 # github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369
 github.com/matttproud/golang_protobuf_extensions/pbutil
 # github.com/mitchellh/go-homedir v1.1.0
+## explicit
 github.com/mitchellh/go-homedir
 # github.com/mitchellh/mapstructure v1.3.3
 ## explicit
@@ -409,6 +410,7 @@ github.com/tsenart/vegeta/v12/lib
 # github.com/valyala/bytebufferpool v1.0.0
 github.com/valyala/bytebufferpool
 # github.com/wavesoftware/go-ensure v1.0.0
+## explicit
 github.com/wavesoftware/go-ensure
 # github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c
 ## explicit
@@ -1105,7 +1107,7 @@ knative.dev/control-protocol/pkg/message
 knative.dev/control-protocol/pkg/network
 knative.dev/control-protocol/pkg/reconciler
 knative.dev/control-protocol/pkg/service
-# knative.dev/eventing v0.22.1-0.20210511203746-d2431c7aad9d => github.com/cardil/eventing v0.11.1-0.20210514000946-73d34aaeee5a
+# knative.dev/eventing v0.22.1-0.20210511203746-d2431c7aad9d => github.com/cardil/eventing v0.11.1-0.20210517213744-6188fa204db5
 ## explicit
 knative.dev/eventing/pkg/adapter/v2
 knative.dev/eventing/pkg/adapter/v2/test
@@ -1355,4 +1357,4 @@ knative.dev/reconciler-test/resources/svc
 sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 sigs.k8s.io/yaml
-# knative.dev/eventing => github.com/cardil/eventing v0.11.1-0.20210514000946-73d34aaeee5a
+# knative.dev/eventing => github.com/cardil/eventing v0.11.1-0.20210517213744-6188fa204db5

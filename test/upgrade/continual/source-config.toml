@@ -1,4 +1,4 @@
-# logLevel = 5 # DEBUG(5)
+# logLevel = 'DEBUG'
 [sender]
 interval = {{ .Config.Interval.Nanoseconds }}
   [sender.address]
