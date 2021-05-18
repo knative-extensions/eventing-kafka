@@ -17,6 +17,9 @@ limitations under the License.
 package continual
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/eventing-kafka/test/e2e/helpers"
@@ -30,10 +33,10 @@ import (
 )
 
 const (
-	kafkaBootstrapUrlPlain   = "my-cluster-kafka-bootstrap.kafka.svc:9092"
-	kafkaClusterName         = "my-cluster"
-	kafkaClusterNamespace    = "kafka"
-	sourceConfigTemplatePath = "test/upgrade/continual/source-config.toml"
+	defaultKafkaBootstrapPort    = 9092
+	defaultKafkaClusterName      = "my-cluster"
+	defaultKafkaClusterNamespace = "kafka"
+	sourceConfigTemplatePath     = "test/upgrade/continual/source-config.toml"
 )
 
 // SourceTest tests source operation in continual manner during the
@@ -43,7 +46,7 @@ func SourceTest(opts *TestOptions) pkgupgrade.BackgroundOperation {
 	return continualVerification(
 		"SourceContinualTest",
 		ensureKafkaSender(opts),
-		&kafkaSourceSut{},
+		&kafkaSourceSut{KafkaCluster: opts.KafkaCluster},
 		sourceConfigTemplatePath,
 	)
 }
@@ -66,21 +69,52 @@ func kafkaSourceSenderImageResolver(component string) string {
 	return pkgTest.ImagePath(component)
 }
 
-type kafkaSourceSut struct{}
+type kafkaSourceSut struct {
+	KafkaCluster
+}
 
 func (k kafkaSourceSut) Deploy(ctx sut.Context, destination duckv1.Destination) interface{} {
 	topicName := uuid.NewString()
-	helpers.MustCreateTopic(ctx.Client, kafkaClusterName, kafkaClusterNamespace,
+	c := k.KafkaCluster
+	helpers.MustCreateTopic(ctx.Client, c.name(), c.namespace(),
 		topicName, 6)
 	contribtestlib.CreateKafkaSourceV1Beta1OrFail(ctx.Client, contribresources.KafkaSourceV1Beta1(
-		kafkaBootstrapUrlPlain,
+		c.serversLine(),
 		topicName,
 		toObjectReference(destination),
 	))
 	return kafkaTopicEndpoint{
-		BootstrapServers: kafkaBootstrapUrlPlain,
+		BootstrapServers: k.KafkaCluster.serversLine(),
 		TopicName:        topicName,
 	}
+}
+
+func (c KafkaCluster) name() string {
+	if c.Name == "" {
+		return defaultKafkaClusterName
+	}
+	return c.Name
+}
+
+func (c KafkaCluster) namespace() string {
+	if c.Namespace == "" {
+		return defaultKafkaClusterNamespace
+	}
+	return c.Namespace
+}
+
+func (c KafkaCluster) serversLine() string {
+	s := c.BootstrapServers
+	if len(s) == 0 {
+		s = []string{
+			fmt.Sprintf("%s-kafka-bootstrap.%s.svc:%d",
+				c.name(),
+				c.namespace(),
+				defaultKafkaBootstrapPort,
+			),
+		}
+	}
+	return strings.Join(s, ",")
 }
 
 func toObjectReference(destination duckv1.Destination) *corev1.ObjectReference {

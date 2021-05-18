@@ -39,8 +39,16 @@ type RetryOptions struct {
 	BackoffDelay  string
 }
 
+// KafkaCluster represents Kafka cluster endpoint.
+type KafkaCluster struct {
+	BootstrapServers []string
+	Name             string
+	Namespace        string
+}
+
 // TestOptions holds options for EventingKafka continual tests.
 type TestOptions struct {
+	KafkaCluster
 	prober.ContinualVerificationOptions
 	ChannelTypeMeta *metav1.TypeMeta
 	SUTs            map[string]sut.SystemUnderTest
