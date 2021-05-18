@@ -1,10 +1,10 @@
-apiVersion: kafka.strimzi.io/v1beta1
+apiVersion: kafka.strimzi.io/v1beta2
 kind: Kafka
 metadata:
   name: my-cluster
 spec:
   kafka:
-    version: 2.6.0
+    version: 2.8.0
     replicas: 3
     listeners:
       - name: plain
@@ -24,11 +24,12 @@ spec:
         authentication:
           type: scram-sha-512
     config:
+      auto.create.topics.enable: false
       offsets.topic.replication.factor: 3
       transaction.state.log.replication.factor: 3
       transaction.state.log.min.isr: 2
-      log.message.format.version: "2.6"
-      auto.create.topics.enable: false
+      log.message.format.version: "2.8"
+      inter.broker.protocol.version: "2.8"
     storage:
       type: ephemeral
   zookeeper:

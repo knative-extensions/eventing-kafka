@@ -35,7 +35,7 @@ const (
 type CfgFn func(map[string]interface{})
 
 func GVR() schema.GroupVersionResource {
-	return schema.GroupVersionResource{Group: "kafka.strimzi.io", Version: "v1beta1", Resource: "kafkatopics"}
+	return schema.GroupVersionResource{Group: "kafka.strimzi.io", Version: "v1beta2", Resource: "kafkatopics"}
 }
 
 // Install will create a Kafka Topic via the Strimzi topic CRD,, augmented with the config fn options.
