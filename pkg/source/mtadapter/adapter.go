@@ -171,6 +171,9 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) error {
 
 		// Wait for the adapter to stop
 		<-cancel.stopped
+
+		// Nothing to stop anymore
+		delete(a.sources, key)
 	}
 
 	placement := scheduler.GetPlacementForPod(obj.GetPlacements(), a.config.PodName)
@@ -311,7 +314,7 @@ func (a *Adapter) Remove(obj *v1beta1.KafkaSource) {
 	cancel, ok := a.sources[key]
 
 	if !ok {
-		a.logger.Infow("source not found", "name", obj.Name)
+		a.logger.Infow("source was not running. removed.", "name", obj.Name)
 		return
 	}
 
@@ -319,7 +322,7 @@ func (a *Adapter) Remove(obj *v1beta1.KafkaSource) {
 	<-cancel.stopped
 
 	delete(a.sources, key)
-	a.logger.Infow("source removed", "name", obj.Name, "count", len(a.sources))
+	a.logger.Infow("source removed", "name", obj.Name, "remaining", len(a.sources))
 }
 
 // ResolveSecret resolves the secret reference
