@@ -112,16 +112,18 @@ func (m *SubscriptionRefMapper) MapRef(resetOffset *kafkav1alpha1.ResetOffset) (
 	logger := m.logger.With(zap.Any("Ref", ref))
 
 	// Validate The Reference
-	if !strings.HasPrefix(ref.APIVersion, messaging.GroupName) ||
-		ref.Kind != "Subscription" ||
-		len(ref.Name) <= 0 {
-		m.logger.Warn("Received ResetOffset with invalid Subscription reference")
-		return "", "", fmt.Errorf("received ResetOffset with invalid Subscription reference: %v", ref)
+	if !strings.HasPrefix(ref.APIVersion, messaging.GroupName) || ref.Kind != "Subscription" {
+		m.logger.Warn("Received ResetOffset with non Subscription reference")
+		return "", "", fmt.Errorf("received ResetOffset with non Subscription reference: %v", ref)
+	}
+	if ref.Name == "" {
+		m.logger.Warn("Received ResetOffset with unnamed Subscription reference")
+		return "", "", fmt.Errorf("received ResetOffset with unnamed Subscription reference: %v", ref)
 	}
 
 	// Default Optional Ref.Namespace If Not Provided
 	refNamespace := ref.Namespace
-	if len(refNamespace) <= 0 {
+	if refNamespace == "" {
 		refNamespace = resetOffset.Namespace
 	}
 

@@ -19,13 +19,13 @@ package controller
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"testing"
 
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgotesting "k8s.io/client-go/testing"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -105,9 +105,6 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 			WantEvents: []string{
-				Eventf(corev1.EventTypeNormal, ResetOffsetMappedRef.String(), "Successfully mapped 'ref' to Kafka Topic and Group"),
-				Eventf(corev1.EventTypeNormal, ResetOffsetParsedTime.String(), "Successfully parsed Sarama offset time from Spec"),
-				Eventf(corev1.EventTypeNormal, ResetOffsetUpdatedOffsets.String(), "Successfully updated offsets of all partitions"),
 				Eventf(corev1.EventTypeNormal, ResetOffsetReconciled.String(), "Reconciled successfully"),
 			},
 		},
@@ -169,7 +166,6 @@ func TestReconcile(t *testing.T) {
 			},
 			WantErr: true,
 			WantEvents: []string{
-				Eventf(corev1.EventTypeWarning, ResetOffsetSkipped.String(), "Skipping invalid ResetOffset"),
 				Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for \"resetoffset-name\": invalid value: foo: spec.offset"),
 			},
 		},
@@ -193,8 +189,7 @@ func TestReconcile(t *testing.T) {
 			},
 			WantErr: true,
 			WantEvents: []string{
-				Eventf(corev1.EventTypeWarning, ResetOffsetMappedRef.String(), "Failed to map 'ref' to Kafka Topic and Group"),
-				Eventf(corev1.EventTypeWarning, "InternalError", testErr.Error()),
+				Eventf(corev1.EventTypeWarning, "InternalError", fmt.Sprintf("failed to map 'ref' to Kafka Topic and Group: %v", testErr.Error())),
 			},
 		},
 		{
@@ -217,10 +212,7 @@ func TestReconcile(t *testing.T) {
 			},
 			WantErr: true,
 			WantEvents: []string{
-				Eventf(corev1.EventTypeNormal, ResetOffsetMappedRef.String(), "Successfully mapped 'ref' to Kafka Topic and Group"),
-				Eventf(corev1.EventTypeNormal, ResetOffsetParsedTime.String(), "Successfully parsed Sarama offset time from Spec"),
-				Eventf(corev1.EventTypeWarning, ResetOffsetUpdatedOffsets.String(), "Failed to update offsets of one or more partitions"),
-				Eventf(corev1.EventTypeWarning, "InternalError", testErr.Error()),
+				Eventf(corev1.EventTypeWarning, "InternalError", fmt.Sprintf("failed to update offsets of one or more partitions: %v", testErr.Error())),
 			},
 		},
 
@@ -346,7 +338,7 @@ func newSuccessSaramaClient(topicName string, partition int32, offsetTime int64,
 }
 
 // newSuccessSaramaOffsetManager returns a "success" mock Sarama OffsetManager for the specified values.
-func newSuccessSaramaOffsetManager(topicName string, partition int32, oldOffset int64, newOffset int64, metadata string, ) sarama.OffsetManager {
+func newSuccessSaramaOffsetManager(topicName string, partition int32, oldOffset int64, newOffset int64, metadata string) sarama.OffsetManager {
 
 	mockPartitionOffsetManager := controllertesting.NewMockPartitionOffsetManager(
 		controllertesting.WithPartitionOffsetManagerMockNextOffset(oldOffset, ""),

@@ -32,9 +32,6 @@ func TestEventTypes(t *testing.T) {
 		{name: "ResetOffsetReconciled", eventType: ResetOffsetReconciled, expect: "ResetOffsetReconciled"},
 		{name: "ResetOffsetFinalized", eventType: ResetOffsetFinalized, expect: "ResetOffsetFinalized"},
 		{name: "ResetOffsetSkipped", eventType: ResetOffsetSkipped, expect: "ResetOffsetSkipped"},
-		{name: "ResetOffsetMappedRef", eventType: ResetOffsetMappedRef, expect: "ResetOffsetMappedRef"},
-		{name: "ResetOffsetParsedTime", eventType: ResetOffsetParsedTime, expect: "ResetOffsetParsedTime"},
-		{name: "ResetOffsetUpdatedOffsets", eventType: ResetOffsetUpdatedOffsets, expect: "ResetOffsetUpdatedOffsets"},
 	}
 
 	for _, test := range tests {

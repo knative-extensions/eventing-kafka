@@ -24,9 +24,6 @@ const (
 	ResetOffsetReconciled CoreV1EventType = iota
 	ResetOffsetFinalized
 	ResetOffsetSkipped
-	ResetOffsetMappedRef
-	ResetOffsetParsedTime
-	ResetOffsetUpdatedOffsets
 )
 
 // CoreV1 EventType String Value
@@ -43,12 +40,6 @@ func (et CoreV1EventType) String() string {
 		eventTypeString = "ResetOffsetFinalized"
 	case ResetOffsetSkipped:
 		eventTypeString = "ResetOffsetSkipped"
-	case ResetOffsetMappedRef:
-		eventTypeString = "ResetOffsetMappedRef"
-	case ResetOffsetParsedTime:
-		eventTypeString = "ResetOffsetParsedTime"
-	case ResetOffsetUpdatedOffsets:
-		eventTypeString = "ResetOffsetUpdatedOffsets"
 	}
 
 	// Return The EventType String Value

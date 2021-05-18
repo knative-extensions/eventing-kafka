@@ -24,7 +24,6 @@ import (
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
-	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/reconciler"
 
@@ -57,9 +56,6 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, resetOffset *kafkav1alph
 	logger := logging.FromContext(ctx).Desugar()
 	logger.Debug("<==========  START RESET-OFFSET RECONCILIATION  ==========>")
 
-	// Get The EventRecorder From Context
-	eventRecorder := controller.GetEventRecorder(ctx)
-
 	// Ignore Previously Initiated ResetOffset Instances
 	if resetOffset.Status.IsInitiated() || resetOffset.Status.IsCompleted() {
 		logger.Debug("Skipping reconciliation of previously executed ResetOffset instance")
@@ -70,8 +66,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, resetOffset *kafkav1alph
 	resetOffset.SetDefaults(ctx)
 	if err := resetOffset.Validate(ctx); err != nil {
 		logger.Error("Received invalid ResetOffset", zap.Error(err))
-		eventRecorder.Event(resetOffset, corev1.EventTypeWarning, ResetOffsetSkipped.String(), "Skipping invalid ResetOffset")
-		return err
+		return fmt.Errorf("received invalid ResetOffset: %v", err)
 	}
 
 	// Reset The ResetOffset's Status Conditions To Unknown
@@ -82,14 +77,12 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, resetOffset *kafkav1alph
 	if err != nil {
 		logger.Error("Failed to map ResetOffset.Spec.Ref to Kafka Topic name and ConsumerGroup ID", zap.Error(err))
 		resetOffset.Status.MarkRefMappedFailed("FailedToMapRef", "Failed to map 'ref' to Kafka Topic and Group: %v", err)
-		eventRecorder.Event(resetOffset, corev1.EventTypeWarning, ResetOffsetMappedRef.String(), "Failed to map 'ref' to Kafka Topic and Group")
-		return err
+		return fmt.Errorf("failed to map 'ref' to Kafka Topic and Group: %v", err)
 	}
 	logger.Info("Successfully mapped ResetOffset.Spec.Ref to Kafka Topic name and ConsumerGroup ID", zap.String("Topic", topic), zap.String("Group", group))
 	resetOffset.Status.SetTopic(topic)
 	resetOffset.Status.SetGroup(group)
 	resetOffset.Status.MarkRefMappedTrue()
-	eventRecorder.Event(resetOffset, corev1.EventTypeNormal, ResetOffsetMappedRef.String(), "Successfully mapped 'ref' to Kafka Topic and Group")
 
 	// Parse The Sarama Offset Time From ResetOffset Spec
 	offsetTime, err := resetOffset.Spec.ParseSaramaOffsetTime()
@@ -98,7 +91,6 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, resetOffset *kafkav1alph
 		return err // Should never happen assuming Validation is in place
 	}
 	logger.Info("Successfully parsed Sarama Offset time from ResetOffset Spec", zap.Int64("Time (millis)", offsetTime))
-	eventRecorder.Event(resetOffset, corev1.EventTypeNormal, ResetOffsetParsedTime.String(), "Successfully parsed Sarama offset time from Spec")
 
 	// TODO - Map ResetOffset.Spec.Ref to "owning" Dispatcher Deployment/Service (Consolidated = one, Distributed = many)
 
@@ -109,18 +101,15 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, resetOffset *kafkav1alph
 	resetOffset.Status.MarkConsumerGroupsStoppedTrue()
 
 	// Update The Sarama Offsets & Update ResetOffset CRD With OffsetMappings
-	// TODO offsetMappings, err := UpdateOffsetsFn(logger, r.kafkaBrokers, r.saramaConfig, topic, group, offsetTime)
 	offsetMappings, err := r.reconcileOffsets(ctx, topic, group, offsetTime)
 	if err != nil {
 		logger.Error("Failed to update Offsets of one or more partitions", zap.Error(err))
 		resetOffset.Status.MarkOffsetsUpdatedFailed("FailedToUpdateOffsets", "Failed to update offsets of one or more partitions: %v", err)
-		eventRecorder.Event(resetOffset, corev1.EventTypeWarning, ResetOffsetUpdatedOffsets.String(), "Failed to update offsets of one or more partitions")
-		return err
+		return fmt.Errorf("failed to update offsets of one or more partitions: %v", err)
 	}
 	logger.Info("Successfully updated Offsets of all partitions")
 	resetOffset.Status.MarkOffsetsUpdatedTrue()
 	resetOffset.Status.SetPartitions(offsetMappings)
-	eventRecorder.Event(resetOffset, corev1.EventTypeNormal, ResetOffsetUpdatedOffsets.String(), "Successfully updated offsets of all partitions")
 
 	// TODO - Send "Start" Message to Dispatcher Replicas to restart ConsumerGroups
 	resetOffset.Status.MarkConsumerGroupsStartedTrue()
