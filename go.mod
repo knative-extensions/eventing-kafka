@@ -18,12 +18,10 @@ require (
 	github.com/google/uuid v1.2.0
 	github.com/influxdata/tdigest v0.0.1 // indirect
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.3.3 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475
 	github.com/slinkydeveloper/loadastic v0.0.0-20201218203601-5c69eea3b7d8
 	github.com/stretchr/testify v1.7.0
-	github.com/wavesoftware/go-ensure v1.0.0
 	github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c
 	go.opencensus.io v0.23.0
 	go.uber.org/atomic v1.7.0
@@ -35,12 +33,12 @@ require (
 	k8s.io/apimachinery v0.19.7
 	k8s.io/client-go v0.19.7
 	k8s.io/utils v0.0.0-20200729134348-d5654de09c73
-	knative.dev/control-protocol v0.0.0-20210505115553-b8b0ea0dbe6c
-	knative.dev/eventing v0.22.1-0.20210511203746-d2431c7aad9d
+	knative.dev/control-protocol v0.0.0-20210517064824-b879a6d906be
+	knative.dev/eventing v0.23.0
 	knative.dev/hack v0.0.0-20210428122153-93ad9129c268
-	knative.dev/networking v0.0.0-20210511091241-7267fe553556
-	knative.dev/pkg v0.0.0-20210511152247-620e8d257eef
-	knative.dev/reconciler-test v0.0.0-20210506205310-ed3c37806817
+	knative.dev/networking v0.0.0-20210512050647-ace2d3306f0b
+	knative.dev/pkg v0.0.0-20210510175900-4564797bf3b7
+	knative.dev/reconciler-test v0.0.0-20210512062647-d5adf72546be
 )
 
-replace knative.dev/eventing => github.com/cardil/eventing v0.11.1-0.20210518150139-d1e431023abf
+replace knative.dev/eventing => github.com/cardil/eventing v0.11.1-0.20210518185315-14a9b5d91b31

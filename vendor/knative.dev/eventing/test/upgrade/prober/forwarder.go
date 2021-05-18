@@ -66,7 +66,7 @@ func (p *prober) forwarderKService(name, namespace string) *unstructured.Unstruc
 			"name":      name,
 			"namespace": namespace,
 			"labels": map[string]string{
-				"serving.knative.dev/visibility": "cluster-local",
+				"networking.knative.dev/visibility": "cluster-local",
 			},
 		},
 		"spec": map[string]interface{}{

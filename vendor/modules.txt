@@ -333,7 +333,6 @@ github.com/mailru/easyjson/jwriter
 # github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369
 github.com/matttproud/golang_protobuf_extensions/pbutil
 # github.com/mitchellh/go-homedir v1.1.0
-## explicit
 github.com/mitchellh/go-homedir
 # github.com/mitchellh/mapstructure v1.3.3
 ## explicit
@@ -410,7 +409,6 @@ github.com/tsenart/vegeta/v12/lib
 # github.com/valyala/bytebufferpool v1.0.0
 github.com/valyala/bytebufferpool
 # github.com/wavesoftware/go-ensure v1.0.0
-## explicit
 github.com/wavesoftware/go-ensure
 # github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c
 ## explicit
@@ -1099,7 +1097,7 @@ k8s.io/utils/buffer
 k8s.io/utils/integer
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# knative.dev/control-protocol v0.0.0-20210505115553-b8b0ea0dbe6c
+# knative.dev/control-protocol v0.0.0-20210517064824-b879a6d906be
 ## explicit
 knative.dev/control-protocol/pkg
 knative.dev/control-protocol/pkg/certificates
@@ -1107,7 +1105,7 @@ knative.dev/control-protocol/pkg/message
 knative.dev/control-protocol/pkg/network
 knative.dev/control-protocol/pkg/reconciler
 knative.dev/control-protocol/pkg/service
-# knative.dev/eventing v0.22.1-0.20210511203746-d2431c7aad9d => github.com/cardil/eventing v0.11.1-0.20210518150139-d1e431023abf
+# knative.dev/eventing v0.23.0 => github.com/cardil/eventing v0.11.1-0.20210518185315-14a9b5d91b31
 ## explicit
 knative.dev/eventing/pkg/adapter/v2
 knative.dev/eventing/pkg/adapter/v2/test
@@ -1225,10 +1223,10 @@ knative.dev/eventing/test/upgrade/prober/wathola/sender
 ## explicit
 knative.dev/hack
 knative.dev/hack/shell
-# knative.dev/networking v0.0.0-20210511091241-7267fe553556
+# knative.dev/networking v0.0.0-20210512050647-ace2d3306f0b
 ## explicit
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20210511152247-620e8d257eef
+# knative.dev/pkg v0.0.0-20210510175900-4564797bf3b7
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
@@ -1332,7 +1330,7 @@ knative.dev/pkg/webhook/resourcesemantics
 knative.dev/pkg/webhook/resourcesemantics/conversion
 knative.dev/pkg/webhook/resourcesemantics/defaulting
 knative.dev/pkg/webhook/resourcesemantics/validation
-# knative.dev/reconciler-test v0.0.0-20210506205310-ed3c37806817
+# knative.dev/reconciler-test v0.0.0-20210512062647-d5adf72546be
 ## explicit
 knative.dev/reconciler-test/cmd/eventshub
 knative.dev/reconciler-test/pkg/environment
@@ -1357,4 +1355,4 @@ knative.dev/reconciler-test/resources/svc
 sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 sigs.k8s.io/yaml
-# knative.dev/eventing => github.com/cardil/eventing v0.11.1-0.20210518150139-d1e431023abf
+# knative.dev/eventing => github.com/cardil/eventing v0.11.1-0.20210518185315-14a9b5d91b31
