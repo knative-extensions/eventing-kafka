@@ -17,8 +17,9 @@ limitations under the License.
 package controller
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 // Test The CoreV1 EventType "Enum" String Values
