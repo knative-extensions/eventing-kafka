@@ -23,19 +23,18 @@ import (
 	"strconv"
 	"strings"
 
-	"knative.dev/eventing-kafka/pkg/common/constants"
-	"knative.dev/pkg/configmap"
-
-	"knative.dev/eventing-kafka/pkg/common/config"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/eventing-kafka/pkg/common/client"
-	"knative.dev/eventing-kafka/pkg/common/kafka/sarama"
-	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	"knative.dev/pkg/logging"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/eventing-kafka/pkg/common/constants"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/system"
+
+	"knative.dev/eventing-kafka/pkg/common/client"
+	"knative.dev/eventing-kafka/pkg/common/config"
+	"knative.dev/eventing-kafka/pkg/common/kafka/sarama"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
 )
 
 const (
@@ -124,10 +123,20 @@ func GetKafkaConfig(ctx context.Context, clientId string, configMap map[string]s
 		return nil, fmt.Errorf("missing configuration")
 	}
 
+	// Set some default values; will be overwritten by anything that exists in the configMap
 	eventingKafkaConfig := &config.EventingKafkaConfig{
 		CloudEvents: config.EKCloudEventConfig{
 			MaxIdleConns:        constants.DefaultMaxIdleConns,
 			MaxIdleConnsPerHost: constants.DefaultMaxIdleConnsPerHost,
+		},
+		Kafka: config.EKKafkaConfig{
+			AuthSecretName:      sarama.DefaultAuthSecretName,
+			AuthSecretNamespace: system.Namespace(),
+			Topic: config.EKKafkaTopicConfig{
+				DefaultNumPartitions:     sarama.DefaultNumPartitions,
+				DefaultReplicationFactor: sarama.DefaultReplicationFactor,
+				DefaultRetentionMillis:   sarama.DefaultRetentionMillis,
+			},
 		},
 	}
 	var err error

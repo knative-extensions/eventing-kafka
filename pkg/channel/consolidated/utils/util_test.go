@@ -31,6 +31,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	clientcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
+	"knative.dev/pkg/system"
 	_ "knative.dev/pkg/system/testing"
 
 	"knative.dev/eventing-kafka/pkg/common/client"
@@ -231,6 +232,24 @@ func TestGetKafkaConfig(t *testing.T) {
 	// The loadEventingKafkaSettings function defaults the number of replicas to one
 	defaultK8SConfig := config.EKKubernetesConfig{Replicas: 1}
 
+	defaultCloudEvents := config.EKCloudEventConfig{
+		MaxIdleConns:        constants.DefaultMaxIdleConns,
+		MaxIdleConnsPerHost: constants.DefaultMaxIdleConnsPerHost,
+	}
+
+	kafkaConfig := func(brokers string, name string, namespace string) config.EKKafkaConfig {
+		return config.EKKafkaConfig{
+			Brokers:             brokers,
+			AuthSecretName:      name,
+			AuthSecretNamespace: namespace,
+			Topic: config.EKKafkaTopicConfig{
+				DefaultNumPartitions:     kafkasarama.DefaultNumPartitions,
+				DefaultReplicationFactor: kafkasarama.DefaultReplicationFactor,
+				DefaultRetentionMillis:   kafkasarama.DefaultRetentionMillis,
+			},
+		}
+	}
+
 	testCases := []struct {
 		name     string
 		data     map[string]string
@@ -263,13 +282,8 @@ func TestGetKafkaConfig(t *testing.T) {
 			expected: &KafkaConfig{
 				Brokers: []string{"kafkabroker.kafka:9092"},
 				EventingKafka: &config.EventingKafkaConfig{
-					Kafka: config.EKKafkaConfig{
-						Brokers: "kafkabroker.kafka:9092",
-					},
-					CloudEvents: config.EKCloudEventConfig{
-						MaxIdleConns:        1000,
-						MaxIdleConnsPerHost: 100,
-					},
+					CloudEvents: defaultCloudEvents,
+					Kafka:       kafkaConfig("kafkabroker.kafka:9092", kafkasarama.DefaultAuthSecretName, system.Namespace()),
 				},
 			},
 		},
@@ -279,15 +293,8 @@ func TestGetKafkaConfig(t *testing.T) {
 			expected: &KafkaConfig{
 				Brokers: []string{"kafkabroker.kafka:9092"},
 				EventingKafka: &config.EventingKafkaConfig{
-					CloudEvents: config.EKCloudEventConfig{
-						MaxIdleConns:        1000,
-						MaxIdleConnsPerHost: 100,
-					},
-					Kafka: config.EKKafkaConfig{
-						Brokers:             "kafkabroker.kafka:9092",
-						AuthSecretName:      "kafka-auth-secret",
-						AuthSecretNamespace: "default",
-					},
+					CloudEvents: defaultCloudEvents,
+					Kafka:       kafkaConfig("kafkabroker.kafka:9092", "kafka-auth-secret", "default"),
 				},
 			},
 		},
@@ -297,13 +304,8 @@ func TestGetKafkaConfig(t *testing.T) {
 			expected: &KafkaConfig{
 				Brokers: []string{"kafkabroker1.kafka:9092", "kafkabroker2.kafka:9092"},
 				EventingKafka: &config.EventingKafkaConfig{
-					CloudEvents: config.EKCloudEventConfig{
-						MaxIdleConns:        1000,
-						MaxIdleConnsPerHost: 100,
-					},
-					Kafka: config.EKKafkaConfig{
-						Brokers: "kafkabroker1.kafka:9092,kafkabroker2.kafka:9092",
-					},
+					CloudEvents: defaultCloudEvents,
+					Kafka:       kafkaConfig("kafkabroker1.kafka:9092,kafkabroker2.kafka:9092", kafkasarama.DefaultAuthSecretName, system.Namespace()),
 				},
 			},
 		},
@@ -317,9 +319,7 @@ func TestGetKafkaConfig(t *testing.T) {
 						MaxIdleConns:        9000,
 						MaxIdleConnsPerHost: 100,
 					},
-					Kafka: config.EKKafkaConfig{
-						Brokers: "kafkabroker.kafka:9092",
-					},
+					Kafka: kafkaConfig("kafkabroker.kafka:9092", kafkasarama.DefaultAuthSecretName, system.Namespace()),
 				},
 			},
 		},
@@ -333,9 +333,7 @@ func TestGetKafkaConfig(t *testing.T) {
 						MaxIdleConns:        1000,
 						MaxIdleConnsPerHost: 900,
 					},
-					Kafka: config.EKKafkaConfig{
-						Brokers: "kafkabroker.kafka:9092",
-					},
+					Kafka: kafkaConfig("kafkabroker.kafka:9092", kafkasarama.DefaultAuthSecretName, system.Namespace()),
 				},
 			},
 		},
@@ -349,9 +347,7 @@ func TestGetKafkaConfig(t *testing.T) {
 						MaxIdleConns:        9000,
 						MaxIdleConnsPerHost: 600,
 					},
-					Kafka: config.EKKafkaConfig{
-						Brokers: "kafkabroker.kafka:9092",
-					},
+					Kafka: kafkaConfig("kafkabroker.kafka:9092", kafkasarama.DefaultAuthSecretName, system.Namespace()),
 				},
 			},
 		},
@@ -384,10 +380,7 @@ func TestGetKafkaConfig(t *testing.T) {
 							Dispatcher: config.EKDispatcherConfig{EKKubernetesConfig: defaultK8SConfig},
 						},
 					},
-					CloudEvents: config.EKCloudEventConfig{
-						MaxIdleConns:        1000,
-						MaxIdleConnsPerHost: 100,
-					},
+					CloudEvents: defaultCloudEvents,
 					Kafka: config.EKKafkaConfig{
 						Brokers:             "kafkabroker1.kafka:9092,kafkabroker2.kafka:9092",
 						AuthSecretName:      kafkasarama.DefaultAuthSecretName,

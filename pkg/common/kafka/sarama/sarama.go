@@ -33,7 +33,12 @@ import (
 	"knative.dev/eventing-kafka/pkg/common/constants"
 )
 
-const DefaultAuthSecretName = "kafka-cluster"
+const (
+	DefaultAuthSecretName    = "kafka-cluster"
+	DefaultNumPartitions     = 4
+	DefaultReplicationFactor = 1
+	DefaultRetentionMillis   = 604800000 // 1 week
+)
 
 // EnableSaramaLogging Is A Utility Function For Enabling Sarama Logging (Debugging)
 func EnableSaramaLogging(enable bool) {
