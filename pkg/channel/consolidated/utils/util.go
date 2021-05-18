@@ -98,14 +98,14 @@ func parseSasl(secret *corev1.Secret, kafkaAuthConfig *client.KafkaAuthConfig) {
 	}
 }
 
-func GetKafkaAuthData(ctx context.Context, secretname string, secretNS string) *client.KafkaAuthConfig {
+func GetKafkaAuthData(ctx context.Context, secretname string, secretNS string) (*client.KafkaAuthConfig, error) {
 
 	k8sClient := kubeclient.Get(ctx)
 	secret, err := k8sClient.CoreV1().Secrets(secretNS).Get(ctx, secretname, metav1.GetOptions{})
 
 	if err != nil || secret == nil {
 		logging.FromContext(ctx).Errorf("Referenced Auth Secret not found")
-		return nil
+		return nil, fmt.Errorf("referenced auth secret not found")
 	}
 
 	kafkaAuthConfig := &client.KafkaAuthConfig{}
@@ -114,7 +114,7 @@ func GetKafkaAuthData(ctx context.Context, secretname string, secretNS string) *
 	parseTls(secret, kafkaAuthConfig)
 	parseSasl(secret, kafkaAuthConfig)
 
-	return kafkaAuthConfig
+	return kafkaAuthConfig, nil
 }
 
 // GetKafkaConfig returns the details of the Kafka cluster.

@@ -20,8 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"knative.dev/eventing-kafka/pkg/common/kafka/sarama"
-
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/cache"
@@ -92,7 +90,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		logger.Fatalw("error loading configuration", zap.Error(err))
 	}
 
-	kafkaConfig, err := utils.GetKafkaConfig(ctx, dispatcherClientId, configMap, sarama.LoadAuthConfig)
+	kafkaConfig, err := utils.GetKafkaConfig(ctx, dispatcherClientId, configMap, utils.GetKafkaAuthData)
 	if err != nil {
 		logger.Fatalw("Error loading kafka config", zap.Error(err))
 	}

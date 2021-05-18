@@ -18,12 +18,14 @@ package utils
 
 import (
 	"context"
+	"testing"
+
 	"crypto/tls"
 	"crypto/x509"
-	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/stretchr/testify/assert"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -80,17 +82,14 @@ func TestGetKafkaAuthData(t *testing.T) {
 		userkey     string
 		user        string
 		password    string
-		expected    *client.KafkaAuthConfig
+		tlsEnabled  string
+
+		expected *client.KafkaAuthConfig
 	}{
 		"empty secret": {
 			corev1Input: api.Client.CoreV1(),
 			secretName:  secretName,
 			secretNS:    secretNamespace,
-			cacert:      "",
-			usercert:    "",
-			userkey:     "",
-			user:        "",
-			password:    "",
 			expected:    &client.KafkaAuthConfig{},
 		},
 		"wrong secret name": {
@@ -146,9 +145,6 @@ func TestGetKafkaAuthData(t *testing.T) {
 			corev1Input: api.Client.CoreV1(),
 			secretName:  secretName,
 			secretNS:    secretNamespace,
-			cacert:      "",
-			usercert:    "",
-			userkey:     "",
 			user:        "user",
 			password:    "password",
 			expected: &client.KafkaAuthConfig{
@@ -159,12 +155,21 @@ func TestGetKafkaAuthData(t *testing.T) {
 				},
 			},
 		},
+		"tls enabled but no secret": {
+			corev1Input: api.Client.CoreV1(),
+			secretName:  secretName,
+			secretNS:    secretNamespace,
+			tlsEnabled:  "true",
+			expected: &client.KafkaAuthConfig{
+				TLS: &client.KafkaTlsConfig{},
+			},
+		},
 	}
 
 	for n, tc := range testCases {
 		t.Run(n, func(t *testing.T) {
 
-			// set up tgt namespace and service account to copy secret into.
+			// set up the namespace and service account to copy secret into.
 			kafkAuthSecretNS := tc.corev1Input.Namespaces()
 			namespace := &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
@@ -172,41 +177,29 @@ func TestGetKafkaAuthData(t *testing.T) {
 				}}
 
 			_, nsCreateError := kafkAuthSecretNS.Create(context.Background(), namespace, metav1.CreateOptions{})
-			if nsCreateError != nil {
-				t.Error("error creating namespace for test case:", nsCreateError)
-			}
+			assert.Nil(t, nsCreateError, "error creating namespace")
 
 			// set up secret
-			kafkAuthSecret := tc.corev1Input.Secrets(secretNamespace)
-			secret := createSecret(tc.cacert, tc.usercert, tc.userkey, tc.user, tc.password)
-			_, secretCreateError := kafkAuthSecret.Create(context.Background(), secret, metav1.CreateOptions{})
-			if secretCreateError != nil {
-				t.Error("error creating secret resources for test case:", secretCreateError)
-			}
+			kafkaAuthSecret := tc.corev1Input.Secrets(secretNamespace)
+			secret := createSecret(tc.cacert, tc.usercert, tc.userkey, tc.user, tc.password, tc.tlsEnabled)
+			_, secretCreateError := kafkaAuthSecret.Create(context.Background(), secret, metav1.CreateOptions{})
+			assert.Nil(t, secretCreateError, "error creating secret resources")
 
 			ctx := context.WithValue(context.Background(), injectionclient.Key{}, fake.NewSimpleClientset(secret, namespace))
-			receivedSecret := GetKafkaAuthData(ctx, tc.secretName, tc.secretNS)
+			receivedSecret, err := GetKafkaAuthData(ctx, tc.secretName, tc.secretNS)
 
 			if tc.expected == nil {
-				if receivedSecret != nil {
-					t.Errorf("something is wrong")
-				}
+				assert.NotNil(t, err)
+				assert.Nil(t, receivedSecret)
 			} else {
-				if tc.expected.TLS != nil {
-					if receivedSecret.TLS == nil {
-						t.Errorf("TLS wrong")
-					}
-				}
-				if tc.expected.SASL != nil {
-					if receivedSecret.SASL == nil {
-						t.Errorf("SASL wrong")
-					}
-				}
+				assert.Nil(t, err)
+				assert.Equal(t, tc.expected.TLS, receivedSecret.TLS)
+				assert.Equal(t, tc.expected.SASL, receivedSecret.SASL)
 			}
 
 			// clean up after test
-			tc.corev1Input.Secrets(secretNamespace).Delete(context.Background(), secretName, metav1.DeleteOptions{})
-			tc.corev1Input.Namespaces().Delete(context.Background(), secretNamespace, metav1.DeleteOptions{})
+			assert.Nil(t, tc.corev1Input.Secrets(secretNamespace).Delete(context.Background(), secretName, metav1.DeleteOptions{}))
+			assert.Nil(t, tc.corev1Input.Namespaces().Delete(context.Background(), secretNamespace, metav1.DeleteOptions{}))
 		})
 	}
 }
@@ -399,23 +392,16 @@ func TestGetKafkaConfig(t *testing.T) {
 			t.Logf("Running %s", t.Name())
 
 			got, err := GetKafkaConfig(context.TODO(), "test-client-id", tc.data,
-				func(context.Context, string, string) (*client.KafkaAuthConfig, error) {
-					return nil, nil
-				})
+				func(context.Context, string, string) (*client.KafkaAuthConfig, error) { return nil, nil })
 
 			if tc.getError != "" {
-				if err == nil {
-					t.Errorf("Expected Config error: '%v'. Actual nil", tc.getError)
-				} else if err.Error() != tc.getError {
-					t.Errorf("Unexpected Config error. Expected '%v'. Actual '%v'", tc.getError, err)
+				assert.NotNil(t, err)
+				assert.Equal(t, tc.getError, err.Error())
+			} else {
+				assert.Nil(t, err)
+				if diff := cmp.Diff(tc.expected, got, saramaIgnoreOpts...); diff != "" {
+					t.Errorf("unexpected Config (-want, +got) = %v", diff)
 				}
-				return
-			} else if err != nil {
-				t.Errorf("Unexpected Config error. Expected nil. Actual '%v'", err)
-			}
-
-			if diff := cmp.Diff(tc.expected, got, saramaIgnoreOpts...); diff != "" {
-				t.Errorf("unexpected Config (-want, +got) = %v", diff)
 			}
 
 		})
@@ -482,18 +468,13 @@ func TestFindContainer(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Logf("Running %s", t.Name())
-
-			got := FindContainer(tc.deployment, tc.containerName)
-
-			if diff := cmp.Diff(tc.expected, got); diff != "" {
-				t.Errorf("unexpected container found (-want, +got) = %v", diff)
-			}
+			assert.Equal(t, tc.expected, FindContainer(tc.deployment, tc.containerName))
 		})
 	}
 
 }
 
-func createSecret(cacert string, usercert string, userkey string, user string, password string) *corev1.Secret {
+func createSecret(cacert string, usercert string, userkey string, user string, password string, tlsEnabled string) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: secretNamespace,
@@ -503,6 +484,7 @@ func createSecret(cacert string, usercert string, userkey string, user string, p
 			TlsCacert:    []byte(cacert),
 			TlsUsercert:  []byte(usercert),
 			TlsUserkey:   []byte(userkey),
+			TlsEnabled:   []byte(tlsEnabled),
 			SaslUser:     []byte(user),
 			SaslPassword: []byte(password),
 		},

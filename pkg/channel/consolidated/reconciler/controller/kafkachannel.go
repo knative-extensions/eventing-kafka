@@ -57,7 +57,6 @@ import (
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/common/constants"
 	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
-	kafkasarama "knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 	eventingclientset "knative.dev/eventing/pkg/client/clientset/versioned"
 )
 
@@ -590,7 +589,7 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 	}
 
 	logger.Info("Reloading Kafka configuration")
-	kafkaConfig, err := utils.GetKafkaConfig(ctx, controllerAgentName, configMap.Data, kafkasarama.LoadAuthConfig)
+	kafkaConfig, err := utils.GetKafkaConfig(ctx, controllerAgentName, configMap.Data, utils.GetKafkaAuthData)
 	if err != nil {
 		logger.Errorw("Error reading Kafka configuration", zap.Error(err))
 		return
