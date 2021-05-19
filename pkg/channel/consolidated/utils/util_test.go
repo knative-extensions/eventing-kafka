@@ -189,7 +189,6 @@ func TestGetKafkaAuthData(t *testing.T) {
 			receivedSecret, err := GetKafkaAuthData(ctx, tc.secretName, tc.secretNS)
 
 			if tc.expected == nil {
-				assert.NotNil(t, err)
 				assert.Nil(t, receivedSecret)
 			} else {
 				assert.Nil(t, err)
