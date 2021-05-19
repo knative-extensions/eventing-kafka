@@ -41,4 +41,4 @@ require (
 	knative.dev/reconciler-test v0.0.0-20210512062647-d5adf72546be
 )
 
-replace knative.dev/eventing => github.com/cardil/eventing v0.11.1-0.20210519164213-1a8d0fc315d4
+replace knative.dev/eventing => github.com/cardil/eventing v0.11.1-0.20210519170801-8daf58ca3ef6

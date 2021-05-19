@@ -18,5 +18,5 @@ package sut
 
 // NewDefault will return a default SUT for this repo.
 func NewDefault() SystemUnderTest {
-	return newBrokerAndTriggers()
+	return NewBrokerAndTriggers()
 }
