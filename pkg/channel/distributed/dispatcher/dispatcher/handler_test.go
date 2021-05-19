@@ -28,13 +28,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
-	dispatchertesting "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/testing"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/channel"
 	"knative.dev/eventing/pkg/kncloudevents"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	logtesting "knative.dev/pkg/logging/testing"
+
+	dispatchertesting "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/testing"
 )
 
 // Test Data
@@ -365,4 +366,19 @@ func createConsumerMessage(t *testing.T) *sarama.ConsumerMessage {
 
 	// Return The Test ConsumerMessage
 	return consumerMessage
+}
+
+func Test_formatDispatcherExecutionInfo(t *testing.T) {
+	assert.Equal(t, "<nil>", formatDispatcherExecutionInfo(nil))
+	assert.Equal(t, "0 (0s)", formatDispatcherExecutionInfo(&channel.DispatchExecutionInfo{}))
+	assert.Equal(t, "200 (1.234ms)", formatDispatcherExecutionInfo(&channel.DispatchExecutionInfo{
+		Time:         1234 * time.Microsecond,
+		ResponseCode: 200,
+		ResponseBody: nil,
+	}))
+	assert.Equal(t, "500 (12.345ms): testBody", formatDispatcherExecutionInfo(&channel.DispatchExecutionInfo{
+		Time:         12345 * time.Microsecond,
+		ResponseCode: 500,
+		ResponseBody: []byte("testBody"),
+	}))
 }
