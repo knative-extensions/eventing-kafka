@@ -27,9 +27,7 @@ import (
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/tracker"
 
-	kafkabindingv1alpha1 "knative.dev/eventing-kafka/pkg/apis/bindings/v1alpha1"
 	kafkabindingv1beta1 "knative.dev/eventing-kafka/pkg/apis/bindings/v1beta1"
-	kafkasourcev1alpha1 "knative.dev/eventing-kafka/pkg/apis/sources/v1alpha1"
 	kafkasourcev1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 )
 
@@ -80,15 +78,7 @@ func KafkaPerformanceImageSenderPod(pace string, warmup string, bootstrapUrl str
 	}
 }
 
-type KafkaSourceV1Alpha1Option func(source *kafkasourcev1alpha1.KafkaSource)
-
 type KafkaSourceV1Beta1Option func(source *kafkasourcev1beta1.KafkaSource)
-
-func WithNameV1Alpha1(name string) KafkaSourceV1Alpha1Option {
-	return func(source *kafkasourcev1alpha1.KafkaSource) {
-		source.Name = name
-	}
-}
 
 func WithNameV1Beta1(name string) KafkaSourceV1Beta1Option {
 	return func(source *kafkasourcev1beta1.KafkaSource) {
@@ -96,45 +86,10 @@ func WithNameV1Beta1(name string) KafkaSourceV1Beta1Option {
 	}
 }
 
-func WithConsumerGroupV1Alpha1(cg string) KafkaSourceV1Alpha1Option {
-	return func(source *kafkasourcev1alpha1.KafkaSource) {
-		source.Spec.ConsumerGroup = cg
-	}
-}
-
 func WithConsumerGroupV1Beta1(cg string) KafkaSourceV1Beta1Option {
 	return func(source *kafkasourcev1beta1.KafkaSource) {
 		source.Spec.ConsumerGroup = cg
 	}
-}
-
-func KafkaSourceV1Alpha1(bootstrapServer string, topicName string, ref *corev1.ObjectReference, options ...KafkaSourceV1Alpha1Option) *kafkasourcev1alpha1.KafkaSource {
-	source := &kafkasourcev1alpha1.KafkaSource{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-kafka-source",
-		},
-		Spec: kafkasourcev1alpha1.KafkaSourceSpec{
-			KafkaAuthSpec: kafkabindingv1alpha1.KafkaAuthSpec{
-				BootstrapServers: []string{bootstrapServer},
-			},
-			Topics:        []string{topicName},
-			ConsumerGroup: "test-consumer-group",
-			Sink: &duckv1.Destination{
-				Ref: &duckv1.KReference{
-					APIVersion: ref.APIVersion,
-					Kind:       ref.Kind,
-					Name:       ref.Name,
-					Namespace:  ref.Namespace,
-				},
-			},
-		},
-	}
-
-	for _, opt := range options {
-		opt(source)
-	}
-
-	return source
 }
 
 func KafkaSourceV1Beta1(bootstrapServer string, topicName string, ref *corev1.ObjectReference, options ...KafkaSourceV1Beta1Option) *kafkasourcev1beta1.KafkaSource {
@@ -166,22 +121,6 @@ func KafkaSourceV1Beta1(bootstrapServer string, topicName string, ref *corev1.Ob
 	}
 
 	return source
-}
-
-func KafkaBindingV1Alpha1(bootstrapServer string, ref *tracker.Reference) *kafkabindingv1alpha1.KafkaBinding {
-	return &kafkabindingv1alpha1.KafkaBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-kafka-binding",
-		},
-		Spec: kafkabindingv1alpha1.KafkaBindingSpec{
-			KafkaAuthSpec: kafkabindingv1alpha1.KafkaAuthSpec{
-				BootstrapServers: []string{bootstrapServer},
-			},
-			BindingSpec: duckv1alpha1.BindingSpec{
-				Subject: *ref,
-			},
-		},
-	}
 }
 
 func KafkaBindingV1Beta1(bootstrapServer string, ref *tracker.Reference) *kafkabindingv1beta1.KafkaBinding {

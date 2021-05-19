@@ -23,10 +23,8 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	bindingsv1alpha1 "knative.dev/eventing-kafka/pkg/apis/bindings/v1alpha1"
 	bindingsv1beta1 "knative.dev/eventing-kafka/pkg/apis/bindings/v1beta1"
 	channelsv1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
-	sourcesv1alpha1 "knative.dev/eventing-kafka/pkg/apis/sources/v1alpha1"
 	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 )
@@ -58,20 +56,6 @@ func GetKafkaChannelV1Beta1OrFail(c *testlib.Client, kafkaChannel string) *chann
 		return kcObj
 	}
 	return nil
-}
-
-func CreateKafkaSourceV1Alpha1OrFail(c *testlib.Client, kafkaSource *sourcesv1alpha1.KafkaSource) {
-	kafkaSourceClientSet, err := kafkaclientset.NewForConfig(c.Config)
-	if err != nil {
-		c.T.Fatalf("Failed to create v1alpha1 KafkaSource client: %v", err)
-	}
-
-	kSources := kafkaSourceClientSet.SourcesV1alpha1().KafkaSources(c.Namespace)
-	if createdKafkaSource, err := kSources.Create(context.Background(), kafkaSource, metav1.CreateOptions{}); err != nil {
-		c.T.Fatalf("Failed to create v1alpha1 KafkaSource %q: %v", kafkaSource.Name, err)
-	} else {
-		c.Tracker.AddObj(createdKafkaSource)
-	}
 }
 
 func CreateKafkaSourceV1Beta1OrFail(c *testlib.Client, kafkaSource *sourcesv1beta1.KafkaSource) {
@@ -112,20 +96,6 @@ func UpdateKafkaSourceV1Beta1OrFail(c *testlib.Client, kafkaSource *sourcesv1bet
 	kSources := kafkaSourceClientSet.SourcesV1beta1().KafkaSources(c.Namespace)
 	if _, err := kSources.Update(context.Background(), kafkaSource, metav1.UpdateOptions{}); err != nil {
 		c.T.Fatalf("Failed to update v1beta1 KafkaSource %q: %v", kafkaSource.Name, err)
-	}
-}
-
-func CreateKafkaBindingV1Alpha1OrFail(c *testlib.Client, kafkaBinding *bindingsv1alpha1.KafkaBinding) {
-	kafkaBindingClientSet, err := kafkaclientset.NewForConfig(c.Config)
-	if err != nil {
-		c.T.Fatalf("Failed to create v1alpha1 KafkaBinding client: %v", err)
-	}
-
-	kBindings := kafkaBindingClientSet.BindingsV1alpha1().KafkaBindings(c.Namespace)
-	if createdKafkaBinding, err := kBindings.Create(context.Background(), kafkaBinding, metav1.CreateOptions{}); err != nil {
-		c.T.Fatalf("Failed to create v1alpha1 KafkaBinding %q: %v", kafkaBinding.Name, err)
-	} else {
-		c.Tracker.AddObj(createdKafkaBinding)
 	}
 }
 
