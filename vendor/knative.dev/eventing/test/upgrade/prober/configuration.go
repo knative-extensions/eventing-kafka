@@ -82,14 +82,14 @@ type Config struct {
 // Wathola represents options related strictly to wathola testing tool.
 type Wathola struct {
 	ConfigToml
-	ContainerImageResolver
+	ImageResolver
 	SystemUnderTest  sut.SystemUnderTest
 	EventsTypePrefix string
 	HealthEndpoint   string
 }
 
-// ContainerImageResolver will resolve the container image for given component.
-type ContainerImageResolver func(component string) string
+// ImageResolver will resolve the container image for given component.
+type ImageResolver func(component string) string
 
 // ConfigToml represents options of wathola config toml file.
 type ConfigToml struct {
@@ -149,7 +149,7 @@ func newConfig(
 			ScaleToZero: true,
 		},
 		Wathola: Wathola{
-			ContainerImageResolver: pkgTest.ImagePath,
+			ImageResolver: pkgTest.ImagePath,
 			ConfigToml: ConfigToml{
 				ConfigTemplate:   defaultConfigFilename,
 				ConfigMapName:    defaultConfigName,

@@ -54,7 +54,7 @@ func SourceTest(opts *TestOptions) pkgupgrade.BackgroundOperation {
 func ensureKafkaSender(opts *TestOptions) *TestOptions {
 	opts.Configurators = append([]prober.Configurator{
 		func(config *prober.Config) error {
-			config.Wathola.ContainerImageResolver = kafkaSourceSenderImageResolver
+			config.Wathola.ImageResolver = kafkaSourceSenderImageResolver
 			return nil
 		},
 	}, opts.Configurators...)
