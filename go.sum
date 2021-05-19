@@ -163,8 +163,8 @@ github.com/blendle/zapdriver v1.3.1/go.mod h1:mdXfREi6u5MArG4j9fewC+FGnXaBR+T4Ox
 github.com/bmizerany/perks v0.0.0-20141205001514-d9a9656a3a4b h1:AP/Y7sqYicnjGDfD5VcY4CIfh1hRXBUavxrvELjTiOE=
 github.com/bmizerany/perks v0.0.0-20141205001514-d9a9656a3a4b/go.mod h1:ac9efd0D1fsDb3EJvhqgXRbFx7bs2wqZ10HQPeU8U/Q=
 github.com/c2h5oh/datasize v0.0.0-20171227191756-4eba002a5eae/go.mod h1:S/7n9copUssQ56c7aAgHqftWO4LTf4xY6CGWt8Bc+3M=
-github.com/cardil/eventing v0.11.1-0.20210519123543-8b2f79d4d1c8 h1:r6WC2HvxFbHkBfnKiuJR547gwtUyE2Wklevuc73pnRI=
-github.com/cardil/eventing v0.11.1-0.20210519123543-8b2f79d4d1c8/go.mod h1:kswoOmZQBYTVyd1uEas8kNJthNt8v0M5QCUA2b5yKS4=
+github.com/cardil/eventing v0.11.1-0.20210519164213-1a8d0fc315d4 h1:IABzgVNWg1mEmMh3WDOOVsvQdSJCME74g95328JNvSE=
+github.com/cardil/eventing v0.11.1-0.20210519164213-1a8d0fc315d4/go.mod h1:MiQ1sC5ANFefn7vpH9hH1RvhIL91BNKTC44vLlRmSs0=
 github.com/casbin/casbin/v2 v2.1.2/go.mod h1:YcPU1XXisHhLzuxH9coDNf2FbKpjGlbCg3n9yuLkIJQ=
 github.com/cenkalti/backoff v2.2.1+incompatible/go.mod h1:90ReRw6GdpyfrHakVjL/QHaoyV4aDUVVkXQJJJ3NXXM=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=

@@ -37,13 +37,12 @@ import (
 )
 
 const (
-	defaultConfigName          = "wathola-config"
-	defaultConfigHomedirPath   = ".config/wathola"
-	defaultHomedir             = "/home/nonroot"
-	defaultConfigFilename      = "config.toml"
-	defaultWatholaEventsPrefix = "dev.knative.eventing.wathola"
-	defaultHealthEndpoint      = "/healthz"
-	defaultFinishedSleep       = 5 * time.Second
+	defaultConfigName        = "wathola-config"
+	defaultConfigHomedirPath = ".config/wathola"
+	defaultHomedir           = "/home/nonroot"
+	defaultConfigFilename    = "config.toml"
+	defaultHealthEndpoint    = "/healthz"
+	defaultFinishedSleep     = 5 * time.Second
 
 	Silence DuplicateAction = "silence"
 	Warn    DuplicateAction = "warn"
@@ -83,9 +82,8 @@ type Config struct {
 type Wathola struct {
 	ConfigToml
 	ImageResolver
-	SystemUnderTest  sut.SystemUnderTest
-	EventsTypePrefix string
-	HealthEndpoint   string
+	SystemUnderTest sut.SystemUnderTest
+	HealthEndpoint  string
 }
 
 // ImageResolver will resolve the container image for given component.
@@ -156,9 +154,8 @@ func newConfig(
 				ConfigMountPoint: fmt.Sprintf("%s/%s", defaultHomedir, defaultConfigHomedirPath),
 				ConfigFilename:   defaultConfigFilename,
 			},
-			EventsTypePrefix: defaultWatholaEventsPrefix,
-			HealthEndpoint:   defaultHealthEndpoint,
-			SystemUnderTest:  sut.NewDefault(),
+			HealthEndpoint:  defaultHealthEndpoint,
+			SystemUnderTest: sut.NewDefault(),
 		},
 	}
 
