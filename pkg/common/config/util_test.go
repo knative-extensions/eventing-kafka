@@ -21,7 +21,6 @@ const (
 	defaultNumPartitions     = int32(987)
 	replicationFactor        = int16(22)
 	defaultReplicationFactor = int16(33)
-	defaultRetentionMillis   = int64(55555)
 )
 
 func TestConfigmapDataCheckSum(t *testing.T) {
