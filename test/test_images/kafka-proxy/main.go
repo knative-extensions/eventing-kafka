@@ -76,9 +76,11 @@ func main() {
 	}
 
 	config := sarama.NewConfig()
+	config.Producer.Return.Successes = true
 	producer, err := sarama.NewSyncProducer([]string{env.KafkaServer}, config)
 	if err != nil {
 		log.Printf("[ERROR] Failed to create Kafka producer: %v", err)
+		os.Exit(1)
 	}
 
 	proxy := forwarder{

@@ -21,11 +21,16 @@ import (
 	"time"
 
 	. "github.com/cloudevents/sdk-go/v2/test"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+	"knative.dev/reconciler-test/pkg/environment"
 	"knative.dev/reconciler-test/pkg/eventshub"
+	"knative.dev/reconciler-test/pkg/eventshub/assert"
 	"knative.dev/reconciler-test/pkg/feature"
 	"knative.dev/reconciler-test/pkg/state"
 
+	kafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client"
 	"knative.dev/eventing-kafka/test/rekt/resources/kafkaproxy"
 	"knative.dev/eventing-kafka/test/rekt/resources/kafkasource"
 	"knative.dev/eventing-kafka/test/rekt/resources/kafkatopic"
@@ -44,11 +49,9 @@ func Scaling() *feature.Feature {
 		state.SetOrFail(ctx, t, "proxyName", proxyName)
 	})
 
-	f.Setup("install Kafka proxy", func(ctx context.Context, t feature.T) {
-		kafkaproxy.Install(proxyName,
-			kafkaproxy.WithBootstrapServer(kafkaBootstrapUrlPlain),
-			kafkaproxy.WithTopic(topic))
-	})
+	f.Setup("install Kafka proxy", kafkaproxy.Install(proxyName,
+		kafkaproxy.WithBootstrapServer(kafkaBootstrapUrlPlain),
+		kafkaproxy.WithTopic(topic)))
 
 	f.Setup("set topic name state", func(ctx context.Context, t feature.T) {
 		state.SetOrFail(ctx, t, "topicName", topic)
@@ -65,6 +68,10 @@ func Scaling() *feature.Feature {
 	// Setup source
 
 	sourceName := feature.MakeRandomK8sName("source")
+	f.Setup("set source state", func(ctx context.Context, t feature.T) {
+		state.SetOrFail(ctx, t, "sourceName", sourceName)
+	})
+
 	// options
 	ksopts := []kafkasource.CfgFn{
 		kafkasource.WithBootstrapServers([]string{kafkaBootstrapUrlPlain}),
@@ -77,6 +84,7 @@ func Scaling() *feature.Feature {
 	}
 
 	// installation
+
 	f.Setup("install a kafka source", kafkasource.Install(sourceName, ksopts...))
 
 	// Check the setup meets some requirements (not what is actually asserted)
@@ -84,15 +92,18 @@ func Scaling() *feature.Feature {
 	f.Requirement("kafka source must be ready", kafkasource.IsReady(sourceName))
 
 	f.Assert("sink receive steady stream of events, with no duplicates or missing events for 10s", sinkReceiveSteadyEvents)
-
-	// store := eventshub.StoreFromContext(ctx, sinkName)
-	// vents := store.Collected()
 	return f
 }
 
 func sinkReceiveSteadyEvents(ctx context.Context, t feature.T) {
 	proxyName := state.GetStringOrFail(ctx, t, "proxyName")
 	sinkName := state.GetStringOrFail(ctx, t, "sinkName")
+	sourceName := state.GetStringOrFail(ctx, t, "sourceName")
+
+	// See https://github.com/knative-sandbox/eventing-kafka/issues/411
+	if test_mt_source == "1" {
+		time.Sleep(10 * time.Second)
+	}
 
 	url, err := kafkaproxy.Address(ctx, proxyName)
 	if err != nil {
@@ -104,15 +115,24 @@ func sinkReceiveSteadyEvents(ctx context.Context, t feature.T) {
 		eventshub.StartSenderURL(url.String()),
 		eventshub.EnableIncrementalId,
 		eventshub.InputEvent(FullEvent()),
-		eventshub.SendMultipleEvents(10, 1*time.Second),
+		eventshub.SendMultipleEvents(20, time.Second), // 20 events over 20s
 	)(ctx, t)
 
-	time.Sleep(10 * time.Second)
+	time.Sleep(2 * time.Second)
 
-	store := eventshub.StoreFromContext(ctx, sinkName)
-	events := store.Collected()
-
-	if len(events) != 10 {
-		t.Fatalf("missing events %+v", events)
+	env := environment.FromContext(ctx)
+	source, err := kafkaclient.Get(ctx).SourcesV1beta1().KafkaSources(env.Namespace()).Get(ctx, sourceName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("failed to get the KafkaSource object: %v", err)
 	}
+	source.Spec.Consumers = pointer.Int32Ptr(130)
+
+	_, err = kafkaclient.Get(ctx).SourcesV1beta1().KafkaSources(env.Namespace()).Update(ctx, source, metav1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("failed to update the KafkaSource object: %v", err)
+	}
+
+	time.Sleep(20 * time.Second)
+
+	assert.OnStore(sinkName).Exact(20)(ctx, t)
 }

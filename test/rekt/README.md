@@ -12,5 +12,5 @@ SYSTEM_NAMESPACE=knative-eventing go test -count=1 -v -tags=e2e ./test/rekt/...
 To run just one test:
 
 ```bash
-SYSTEM_NAMESPACE=knative-eventing go test -count=1 -v -tags=e2e -run TestKafkaSource ./test/rekt/...
+SYSTEM_NAMESPACE=knative-eventing go test -count=1 -v -tags=e2e  ./test/rekt/... -run TestKafkaSource
 ```

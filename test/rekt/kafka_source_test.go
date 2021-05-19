@@ -75,3 +75,16 @@ func TestKafkaSource(t *testing.T) {
 		env.Test(ctx, t, f)
 	}
 }
+
+func TestScaleKafkaSource(t *testing.T) {
+	ctx, env := global.Environment(
+		knative.WithKnativeNamespace(system.Namespace()),
+		knative.WithLoggingConfig,
+		knative.WithTracingConfig,
+		k8s.WithEventListener,
+		environment.WithPollTimings(2*time.Second, 20*time.Second),
+		//environment.Managed(t),
+	)
+
+	env.Test(ctx, t, kafkasource.Scaling())
+}

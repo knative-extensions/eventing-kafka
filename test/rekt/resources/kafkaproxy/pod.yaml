@@ -28,5 +28,5 @@ spec:
       env:
         - name: KAFKA_BOOTSTRAP_SERVER
           value: "{{ .bootstrapServer }}"
-        - name: topic
+        - name: KAFKA_TOPIC
           value: "{{ .topic }}"
