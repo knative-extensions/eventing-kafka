@@ -133,9 +133,9 @@ func updateOffset(logger *zap.Logger,
 
 	// Create A PartitionOffsetManager For The Specified Partition
 	partitionOffsetManager, err := offsetManager.ManagePartition(topic, partition)
-	defer safeClosePartitionOffsetManager(logger, partitionOffsetManager)
 	if err != nil {
 		logger.Error("Failed to create PartitionOffsetManager", zap.Error(err))
+		closePartitionOffsetManager(logger, partitionOffsetManager)
 		return nil, err
 	}
 
@@ -146,6 +146,7 @@ func updateOffset(logger *zap.Logger,
 	newOffset, err := saramaClient.GetOffset(topic, partition, offsetTime)
 	if err != nil {
 		logger.Error("Failed to get Partition Offset for Time", zap.Int64("Time", offsetTime), zap.Error(err))
+		closePartitionOffsetManager(logger, partitionOffsetManager)
 		return nil, err
 	}
 
@@ -164,13 +165,15 @@ func updateOffset(logger *zap.Logger,
 		partitionOffsetManager.ResetOffset(newOffset, offsetMetaData)
 	}
 
-	// Check For Any Errors From The PartitionOffsetManager
-	select {
-	case err = <-partitionOffsetManager.Errors():
-	case <-time.After(1 * time.Second):
+	// Close The PartitionOffsetManager & Drain Errors
+	closePartitionOffsetManager(logger, partitionOffsetManager)
+	consumerErrs := drainPartitionOffsetManagerErrors(logger, partitionOffsetManager)
+	if len(consumerErrs) > 0 {
+		logger.Error("Failed to mark/reset Offset", zap.Error(consumerErrs))
+		err = fmt.Errorf(consumerErrs.Error())
 	}
 
-	// Return Results
+	// Return Results Of MarkOffset / ResetOffset
 	return offsetMapping, err
 }
 
@@ -199,12 +202,32 @@ func safeCloseOffsetManager(logger *zap.Logger, offsetManager sarama.OffsetManag
 	}
 }
 
-// safeClosePartitionOffsetManager wraps the Sarama OffsetManager.Close() call for safe usage as a defer statement
-func safeClosePartitionOffsetManager(logger *zap.Logger, partitionOffsetManager sarama.PartitionOffsetManager) {
+// closePartitionOffsetManager wraps the Sarama OffsetManager.Close() call with nil check and error logging
+func closePartitionOffsetManager(logger *zap.Logger, partitionOffsetManager sarama.PartitionOffsetManager) {
 	if partitionOffsetManager != nil {
 		err := partitionOffsetManager.Close() // Takes several seconds in success case & can hang (on AsyncClose lock) if ConsumerGroups not stopped!
 		if err != nil {
 			logger.Error("Failed to close Sarama PartitionOffsetManager", zap.Error(err))
 		}
 	}
+}
+
+// drainPartitionOffsetManagerErrors drains the PartitionOffsetManager's Error channel and returns any ConsumerErrors
+func drainPartitionOffsetManagerErrors(logger *zap.Logger, partitionOffsetManager sarama.PartitionOffsetManager) sarama.ConsumerErrors {
+	consumerErrs := make(sarama.ConsumerErrors, 0)
+	if partitionOffsetManager != nil {
+		select {
+		case consumerErr, ok := <-partitionOffsetManager.Errors():
+			if consumerErr != nil {
+				logger.Error("Failed to mark/reset Offset", zap.Error(consumerErr.Unwrap()))
+				consumerErrs = append(consumerErrs, consumerErr)
+			}
+			if !ok {
+				break // Error Channel Closed - Stop Draining
+			}
+		case <-time.After(5 * time.Second):
+			break // Error Channel Drain Timeout - Stop Waiting For Channel Close
+		}
+	}
+	return consumerErrs
 }

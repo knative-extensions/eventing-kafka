@@ -295,7 +295,10 @@ func WithPartitionOffsetManagerMockErrors(errors ...*sarama.ConsumerError) MockP
 				for _, err := range errors {
 					errChan <- err
 				}
+				close(errChan)
 			}()
+		} else {
+			close(errChan)
 		}
 		mockPartitionOffsetManager.On("Errors").Return(errChan)
 	}
