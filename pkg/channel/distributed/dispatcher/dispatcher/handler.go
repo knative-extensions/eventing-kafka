@@ -19,9 +19,8 @@ package dispatcher
 import (
 	"context"
 	"errors"
-	"strings"
-
 	"net/url"
+	"strings"
 
 	"github.com/Shopify/sarama"
 	kafkasaramaprotocol "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
@@ -156,7 +155,7 @@ func (h *Handler) consumeMessage(context context.Context, consumerMessage *saram
 
 	// Dispatch The Message With Configured Retries & Return Any Errors
 	info, dispatchError := h.MessageDispatcher.DispatchMessageWithRetries(ctx, message, nil, destinationURL, replyURL, deadLetterURL, retryConfig)
-	h.Logger.Debug("Received Dispatcher Response", zap.Any("ExecutionInfo", executionInfoWrapper{info}))
+	h.Logger.Debug("Received Response", zap.Any("ExecutionInfo", executionInfoWrapper{info}))
 
 	return dispatchError
 }

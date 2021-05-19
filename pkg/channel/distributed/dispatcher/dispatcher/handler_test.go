@@ -18,11 +18,10 @@ package dispatcher
 
 import (
 	"context"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
-
-	"net/url"
 
 	"github.com/Shopify/sarama"
 	kafkasaramaprotocol "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
