@@ -538,13 +538,14 @@ func TestInitOffset(t *testing.T) {
 			adapter := NewAdapter(context.Background(), NewEnvConfig(), nil, nil).(*Adapter)
 			adapter.config.ConsumerGroup = group
 			adapter.config.Topics = tc.topics
+			adapter.config.BootstrapServers = []string{broker.Addr()}
 
 			config := sarama.NewConfig()
 			config.Version = sarama.MaxVersion
+			adapter.saramaConfig = config
 
-			fn := adapter.InitOffsets([]string{broker.Addr()}, config)
 			session := new(sampleConsumerSession)
-			err := fn(session)
+			err := adapter.InitOffsets(session)
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}

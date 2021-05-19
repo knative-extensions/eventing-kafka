@@ -24,8 +24,6 @@ import (
 	"go.uber.org/zap"
 )
 
-var _ sarama.ConsumerGroupHandler = (*SaramaConsumerHandler)(nil)
-
 type KafkaConsumerHandler interface {
 	// When this function returns true, the consumer group offset is marked as consumed.
 	// The returned error is enqueued in errors channel.
@@ -54,16 +52,6 @@ func WithSaramaConsumerLifecycleListener(listener SaramaConsumerLifecycleListene
 	}
 }
 
-func noopOffsetInitializer(sarama.ConsumerGroupSession) error {
-	return nil
-}
-
-func WithOffsetInitializer(initializer func(sarama.ConsumerGroupSession) error) SaramaConsumerHandlerOption {
-	return func(handler *SaramaConsumerHandler) {
-		handler.offsetInitializer = initializer
-	}
-}
-
 // ConsumerHandler implements sarama.ConsumerGroupHandler and provides some glue code to simplify message handling
 // You must implement KafkaConsumerHandler and create a new SaramaConsumerHandler with it
 type SaramaConsumerHandler struct {
@@ -71,7 +59,6 @@ type SaramaConsumerHandler struct {
 	handler KafkaConsumerHandler
 
 	lifecycleListener SaramaConsumerLifecycleListener
-	offsetInitializer func(sarama.ConsumerGroupSession) error
 
 	logger *zap.SugaredLogger
 
@@ -85,7 +72,6 @@ func NewConsumerHandler(logger *zap.SugaredLogger, handler KafkaConsumerHandler,
 	sch := SaramaConsumerHandler{
 		handler:           handler,
 		lifecycleListener: noopSaramaConsumerLifecycleListener{},
-		offsetInitializer: noopOffsetInitializer,
 		logger:            logger,
 		errors:            errorsCh,
 	}
@@ -101,8 +87,7 @@ func NewConsumerHandler(logger *zap.SugaredLogger, handler KafkaConsumerHandler,
 func (consumer *SaramaConsumerHandler) Setup(session sarama.ConsumerGroupSession) error {
 	consumer.logger.Info("setting up handler")
 	consumer.lifecycleListener.Setup(session)
-
-	return consumer.offsetInitializer(session)
+	return nil
 }
 
 // Cleanup is run at the end of a session, once all ConsumeClaim goroutines have exited
@@ -155,3 +140,5 @@ func (consumer *SaramaConsumerHandler) ConsumeClaim(session sarama.ConsumerGroup
 	consumer.logger.Infof("Stopping partition consumer, topic: %s, partition: %d", claim.Topic(), claim.Partition())
 	return nil
 }
+
+var _ sarama.ConsumerGroupHandler = (*SaramaConsumerHandler)(nil)

@@ -68,6 +68,7 @@ func NewEnvConfig() adapter.EnvConfigAccessor {
 type Adapter struct {
 	config        *AdapterConfig
 	controlServer *ctrlnetwork.ControlServer
+	saramaConfig  *sarama.Config
 
 	httpMessageSender *kncloudevents.HTTPMessageSender
 	reporter          pkgsource.StatsReporter
@@ -106,8 +107,6 @@ func (a *Adapter) Start(ctx context.Context) (err error) {
 		zap.String("Namespace", a.config.Namespace),
 	)
 
-	var options []consumer.SaramaConsumerHandlerOption
-
 	// Init control service
 	if !a.config.DisableControlServer {
 		a.controlServer, err = ctrlnetwork.StartInsecureControlServer(ctx)
@@ -115,8 +114,6 @@ func (a *Adapter) Start(ctx context.Context) (err error) {
 			return err
 		}
 		a.controlServer.MessageHandler(a)
-
-		options = append(options, consumer.WithSaramaConsumerLifecycleListener(a))
 	}
 
 	// init consumer group
@@ -124,13 +121,9 @@ func (a *Adapter) Start(ctx context.Context) (err error) {
 	if err != nil {
 		return fmt.Errorf("failed to create the config: %w", err)
 	}
+	a.saramaConfig = config
 
-	// Preemptively initialize consumer group offsets to be able to mark the source as ready
-	// as soon as possible.
-	if config.Consumer.Offsets.Initial == sarama.OffsetNewest {
-		options = append(options, consumer.WithOffsetInitializer(a.InitOffsets(addrs, config)))
-	}
-
+	options := []consumer.SaramaConsumerHandlerOption{consumer.WithSaramaConsumerLifecycleListener(a)}
 	consumerGroupFactory := consumer.NewConsumerGroupFactory(addrs, config)
 	group, err := consumerGroupFactory.StartConsumerGroup(
 		a.config.ConsumerGroup,
@@ -222,26 +215,36 @@ func (a *Adapter) HandleServiceMessage(ctx context.Context, message ctrl.Service
 }
 
 func (a *Adapter) Setup(sess sarama.ConsumerGroupSession) {
-	if err := a.controlServer.SendAndWaitForAck(kafkasourcecontrol.NotifySetupClaimsOpCode, kafkasourcecontrol.Claims(sess.Claims())); err != nil {
-		a.logger.Warnf("Cannot send the claims update: %v", err)
+	if a.controlServer != nil {
+		if err := a.controlServer.SendAndWaitForAck(kafkasourcecontrol.NotifySetupClaimsOpCode, kafkasourcecontrol.Claims(sess.Claims())); err != nil {
+			a.logger.Warnf("Cannot send the claims update: %v", err)
+		}
+	}
+
+	// Preemptively initialize consumer group offsets to be able to mark the source as ready
+	// as soon as possible.
+	if err := a.InitOffsets(sess); err != nil {
+		a.logger.Warnf("Cannot initialized consumer group offsets: %v", err)
 	}
 }
 
 func (a *Adapter) Cleanup(sess sarama.ConsumerGroupSession) {
-	if err := a.controlServer.SendAndWaitForAck(kafkasourcecontrol.NotifyCleanupClaimsOpCode, kafkasourcecontrol.Claims(sess.Claims())); err != nil {
-		a.logger.Warnf("Cannot send the claims update: %v", err)
+	if a.controlServer != nil {
+		if err := a.controlServer.SendAndWaitForAck(kafkasourcecontrol.NotifyCleanupClaimsOpCode, kafkasourcecontrol.Claims(sess.Claims())); err != nil {
+			a.logger.Warnf("Cannot send the claims update: %v", err)
+		}
 	}
 }
 
 // InitOffsets makes sure all consumer group offsets are set.
-func (a *Adapter) InitOffsets(addrs []string, config *sarama.Config) func(sarama.ConsumerGroupSession) error {
-	return func(session sarama.ConsumerGroupSession) error {
+func (a *Adapter) InitOffsets(session sarama.ConsumerGroupSession) error {
+	if a.saramaConfig.Consumer.Offsets.Initial == sarama.OffsetNewest {
 		// We want to make sure that ALL consumer group offsets are set to avoid
 		// losing events in case the consumer group session is closed before at least one message is
 		// consumed from ALL partitions.
 		// If not, an event sent to a partition with an uninitialized offset
 		// will not be forwarded when the session is closed (or a rebalancing is in progress).
-		kafkaClient, err := sarama.NewClient(addrs, config)
+		kafkaClient, err := sarama.NewClient(a.config.BootstrapServers, a.saramaConfig)
 		if err != nil {
 			return fmt.Errorf("failed to create a Kafka client: %w", err)
 		}
@@ -295,8 +298,8 @@ func (a *Adapter) InitOffsets(addrs []string, config *sarama.Config) func(sarama
 
 			a.logger.Infow("consumer group offsets committed", zap.String("consumergroup", a.config.ConsumerGroup))
 		}
-
-		// At this stage the KafkaSource instance is considered Ready (TODO: update KafkaSource status)
-		return nil
 	}
+
+	// At this stage the KafkaSource instance is considered Ready (TODO: update KafkaSource status)
+	return nil
 }
