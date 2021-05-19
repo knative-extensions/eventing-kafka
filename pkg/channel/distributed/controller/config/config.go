@@ -56,8 +56,6 @@ func VerifyConfiguration(configuration *commonconfig.EventingKafkaConfig) error 
 		return ControllerConfigurationError("Distributed.Dispatcher.Replicas must be > 0")
 	case configuration.Channel.Distributed.Receiver.Replicas < 1:
 		return ControllerConfigurationError("Distributed.Receiver.Replicas must be > 0")
-	case configuration.Channel.Consolidated.Dispatcher.Replicas < 1:
-		return ControllerConfigurationError("Consolidated.Dispatcher.Replicas must be > 0")
 	}
 	return nil // no problems found
 }

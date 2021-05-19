@@ -170,24 +170,3 @@ func TestReplicationFactor(t *testing.T) {
 	actualReplicationFactor = ReplicationFactor(channel, configuration, logger)
 	assert.Equal(t, replicationFactor, actualReplicationFactor)
 }
-
-// Test The RetentionMillis Accessor
-func TestRetentionMillis(t *testing.T) {
-
-	// Test Logger
-	logger := logtesting.TestLogger(t)
-
-	// Test Data
-	configuration := &EventingKafkaConfig{Kafka: EKKafkaConfig{Topic: EKKafkaTopicConfig{DefaultRetentionMillis: defaultRetentionMillis}}}
-
-	// Test The Default Failover Use Case
-	channel := &kafkav1beta1.KafkaChannel{}
-	actualRetentionMillis := RetentionMillis(channel, configuration, logger)
-	assert.Equal(t, defaultRetentionMillis, actualRetentionMillis)
-
-	// TODO - No RetentionMillis In eventing-contrib KafkaChannel
-	//// Test The Valid RetentionMillis Use Case
-	//channel = &kafkav1beta1.KafkaChannel{Spec: kafkav1beta1.KafkaChannelSpec{RetentionMillis: retentionMillis}}
-	//actualRetentionMillis = RetentionMillis(channel, environment, logger)
-	//assert.Equal(t, retentionMillis, actualRetentionMillis)
-}
