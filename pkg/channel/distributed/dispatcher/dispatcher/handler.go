@@ -19,14 +19,15 @@ package dispatcher
 import (
 	"context"
 	"errors"
-	"fmt"
-	"net/url"
 	"strings"
+
+	"net/url"
 
 	"github.com/Shopify/sarama"
 	kafkasaramaprotocol "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"github.com/cloudevents/sdk-go/v2/binding"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"knative.dev/eventing-kafka/pkg/common/tracing"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/channel"
@@ -131,9 +132,8 @@ func (h *Handler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama
 // Consume A Single Message
 func (h *Handler) consumeMessage(context context.Context, consumerMessage *sarama.ConsumerMessage, destinationURL *url.URL, replyURL *url.URL, deadLetterURL *url.URL, retryConfig *kncloudevents.RetryConfig) error {
 
-	debug := h.Logger.Core().Enabled(zap.DebugLevel)
 	// Debug Log Kafka ConsumerMessage
-	if debug {
+	if h.Logger.Core().Enabled(zap.DebugLevel) {
 		// Checked Logging Level First To Avoid Calling StringifyHeaderPtrs In Production
 		h.Logger.Debug("Consuming Kafka Message",
 			zap.Any("Headers", kafkasarama.StringifyHeaderPtrs(consumerMessage.Headers)), // Log human-readable strings, not base64
@@ -156,25 +156,24 @@ func (h *Handler) consumeMessage(context context.Context, consumerMessage *saram
 
 	// Dispatch The Message With Configured Retries & Return Any Errors
 	info, dispatchError := h.MessageDispatcher.DispatchMessageWithRetries(ctx, message, nil, destinationURL, replyURL, deadLetterURL, retryConfig)
+	h.Logger.Debug("Received Dispatcher Response", zap.Any("ExecutionInfo", executionInfoWrapper{info}))
 
-	if debug {
-		// Checked Logging Level First To Avoid Calling formatDispatcherExecutionInfo In Production
-		h.Logger.Debug("Dispatcher Response: " + formatDispatcherExecutionInfo(info))
-	}
 	return dispatchError
 }
 
-func formatDispatcherExecutionInfo(info *channel.DispatchExecutionInfo) string {
-	if info == nil {
-		return "<nil>"
+// executionInfoWrapper wraps a DispatchExecutionInfo struct so that zap.Any can lazily marshal it
+type executionInfoWrapper struct {
+	*channel.DispatchExecutionInfo
+}
+
+// MarshalLogObject implements the zapcore.ObjectMarshaler interface on the executionInfoWrapper
+func (w executionInfoWrapper) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddDuration("Time", w.Time)
+	enc.AddInt("ResponseCode", w.ResponseCode)
+	if len(w.ResponseBody) > 500 {
+		enc.AddString("Body", string(w.ResponseBody[:500])+"...")
+	} else {
+		enc.AddString("Body", string(w.ResponseBody))
 	}
-	// The body for Dispatcher responses is usually empty, so don't bother printing it in those cases
-	if len(info.ResponseBody) == 0 {
-		return fmt.Sprintf("%v (%v)", info.ResponseCode, info.Time)
-	}
-	truncate := len(info.ResponseBody)
-	if truncate > 500 {
-		truncate = 500 // Responses aren't typically large, but don't dump a massive response body
-	}
-	return fmt.Sprintf("%v (%v): %v", info.ResponseCode, info.Time, string(info.ResponseBody[:truncate]))
+	return nil
 }

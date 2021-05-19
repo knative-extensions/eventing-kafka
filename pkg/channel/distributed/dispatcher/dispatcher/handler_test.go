@@ -18,16 +18,18 @@ package dispatcher
 
 import (
 	"context"
-	"net/url"
 	"strings"
 	"testing"
 	"time"
+
+	"net/url"
 
 	"github.com/Shopify/sarama"
 	kafkasaramaprotocol "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"github.com/cloudevents/sdk-go/v2/binding"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"k8s.io/apimachinery/pkg/types"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/channel"
@@ -369,13 +371,52 @@ func createConsumerMessage(t *testing.T) *sarama.ConsumerMessage {
 	return consumerMessage
 }
 
-func Test_formatDispatcherExecutionInfo(t *testing.T) {
-	assert.Equal(t, "<nil>", formatDispatcherExecutionInfo(nil))
-	assert.Equal(t, "0 (0s)", formatDispatcherExecutionInfo(&channel.DispatchExecutionInfo{}))
-	assert.Equal(t, "200 (1.234ms)", formatDispatcherExecutionInfo(&channel.DispatchExecutionInfo{
-		Time: 1234 * time.Microsecond, ResponseCode: 200, ResponseBody: nil}))
-	assert.Equal(t, "400 (12.345ms): testBody", formatDispatcherExecutionInfo(&channel.DispatchExecutionInfo{
-		Time: 12345 * time.Microsecond, ResponseCode: 400, ResponseBody: []byte("testBody")}))
-	assert.Equal(t, "500 (123.456ms): "+strings.Repeat("x", 500), formatDispatcherExecutionInfo(&channel.DispatchExecutionInfo{
-		Time: 123456 * time.Microsecond, ResponseCode: 500, ResponseBody: []byte(strings.Repeat("x", 501))}))
+func Test_executionInfoWrapper(t *testing.T) {
+	for _, testCase := range []struct {
+		name string
+		info *channel.DispatchExecutionInfo
+		want string
+	}{
+		{
+			name: "Empty Info",
+			info: &channel.DispatchExecutionInfo{},
+			want: `"Time":0,"ResponseCode":0,"Body":""`,
+		},
+		{
+			name: "Short Body",
+			info: &channel.DispatchExecutionInfo{
+				Time:         123 * time.Microsecond,
+				ResponseCode: 200,
+				ResponseBody: []byte("shortBody"),
+			},
+			want: `"Time":123000,"ResponseCode":200,"Body":"shortBody"`,
+		},
+		{
+			name: "Long Body (max length)",
+			info: &channel.DispatchExecutionInfo{
+				Time:         1234 * time.Microsecond,
+				ResponseCode: 500,
+				ResponseBody: []byte(strings.Repeat("tencharstr", 50)),
+			},
+			want: `"Time":1234000,"ResponseCode":500,"Body":"` + strings.Repeat("tencharstr", 50) + `"`,
+		},
+		{
+			name: "Long Body (truncated)",
+			info: &channel.DispatchExecutionInfo{
+				Time:         12345 * time.Microsecond,
+				ResponseCode: 500,
+				ResponseBody: []byte(strings.Repeat("tencharstr", 51)),
+			},
+			want: `"Time":12345000,"ResponseCode":500,"Body":"` + strings.Repeat("tencharstr", 50) + `..."`,
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			zapField := zap.Any("test", executionInfoWrapper{testCase.info})
+			buffer, err := zapcore.NewJSONEncoder(zapcore.EncoderConfig{}).EncodeEntry(zapcore.Entry{}, []zapcore.Field{zapField})
+			assert.Nil(t, err)
+			// The buffer contains more than just the encoded field, but this isn't supposed to be testing "the zapcore library"
+			// so just see if the JSON string has what we're expecting in the middle of it
+			assert.Contains(t, buffer.String(), testCase.want)
+		})
+	}
 }
