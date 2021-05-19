@@ -1217,6 +1217,7 @@ knative.dev/eventing/test/performance/infra/common
 knative.dev/eventing/test/performance/infra/event_state
 knative.dev/eventing/test/performance/infra/receiver
 knative.dev/eventing/test/performance/infra/sender
+knative.dev/eventing/test/rekt/resources/addressable
 knative.dev/eventing/test/rekt/resources/svc
 knative.dev/eventing/test/test_images
 knative.dev/eventing/test/test_images/event-sender
