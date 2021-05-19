@@ -67,7 +67,7 @@ type TestCase struct {
 	receiverMemoryLimit                resource.Quantity
 	receiverMemoryRequest              resource.Quantity
 	receiverReplicas                   int
-	consolidatedDispatcherReplicas                 int
+	consolidatedDispatcherReplicas     int
 
 	expectedError error
 }
