@@ -520,7 +520,7 @@ func TestInitOffset(t *testing.T) {
 				SetController(broker.BrokerID()).
 				SetBroker(broker.Addr(), broker.BrokerID())
 			for topic, partitions := range tc.topicOffsets {
-				for partition, _ := range partitions {
+				for partition := range partitions {
 					metadataResponse = metadataResponse.SetLeader(topic, partition, broker.BrokerID())
 				}
 			}

@@ -376,6 +376,6 @@ func Test_formatDispatcherExecutionInfo(t *testing.T) {
 		Time: 1234 * time.Microsecond, ResponseCode: 200, ResponseBody: nil}))
 	assert.Equal(t, "400 (12.345ms): testBody", formatDispatcherExecutionInfo(&channel.DispatchExecutionInfo{
 		Time: 12345 * time.Microsecond, ResponseCode: 400, ResponseBody: []byte("testBody")}))
-	assert.Equal(t, "500 (123.456ms): " + strings.Repeat("x", 500), formatDispatcherExecutionInfo(&channel.DispatchExecutionInfo{
+	assert.Equal(t, "500 (123.456ms): "+strings.Repeat("x", 500), formatDispatcherExecutionInfo(&channel.DispatchExecutionInfo{
 		Time: 123456 * time.Microsecond, ResponseCode: 500, ResponseBody: []byte(strings.Repeat("x", 501))}))
 }
