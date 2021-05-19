@@ -174,7 +174,7 @@ func formatDispatcherExecutionInfo(info *channel.DispatchExecutionInfo) string {
 	}
 	truncate := len(info.ResponseBody)
 	if truncate > 500 {
-		truncate = 500
+		truncate = 500	// Responses aren't typically large, but don't dump a massive response body
 	}
 	return fmt.Sprintf("%v (%v): %v", info.ResponseCode, info.Time, string(info.ResponseBody[:truncate]))
 }

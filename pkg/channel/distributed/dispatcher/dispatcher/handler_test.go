@@ -19,6 +19,7 @@ package dispatcher
 import (
 	"context"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -372,13 +373,9 @@ func Test_formatDispatcherExecutionInfo(t *testing.T) {
 	assert.Equal(t, "<nil>", formatDispatcherExecutionInfo(nil))
 	assert.Equal(t, "0 (0s)", formatDispatcherExecutionInfo(&channel.DispatchExecutionInfo{}))
 	assert.Equal(t, "200 (1.234ms)", formatDispatcherExecutionInfo(&channel.DispatchExecutionInfo{
-		Time:         1234 * time.Microsecond,
-		ResponseCode: 200,
-		ResponseBody: nil,
-	}))
-	assert.Equal(t, "500 (12.345ms): testBody", formatDispatcherExecutionInfo(&channel.DispatchExecutionInfo{
-		Time:         12345 * time.Microsecond,
-		ResponseCode: 500,
-		ResponseBody: []byte("testBody"),
-	}))
+		Time: 1234 * time.Microsecond, ResponseCode: 200, ResponseBody: nil}))
+	assert.Equal(t, "400 (12.345ms): testBody", formatDispatcherExecutionInfo(&channel.DispatchExecutionInfo{
+		Time: 12345 * time.Microsecond, ResponseCode: 400, ResponseBody: []byte("testBody")}))
+	assert.Equal(t, "500 (123.456ms): " + strings.Repeat("x", 500), formatDispatcherExecutionInfo(&channel.DispatchExecutionInfo{
+		Time: 123456 * time.Microsecond, ResponseCode: 500, ResponseBody: []byte(strings.Repeat("x", 501))}))
 }
