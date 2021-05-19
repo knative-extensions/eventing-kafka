@@ -98,6 +98,9 @@ func parseSasl(secret *corev1.Secret, kafkaAuthConfig *client.KafkaAuthConfig) {
 	}
 }
 
+// GetKafkaAuthData reads auth information from the Secret and puts them into a KafkaAuthConfig struct
+// GetKafkaAuthData returns a nil error in all cases because it matches the sarama.GetAuth prototype
+// (so that it can be used in the sarama.LoadSettings call).
 func GetKafkaAuthData(ctx context.Context, secretname string, secretNS string) (*client.KafkaAuthConfig, error) {
 
 	k8sClient := kubeclient.Get(ctx)
