@@ -32,7 +32,7 @@ import (
 
 	ctrlreconciler "knative.dev/control-protocol/pkg/reconciler"
 
-	"knative.dev/eventing-kafka/pkg/apis/sources/v1alpha1"
+	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 	kafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client"
 	kafkainformer "knative.dev/eventing-kafka/pkg/client/injection/informers/sources/v1beta1/kafkasource"
 	"knative.dev/eventing-kafka/pkg/client/injection/reconciler/sources/v1beta1/kafkasource"
@@ -76,7 +76,7 @@ func NewController(
 	kafkaInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	deploymentInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterControllerGK(v1alpha1.Kind("KafkaSource")),
+		FilterFunc: controller.FilterControllerGK(v1beta1.Kind("KafkaSource")),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
