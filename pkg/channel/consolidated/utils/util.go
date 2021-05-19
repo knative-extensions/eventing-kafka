@@ -105,7 +105,7 @@ func GetKafkaAuthData(ctx context.Context, secretname string, secretNS string) (
 
 	if err != nil || secret == nil {
 		logging.FromContext(ctx).Errorf("Referenced Auth Secret not found")
-		return nil, fmt.Errorf("referenced auth secret not found")
+		return nil, nil  // For the consolidated channel type, the secret not existing is not an error
 	}
 
 	kafkaAuthConfig := &client.KafkaAuthConfig{}

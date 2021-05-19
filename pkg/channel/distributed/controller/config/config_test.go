@@ -44,6 +44,8 @@ const (
 	receiverCpuRquest     = "10m"
 	receiverMemoryLimit   = "20Mi"
 	receiverCpuLimit      = "100m"
+
+	consolidatedDispatcherReplicas = 1
 )
 
 // Define The TestCase Struct
@@ -65,6 +67,7 @@ type TestCase struct {
 	receiverMemoryLimit                resource.Quantity
 	receiverMemoryRequest              resource.Quantity
 	receiverReplicas                   int
+	consolidatedDispatcherReplicas                 int
 
 	expectedError error
 }
@@ -87,6 +90,7 @@ func getValidTestCase(name string) TestCase {
 		receiverMemoryLimit:                resource.MustParse(receiverMemoryLimit),
 		receiverMemoryRequest:              resource.MustParse(receiverMemoryRequest),
 		receiverReplicas:                   receiverReplicas,
+		consolidatedDispatcherReplicas:     consolidatedDispatcherReplicas,
 		expectedError:                      nil,
 	}
 }
@@ -131,7 +135,7 @@ func TestVerifyConfiguration(t *testing.T) {
 	testCase.dispatcherMemoryRequest = resource.Quantity{}
 	testCases = append(testCases, testCase)
 
-	testCase = getValidTestCase("Invalid Config - Dispatcher.Replicas")
+	testCase = getValidTestCase("Invalid Config - Distributed Dispatcher.Replicas")
 	testCase.dispatcherReplicas = -1
 	testCase.expectedError = ControllerConfigurationError("Distributed.Dispatcher.Replicas must be > 0")
 	testCases = append(testCases, testCase)
@@ -152,7 +156,12 @@ func TestVerifyConfiguration(t *testing.T) {
 	testCase.receiverMemoryRequest = resource.Quantity{}
 	testCases = append(testCases, testCase)
 
-	testCase = getValidTestCase("Invalid Config - Receiver.Replicas")
+	testCase = getValidTestCase("Invalid Config - Consolidated Dispatcher.Replicas")
+	testCase.consolidatedDispatcherReplicas = -1
+	testCase.expectedError = ControllerConfigurationError("Consolidated.Dispatcher.Replicas must be > 0")
+	testCases = append(testCases, testCase)
+
+	testCase = getValidTestCase("Invalid Config - Distributed Receiver.Replicas")
 	testCase.receiverReplicas = -1
 	testCase.expectedError = ControllerConfigurationError("Distributed.Receiver.Replicas must be > 0")
 	testCases = append(testCases, testCase)
@@ -179,7 +188,7 @@ func TestVerifyConfiguration(t *testing.T) {
 			testConfig.Channel.Distributed.Receiver.MemoryLimit = testCase.receiverMemoryLimit
 			testConfig.Channel.Distributed.Receiver.MemoryRequest = testCase.receiverMemoryRequest
 			testConfig.Channel.Distributed.Receiver.Replicas = testCase.receiverReplicas
-			testConfig.Channel.Consolidated.Dispatcher.Replicas = 1
+			testConfig.Channel.Consolidated.Dispatcher.Replicas = testCase.consolidatedDispatcherReplicas
 
 			// Perform The Test
 			err := VerifyConfiguration(testConfig)
@@ -206,4 +215,9 @@ func TestVerifyConfiguration(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestControllerConfigurationError_Error(t *testing.T) {
+	err := ControllerConfigurationError("test")
+	assert.Equal(t, "controller: invalid configuration (test)", err.Error())
 }
