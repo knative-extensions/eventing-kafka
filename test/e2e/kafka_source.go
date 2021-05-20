@@ -25,6 +25,8 @@ import (
 	"testing"
 	"time"
 
+	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
+
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	. "github.com/cloudevents/sdk-go/v2/test"
 	cetypes "github.com/cloudevents/sdk-go/v2/types"
@@ -36,8 +38,6 @@ import (
 	"knative.dev/eventing/test/lib/recordevents"
 	"knative.dev/eventing/test/lib/resources"
 
-	sourcesv1alpha1 "knative.dev/eventing-kafka/pkg/apis/sources/v1alpha1"
-	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 	"knative.dev/eventing-kafka/test/e2e/helpers"
 	contribtestlib "knative.dev/eventing-kafka/test/lib"
 	contribresources "knative.dev/eventing-kafka/test/lib/resources"
@@ -219,7 +219,7 @@ func AssureKafkaSourceIsOperational(t *testing.T, scope SourceTestScope) {
 		for testcase, test := range tests {
 			test := test
 			name := testcase + "_" + authName
-			for _, version := range []string{"v1alpha1", "v1beta1"} {
+			for _, version := range []string{"v1beta1"} {
 				testName := name + "-" + version
 				if !scope(authName, testcase, version) {
 					t.Log("Skipping the test case, because it's out of configured scope: ", testName)
@@ -297,63 +297,6 @@ func withAuthEnablementV1Beta1(auth authSetup) contribresources.KafkaSourceV1Bet
 	return func(ks *sourcesv1beta1.KafkaSource) {}
 }
 
-func withAuthEnablementV1Alpha1(auth authSetup) contribresources.KafkaSourceV1Alpha1Option {
-	// We test with sasl512 and enable tls with it, so check tls first
-	if auth.TLSEnabled {
-		return func(ks *sourcesv1alpha1.KafkaSource) {
-			ks.Spec.KafkaAuthSpec.Net.TLS.Enable = true
-			ks.Spec.KafkaAuthSpec.Net.TLS.CACert.SecretKeyRef = &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: kafkaTLSSecret,
-				},
-				Key: "ca.crt",
-			}
-			ks.Spec.KafkaAuthSpec.Net.TLS.Cert.SecretKeyRef = &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: kafkaTLSSecret,
-				},
-				Key: "user.crt",
-			}
-			ks.Spec.KafkaAuthSpec.Net.TLS.Key.SecretKeyRef = &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: kafkaTLSSecret,
-				},
-				Key: "user.key",
-			}
-		}
-	}
-	if auth.SASLEnabled {
-		return func(ks *sourcesv1alpha1.KafkaSource) {
-			ks.Spec.KafkaAuthSpec.Net.SASL.Enable = true
-			ks.Spec.KafkaAuthSpec.Net.SASL.User.SecretKeyRef = &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: kafkaSASLSecret,
-				},
-				Key: "user",
-			}
-			ks.Spec.KafkaAuthSpec.Net.SASL.Password.SecretKeyRef = &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: kafkaSASLSecret,
-				},
-				Key: "password",
-			}
-			ks.Spec.KafkaAuthSpec.Net.SASL.Type.SecretKeyRef = &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: kafkaSASLSecret,
-				},
-				Key: "saslType",
-			}
-			ks.Spec.KafkaAuthSpec.Net.TLS.Enable = true
-			ks.Spec.KafkaAuthSpec.Net.TLS.CACert.SecretKeyRef = &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: kafkaSASLSecret,
-				},
-				Key: "ca.crt",
-			}
-		}
-	}
-	return func(ks *sourcesv1alpha1.KafkaSource) {}
-}
 func testKafkaSource(t *testing.T, name string, version string, messageKey string, messageHeaders map[string]string, messagePayload string, matcherGen func(cloudEventsSourceName, cloudEventsEventType string) EventMatcher, auth authSetup) {
 	name = fmt.Sprintf("%s-%s", name, version)
 
@@ -392,17 +335,6 @@ func testKafkaSource(t *testing.T, name string, version string, messageKey strin
 
 	t.Logf("Creating KafkaSource %s", version)
 	switch version {
-	case "v1alpha1":
-		contribtestlib.CreateKafkaSourceV1Alpha1OrFail(client, contribresources.KafkaSourceV1Alpha1(
-			auth.bootStrapServer,
-			kafkaTopicName,
-			resources.ServiceRef(recordEventPodName),
-			contribresources.WithNameV1Alpha1(kafkaSourceName),
-			contribresources.WithConsumerGroupV1Alpha1(consumerGroup),
-			withAuthEnablementV1Alpha1(auth),
-		))
-		cloudEventsSourceName = sourcesv1alpha1.KafkaEventSource(client.Namespace, kafkaSourceName, kafkaTopicName)
-		cloudEventsEventType = sourcesv1alpha1.KafkaEventType
 	case "v1beta1":
 		contribtestlib.CreateKafkaSourceV1Beta1OrFail(client, contribresources.KafkaSourceV1Beta1(
 			auth.bootStrapServer,

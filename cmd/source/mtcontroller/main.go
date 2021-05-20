@@ -26,9 +26,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	bindingsv1alpha1 "knative.dev/eventing-kafka/pkg/apis/bindings/v1alpha1"
 	bindingsv1beta1 "knative.dev/eventing-kafka/pkg/apis/bindings/v1beta1"
-	sourcesv1alpha1 "knative.dev/eventing-kafka/pkg/apis/sources/v1alpha1"
 	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 
 	"knative.dev/eventing-kafka/pkg/source/reconciler/binding"
@@ -51,9 +49,6 @@ const (
 )
 
 var types = map[schema.GroupVersionKind]resourcesemantics.GenericCRD{
-	// v1alpha1
-	sourcesv1alpha1.SchemeGroupVersion.WithKind("KafkaSource"):   &sourcesv1alpha1.KafkaSource{},
-	bindingsv1alpha1.SchemeGroupVersion.WithKind("KafkaBinding"): &bindingsv1alpha1.KafkaBinding{},
 	// v1beta1
 	sourcesv1beta1.SchemeGroupVersion.WithKind("KafkaSource"):   &sourcesv1beta1.KafkaSource{},
 	bindingsv1beta1.SchemeGroupVersion.WithKind("KafkaBinding"): &bindingsv1beta1.KafkaBinding{},
@@ -138,10 +133,8 @@ func NewKafkaBindingWebhook(opts ...psbinding.ReconcilerOption) injection.Contro
 
 func NewConversionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 	var (
-		sourcesv1alpha1_  = sourcesv1alpha1.SchemeGroupVersion.Version
-		bindingsv1alpha1_ = bindingsv1alpha1.SchemeGroupVersion.Version
-		sourcesv1beta1_   = sourcesv1beta1.SchemeGroupVersion.Version
-		bindingsv1beta1_  = bindingsv1beta1.SchemeGroupVersion.Version
+		sourcesv1beta1_  = sourcesv1beta1.SchemeGroupVersion.Version
+		bindingsv1beta1_ = bindingsv1beta1.SchemeGroupVersion.Version
 	)
 
 	return conversion.NewConversionController(ctx,
@@ -153,19 +146,17 @@ func NewConversionController(ctx context.Context, cmw configmap.Watcher) *contro
 			// KafkaSource
 			sourcesv1beta1.Kind("KafkaSource"): {
 				DefinitionName: sources.KafkaSourcesResource.String(),
-				HubVersion:     sourcesv1alpha1_,
+				HubVersion:     sourcesv1beta1_,
 				Zygotes: map[string]conversion.ConvertibleObject{
-					sourcesv1alpha1_: &sourcesv1alpha1.KafkaSource{},
-					sourcesv1beta1_:  &sourcesv1beta1.KafkaSource{},
+					sourcesv1beta1_: &sourcesv1beta1.KafkaSource{},
 				},
 			},
 			// KafkaBinding
 			bindingsv1beta1.Kind("KafkaBinding"): {
 				DefinitionName: bindings.KafkaBindingsResource.String(),
-				HubVersion:     bindingsv1alpha1_,
+				HubVersion:     bindingsv1beta1_,
 				Zygotes: map[string]conversion.ConvertibleObject{
-					bindingsv1alpha1_: &bindingsv1alpha1.KafkaBinding{},
-					bindingsv1beta1_:  &bindingsv1beta1.KafkaBinding{},
+					bindingsv1beta1_: &bindingsv1beta1.KafkaBinding{},
 				},
 			},
 		},

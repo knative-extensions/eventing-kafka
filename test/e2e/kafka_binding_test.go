@@ -51,12 +51,6 @@ func testKafkaBinding(t *testing.T, version string, messageKey string, messageHe
 
 	t.Logf("Creating KafkaSource %s", version)
 	switch version {
-	case "v1alpha1":
-		contribtestlib.CreateKafkaSourceV1Alpha1OrFail(client, contribresources.KafkaSourceV1Alpha1(
-			kafkaBootstrapUrlPlain,
-			kafkaTopicName,
-			resources.ServiceRef(loggerPodName),
-		))
 	case "v1beta1":
 		contribtestlib.CreateKafkaSourceV1Beta1OrFail(client, contribresources.KafkaSourceV1Beta1(
 			kafkaBootstrapUrlPlain,
@@ -72,17 +66,6 @@ func testKafkaBinding(t *testing.T, version string, messageKey string, messageHe
 
 	t.Logf("Creating KafkaBinding %s", version)
 	switch version {
-	case "v1alpha1":
-		contribtestlib.CreateKafkaBindingV1Alpha1OrFail(client, contribresources.KafkaBindingV1Alpha1(
-			kafkaBootstrapUrlPlain,
-			&tracker.Reference{
-				APIVersion: "batch/v1",
-				Kind:       "Job",
-				Selector: &metav1.LabelSelector{
-					MatchLabels: selector,
-				},
-			},
-		))
 	case "v1beta1":
 		contribtestlib.CreateKafkaBindingV1Beta1OrFail(client, contribresources.KafkaBindingV1Beta1(
 			kafkaBootstrapUrlPlain,
@@ -144,9 +127,6 @@ func TestKafkaBinding(t *testing.T) {
 	}
 	for name, tc := range tests {
 		tc := tc
-		t.Run(name+"-v1alpha1", func(t *testing.T) {
-			testKafkaBinding(t, "v1alpha1", tc.messageKey, tc.messageHeaders, tc.messagePayload, tc.expectedData)
-		})
 		t.Run(name+"-v1beta1", func(t *testing.T) {
 			testKafkaBinding(t, "v1beta1", tc.messageKey, tc.messageHeaders, tc.messagePayload, tc.expectedData)
 		})
