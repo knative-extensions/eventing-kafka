@@ -130,9 +130,6 @@ func TestMakeReceiveAdapter(t *testing.T) {
 			Replicas: &one,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"sidecar.istio.io/inject": "true",
-					},
 					Labels: map[string]string{
 						"test-key1": "test-value1",
 						"test-key2": "test-value2",
@@ -311,9 +308,6 @@ func TestMakeReceiveAdapterNoNet(t *testing.T) {
 			Replicas: &one,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"sidecar.istio.io/inject": "true",
-					},
 					Labels: map[string]string{
 						"test-key1": "test-value1",
 						"test-key2": "test-value2",
@@ -541,9 +535,6 @@ func TestMakeReceiveAdapterKeyType(t *testing.T) {
 			Replicas: &one,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"sidecar.istio.io/inject": "true",
-					},
 					Labels: map[string]string{
 						"test-key1": "test-value1",
 						"test-key2": "test-value2",

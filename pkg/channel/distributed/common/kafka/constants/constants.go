@@ -25,9 +25,6 @@ const (
 	// Duration Convenience
 	MillisPerDay = 24 * 60 * 60 * 1000 // 86400000
 
-	// Kafka Secret Label
-	KafkaSecretLabel = "eventing-kafka.knative.dev/kafka-secret"
-
 	// Kafka Secret Keys
 	KafkaSecretKeyNamespace = "namespace"
 	KafkaSecretKeyUsername  = "username"

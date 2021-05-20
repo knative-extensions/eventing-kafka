@@ -19,6 +19,7 @@ package dispatcher
 import (
 	"context"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -27,14 +28,16 @@ import (
 	"github.com/cloudevents/sdk-go/v2/binding"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"k8s.io/apimachinery/pkg/types"
-	dispatchertesting "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/testing"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/channel"
 	"knative.dev/eventing/pkg/kncloudevents"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	logtesting "knative.dev/pkg/logging/testing"
+
+	dispatchertesting "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/testing"
 )
 
 // Test Data
@@ -365,4 +368,54 @@ func createConsumerMessage(t *testing.T) *sarama.ConsumerMessage {
 
 	// Return The Test ConsumerMessage
 	return consumerMessage
+}
+
+func Test_executionInfoWrapper(t *testing.T) {
+	for _, testCase := range []struct {
+		name string
+		info *channel.DispatchExecutionInfo
+		want string
+	}{
+		{
+			name: "Empty Info",
+			info: &channel.DispatchExecutionInfo{},
+			want: `"Time":0,"ResponseCode":0,"Body":""`,
+		},
+		{
+			name: "Short Body",
+			info: &channel.DispatchExecutionInfo{
+				Time:         123 * time.Microsecond,
+				ResponseCode: 200,
+				ResponseBody: []byte("shortBody"),
+			},
+			want: `"Time":123000,"ResponseCode":200,"Body":"shortBody"`,
+		},
+		{
+			name: "Long Body (max length)",
+			info: &channel.DispatchExecutionInfo{
+				Time:         1234 * time.Microsecond,
+				ResponseCode: 500,
+				ResponseBody: []byte(strings.Repeat("tencharstr", 50)),
+			},
+			want: `"Time":1234000,"ResponseCode":500,"Body":"` + strings.Repeat("tencharstr", 50) + `"`,
+		},
+		{
+			name: "Long Body (truncated)",
+			info: &channel.DispatchExecutionInfo{
+				Time:         12345 * time.Microsecond,
+				ResponseCode: 500,
+				ResponseBody: []byte(strings.Repeat("tencharstr", 51)),
+			},
+			want: `"Time":12345000,"ResponseCode":500,"Body":"` + strings.Repeat("tencharstr", 50) + `..."`,
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			zapField := zap.Any("test", executionInfoWrapper{testCase.info})
+			buffer, err := zapcore.NewJSONEncoder(zapcore.EncoderConfig{}).EncodeEntry(zapcore.Entry{}, []zapcore.Field{zapField})
+			assert.Nil(t, err)
+			// The buffer contains more than just the encoded field, but this isn't supposed to be testing "the zapcore library"
+			// so just see if the JSON string has what we're expecting in the middle of it
+			assert.Contains(t, buffer.String(), testCase.want)
+		})
+	}
 }

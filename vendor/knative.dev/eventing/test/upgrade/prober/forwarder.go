@@ -25,7 +25,6 @@ import (
 	testlib "knative.dev/eventing/test/lib"
 	"knative.dev/eventing/test/lib/duck"
 	"knative.dev/eventing/test/lib/resources"
-	pkgTest "knative.dev/pkg/test"
 )
 
 var (
@@ -68,15 +67,15 @@ func (p *prober) forwarderKService(name, namespace string) *unstructured.Unstruc
 			"name":      name,
 			"namespace": namespace,
 			"labels": map[string]string{
-				"serving.knative.dev/visibility": "cluster-local",
+				"networking.knative.dev/visibility": "cluster-local",
 			},
 		},
 		"spec": map[string]interface{}{
 			"template": map[string]interface{}{
 				"spec": map[string]interface{}{
 					"containers": []map[string]interface{}{{
-						"name":  "forwarder",
-						"image": pkgTest.ImagePath(forwarderName),
+						"name":  forwarderName,
+						"image": p.config.ImageResolver(forwarderName),
 						"volumeMounts": []map[string]interface{}{{
 							"name":      p.config.ConfigMapName,
 							"mountPath": p.config.ConfigMountPoint,
