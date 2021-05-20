@@ -22,16 +22,17 @@ import (
 	"net/url"
 	"strings"
 
-	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
-
 	"github.com/Shopify/sarama"
 	kafkasaramaprotocol "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"github.com/cloudevents/sdk-go/v2/binding"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"knative.dev/eventing-kafka/pkg/common/tracing"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/channel"
 	"knative.dev/eventing/pkg/kncloudevents"
+
+	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 )
 
 // Verify The Handler Implements The Sarama ConsumerGroupHandler
@@ -153,6 +154,25 @@ func (h *Handler) consumeMessage(context context.Context, consumerMessage *saram
 	defer span.End()
 
 	// Dispatch The Message With Configured Retries & Return Any Errors
-	_, dispatchError := h.MessageDispatcher.DispatchMessageWithRetries(ctx, message, nil, destinationURL, replyURL, deadLetterURL, retryConfig)
+	info, dispatchError := h.MessageDispatcher.DispatchMessageWithRetries(ctx, message, nil, destinationURL, replyURL, deadLetterURL, retryConfig)
+	h.Logger.Debug("Received Response", zap.Any("ExecutionInfo", executionInfoWrapper{info}))
+
 	return dispatchError
+}
+
+// executionInfoWrapper wraps a DispatchExecutionInfo struct so that zap.Any can lazily marshal it
+type executionInfoWrapper struct {
+	*channel.DispatchExecutionInfo
+}
+
+// MarshalLogObject implements the zapcore.ObjectMarshaler interface on the executionInfoWrapper
+func (w executionInfoWrapper) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddDuration("Time", w.Time)
+	enc.AddInt("ResponseCode", w.ResponseCode)
+	if len(w.ResponseBody) > 500 {
+		enc.AddString("Body", string(w.ResponseBody[:500])+"...")
+	} else {
+		enc.AddString("Body", string(w.ResponseBody))
+	}
+	return nil
 }
