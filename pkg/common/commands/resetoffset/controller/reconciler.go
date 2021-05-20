@@ -62,6 +62,8 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, resetOffset *kafkav1alph
 		return reconciler.NewEvent(corev1.EventTypeNormal, ResetOffsetSkipped.String(), "Skipped previously executed ResetOffset")
 	}
 
+	// TODO - This functionality should be handled by the Webhook (Admissions / Defaulting) - Verify & Remove once that is in place.
+	//      - Note: The "consolidated" and "distributed" KafkaChannel implementations have similar logic - possibly investigate why?
 	// Set Defaults & Verify The ResetOffset Is Valid
 	resetOffset.SetDefaults(ctx)
 	if err := resetOffset.Validate(ctx); err != nil {
