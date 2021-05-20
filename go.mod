@@ -37,8 +37,8 @@ require (
 	knative.dev/eventing v0.23.0
 	knative.dev/hack v0.0.0-20210428122153-93ad9129c268
 	knative.dev/networking v0.0.0-20210512050647-ace2d3306f0b
-	knative.dev/pkg v0.0.0-20210510175900-4564797bf3b7
-	knative.dev/reconciler-test v0.0.0-20210512062647-d5adf72546be
+	knative.dev/pkg v0.0.0-20210518131015-67897f4ec290
+	knative.dev/reconciler-test v0.0.0-20210514214942-8d70771450f1
 )
 
-replace knative.dev/eventing => github.com/cardil/eventing v0.11.1-0.20210519170801-8daf58ca3ef6
+replace knative.dev/eventing => github.com/cardil/eventing v0.11.1-0.20210520130409-60f9c309c843

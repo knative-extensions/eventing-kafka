@@ -1105,7 +1105,7 @@ knative.dev/control-protocol/pkg/message
 knative.dev/control-protocol/pkg/network
 knative.dev/control-protocol/pkg/reconciler
 knative.dev/control-protocol/pkg/service
-# knative.dev/eventing v0.23.0 => github.com/cardil/eventing v0.11.1-0.20210519170801-8daf58ca3ef6
+# knative.dev/eventing v0.23.0 => github.com/cardil/eventing v0.11.1-0.20210520130409-60f9c309c843
 ## explicit
 knative.dev/eventing/pkg/adapter/v2
 knative.dev/eventing/pkg/adapter/v2/test
@@ -1226,7 +1226,7 @@ knative.dev/hack/shell
 # knative.dev/networking v0.0.0-20210512050647-ace2d3306f0b
 ## explicit
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20210510175900-4564797bf3b7
+# knative.dev/pkg v0.0.0-20210518131015-67897f4ec290
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
@@ -1330,7 +1330,7 @@ knative.dev/pkg/webhook/resourcesemantics
 knative.dev/pkg/webhook/resourcesemantics/conversion
 knative.dev/pkg/webhook/resourcesemantics/defaulting
 knative.dev/pkg/webhook/resourcesemantics/validation
-# knative.dev/reconciler-test v0.0.0-20210512062647-d5adf72546be
+# knative.dev/reconciler-test v0.0.0-20210514214942-8d70771450f1
 ## explicit
 knative.dev/reconciler-test/cmd/eventshub
 knative.dev/reconciler-test/pkg/environment
@@ -1355,4 +1355,4 @@ knative.dev/reconciler-test/resources/svc
 sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 sigs.k8s.io/yaml
-# knative.dev/eventing => github.com/cardil/eventing v0.11.1-0.20210519170801-8daf58ca3ef6
+# knative.dev/eventing => github.com/cardil/eventing v0.11.1-0.20210520130409-60f9c309c843
