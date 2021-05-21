@@ -1105,7 +1105,7 @@ knative.dev/control-protocol/pkg/message
 knative.dev/control-protocol/pkg/network
 knative.dev/control-protocol/pkg/reconciler
 knative.dev/control-protocol/pkg/service
-# knative.dev/eventing v0.23.0 => github.com/cardil/eventing v0.11.1-0.20210520130409-60f9c309c843
+# knative.dev/eventing v0.23.1-0.20210521031017-cca60b3bf813
 ## explicit
 knative.dev/eventing/pkg/adapter/v2
 knative.dev/eventing/pkg/adapter/v2/test
@@ -1223,10 +1223,10 @@ knative.dev/eventing/test/upgrade/prober/wathola/sender
 ## explicit
 knative.dev/hack
 knative.dev/hack/shell
-# knative.dev/networking v0.0.0-20210512050647-ace2d3306f0b
+# knative.dev/networking v0.0.0-20210520062317-b2552eca09f7
 ## explicit
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20210518131015-67897f4ec290
+# knative.dev/pkg v0.0.0-20210520062216-e749d6a2ad0e
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
@@ -1355,4 +1355,3 @@ knative.dev/reconciler-test/resources/svc
 sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 sigs.k8s.io/yaml
-# knative.dev/eventing => github.com/cardil/eventing v0.11.1-0.20210520130409-60f9c309c843
