@@ -344,7 +344,7 @@ func newSuccessSaramaOffsetManager(topicName string, partition int32, oldOffset 
 		controllertesting.WithPartitionOffsetManagerMockNextOffset(oldOffset, ""),
 		controllertesting.WithPartitionOffsetManagerMockResetOffset(newOffset, metadata),
 		controllertesting.WithPartitionOffsetManagerMockErrors(),
-		controllertesting.WithPartitionOffsetManagerMockClose(nil))
+		controllertesting.WithPartitionOffsetManagerMockAsyncClose())
 
 	return controllertesting.NewMockOffsetManager(
 		controllertesting.WithOffsetManagerMockManagePartition(topicName, partition, mockPartitionOffsetManager, nil),

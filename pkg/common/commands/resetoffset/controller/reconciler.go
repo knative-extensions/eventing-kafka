@@ -64,6 +64,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, resetOffset *kafkav1alph
 
 	// TODO - This functionality should be handled by the Webhook (Admissions / Defaulting) - Verify & Remove once that is in place.
 	//      - Note: The "consolidated" and "distributed" KafkaChannel implementations have similar logic - possibly investigate why?
+	//      - Note: If we remove here and rely on Webhook then we are effectively requiring all users of the Controller to setup a Webhook?
 	// Set Defaults & Verify The ResetOffset Is Valid
 	resetOffset.SetDefaults(ctx)
 	if err := resetOffset.Validate(ctx); err != nil {
@@ -104,6 +105,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, resetOffset *kafkav1alph
 
 	// Update The Sarama Offsets & Update ResetOffset CRD With OffsetMappings
 	offsetMappings, err := r.reconcileOffsets(ctx, topic, group, offsetTime)
+	resetOffset.Status.SetPartitions(offsetMappings)
 	if err != nil {
 		logger.Error("Failed to update Offsets of one or more partitions", zap.Error(err))
 		resetOffset.Status.MarkOffsetsUpdatedFailed("FailedToUpdateOffsets", "Failed to update offsets of one or more partitions: %v", err)
@@ -111,7 +113,6 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, resetOffset *kafkav1alph
 	}
 	logger.Info("Successfully updated Offsets of all partitions")
 	resetOffset.Status.MarkOffsetsUpdatedTrue()
-	resetOffset.Status.SetPartitions(offsetMappings)
 
 	// TODO - Send "Start" Message to Dispatcher Replicas to restart ConsumerGroups
 	resetOffset.Status.MarkConsumerGroupsStartedTrue()
@@ -197,8 +198,11 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 		logger.Fatal("Failed to create Sarama Config based on ConfigMap", zap.Error(err))
 	}
 
-	// Force Consumer Error Handling!
+	// Force Consumer Error Handling
 	saramaConfig.Consumer.Return.Errors = true
+
+	// Force Manual Commits
+	saramaConfig.Consumer.Offsets.AutoCommit.Enable = false
 
 	// Update Reconciler With New Sarama Config
 	r.saramaConfig = saramaConfig

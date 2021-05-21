@@ -89,12 +89,12 @@ func TestReconciler_ReconcileOffsets(t *testing.T) {
 					controllertesting.WithPartitionOffsetManagerMockNextOffset(oldOffset1, ""),
 					controllertesting.WithPartitionOffsetManagerMockMarkOffset(newFutureOffset1, metadata),
 					controllertesting.WithPartitionOffsetManagerMockErrors(),
-					controllertesting.WithPartitionOffsetManagerMockClose(nil)),
+					controllertesting.WithPartitionOffsetManagerMockAsyncClose()),
 				partition2: controllertesting.NewMockPartitionOffsetManager(
 					controllertesting.WithPartitionOffsetManagerMockNextOffset(oldOffset2, ""),
 					controllertesting.WithPartitionOffsetManagerMockMarkOffset(newFutureOffset2, metadata),
 					controllertesting.WithPartitionOffsetManagerMockErrors(),
-					controllertesting.WithPartitionOffsetManagerMockClose(nil)),
+					controllertesting.WithPartitionOffsetManagerMockAsyncClose()),
 			},
 			expectedOffsetMappings: []kafkav1alpha1.OffsetMapping{
 				{Partition: partition1, OldOffset: oldOffset1, NewOffset: newFutureOffset1},
@@ -118,12 +118,12 @@ func TestReconciler_ReconcileOffsets(t *testing.T) {
 					controllertesting.WithPartitionOffsetManagerMockNextOffset(oldOffset1, ""),
 					controllertesting.WithPartitionOffsetManagerMockResetOffset(newPastOffset1, metadata),
 					controllertesting.WithPartitionOffsetManagerMockErrors(),
-					controllertesting.WithPartitionOffsetManagerMockClose(nil)),
+					controllertesting.WithPartitionOffsetManagerMockAsyncClose()),
 				partition2: controllertesting.NewMockPartitionOffsetManager(
 					controllertesting.WithPartitionOffsetManagerMockNextOffset(oldOffset2, ""),
 					controllertesting.WithPartitionOffsetManagerMockResetOffset(newPastOffset2, metadata),
 					controllertesting.WithPartitionOffsetManagerMockErrors(),
-					controllertesting.WithPartitionOffsetManagerMockClose(nil)),
+					controllertesting.WithPartitionOffsetManagerMockAsyncClose()),
 			},
 			expectedOffsetMappings: []kafkav1alpha1.OffsetMapping{
 				{Partition: partition1, OldOffset: oldOffset1, NewOffset: newPastOffset1},
@@ -143,8 +143,9 @@ func TestReconciler_ReconcileOffsets(t *testing.T) {
 			expectedErr:            testErr,
 		},
 		{
-			name: "SaramaNewClientFn() Error",
+			name: "SaramaNewOffsetManagerFromClientFn() Error",
 			client: controllertesting.NewMockClient(
+				controllertesting.WithClientMockPartitions(topicName, []int32{partition1, partition2}, nil),
 				controllertesting.WithClientMockClosed(false),
 				controllertesting.WithClientMockClose(nil)),
 			offsetManager:          nil,
@@ -162,7 +163,6 @@ func TestReconciler_ReconcileOffsets(t *testing.T) {
 				controllertesting.WithClientMockPartitions(topicName, nil, testErr),
 				controllertesting.WithClientMockClosed(false),
 				controllertesting.WithClientMockClose(nil)),
-			offsetManager:          controllertesting.NewMockOffsetManager(controllertesting.WithOffsetManagerMockClose(nil)),
 			expectedOffsetMappings: nil,
 			expectedErr:            testErr,
 		},
@@ -174,11 +174,6 @@ func TestReconciler_ReconcileOffsets(t *testing.T) {
 				controllertesting.WithClientMockClosed(true)),
 			offsetManager: controllertesting.NewMockOffsetManager(
 				controllertesting.WithOffsetManagerMockClose(nil)),
-			partitionOffsetManagers: map[int32]*controllertesting.MockPartitionOffsetManager{
-				partition1: controllertesting.NewMockPartitionOffsetManager(
-					controllertesting.WithPartitionOffsetManagerMockNextOffset(oldOffset1, ""),
-					controllertesting.WithPartitionOffsetManagerMockClose(nil)),
-			},
 			expectedOffsetMappings: []kafkav1alpha1.OffsetMapping{{Partition: partition1, OldOffset: 0, NewOffset: 0}},
 			expectedErr:            updateOffsetsError,
 		},
@@ -197,7 +192,7 @@ func TestReconciler_ReconcileOffsets(t *testing.T) {
 					controllertesting.WithPartitionOffsetManagerMockNextOffset(oldOffset1, ""),
 					controllertesting.WithPartitionOffsetManagerMockResetOffset(newPastOffset1, metadata),
 					controllertesting.WithPartitionOffsetManagerMockErrors(),
-					controllertesting.WithPartitionOffsetManagerMockClose(nil)),
+					controllertesting.WithPartitionOffsetManagerMockAsyncClose()),
 			},
 			expectedOffsetMappings: []kafkav1alpha1.OffsetMapping{{Partition: partition1, OldOffset: oldOffset1, NewOffset: newPastOffset1}},
 			expectedErr:            nil,
@@ -211,9 +206,11 @@ func TestReconciler_ReconcileOffsets(t *testing.T) {
 			name: "OffsetManager.ManagePartition() Error",
 			client: controllertesting.NewMockClient(
 				controllertesting.WithClientMockPartitions(topicName, []int32{partition1}, nil),
+				controllertesting.WithClientMockGetOffset(topicName, partition1, offsetTime, newPastOffset1, nil),
 				controllertesting.WithClientMockClosed(true)),
 			offsetManager: controllertesting.NewMockOffsetManager(
-				controllertesting.WithOffsetManagerMockManagePartition(topicName, partition1, nil, testErr),
+				controllertesting.WithOffsetManagerMockManagePartition(topicName, partition1,
+					controllertesting.NewMockPartitionOffsetManager(controllertesting.WithPartitionOffsetManagerMockAsyncClose()), testErr),
 				controllertesting.WithOffsetManagerMockClose(nil)),
 			expectedOffsetMappings: []kafkav1alpha1.OffsetMapping{{Partition: partition1, OldOffset: 0, NewOffset: 0}},
 			expectedErr:            updateOffsetsError,
@@ -232,7 +229,7 @@ func TestReconciler_ReconcileOffsets(t *testing.T) {
 					controllertesting.WithPartitionOffsetManagerMockNextOffset(oldOffset1, ""),
 					controllertesting.WithPartitionOffsetManagerMockResetOffset(newPastOffset1, metadata),
 					controllertesting.WithPartitionOffsetManagerMockErrors(),
-					controllertesting.WithPartitionOffsetManagerMockClose(nil)),
+					controllertesting.WithPartitionOffsetManagerMockAsyncClose()),
 			},
 			expectedOffsetMappings: []kafkav1alpha1.OffsetMapping{{Partition: partition1, OldOffset: oldOffset1, NewOffset: newPastOffset1}},
 			expectedErr:            nil,
@@ -245,10 +242,12 @@ func TestReconciler_ReconcileOffsets(t *testing.T) {
 		{
 			name: "PartitionsOffsetManager.Errors()",
 			client: controllertesting.NewMockClient(
-				controllertesting.WithClientMockPartitions(topicName, []int32{partition1}, nil),
+				controllertesting.WithClientMockPartitions(topicName, []int32{partition1, partition2}, nil),
 				controllertesting.WithClientMockGetOffset(topicName, partition1, offsetTime, newPastOffset1, nil),
+				controllertesting.WithClientMockGetOffset(topicName, partition2, offsetTime, newPastOffset2, nil),
 				controllertesting.WithClientMockClosed(true)),
 			offsetManager: controllertesting.NewMockOffsetManager(
+				controllertesting.WithOffsetManagerMockCommit(),
 				controllertesting.WithOffsetManagerMockClose(nil)),
 			partitionOffsetManagers: map[int32]*controllertesting.MockPartitionOffsetManager{
 				partition1: controllertesting.NewMockPartitionOffsetManager(
@@ -259,29 +258,22 @@ func TestReconciler_ReconcileOffsets(t *testing.T) {
 						Partition: partition1,
 						Err:       testErr,
 					}),
-					controllertesting.WithPartitionOffsetManagerMockClose(testErr)),
+					controllertesting.WithPartitionOffsetManagerMockAsyncClose()),
+				partition2: controllertesting.NewMockPartitionOffsetManager(
+					controllertesting.WithPartitionOffsetManagerMockNextOffset(oldOffset2, ""),
+					controllertesting.WithPartitionOffsetManagerMockResetOffset(newPastOffset2, metadata),
+					controllertesting.WithPartitionOffsetManagerMockErrors(&sarama.ConsumerError{
+						Topic:     topicName,
+						Partition: partition2,
+						Err:       testErr,
+					}),
+					controllertesting.WithPartitionOffsetManagerMockAsyncClose()),
 			},
-			expectedOffsetMappings: []kafkav1alpha1.OffsetMapping{{Partition: partition1, OldOffset: oldOffset1, NewOffset: newPastOffset1}},
-			expectedErr:            updateOffsetsError,
-		},
-		{
-			name: "PartitionsOffsetManager.Close() Error",
-			client: controllertesting.NewMockClient(
-				controllertesting.WithClientMockPartitions(topicName, []int32{partition1}, nil),
-				controllertesting.WithClientMockGetOffset(topicName, partition1, offsetTime, newPastOffset1, nil),
-				controllertesting.WithClientMockClosed(true)),
-			offsetManager: controllertesting.NewMockOffsetManager(
-				controllertesting.WithOffsetManagerMockCommit(),
-				controllertesting.WithOffsetManagerMockClose(nil)),
-			partitionOffsetManagers: map[int32]*controllertesting.MockPartitionOffsetManager{
-				partition1: controllertesting.NewMockPartitionOffsetManager(
-					controllertesting.WithPartitionOffsetManagerMockNextOffset(oldOffset1, ""),
-					controllertesting.WithPartitionOffsetManagerMockResetOffset(newPastOffset1, metadata),
-					controllertesting.WithPartitionOffsetManagerMockErrors(),
-					controllertesting.WithPartitionOffsetManagerMockClose(testErr)),
+			expectedOffsetMappings: []kafkav1alpha1.OffsetMapping{
+				{Partition: partition1, OldOffset: oldOffset1, NewOffset: newPastOffset1},
+				{Partition: partition2, OldOffset: oldOffset2, NewOffset: newPastOffset2},
 			},
-			expectedOffsetMappings: []kafkav1alpha1.OffsetMapping{{Partition: partition1, OldOffset: oldOffset1, NewOffset: newPastOffset1}},
-			expectedErr:            nil,
+			expectedErr: updateOffsetsError,
 		},
 	}
 

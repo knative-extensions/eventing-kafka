@@ -309,3 +309,9 @@ func WithPartitionOffsetManagerMockClose(err error) MockPartitionOffsetManagerOp
 		mockPartitionOffsetManager.On("Close").Return(err)
 	}
 }
+
+func WithPartitionOffsetManagerMockAsyncClose() MockPartitionOffsetManagerOption {
+	return func(mockPartitionOffsetManager *MockPartitionOffsetManager) {
+		mockPartitionOffsetManager.On("AsyncClose").Return()
+	}
+}
