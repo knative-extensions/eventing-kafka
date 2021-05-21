@@ -21,6 +21,7 @@ import (
 	"errors"
 	"math"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 
@@ -122,6 +123,19 @@ func NewStatefulSetScheduler(ctx context.Context,
 }
 
 func (s *StatefulSetScheduler) Schedule(vpod scheduler.VPod) ([]duckv1alpha1.Placement, error) {
+	placements, err := s.scheduleVPod(vpod)
+	if placements == nil {
+		return placements, err
+	}
+	sort.SliceStable(placements, func(i int, j int) bool {
+		podIOrdinal, _ := strconv.Atoi(placements[i].PodName[len(placements[i].PodName)-1:])
+		podJOrdinal, _ := strconv.Atoi(placements[j].PodName[len(placements[j].PodName)-1:])
+		return podIOrdinal < podJOrdinal
+	})
+	return placements, err
+}
+
+func (s *StatefulSetScheduler) scheduleVPod(vpod scheduler.VPod) ([]duckv1alpha1.Placement, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -206,7 +220,7 @@ func (s *StatefulSetScheduler) Schedule(vpod scheduler.VPod) ([]duckv1alpha1.Pla
 
 func (s *StatefulSetScheduler) removeReplicas(diff int32, placements []duckv1alpha1.Placement) []duckv1alpha1.Placement {
 	newPlacements := make([]duckv1alpha1.Placement, 0, len(placements))
-	for i := 0; i < len(placements); i++ {
+	for i := len(placements) - 1; i > -1; i-- {
 		if diff >= placements[i].VReplicas {
 			// remove the entire placement
 			diff -= placements[i].VReplicas
