@@ -18,7 +18,6 @@ package util
 
 import (
 	"fmt"
-	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -26,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	messagingv1 "knative.dev/eventing/pkg/apis/messaging/v1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	logtesting "knative.dev/pkg/logging/testing"
 
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
