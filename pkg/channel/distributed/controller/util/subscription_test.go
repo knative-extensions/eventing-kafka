@@ -18,10 +18,10 @@ package util
 
 import (
 	"fmt"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -92,7 +92,7 @@ func TestTopicNameMapper(t *testing.T) {
 					Namespace: subscriptionNamespace,
 				},
 				Spec: messagingv1.SubscriptionSpec{
-					Channel: v1.ObjectReference{
+					Channel: duckv1.KReference{
 						Kind:       constants.KafkaChannelKind,
 						Namespace:  channelNamespace,
 						Name:       channelName,
@@ -111,7 +111,7 @@ func TestTopicNameMapper(t *testing.T) {
 					Namespace: subscriptionNamespace,
 				},
 				Spec: messagingv1.SubscriptionSpec{
-					Channel: v1.ObjectReference{
+					Channel: duckv1.KReference{
 						Kind:       constants.KafkaChannelKind,
 						Name:       channelName,
 						APIVersion: kafkaChannelGroupVersion.String(),
