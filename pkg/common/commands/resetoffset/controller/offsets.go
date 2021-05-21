@@ -96,14 +96,12 @@ func (r *Reconciler) reconcileOffsets(ctx context.Context, topicName string, gro
 	updatesFailed := false
 	for index, partition := range partitions {
 		partitionOffsetManager, offsetMapping, updateErr := updateOffset(logger, saramaClient, offsetManager, topicName, partition, offsetTime)
-		if updateErr != nil {
-			updatesFailed = true
-		}
-		if partitionOffsetManager != nil {
-			partitionOffsetManagers[index] = partitionOffsetManager
-		}
+		partitionOffsetManagers[index] = partitionOffsetManager
 		if offsetMapping != nil {
 			offsetMappings[index] = *offsetMapping
+		}
+		if updateErr != nil {
+			updatesFailed = true
 		}
 	}
 
@@ -165,9 +163,6 @@ func updateOffset(logger *zap.Logger,
 	partitionOffsetManager, err := offsetManager.ManagePartition(topic, partition)
 	if partitionOffsetManager == nil || err != nil {
 		logger.Error("Failed to create PartitionOffsetManager", zap.Error(err))
-		if partitionOffsetManager != nil {
-			partitionOffsetManager.AsyncClose()
-		}
 		return nil, nil, err
 	}
 
