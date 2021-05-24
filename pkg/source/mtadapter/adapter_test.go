@@ -79,6 +79,10 @@ func TestUpdateRemoveSources(t *testing.T) {
 		},
 	})
 
+	if err != nil {
+		t.Fatalf("Unexpected error %v", err)
+	}
+
 	select {
 	case a := <-runningAdapterChan:
 		if !a.running {
