@@ -135,8 +135,8 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-1", VReplicas: 10},
 			},
 			expected: []duckv1alpha1.Placement{
-				{PodName: "statefulset-name-0", VReplicas: 5},
-				{PodName: "statefulset-name-1", VReplicas: 10},
+				{PodName: "statefulset-name-0", VReplicas: 10},
+				{PodName: "statefulset-name-1", VReplicas: 5},
 			},
 		},
 		{
