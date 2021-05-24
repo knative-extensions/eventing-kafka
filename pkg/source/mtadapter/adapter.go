@@ -55,6 +55,11 @@ func NewEnvConfig() adapter.EnvConfigAccessor {
 	return new(AdapterConfig)
 }
 
+type cancelContext struct {
+	fn      context.CancelFunc
+	stopped chan bool
+}
+
 type Adapter struct {
 	config      *AdapterConfig
 	logger      *zap.SugaredLogger
@@ -64,7 +69,7 @@ type Adapter struct {
 	memLimit    int64
 
 	sourcesMu sync.RWMutex
-	sources   map[string]context.CancelFunc
+	sources   map[string]cancelContext
 }
 
 var _ adapter.Adapter = (*Adapter)(nil)
@@ -86,7 +91,7 @@ func newAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, ceClie
 		kubeClient:  kubeclient.Get(ctx),
 		memLimit:    ml.Value(),
 		sourcesMu:   sync.RWMutex{},
-		sources:     make(map[string]context.CancelFunc),
+		sources:     make(map[string]cancelContext),
 	}
 }
 
@@ -162,7 +167,13 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) error {
 	if ok {
 		// TODO: do not stop if the only thing that changes is the number of vreplicas
 		logger.Info("stopping adapter")
-		cancel()
+		cancel.fn()
+
+		// Wait for the adapter to stop
+		<-cancel.stopped
+
+		// Nothing to stop anymore
+		delete(a.sources, key)
 	}
 
 	placement := scheduler.GetPlacementForPod(obj.GetPlacements(), a.config.PodName)
@@ -274,14 +285,21 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) error {
 	}
 
 	ctx, cancelFn := context.WithCancel(ctx)
+
+	cancel = cancelContext{
+		fn:      cancelFn,
+		stopped: make(chan bool),
+	}
+
 	go func(ctx context.Context) {
 		err := adapter.Start(ctx)
 		if err != nil {
 			a.logger.Errorw("adapter failed to start", zap.Error(err))
 		}
+		cancel.stopped <- true
 	}(ctx)
 
-	a.sources[key] = cancelFn
+	a.sources[key] = cancel
 	a.logger.Infow("source added", "name", obj.Name)
 	return nil
 }
@@ -296,14 +314,15 @@ func (a *Adapter) Remove(obj *v1beta1.KafkaSource) {
 	cancel, ok := a.sources[key]
 
 	if !ok {
-		a.logger.Infow("source not found", "name", obj.Name)
+		a.logger.Infow("source was not running. removed.", "name", obj.Name)
 		return
 	}
 
-	cancel()
+	cancel.fn()
+	<-cancel.stopped
 
 	delete(a.sources, key)
-	a.logger.Infow("source removed", "name", obj.Name, "count", len(a.sources))
+	a.logger.Infow("source removed", "name", obj.Name, "remaining", len(a.sources))
 }
 
 // ResolveSecret resolves the secret reference
