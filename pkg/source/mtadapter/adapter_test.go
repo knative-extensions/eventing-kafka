@@ -40,7 +40,7 @@ import (
 
 var (
 	runningAdapterChan  = make(chan *sampleAdapter)
-	stoppingAdapterChan = make(chan *sampleAdapter)
+	stoppingAdapterChan = make(chan *sampleAdapter, 1)
 )
 
 const (
@@ -54,18 +54,18 @@ func TestUpdateRemoveSources(t *testing.T) {
 	env := &AdapterConfig{PodName: podName, MemoryLimit: "0"}
 	ceClient := adaptertest.NewTestClient()
 
-	adapter := newAdapter(ctx, env, ceClient, newSampleAdapter).(*Adapter)
+	mtadapter := newAdapter(ctx, env, ceClient, newSampleAdapter).(*Adapter)
 
-	adapterStopped := make(chan bool)
+	mtadapterStopped := make(chan bool)
 	go func() {
-		err := adapter.Start(ctx)
+		err := mtadapter.Start(ctx)
 		if err != nil {
 			t.Error("Unexpected error ", err)
 		}
-		adapterStopped <- true
+		mtadapterStopped <- true
 	}()
 
-	err := adapter.Update(ctx, &sourcesv1beta1.KafkaSource{
+	err := mtadapter.Update(ctx, &sourcesv1beta1.KafkaSource{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-name",
 			Namespace: "test-ns",
@@ -79,15 +79,20 @@ func TestUpdateRemoveSources(t *testing.T) {
 		},
 	})
 
-	if err != nil {
-		t.Fatalf("Unexpected error %v", err)
+	select {
+	case a := <-runningAdapterChan:
+		if !a.running {
+			t.Error("Expected adapter to be running")
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Error("sub-adapter failed to start after 100 ms")
 	}
 
-	if _, ok := adapter.sources["test-ns/test-name"]; !ok {
+	if _, ok := mtadapter.sources["test-ns/test-name"]; !ok {
 		t.Error(`Expected adapter to contain "test-ns/test-name"`)
 	}
 
-	err = adapter.Update(ctx, &sourcesv1beta1.KafkaSource{
+	err = mtadapter.Update(ctx, &sourcesv1beta1.KafkaSource{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-name-badBroker",
 			Namespace: "test-ns",
@@ -109,7 +114,7 @@ func TestUpdateRemoveSources(t *testing.T) {
 		t.Fatalf("Unexpected error %v", err)
 	}
 
-	if _, ok := adapter.sources["test-ns/test-name-badBroker"]; !ok {
+	if _, ok := mtadapter.sources["test-ns/test-name-badBroker"]; !ok {
 		t.Error(`Expected adapter to contain "test-ns/test-name-badBroker"`)
 	}
 
@@ -122,7 +127,7 @@ func TestUpdateRemoveSources(t *testing.T) {
 		t.Error("sub-adapter failed to start after 100 ms")
 	}
 
-	adapter.Remove(&sourcesv1beta1.KafkaSource{
+	mtadapter.Remove(&sourcesv1beta1.KafkaSource{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-name",
 			Namespace: "test-ns",
@@ -131,11 +136,20 @@ func TestUpdateRemoveSources(t *testing.T) {
 		Status: sourcesv1beta1.KafkaSourceStatus{},
 	})
 
-	if _, ok := adapter.sources["test-ns/test-name"]; ok {
+	select {
+	case a := <-stoppingAdapterChan:
+		if a.running {
+			t.Error("Expected adapter to not be running")
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Error("sub-adapter failed to stop after 100 ms")
+	}
+
+	if _, ok := mtadapter.sources["test-ns/test-name"]; ok {
 		t.Error(`Expected adapter to not contain "test-ns/test-name"`)
 	}
 
-	adapter.Remove(&sourcesv1beta1.KafkaSource{
+	mtadapter.Remove(&sourcesv1beta1.KafkaSource{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-name-badBroker",
 			Namespace: "test-ns",
@@ -144,10 +158,6 @@ func TestUpdateRemoveSources(t *testing.T) {
 		Status: sourcesv1beta1.KafkaSourceStatus{},
 	})
 
-	if _, ok := adapter.sources["test-ns/test-name-badBroker"]; ok {
-		t.Error(`Expected adapter to not contain "test-ns/test-name-badBroker"`)
-	}
-
 	select {
 	case a := <-stoppingAdapterChan:
 		if a.running {
@@ -155,6 +165,10 @@ func TestUpdateRemoveSources(t *testing.T) {
 		}
 	case <-time.After(100 * time.Millisecond):
 		t.Error("sub-adapter failed to stop after 100 ms")
+	}
+
+	if _, ok := mtadapter.sources["test-ns/test-name-badBroker"]; ok {
+		t.Error(`Expected adapter to not contain "test-ns/test-name-badBroker"`)
 	}
 
 	// Make sure the adapter is still running
@@ -167,7 +181,7 @@ func TestUpdateRemoveSources(t *testing.T) {
 	cancelAdapter()
 
 	select {
-	case <-adapterStopped:
+	case <-mtadapterStopped:
 	case <-time.After(2 * time.Second):
 		t.Error("adapter failed to stop after 2 seconds")
 	}
@@ -384,5 +398,6 @@ func (d *sampleAdapter) Start(ctx context.Context) error {
 
 	d.running = false
 	stoppingAdapterChan <- d
+
 	return nil
 }
