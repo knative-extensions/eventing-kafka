@@ -17,9 +17,6 @@ limitations under the License.
 package continual
 
 import (
-	"errors"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	eventingduckv1 "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/test/upgrade/prober"
 	"knative.dev/eventing/test/upgrade/prober/sut"
@@ -47,16 +44,6 @@ type KafkaCluster struct {
 
 // TestOptions holds options for EventingKafka continual tests.
 type TestOptions struct {
-	KafkaCluster
 	prober.ContinualVerificationOptions
-	ChannelTypeMeta *metav1.TypeMeta
-	SUTs            map[string]sut.SystemUnderTest
-}
-
-func fillInDefaults(opts *TestOptions) (*TestOptions, error) {
-	o := opts
-	if opts.ChannelTypeMeta == nil {
-		return nil, errors.New("option ChannelTypeMeta was't set on TestOptions struct")
-	}
-	return o, nil
+	SUTs map[string]sut.SystemUnderTest
 }

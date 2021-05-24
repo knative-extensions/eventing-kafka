@@ -35,7 +35,7 @@ var (
 	// ErrIllegalEndpointFormat if given endpoint structure is illegal and can't
 	// be used.
 	ErrIllegalEndpointFormat = errors.New(
-		"given illegal format for Kafka topic endpoint")
+		"illegal format for Kafka topic endpoint")
 
 	// ErrCantConnectToKafka if connection to kafka can't be established.
 	ErrCantConnectToKafka = errors.New(

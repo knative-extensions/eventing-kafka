@@ -23,28 +23,19 @@ import (
 
 // ChannelContinualTests returns background operations to test channel
 // functionality in continual manner during the whole upgrade and downgrade
-// process asserting that all event are propagated well.
-func ChannelContinualTests(opts *continual.TestOptions) []pkgupgrade.BackgroundOperation {
-	opts = fillInDefaults(opts)
+// process asserting that all events are propagated well.
+func ChannelContinualTests(opts continual.ChannelTestOptions) []pkgupgrade.BackgroundOperation {
 	return []pkgupgrade.BackgroundOperation{
 		continual.ChannelTest(opts),
 		continual.BrokerBackedByChannelTest(opts),
 	}
 }
 
-// SourceContinualTest tests source operation in continual manner during the
-// whole upgrade and downgrade process asserting that all event are propagated
+// SourceContinualTests tests source operation in continual manner during the
+// whole upgrade and downgrade process asserting that all events are propagated
 // well.
-func SourceContinualTest(opts *continual.TestOptions) pkgupgrade.BackgroundOperation {
-	return continual.SourceTest(fillInDefaults(opts))
-}
-
-func fillInDefaults(opts *continual.TestOptions) *continual.TestOptions {
-	if opts == nil {
-		opts = &continual.TestOptions{}
+func SourceContinualTests(opts continual.SourceTestOptions) []pkgupgrade.BackgroundOperation {
+	return []pkgupgrade.BackgroundOperation{
+		continual.SourceTest(opts),
 	}
-	if opts.ChannelTypeMeta == nil {
-		opts.ChannelTypeMeta = &defaultChannelType
-	}
-	return opts
 }

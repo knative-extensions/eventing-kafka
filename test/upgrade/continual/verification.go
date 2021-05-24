@@ -26,16 +26,16 @@ import (
 )
 
 func continualVerification(
-	testname string,
+	testName string,
 	opts *TestOptions,
 	defaultSut sut.SystemUnderTest,
 	configTemplate string,
 ) pkgupgrade.BackgroundOperation {
 	return prober.NewContinualVerification(
-		testname,
+		testName,
 		verificationOptions(
 			opts,
-			resolveSut(testname, opts, defaultSut),
+			resolveSut(testName, opts, defaultSut),
 			configTemplate,
 		),
 	)
@@ -64,23 +64,14 @@ func verificationOptions(
 	return prober.ContinualVerificationOptions{
 		Configurators: append(
 			opts.Configurators,
-			configurator(opts, theSut, configTemplate),
+			configurator(theSut, configTemplate),
 		),
 		ClientOptions: opts.ClientOptions,
 	}
 }
 
-func configurator(
-	opts *TestOptions,
-	theSut sut.SystemUnderTest,
-	configTemplate string,
-) prober.Configurator {
+func configurator(theSut sut.SystemUnderTest, configTemplate string) prober.Configurator {
 	return func(config *prober.Config) error {
-		var err error
-		opts, err = fillInDefaults(opts)
-		if err != nil {
-			return err
-		}
 		config.SystemUnderTest = theSut
 		// TODO: knative/eventing#5176 - this is cumbersome
 		config.ConfigTemplate = fmt.Sprintf("../../../../../../%s",
@@ -88,7 +79,6 @@ func configurator(
 		// envconfig.Process invocation is repeated from within prober.NewConfig to
 		// make sure every knob is configurable, but using defaults from Eventing
 		// Kafka instead of Core. The prefix is also changed.
-		err = envconfig.Process("eventing_kafka_upgrade_tests", config)
-		return err
+		return envconfig.Process("eventing_kafka_upgrade_tests", config)
 	}
 }

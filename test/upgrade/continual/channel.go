@@ -36,16 +36,35 @@ import (
 
 const (
 	channelConfigTemplatePath = "test/upgrade/continual/channel-config.toml"
+	defaultRetryCount         = 12
+	defaultBackoffPolicy      = eventingduckv1.BackoffPolicyExponential
+	defaultBackoffDelay       = "PT1S"
 )
+
+var (
+	defaultChannelType = metav1.TypeMeta{
+		APIVersion: "messaging.knative.dev/v1beta1",
+		Kind:       "KafkaChannel",
+	}
+)
+
+// ChannelTestOptions holds test options for KafkaChannel tests.
+type ChannelTestOptions struct {
+	*TestOptions
+	*ReplicationOptions
+	*RetryOptions
+	ChannelTypeMeta *metav1.TypeMeta
+}
 
 // ChannelTest tests channel operation in continual manner during the
 // whole upgrade and downgrade process asserting that all event are propagated
 // well.
-func ChannelTest(opts *TestOptions) pkgupgrade.BackgroundOperation {
+func ChannelTest(opts ChannelTestOptions) pkgupgrade.BackgroundOperation {
+	opts = opts.withDefaults()
 	return continualVerification(
 		"ChannelContinualTest",
-		opts,
-		channelSut(opts.ChannelTypeMeta),
+		opts.TestOptions,
+		channelSut(opts),
 		channelConfigTemplatePath,
 	)
 }
@@ -53,50 +72,68 @@ func ChannelTest(opts *TestOptions) pkgupgrade.BackgroundOperation {
 // BrokerBackedByChannelTest tests a broker backed by KafkaChannel operation in
 // continual manner during the whole upgrade and downgrade process asserting
 // that all event are propagated well.
-func BrokerBackedByChannelTest(opts *TestOptions) pkgupgrade.BackgroundOperation {
+func BrokerBackedByChannelTest(opts ChannelTestOptions) pkgupgrade.BackgroundOperation {
+	opts = opts.withDefaults()
 	return continualVerification(
 		"BrokerBackedByChannelContinualTest",
-		opts,
-		brokerBackedByChannelSut(opts.ChannelTypeMeta),
+		opts.TestOptions,
+		brokerBackedByChannelSut(opts),
 		channelConfigTemplatePath,
 	)
 }
 
-func channelSut(channelTypeMeta *metav1.TypeMeta) sut.SystemUnderTest {
+func (o ChannelTestOptions) withDefaults() ChannelTestOptions {
+	cto := o
+	if cto.TestOptions == nil {
+		cto.TestOptions = &TestOptions{}
+	}
+	if cto.ChannelTypeMeta == nil {
+		cto.ChannelTypeMeta = &defaultChannelType
+	}
+	if cto.RetryOptions == nil {
+		cto.RetryOptions = defaultRetryOptions()
+	}
+	if cto.ReplicationOptions == nil {
+		cto.ReplicationOptions = defaultReplicationOptions()
+	}
+	return cto
+}
+
+func channelSut(opts ChannelTestOptions) sut.SystemUnderTest {
 	return &kafkaChannelSut{
-		channelTypeMeta:    channelTypeMeta,
-		ReplicationOptions: defaultReplicationOptions(),
-		RetryOptions:       defaultRetryOptions(),
+		channelTypeMeta:    opts.ChannelTypeMeta,
+		ReplicationOptions: opts.ReplicationOptions,
+		RetryOptions:       opts.RetryOptions,
 	}
 }
 
-func defaultReplicationOptions() ReplicationOptions {
-	return ReplicationOptions{
+func defaultReplicationOptions() *ReplicationOptions {
+	return &ReplicationOptions{
 		NumPartitions:     6,
 		ReplicationFactor: 3,
 	}
 }
 
-func defaultRetryOptions() RetryOptions {
-	return RetryOptions{
-		RetryCount:    retryCount,
-		BackoffPolicy: backoffPolicy,
-		BackoffDelay:  backoffDelay,
+func defaultRetryOptions() *RetryOptions {
+	return &RetryOptions{
+		RetryCount:    defaultRetryCount,
+		BackoffPolicy: defaultBackoffPolicy,
+		BackoffDelay:  defaultBackoffDelay,
 	}
 }
 
-func brokerBackedByChannelSut(channelTypeMeta *metav1.TypeMeta) sut.SystemUnderTest {
+func brokerBackedByChannelSut(opts ChannelTestOptions) sut.SystemUnderTest {
 	return &brokerBackedByKafkaChannelSut{
-		channelTypeMeta:    channelTypeMeta,
-		ReplicationOptions: defaultReplicationOptions(),
-		RetryOptions:       defaultRetryOptions(),
+		channelTypeMeta:    opts.ChannelTypeMeta,
+		ReplicationOptions: opts.ReplicationOptions,
+		RetryOptions:       opts.RetryOptions,
 	}
 }
 
 type kafkaChannelSut struct {
 	channelTypeMeta *metav1.TypeMeta
-	ReplicationOptions
-	RetryOptions
+	*ReplicationOptions
+	*RetryOptions
 }
 
 func (k kafkaChannelSut) Deploy(ctx sut.Context, destination duckv1.Destination) interface{} {
@@ -179,8 +216,8 @@ func ensureSubscriptionHasDelivery(subscription *messagingv1.Subscription) {
 }
 
 type brokerBackedByKafkaChannelSut struct {
-	ReplicationOptions
-	RetryOptions
+	*ReplicationOptions
+	*RetryOptions
 	channelTypeMeta *metav1.TypeMeta
 	defaultSut      sut.SystemUnderTest
 }

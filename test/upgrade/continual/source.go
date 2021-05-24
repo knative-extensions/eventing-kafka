@@ -39,26 +39,62 @@ const (
 	sourceConfigTemplatePath     = "test/upgrade/continual/source-config.toml"
 )
 
+// SourceTestOptions holds test options for KafkaSource tests.
+type SourceTestOptions struct {
+	*TestOptions
+	*KafkaCluster
+}
+
 // SourceTest tests source operation in continual manner during the
 // whole upgrade and downgrade process asserting that all event are propagated
 // well.
-func SourceTest(opts *TestOptions) pkgupgrade.BackgroundOperation {
+func SourceTest(opts SourceTestOptions) pkgupgrade.BackgroundOperation {
+	opts = opts.withDefaults()
 	return continualVerification(
-		"SourceContinualTest",
-		ensureKafkaSender(opts),
+		"SourceContinualTests",
+		opts.TestOptions,
 		&kafkaSourceSut{KafkaCluster: opts.KafkaCluster},
 		sourceConfigTemplatePath,
 	)
 }
 
-func ensureKafkaSender(opts *TestOptions) *TestOptions {
-	opts.Configurators = append([]prober.Configurator{
+func (o SourceTestOptions) withDefaults() SourceTestOptions {
+	sto := o
+	if sto.TestOptions == nil {
+		sto.TestOptions = &TestOptions{}
+	}
+	if sto.KafkaCluster == nil {
+		sto.KafkaCluster = &KafkaCluster{}
+	}
+	c := sto.KafkaCluster.withDefaults()
+	sto.KafkaCluster = &c
+	sto.Configurators = append([]prober.Configurator{
 		func(config *prober.Config) error {
 			config.Wathola.ImageResolver = kafkaSourceSenderImageResolver
 			return nil
 		},
-	}, opts.Configurators...)
-	return opts
+	}, sto.Configurators...)
+	return sto
+}
+
+func (c KafkaCluster) withDefaults() KafkaCluster {
+	kc := c
+	if kc.Name == "" {
+		kc.Name = defaultKafkaClusterName
+	}
+	if kc.Namespace == "" {
+		kc.Namespace = defaultKafkaClusterNamespace
+	}
+	if len(kc.BootstrapServers) == 0 {
+		kc.BootstrapServers = []string{
+			fmt.Sprintf("%s-kafka-bootstrap.%s.svc:%d",
+				kc.Name,
+				kc.Namespace,
+				defaultKafkaBootstrapPort,
+			),
+		}
+	}
+	return kc
 }
 
 func kafkaSourceSenderImageResolver(component string) string {
@@ -70,13 +106,13 @@ func kafkaSourceSenderImageResolver(component string) string {
 }
 
 type kafkaSourceSut struct {
-	KafkaCluster
+	*KafkaCluster
 }
 
 func (k kafkaSourceSut) Deploy(ctx sut.Context, destination duckv1.Destination) interface{} {
 	topicName := uuid.NewString()
 	c := k.KafkaCluster
-	helpers.MustCreateTopic(ctx.Client, c.name(), c.namespace(),
+	helpers.MustCreateTopic(ctx.Client, c.Name, c.Namespace,
 		topicName, 6)
 	contribtestlib.CreateKafkaSourceV1Beta1OrFail(ctx.Client, contribresources.KafkaSourceV1Beta1(
 		c.serversLine(),
@@ -89,32 +125,8 @@ func (k kafkaSourceSut) Deploy(ctx sut.Context, destination duckv1.Destination) 
 	}
 }
 
-func (c KafkaCluster) name() string {
-	if c.Name == "" {
-		return defaultKafkaClusterName
-	}
-	return c.Name
-}
-
-func (c KafkaCluster) namespace() string {
-	if c.Namespace == "" {
-		return defaultKafkaClusterNamespace
-	}
-	return c.Namespace
-}
-
 func (c KafkaCluster) serversLine() string {
-	s := c.BootstrapServers
-	if len(s) == 0 {
-		s = []string{
-			fmt.Sprintf("%s-kafka-bootstrap.%s.svc:%d",
-				c.name(),
-				c.namespace(),
-				defaultKafkaBootstrapPort,
-			),
-		}
-	}
-	return strings.Join(s, ",")
+	return strings.Join(c.BootstrapServers, ",")
 }
 
 func toObjectReference(destination duckv1.Destination) *corev1.ObjectReference {
