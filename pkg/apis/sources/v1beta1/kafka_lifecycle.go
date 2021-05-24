@@ -37,12 +37,23 @@ const (
 	// KafkaConditionKeyType is True when the KafkaSource has been configured with valid key type for
 	// the key deserializer.
 	KafkaConditionKeyType apis.ConditionType = "KeyTypeCorrect"
+
+	// KafkaConditionConfigReady has status True when the Kafka configuration to use by the source
+	// succeeded in establishing a connection to Kafka.
+	KafkaConditionConnectionEstablished apis.ConditionType = "ConnectionEstablished"
+
+	// KafkaConditionInitialOffsetsCommitted is True when the KafkaSource has committed the
+	// initial offset of all claims
+	KafkaConditionInitialOffsetsCommitted apis.ConditionType = "InitialOffsetsCommitted"
 )
 
 var (
 	KafkaSourceCondSet = apis.NewLivingConditionSet(
 		KafkaConditionSinkProvided,
-		KafkaConditionDeployed)
+		KafkaConditionDeployed,
+		KafkaConditionConnectionEstablished,
+		KafkaConditionInitialOffsetsCommitted,
+	)
 
 	kafkaCondSetLock = sync.RWMutex{}
 )
@@ -129,6 +140,22 @@ func (s *KafkaSourceStatus) MarkKeyTypeCorrect() {
 
 func (s *KafkaSourceStatus) MarkKeyTypeIncorrect(reason, messageFormat string, messageA ...interface{}) {
 	KafkaSourceCondSet.Manage(s).MarkFalse(KafkaConditionKeyType, reason, messageFormat, messageA...)
+}
+
+func (cs *KafkaSourceStatus) MarkConnectionEstablished() {
+	KafkaSourceCondSet.Manage(cs).MarkTrue(KafkaConditionConnectionEstablished)
+}
+
+func (cs *KafkaSourceStatus) MarkConnectionNotEstablished(reason, messageFormat string, messageA ...interface{}) {
+	KafkaSourceCondSet.Manage(cs).MarkFalse(KafkaConditionConnectionEstablished, reason, messageFormat, messageA...)
+}
+
+func (s *KafkaSourceStatus) MarkInitialOffsetCommitted() {
+	KafkaSourceCondSet.Manage(s).MarkTrue(KafkaConditionInitialOffsetsCommitted)
+}
+
+func (s *KafkaSourceStatus) MarkInitialOffsetNotCommitted(reason, messageFormat string, messageA ...interface{}) {
+	KafkaSourceCondSet.Manage(s).MarkFalse(KafkaConditionInitialOffsetsCommitted, reason, messageFormat, messageA...)
 }
 
 func (s *KafkaSourceStatus) UpdateConsumerGroupStatus(status string) {

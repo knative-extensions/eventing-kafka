@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Shopify/sarama"
+	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	"knative.dev/eventing/pkg/reconciler/source"
@@ -35,6 +37,7 @@ import (
 	reconcilerkafkasource "knative.dev/eventing-kafka/pkg/client/injection/reconciler/sources/v1beta1/kafkasource"
 	listers "knative.dev/eventing-kafka/pkg/client/listers/sources/v1beta1"
 	"knative.dev/eventing-kafka/pkg/common/scheduler"
+	"knative.dev/eventing-kafka/pkg/source/client"
 )
 
 const (
@@ -97,6 +100,35 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 		}
 	}
 
+	// Validate configuration and offsets
+	bs, config, err := client.NewConfigFromSpec(ctx, r.KubeClientSet, src)
+	if err != nil {
+		logging.FromContext(ctx).Errorw("unable to build Kafka configuration", zap.Error(err))
+		src.Status.MarkConnectionNotEstablished("InvalidConfiguration", err.Error())
+		return err
+	}
+
+	c, err := sarama.NewClient(bs, config)
+	if err != nil {
+		logging.FromContext(ctx).Errorw("unable to create a kafka client", zap.Error(err))
+		src.Status.MarkConnectionNotEstablished("ClientCreationFailed", err.Error())
+		return err
+	}
+	defer c.Close()
+	src.Status.MarkConnectionEstablished()
+
+	committed, err := client.CheckOffsetsCommitted(c, src.Spec.Topics, src.Spec.ConsumerGroup)
+	if err != nil {
+		logging.FromContext(ctx).Errorw("unable to determine whether consumergroup offsets are initialized", zap.Error(err))
+		return err
+	}
+	if !committed {
+		src.Status.MarkInitialOffsetNotCommitted("OffsetsNotCommitted", "The adapter hasn't committed the initial offsets yet")
+		return fmt.Errorf("offsets not committed yet")
+	}
+	src.Status.MarkInitialOffsetCommitted()
+
+	// Finally, schedule the source
 	if err := r.reconcileMTReceiveAdapter(src); err != nil {
 		return err
 	}

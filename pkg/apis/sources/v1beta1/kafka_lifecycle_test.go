@@ -113,7 +113,7 @@ func TestKafkaSourceStatusGetCondition(t *testing.T) {
 		condQuery: KafkaConditionReady,
 		want: &apis.Condition{
 			Type:   KafkaConditionReady,
-			Status: corev1.ConditionTrue,
+			Status: corev1.ConditionUnknown,
 		},
 	}, {
 		name: "mark sink and deployed then no sink",
@@ -180,7 +180,7 @@ func TestKafkaSourceStatusGetCondition(t *testing.T) {
 		condQuery: KafkaConditionReady,
 		want: &apis.Condition{
 			Type:   KafkaConditionReady,
-			Status: corev1.ConditionTrue,
+			Status: corev1.ConditionUnknown,
 		},
 	}, {
 		name: "mark sink nil and deployed",
@@ -199,13 +199,15 @@ func TestKafkaSourceStatusGetCondition(t *testing.T) {
 			Message: "Sink has resolved to empty.",
 		},
 	}, {
-		name: "mark sink empty and deployed then sink",
+		name: "mark sink empty and deployed then sink, connection established, offset committed",
 		s: func() *KafkaSourceStatus {
 			s := &KafkaSourceStatus{}
 			s.InitializeConditions()
 			s.MarkSink(nil)
 			s.MarkDeployed(availableDeployment)
 			s.MarkSink(apis.HTTP("example"))
+			s.MarkConnectionEstablished()
+			s.MarkInitialOffsetCommitted()
 			return s
 		}(),
 		condQuery: KafkaConditionReady,

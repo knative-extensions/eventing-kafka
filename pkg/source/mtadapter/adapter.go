@@ -133,52 +133,27 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) error {
 		return nil
 	}
 
-	saslUser, err := a.ResolveSecret(ctx, obj.Namespace, obj.Spec.Net.SASL.User.SecretKeyRef)
+	kafkaEnvConfig, err := client.NewEnvConfigFromSpec(ctx, a.kubeClient, obj)
 	if err != nil {
 		return err
 	}
 
-	saslPassword, err := a.ResolveSecret(ctx, obj.Namespace, obj.Spec.Net.SASL.Password.SecretKeyRef)
-	if err != nil {
-		return err
-	}
+	// Enforce memory limits
+	if a.memLimit > 0 {
+		// TODO: periodically enforce limits as the number of partitions can dynamically change
+		bufferSizePerVReplica, err := a.bufferSize(ctx, logger, &kafkaEnvConfig, obj.Spec.Topics, scheduler.GetPodCount(obj.Status.Placement))
+		if err != nil {
+			return err
+		}
+		bufferSize := bufferSizePerVReplica * int(placement.VReplicas)
+		a.logger.Infow("setting fetch buffer size", zap.Int("size", bufferSize))
 
-	saslType, err := a.ResolveSecret(ctx, obj.Namespace, obj.Spec.Net.SASL.Type.SecretKeyRef)
-	if err != nil {
-		return err
-	}
-
-	tlsCert, err := a.ResolveSecret(ctx, obj.Namespace, obj.Spec.Net.TLS.Cert.SecretKeyRef)
-	if err != nil {
-		return err
-	}
-
-	tlsKey, err := a.ResolveSecret(ctx, obj.Namespace, obj.Spec.Net.TLS.Key.SecretKeyRef)
-	if err != nil {
-		return err
-	}
-
-	tlsCACert, err := a.ResolveSecret(ctx, obj.Namespace, obj.Spec.Net.TLS.CACert.SecretKeyRef)
-	if err != nil {
-		return err
-	}
-
-	kafkaEnvConfig := client.KafkaEnvConfig{
-		BootstrapServers: obj.Spec.BootstrapServers,
-		Net: client.AdapterNet{
-			SASL: client.AdapterSASL{
-				Enable:   obj.Spec.Net.SASL.Enable,
-				User:     saslUser,
-				Password: saslPassword,
-				Type:     saslType,
-			},
-			TLS: client.AdapterTLS{
-				Enable: obj.Spec.Net.TLS.Enable,
-				Cert:   tlsCert,
-				Key:    tlsKey,
-				CACert: tlsCACert,
-			},
-		},
+		// Nasty.
+		bufferSizeStr := strconv.Itoa(bufferSize)
+		min := `\n    Min: ` + bufferSizeStr
+		def := `\n    Default: ` + bufferSizeStr
+		max := `\n    Max: ` + bufferSizeStr
+		kafkaEnvConfig.KafkaConfigJson = `{"sarama": "Consumer:\n  Fetch:` + min + def + max + `"}`
 	}
 
 	// Enforce memory limits
