@@ -38,7 +38,7 @@ func Suite() pkgupgrade.Suite {
 				ChannelPostDowngradeTest(),
 				SourcePostDowngradeTest(),
 			},
-			Continual: union(
+			Continual: merge(
 				ChannelContinualTests(continual.ChannelTestOptions{}),
 				SourceContinualTests(continual.SourceTestOptions{}),
 			),
@@ -58,12 +58,14 @@ func Suite() pkgupgrade.Suite {
 	}
 }
 
-func union(
-	first []pkgupgrade.BackgroundOperation,
-	second []pkgupgrade.BackgroundOperation,
-) []pkgupgrade.BackgroundOperation {
-	result := make([]pkgupgrade.BackgroundOperation, 0, len(first)+len(second))
-	result = append(result, first...)
-	result = append(result, second...)
+func merge(slices ...[]pkgupgrade.BackgroundOperation) []pkgupgrade.BackgroundOperation {
+	l := 0
+	for _, slice := range slices {
+		l += len(slice)
+	}
+	result := make([]pkgupgrade.BackgroundOperation, 0, l)
+	for _, slice := range slices {
+		result = append(result, slice...)
+	}
 	return result
 }
