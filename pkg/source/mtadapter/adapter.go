@@ -65,6 +65,7 @@ type Adapter struct {
 	client      cloudevents.Client
 	adapterCtor adapter.MessageAdapterConstructor
 	kubeClient  kubernetes.Interface
+	memLimit    int32
 
 	sourcesMu sync.RWMutex
 	sources   map[string]cancelContext
@@ -79,12 +80,7 @@ func NewAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, ceClie
 func newAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, ceClient cloudevents.Client, adapterCtor adapter.MessageAdapterConstructor) adapter.Adapter {
 	logger := logging.FromContext(ctx)
 	config := processed.(*AdapterConfig)
-
 	ml := resource.MustParse(config.MemoryLimit)
-	if ml.Value() > 0 {
-		logger.Infof("Setting MaxResponseSize to %d bytes", int32(ml.Value()))
-		sarama.MaxResponseSize = int32(ml.Value())
-	}
 
 	return &Adapter{
 		client:      ceClient,
@@ -92,6 +88,7 @@ func newAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, ceClie
 		logger:      logger,
 		adapterCtor: adapterCtor,
 		kubeClient:  kubeclient.Get(ctx),
+		memLimit:    int32(ml.Value()),
 		sourcesMu:   sync.RWMutex{},
 		sources:     make(map[string]cancelContext),
 	}
@@ -216,6 +213,11 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) error {
 	// TODO: define Limit interface.
 	if sta, ok := adapter.(*stadapter.Adapter); ok {
 		sta.SetRateLimits(rate.Limit(a.config.MPSLimit*int(placement.VReplicas)), 2*a.config.MPSLimit*int(placement.VReplicas))
+	}
+
+	if a.memLimit > 0 {
+		sarama.MaxResponseSize = placement.VReplicas * a.memLimit
+		logger.Infof("Setting MaxResponseSize to %d bytes", sarama.MaxResponseSize)
 	}
 
 	ctx, cancelFn := context.WithCancel(ctx)
