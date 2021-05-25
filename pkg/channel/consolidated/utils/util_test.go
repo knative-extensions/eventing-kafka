@@ -364,13 +364,8 @@ func TestGetKafkaConfig(t *testing.T) {
 				Brokers: []string{"kafkabroker1.kafka:9092", "kafkabroker2.kafka:9092"},
 				EventingKafka: &config.EventingKafkaConfig{
 					Channel: config.EKChannelConfig{
-						Consolidated: config.EKConsolidatedConfig{
-							Dispatcher: config.EKDispatcherConfig{EKKubernetesConfig: defaultK8SConfig},
-						},
-						Distributed: config.EKDistributedConfig{
-							Receiver:   config.EKReceiverConfig{EKKubernetesConfig: defaultK8SConfig},
-							Dispatcher: config.EKDispatcherConfig{EKKubernetesConfig: defaultK8SConfig},
-						},
+						Dispatcher: config.EKDispatcherConfig{EKKubernetesConfig: defaultK8SConfig},
+						Receiver:   config.EKReceiverConfig{EKKubernetesConfig: defaultK8SConfig},
 					},
 					CloudEvents: defaultCloudEvents,
 					Kafka: config.EKKafkaConfig{

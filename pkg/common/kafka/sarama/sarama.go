@@ -162,11 +162,9 @@ func upgradeConfig(data map[string]string) *commonconfig.EventingKafkaConfig {
 	// Upgrade the eventing-kafka config by placing old values into the new struct
 	return &commonconfig.EventingKafkaConfig{
 		Channel: commonconfig.EKChannelConfig{
-			Distributed: commonconfig.EKDistributedConfig{
-				Dispatcher: oldConfig.Dispatcher,
-				Receiver:   oldConfig.Receiver,
-				AdminType:  oldConfig.Kafka.AdminType,
-			},
+			Dispatcher: oldConfig.Dispatcher,
+			Receiver:   oldConfig.Receiver,
+			AdminType:  oldConfig.Kafka.AdminType,
 		},
 		CloudEvents: oldConfig.CloudEvents,
 		Kafka: commonconfig.EKKafkaConfig{
@@ -211,14 +209,11 @@ func loadEventingKafkaSettings(configMap map[string]string) (*commonconfig.Event
 	}
 
 	// Default Replicas To 1 If Not Specified
-	if eventingKafkaConfig.Channel.Distributed.Receiver.Replicas < 1 {
-		eventingKafkaConfig.Channel.Distributed.Receiver.Replicas = 1
+	if eventingKafkaConfig.Channel.Receiver.Replicas < 1 {
+		eventingKafkaConfig.Channel.Receiver.Replicas = 1
 	}
-	if eventingKafkaConfig.Channel.Distributed.Dispatcher.Replicas < 1 {
-		eventingKafkaConfig.Channel.Distributed.Dispatcher.Replicas = 1
-	}
-	if eventingKafkaConfig.Channel.Consolidated.Dispatcher.Replicas < 1 {
-		eventingKafkaConfig.Channel.Consolidated.Dispatcher.Replicas = 1
+	if eventingKafkaConfig.Channel.Dispatcher.Replicas < 1 {
+		eventingKafkaConfig.Channel.Dispatcher.Replicas = 1
 	}
 
 	// Set Default Values For Secret

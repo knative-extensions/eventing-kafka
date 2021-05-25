@@ -89,7 +89,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 
 	// Determine The Kafka AdminClient Type (Assume Kafka Unless Otherwise Specified)
 	var kafkaAdminClientType types.AdminClientType
-	switch configuration.Channel.Distributed.AdminType {
+	switch configuration.Channel.AdminType {
 	case constants.KafkaAdminTypeValueKafka:
 		kafkaAdminClientType = types.Kafka
 	case constants.KafkaAdminTypeValueAzure:
@@ -97,7 +97,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 	case constants.KafkaAdminTypeValueCustom:
 		kafkaAdminClientType = types.Custom
 	default:
-		logger.Warn("Encountered Unexpected Kafka AdminType - Defaulting To 'kafka'", zap.String("AdminType", configuration.Channel.Distributed.AdminType))
+		logger.Warn("Encountered Unexpected Kafka AdminType - Defaulting To 'kafka'", zap.String("AdminType", configuration.Channel.AdminType))
 		kafkaAdminClientType = types.Kafka
 	}
 

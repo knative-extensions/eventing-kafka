@@ -52,14 +52,13 @@ data:
         defaultReplicationFactor: 1 # Cannot exceed the number of Kafka Brokers!
         defaultRetentionMillis: 604800000  # 1 week
     channel:
-      distributed:
-        adminType: kafka # One of "kafka", "azure", "custom"
-        dispatcher:
-          cpuRequest: 100m
-          memoryRequest: 50Mi
-        receiver:
-          cpuRequest: 100m
-          memoryRequest: 50Mi
+      adminType: kafka # One of "kafka", "azure", "custom"
+      dispatcher:
+        cpuRequest: 100m
+        memoryRequest: 50Mi
+      receiver:
+        cpuRequest: 100m
+        memoryRequest: 50Mi
 kind: ConfigMap
 metadata:
   name: config-kafka

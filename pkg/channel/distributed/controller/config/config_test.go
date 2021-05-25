@@ -168,17 +168,17 @@ func TestVerifyConfiguration(t *testing.T) {
 			testConfig.Kafka.Topic.DefaultNumPartitions = testCase.kafkaTopicDefaultNumPartitions
 			testConfig.Kafka.Topic.DefaultReplicationFactor = testCase.kafkaTopicDefaultReplicationFactor
 			testConfig.Kafka.Topic.DefaultRetentionMillis = testCase.kafkaTopicDefaultRetentionMillis
-			testConfig.Channel.Distributed.AdminType = testCase.kafkaAdminType
-			testConfig.Channel.Distributed.Dispatcher.CpuLimit = testCase.dispatcherCpuLimit
-			testConfig.Channel.Distributed.Dispatcher.CpuRequest = testCase.dispatcherCpuRequest
-			testConfig.Channel.Distributed.Dispatcher.MemoryLimit = testCase.dispatcherMemoryLimit
-			testConfig.Channel.Distributed.Dispatcher.MemoryRequest = testCase.dispatcherMemoryRequest
-			testConfig.Channel.Distributed.Dispatcher.Replicas = testCase.dispatcherReplicas
-			testConfig.Channel.Distributed.Receiver.CpuLimit = testCase.receiverCpuLimit
-			testConfig.Channel.Distributed.Receiver.CpuRequest = testCase.receiverCpuRequest
-			testConfig.Channel.Distributed.Receiver.MemoryLimit = testCase.receiverMemoryLimit
-			testConfig.Channel.Distributed.Receiver.MemoryRequest = testCase.receiverMemoryRequest
-			testConfig.Channel.Distributed.Receiver.Replicas = testCase.receiverReplicas
+			testConfig.Channel.AdminType = testCase.kafkaAdminType
+			testConfig.Channel.Dispatcher.CpuLimit = testCase.dispatcherCpuLimit
+			testConfig.Channel.Dispatcher.CpuRequest = testCase.dispatcherCpuRequest
+			testConfig.Channel.Dispatcher.MemoryLimit = testCase.dispatcherMemoryLimit
+			testConfig.Channel.Dispatcher.MemoryRequest = testCase.dispatcherMemoryRequest
+			testConfig.Channel.Dispatcher.Replicas = testCase.dispatcherReplicas
+			testConfig.Channel.Receiver.CpuLimit = testCase.receiverCpuLimit
+			testConfig.Channel.Receiver.CpuRequest = testCase.receiverCpuRequest
+			testConfig.Channel.Receiver.MemoryLimit = testCase.receiverMemoryLimit
+			testConfig.Channel.Receiver.MemoryRequest = testCase.receiverMemoryRequest
+			testConfig.Channel.Receiver.Replicas = testCase.receiverReplicas
 
 			// Perform The Test
 			err := VerifyConfiguration(testConfig)
@@ -189,17 +189,17 @@ func TestVerifyConfiguration(t *testing.T) {
 				assert.Equal(t, testCase.kafkaTopicDefaultNumPartitions, testConfig.Kafka.Topic.DefaultNumPartitions)
 				assert.Equal(t, testCase.kafkaTopicDefaultReplicationFactor, testConfig.Kafka.Topic.DefaultReplicationFactor)
 				assert.Equal(t, testCase.kafkaTopicDefaultRetentionMillis, testConfig.Kafka.Topic.DefaultRetentionMillis)
-				assert.Equal(t, testCase.kafkaAdminType, testConfig.Channel.Distributed.AdminType)
-				assert.Equal(t, testCase.dispatcherCpuLimit, testConfig.Channel.Distributed.Dispatcher.CpuLimit)
-				assert.Equal(t, testCase.dispatcherCpuRequest, testConfig.Channel.Distributed.Dispatcher.CpuRequest)
-				assert.Equal(t, testCase.dispatcherMemoryLimit, testConfig.Channel.Distributed.Dispatcher.MemoryLimit)
-				assert.Equal(t, testCase.dispatcherMemoryRequest, testConfig.Channel.Distributed.Dispatcher.MemoryRequest)
-				assert.Equal(t, testCase.dispatcherReplicas, testConfig.Channel.Distributed.Dispatcher.Replicas)
-				assert.Equal(t, testCase.receiverCpuLimit, testConfig.Channel.Distributed.Receiver.CpuLimit)
-				assert.Equal(t, testCase.receiverCpuRequest, testConfig.Channel.Distributed.Receiver.CpuRequest)
-				assert.Equal(t, testCase.receiverMemoryLimit, testConfig.Channel.Distributed.Receiver.MemoryLimit)
-				assert.Equal(t, testCase.receiverMemoryRequest, testConfig.Channel.Distributed.Receiver.MemoryRequest)
-				assert.Equal(t, testCase.receiverReplicas, testConfig.Channel.Distributed.Receiver.Replicas)
+				assert.Equal(t, testCase.kafkaAdminType, testConfig.Channel.AdminType)
+				assert.Equal(t, testCase.dispatcherCpuLimit, testConfig.Channel.Dispatcher.CpuLimit)
+				assert.Equal(t, testCase.dispatcherCpuRequest, testConfig.Channel.Dispatcher.CpuRequest)
+				assert.Equal(t, testCase.dispatcherMemoryLimit, testConfig.Channel.Dispatcher.MemoryLimit)
+				assert.Equal(t, testCase.dispatcherMemoryRequest, testConfig.Channel.Dispatcher.MemoryRequest)
+				assert.Equal(t, testCase.dispatcherReplicas, testConfig.Channel.Dispatcher.Replicas)
+				assert.Equal(t, testCase.receiverCpuLimit, testConfig.Channel.Receiver.CpuLimit)
+				assert.Equal(t, testCase.receiverCpuRequest, testConfig.Channel.Receiver.CpuRequest)
+				assert.Equal(t, testCase.receiverMemoryLimit, testConfig.Channel.Receiver.MemoryLimit)
+				assert.Equal(t, testCase.receiverMemoryRequest, testConfig.Channel.Receiver.MemoryRequest)
+				assert.Equal(t, testCase.receiverReplicas, testConfig.Channel.Receiver.Replicas)
 			} else {
 				assert.Equal(t, testCase.expectedError, err)
 			}

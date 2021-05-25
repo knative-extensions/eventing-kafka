@@ -410,25 +410,23 @@ func NewConfig(options ...KafkaConfigOption) *commonconfig.EventingKafkaConfig {
 			},
 		},
 		Channel: commonconfig.EKChannelConfig{
-			Distributed: commonconfig.EKDistributedConfig{
-				AdminType: KafkaAdminType,
-				Dispatcher: commonconfig.EKDispatcherConfig{
-					EKKubernetesConfig: commonconfig.EKKubernetesConfig{
-						Replicas:      DispatcherReplicas,
-						CpuLimit:      resource.MustParse(DispatcherCpuLimit),
-						CpuRequest:    resource.MustParse(DispatcherCpuRequest),
-						MemoryLimit:   resource.MustParse(DispatcherMemoryLimit),
-						MemoryRequest: resource.MustParse(DispatcherMemoryRequest),
-					},
+			AdminType: KafkaAdminType,
+			Dispatcher: commonconfig.EKDispatcherConfig{
+				EKKubernetesConfig: commonconfig.EKKubernetesConfig{
+					Replicas:      DispatcherReplicas,
+					CpuLimit:      resource.MustParse(DispatcherCpuLimit),
+					CpuRequest:    resource.MustParse(DispatcherCpuRequest),
+					MemoryLimit:   resource.MustParse(DispatcherMemoryLimit),
+					MemoryRequest: resource.MustParse(DispatcherMemoryRequest),
 				},
-				Receiver: commonconfig.EKReceiverConfig{
-					EKKubernetesConfig: commonconfig.EKKubernetesConfig{
-						Replicas:      ReceiverReplicas,
-						CpuLimit:      resource.MustParse(ReceiverCpuLimit),
-						CpuRequest:    resource.MustParse(ReceiverCpuRequest),
-						MemoryLimit:   resource.MustParse(ReceiverMemoryLimit),
-						MemoryRequest: resource.MustParse(ReceiverMemoryRequest),
-					},
+			},
+			Receiver: commonconfig.EKReceiverConfig{
+				EKKubernetesConfig: commonconfig.EKKubernetesConfig{
+					Replicas:      ReceiverReplicas,
+					CpuLimit:      resource.MustParse(ReceiverCpuLimit),
+					CpuRequest:    resource.MustParse(ReceiverCpuRequest),
+					MemoryLimit:   resource.MustParse(ReceiverMemoryLimit),
+					MemoryRequest: resource.MustParse(ReceiverMemoryRequest),
 				},
 			},
 		},
@@ -444,18 +442,18 @@ func NewConfig(options ...KafkaConfigOption) *commonconfig.EventingKafkaConfig {
 
 // WithNoReceiverResources Removes The Receiver Resource Requests And Limits
 func WithNoReceiverResources(kafkaConfig *commonconfig.EventingKafkaConfig) {
-	kafkaConfig.Channel.Distributed.Receiver.EKKubernetesConfig.CpuLimit = resource.Quantity{}
-	kafkaConfig.Channel.Distributed.Receiver.EKKubernetesConfig.CpuRequest = resource.Quantity{}
-	kafkaConfig.Channel.Distributed.Receiver.EKKubernetesConfig.MemoryLimit = resource.Quantity{}
-	kafkaConfig.Channel.Distributed.Receiver.EKKubernetesConfig.MemoryRequest = resource.Quantity{}
+	kafkaConfig.Channel.Receiver.EKKubernetesConfig.CpuLimit = resource.Quantity{}
+	kafkaConfig.Channel.Receiver.EKKubernetesConfig.CpuRequest = resource.Quantity{}
+	kafkaConfig.Channel.Receiver.EKKubernetesConfig.MemoryLimit = resource.Quantity{}
+	kafkaConfig.Channel.Receiver.EKKubernetesConfig.MemoryRequest = resource.Quantity{}
 }
 
 // WithNoDispatcherResources Removes The Dispatcher Resource Requests And Limits
 func WithNoDispatcherResources(kafkaConfig *commonconfig.EventingKafkaConfig) {
-	kafkaConfig.Channel.Distributed.Dispatcher.EKKubernetesConfig.CpuLimit = resource.Quantity{}
-	kafkaConfig.Channel.Distributed.Dispatcher.EKKubernetesConfig.CpuRequest = resource.Quantity{}
-	kafkaConfig.Channel.Distributed.Dispatcher.EKKubernetesConfig.MemoryLimit = resource.Quantity{}
-	kafkaConfig.Channel.Distributed.Dispatcher.EKKubernetesConfig.MemoryRequest = resource.Quantity{}
+	kafkaConfig.Channel.Dispatcher.EKKubernetesConfig.CpuLimit = resource.Quantity{}
+	kafkaConfig.Channel.Dispatcher.EKKubernetesConfig.CpuRequest = resource.Quantity{}
+	kafkaConfig.Channel.Dispatcher.EKKubernetesConfig.MemoryLimit = resource.Quantity{}
+	kafkaConfig.Channel.Dispatcher.EKKubernetesConfig.MemoryRequest = resource.Quantity{}
 }
 
 //

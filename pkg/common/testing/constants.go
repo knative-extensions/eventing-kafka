@@ -40,20 +40,19 @@ const (
 
 	TestEKConfig = `
 channel:
-  distributed:
-    adminType: kafka # One of "kafka", "azure", "custom"
-    receiver:
-      cpuRequest: ` + ReceiverCpuRequest + `
-      memoryRequest: ` + ReceiverMemoryRequest + `
-      cpuLimit: ` + ReceiverCpuLimit + `
-      memoryLimit: ` + ReceiverMemoryLimit + `
-      replicas: ` + ReceiverReplicas + `
-    dispatcher:
-      cpuRequest: ` + DispatcherCpuRequest + `
-      memoryRequest: ` + DispatcherMemoryRequest + `
-      cpuLimit: ` + DispatcherCpuLimit + `
-      memoryLimit: ` + DispatcherMemoryLimit + `
-      replicas: ` + DispatcherReplicas + `
+  adminType: kafka # One of "kafka", "azure", "custom"
+  receiver:
+    cpuRequest: ` + ReceiverCpuRequest + `
+    memoryRequest: ` + ReceiverMemoryRequest + `
+    cpuLimit: ` + ReceiverCpuLimit + `
+    memoryLimit: ` + ReceiverMemoryLimit + `
+    replicas: ` + ReceiverReplicas + `
+  dispatcher:
+    cpuRequest: ` + DispatcherCpuRequest + `
+    memoryRequest: ` + DispatcherMemoryRequest + `
+    cpuLimit: ` + DispatcherCpuLimit + `
+    memoryLimit: ` + DispatcherMemoryLimit + `
+    replicas: ` + DispatcherReplicas + `
 kafka:
   brokers: ` + BrokerString + `
   topic:

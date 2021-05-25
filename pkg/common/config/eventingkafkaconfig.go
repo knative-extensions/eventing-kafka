@@ -66,26 +66,16 @@ type EKKafkaConfig struct {
 	Topic               EKKafkaTopicConfig `json:"topic,omitempty"`
 }
 
-// EKDistributedConfig contains configuration fields needed by the Distributed Channel component
-type EKDistributedConfig struct {
-	Dispatcher EKDispatcherConfig `json:"dispatcher,omitempty"`
-	Receiver   EKReceiverConfig   `json:"receiver,omitempty"`
-	AdminType  string             `json:"adminType,omitempty"`
-}
-
-// EKConsolidatedConfig contains configuration fields needed by the Consolidated Channel component
-type EKConsolidatedConfig struct {
-	Dispatcher EKDispatcherConfig `json:"dispatcher,omitempty"`
-}
-
 // EKSourceConfig is reserved for configuration fields needed by the Kafka Source component
 type EKSourceConfig struct {
 }
 
-// EKChannelConfig contains items relevant to the eventing-kafka channels (distributed and consolidated)
+// EKChannelConfig contains items relevant to the eventing-kafka channels
+// NOTE:  Currently the consolidated channel type does not make use of most of these fields
 type EKChannelConfig struct {
-	Distributed  EKDistributedConfig  `json:"distributed,omitempty"`
-	Consolidated EKConsolidatedConfig `json:"consolidated,omitempty"`
+	Dispatcher EKDispatcherConfig `json:"dispatcher,omitempty"` // Consolidated and Distributed channels
+	Receiver   EKReceiverConfig   `json:"receiver,omitempty"`   // Distributed channel only
+	AdminType  string             `json:"adminType,omitempty"`  // Distributed channel only
 }
 
 // EKSaramaConfig holds the sarama.Config struct (populated separately), and the global Sarama debug logging flag

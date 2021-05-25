@@ -377,8 +377,10 @@ function uninstall_channel_crds() {
   # (the controller presumes this missing secret is an error and reacts accordingly), so this
   # manual deletion of the receiver deployment is the easiest solution here.
   if [[ $1 == "distributed" ]]; then
-    kubectl delete deployment -n "${SYSTEM_NAMESPACE}" kafka-cluster-32603413-receiver
-    kubectl delete service -n "${SYSTEM_NAMESPACE}" kafka-cluster-32603413-receiver
+    # Create the same value as GenerateHash() in distributed/controller/util/hash.go
+    hash=$(md5 -qs "kafka-cluster" | cut -c 1-8)
+    kubectl delete deployment -n "${SYSTEM_NAMESPACE}" kafka-cluster-${hash}-receiver
+    kubectl delete service -n "${SYSTEM_NAMESPACE}" kafka-cluster-${hash}-receiver
   fi
 
   echo "Current namespaces:"

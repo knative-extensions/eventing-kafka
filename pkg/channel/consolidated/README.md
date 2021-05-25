@@ -89,7 +89,10 @@ kubectl get deployment -n knative-eventing kafka-webhook
 ```
 
 The Kafka Config Map is used to configure the `brokers` of your Apache
-Kafka installation, as well as other settings:
+Kafka installation, as well as other settings.  Note that not all settings are
+applicable to the consolidated channel type.  In particular, the `receiver` and
+`admintype` fields of the `eventing-kafka.channel` section are only used by the
+distributed channel type.
 
 ```shell
 kubectl get configmap -n knative-eventing config-kafka

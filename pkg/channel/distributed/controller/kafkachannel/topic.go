@@ -145,7 +145,7 @@ func (r *Reconciler) deleteTopic(ctx context.Context, topicName string) error {
 			logger.Info("Kafka Topic or Partition Not Found - No Deletion Required")
 			return nil
 		case sarama.ErrInvalidConfig:
-			if r.config.Channel.Distributed.AdminType == constants.KafkaAdminTypeValueAzure {
+			if r.config.Channel.AdminType == constants.KafkaAdminTypeValueAzure {
 				// While this could be a valid Kafka error, this most likely is coming from our custom EventHub AdminClient
 				// implementation and represents the fact that the EventHub Cache does not contain this topic.  This can
 				// happen when an EventHub could not be created due to exceeding the number of allowable EventHubs.  The
