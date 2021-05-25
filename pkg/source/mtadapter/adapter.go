@@ -19,10 +19,9 @@ package mtadapter
 import (
 	"context"
 	"fmt"
-	"math"
-	"strconv"
 	"sync"
 
+	"github.com/Shopify/sarama"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
@@ -66,7 +65,7 @@ type Adapter struct {
 	client      cloudevents.Client
 	adapterCtor adapter.MessageAdapterConstructor
 	kubeClient  kubernetes.Interface
-	memLimit    int64
+	memLimit    int32
 
 	sourcesMu sync.RWMutex
 	sources   map[string]cancelContext
@@ -89,7 +88,7 @@ func newAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, ceClie
 		logger:      logger,
 		adapterCtor: adapterCtor,
 		kubeClient:  kubeclient.Get(ctx),
-		memLimit:    ml.Value(),
+		memLimit:    int32(ml.Value()),
 		sourcesMu:   sync.RWMutex{},
 		sources:     make(map[string]cancelContext),
 	}
@@ -99,56 +98,6 @@ func (a *Adapter) Start(ctx context.Context) error {
 	<-ctx.Done()
 	a.logger.Info("Shutting down...")
 	return nil
-}
-
-// bufferSize returns the maximum fetch buffer size (in bytes)
-// so that the st adapter memory consumption does not exceed
-// the allocated memory per vreplica (see MemoryLimit).
-// Account pod (consumer) partial outage.
-func (a *Adapter) bufferSize(ctx context.Context,
-	logger *zap.SugaredLogger,
-	kafkaEnvConfig *client.KafkaEnvConfig,
-	topics []string,
-	podCount int) (int, error) {
-
-	// Compute the number of partitions handled by this source
-	// TODO: periodically check for # of resources. Need control-protocol.
-	adminClient, err := client.MakeAdminClient(ctx, kafkaEnvConfig)
-	if err != nil {
-		logger.Errorw("cannot create admin client", zap.Error(err))
-		return 0, err
-	}
-
-	metas, err := adminClient.DescribeTopics(topics)
-	if err != nil {
-		logger.Errorw("cannot describe topics", zap.Error(err))
-		return 0, err
-	}
-
-	totalPartitions := 0
-	for _, meta := range metas {
-		totalPartitions += len(meta.Partitions)
-	}
-	adminClient.Close()
-
-	partitionsPerPod := int(math.Ceil(float64(totalPartitions) / float64(podCount)))
-
-	// Ideally, partitions are evenly spread across Kafka consumers.
-	// However, due to rebalancing or consumer (un)availability, a consumer
-	// might have to handle more partitions than expected.
-	// For now, account for 1 unavailable consumer.
-	handledPartitions := 2 * partitionsPerPod
-	if podCount < 3 {
-		handledPartitions = totalPartitions
-	}
-
-	logger.Infow("partition count",
-		zap.Int("total", totalPartitions),
-		zap.Int("averagePerPod", partitionsPerPod),
-		zap.Int("handled", handledPartitions))
-
-	// A partition consumes about 2 * fetch buffer size.
-	return int(math.Floor(float64(a.memLimit) / float64(handledPartitions) / 2.0)), nil
 }
 
 // Implements MTAdapter
@@ -231,24 +180,6 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) error {
 		},
 	}
 
-	// Enforce memory limits
-	if a.memLimit > 0 {
-		// TODO: periodically enforce limits as the number of partitions can dynamically change
-		bufferSizePerVReplica, err := a.bufferSize(ctx, logger, &kafkaEnvConfig, obj.Spec.Topics, scheduler.GetPodCount(obj.Status.Placement))
-		if err != nil {
-			return err
-		}
-		bufferSize := bufferSizePerVReplica * int(placement.VReplicas)
-		a.logger.Infow("setting fetch buffer size", zap.Int("size", bufferSize))
-
-		// Nasty.
-		bufferSizeStr := strconv.Itoa(bufferSize)
-		min := `\n    Min: ` + bufferSizeStr
-		def := `\n    Default: ` + bufferSizeStr
-		max := `\n    Max: ` + bufferSizeStr
-		kafkaEnvConfig.KafkaConfigJson = `{"sarama": "Consumer:\n  Fetch:` + min + def + max + `"}`
-	}
-
 	config := stadapter.AdapterConfig{
 		EnvConfig: adapter.EnvConfig{
 			Component: "kafkasource",
@@ -282,6 +213,11 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) error {
 	// TODO: define Limit interface.
 	if sta, ok := adapter.(*stadapter.Adapter); ok {
 		sta.SetRateLimits(rate.Limit(a.config.MPSLimit*int(placement.VReplicas)), 2*a.config.MPSLimit*int(placement.VReplicas))
+	}
+
+	if a.memLimit > 0 {
+		sarama.MaxResponseSize = placement.VReplicas * a.memLimit
+		logger.Infof("Setting MaxResponseSize to %d bytes", sarama.MaxResponseSize)
 	}
 
 	ctx, cancelFn := context.WithCancel(ctx)
