@@ -526,7 +526,11 @@ func (r *Reconciler) createClient(ctx context.Context) (sarama.ClusterAdmin, err
 	kafkaClusterAdmin := r.kafkaClusterAdmin
 	if kafkaClusterAdmin == nil {
 		var err error
-		kafkaClusterAdmin, err = client.MakeAdminClient(r.kafkaConfig.EventingKafka.Sarama.Config, r.kafkaConfig.Brokers)
+
+		if r.kafkaConfig.EventingKafka.Sarama.Config == nil {
+			return nil, fmt.Errorf("error creating admin client: Sarama config is nil")
+		}
+		kafkaClusterAdmin, err = sarama.NewClusterAdmin(r.kafkaConfig.Brokers, r.kafkaConfig.EventingKafka.Sarama.Config)
 		if err != nil {
 			return nil, err
 		}

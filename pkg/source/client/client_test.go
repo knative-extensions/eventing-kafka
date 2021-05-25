@@ -209,7 +209,7 @@ func TestAdminClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	admin, err := client.MakeAdminClient(saramaConf, []string{seedBroker.Addr()})
+	admin, err := sarama.NewClient([]string{seedBroker.Addr()}, saramaConf)
 	if err != nil {
 		t.Fatal(err)
 	}

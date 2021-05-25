@@ -28,7 +28,7 @@ topics.
    metadata:
      name: config-kafka
      namespace: knative-eventing
-   # eventing-kafka.kafka.broker: Replace this with the URLs for your kafka cluster,
+   # eventing-kafka.kafka.brokers: Replace this with the URLs for your kafka cluster,
    #   which is in the format of my-cluster-kafka-bootstrap.my-kafka-namespace:9092.
    data:
      eventing-kafka: |
