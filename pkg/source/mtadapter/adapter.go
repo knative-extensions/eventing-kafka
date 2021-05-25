@@ -19,10 +19,9 @@ package mtadapter
 import (
 	"context"
 	"fmt"
-	"math"
-	"strconv"
 	"sync"
 
+	"github.com/Shopify/sarama"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
@@ -55,16 +54,21 @@ func NewEnvConfig() adapter.EnvConfigAccessor {
 	return new(AdapterConfig)
 }
 
+type cancelContext struct {
+	fn      context.CancelFunc
+	stopped chan bool
+}
+
 type Adapter struct {
 	config      *AdapterConfig
 	logger      *zap.SugaredLogger
 	client      cloudevents.Client
 	adapterCtor adapter.MessageAdapterConstructor
 	kubeClient  kubernetes.Interface
-	memLimit    int64
+	memLimit    int32
 
 	sourcesMu sync.RWMutex
-	sources   map[string]context.CancelFunc
+	sources   map[string]cancelContext
 }
 
 var _ adapter.Adapter = (*Adapter)(nil)
@@ -84,9 +88,9 @@ func newAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, ceClie
 		logger:      logger,
 		adapterCtor: adapterCtor,
 		kubeClient:  kubeclient.Get(ctx),
-		memLimit:    ml.Value(),
+		memLimit:    int32(ml.Value()),
 		sourcesMu:   sync.RWMutex{},
-		sources:     make(map[string]context.CancelFunc),
+		sources:     make(map[string]cancelContext),
 	}
 }
 
@@ -94,56 +98,6 @@ func (a *Adapter) Start(ctx context.Context) error {
 	<-ctx.Done()
 	a.logger.Info("Shutting down...")
 	return nil
-}
-
-// bufferSize returns the maximum fetch buffer size (in bytes)
-// so that the st adapter memory consumption does not exceed
-// the allocated memory per vreplica (see MemoryLimit).
-// Account pod (consumer) partial outage.
-func (a *Adapter) bufferSize(ctx context.Context,
-	logger *zap.SugaredLogger,
-	kafkaEnvConfig *client.KafkaEnvConfig,
-	topics []string,
-	podCount int) (int, error) {
-
-	// Compute the number of partitions handled by this source
-	// TODO: periodically check for # of resources. Need control-protocol.
-	adminClient, err := client.MakeAdminClient(ctx, kafkaEnvConfig)
-	if err != nil {
-		logger.Errorw("cannot create admin client", zap.Error(err))
-		return 0, err
-	}
-
-	metas, err := adminClient.DescribeTopics(topics)
-	if err != nil {
-		logger.Errorw("cannot describe topics", zap.Error(err))
-		return 0, err
-	}
-
-	totalPartitions := 0
-	for _, meta := range metas {
-		totalPartitions += len(meta.Partitions)
-	}
-	adminClient.Close()
-
-	partitionsPerPod := int(math.Ceil(float64(totalPartitions) / float64(podCount)))
-
-	// Ideally, partitions are evenly spread across Kafka consumers.
-	// However, due to rebalancing or consumer (un)availability, a consumer
-	// might have to handle more partitions than expected.
-	// For now, account for 1 unavailable consumer.
-	handledPartitions := 2 * partitionsPerPod
-	if podCount < 3 {
-		handledPartitions = totalPartitions
-	}
-
-	logger.Infow("partition count",
-		zap.Int("total", totalPartitions),
-		zap.Int("averagePerPod", partitionsPerPod),
-		zap.Int("handled", handledPartitions))
-
-	// A partition consumes about 2 * fetch buffer size.
-	return int(math.Floor(float64(a.memLimit) / float64(handledPartitions) / 2.0)), nil
 }
 
 // Implements MTAdapter
@@ -162,7 +116,13 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) error {
 	if ok {
 		// TODO: do not stop if the only thing that changes is the number of vreplicas
 		logger.Info("stopping adapter")
-		cancel()
+		cancel.fn()
+
+		// Wait for the adapter to stop
+		<-cancel.stopped
+
+		// Nothing to stop anymore
+		delete(a.sources, key)
 	}
 
 	placement := scheduler.GetPlacementForPod(obj.GetPlacements(), a.config.PodName)
@@ -220,24 +180,6 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) error {
 		},
 	}
 
-	// Enforce memory limits
-	if a.memLimit > 0 {
-		// TODO: periodically enforce limits as the number of partitions can dynamically change
-		bufferSizePerVReplica, err := a.bufferSize(ctx, logger, &kafkaEnvConfig, obj.Spec.Topics, scheduler.GetPodCount(obj.Status.Placement))
-		if err != nil {
-			return err
-		}
-		bufferSize := bufferSizePerVReplica * int(placement.VReplicas)
-		a.logger.Infow("setting fetch buffer size", zap.Int("size", bufferSize))
-
-		// Nasty.
-		bufferSizeStr := strconv.Itoa(bufferSize)
-		min := `\n    Min: ` + bufferSizeStr
-		def := `\n    Default: ` + bufferSizeStr
-		max := `\n    Max: ` + bufferSizeStr
-		kafkaEnvConfig.KafkaConfigJson = `{"sarama": "Consumer:\n  Fetch:` + min + def + max + `"}`
-	}
-
 	config := stadapter.AdapterConfig{
 		EnvConfig: adapter.EnvConfig{
 			Component: "kafkasource",
@@ -273,15 +215,27 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) error {
 		sta.SetRateLimits(rate.Limit(a.config.MPSLimit*int(placement.VReplicas)), 2*a.config.MPSLimit*int(placement.VReplicas))
 	}
 
+	if a.memLimit > 0 {
+		sarama.MaxResponseSize = placement.VReplicas * a.memLimit
+		logger.Infof("Setting MaxResponseSize to %d bytes", sarama.MaxResponseSize)
+	}
+
 	ctx, cancelFn := context.WithCancel(ctx)
+
+	cancel = cancelContext{
+		fn:      cancelFn,
+		stopped: make(chan bool),
+	}
+
 	go func(ctx context.Context) {
 		err := adapter.Start(ctx)
 		if err != nil {
 			a.logger.Errorw("adapter failed to start", zap.Error(err))
 		}
+		cancel.stopped <- true
 	}(ctx)
 
-	a.sources[key] = cancelFn
+	a.sources[key] = cancel
 	a.logger.Infow("source added", "name", obj.Name)
 	return nil
 }
@@ -296,14 +250,15 @@ func (a *Adapter) Remove(obj *v1beta1.KafkaSource) {
 	cancel, ok := a.sources[key]
 
 	if !ok {
-		a.logger.Infow("source not found", "name", obj.Name)
+		a.logger.Infow("source was not running. removed.", "name", obj.Name)
 		return
 	}
 
-	cancel()
+	cancel.fn()
+	<-cancel.stopped
 
 	delete(a.sources, key)
-	a.logger.Infow("source removed", "name", obj.Name, "count", len(a.sources))
+	a.logger.Infow("source removed", "name", obj.Name, "remaining", len(a.sources))
 }
 
 // ResolveSecret resolves the secret reference

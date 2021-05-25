@@ -39,6 +39,7 @@ type customConsumerGroup struct {
 	cancel              func()
 	handlerErrorChannel chan error
 	sarama.ConsumerGroup
+	releasedCh chan bool
 }
 
 // Merge handler errors chan and consumer group error chan
@@ -48,6 +49,10 @@ func (c *customConsumerGroup) Errors() <-chan error {
 
 func (c *customConsumerGroup) Close() error {
 	c.cancel()
+
+	// Wait for graceful session claims release
+	<-c.releasedCh
+
 	return c.ConsumerGroup.Close()
 }
 
@@ -60,10 +65,14 @@ func (c kafkaConsumerGroupFactoryImpl) StartConsumerGroup(groupID string, topics
 	}
 
 	errorCh := make(chan error, 10)
+	releasedCh := make(chan bool)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	go func() {
-		defer close(errorCh)
+		defer func() {
+			close(errorCh)
+			releasedCh <- true
+		}()
 		for {
 			consumerHandler := NewConsumerHandler(logger, handler, errorCh, options...)
 
@@ -83,7 +92,7 @@ func (c kafkaConsumerGroupFactoryImpl) StartConsumerGroup(groupID string, topics
 		}
 	}()
 
-	return &customConsumerGroup{cancel, errorCh, consumerGroup}, err
+	return &customConsumerGroup{cancel, errorCh, consumerGroup, releasedCh}, err
 }
 
 func NewConsumerGroupFactory(addrs []string, config *sarama.Config) KafkaConsumerGroupFactory {

@@ -17,6 +17,7 @@ limitations under the License.
 package upgrade
 
 import (
+	"knative.dev/eventing-kafka/test/upgrade/continual"
 	"knative.dev/eventing-kafka/test/upgrade/installation"
 	pkgupgrade "knative.dev/pkg/test/upgrade"
 )
@@ -37,10 +38,10 @@ func Suite() pkgupgrade.Suite {
 				ChannelPostDowngradeTest(),
 				SourcePostDowngradeTest(),
 			},
-			Continual: []pkgupgrade.BackgroundOperation{
-				ChannelContinualTest(ContinualTestOptions{}),
-				SourceContinualTest(ContinualTestOptions{}),
-			},
+			Continual: merge(
+				ChannelContinualTests(continual.ChannelTestOptions{}),
+				SourceContinualTests(continual.SourceTestOptions{}),
+			),
 		},
 		Installations: pkgupgrade.Installations{
 			Base: []pkgupgrade.Operation{
@@ -55,4 +56,16 @@ func Suite() pkgupgrade.Suite {
 			},
 		},
 	}
+}
+
+func merge(slices ...[]pkgupgrade.BackgroundOperation) []pkgupgrade.BackgroundOperation {
+	l := 0
+	for _, slice := range slices {
+		l += len(slice)
+	}
+	result := make([]pkgupgrade.BackgroundOperation, 0, l)
+	for _, slice := range slices {
+		result = append(result, slice...)
+	}
+	return result
 }
