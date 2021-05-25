@@ -53,7 +53,7 @@ type ChannelTestOptions struct {
 	*TestOptions
 	*ReplicationOptions
 	*RetryOptions
-	ChannelTypeMeta *metav1.TypeMeta
+	*metav1.TypeMeta
 }
 
 // ChannelTest tests channel operation in continual manner during the
@@ -87,8 +87,8 @@ func (o ChannelTestOptions) withDefaults() ChannelTestOptions {
 	if cto.TestOptions == nil {
 		cto.TestOptions = &TestOptions{}
 	}
-	if cto.ChannelTypeMeta == nil {
-		cto.ChannelTypeMeta = &defaultChannelType
+	if cto.TypeMeta == nil {
+		cto.TypeMeta = &defaultChannelType
 	}
 	if cto.RetryOptions == nil {
 		cto.RetryOptions = defaultRetryOptions()
@@ -101,7 +101,7 @@ func (o ChannelTestOptions) withDefaults() ChannelTestOptions {
 
 func channelSut(opts ChannelTestOptions) sut.SystemUnderTest {
 	return &kafkaChannelSut{
-		channelTypeMeta:    opts.ChannelTypeMeta,
+		channelTypeMeta:    opts.TypeMeta,
 		ReplicationOptions: opts.ReplicationOptions,
 		RetryOptions:       opts.RetryOptions,
 	}
@@ -124,7 +124,7 @@ func defaultRetryOptions() *RetryOptions {
 
 func brokerBackedByChannelSut(opts ChannelTestOptions) sut.SystemUnderTest {
 	return &brokerBackedByKafkaChannelSut{
-		channelTypeMeta:    opts.ChannelTypeMeta,
+		channelTypeMeta:    opts.TypeMeta,
 		ReplicationOptions: opts.ReplicationOptions,
 		RetryOptions:       opts.RetryOptions,
 	}
