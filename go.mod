@@ -13,7 +13,7 @@ require (
 	github.com/cloudevents/sdk-go/v2 v2.4.1
 	github.com/davecgh/go-spew v1.1.1
 	github.com/ghodss/yaml v1.0.0
-	github.com/google/go-cmp v0.5.5
+	github.com/google/go-cmp v0.5.6
 	github.com/google/gofuzz v1.2.0
 	github.com/google/uuid v1.2.0
 	github.com/influxdata/tdigest v0.0.1 // indirect
@@ -37,6 +37,6 @@ require (
 	knative.dev/eventing v0.23.1-0.20210524085620-e48c80d7f969
 	knative.dev/hack v0.0.0-20210428122153-93ad9129c268
 	knative.dev/networking v0.0.0-20210520062317-b2552eca09f7
-	knative.dev/pkg v0.0.0-20210520062216-e749d6a2ad0e
+	knative.dev/pkg v0.0.0-20210525142738-ea766de6bdd1
 	knative.dev/reconciler-test v0.0.0-20210520170117-ffe49e0e092f
 )
