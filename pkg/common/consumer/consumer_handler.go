@@ -60,13 +60,6 @@ func WithTimeout(timeout time.Duration) SaramaConsumerHandlerOption {
 	}
 }
 
-// WithInflightRequestInterrupt tells ConsumeClaim to interrupt the inflight request when the session is closed
-func WithInflightRequestInterrupt() SaramaConsumerHandlerOption {
-	return func(handler *SaramaConsumerHandler) {
-		handler.interrupt = true
-	}
-}
-
 // ConsumerHandler implements sarama.ConsumerGroupHandler and provides some glue code to simplify message handling
 // You must implement KafkaConsumerHandler and create a new SaramaConsumerHandler with it
 type SaramaConsumerHandler struct {
@@ -75,9 +68,6 @@ type SaramaConsumerHandler struct {
 
 	// Request to sink timeout
 	timeout time.Duration
-
-	// Whether or not to interrupt the inflight request when the session is closed
-	interrupt bool
 
 	lifecycleListener SaramaConsumerLifecycleListener
 
@@ -130,6 +120,8 @@ func (consumer *SaramaConsumerHandler) Cleanup(session sarama.ConsumerGroupSessi
 func (consumer *SaramaConsumerHandler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	consumer.logger.Infow(fmt.Sprintf("Starting partition consumer, topic: %s, partition: %d, initialOffset: %d", claim.Topic(), claim.Partition(), claim.InitialOffset()), zap.String("ConsumeGroup", consumer.handler.GetConsumerGroup()))
 	consumer.handler.SetReady(claim.Partition(), true)
+	c := make(chan bool)
+
 	// NOTE:
 	// Do not move the code below to a goroutine.
 	// The `ConsumeClaim` itself is called within a goroutine, see:
@@ -147,20 +139,31 @@ func (consumer *SaramaConsumerHandler) ConsumeClaim(session sarama.ConsumerGroup
 			break
 		}
 
-		ctx := context.Background()
-		if consumer.interrupt {
-			ctx = session.Context()
-		}
+		hctx, cancel := context.WithCancel(context.Background())
+		go func() {
+			mustMark, err := consumer.handler.Handle(hctx, message)
 
-		// Handle must finish before the session timeout. Enforcing it on the client side.
-		ctx, cancel := context.WithTimeout(ctx, consumer.timeout)
-		mustMark, err := consumer.handler.Handle(ctx, message)
-		cancel()
+			if err != nil {
+				consumer.logger.Infow("Failure while handling a message", zap.String("topic", message.Topic), zap.Int32("partition", message.Partition), zap.Int64("offset", message.Offset), zap.Error(err))
+				consumer.errors <- err
+				consumer.handler.SetReady(claim.Partition(), false)
+			}
 
-		if err != nil {
-			consumer.logger.Infow("Failure while handling a message", zap.String("topic", message.Topic), zap.Int32("partition", message.Partition), zap.Int64("offset", message.Offset), zap.Error(err))
-			consumer.errors <- err
-			consumer.handler.SetReady(claim.Partition(), false)
+			c <- mustMark
+		}()
+
+		var mustMark bool
+		select {
+		case mustMark = <-c:
+			cancel()
+		case <-session.Context().Done():
+			select {
+			case <-time.After(consumer.timeout):
+				cancel()
+				mustMark = <-c
+			case mustMark = <-c:
+				cancel()
+			}
 		}
 
 		if mustMark {
@@ -169,7 +172,6 @@ func (consumer *SaramaConsumerHandler) ConsumeClaim(session sarama.ConsumerGroup
 				consumer.logger.Debugw("Message marked", zap.String("topic", message.Topic), zap.Binary("value", message.Value))
 			}
 		}
-
 	}
 
 	consumer.logger.Infof("Stopping partition consumer, topic: %s, partition: %d", claim.Topic(), claim.Partition())
