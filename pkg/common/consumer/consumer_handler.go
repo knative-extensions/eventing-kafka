@@ -19,6 +19,7 @@ package consumer
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
@@ -52,11 +53,20 @@ func WithSaramaConsumerLifecycleListener(listener SaramaConsumerLifecycleListene
 	}
 }
 
+func WithTimeout(timeout time.Duration) SaramaConsumerHandlerOption {
+	return func(handler *SaramaConsumerHandler) {
+		handler.timeout = timeout
+	}
+}
+
 // ConsumerHandler implements sarama.ConsumerGroupHandler and provides some glue code to simplify message handling
 // You must implement KafkaConsumerHandler and create a new SaramaConsumerHandler with it
 type SaramaConsumerHandler struct {
 	// The user message handler
 	handler KafkaConsumerHandler
+
+	// Request to sink timeout
+	timeout time.Duration
 
 	lifecycleListener SaramaConsumerLifecycleListener
 
@@ -72,6 +82,7 @@ func NewConsumerHandler(logger *zap.SugaredLogger, handler KafkaConsumerHandler,
 	sch := SaramaConsumerHandler{
 		handler:           handler,
 		lifecycleListener: noopSaramaConsumerLifecycleListener{},
+		timeout:           60 * time.Second, // default rebalance timeout
 		logger:            logger,
 		errors:            errorsCh,
 	}
@@ -113,14 +124,25 @@ func (consumer *SaramaConsumerHandler) ConsumeClaim(session sarama.ConsumerGroup
 	// The `ConsumeClaim` itself is called within a goroutine, see:
 	// https://github.com/Shopify/sarama/blob/master/consumer_group.go#L27-L29
 	for message := range claim.Messages() {
-
 		if ce := consumer.logger.Desugar().Check(zap.DebugLevel, "debugging"); ce != nil {
 			consumer.logger.Debugw("Message claimed", zap.String("topic", message.Topic), zap.Binary("value", message.Value))
 		}
 
-		// Don't use the session context since it is closed before messages are drained.
-		// Handle must finish before the session timeout.
-		mustMark, err := consumer.handler.Handle(context.Background(), message)
+		// Preemptively interrupt processing messages if the session is closed.
+		// Processing all messages from the buffered channel can take a long time,
+		// potentially exceeding the session timeout, leading to duplicate events.
+		if sessionClosed(session) {
+			consumer.logger.Infof("Session closed for %s/%d. Exiting ConsumeClaim ", claim.Topic(), claim.Partition())
+			break
+		}
+
+		// Don't use the session context because when cancelled it will interrupt the in-flight request,
+		// potentially leading to duplicates
+
+		// Handle must finish before the session timeout. Enforcing it on the client side.
+		ctx, cancel := context.WithTimeout(context.Background(), consumer.timeout)
+		mustMark, err := consumer.handler.Handle(ctx, message)
+		cancel()
 
 		if err != nil {
 			consumer.logger.Infow("Failure while handling a message", zap.String("topic", message.Topic), zap.Int32("partition", message.Partition), zap.Int64("offset", message.Offset), zap.Error(err))
@@ -131,7 +153,7 @@ func (consumer *SaramaConsumerHandler) ConsumeClaim(session sarama.ConsumerGroup
 		if mustMark {
 			session.MarkMessage(message, "") // Mark kafka message as processed
 			if ce := consumer.logger.Desugar().Check(zap.DebugLevel, "debugging"); ce != nil {
-				consumer.logger.Debugw("Message marked", zap.String("topic", message.Topic), zap.Binary("value", message.Value))
+				consumer.logger.Infow("Message marked", zap.String("topic", message.Topic), zap.Binary("value", message.Value))
 			}
 		}
 
@@ -139,6 +161,15 @@ func (consumer *SaramaConsumerHandler) ConsumeClaim(session sarama.ConsumerGroup
 
 	consumer.logger.Infof("Stopping partition consumer, topic: %s, partition: %d", claim.Topic(), claim.Partition())
 	return nil
+}
+
+func sessionClosed(session sarama.ConsumerGroupSession) bool {
+	select {
+	case <-session.Context().Done():
+		return true
+	default:
+		return false
+	}
 }
 
 var _ sarama.ConsumerGroupHandler = (*SaramaConsumerHandler)(nil)
