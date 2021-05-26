@@ -19,7 +19,7 @@ topics.
    > installation.
 
 1. Now that Apache Kafka is installed, you need to configure the
-   `bootstrapServers` value in the `config-kafka` ConfigMap, located inside the
+   `brokers` value in the `config-kafka` ConfigMap, located inside the
    `config/400-kafka-config.yaml` file.
 
    ```yaml
@@ -28,16 +28,18 @@ topics.
    metadata:
      name: config-kafka
      namespace: knative-eventing
+   # eventing-kafka.kafka.brokers: Replace this with the URLs for your kafka cluster,
+   #   which is in the format of my-cluster-kafka-bootstrap.my-kafka-namespace:9092.
    data:
-     # Broker URL. Replace this with the URLs for your kafka cluster,
-     # which is in the format of my-cluster-kafka-bootstrap.my-kafka-namespace:9092.
-     bootstrapServers: REPLACE_WITH_CLUSTER_URL
+     eventing-kafka: |
+      kafka:
+        brokers: REPLACE_WITH_CLUSTER_URL
    ```
 
 1. Apply the Kafka config:
 
    ```sh
-   ko apply -f config
+   ko apply -f config/channel/consolidated
    ```
 
 1. Create the `KafkaChannel` custom objects:
@@ -54,7 +56,8 @@ topics.
 
    You can configure the number of partitions with `numPartitions`, as well as
    the replication factor with `replicationFactor`. If not set, both will
-   default to `1`.
+   default to the values provided in the `eventing-kafka.kafka.topic` section of
+   the `config-kafka` ConfigMap.
 
 ## Components
 
@@ -85,8 +88,11 @@ objects:
 kubectl get deployment -n knative-eventing kafka-webhook
 ```
 
-The Kafka Config Map is used to configure the `bootstrapServers` of your Apache
-Kafka installation:
+The Kafka Config Map is used to configure the `brokers` of your Apache
+Kafka installation, as well as other settings.  Note that not all settings are
+applicable to the consolidated channel type.  In particular, the `receiver` and
+`admintype` fields of the `eventing-kafka.channel` section are only used by the
+distributed channel type.
 
 ```shell
 kubectl get configmap -n knative-eventing config-kafka
@@ -94,8 +100,8 @@ kubectl get configmap -n knative-eventing config-kafka
 
 ### Namespace Dispatchers
 
-By default events are received and dispatched by a single cluster-scoped
-dispatcher components. You can also specify whether events should be received
+By default, events are received and dispatched by a single cluster-scoped
+dispatcher component. You can also specify whether events should be received
 and dispatched by the dispatcher in the same namespace as the channel definition
 by adding the `eventing.knative.dev/scope: namespace` annotation.
 
@@ -109,12 +115,12 @@ metadata:
   name: config-kafka
   namespace: <YOUR_NAMESPACE>
 data:
-  # Broker URL. Replace this with the URLs for your kafka cluster,
-  # which is in the format of my-cluster-kafka-bootstrap.my-kafka-namespace:9092.
-  bootstrapServers: REPLACE_WITH_CLUSTER_URL
+  eventing-kafka: |
+    kafka:
+      brokers: REPLACE_WITH_CLUSTER_URL
 ```
 
-> Note: the `bootstrapServers` value does not have to be the same as the one
+> Note: the `brokers` value does not have to be the same as the one
 > specified in `knative-eventing/config-kafka`.
 
 Then create a KafkaChannel:
@@ -156,21 +162,22 @@ data:
   bootstrapServers: ...
   ...
   sarama: |
-    Version: 2.0.0 # Kafka Version Compatibility From Sarama's Supported List (Major.Minor.Patch)
-    Admin:
-      Timeout: 10000000000  # 10 seconds
-    Net:
-      KeepAlive: 30000000000  # 30 seconds
-    Metadata:
-      RefreshFrequency: 300000000000  # 5 minutes
-    Consumer:
-      Offsets:
-        AutoCommit:
-          Interval: 5000000000  # 5 seconds
-        Retention: 604800000000000  # 1 week
-    Producer:
-      Idempotent: true  # Must be false for Azure EventHubs
-      RequiredAcks: -1  # -1 = WaitForAll, Most stringent option for "at-least-once" delivery.
+    config: |
+      Version: 2.0.0 # Kafka Version Compatibility From Sarama's Supported List (Major.Minor.Patch)
+      Admin:
+        Timeout: 10000000000  # 10 seconds
+      Net:
+        KeepAlive: 30000000000  # 30 seconds
+      Metadata:
+        RefreshFrequency: 300000000000  # 5 minutes
+      Consumer:
+        Offsets:
+          AutoCommit:
+            Interval: 5000000000  # 5 seconds
+          Retention: 604800000000000  # 1 week
+      Producer:
+        Idempotent: true  # Must be false for Azure EventHubs
+        RequiredAcks: -1  # -1 = WaitForAll, Most stringent option for "at-least-once" delivery.
 ```
 
 Settings defined here are used as the defaults by the KafkaChannel. The
@@ -181,7 +188,7 @@ Also, some Sarama settings are required for the channel to work, such as
 `Consumer.Return.Errors` and `Producer.Return.Successes`, so the value for these
 in the `config-kafka` is ignored.
 
-Value of the `sarama` key must be valid YAML string. The string is marshalled
+Value of the `sarama.config` key must be valid YAML string. The string is marshalled
 into a
 [Sarama config struct](https://github.com/Shopify/sarama/blob/master/config.go),
 with a few exceptions (`Version` and certificates).
@@ -199,17 +206,18 @@ metadata:
   namespace: knative-eventing
 data:
   sarama: |
-    ...
-    Net:
-      TLS:
-        ...
-        Config:
-          RootCaPems:
-          - |-
-            -----BEGIN CERTIFICATE-----
-            MIIGBDCCA+ygAwIBAgIJAKi1aEV58cQ1MA0GCSqGSIb3DQEBCwUAMIGOMQswCQYD
-            ...
-            2wk9rLRZaQnhspt6MhlmU0qkaEZpYND3emR2XZ07m51jXqDUgTjXYCSggImUsARs
-            NAehp9bMeco=
-            -----END CERTIFICATE-----
+    config: |
+      ...
+      Net:
+        TLS:
+          ...
+          Config:
+            RootCaPems:
+            - |-
+              -----BEGIN CERTIFICATE-----
+              MIIGBDCCA+ygAwIBAgIJAKi1aEV58cQ1MA0GCSqGSIb3DQEBCwUAMIGOMQswCQYD
+              ...
+              2wk9rLRZaQnhspt6MhlmU0qkaEZpYND3emR2XZ07m51jXqDUgTjXYCSggImUsARs
+              NAehp9bMeco=
+              -----END CERTIFICATE-----
 ```

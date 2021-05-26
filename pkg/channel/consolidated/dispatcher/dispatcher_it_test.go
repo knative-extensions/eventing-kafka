@@ -27,14 +27,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-
-	"knative.dev/eventing-kafka/pkg/common/constants"
-
 	"github.com/cloudevents/sdk-go/v2/binding"
 	"github.com/cloudevents/sdk-go/v2/binding/transformer"
 	protocolhttp "github.com/cloudevents/sdk-go/v2/protocol/http"
 	"github.com/cloudevents/sdk-go/v2/test"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"knative.dev/eventing/pkg/channel/fanout"
 	"knative.dev/eventing/pkg/kncloudevents"
@@ -43,6 +40,8 @@ import (
 	tracingconfig "knative.dev/pkg/tracing/config"
 
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
+	"knative.dev/eventing-kafka/pkg/common/config"
+	"knative.dev/eventing-kafka/pkg/common/constants"
 )
 
 // This dispatcher tests the full integration of the dispatcher code with Kafka.
@@ -75,7 +74,7 @@ func TestDispatcher(t *testing.T) {
 	})
 
 	dispatcherArgs := KafkaDispatcherArgs{
-		ClientID:  "testing",
+		Config:    &config.EventingKafkaConfig{},
 		Brokers:   []string{"localhost:9092"},
 		TopicFunc: utils.TopicName,
 	}

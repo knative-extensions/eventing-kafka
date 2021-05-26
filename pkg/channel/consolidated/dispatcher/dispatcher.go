@@ -22,6 +22,8 @@ import (
 	"strings"
 	"sync"
 
+	"knative.dev/eventing-kafka/pkg/common/config"
+
 	"github.com/Shopify/sarama"
 	protocolkafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"github.com/cloudevents/sdk-go/v2/binding"
@@ -37,7 +39,6 @@ import (
 
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
-	"knative.dev/eventing-kafka/pkg/common/client"
 	"knative.dev/eventing-kafka/pkg/common/consumer"
 	"knative.dev/eventing-kafka/pkg/common/tracing"
 )
@@ -49,11 +50,9 @@ const (
 type TopicFunc func(separator, namespace, name string) string
 
 type KafkaDispatcherArgs struct {
-	ClientID                 string
-	Brokers                  []string
-	KafkaAuthConfig          *client.KafkaAuthConfig
-	SaramaSettingsYamlString string
-	TopicFunc                TopicFunc
+	Brokers   []string
+	Config    *config.EventingKafkaConfig
+	TopicFunc TopicFunc
 }
 
 type KafkaDispatcher struct {
@@ -78,25 +77,15 @@ type KafkaDispatcher struct {
 }
 
 func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispatcher, error) {
-	conf, err := client.NewConfigBuilder().
-		WithClientId(args.ClientID).
-		WithDefaults().
-		FromYaml(args.SaramaSettingsYamlString).
-		WithAuth(args.KafkaAuthConfig).
-		Build(ctx)
 
-	if err != nil {
-		return nil, fmt.Errorf("Error updating the Sarama Auth config: %w", err)
-	}
-
-	producer, err := sarama.NewSyncProducer(args.Brokers, conf)
+	producer, err := sarama.NewSyncProducer(args.Brokers, args.Config.Sarama.Config)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create kafka producer against Kafka bootstrap servers %v : %v", args.Brokers, err)
 	}
 
 	dispatcher := &KafkaDispatcher{
 		dispatcher:           eventingchannels.NewMessageDispatcher(logging.FromContext(ctx).Desugar()),
-		kafkaConsumerFactory: consumer.NewConsumerGroupFactory(args.Brokers, conf),
+		kafkaConsumerFactory: consumer.NewConsumerGroupFactory(args.Brokers, args.Config.Sarama.Config),
 		channelSubscriptions: make(map[types.NamespacedName]*KafkaSubscription),
 		subsConsumerGroups:   make(map[types.UID]sarama.ConsumerGroup),
 		subscriptions:        make(map[types.UID]Subscription),

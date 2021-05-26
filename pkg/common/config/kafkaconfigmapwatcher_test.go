@@ -51,7 +51,7 @@ func TestInitializeKafkaConfigMapWatcher(t *testing.T) {
 	commontesting.SetTestEnvironment(t)
 
 	// Create A Test Sarama ConfigMap For The InitializeKafkaConfigMapWatcher() Call To Watch
-	configMap := commontesting.GetTestSaramaConfigMap(commontesting.OldSaramaConfig, commontesting.TestEKConfig)
+	configMap := commontesting.GetTestSaramaConfigMap(constants.CurrentConfigVersion, commontesting.OldSaramaConfig, commontesting.TestEKConfig)
 
 	// Create The Fake K8S Client And Add It To The ConfigMap
 	fakeK8sClient := fake.NewSimpleClientset(configMap)

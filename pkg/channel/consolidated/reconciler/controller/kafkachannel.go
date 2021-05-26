@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
@@ -35,6 +36,14 @@ import (
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/pointer"
+	v1 "knative.dev/eventing/pkg/apis/duck/v1"
+	"knative.dev/eventing/pkg/apis/eventing"
+	"knative.dev/pkg/apis"
+	"knative.dev/pkg/apis/duck"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/network"
+	pkgreconciler "knative.dev/pkg/reconciler"
 
 	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/reconciler/controller/resources"
@@ -48,15 +57,7 @@ import (
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/common/constants"
 	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
-	v1 "knative.dev/eventing/pkg/apis/duck/v1"
-	"knative.dev/eventing/pkg/apis/eventing"
 	eventingclientset "knative.dev/eventing/pkg/client/clientset/versioned"
-	"knative.dev/pkg/apis"
-	"knative.dev/pkg/apis/duck"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/network"
-	pkgreconciler "knative.dev/pkg/reconciler"
 )
 
 const (
@@ -525,7 +526,11 @@ func (r *Reconciler) createClient(ctx context.Context) (sarama.ClusterAdmin, err
 	kafkaClusterAdmin := r.kafkaClusterAdmin
 	if kafkaClusterAdmin == nil {
 		var err error
-		kafkaClusterAdmin, err = client.MakeAdminClient(ctx, controllerAgentName, r.kafkaAuthConfig, r.kafkaConfig.SaramaSettingsYamlString, r.kafkaConfig.Brokers)
+
+		if r.kafkaConfig.EventingKafka.Sarama.Config == nil {
+			return nil, fmt.Errorf("error creating admin client: Sarama config is nil")
+		}
+		kafkaClusterAdmin, err = sarama.NewClusterAdmin(r.kafkaConfig.Brokers, r.kafkaConfig.EventingKafka.Sarama.Config)
 		if err != nil {
 			return nil, err
 		}
@@ -539,9 +544,19 @@ func (r *Reconciler) reconcileTopic(ctx context.Context, channel *v1beta1.KafkaC
 	topicName := utils.TopicName(utils.KafkaChannelSeparator, channel.Namespace, channel.Name)
 	logger.Infow("Creating topic on Kafka cluster", zap.String("topic", topicName),
 		zap.Int32("partitions", channel.Spec.NumPartitions), zap.Int16("replication", channel.Spec.ReplicationFactor))
+
+	// TODO - The eventing-kafka KafkaChannel spec does not include RetentionMillis so we're
+	//        currently just using the default value specified in the ConfigMap.  If/when the
+	//        RetentionMillis is added, any value from channel.Spec.RetentionMillis should
+	//        take precedence.
+	retentionMillisString := strconv.FormatInt(r.kafkaConfig.EventingKafka.Kafka.Topic.DefaultRetentionMillis, 10)
+
 	err := kafkaClusterAdmin.CreateTopic(topicName, &sarama.TopicDetail{
-		ReplicationFactor: channel.Spec.ReplicationFactor,
-		NumPartitions:     channel.Spec.NumPartitions,
+		ReplicationFactor: commonconfig.ReplicationFactor(channel, r.kafkaConfig.EventingKafka, logger),
+		NumPartitions:     commonconfig.NumPartitions(channel, r.kafkaConfig.EventingKafka, logger),
+		ConfigEntries: map[string]*string{
+			constants.KafkaTopicConfigRetentionMs: &retentionMillisString,
+		},
 	}, false)
 	if e, ok := err.(*sarama.TopicError); ok && e.Err == sarama.ErrTopicAlreadyExists {
 		return nil
@@ -584,16 +599,13 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 	}
 
 	logger.Info("Reloading Kafka configuration")
-	kafkaConfig, err := utils.GetKafkaConfig(configMap.Data)
+	kafkaConfig, err := utils.GetKafkaConfig(ctx, controllerAgentName, configMap.Data, utils.GetKafkaAuthData)
 	if err != nil {
 		logger.Errorw("Error reading Kafka configuration", zap.Error(err))
 		return
 	}
 
-	if kafkaConfig.AuthSecretName != "" {
-		kafkaAuthConfig := utils.GetKafkaAuthData(ctx, kafkaConfig.AuthSecretName, kafkaConfig.AuthSecretNamespace)
-		r.kafkaAuthConfig = kafkaAuthConfig
-	}
+	r.kafkaAuthConfig = kafkaConfig.EventingKafka.Auth
 	// For now just override the previous config.
 	// Eventually the previous config should be snapshotted to delete Kafka topics
 	r.kafkaConfig = kafkaConfig

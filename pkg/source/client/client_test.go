@@ -200,7 +200,16 @@ func TestAdminClient(t *testing.T) {
 	})
 
 	// mock broker does not support TLS ...
-	admin, err := client.MakeAdminClient(ctx, "test-client", nil, "", []string{seedBroker.Addr()})
+	saramaConf, err := client.NewConfigBuilder().
+		WithDefaults().
+		WithAuth(nil).
+		WithClientId("test-client").
+		FromYaml("").
+		Build(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	admin, err := sarama.NewClient([]string{seedBroker.Addr()}, saramaConf)
 	if err != nil {
 		t.Fatal(err)
 	}

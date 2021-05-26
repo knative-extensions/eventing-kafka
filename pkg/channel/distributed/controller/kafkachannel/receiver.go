@@ -337,7 +337,7 @@ func (r *Reconciler) newReceiverDeployment(secret *corev1.Secret) *appsv1.Deploy
 	deploymentName := util.ReceiverDnsSafeName(r.config.Kafka.AuthSecretName)
 
 	// Replicas Int Value For De-Referencing
-	replicas := int32(r.config.Receiver.Replicas)
+	replicas := int32(r.config.Channel.Receiver.Replicas)
 
 	// Create The Receiver Container Environment Variables
 	channelEnvVars := r.receiverDeploymentEnvVars(secret)
@@ -347,18 +347,18 @@ func (r *Reconciler) newReceiverDeployment(secret *corev1.Secret) *appsv1.Deploy
 	// If we want "no limit" or "no request" then the entry must not be present in the map.
 	// Note: Since a "Quantity" type has no nil value, we use the Zero value to represent unlimited.
 	resourceLimits := make(map[corev1.ResourceName]resource.Quantity)
-	if !r.config.Receiver.MemoryLimit.IsZero() {
-		resourceLimits[corev1.ResourceMemory] = r.config.Receiver.MemoryLimit
+	if !r.config.Channel.Receiver.MemoryLimit.IsZero() {
+		resourceLimits[corev1.ResourceMemory] = r.config.Channel.Receiver.MemoryLimit
 	}
-	if !r.config.Receiver.CpuLimit.IsZero() {
-		resourceLimits[corev1.ResourceCPU] = r.config.Receiver.CpuLimit
+	if !r.config.Channel.Receiver.CpuLimit.IsZero() {
+		resourceLimits[corev1.ResourceCPU] = r.config.Channel.Receiver.CpuLimit
 	}
 	resourceRequests := make(map[corev1.ResourceName]resource.Quantity)
-	if !r.config.Receiver.MemoryRequest.IsZero() {
-		resourceRequests[corev1.ResourceMemory] = r.config.Receiver.MemoryRequest
+	if !r.config.Channel.Receiver.MemoryRequest.IsZero() {
+		resourceRequests[corev1.ResourceMemory] = r.config.Channel.Receiver.MemoryRequest
 	}
-	if !r.config.Receiver.CpuRequest.IsZero() {
-		resourceRequests[corev1.ResourceCPU] = r.config.Receiver.CpuRequest
+	if !r.config.Channel.Receiver.CpuRequest.IsZero() {
+		resourceRequests[corev1.ResourceCPU] = r.config.Channel.Receiver.CpuRequest
 	}
 
 	// If either the limits or requests are an entirely-empty map, this will be translated to a nil
@@ -494,7 +494,7 @@ func (r *Reconciler) receiverDeploymentEnvVars(secret *corev1.Secret) []corev1.E
 			Value: constants.ReceiverContainerName,
 		},
 		{
-			Name:  commonenv.KnativeLoggingConfigMapNameEnvVarKey,
+			Name:  commonconstants.KnativeLoggingConfigMapNameEnvVarKey,
 			Value: logging.ConfigMapName(),
 		},
 		{

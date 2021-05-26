@@ -23,7 +23,7 @@ import (
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 )
 
-// ConfigurationError is the type of error returned from VerifyConfiguration
+// ControllerConfigurationError is the type of error returned from VerifyConfiguration
 // when a setting is missing or invalid
 type ControllerConfigurationError string
 
@@ -36,12 +36,12 @@ func (err ControllerConfigurationError) Error() string {
 func VerifyConfiguration(configuration *commonconfig.EventingKafkaConfig) error {
 
 	// Verify & Lowercase The Kafka AdminType
-	lowercaseKafkaAdminType := strings.ToLower(configuration.Kafka.AdminType)
+	lowercaseKafkaAdminType := strings.ToLower(configuration.Channel.AdminType)
 	switch lowercaseKafkaAdminType {
 	case constants.KafkaAdminTypeValueKafka, constants.KafkaAdminTypeValueAzure, constants.KafkaAdminTypeValueCustom:
-		configuration.Kafka.AdminType = lowercaseKafkaAdminType
+		configuration.Channel.AdminType = lowercaseKafkaAdminType
 	default:
-		return ControllerConfigurationError("Invalid / Unknown Kafka Admin Type: " + configuration.Kafka.AdminType)
+		return ControllerConfigurationError("Invalid / Unknown Kafka Admin Type: " + configuration.Channel.AdminType)
 	}
 
 	// Verify mandatory configuration settings
@@ -52,10 +52,10 @@ func VerifyConfiguration(configuration *commonconfig.EventingKafkaConfig) error 
 		return ControllerConfigurationError("Kafka.Topic.DefaultReplicationFactor must be > 0")
 	case configuration.Kafka.Topic.DefaultRetentionMillis < 1:
 		return ControllerConfigurationError("Kafka.Topic.DefaultRetentionMillis must be > 0")
-	case configuration.Dispatcher.Replicas < 1:
-		return ControllerConfigurationError("Dispatcher.Replicas must be > 0")
-	case configuration.Receiver.Replicas < 1:
-		return ControllerConfigurationError("Receiver.Replicas must be > 0")
+	case configuration.Channel.Dispatcher.Replicas < 1:
+		return ControllerConfigurationError("Distributed.Dispatcher.Replicas must be > 0")
+	case configuration.Channel.Receiver.Replicas < 1:
+		return ControllerConfigurationError("Distributed.Receiver.Replicas must be > 0")
 	}
 	return nil // no problems found
 }
