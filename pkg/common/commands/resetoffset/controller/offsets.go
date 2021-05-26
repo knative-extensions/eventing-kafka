@@ -29,6 +29,9 @@ import (
 	kafkav1alpha1 "knative.dev/eventing-kafka/pkg/apis/kafka/v1alpha1"
 )
 
+// PartitionOffsetManagers is a map of Partition -> Sarama PartitionOffsetManager
+type PartitionOffsetManagers map[int32]sarama.PartitionOffsetManager
+
 // SaramaNewClientFnType defines the Sarama NewClient() function signature.
 type SaramaNewClientFnType func([]string, *sarama.Config) (sarama.Client, error)
 
@@ -42,9 +45,6 @@ type SaramaNewOffsetManagerFromClientFnType func(group string, client sarama.Cli
 // SaramaNewOffsetManagerFromClientFn is a reference to the Sarama NewOffsetManagerFromClient()
 // function used when reconciling offsets which facilitates stubbing in unit tests.
 var SaramaNewOffsetManagerFromClientFn SaramaNewOffsetManagerFromClientFnType = sarama.NewOffsetManagerFromClient
-
-// updateOffsetsError is the general error for any failure in updating offsets, exposed for test use.
-var updateOffsetsError = fmt.Errorf("failed to update Offsets")
 
 // reconcileOffsets updates the Offsets of all Partitions for the specified
 // Topic / ConsumerGroup to the Offset value corresponding to the specified
@@ -79,7 +79,7 @@ func (r *Reconciler) reconcileOffsets(ctx context.Context, topicName string, gro
 		logger.Error("Failed to determine Partitions for Topic", zap.Error(err))
 		return nil, err
 	}
-	logger.Info("Found Topic Partitions", zap.Any("Partitions", partitions))
+	logger.Debug("Found Topic Partitions", zap.Any("Partitions", partitions))
 
 	// Create An OffsetManager For The Specified ConsumerGroup
 	offsetManager, err := SaramaNewOffsetManagerFromClientFn(groupId, saramaClient)
@@ -88,86 +88,107 @@ func (r *Reconciler) reconcileOffsets(ctx context.Context, topicName string, gro
 		return nil, err
 	}
 
-	// Track Partition Specific Resources
-	partitionOffsetManagers := make([]sarama.PartitionOffsetManager, len(partitions))
+	// Create The Required PartitionOffsetManagers For The Specified Topic / Partitions
+	partitionOffsetManagers, err := createPartitionOffsetManagers(offsetManager, topicName, partitions)
+	if err != nil {
+		logger.Error("Failed to create PartitionOffsetManagers for Topic Partitions", zap.Error(err))
+		_ = closeManagersAndDrainErrors(logger, offsetManager, partitionOffsetManagers)
+		return nil, err
+	}
+
+	// Update All Topic Partitions To The Specified Offset Time
+	offsetMappings, err := updateOffsets(logger, saramaClient, offsetManager, partitionOffsetManagers, topicName, partitions, offsetTime)
+	if err != nil {
+		logger.Error("Failed to update Offsets for Topic Partitions", zap.Error(err))
+		_ = closeManagersAndDrainErrors(logger, offsetManager, partitionOffsetManagers)
+		return nil, err
+	}
+
+	// Close The Sarama Managers And Get Any Accumulated Errors
+	err = closeManagersAndDrainErrors(logger, offsetManager, partitionOffsetManagers)
+	if err != nil {
+		logger.Error("")
+		return nil, err
+	}
+
+	// Return Success
+	return offsetMappings, nil
+}
+
+// updateOffsets attempts to update all of the specified Topic's Partitions
+// and performs the final Commit() if all were successfully updated.  The
+// old/new Offset values are returned if successful.  Per the Sarama library
+// implementation, Errors directly related to Offset management are available
+// on the respective PartitionOffsetManager's Error channel.  Such errors are
+// not returned here as they should be drained after closing the Managers.
+func updateOffsets(logger *zap.Logger,
+	saramaClient sarama.Client,
+	offsetManager sarama.OffsetManager,
+	partitionOffsetManagers PartitionOffsetManagers,
+	topicName string,
+	partitions []int32,
+	offsetTime int64) ([]kafkav1alpha1.OffsetMapping, error) {
+
+	// The OffsetMappings To Be Returned For ResetOffset Status
 	offsetMappings := make([]kafkav1alpha1.OffsetMapping, len(partitions))
 
 	// Loop Over The Partitions - Updating Offsets & Tracking Results
-	updatesFailed := false
 	for index, partition := range partitions {
-		partitionOffsetManager, offsetMapping, updateErr := updateOffset(logger, saramaClient, offsetManager, topicName, partition, offsetTime)
-		partitionOffsetManagers[index] = partitionOffsetManager
-		if offsetMapping != nil {
-			offsetMappings[index] = *offsetMapping
+
+		// Enhance The Logger With Partition
+		logger = logger.With(zap.Int32("Partition", partition))
+
+		// Get The PartitionOffsetManager For The Current Partition
+		partitionOffsetManager := partitionOffsetManagers[partition]
+		if partitionOffsetManager == nil {
+			logger.Error("Missing PartitionOffsetManager - unable to update Offset")
+			return nil, fmt.Errorf("missing PartitionOffsetManager - unable to update Offset")
 		}
+
+		// Update The Individual Offset To Specified Time
+		offsetMapping, updateErr := updateOffset(logger, saramaClient, partitionOffsetManager, topicName, partition, offsetTime)
 		if updateErr != nil {
-			updatesFailed = true
+			logger.Error("Failed to update Offset - skipping Commit", zap.Error(updateErr))
+			return nil, updateErr
 		}
+		offsetMappings[index] = *offsetMapping
 	}
 
-	// If All Partitions Were Updated Successfully Then Commit The New Offsets
-	if updatesFailed {
-		logger.Error("Failed to update all Offsets - skipping Commit")
-	} else {
-		logger.Info("All Offsets updated successfully - performing Commit")
-		offsetManager.Commit()
-	}
+	// All Partitions Updated Successfully - Commit The New Offsets!
+	logger.Info("All Offsets updated successfully - performing Commit")
+	offsetManager.Commit() // No Errors Returned - Will be in PartitionOffsetManager.Errors() Channel Post-Close!
 
-	// Close The PartitionOffsetManagers (Must Be Called Before Closing OffsetManager)
-	for _, partitionOffsetManager := range partitionOffsetManagers {
-		if partitionOffsetManager != nil {
-			partitionOffsetManager.AsyncClose()
-		}
-	}
-
-	// Close The OffsetManager (Must Be Called After Closing PartitionOffsetManagers)
-	err = offsetManager.Close()
-	if err != nil {
-		logger.Error("Failed to close Sarama OffsetManager", zap.Error(err)) // Doesn't appear to be possible but log it and continue
-	}
-
-	// Drain The PartitionOffsetManagers Error Channels (Must Be Called After Commit/Close)
-	err = drainPartitionOffsetManagerErrors(partitionOffsetManagers...)
-	if err != nil {
-		logger.Error("Errors encountered during Offset update", zap.Errors("Sarama PartitionOffsetManager Errors", multierr.Errors(err)))
-	}
-
-	// Return Results
-	var resultErr error
-	if err != nil || updatesFailed {
-		resultErr = updateOffsetsError
-	}
-	return offsetMappings, resultErr
+	// Return Success!
+	return offsetMappings, nil
 }
 
-// updateOffset performs the update of a single Partition's Offset and
-// returns an OffsetMapping representing the old/new state.
+// updateOffset calculated and performs an update of a single Partition's Offset
+// and returns an OffsetMapping representing the old/new state.  No Offset changes
+// are committed to allow for atomic commit/fail decision for all Offsets.
 func updateOffset(logger *zap.Logger,
 	saramaClient sarama.Client,
-	offsetManager sarama.OffsetManager,
+	partitionOffsetManager sarama.PartitionOffsetManager,
 	topic string,
 	partition int32,
-	offsetTime int64) (sarama.PartitionOffsetManager, *kafkav1alpha1.OffsetMapping, error) {
-
-	// Enhance The Logger With Partition
-	logger = logger.With(zap.Int32("Partition", partition))
+	offsetTime int64) (*kafkav1alpha1.OffsetMapping, error) {
 
 	// Get The New Offset Of Partition For Specified Time
 	newOffset, err := saramaClient.GetOffset(topic, partition, offsetTime)
 	if err != nil {
 		logger.Error("Failed to get Partition Offset for Time", zap.Int64("Time", offsetTime), zap.Error(err))
-		return nil, nil, err
-	}
-
-	// Create A PartitionOffsetManager For The Specified Partition
-	partitionOffsetManager, err := offsetManager.ManagePartition(topic, partition)
-	if partitionOffsetManager == nil || err != nil {
-		logger.Error("Failed to create PartitionOffsetManager", zap.Error(err))
-		return nil, nil, err
+		return nil, err
 	}
 
 	// Get The Current Offset Of Partition (Accuracy Depends On ConsumerGroup Having Been Stopped)
 	currentOffset, _ := partitionOffsetManager.NextOffset()
+
+	// Update The Partition's Offset Forward/Back As Needed
+	offsetMetaData := formatOffsetMetaData(offsetTime)
+	if newOffset > currentOffset {
+		partitionOffsetManager.MarkOffset(newOffset, offsetMetaData) // No Errors Returned - On PartitionOffsetManager.Errors() Channel Instead
+	} else if newOffset < currentOffset {
+		partitionOffsetManager.ResetOffset(newOffset, offsetMetaData) // No Errors Returned - On PartitionOffsetManager.Errors() Channel Instead
+	}
 
 	// Create An OffsetMapping For The Partition
 	offsetMapping := &kafkav1alpha1.OffsetMapping{
@@ -176,16 +197,8 @@ func updateOffset(logger *zap.Logger,
 		NewOffset: newOffset,
 	}
 
-	// Update The Partition's Offset Forward/Back As Needed
-	offsetMetaData := formatOffsetMetaData(offsetTime)
-	if newOffset > currentOffset {
-		partitionOffsetManager.MarkOffset(newOffset, offsetMetaData)
-	} else if newOffset < currentOffset {
-		partitionOffsetManager.ResetOffset(newOffset, offsetMetaData)
-	}
-
-	// Return The PartitionOffsetManager, OffsetMapping Success
-	return partitionOffsetManager, offsetMapping, nil
+	// Return The OffsetMapping Success
+	return offsetMapping, nil
 }
 
 // formatOffsetMetaData returns a "metadata" string, suitable for use with MarkOffset/ResetOffset, for the specified time.
@@ -203,9 +216,61 @@ func safeCloseSaramaClient(logger *zap.Logger, client sarama.Client) {
 	}
 }
 
+// createPartitionOffsetManagers initializes the PartitionOffsetManagers for the specified topic / partitions.
+func createPartitionOffsetManagers(offsetManager sarama.OffsetManager, topicName string, partitions []int32) (PartitionOffsetManagers, error) {
+	partitionOffsetManagers := make(PartitionOffsetManagers, len(partitions))
+	for _, partition := range partitions {
+		partitionOffsetManager, err := offsetManager.ManagePartition(topicName, partition)
+		partitionOffsetManagers[partition] = partitionOffsetManager
+		if err != nil {
+			return partitionOffsetManagers, err
+		}
+	}
+	return partitionOffsetManagers, nil
+}
+
+// closePartitionOffsetManagers performs an AsyncClose on the PartitionOffsetManagers
+func closePartitionOffsetManagers(partitionOffsetManagers PartitionOffsetManagers) {
+	for _, partitionOffsetManager := range partitionOffsetManagers {
+		if partitionOffsetManager != nil {
+			partitionOffsetManager.AsyncClose() // Fast - No Errors Returned - Works Without AutoCommit ; )
+		}
+	}
+}
+
+// closeManagersAndDrainErrors handles the tear-down of the Sarama OffsetManager and
+// PartitionOffsetManagers in the necessary sequence, and returns any errors that have
+// accumulated.  This function should be called AFTER the OffsetManager.Commit() operation
+// has been performed, and the errors could be related to prior MarkOffset / ResetOffset
+// / Commit operations.  These Sarama "managers" are intertwined and Sarama is very
+// proscriptive about the order in which they should be closed and drained.
+func closeManagersAndDrainErrors(logger *zap.Logger, offsetManager sarama.OffsetManager, partitionOffsetManagers PartitionOffsetManagers) error {
+
+	// Close The PartitionOffsetManagers (Must Be Called Before Closing OffsetManager)
+	closePartitionOffsetManagers(partitionOffsetManagers)
+
+	// Close The OffsetManager (Must Be Called After Closing PartitionOffsetManagers)
+	if offsetManager != nil {
+		closeErr := offsetManager.Close()
+		if closeErr != nil {
+			logger.Error("Failed to close Sarama OffsetManager", zap.Error(closeErr)) // Doesn't appear to be possible but log it and continue
+		}
+	}
+
+	// Drain The PartitionOffsetManagers Error Channels (Must Be Called After Close)
+	pomErr := drainPartitionOffsetManagerErrors(partitionOffsetManagers)
+	if pomErr != nil {
+		logger.Error("Errors encountered during Offset update", zap.Errors("Sarama PartitionOffsetManager Errors", multierr.Errors(pomErr)))
+	}
+
+	// Return Any PartitionOffsetManager Errors
+	return pomErr
+}
+
 // drainPartitionOffsetManagerErrors drains the PartitionOffsetManager's Error channels and
 // returns any ConsumerErrors as a Zap multierr, and must be called after Commit() / Close().
-func drainPartitionOffsetManagerErrors(partitionOffsetManagers ...sarama.PartitionOffsetManager) error {
+// This async error channel not ideal but is simply the way the Sarama library operates.
+func drainPartitionOffsetManagerErrors(partitionOffsetManagers PartitionOffsetManagers) error {
 	var multiErr error
 	for _, partitionOffsetManager := range partitionOffsetManagers {
 		if partitionOffsetManager != nil {

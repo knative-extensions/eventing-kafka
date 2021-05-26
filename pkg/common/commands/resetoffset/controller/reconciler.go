@@ -106,11 +106,13 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, resetOffset *kafkav1alph
 
 	// Update The Sarama Offsets & Update ResetOffset CRD With OffsetMappings
 	offsetMappings, err := r.reconcileOffsets(ctx, topic, group, offsetTime)
-	resetOffset.Status.SetPartitions(offsetMappings)
 	if err != nil {
 		logger.Error("Failed to update Offsets of one or more partitions", zap.Error(err))
 		resetOffset.Status.MarkOffsetsUpdatedFailed("FailedToUpdateOffsets", "Failed to update offsets of one or more partitions: %v", err)
 		return fmt.Errorf("failed to update offsets of one or more partitions: %v", err)
+	}
+	if offsetMappings != nil {
+		resetOffset.Status.SetPartitions(offsetMappings)
 	}
 	logger.Info("Successfully updated Offsets of all partitions")
 	resetOffset.Status.MarkOffsetsUpdatedTrue()
