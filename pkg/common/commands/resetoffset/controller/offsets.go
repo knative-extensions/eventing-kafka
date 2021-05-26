@@ -107,7 +107,7 @@ func (r *Reconciler) reconcileOffsets(ctx context.Context, topicName string, gro
 	// Close The Sarama Managers And Get Any Accumulated Errors
 	err = closeManagersAndDrainErrors(logger, offsetManager, partitionOffsetManagers)
 	if err != nil {
-		logger.Error("")
+		logger.Error("PartitionOffsetManager Errors encountered", zap.Error(err))
 		return nil, err
 	}
 
@@ -162,7 +162,7 @@ func updateOffsets(logger *zap.Logger,
 	return offsetMappings, nil
 }
 
-// updateOffset calculated and performs an update of a single Partition's Offset
+// updateOffset calculates and performs an update of a single Partition's Offset
 // and returns an OffsetMapping representing the old/new state.  No Offset changes
 // are committed to allow for atomic commit/fail decision for all Offsets.
 func updateOffset(logger *zap.Logger,
