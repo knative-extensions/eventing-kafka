@@ -27,25 +27,24 @@ import (
 	"github.com/cloudevents/sdk-go/v2/binding"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	kafkasarama "knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/common/tracing"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/channel"
 	"knative.dev/eventing/pkg/kncloudevents"
-
-	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 )
 
 // Verify The Handler Implements The Sarama ConsumerGroupHandler
 var _ sarama.ConsumerGroupHandler = &Handler{}
 
-// Define A Sarama ConsumerGroupHandler Implementation
+// Handler Defines A Sarama ConsumerGroupHandler Implementation
 type Handler struct {
 	Logger            *zap.Logger
 	Subscriber        *eventingduck.SubscriberSpec
 	MessageDispatcher channel.MessageDispatcher
 }
 
-// Create A New Handler
+// NewHandler Creates A New Handler
 func NewHandler(logger *zap.Logger, subscriber *eventingduck.SubscriberSpec) *Handler {
 	return &Handler{
 		Logger:            logger,
@@ -59,17 +58,17 @@ var newMessageDispatcherWrapper = func(logger *zap.Logger) channel.MessageDispat
 	return channel.NewMessageDispatcher(logger)
 }
 
-// ConsumerGroupHandler Lifecycle Method (Runs before any ConsumeClaims)
+// Setup Is The Initial ConsumerGroupHandler Lifecycle Method (Runs before any ConsumeClaims)
 func (h *Handler) Setup(_ sarama.ConsumerGroupSession) error {
 	return nil // Nothing To Do As Of Yet
 }
 
-// ConsumerGroupHandler Lifecycle Method (Runs after all ConsumeClaims stop but before final offset commit)
+// Cleanup Is The Final ConsumerGroupHandler Lifecycle Method (Runs after all ConsumeClaims stop but before final offset commit)
 func (h *Handler) Cleanup(_ sarama.ConsumerGroupSession) error {
 	return nil // Nothing To Do As Of Yet
 }
 
-// ConsumerGroupHandler Lifecycle Method (Main processing loop, must finish when claim.Messages() channel closes.)
+// ConsumeClaim Is The Main ConsumerGroupHandler Lifecycle Method (Main processing loop, must finish when claim.Messages() channel closes.)
 func (h *Handler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 
 	// Extract The Destination URL From The Subscriber
@@ -128,7 +127,7 @@ func (h *Handler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama
 	return nil
 }
 
-// Consume A Single Message
+// consumeMessage Consumes A Single Message
 func (h *Handler) consumeMessage(context context.Context, consumerMessage *sarama.ConsumerMessage, destinationURL *url.URL, replyURL *url.URL, deadLetterURL *url.URL, retryConfig *kncloudevents.RetryConfig) error {
 
 	// Debug Log Kafka ConsumerMessage

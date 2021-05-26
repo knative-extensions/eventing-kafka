@@ -21,7 +21,6 @@ import (
 	"errors"
 	"math"
 	"sort"
-	"strconv"
 	"sync"
 	"time"
 
@@ -128,9 +127,7 @@ func (s *StatefulSetScheduler) Schedule(vpod scheduler.VPod) ([]duckv1alpha1.Pla
 		return placements, err
 	}
 	sort.SliceStable(placements, func(i int, j int) bool {
-		podIOrdinal, _ := strconv.Atoi(placements[i].PodName[len(placements[i].PodName)-1:])
-		podJOrdinal, _ := strconv.Atoi(placements[j].PodName[len(placements[j].PodName)-1:])
-		return podIOrdinal < podJOrdinal
+		return ordinalFromPodName(placements[i].PodName) < ordinalFromPodName(placements[j].PodName)
 	})
 	return placements, err
 }

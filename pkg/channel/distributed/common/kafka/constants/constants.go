@@ -22,16 +22,10 @@ import (
 
 // Constants
 const (
-	// Duration Convenience
+	// MillisPerDay Is A Duration Convenience
 	MillisPerDay = 24 * 60 * 60 * 1000 // 86400000
 
-	// Kafka Secret Keys
-	KafkaSecretKeyNamespace = "namespace"
-	KafkaSecretKeyUsername  = "username"
-	KafkaSecretKeyPassword  = "password"
-	KafkaSecretKeySaslType  = "sasltype"
-
-	// Kafka Topic Config Keys
+	// TopicDetailConfigRetentionMs Is The ConfigEntry In The Sarama TopicDetail For Retention Time
 	TopicDetailConfigRetentionMs = "retention.ms"
 
 	// EventHub Error Codes
@@ -40,14 +34,14 @@ const (
 	EventHubErrorCodeCapacityLimit = 403
 	EventHubErrorCodeConflict      = 409
 
-	// KafkaChannel Constants
-	KafkaChannelServiceNameSuffix = "kn-channel" // Specific Value For Use With Knative e2e Tests!
+	// KafkaChannelServiceNameSuffix Is The Specific Service Name Suffix For Use With Knative E2E Tests
+	KafkaChannelServiceNameSuffix = "kn-channel"
 )
 
 // Non-Constant Constants ;)
 var (
 	//
-	// Default Kafka Version
+	// ConfigKafkaVersionDefault Is The Default Kafka Version
 	//
 	// This is the default value which will be used when creating Sarama.Config if not
 	// otherwise specified in the ConfigMap.  It is set to the lowest common denominator

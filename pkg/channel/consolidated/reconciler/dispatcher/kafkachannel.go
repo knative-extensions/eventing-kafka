@@ -49,6 +49,8 @@ import (
 	listers "knative.dev/eventing-kafka/pkg/client/listers/messaging/v1beta1"
 )
 
+const dispatcherClientId = "kafka-ch-dispatcher"
+
 func init() {
 	// Add run types to the default Kubernetes Scheme so Events can be
 	// logged for run types.
@@ -88,33 +90,29 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		logger.Fatalw("error loading configuration", zap.Error(err))
 	}
 
-	kafkaConfig, err := utils.GetKafkaConfig(configMap)
+	kafkaConfig, err := utils.GetKafkaConfig(ctx, dispatcherClientId, configMap, utils.GetKafkaAuthData)
 	if err != nil {
 		logger.Fatalw("Error loading kafka config", zap.Error(err))
 	}
 
-	kafkaAuthCfg := utils.GetKafkaAuthData(ctx, kafkaConfig.AuthSecretName, kafkaConfig.AuthSecretNamespace)
-
 	// Configure connection arguments - to be done exactly once per process
 	kncloudevents.ConfigureConnectionArgs(&kncloudevents.ConnectionArgs{
-		MaxIdleConns:        int(kafkaConfig.MaxIdleConns),
-		MaxIdleConnsPerHost: int(kafkaConfig.MaxIdleConnsPerHost),
+		MaxIdleConns:        kafkaConfig.EventingKafka.CloudEvents.MaxIdleConns,
+		MaxIdleConnsPerHost: kafkaConfig.EventingKafka.CloudEvents.MaxIdleConnsPerHost,
 	})
 
 	kafkaChannelInformer := kafkachannel.Get(ctx)
 	args := &dispatcher.KafkaDispatcherArgs{
-		ClientID:                 "kafka-ch-dispatcher",
-		Brokers:                  kafkaConfig.Brokers,
-		KafkaAuthConfig:          kafkaAuthCfg,
-		SaramaSettingsYamlString: kafkaConfig.SaramaSettingsYamlString,
-		TopicFunc:                utils.TopicName,
+		Brokers:   kafkaConfig.Brokers,
+		Config:    kafkaConfig.EventingKafka,
+		TopicFunc: utils.TopicName,
 	}
 	kafkaDispatcher, err := dispatcher.NewDispatcher(ctx, args)
 	if err != nil {
 		logger.Fatalw("Unable to create kafka dispatcher", zap.Error(err))
 	}
 	logger.Info("Starting the Kafka dispatcher")
-	logger.Infow("Kafka broker configuration", zap.Strings(utils.BrokerConfigMapKey, kafkaConfig.Brokers))
+	logger.Infow("Kafka broker configuration", zap.Strings("Brokers", kafkaConfig.Brokers))
 
 	r := &Reconciler{
 		kafkaDispatcher:      kafkaDispatcher,

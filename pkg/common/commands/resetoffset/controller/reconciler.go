@@ -28,13 +28,14 @@ import (
 	"knative.dev/pkg/reconciler"
 
 	kafkav1alpha1 "knative.dev/eventing-kafka/pkg/apis/kafka/v1alpha1"
-	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/client/injection/reconciler/kafka/v1alpha1/resetoffset"
 	kafkalisters "knative.dev/eventing-kafka/pkg/client/listers/kafka/v1alpha1"
-	"knative.dev/eventing-kafka/pkg/common/client"
 	"knative.dev/eventing-kafka/pkg/common/commands/resetoffset/refmappers"
-	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
+	kafkasarama "knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 )
+
+// Component For Sarama Config
+const Component = "reset-offset-controller"
 
 var (
 	_ resetoffset.Interface = (*Reconciler)(nil) // Verify Reconciler Implements Interface
@@ -141,7 +142,6 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, resetOffset *kafkav1alpha
 	return reconciler.NewEvent(corev1.EventTypeNormal, ResetOffsetFinalized.String(), "Finalized successfully")
 }
 
-// TODO - Refactor once the new "common" ConfigMap implementation is in place - currently supports distributed implementation ConfigMap!
 // updateKafkaConfig is the callback function that handles changes to the ConfigMap
 func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.ConfigMap) {
 
@@ -169,7 +169,7 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 	}
 
 	// Load The EventingKafkaConfig From ConfigMap.Data
-	ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap.Data)
+	ekConfig, err := kafkasarama.LoadSettings(ctx, Component, configMap.Data, kafkasarama.LoadAuthConfig)
 	if err != nil || ekConfig == nil {
 		logger.Error("Failed to extract EventingKafkaConfig from ConfigMap", zap.Any("ConfigMap", configMap), zap.Error(err))
 		return
@@ -179,31 +179,15 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 	r.kafkaBrokers = strings.Split(ekConfig.Kafka.Brokers, ",")
 
 	// Enable/Disable Sarama Logging Based On ConfigMap Setting
-	kafkasarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)
-	logger.Debug("Set Sarama logging", zap.Bool("Enabled", ekConfig.Kafka.EnableSaramaLogging))
+	kafkasarama.EnableSaramaLogging(ekConfig.Sarama.EnableLogging)
+	logger.Debug("Set Sarama logging", zap.Bool("Enabled", ekConfig.Sarama.EnableLogging))
 
-	// Get The Sarama Config Yaml From The ConfigMap
-	saramaSettingsYamlString := configMap.Data[commonconstants.SaramaSettingsConfigKey]
+	// Force Enable Consumer Error Handling
+	ekConfig.Sarama.Config.Consumer.Return.Errors = true
 
-	// Create A Kafka Auth Config From Current Credentials (Secret Data Takes Precedence Over ConfigMap)
-	var kafkaAuthCfg *client.KafkaAuthConfig // TODO - temporarily using nil for testing locally with Strimzi -  use new ConfigMap when available.
+	// Force Disable Manual Commits
+	ekConfig.Sarama.Config.Consumer.Offsets.AutoCommit.Enable = false
 
-	// Build A New Sarama Config With Auth From Secret And YAML Config From ConfigMap
-	saramaConfig, err := client.NewConfigBuilder().
-		WithDefaults().
-		WithAuth(kafkaAuthCfg).
-		FromYaml(saramaSettingsYamlString).
-		Build(ctx)
-	if err != nil {
-		logger.Fatal("Failed to create Sarama Config based on ConfigMap", zap.Error(err))
-	}
-
-	// Force Consumer Error Handling
-	saramaConfig.Consumer.Return.Errors = true
-
-	// Force Manual Commits
-	saramaConfig.Consumer.Offsets.AutoCommit.Enable = false
-
-	// Update Reconciler With New Sarama Config
-	r.saramaConfig = saramaConfig
+	// Update Reconciler With New Config
+	r.saramaConfig = ekConfig.Sarama.Config
 }

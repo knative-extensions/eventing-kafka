@@ -29,15 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	clientgotesting "k8s.io/client-go/testing"
-
-	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
-	"knative.dev/eventing-kafka/pkg/channel/consolidated/reconciler/controller/resources"
-	reconcilertesting "knative.dev/eventing-kafka/pkg/channel/consolidated/reconciler/testing"
-	. "knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
-	fakekafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client/fake"
-	"knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
-	eventingduckv1 "knative.dev/eventing/pkg/apis/duck/v1"
-	eventingClient "knative.dev/eventing/pkg/client/injection/client"
+	"knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
@@ -47,6 +39,15 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/network"
 	. "knative.dev/pkg/reconciler/testing"
+
+	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
+	"knative.dev/eventing-kafka/pkg/channel/consolidated/reconciler/controller/resources"
+	reconcilertesting "knative.dev/eventing-kafka/pkg/channel/consolidated/reconciler/testing"
+	. "knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
+	fakekafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client/fake"
+	"knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
+	eventingduckv1 "knative.dev/eventing/pkg/apis/duck/v1"
+	eventingClient "knative.dev/eventing/pkg/client/injection/client"
 )
 
 const (
@@ -334,7 +335,8 @@ func TestAllCases(t *testing.T) {
 			dispatcherServiceAccount: testDispatcherserviceAccount,
 			kafkaConfigMapHash:       testConfigMapHash,
 			kafkaConfig: &KafkaConfig{
-				Brokers: []string{brokerName},
+				Brokers:       []string{brokerName},
+				EventingKafka: &config.EventingKafkaConfig{},
 			},
 			kafkachannelLister: listers.GetKafkaChannelLister(),
 			// TODO fix
@@ -399,7 +401,8 @@ func TestTopicExists(t *testing.T) {
 			dispatcherServiceAccount: testDispatcherserviceAccount,
 			kafkaConfigMapHash:       testConfigMapHash,
 			kafkaConfig: &KafkaConfig{
-				Brokers: []string{brokerName},
+				Brokers:       []string{brokerName},
+				EventingKafka: &config.EventingKafkaConfig{},
 			},
 			kafkachannelLister: listers.GetKafkaChannelLister(),
 			// TODO fix
@@ -476,7 +479,8 @@ func TestDeploymentUpdatedOnImageChange(t *testing.T) {
 			dispatcherServiceAccount: testDispatcherserviceAccount,
 			kafkaConfigMapHash:       testConfigMapHash,
 			kafkaConfig: &KafkaConfig{
-				Brokers: []string{brokerName},
+				Brokers:       []string{brokerName},
+				EventingKafka: &config.EventingKafkaConfig{},
 			},
 			kafkachannelLister: listers.GetKafkaChannelLister(),
 			// TODO fix
@@ -553,7 +557,8 @@ func TestDeploymentZeroReplicas(t *testing.T) {
 			dispatcherServiceAccount: testDispatcherserviceAccount,
 			kafkaConfigMapHash:       testConfigMapHash,
 			kafkaConfig: &KafkaConfig{
-				Brokers: []string{brokerName},
+				Brokers:       []string{brokerName},
+				EventingKafka: &config.EventingKafkaConfig{},
 			},
 			kafkachannelLister: listers.GetKafkaChannelLister(),
 			// TODO fix
@@ -627,7 +632,8 @@ func TestDeploymentMoreThanOneReplicas(t *testing.T) {
 			dispatcherServiceAccount: testDispatcherserviceAccount,
 			kafkaConfigMapHash:       testConfigMapHash,
 			kafkaConfig: &KafkaConfig{
-				Brokers: []string{brokerName},
+				Brokers:       []string{brokerName},
+				EventingKafka: &config.EventingKafkaConfig{},
 			},
 			kafkachannelLister: listers.GetKafkaChannelLister(),
 			// TODO fix
@@ -704,7 +710,8 @@ func TestDeploymentUpdatedOnConfigMapHashChange(t *testing.T) {
 			dispatcherServiceAccount: testDispatcherserviceAccount,
 			kafkaConfigMapHash:       testConfigMapHash,
 			kafkaConfig: &KafkaConfig{
-				Brokers: []string{brokerName},
+				Brokers:       []string{brokerName},
+				EventingKafka: &config.EventingKafkaConfig{},
 			},
 			kafkachannelLister: listers.GetKafkaChannelLister(),
 			// TODO fix

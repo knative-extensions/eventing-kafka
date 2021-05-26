@@ -31,6 +31,12 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 )
 
+// Test Data
+const (
+	subscriptionName      = "test-subscription-name"
+	subscriptionNamespace = "test-subscription-namespace"
+)
+
 // Test The SubscriptionLogger Functionality
 func TestSubscriptionLogger(t *testing.T) {
 

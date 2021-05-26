@@ -18,6 +18,9 @@ package constants
 
 const (
 
+	// Component For Sarama Config
+	Component = "eventing-kafka-channel-controller"
+
 	// Kafka Admin Type Types
 	KafkaAdminTypeValueKafka  = "kafka"
 	KafkaAdminTypeValueAzure  = "azure"
@@ -76,9 +79,6 @@ const (
 	K8sAppChannelSelectorValue    = "eventing-kafka-channels"
 	K8sAppDispatcherSelectorLabel = "k8s-app"
 	K8sAppDispatcherSelectorValue = "eventing-kafka-dispatchers"
-
-	// Kafka Topic Configuration
-	KafkaTopicConfigRetentionMs = "retention.ms"
 
 	// Health Configuration
 	// Note that many of these are the default values for a corev1 "Probe" struct,

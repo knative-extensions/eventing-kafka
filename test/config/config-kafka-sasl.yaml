@@ -3,9 +3,14 @@ kind: ConfigMap
 metadata:
   name: config-kafka
   namespace: ${SYSTEM_NAMESPACE}
+  # eventing-kafka.kafka.brokers: Replace this with the URLs for your kafka cluster,
+  #   which is in the format of my-cluster-kafka-bootstrap.my-kafka-namespace:9092.
+  # eventing-kafka.kafka.authSecretName: name-of-your-secret-for-kafka-auth
+  # eventing-kafka.kafka.authSecretNamespace: namespace-of-your-secret-for-kafka-auth
 data:
-  # Broker URL. Replace this with the URLs for your kafka cluster,
-  # which is in the format of my-cluster-kafka-bootstrap.my-kafka-namespace:9092.
-  bootstrapServers: REPLACE_WITH_CLUSTER_URL
-  authSecretName: strimzi-sasl-secret
-  authSecretNamespace: ${SYSTEM_NAMESPACE}
+  version: 1.0.0
+  eventing-kafka: |
+    kafka:
+      brokers: REPLACE_WITH_CLUSTER_URL
+      authSecretName: strimzi-sasl-secret
+      authSecretNamespace: ${SYSTEM_NAMESPACE}

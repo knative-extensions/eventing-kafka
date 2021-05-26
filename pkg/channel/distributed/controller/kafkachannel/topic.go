@@ -21,31 +21,38 @@ import (
 	"fmt"
 	"strconv"
 
-	"knative.dev/pkg/logging"
-
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
+
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
-	"knative.dev/pkg/controller"
+	"knative.dev/eventing-kafka/pkg/common/config"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 )
 
-// Reconcile The Kafka Topic Associated With The Specified Channel
+// reconcileKafkaTopic Reconciles The Kafka Topic Associated With The Specified Channel
 func (r *Reconciler) reconcileKafkaTopic(ctx context.Context, channel *kafkav1beta1.KafkaChannel) error {
 
 	// Get The TopicName For Specified Channel
 	topicName := util.TopicName(channel)
 
 	// Get Channel-Specific Logger (From The Context) & Add Topic Name
-	logger := logging.FromContext(ctx).Desugar().With(zap.String("TopicName", topicName))
+	logger := logging.FromContext(ctx).With(zap.String("TopicName", topicName))
 
 	// Get The Topic Configuration (First From Channel With Failover To Environment)
-	numPartitions := util.NumPartitions(channel, r.config, logger)
-	replicationFactor := util.ReplicationFactor(channel, r.config, logger)
-	retentionMillis := util.RetentionMillis(channel, r.config, logger)
+	numPartitions := config.NumPartitions(channel, r.config, logger)
+	replicationFactor := config.ReplicationFactor(channel, r.config, logger)
+
+	// TODO - The eventing-kafka KafkaChannel spec does not include RetentionMillis so we're
+	//        currently just using the default value specified in the ConfigMap.  If/when the
+	//        RetentionMillis is added, any value from channel.Spec.RetentionMillis should
+	//        take precedence.
+	retentionMillis := r.config.Kafka.Topic.DefaultRetentionMillis
 
 	// Create The Topic (Handles Case Where Already Exists)
 	err := r.createTopic(ctx, topicName, numPartitions, replicationFactor, retentionMillis)
@@ -62,7 +69,7 @@ func (r *Reconciler) reconcileKafkaTopic(ctx context.Context, channel *kafkav1be
 	return err
 }
 
-// Finalize The Kafka Topic Associated With The Specified Channel
+// finalizeKafkaTopic Finalizes The Kafka Topic Associated With The Specified Channel
 func (r *Reconciler) finalizeKafkaTopic(ctx context.Context, channel *kafkav1beta1.KafkaChannel) error {
 
 	// Get The TopicName For Specified Channel
@@ -82,7 +89,7 @@ func (r *Reconciler) finalizeKafkaTopic(ctx context.Context, channel *kafkav1bet
 	}
 }
 
-// Create The Specified Kafka Topic
+// createTopic Creates The Specified Kafka Topic
 func (r *Reconciler) createTopic(ctx context.Context, topicName string, partitions int32, replicationFactor int16, retentionMillis int64) error {
 
 	// Get The Logger From The Context
@@ -95,7 +102,7 @@ func (r *Reconciler) createTopic(ctx context.Context, topicName string, partitio
 		ReplicationFactor: replicationFactor,
 		ReplicaAssignment: nil, // Currently Not Assigning Partitions To Replicas
 		ConfigEntries: map[string]*string{
-			constants.KafkaTopicConfigRetentionMs: &retentionMillisString,
+			commonconstants.KafkaTopicConfigRetentionMs: &retentionMillisString,
 		},
 	}
 
@@ -120,7 +127,7 @@ func (r *Reconciler) createTopic(ctx context.Context, topicName string, partitio
 	}
 }
 
-// Delete The Specified Kafka Topic
+// deleteTopic Deletes The Specified Kafka Topic
 func (r *Reconciler) deleteTopic(ctx context.Context, topicName string) error {
 
 	// Get The Logger From The Context
@@ -138,7 +145,7 @@ func (r *Reconciler) deleteTopic(ctx context.Context, topicName string) error {
 			logger.Info("Kafka Topic or Partition Not Found - No Deletion Required")
 			return nil
 		case sarama.ErrInvalidConfig:
-			if r.config.Kafka.AdminType == constants.KafkaAdminTypeValueAzure {
+			if r.config.Channel.AdminType == constants.KafkaAdminTypeValueAzure {
 				// While this could be a valid Kafka error, this most likely is coming from our custom EventHub AdminClient
 				// implementation and represents the fact that the EventHub Cache does not contain this topic.  This can
 				// happen when an EventHub could not be created due to exceeding the number of allowable EventHubs.  The

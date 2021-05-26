@@ -185,16 +185,21 @@ your Kafka cluster.
   - **Producer.RequiredAcks:** Same `in-order` concerns as above ; )
 
 - **eventing-kafka:** This section provides customization of runtime behavior of
-  the eventing-kafka implementation as follows...
+  the eventing-kafka implementation as follows.  Note that the `eventing-kafka`
+  section is shared between the distributed and consolidated channel types, and
+  not all fields are intended to be applicable to both.  Currently the
+  distributed channel uses the `receiver`, `dispatcher`, and `adminType` of the
+  `channel` category, but the consolidated channel uses only the `dispatcher`
+  and will ignore any other entries.
 
-  - **receiver:** Controls the Deployment runtime characteristics of the
-    Receiver (one Deployment per Installation).
-  - **dispatcher:** Controls the Deployment runtime characteristics of the
-    Dispatcher (one Deployment per KafkaChannel CR).
-  - **kafka.defaultReplicationFactor:** Cannot exceed the number of Kafka
-    Brokers configured in your system.
-  - **kafka.adminType:** As described above this value must be set to one of
-    `kafka`, `azure`, or `custom`. The default is `kakfa` and will be used by
-    most users.
   - **kafka.brokers:** This field must be set to your kafka brokers string (see
     above)
+  - **kafka.topic.defaultReplicationFactor:** Cannot exceed the number of Kafka
+    Brokers configured in your system.
+  - **channel.receiver:** Controls the Deployment runtime characteristics of the
+    Receiver (one Deployment per Installation).
+  - **channel.dispatcher:** Controls the Deployment runtime characteristics of the
+    Dispatcher (one Deployment per KafkaChannel CR).
+  - **channel.adminType:** As described above this value must be set to one of
+    `kafka`, `azure`, or `custom`. The default is `kakfa` and will be used by
+    most users.

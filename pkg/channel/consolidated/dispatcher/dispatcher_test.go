@@ -23,6 +23,8 @@ import (
 	"sync"
 	"testing"
 
+	"knative.dev/eventing-kafka/pkg/common/config"
+
 	"github.com/Shopify/sarama"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -505,7 +507,7 @@ func TestKafkaDispatcher_Start(t *testing.T) {
 
 func TestNewDispatcher(t *testing.T) {
 	args := &KafkaDispatcherArgs{
-		ClientID:  "kafka-ch-dispatcher",
+		Config:    &config.EventingKafkaConfig{},
 		Brokers:   []string{"localhost:10000"},
 		TopicFunc: utils.TopicName,
 	}
