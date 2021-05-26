@@ -153,7 +153,7 @@ func (consumer *SaramaConsumerHandler) ConsumeClaim(session sarama.ConsumerGroup
 		if mustMark {
 			session.MarkMessage(message, "") // Mark kafka message as processed
 			if ce := consumer.logger.Desugar().Check(zap.DebugLevel, "debugging"); ce != nil {
-				consumer.logger.Infow("Message marked", zap.String("topic", message.Topic), zap.Binary("value", message.Value))
+				consumer.logger.Debugw("Message marked", zap.String("topic", message.Topic), zap.Binary("value", message.Value))
 			}
 		}
 
