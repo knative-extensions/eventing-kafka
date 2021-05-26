@@ -53,9 +53,17 @@ func WithSaramaConsumerLifecycleListener(listener SaramaConsumerLifecycleListene
 	}
 }
 
+// WithTimeout configures the request timeout. Default is set to 60s.
 func WithTimeout(timeout time.Duration) SaramaConsumerHandlerOption {
 	return func(handler *SaramaConsumerHandler) {
 		handler.timeout = timeout
+	}
+}
+
+// WithInflightRequestInterrupt tells ConsumeClaim to interrupt the inflight request when the session is closed
+func WithInflightRequestInterrupt() SaramaConsumerHandlerOption {
+	return func(handler *SaramaConsumerHandler) {
+		handler.interrupt = true
 	}
 }
 
@@ -67,6 +75,9 @@ type SaramaConsumerHandler struct {
 
 	// Request to sink timeout
 	timeout time.Duration
+
+	// Whether or not to interrupt the inflight request when the session is closed
+	interrupt bool
 
 	lifecycleListener SaramaConsumerLifecycleListener
 
@@ -131,16 +142,18 @@ func (consumer *SaramaConsumerHandler) ConsumeClaim(session sarama.ConsumerGroup
 		// Preemptively interrupt processing messages if the session is closed.
 		// Processing all messages from the buffered channel can take a long time,
 		// potentially exceeding the session timeout, leading to duplicate events.
-		if sessionClosed(session) {
+		if session.Context().Err() != nil {
 			consumer.logger.Infof("Session closed for %s/%d. Exiting ConsumeClaim ", claim.Topic(), claim.Partition())
 			break
 		}
 
-		// Don't use the session context because when cancelled it will interrupt the in-flight request,
-		// potentially leading to duplicates
+		ctx := context.Background()
+		if consumer.interrupt {
+			ctx = session.Context()
+		}
 
 		// Handle must finish before the session timeout. Enforcing it on the client side.
-		ctx, cancel := context.WithTimeout(context.Background(), consumer.timeout)
+		ctx, cancel := context.WithTimeout(ctx, consumer.timeout)
 		mustMark, err := consumer.handler.Handle(ctx, message)
 		cancel()
 
@@ -161,15 +174,6 @@ func (consumer *SaramaConsumerHandler) ConsumeClaim(session sarama.ConsumerGroup
 
 	consumer.logger.Infof("Stopping partition consumer, topic: %s, partition: %d", claim.Topic(), claim.Partition())
 	return nil
-}
-
-func sessionClosed(session sarama.ConsumerGroupSession) bool {
-	select {
-	case <-session.Context().Done():
-		return true
-	default:
-		return false
-	}
 }
 
 var _ sarama.ConsumerGroupHandler = (*SaramaConsumerHandler)(nil)
