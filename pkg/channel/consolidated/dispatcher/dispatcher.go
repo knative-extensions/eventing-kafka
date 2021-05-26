@@ -317,8 +317,7 @@ func (d *KafkaDispatcher) subscribe(channelRef types.NamespacedName, sub Subscri
 	}
 	d.logger.Debugw("Starting consumer group", zap.Any("channelRef", channelRef),
 		zap.Any("subscription", sub.UID), zap.String("topic", topicName), zap.String("consumer group", groupID))
-	consumerGroup, err := d.kafkaConsumerFactory.StartConsumerGroup(groupID, []string{topicName}, d.logger, handler,
-		consumer.WithInflightRequestInterrupt())
+	consumerGroup, err := d.kafkaConsumerFactory.StartConsumerGroup(groupID, []string{topicName}, d.logger, handler)
 
 	if err != nil {
 		// we can not create a consumer - logging that, with reason
