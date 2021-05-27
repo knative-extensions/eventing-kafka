@@ -63,7 +63,6 @@ func TestReconcile(t *testing.T) {
 
 	offsetTime := sarama.OffsetOldest
 	metadata := formatOffsetMetaData(offsetTime)
-	invalidOffsetTime := "foo"
 
 	offsetMappings := []kafkav1alpha1.OffsetMapping{
 		{Partition: 0, OldOffset: oldOffset, NewOffset: newOffset},
@@ -152,27 +151,6 @@ func TestReconcile(t *testing.T) {
 			},
 			WantEvents: []string{
 				Eventf(corev1.EventTypeNormal, ResetOffsetSkipped.String(), "Skipped previously executed ResetOffset"),
-			},
-		},
-		{
-			Name: "Skipping Invalid",
-			Key:  controllertesting.ResetOffsetKey,
-			Objects: []runtime.Object{
-				controllertesting.NewResetOffset(
-					controllertesting.WithFinalizer,
-					controllertesting.WithSpecOffsetTime(invalidOffsetTime)),
-			},
-			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
-				{
-					Object: controllertesting.NewResetOffset(
-						controllertesting.WithFinalizer,
-						controllertesting.WithSpecOffsetTime(invalidOffsetTime),
-						controllertesting.WithStatusInitialized),
-				},
-			},
-			WantErr: true,
-			WantEvents: []string{
-				Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for \"resetoffset-name\": invalid value: foo: spec.offset"),
 			},
 		},
 
