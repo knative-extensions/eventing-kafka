@@ -139,7 +139,10 @@ func (consumer *SaramaConsumerHandler) ConsumeClaim(session sarama.ConsumerGroup
 			break
 		}
 
+		// We need to control when to cancel Handle calls so give it a downstream context
 		hctx, cancel := context.WithCancel(context.Background())
+
+		// Start Handle goroutine
 		go func() {
 			mustMark, err := consumer.handler.Handle(hctx, message)
 
@@ -155,13 +158,18 @@ func (consumer *SaramaConsumerHandler) ConsumeClaim(session sarama.ConsumerGroup
 		var mustMark bool
 		select {
 		case mustMark = <-c:
+			// Handle returned gracefully, call cancel to free the context resources.
 			cancel()
 		case <-session.Context().Done():
+			// Consumer session canceled, wait for in-flight request to finish before we hit a rebalance timeout
 			select {
 			case <-time.After(consumer.timeout):
+				// Handle still didn't return, cancel the in-flight request
 				cancel()
+				// Unblock the Handle goroutine
 				mustMark = <-c
 			case mustMark = <-c:
+				// Handle returned gracefully, call cancel to free the context resources.
 				cancel()
 			}
 		}
