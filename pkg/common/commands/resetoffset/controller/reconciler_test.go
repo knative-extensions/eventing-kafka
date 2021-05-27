@@ -19,6 +19,9 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strings"
+	"testing"
+
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -27,6 +30,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	logtesting "knative.dev/pkg/logging/testing"
+	. "knative.dev/pkg/reconciler/testing"
+	"knative.dev/pkg/system"
+
 	kafkav1alpha1 "knative.dev/eventing-kafka/pkg/apis/kafka/v1alpha1"
 	fakekafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client/fake"
 	resetoffsetreconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/kafka/v1alpha1/resetoffset"
@@ -34,14 +44,6 @@ import (
 	refmapperstesting "knative.dev/eventing-kafka/pkg/common/commands/resetoffset/refmappers/testing"
 	"knative.dev/eventing-kafka/pkg/common/constants"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
-	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	logtesting "knative.dev/pkg/logging/testing"
-	. "knative.dev/pkg/reconciler/testing"
-	"knative.dev/pkg/system"
-	"strings"
-	"testing"
 )
 
 // Test The Reconcile Functionality
