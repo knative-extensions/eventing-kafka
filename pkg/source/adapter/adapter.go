@@ -22,10 +22,12 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	nethttp "net/http"
 	"strings"
+	"time"
 
+	"github.com/hashicorp/go-retryablehttp"
 	"golang.org/x/time/rate"
-
 	ctrl "knative.dev/control-protocol/pkg"
 	ctrlnetwork "knative.dev/control-protocol/pkg/network"
 
@@ -77,10 +79,13 @@ type Adapter struct {
 	rateLimiter       *rate.Limiter
 }
 
-var _ adapter.MessageAdapter = (*Adapter)(nil)
-var _ consumer.KafkaConsumerHandler = (*Adapter)(nil)
-var _ consumer.SaramaConsumerLifecycleListener = (*Adapter)(nil)
-var _ adapter.MessageAdapterConstructor = NewAdapter
+var (
+	_           adapter.MessageAdapter                   = (*Adapter)(nil)
+	_           consumer.KafkaConsumerHandler            = (*Adapter)(nil)
+	_           consumer.SaramaConsumerLifecycleListener = (*Adapter)(nil)
+	_           adapter.MessageAdapterConstructor        = NewAdapter
+	retryConfig                                          = defaultRetryConfig()
+)
 
 func NewAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, httpMessageSender *kncloudevents.HTTPMessageSender, reporter pkgsource.StatsReporter) adapter.MessageAdapter {
 	logger := logging.FromContext(ctx)
@@ -175,7 +180,7 @@ func (a *Adapter) Handle(ctx context.Context, msg *sarama.ConsumerMessage) (bool
 		return true, err
 	}
 
-	res, err := a.httpMessageSender.Send(req)
+	res, err := a.httpMessageSender.SendWithRetries(req, retryConfig)
 
 	if err != nil {
 		a.logger.Debug("Error while sending the message", zap.Error(err))
@@ -302,4 +307,35 @@ func (a *Adapter) InitOffsets(session sarama.ConsumerGroupSession) error {
 
 	// At this stage the KafkaSource instance is considered Ready (TODO: update KafkaSource status)
 	return nil
+}
+
+// Default retry configuration, 5 retries, exponential backoff with 50ms delay
+func defaultRetryConfig() *kncloudevents.RetryConfig {
+	retryConfig := kncloudevents.NoRetries()
+	retryConfig.CheckRetry = func(ctx context.Context, response *nethttp.Response, err error) (bool, error) {
+		// See Knative Eventing spec (WIP) for when to retry
+		// Implement: https://github.com/knative/specs/blob/218f9655c23ca6a35280afc638b2e3c0a5e83f63/specs/eventing/data-plane.md#event-acknowledgement-and-delivery-retry
+
+		// Handle the special cases first
+
+		// do not retry on context.Canceled or context.DeadlineExceeded
+		if ctx.Err() != nil {
+			return false, ctx.Err()
+		}
+
+		if err == nil {
+			if response.StatusCode == http.StatusNotFound || response.StatusCode == http.StatusConflict {
+				return true, nil
+			}
+
+		}
+
+		// Fallback to the default retry policy capturing all other cases.
+		return retryablehttp.DefaultRetryPolicy(ctx, response, err)
+	}
+	retryConfig.RetryMax = 5
+	retryConfig.Backoff = func(attemptNum int, resp *nethttp.Response) time.Duration {
+		return retryablehttp.DefaultBackoff(50*time.Millisecond, 2*time.Second, attemptNum, resp)
+	}
+	return &retryConfig
 }
