@@ -22,7 +22,9 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
+
 	"go.uber.org/zap"
+	kafkasarama "knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 )
 
 type KafkaConsumerHandler interface {
@@ -127,8 +129,17 @@ func (consumer *SaramaConsumerHandler) ConsumeClaim(session sarama.ConsumerGroup
 	// The `ConsumeClaim` itself is called within a goroutine, see:
 	// https://github.com/Shopify/sarama/blob/master/consumer_group.go#L27-L29
 	for message := range claim.Messages() {
-		if ce := consumer.logger.Desugar().Check(zap.DebugLevel, "debugging"); ce != nil {
-			consumer.logger.Debugw("Message claimed", zap.String("topic", message.Topic), zap.Binary("value", message.Value))
+
+		// Debug Log Kafka ConsumerMessage
+		if consumer.logger.Desugar().Core().Enabled(zap.DebugLevel) {
+			// Checked Logging Level First To Avoid Calling StringifyHeaderPtrs In Production
+			consumer.logger.Debugw("Consuming Kafka Message",
+				zap.Any("Headers", kafkasarama.StringifyHeaderPtrs(message.Headers)), // Log human-readable strings, not base64
+				zap.ByteString("Key", message.Key),
+				zap.ByteString("Value", message.Value),
+				zap.String("Topic", message.Topic),
+				zap.Int32("Partition", message.Partition),
+				zap.Int64("Offset", message.Offset))
 		}
 
 		// Preemptively interrupt processing messages if the session is closed.
@@ -176,7 +187,7 @@ func (consumer *SaramaConsumerHandler) ConsumeClaim(session sarama.ConsumerGroup
 
 		if mustMark {
 			session.MarkMessage(message, "") // Mark kafka message as processed
-			if ce := consumer.logger.Desugar().Check(zap.DebugLevel, "debugging"); ce != nil {
+			if consumer.logger.Desugar().Core().Enabled(zap.DebugLevel) {
 				consumer.logger.Debugw("Message marked", zap.String("topic", message.Topic), zap.Binary("value", message.Value))
 			}
 		}
