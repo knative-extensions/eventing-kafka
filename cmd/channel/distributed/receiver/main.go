@@ -144,6 +144,12 @@ func main() {
 		logger.Fatal("Failed To Start Secret Watcher", zap.Error(err))
 	}
 
+	// Set The Liveness Flag - Readiness Is Set By Individual Components
+	// This is set before the call to NewProducer, because if the Sarama client takes a long time to connect
+	// it is entirely possible for the receiver to be killed by Kubernetes for not responding to a liveness request.
+	logger.Info("Registering receiver as alive")
+	healthServer.SetAlive(true)
+
 	// Initialize The Kafka Producer In Order To Start Processing Status Events
 	kafkaProducer, err = producer.NewProducer(logger, ekConfig.Sarama.Config, strings.Split(ekConfig.Kafka.Brokers, ","), statsReporter, healthServer)
 	if err != nil {
@@ -158,9 +164,6 @@ func main() {
 	if err != nil {
 		logger.Fatal("Failed To Create MessageReceiver", zap.Error(err))
 	}
-
-	// Set The Liveness Flag - Readiness Is Set By Individual Components
-	healthServer.SetAlive(true)
 
 	// Start The Message Receiver (Blocking)
 	err = messageReceiver.Start(ctx)
