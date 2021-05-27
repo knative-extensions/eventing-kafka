@@ -19,25 +19,29 @@ package controller
 import (
 	"context"
 	"fmt"
-	"testing"
-
 	"github.com/Shopify/sarama"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	logtesting "knative.dev/pkg/logging/testing"
-	. "knative.dev/pkg/reconciler/testing"
-
 	kafkav1alpha1 "knative.dev/eventing-kafka/pkg/apis/kafka/v1alpha1"
 	fakekafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client/fake"
 	resetoffsetreconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/kafka/v1alpha1/resetoffset"
 	controllertesting "knative.dev/eventing-kafka/pkg/common/commands/resetoffset/controller/testing"
 	refmapperstesting "knative.dev/eventing-kafka/pkg/common/commands/resetoffset/refmappers/testing"
+	"knative.dev/eventing-kafka/pkg/common/constants"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	logtesting "knative.dev/pkg/logging/testing"
+	. "knative.dev/pkg/reconciler/testing"
+	"knative.dev/pkg/system"
+	"strings"
+	"testing"
 )
 
 // Test The Reconcile Functionality
@@ -321,7 +325,118 @@ func TestReconcile(t *testing.T) {
 }
 
 func TestReconciler_updateKafkaConfig(t *testing.T) {
-	// TODO - Implement Test Once Common ConfigMap Updating Is In Place ; )
+
+	// Define EKConfig String For Use In Test (Note - Preserve Indentation!)
+	ekConfigString := strings.Replace(commontesting.TestEKConfig, "kafka:", `kafka:
+  authSecretName: `+commontesting.SecretName+`
+  authSecretNamespace: `+system.Namespace(), 1)
+
+	// Define Brokers
+	defaultKafkaBrokers := []string{commontesting.BrokerString}
+
+	// Create A Sarama Config To Match commontesting.OldSaramaConfig
+	oldSaramaConfig := sarama.NewConfig()
+	oldSaramaConfig.ClientID = Component
+	oldSaramaConfig.Net.TLS.Enable = true
+	oldSaramaConfig.Net.SASL.Version = 1
+	oldSaramaConfig.Net.SASL.Enable = true
+	oldSaramaConfig.Net.SASL.Mechanism = sarama.SASLTypePlaintext
+	oldSaramaConfig.Net.SASL.User = commontesting.OldAuthUsername
+	oldSaramaConfig.Net.SASL.Password = commontesting.OldAuthPassword
+	oldSaramaConfig.Producer.Return.Successes = true
+	oldSaramaConfig.Consumer.Return.Errors = true
+	oldSaramaConfig.Consumer.Offsets.AutoCommit.Enable = false
+	oldSaramaConfig.Metadata.RefreshFrequency = 300000000000
+
+	// Define The Test Cases
+	tests := []struct {
+		name                 string
+		configMap            *corev1.ConfigMap
+		initialKafkaBrokers  []string
+		expectedKafkaBrokers []string
+		initialSaramaConfig  *sarama.Config
+		expectedSaramaConfig *sarama.Config
+	}{
+		{
+			name:                 "Nil ConfigMap",
+			configMap:            nil,
+			initialKafkaBrokers:  defaultKafkaBrokers,
+			expectedKafkaBrokers: defaultKafkaBrokers,
+			initialSaramaConfig:  oldSaramaConfig,
+			expectedSaramaConfig: oldSaramaConfig,
+		},
+		{
+			name:                 "Nil ConfigMap Data",
+			configMap:            &corev1.ConfigMap{},
+			initialKafkaBrokers:  defaultKafkaBrokers,
+			expectedKafkaBrokers: defaultKafkaBrokers,
+			initialSaramaConfig:  oldSaramaConfig,
+			expectedSaramaConfig: oldSaramaConfig,
+		},
+		{
+			name:                 "Load Settings Error",
+			configMap:            &corev1.ConfigMap{Data: map[string]string{constants.EventingKafkaSettingsConfigKey: "\tInvalid"}},
+			initialKafkaBrokers:  defaultKafkaBrokers,
+			expectedKafkaBrokers: defaultKafkaBrokers,
+			initialSaramaConfig:  oldSaramaConfig,
+			expectedSaramaConfig: oldSaramaConfig,
+		},
+
+		{
+			name: "Success",
+			configMap: &corev1.ConfigMap{Data: map[string]string{
+				constants.VersionConfigKey:               constants.CurrentConfigVersion,
+				constants.EventingKafkaSettingsConfigKey: ekConfigString,
+				constants.SaramaSettingsConfigKey:        commontesting.OldSaramaConfig}},
+			initialKafkaBrokers:  nil,
+			expectedKafkaBrokers: defaultKafkaBrokers,
+			initialSaramaConfig:  nil,
+			expectedSaramaConfig: oldSaramaConfig,
+		},
+	}
+
+	// Create A Context With Fake K8S Client To Return Kafka Secret
+	secret := commontesting.GetTestSaramaSecret(
+		commontesting.SecretName,
+		commontesting.OldAuthUsername,
+		commontesting.OldAuthPassword,
+		commontesting.OldAuthNamespace,
+		commontesting.OldAuthSaslType)
+	fakeK8sClient := fake.NewSimpleClientset(secret)
+	ctx := context.WithValue(context.TODO(), kubeclient.Key{}, fakeK8sClient)
+
+	// Execute The Test Cases
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+
+			// Create The Reconciler To Test
+			r := &Reconciler{
+				kafkaBrokers: test.initialKafkaBrokers,
+				saramaConfig: test.initialSaramaConfig,
+			}
+
+			// Perform The Test
+			r.updateKafkaConfig(ctx, test.configMap)
+
+			// Verify Reconciler Updated As Expected (Can't Compare Full Sarama.Config Instances Directly Due To Functions Fields)
+			assert.Equal(t, test.expectedKafkaBrokers, r.kafkaBrokers)
+			assert.Equal(t, Component, test.expectedSaramaConfig.ClientID)
+			assert.Equal(t, test.expectedSaramaConfig.Net, r.saramaConfig.Net)
+			assert.Equal(t, test.expectedSaramaConfig.Consumer, r.saramaConfig.Consumer)
+
+			// Verify Fixed Configuration
+			if r.saramaConfig != nil {
+				assert.True(t, r.saramaConfig.Consumer.Return.Errors)
+				assert.False(t, r.saramaConfig.Consumer.Offsets.AutoCommit.Enable)
+			}
+		})
+	}
+
+	// Verify that a nil reconciler doesn't panic
+	var nilReconciler *Reconciler
+	//goland:noinspection GoNilness
+	nilReconciler.updateKafkaConfig(context.TODO(), nil)
+	assert.Nil(t, nilReconciler)
 }
 
 //
