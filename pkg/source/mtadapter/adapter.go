@@ -19,8 +19,11 @@ package mtadapter
 import (
 	"context"
 	"fmt"
+<<<<<<< HEAD
 	"math"
 	"strconv"
+=======
+>>>>>>> rebase
 	"sync"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
@@ -136,24 +139,6 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) error {
 	kafkaEnvConfig, err := client.NewEnvConfigFromSpec(ctx, a.kubeClient, obj)
 	if err != nil {
 		return err
-	}
-
-	// Enforce memory limits
-	if a.memLimit > 0 {
-		// TODO: periodically enforce limits as the number of partitions can dynamically change
-		bufferSizePerVReplica, err := a.bufferSize(ctx, logger, &kafkaEnvConfig, obj.Spec.Topics, scheduler.GetPodCount(obj.Status.Placement))
-		if err != nil {
-			return err
-		}
-		bufferSize := bufferSizePerVReplica * int(placement.VReplicas)
-		a.logger.Infow("setting fetch buffer size", zap.Int("size", bufferSize))
-
-		// Nasty.
-		bufferSizeStr := strconv.Itoa(bufferSize)
-		min := `\n    Min: ` + bufferSizeStr
-		def := `\n    Default: ` + bufferSizeStr
-		max := `\n    Max: ` + bufferSizeStr
-		kafkaEnvConfig.KafkaConfigJson = `{"sarama": "Consumer:\n  Fetch:` + min + def + max + `"}`
 	}
 
 	// Enforce memory limits
