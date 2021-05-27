@@ -127,11 +127,6 @@ func testKafkaSourceUpdate(t *testing.T, name string, test updateTest) {
 	))
 	client.WaitForAllTestResourcesReadyOrFail(context.Background())
 
-	// See https://github.com/knative-sandbox/eventing-kafka/issues/411
-	if testMtSource == "1" {
-		time.Sleep(20 * time.Second)
-	}
-
 	t.Logf("Send update event to kafkatopic")
 	helpers.MustPublishKafkaMessage(client, kafkaBootstrapUrlPlain,
 		defaultKafkaSource.topicName+name,
@@ -172,11 +167,6 @@ func testKafkaSourceUpdate(t *testing.T, name string, test updateTest) {
 	// TODO(slinkydeveloper) Give it 5 secs to the kafka source to reconcile again
 	time.Sleep(5 * time.Second)
 	client.WaitForAllTestResourcesReadyOrFail(context.Background())
-
-	// See https://github.com/knative-sandbox/eventing-kafka/issues/411
-	if testMtSource == "1" {
-		time.Sleep(20 * time.Second)
-	}
 
 	t.Logf("Send update event to kafkatopic")
 	helpers.MustPublishKafkaMessage(client, kafkaBootstrapUrlPlain,
