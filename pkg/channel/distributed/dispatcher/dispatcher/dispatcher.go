@@ -18,7 +18,6 @@ package dispatcher
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -31,7 +30,7 @@ import (
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/channel"
 
-	distributedcommonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
+	commonkafkautil "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/util"
 	dispatcherconstants "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/constants"
 	"knative.dev/eventing-kafka/pkg/common/client"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
@@ -39,14 +38,12 @@ import (
 	"knative.dev/eventing-kafka/pkg/common/metrics"
 )
 
-// Define A Dispatcher Config Struct To Hold Configuration
+// DispatcherConfig Defines A Dispatcher Config Struct To Hold Configuration
 type DispatcherConfig struct {
 	Logger          *zap.Logger
 	ClientId        string
 	Brokers         []string
 	Topic           string
-	Username        string
-	Password        string
 	ChannelKey      string
 	StatsReporter   metrics.StatsReporter
 	MetricsRegistry gometrics.Registry
@@ -54,26 +51,26 @@ type DispatcherConfig struct {
 	SubscriberSpecs []eventingduck.SubscriberSpec
 }
 
-// Knative Eventing SubscriberSpec Wrapper Enhanced With Sarama ConsumerGroup
+// SubscriberWrapper Defines A Knative Eventing SubscriberSpec Wrapper Enhanced With Sarama ConsumerGroup
 type SubscriberWrapper struct {
 	eventingduck.SubscriberSpec
 	GroupId       string
 	ConsumerGroup sarama.ConsumerGroup
 }
 
-// SubscriberWrapper Constructor
+// NewSubscriberWrapper Is The SubscriberWrapper Constructor
 func NewSubscriberWrapper(subscriberSpec eventingduck.SubscriberSpec, groupId string, consumerGroup sarama.ConsumerGroup) *SubscriberWrapper {
 	return &SubscriberWrapper{subscriberSpec, groupId, consumerGroup}
 }
 
-//  Dispatcher Interface
+// Dispatcher Interface
 type Dispatcher interface {
 	SecretChanged(ctx context.Context, secret *corev1.Secret) Dispatcher
 	Shutdown()
 	UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error
 }
 
-// Define A DispatcherImpl Struct With Configuration & ConsumerGroup State
+// DispatcherImpl Is A Struct With Configuration & ConsumerGroup State
 type DispatcherImpl struct {
 	DispatcherConfig
 	subscribers          map[types.UID]*SubscriberWrapper
@@ -87,7 +84,7 @@ type DispatcherImpl struct {
 // Verify The DispatcherImpl Implements The Dispatcher Interface
 var _ Dispatcher = &DispatcherImpl{}
 
-// Dispatcher Constructor
+// NewDispatcher Is The Dispatcher Constructor
 func NewDispatcher(dispatcherConfig DispatcherConfig) Dispatcher {
 
 	// Create The DispatcherImpl With Specified Configuration
@@ -145,7 +142,7 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 		if _, ok := d.subscribers[subscriberSpec.UID]; !ok {
 
 			// Format The GroupId For The Specified Subscriber
-			groupId := fmt.Sprintf("kafka.%s", subscriberSpec.UID)
+			groupId := commonkafkautil.GroupId(string(subscriberSpec.UID))
 
 			// Create A ConsumerGroup Logger
 			logger := d.Logger.With(zap.String("GroupId", groupId))
@@ -193,7 +190,7 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 	return failedSubscriptions
 }
 
-// Close The ConsumerGroup Associated With A Single Subscriber
+// closeConsumerGroup closes the ConsumerGroup associated with a single Subscriber
 func (d *DispatcherImpl) closeConsumerGroup(subscriber *SubscriberWrapper) {
 
 	// Get The ConsumerGroup Associated with The Specified Subscriber
@@ -229,7 +226,7 @@ func (d *DispatcherImpl) SecretChanged(ctx context.Context, secret *corev1.Secre
 	// Debug Log The Secret Change
 	d.Logger.Debug("New Secret Received", zap.String("secret.Name", secret.ObjectMeta.Name))
 
-	kafkaAuthCfg := distributedcommonconfig.GetAuthConfigFromSecret(secret)
+	kafkaAuthCfg := commonconfig.GetAuthConfigFromSecret(secret)
 	if kafkaAuthCfg == nil {
 		d.Logger.Warn("No auth config found in secret; ignoring update")
 		return nil
@@ -257,7 +254,7 @@ func (d *DispatcherImpl) SecretChanged(ctx context.Context, secret *corev1.Secre
 	return d.reconfigure(newConfig, nil)
 }
 
-// Shut down the current dispatcher and recreate it with new settings
+// reconfigure shuts down the current dispatcher and recreates it with new settings
 func (d *DispatcherImpl) reconfigure(newConfig *sarama.Config, ekConfig *commonconfig.EventingKafkaConfig) Dispatcher {
 	d.Shutdown()
 	d.DispatcherConfig.SaramaConfig = newConfig
@@ -274,7 +271,7 @@ func (d *DispatcherImpl) reconfigure(newConfig *sarama.Config, ekConfig *commonc
 	return newDispatcher
 }
 
-// Async Process For Observing Kafka Metrics
+// ObserveMetrics Is An Async Process For Observing Kafka Metrics
 func (d *DispatcherImpl) ObserveMetrics(interval time.Duration) {
 
 	// Fork A New Process To Run Async Metrics Collection

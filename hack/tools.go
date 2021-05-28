@@ -32,6 +32,7 @@ import (
 	_ "knative.dev/eventing/test/test_images/wathola-forwarder"
 	_ "knative.dev/eventing/test/test_images/wathola-receiver"
 	_ "knative.dev/eventing/test/test_images/wathola-sender"
+	_ "knative.dev/reconciler-test/cmd/eventshub"
 
 	// For migration
 	_ "knative.dev/pkg/apiextensions/storageversion/cmd/migrate"

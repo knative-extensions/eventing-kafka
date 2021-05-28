@@ -44,7 +44,7 @@ func (ss *SubscriptionSpec) Validate(ctx context.Context) *apis.FieldError {
 		fe := apis.ErrMissingField("channel")
 		fe.Details = "the Subscription must reference a channel"
 		return fe
-	} else if fe := isValidChannel(ss.Channel); fe != nil {
+	} else if fe := isValidChannel(ctx, ss.Channel); fe != nil {
 		errs = errs.Also(fe.ViaField("channel"))
 	}
 
@@ -80,16 +80,8 @@ func (s *Subscription) CheckImmutableFields(ctx context.Context, original *Subsc
 		return nil
 	}
 
-	// TODO(slinkydeveloper)
-	//  HACK around the immutability check to make sure the update script can upgrade the api version
-	//  REMOVE AFTER 0.22 release
-	ignoredFields := []string{"Subscriber", "Reply"}
-	if original.Spec.Channel.Kind == "KafkaChannel" && original.Spec.Channel.APIVersion == "messaging.knative.dev/v1alpha1" && s.Spec.Channel.APIVersion == "messaging.knative.dev/v1beta1" {
-		ignoredFields = append(ignoredFields, "Channel.APIVersion")
-	}
-
 	// Only Subscriber and Reply are mutable.
-	ignoreArguments := cmpopts.IgnoreFields(SubscriptionSpec{}, ignoredFields...)
+	ignoreArguments := cmpopts.IgnoreFields(SubscriptionSpec{}, "Subscriber", "Reply")
 	if diff, err := kmp.ShortDiff(original.Spec, s.Spec, ignoreArguments); err != nil {
 		return &apis.FieldError{
 			Message: "Failed to diff Subscription",

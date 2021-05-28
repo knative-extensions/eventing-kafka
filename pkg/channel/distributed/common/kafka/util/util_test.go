@@ -39,6 +39,20 @@ func TestTopicName(t *testing.T) {
 	assert.Equal(t, expectedTopicName, actualTopicName)
 }
 
+// Test The GroupId() Functionality
+func TestGroupId(t *testing.T) {
+
+	// Test Data
+	uid := "TestUID"
+
+	// Perform The Test
+	actualGroupId := GroupId(uid)
+
+	// Verify The Results
+	expectedGroupId := "kafka." + uid
+	assert.Equal(t, expectedGroupId, actualGroupId)
+}
+
 // Test The AppendChannelServiceNameSuffix() Functionality
 func TestAppendChannelServiceNameSuffix(t *testing.T) {
 

@@ -26,50 +26,73 @@ const (
 	OldPassword = "TestOldPassword"
 	NewPassword = "TestNewPassword"
 
-	DispatcherReplicas     = "3"
-	DispatcherRetryInitial = "5000"
-	DispatcherRetry        = "500000"
+	ReceiverCpuLimit        = "501m"
+	ReceiverCpuRequest      = "301m"
+	ReceiverMemoryLimit     = "129Mi"
+	ReceiverMemoryRequest   = "51Mi"
+	ReceiverReplicas        = "4"
+	DispatcherReplicas      = "3"
+	DispatcherCpuLimit      = "500m"
+	DispatcherCpuRequest    = "300m"
+	DispatcherMemoryLimit   = "128Mi"
+	DispatcherMemoryRequest = "50Mi"
+	BrokerString            = "test-broker-string"
 
 	TestEKConfig = `
-dispatcher:
-  cpuLimit: 500m
-  cpuRequest: 300m
-  memoryLimit: 128Mi
-  memoryRequest: 50Mi
-  replicas: ` + DispatcherReplicas + `
-  retryInitialIntervalMillis: ` + DispatcherRetryInitial + `
-  retryTimeMillis: ` + DispatcherRetry + `
-  retryExponentialBackoff: true
+channel:
+  adminType: kafka # One of "kafka", "azure", "custom"
+  receiver:
+    cpuRequest: ` + ReceiverCpuRequest + `
+    memoryRequest: ` + ReceiverMemoryRequest + `
+    cpuLimit: ` + ReceiverCpuLimit + `
+    memoryLimit: ` + ReceiverMemoryLimit + `
+    replicas: ` + ReceiverReplicas + `
+  dispatcher:
+    cpuRequest: ` + DispatcherCpuRequest + `
+    memoryRequest: ` + DispatcherMemoryRequest + `
+    cpuLimit: ` + DispatcherCpuLimit + `
+    memoryLimit: ` + DispatcherMemoryLimit + `
+    replicas: ` + DispatcherReplicas + `
+kafka:
+  brokers: ` + BrokerString + `
+  topic:
+    defaultNumPartitions: 4
+    defaultReplicationFactor: 1 # Cannot exceed the number of Kafka Brokers!
+    defaultRetentionMillis: 604800000  # 1 week
 `
 
 	OldSaramaConfig = `
-Net:
-  TLS:
-    Enable: true
-  SASL:
-    Enable: true
-    Mechanism: PLAIN
-    Version: 1
-    User: ` + OldUsername + `
-    Password: ` + OldPassword + `
-Metadata:
-  RefreshFrequency: 300000000000
+enableLogging: false
+config: |
+  Net:
+    TLS:
+      Enable: true
+    SASL:
+      Enable: true
+      Mechanism: PLAIN
+      Version: 1
+      User: ` + OldUsername + `
+      Password: ` + OldPassword + `
+  Metadata:
+    RefreshFrequency: 300000000000
 `
 
 	NewSaramaConfig = `
-Version: 2.3.0
-Net:
-  TLS:
-    Enable: true
-  SASL:
-    Enable: true
-    Mechanism: PLAIN
-    Version: 1
-    User: ` + NewUsername + `
-    Password: ` + NewPassword + `
-Metadata:
-  RefreshFrequency: 300000000000
-ClientID: ` + NewClientId + `
+enableLogging: false
+config: |
+  Version: 2.3.0
+  Net:
+    TLS:
+      Enable: true
+    SASL:
+      Enable: true
+      Mechanism: PLAIN
+      Version: 1
+      User: ` + NewUsername + `
+      Password: ` + NewPassword + `
+  Metadata:
+    RefreshFrequency: 300000000000
+  ClientID: ` + NewClientId + `
 `
 
 	OldAuthNamespace = "TestOldNamespace"

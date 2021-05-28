@@ -18,6 +18,9 @@ package constants
 
 const (
 
+	// Component For Sarama Config
+	Component = "eventing-kafka-channel-controller"
+
 	// Kafka Admin Type Types
 	KafkaAdminTypeValueKafka  = "kafka"
 	KafkaAdminTypeValueAzure  = "azure"
@@ -31,6 +34,7 @@ const (
 
 	// CRD Kinds
 	SecretKind              = "Secret"
+	ConfigMapKind           = "ConfigMap"
 	ServiceKind             = "Service"
 	DeploymentKind          = "Deployment"
 	KnativeSubscriptionKind = "Subscription"
@@ -57,7 +61,6 @@ const (
 	// Eventing-Kafka Finalizers Prefix
 	EventingKafkaFinalizerPrefix = "eventing-kafka/"
 	KafkaChannelFinalizerSuffix  = "kafkachannels.messaging.knative.dev" // Matches default value in client/injection/reconciler/messaging/v1beta1/kafkachannel
-	KafkaSecretFinalizerSuffix   = "kafkasecrets.eventing-kafka.knative.dev"
 
 	// Container Names
 	DispatcherContainerName = "kafkachannel-dispatcher"
@@ -69,7 +72,6 @@ const (
 	KafkaChannelNamespaceLabel  = "kafkachannel-namespace"
 	KafkaChannelReceiverLabel   = "kafkachannel-receiver"   // Receiver Label - Used To Mark Deployment As Receiver
 	KafkaChannelDispatcherLabel = "kafkachannel-dispatcher" // Dispatcher Label - Used To Mark Deployment As Dispatcher
-	KafkaSecretLabel            = "kafkasecret"             // Secret Label - Indicates The Kafka Secret Of The KafkaChannel
 	KafkaTopicLabel             = "kafkaTopic"              // Topic Label - Indicates The Kafka Topic Of The KnativeChannel
 
 	// Prometheus ServiceMonitor Selector Labels / Values
@@ -77,9 +79,6 @@ const (
 	K8sAppChannelSelectorValue    = "eventing-kafka-channels"
 	K8sAppDispatcherSelectorLabel = "k8s-app"
 	K8sAppDispatcherSelectorValue = "eventing-kafka-dispatchers"
-
-	// Kafka Topic Configuration
-	KafkaTopicConfigRetentionMs = "retention.ms"
 
 	// Health Configuration
 	// Note that many of these are the default values for a corev1 "Probe" struct,

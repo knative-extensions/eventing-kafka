@@ -21,9 +21,11 @@ import (
 	"testing"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
-	_ "knative.dev/pkg/client/injection/kube/client/fake"
+	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	pkgtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/pkg/source"
 
@@ -38,7 +40,7 @@ import (
 
 var (
 	runningAdapterChan  = make(chan *sampleAdapter)
-	stoppingAdapterChan = make(chan *sampleAdapter)
+	stoppingAdapterChan = make(chan *sampleAdapter, 1)
 )
 
 const (
@@ -52,18 +54,18 @@ func TestUpdateRemoveSources(t *testing.T) {
 	env := &AdapterConfig{PodName: podName, MemoryLimit: "0"}
 	ceClient := adaptertest.NewTestClient()
 
-	adapter := newAdapter(ctx, env, ceClient, newSampleAdapter).(*Adapter)
+	mtadapter := newAdapter(ctx, env, ceClient, newSampleAdapter).(*Adapter)
 
-	adapterStopped := make(chan bool)
+	mtadapterStopped := make(chan bool)
 	go func() {
-		err := adapter.Start(ctx)
+		err := mtadapter.Start(ctx)
 		if err != nil {
 			t.Error("Unexpected error ", err)
 		}
-		adapterStopped <- true
+		mtadapterStopped <- true
 	}()
 
-	adapter.Update(ctx, &sourcesv1beta1.KafkaSource{
+	err := mtadapter.Update(ctx, &sourcesv1beta1.KafkaSource{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-name",
 			Namespace: "test-ns",
@@ -77,11 +79,24 @@ func TestUpdateRemoveSources(t *testing.T) {
 		},
 	})
 
-	if _, ok := adapter.sources["test-ns/test-name"]; !ok {
+	if err != nil {
+		t.Fatalf("Unexpected error %v", err)
+	}
+
+	select {
+	case a := <-runningAdapterChan:
+		if !a.running {
+			t.Error("Expected adapter to be running")
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Error("sub-adapter failed to start after 100 ms")
+	}
+
+	if _, ok := mtadapter.sources["test-ns/test-name"]; !ok {
 		t.Error(`Expected adapter to contain "test-ns/test-name"`)
 	}
 
-	adapter.Update(ctx, &sourcesv1beta1.KafkaSource{
+	err = mtadapter.Update(ctx, &sourcesv1beta1.KafkaSource{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-name-badBroker",
 			Namespace: "test-ns",
@@ -99,7 +114,11 @@ func TestUpdateRemoveSources(t *testing.T) {
 		},
 	})
 
-	if _, ok := adapter.sources["test-ns/test-name-badBroker"]; !ok {
+	if err != nil {
+		t.Fatalf("Unexpected error %v", err)
+	}
+
+	if _, ok := mtadapter.sources["test-ns/test-name-badBroker"]; !ok {
 		t.Error(`Expected adapter to contain "test-ns/test-name-badBroker"`)
 	}
 
@@ -112,7 +131,7 @@ func TestUpdateRemoveSources(t *testing.T) {
 		t.Error("sub-adapter failed to start after 100 ms")
 	}
 
-	adapter.Remove(&sourcesv1beta1.KafkaSource{
+	mtadapter.Remove(&sourcesv1beta1.KafkaSource{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-name",
 			Namespace: "test-ns",
@@ -121,11 +140,20 @@ func TestUpdateRemoveSources(t *testing.T) {
 		Status: sourcesv1beta1.KafkaSourceStatus{},
 	})
 
-	if _, ok := adapter.sources["test-ns/test-name"]; ok {
+	select {
+	case a := <-stoppingAdapterChan:
+		if a.running {
+			t.Error("Expected adapter to not be running")
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Error("sub-adapter failed to stop after 100 ms")
+	}
+
+	if _, ok := mtadapter.sources["test-ns/test-name"]; ok {
 		t.Error(`Expected adapter to not contain "test-ns/test-name"`)
 	}
 
-	adapter.Remove(&sourcesv1beta1.KafkaSource{
+	mtadapter.Remove(&sourcesv1beta1.KafkaSource{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-name-badBroker",
 			Namespace: "test-ns",
@@ -134,10 +162,6 @@ func TestUpdateRemoveSources(t *testing.T) {
 		Status: sourcesv1beta1.KafkaSourceStatus{},
 	})
 
-	if _, ok := adapter.sources["test-ns/test-name-badBroker"]; ok {
-		t.Error(`Expected adapter to not contain "test-ns/test-name-badBroker"`)
-	}
-
 	select {
 	case a := <-stoppingAdapterChan:
 		if a.running {
@@ -145,6 +169,10 @@ func TestUpdateRemoveSources(t *testing.T) {
 		}
 	case <-time.After(100 * time.Millisecond):
 		t.Error("sub-adapter failed to stop after 100 ms")
+	}
+
+	if _, ok := mtadapter.sources["test-ns/test-name-badBroker"]; ok {
+		t.Error(`Expected adapter to not contain "test-ns/test-name-badBroker"`)
 	}
 
 	// Make sure the adapter is still running
@@ -157,9 +185,204 @@ func TestUpdateRemoveSources(t *testing.T) {
 	cancelAdapter()
 
 	select {
-	case <-adapterStopped:
+	case <-mtadapterStopped:
 	case <-time.After(2 * time.Second):
 		t.Error("adapter failed to stop after 2 seconds")
+	}
+}
+
+func TestSourceMTAdapter(t *testing.T) {
+	testCases := map[string]struct {
+		objects []runtime.Object
+		wantErr bool
+		source  sourcesv1beta1.KafkaSource
+	}{
+		"with sasl secret": {
+			wantErr: false,
+			objects: []runtime.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "mysecret",
+						Namespace: "test-ns",
+					},
+					Data: map[string][]byte{
+						"user1": []byte("fjwoia"),
+					},
+				},
+			},
+			source: sourcesv1beta1.KafkaSource{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-missing-sasl-secret",
+					Namespace: "test-ns",
+				},
+				Spec: sourcesv1beta1.KafkaSourceSpec{
+					KafkaAuthSpec: bindingsv1beta1.KafkaAuthSpec{
+						Net: bindingsv1beta1.KafkaNetSpec{
+							SASL: bindingsv1beta1.KafkaSASLSpec{
+								User: bindingsv1beta1.SecretValueFromSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "mysecret",
+										},
+										Key: "user1",
+									},
+								},
+							},
+						},
+					},
+				},
+				Status: sourcesv1beta1.KafkaSourceStatus{
+					Placeable: duckv1alpha1.Placeable{
+						Placement: []duckv1alpha1.Placement{
+							{PodName: podName, VReplicas: int32(1)},
+						}},
+				},
+			},
+		},
+		"missing sasl secret key": {
+			wantErr: true,
+			objects: []runtime.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "mysecret",
+						Namespace: "test-ns",
+					},
+					Data: map[string][]byte{
+						"user": []byte("fjwoia"),
+					},
+				},
+			},
+			source: sourcesv1beta1.KafkaSource{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-missing-sasl-secret",
+					Namespace: "test-ns",
+				},
+				Spec: sourcesv1beta1.KafkaSourceSpec{
+					KafkaAuthSpec: bindingsv1beta1.KafkaAuthSpec{
+						Net: bindingsv1beta1.KafkaNetSpec{
+							SASL: bindingsv1beta1.KafkaSASLSpec{
+								User: bindingsv1beta1.SecretValueFromSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "mysecret",
+										},
+										Key: "user1",
+									},
+								},
+							},
+						},
+					},
+				},
+				Status: sourcesv1beta1.KafkaSourceStatus{
+					Placeable: duckv1alpha1.Placeable{
+						Placement: []duckv1alpha1.Placement{
+							{PodName: podName, VReplicas: int32(1)},
+						}},
+				},
+			},
+		},
+		"missing sasl secret": {
+			wantErr: true,
+			source: sourcesv1beta1.KafkaSource{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-missing-sasl-secret",
+					Namespace: "test-ns",
+				},
+				Spec: sourcesv1beta1.KafkaSourceSpec{
+					KafkaAuthSpec: bindingsv1beta1.KafkaAuthSpec{
+						Net: bindingsv1beta1.KafkaNetSpec{
+							SASL: bindingsv1beta1.KafkaSASLSpec{
+								User: bindingsv1beta1.SecretValueFromSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "bogus",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				Status: sourcesv1beta1.KafkaSourceStatus{
+					Placeable: duckv1alpha1.Placeable{
+						Placement: []duckv1alpha1.Placement{
+							{PodName: podName, VReplicas: int32(1)},
+						}},
+				},
+			},
+		},
+		"missing tls secret": {
+			wantErr: true,
+			source: sourcesv1beta1.KafkaSource{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-missing-tls-secret",
+					Namespace: "test-ns",
+				},
+				Spec: sourcesv1beta1.KafkaSourceSpec{
+					KafkaAuthSpec: bindingsv1beta1.KafkaAuthSpec{
+						Net: bindingsv1beta1.KafkaNetSpec{
+							TLS: bindingsv1beta1.KafkaTLSSpec{
+								Cert: bindingsv1beta1.SecretValueFromSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "bogus",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				Status: sourcesv1beta1.KafkaSourceStatus{
+					Placeable: duckv1alpha1.Placeable{
+						Placement: []duckv1alpha1.Placement{
+							{PodName: podName, VReplicas: int32(1)},
+						}},
+				},
+			},
+		},
+	}
+	for n, tc := range testCases {
+		t.Run(n, func(t *testing.T) {
+			ctx, _ := pkgtesting.SetupFakeContext(t)
+
+			if tc.objects != nil {
+				ctx, _ = fakekubeclient.With(ctx, tc.objects...)
+			}
+
+			ctx, cancelAdapter := context.WithCancel(ctx)
+
+			env := &AdapterConfig{PodName: podName, MemoryLimit: "0"}
+			ceClient := adaptertest.NewTestClient()
+
+			adapter := newAdapter(ctx, env, ceClient, newSampleAdapter).(*Adapter)
+
+			adapterStopped := make(chan bool)
+			go func() {
+				err := adapter.Start(ctx)
+				if err != nil {
+					t.Error("Unexpected error ", err)
+				}
+				adapterStopped <- true
+			}()
+
+			err := adapter.Update(ctx, &tc.source)
+			if tc.wantErr && err == nil {
+				t.Error("Error expected, got none")
+			}
+
+			if !tc.wantErr && err != nil {
+				t.Errorf("No error expected, got %v", err)
+			}
+
+			cancelAdapter()
+
+			select {
+			case <-adapterStopped:
+			case <-time.After(2 * time.Second):
+				t.Error("adapter failed to stop after 2 seconds")
+			}
+		})
 	}
 }
 
@@ -179,5 +402,6 @@ func (d *sampleAdapter) Start(ctx context.Context) error {
 
 	d.running = false
 	stoppingAdapterChan <- d
+
 	return nil
 }

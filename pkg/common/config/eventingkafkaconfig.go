@@ -17,10 +17,13 @@ limitations under the License.
 package config
 
 import (
+	"github.com/Shopify/sarama"
 	"k8s.io/apimachinery/pkg/api/resource"
+
+	"knative.dev/eventing-kafka/pkg/common/client"
 )
 
-// The EventingKafkaConfig and these EK sub-structs contain our custom configuration settings,
+// EKKubernetesConfig and these EK sub-structs contain our custom configuration settings,
 // stored in the config-kafka configmap.  The sub-structs are explicitly declared so that they
 // can have their own JSON tags in the overall EventingKafkaConfig
 type EKKubernetesConfig struct {
@@ -31,12 +34,12 @@ type EKKubernetesConfig struct {
 	Replicas      int               `json:"replicas,omitempty"`
 }
 
-// The Receiver config has the base Kubernetes fields (Cpu, Memory, Replicas) only
+// EKReceiverConfig has the base Kubernetes fields (Cpu, Memory, Replicas) only
 type EKReceiverConfig struct {
 	EKKubernetesConfig
 }
 
-// The Dispatcher config has the base Kubernetes fields (Cpu, Memory, Replicas) only
+// EKDispatcherConfig has the base Kubernetes fields (Cpu, Memory, Replicas) only
 type EKDispatcherConfig struct {
 	EKKubernetesConfig
 }
@@ -55,18 +58,38 @@ type EKCloudEventConfig struct {
 	MaxIdleConnsPerHost int `json:"maxIdleConnsPerHost,omitempty"`
 }
 
-// EKKafkaConfig contains items relevant to Kafka specifically, and the Sarama logging flag
+// EKKafkaConfig contains items relevant to Kafka specifically
 type EKKafkaConfig struct {
 	Brokers             string             `json:"brokers,omitempty"`
-	EnableSaramaLogging bool               `json:"enableSaramaLogging,omitempty"`
+	AuthSecretName      string             `json:"authSecretName,omitempty"`
+	AuthSecretNamespace string             `json:"authSecretNamespace,omitempty"`
 	Topic               EKKafkaTopicConfig `json:"topic,omitempty"`
-	AdminType           string             `json:"adminType,omitempty"`
+}
+
+// EKSourceConfig is reserved for configuration fields needed by the Kafka Source component
+type EKSourceConfig struct {
+}
+
+// EKChannelConfig contains items relevant to the eventing-kafka channels
+// NOTE:  Currently the consolidated channel type does not make use of most of these fields
+type EKChannelConfig struct {
+	Dispatcher EKDispatcherConfig `json:"dispatcher,omitempty"` // Consolidated and Distributed channels
+	Receiver   EKReceiverConfig   `json:"receiver,omitempty"`   // Distributed channel only
+	AdminType  string             `json:"adminType,omitempty"`  // Distributed channel only
+}
+
+// EKSaramaConfig holds the sarama.Config struct (populated separately), and the global Sarama debug logging flag
+type EKSaramaConfig struct {
+	EnableLogging bool           `json:"enableLogging,omitempty"`
+	Config        *sarama.Config `json:"-"` // Sarama config string is converted to sarama.Config struct, stored here
 }
 
 // EventingKafkaConfig is the main struct that holds the Receiver, Dispatcher, and Kafka sub-items
 type EventingKafkaConfig struct {
-	Receiver    EKReceiverConfig   `json:"receiver,omitempty"`
-	Dispatcher  EKDispatcherConfig `json:"dispatcher,omitempty"`
-	CloudEvents EKCloudEventConfig `json:"cloudevents,omitempty"`
-	Kafka       EKKafkaConfig      `json:"kafka,omitempty"`
+	Channel     EKChannelConfig         `json:"channel,omitempty"`
+	CloudEvents EKCloudEventConfig      `json:"cloudevents,omitempty"`
+	Kafka       EKKafkaConfig           `json:"kafka,omitempty"`
+	Sarama      EKSaramaConfig          `json:"sarama,omitempty"`
+	Source      EKSourceConfig          `json:"source,omitempty"`
+	Auth        *client.KafkaAuthConfig `json:"-"` // Not directly part of the configmap; loaded from the secret
 }

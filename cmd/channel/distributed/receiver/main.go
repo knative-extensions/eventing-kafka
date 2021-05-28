@@ -27,18 +27,6 @@ import (
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
-	distributedcommonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
-	commonk8s "knative.dev/eventing-kafka/pkg/channel/distributed/common/k8s"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
-	kafkautil "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/util"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/channel"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/constants"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/env"
-	channelhealth "knative.dev/eventing-kafka/pkg/channel/distributed/receiver/health"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/producer"
-	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
-	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
-	"knative.dev/eventing-kafka/pkg/common/metrics"
 	eventingchannel "knative.dev/eventing/pkg/channel"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/configmap"
@@ -47,6 +35,20 @@ import (
 	"knative.dev/pkg/logging"
 	eventingmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/signals"
+
+	distributedcommonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
+	commonk8s "knative.dev/eventing-kafka/pkg/channel/distributed/common/k8s"
+	kafkautil "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/util"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/config"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/channel"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/constants"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/env"
+	channelhealth "knative.dev/eventing-kafka/pkg/channel/distributed/receiver/health"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/producer"
+	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
+	"knative.dev/eventing-kafka/pkg/common/kafka/sarama"
+	"knative.dev/eventing-kafka/pkg/common/metrics"
 )
 
 // Variables
@@ -85,25 +87,23 @@ func main() {
 		logger.Fatal("Invalid / Missing Environment Variables - Terminating", zap.Error(err))
 	}
 
-	// Update The Sarama Config - Username/Password Overrides (Values From Secret Take Precedence Over ConfigMap)
-	kafkaAuthCfg, err := distributedcommonconfig.GetAuthConfigFromKubernetes(ctx, environment.KafkaSecretName, environment.KafkaSecretNamespace)
-	if err != nil {
-		logger.Fatal("Failed To Load Auth Config", zap.Error(err))
-	}
-
 	configMap, err := configmap.Load(commonconstants.SettingsConfigMapMountPath)
 	if err != nil {
 		logger.Fatal("error loading configuration", zap.Error(err))
 	}
 
 	// Load The Sarama & Eventing-Kafka Configuration From The ConfigMap
-	saramaConfig, ekConfig, err := sarama.LoadSettings(ctx, constants.Component, configMap, kafkaAuthCfg)
+	ekConfig, err := sarama.LoadSettings(ctx, constants.Component, configMap, sarama.LoadAuthConfig)
 	if err != nil {
-		logger.Fatal("Failed To Load Sarama Settings", zap.Error(err))
+		logger.Fatal("Failed To Load Configuration Settings", zap.Error(err))
+	}
+	err = config.VerifyConfiguration(ekConfig)
+	if err != nil {
+		logger.Fatal("Failed To Verify Configuration Settings", zap.Error(err))
 	}
 
 	// Enable Sarama Logging If Specified In ConfigMap
-	sarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)
+	sarama.EnableSaramaLogging(ekConfig.Sarama.EnableLogging)
 
 	// Initialize Tracing (Watches config-tracing ConfigMap, Assumes Context Came From LoggingContext With Embedded K8S Client Key)
 	err = distributedcommonconfig.InitializeTracing(logger.Sugar(), ctx, environment.ServiceName, environment.SystemNamespace)
@@ -144,8 +144,14 @@ func main() {
 		logger.Fatal("Failed To Start Secret Watcher", zap.Error(err))
 	}
 
+	// Set The Liveness Flag - Readiness Is Set By Individual Components
+	// This is set before the call to NewProducer, because if the Sarama client takes a long time to connect
+	// it is entirely possible for the receiver to be killed by Kubernetes for not responding to a liveness request.
+	logger.Info("Registering receiver as alive")
+	healthServer.SetAlive(true)
+
 	// Initialize The Kafka Producer In Order To Start Processing Status Events
-	kafkaProducer, err = producer.NewProducer(logger, saramaConfig, strings.Split(ekConfig.Kafka.Brokers, ","), statsReporter, healthServer)
+	kafkaProducer, err = producer.NewProducer(logger, ekConfig.Sarama.Config, strings.Split(ekConfig.Kafka.Brokers, ","), statsReporter, healthServer)
 	if err != nil {
 		logger.Fatal("Failed To Initialize Kafka Producer", zap.Error(err))
 	}
@@ -158,9 +164,6 @@ func main() {
 	if err != nil {
 		logger.Fatal("Failed To Create MessageReceiver", zap.Error(err))
 	}
-
-	// Set The Liveness Flag - Readiness Is Set By Individual Components
-	healthServer.SetAlive(true)
 
 	// Start The Message Receiver (Blocking)
 	err = messageReceiver.Start(ctx)

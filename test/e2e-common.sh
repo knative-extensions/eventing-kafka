@@ -184,7 +184,7 @@ function install_knative_eventing {
     # Install MT Channel Based Broker
     ko apply -f "${EVENTING_MT_CHANNEL_BROKER_CONFIG}"
     # Install IMC
-    ko apply -f "${EVENTING_IN_MEMORY_CHANNEL_CONFIG}"
+    ko apply -Rf "${EVENTING_IN_MEMORY_CHANNEL_CONFIG}"
     popd
   fi
    wait_until_pods_running "${EVENTING_NAMESPACE}" || fail_test "Knative Eventing did not come up"
@@ -219,7 +219,7 @@ function knative_teardown() {
     pushd .
     cd ${GOPATH}/src/knative.dev/eventing
     # Remove IMC
-    ko delete -f "${EVENTING_IN_MEMORY_CHANNEL_CONFIG}"
+    ko delete -Rf "${EVENTING_IN_MEMORY_CHANNEL_CONFIG}"
     # Remove MT Channel Based Broker
     ko delete -f "${EVENTING_MT_CHANNEL_BROKER_CONFIG}"
     # Remove eventing
@@ -370,7 +370,19 @@ function run_postinstall_jobs() {
 function uninstall_channel_crds() {
   echo "Uninstalling Kafka Channel CRD"
   kubectl delete secret -n "${SYSTEM_NAMESPACE}" kafka-cluster
-  sleep 10 # Give Controller Time To React To Kafka Secret Deletion ; )
+
+  # The distributed channel controller no longer actively monitors the kafka-cluster secret,
+  # so the receiver will only be torn down if there is a change to the kafkachannels or the
+  # config-kafka configmap.  However, if the secret is missing, the global resync does not happen
+  # (the controller presumes this missing secret is an error and reacts accordingly), so this
+  # manual deletion of the receiver deployment is the easiest solution here.
+  if [[ $1 == "distributed" ]]; then
+    # Create the same value as GenerateHash() in distributed/controller/util/hash.go
+    hash=$(md5 -qs "kafka-cluster" | cut -c 1-8)
+    kubectl delete deployment -n "${SYSTEM_NAMESPACE}" kafka-cluster-${hash}-receiver
+    kubectl delete service -n "${SYSTEM_NAMESPACE}" kafka-cluster-${hash}-receiver
+  fi
+
   echo "Current namespaces:"
   kubectl get namespaces
   echo "Current kafkachannels:"
@@ -433,6 +445,7 @@ function kafka_setup() {
   sed "s/namespace: .*/namespace: ${STRIMZI_KAFKA_NAMESPACE}/" ${STRIMZI_INSTALLATION_CONFIG_TEMPLATE} > "${STRIMZI_INSTALLATION_CONFIG}"
 
   echo "Create The Actual Kafka Cluster Instance For The Cluster Operator To Setup using: ${STRIMZI_INSTALLATION_CONFIG}"
+  kubectl apply -f "${STRIMZI_INSTALLATION_CONFIG}" -n "${STRIMZI_KAFKA_NAMESPACE}" -l strimzi.io/crd-install=true
   kubectl apply -f "${STRIMZI_INSTALLATION_CONFIG}" -n "${STRIMZI_KAFKA_NAMESPACE}"
   kubectl apply -f "${KAFKA_INSTALLATION_CONFIG}" -n "${STRIMZI_KAFKA_NAMESPACE}"
 
@@ -540,7 +553,7 @@ function test_distributed_channel() {
   go_test_e2e -tags=e2e -timeout=40m -test.parallel=${TEST_PARALLEL} ./test/e2e -channels=messaging.knative.dev/v1beta1:KafkaChannel  || fail_test
   go_test_e2e -tags=e2e -timeout=5m -test.parallel=${TEST_PARALLEL} ./test/conformance -channels=messaging.knative.dev/v1beta1:KafkaChannel || fail_test
 
-  uninstall_channel_crds || return 1
+  uninstall_channel_crds distributed || return 1
 }
 
 # Installs the resources necessary to test the multi-tenant source, runs those tests, and then cleans up those resources
@@ -549,6 +562,12 @@ function test_mt_source() {
   install_mt_source || return 1
 
   export TEST_MT_SOURCE
+
+  echo "Run rekt tests"
+  go_test_e2e -tags=e2e -timeout=20m -test.parallel=${TEST_PARALLEL} ./test/rekt/... || fail_test
+
+  # still run those since some test cases are still missing
+  echo "Run classic tests"
   go_test_e2e -tags=source,mtsource -timeout=20m -test.parallel=${TEST_PARALLEL} ./test/e2e/...  || fail_test
 
   # wait for all KafkaSources to be deleted

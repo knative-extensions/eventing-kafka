@@ -22,13 +22,20 @@ import (
 	"strings"
 
 	"go.uber.org/zap"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	injectionclient "knative.dev/pkg/client/injection/kube/client"
+	"knative.dev/pkg/configmap"
+	kncontroller "knative.dev/pkg/controller"
+	"knative.dev/pkg/injection"
+	"knative.dev/pkg/logging"
+	eventingmetrics "knative.dev/pkg/metrics"
+	"knative.dev/pkg/signals"
+
 	distributedcommonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	commonk8s "knative.dev/eventing-kafka/pkg/channel/distributed/common/k8s"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/config"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/controller"
 	dispatch "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/dispatcher"
@@ -37,15 +44,9 @@ import (
 	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	"knative.dev/eventing-kafka/pkg/client/informers/externalversions"
 	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
+	"knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
 	"knative.dev/eventing/pkg/kncloudevents"
-	injectionclient "knative.dev/pkg/client/injection/kube/client"
-	"knative.dev/pkg/configmap"
-	kncontroller "knative.dev/pkg/controller"
-	"knative.dev/pkg/injection"
-	"knative.dev/pkg/logging"
-	eventingmetrics "knative.dev/pkg/metrics"
-	"knative.dev/pkg/signals"
 )
 
 // Variables
@@ -89,25 +90,23 @@ func main() {
 		logger.Fatal("Failed To Load Environment Variables - Terminating!", zap.Error(err))
 	}
 
-	// Update The Sarama Config - Username/Password Overrides (Values From Secret Take Precedence Over ConfigMap)
-	kafkaAuthCfg, err := distributedcommonconfig.GetAuthConfigFromKubernetes(ctx, environment.KafkaSecretName, environment.KafkaSecretNamespace)
-	if err != nil {
-		logger.Fatal("Failed To Load Auth Config", zap.Error(err))
-	}
-
 	configMap, err := configmap.Load(commonconstants.SettingsConfigMapMountPath)
 	if err != nil {
 		logger.Fatal("error loading configuration", zap.Error(err))
 	}
 
 	// Load The Sarama & Eventing-Kafka Configuration From The ConfigMap
-	saramaConfig, ekConfig, err := sarama.LoadSettings(ctx, constants.Component, configMap, kafkaAuthCfg)
+	ekConfig, err := sarama.LoadSettings(ctx, constants.Component, configMap, sarama.LoadAuthConfig)
 	if err != nil {
-		logger.Fatal("Failed To Load Sarama Settings", zap.Error(err))
+		logger.Fatal("Failed To Load Configuration Settings", zap.Error(err))
+	}
+	err = config.VerifyConfiguration(ekConfig)
+	if err != nil {
+		logger.Fatal("Failed To Verify Configuration Settings", zap.Error(err))
 	}
 
 	// Enable Sarama Logging If Specified In ConfigMap
-	sarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)
+	sarama.EnableSaramaLogging(ekConfig.Sarama.EnableLogging)
 
 	// Initialize Tracing (Watches config-tracing ConfigMap, Assumes Context Came From LoggingContext With Embedded K8S Client Key)
 	err = distributedcommonconfig.InitializeTracing(logger.Sugar(), ctx, environment.ServiceName, environment.SystemNamespace)
@@ -144,12 +143,10 @@ func main() {
 		ClientId:        constants.Component,
 		Brokers:         strings.Split(ekConfig.Kafka.Brokers, ","),
 		Topic:           environment.KafkaTopic,
-		Username:        kafkaAuthCfg.SASL.User,
-		Password:        kafkaAuthCfg.SASL.Password,
 		ChannelKey:      environment.ChannelKey,
 		StatsReporter:   statsReporter,
-		MetricsRegistry: saramaConfig.MetricRegistry,
-		SaramaConfig:    saramaConfig,
+		MetricsRegistry: ekConfig.Sarama.Config.MetricRegistry,
+		SaramaConfig:    ekConfig.Sarama.Config,
 	}
 	dispatcher = dispatch.NewDispatcher(dispatcherConfig)
 

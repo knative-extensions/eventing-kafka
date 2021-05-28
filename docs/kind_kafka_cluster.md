@@ -37,7 +37,7 @@ kubectl config current-context
 
 ```
 # Specify Knative Version
-export EVENTING_VERSION=v0.18.1   # Choose from https://github.com/knative/eventing/releases
+export EVENTING_VERSION=v0.22.1   # Choose from https://github.com/knative/eventing/releases
 
 # Install Knative-Eventing CRDs & Core
 kubectl apply --filename https://github.com/knative/eventing/releases/download/${EVENTING_VERSION}/eventing-crds.yaml
@@ -68,7 +68,7 @@ data:
 
 ```
 Specify Strimzi Kafka Version (See... https://github.com/strimzi/strimzi-kafka-operator/releases)
-export STRIMZI_VERSION=0.18.0
+export STRIMZI_VERSION=0.21.1
 
 # Create A "kafka" Namespace
 kubectl create namespace kafka
@@ -90,8 +90,8 @@ steps could be used for the Consolidated KafkaChannel or Source.
 
 - Configure The Distributed KafkaChannel For Strimzi...
 
-  - Disable TLS/SASL in
-    [config/channel/distributed/200-eventing-kafka-configmap.yaml](../config/channel/distributed/300-eventing-kafka-configmap.yaml)
+  - Disable TLS/SASL and specify Strimzi Brokers in
+    [config/channel/distributed/300-eventing-kafka-configmap.yaml](../config/channel/distributed/300-eventing-kafka-configmap.yaml)
     ```
     data:
       sarama: |
@@ -100,23 +100,9 @@ steps could be used for the Consolidated KafkaChannel or Source.
             Enable: false
           SASL:
             Enable: false
-    ```
-  - Specify Strimzi Brokers in
-    [config/channel/distributed/300-kafka-secret.yaml](../config/channel/distributed/300-kafka-secret.yaml)
-
-    ```
-    apiVersion: v1
-    data:
-      brokers: bXktY2x1c3Rlci1rYWZrYS1ib290c3RyYXAua2Fma2Euc3ZjLmNsdXN0ZXIubG9jYWw6OTA5Mg== # my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092
-      password: ""
-      username: ""
-    kind: Secret
-    metadata:
-      name: kafka-cluster
-      namespace: knative-eventing
-      labels:
-        eventing-kafka.knative.dev/kafka-secret: "true"
-    type: Opaque
+      eventing-kafka: |
+        kafka:
+          brokers: my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092
     ```
 
   - Install the distributed KafkaChannel
@@ -126,7 +112,7 @@ steps could be used for the Consolidated KafkaChannel or Source.
     export KO_DOCKER_REPO=<docker-registry-path>
 
     # Build / Deploy
-    ko apply --strict -f config/channel/distributed/
+    ko apply -f config/channel/distributed/
     ```
 
 ## Uninstall Distributed KafkaChannel

@@ -27,18 +27,15 @@ import (
 	"k8s.io/client-go/tools/cache"
 	kafkachannelv1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/types"
-	clientconstants "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
 	kafkaclientsetinjection "knative.dev/eventing-kafka/pkg/client/injection/client"
 	"knative.dev/eventing-kafka/pkg/client/injection/informers/messaging/v1beta1/kafkachannel"
 	kafkachannelreconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
-	commonclient "knative.dev/eventing-kafka/pkg/common/client"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/common/configmaploader"
 	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
+	"knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
 	"knative.dev/pkg/client/injection/kube/informers/core/v1/service"
@@ -50,7 +47,7 @@ import (
 // Track The Reconciler For Shutdown() Usage
 var rec *Reconciler
 
-// Create A New KafkaChannel Controller
+// NewController Creates A New KafkaChannel Controller
 func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 
 	// Get A Logger
@@ -81,46 +78,18 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 	// Get The K8S Client
 	kubeClientset := kubeclient.Get(ctx)
 
-	// Get & Validate The Kafka Auth Secret
-	kafkaSecret, err := util.GetKafkaSecret(ctx, kubeClientset, environment.SystemNamespace)
-	if err != nil {
-		logger.Fatal("Failed To Load Kafka Auth Secret", zap.Error(err))
-	} else if kafkaSecret == nil {
-		logger.Fatal("No Kafka Auth Secret Found")
-	} else {
-		logger.Info("Found Valid Kafka Auth Secret")
-	}
-
-	// Extract The Relevant Data From The Kafka Secret
-	kafkaSecretName := kafkaSecret.Name
-	kafkaUsername := string(kafkaSecret.Data[clientconstants.KafkaSecretKeyUsername])
-	kafkaPassword := string(kafkaSecret.Data[clientconstants.KafkaSecretKeyPassword])
-	kafkaSaslType := string(kafkaSecret.Data[clientconstants.KafkaSecretKeySaslType])
-
-	// Create A Kafka Auth Config From Current Credentials (Secret Data Takes Precedence Over ConfigMap)
-	var kafkaAuthCfg *commonclient.KafkaAuthConfig
-	if kafkaUsername != "" {
-		kafkaAuthCfg = &commonclient.KafkaAuthConfig{
-			SASL: &commonclient.KafkaSaslConfig{
-				User:     kafkaUsername,
-				Password: kafkaPassword,
-				SaslType: kafkaSaslType,
-			},
-		}
-	}
-
 	// Load the Sarama and other eventing-kafka settings from our configmap
-	saramaConfig, configuration, err := sarama.LoadSettings(ctx, "", configMap, kafkaAuthCfg)
+	configuration, err := sarama.LoadSettings(ctx, constants.Component, configMap, sarama.LoadAuthConfig)
 	if err != nil {
 		logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Error(err))
 	}
 
 	// Enable Sarama Logging If Specified In ConfigMap
-	sarama.EnableSaramaLogging(configuration.Kafka.EnableSaramaLogging)
+	sarama.EnableSaramaLogging(configuration.Sarama.EnableLogging)
 
 	// Determine The Kafka AdminClient Type (Assume Kafka Unless Otherwise Specified)
 	var kafkaAdminClientType types.AdminClientType
-	switch configuration.Kafka.AdminType {
+	switch configuration.Channel.AdminType {
 	case constants.KafkaAdminTypeValueKafka:
 		kafkaAdminClientType = types.Kafka
 	case constants.KafkaAdminTypeValueAzure:
@@ -128,7 +97,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 	case constants.KafkaAdminTypeValueCustom:
 		kafkaAdminClientType = types.Custom
 	default:
-		logger.Warn("Encountered Unexpected Kafka AdminType - Defaulting To 'kafka'", zap.String("AdminType", configuration.Kafka.AdminType))
+		logger.Warn("Encountered Unexpected Kafka AdminType - Defaulting To 'kafka'", zap.String("AdminType", configuration.Channel.AdminType))
 		kafkaAdminClientType = types.Kafka
 	}
 
@@ -137,7 +106,6 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		kubeClientset:        kubeClientset,
 		environment:          environment,
 		config:               configuration,
-		saramaConfig:         saramaConfig,
 		kafkaClientSet:       kafkaclientsetinjection.Get(ctx),
 		kafkachannelLister:   kafkachannelInformer.Lister(),
 		kafkachannelInformer: kafkachannelInformer.Informer(),
@@ -146,11 +114,6 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		adminClientType:      kafkaAdminClientType,
 		adminClient:          nil,
 		adminMutex:           &sync.Mutex{},
-		kafkaSecret:          kafkaSecretName,
-		kafkaBrokers:         configuration.Kafka.Brokers,
-		kafkaUsername:        kafkaUsername,
-		kafkaPassword:        kafkaPassword,
-		kafkaSaslType:        kafkaSaslType,
 		kafkaConfigMapHash:   commonconfig.ConfigmapDataCheckSum(configMap),
 	}
 
@@ -165,8 +128,12 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 
 	handleKafkaConfigMapChange := func(ctx context.Context, configMap *corev1.ConfigMap) {
 		logger.Info("Configmap is updated or, it is being read for the first time")
-		rec.updateKafkaConfig(ctx, configMap)
-		grCh(configMap)
+		err := rec.updateKafkaConfig(ctx, configMap)
+		if err != nil {
+			logger.Error("Update from configmap failed; skipping GlobalResync", zap.Error(err), zap.Any("configMap", configMap))
+		} else {
+			grCh(configMap)
+		}
 	}
 
 	// Watch The Settings ConfigMap For Changes
@@ -201,7 +168,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 }
 
 //
-// FilterWithKafkaChannelLabels - Custom Filter For Common K8S Components "Owned" By KafkaChannels
+// FilterKafkaChannelOwnerByReferenceOrLabel - Custom Filter For Common K8S Components "Owned" By KafkaChannels
 //
 // This function is similar to, and based on, the various knative.dev/pkg/controller/FilterXYZ
 // functions.  It is used to filter common Kubernetes objects (Service, Deployment, etc) owned by
@@ -232,7 +199,7 @@ func FilterKafkaChannelOwnerByReferenceOrLabel() func(obj interface{}) bool {
 	}
 }
 
-// Graceful Shutdown Hook
+// Shutdown - Graceful Shutdown Hook
 func Shutdown() {
 	rec.ClearKafkaAdminClient(context.Background())
 }

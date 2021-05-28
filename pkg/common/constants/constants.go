@@ -18,28 +18,50 @@ package constants
 
 const (
 
-	// KafkaChannel Spec Defaults
-	DefaultNumPartitions     = 1
+	// DefaultNumPartitions is the KafkaChannel Spec default for the number of partitions
+	DefaultNumPartitions = 1
+	// DefaultReplicationFactor is the KafkaChannel Spec default for the replication factor
 	DefaultReplicationFactor = 1
 
-	// The name of the configmap used to hold eventing-kafka settings
+	// SettingsConfigMapName is the name of the configmap used to hold eventing-kafka settings
 	SettingsConfigMapName = "config-kafka"
-	SettingsSecretName    = "kafka-cluster"
 
-	// Mount path of the configmap used to hold eventing-kafka settings
+	// SettingsConfigMapMountPath is the mount path of the configmap used to hold eventing-kafka settings
 	SettingsConfigMapMountPath = "/etc/" + SettingsConfigMapName
 
-	// Config key of the config in the configmap used to hold eventing-kafka settings
+	// EventingKafkaSettingsConfigKey is the field in the configmap used to hold eventing-kafka settings
 	EventingKafkaSettingsConfigKey = "eventing-kafka"
 
-	// The name of the keys in the Data section of the eventing-kafka configmap that holds Sarama and Eventing-Kafka configuration YAML
+	// SaramaSettingsConfigKey is the name of the field in the Data section of the eventing-kafka configmap that holds Sarama config YAML
 	SaramaSettingsConfigKey = "sarama"
 
-	// Default values for the cloud events connection arguments, if not overridden
-	DefaultMaxIdleConns        = 1000
+	// VersionConfigKey is the name of the field used to store the version of the configmap data, for upgrade purposes
+	VersionConfigKey = "version"
+
+	// DefaultMaxIdleConns is the default values for the cloud events connection argument "MaxIdleConns", if not overridden
+	DefaultMaxIdleConns = 1000
+	// DefaultMaxIdleConnsPerHost is the default values for the cloud events connection argument "MaxIdleConnsPerHost", if not overridden
 	DefaultMaxIdleConnsPerHost = 100
 
-	// This annotation is used by the controller to track updates
+	// ConfigMapHashAnnotationKey is an annotation is used by the controller to track updates
 	// to config-kafka and apply them in the dispatcher deployment
 	ConfigMapHashAnnotationKey = "kafka.eventing.knative.dev/configmap-hash"
+
+	// CurrentConfigVersion is the current version which should be in the "version" field of the config-kafka configmap
+	CurrentConfigVersion = "1.0.0"
+
+	// KafkaSecretKeyNamespace is the username key in the Kafka Auth Config Secret
+	KafkaSecretKeyNamespace = "namespace"
+	// KafkaSecretKeyUsername is the username key in the Kafka Auth Config Secret
+	KafkaSecretKeyUsername = "username"
+	// KafkaSecretKeyPassword is the password key in the Kafka Auth Config Secret
+	KafkaSecretKeyPassword = "password"
+	// KafkaSecretKeySaslType is the SASL type key in the Kafka Auth Config Secret
+	KafkaSecretKeySaslType = "sasltype"
+
+	// KnativeLoggingConfigMapNameEnvVarKey Is The Environment Variable Used For Knative Logging Configuration
+	KnativeLoggingConfigMapNameEnvVarKey = "CONFIG_LOGGING_NAME" // Note - Matches value of configMapNameEnv constant in Knative.dev/pkg/logging !
+
+	// KafkaTopicConfigRetentionMs is the key in the Sarama TopicDetail ConfigEntries map for retention time (in ms)
+	KafkaTopicConfigRetentionMs = "retention.ms"
 )

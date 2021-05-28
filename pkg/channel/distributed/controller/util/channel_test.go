@@ -23,22 +23,17 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	logtesting "knative.dev/pkg/logging/testing"
+
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
-	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
-	logtesting "knative.dev/pkg/logging/testing"
 )
 
 // Test Data
 const (
-	kafkaSecret              = "testkafkasecret"
-	channelName              = "testname"
-	channelNamespace         = "testnamespace"
-	numPartitions            = int32(123)
-	defaultNumPartitions     = int32(987)
-	replicationFactor        = int16(22)
-	defaultReplicationFactor = int16(33)
-	defaultRetentionMillis   = int64(55555)
+	testPrefix       = "testkafkaprefix"
+	channelName      = "test-channel-name"
+	channelNamespace = "test-channel-namespace"
 )
 
 // Test The ChannelLogger() Functionality
@@ -97,11 +92,14 @@ func TestNewChannelOwnerReference(t *testing.T) {
 func TestReceiverDnsSafeName(t *testing.T) {
 
 	// Perform The Test
-	actualResult := ReceiverDnsSafeName(kafkaSecret)
+	differentPrefix := testPrefix + "-different"
+	actualTest1Result := ReceiverDnsSafeName(testPrefix)
+	actualTest2Result := ReceiverDnsSafeName(differentPrefix)
 
 	// Verify The Results
-	expectedResult := fmt.Sprintf("%s-%s-receiver", strings.ToLower(kafkaSecret), GenerateHash(kafkaSecret, 8))
-	assert.Equal(t, expectedResult, actualResult)
+	assert.Equal(t, fmt.Sprintf("%s-%s-receiver", strings.ToLower(testPrefix), GenerateHash(testPrefix, 8)), actualTest1Result)
+	assert.Equal(t, fmt.Sprintf("%s-%s-receiver", strings.ToLower(differentPrefix), GenerateHash(differentPrefix, 8)), actualTest2Result)
+	assert.NotEqual(t, actualTest1Result, actualTest2Result)
 }
 
 // Test The Channel Host Name Formatter / Generator
@@ -111,65 +109,4 @@ func TestChannelHostName(t *testing.T) {
 	expectedChannelHostName := testChannelName + "." + testChannelNamespace + ".channels.cluster.local"
 	actualChannelHostName := ChannelHostName(testChannelName, testChannelNamespace)
 	assert.Equal(t, expectedChannelHostName, actualChannelHostName)
-}
-
-// Test The NumPartitions Accessor
-func TestNumPartitions(t *testing.T) {
-
-	// Test Logger
-	logger := logtesting.TestLogger(t).Desugar()
-
-	// Test Data
-	configuration := &commonconfig.EventingKafkaConfig{Kafka: commonconfig.EKKafkaConfig{Topic: commonconfig.EKKafkaTopicConfig{DefaultNumPartitions: defaultNumPartitions}}}
-
-	// Test The Default Failover Use Case
-	channel := &kafkav1beta1.KafkaChannel{}
-	actualNumPartitions := NumPartitions(channel, configuration, logger)
-	assert.Equal(t, defaultNumPartitions, actualNumPartitions)
-
-	// Test The Valid NumPartitions Use Case
-	channel = &kafkav1beta1.KafkaChannel{Spec: kafkav1beta1.KafkaChannelSpec{NumPartitions: numPartitions}}
-	actualNumPartitions = NumPartitions(channel, configuration, logger)
-	assert.Equal(t, numPartitions, actualNumPartitions)
-}
-
-// Test The ReplicationFactor Accessor
-func TestReplicationFactor(t *testing.T) {
-
-	// Test Logger
-	logger := logtesting.TestLogger(t).Desugar()
-
-	// Test Data
-	configuration := &commonconfig.EventingKafkaConfig{Kafka: commonconfig.EKKafkaConfig{Topic: commonconfig.EKKafkaTopicConfig{DefaultReplicationFactor: defaultReplicationFactor}}}
-
-	// Test The Default Failover Use Case
-	channel := &kafkav1beta1.KafkaChannel{}
-	actualReplicationFactor := ReplicationFactor(channel, configuration, logger)
-	assert.Equal(t, defaultReplicationFactor, actualReplicationFactor)
-
-	// Test The Valid ReplicationFactor Use Case
-	channel = &kafkav1beta1.KafkaChannel{Spec: kafkav1beta1.KafkaChannelSpec{ReplicationFactor: replicationFactor}}
-	actualReplicationFactor = ReplicationFactor(channel, configuration, logger)
-	assert.Equal(t, replicationFactor, actualReplicationFactor)
-}
-
-// Test The RetentionMillis Accessor
-func TestRetentionMillis(t *testing.T) {
-
-	// Test Logger
-	logger := logtesting.TestLogger(t).Desugar()
-
-	// Test Data
-	configuration := &commonconfig.EventingKafkaConfig{Kafka: commonconfig.EKKafkaConfig{Topic: commonconfig.EKKafkaTopicConfig{DefaultRetentionMillis: defaultRetentionMillis}}}
-
-	// Test The Default Failover Use Case
-	channel := &kafkav1beta1.KafkaChannel{}
-	actualRetentionMillis := RetentionMillis(channel, configuration, logger)
-	assert.Equal(t, defaultRetentionMillis, actualRetentionMillis)
-
-	// TODO - No RetentionMillis In eventing-contrib KafkaChannel
-	//// Test The Valid RetentionMillis Use Case
-	//channel = &kafkav1beta1.KafkaChannel{Spec: kafkav1beta1.KafkaChannelSpec{RetentionMillis: retentionMillis}}
-	//actualRetentionMillis = RetentionMillis(channel, environment, logger)
-	//assert.Equal(t, retentionMillis, actualRetentionMillis)
 }

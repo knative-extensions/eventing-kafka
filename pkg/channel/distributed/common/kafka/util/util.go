@@ -23,17 +23,22 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 )
 
-// Get The Formatted Kafka Topic Name From The Specified Components
+// TopicName returns a formatted string representing the Kafka Topic name.
 func TopicName(namespace string, name string) string {
 	return fmt.Sprintf("%s.%s", namespace, name)
 }
 
-// Append The KafkaChannel Service Name Suffix To The Specified String
+// GroupId returns a formatted string representing the Kafka ConsumerGroup ID.
+func GroupId(uid string) string {
+	return fmt.Sprintf("kafka.%s", uid)
+}
+
+// AppendKafkaChannelServiceNameSuffix appends the KafkaChannel Service name suffix to the specified string.
 func AppendKafkaChannelServiceNameSuffix(channelName string) string {
 	return fmt.Sprintf("%s-%s", channelName, constants.KafkaChannelServiceNameSuffix)
 }
 
-// Remove The KafkaChannel Service Name Suffix From The Specified String
+// TrimKafkaChannelServiceNameSuffix removes the KafkaChannel Service name suffix from the specified string.
 func TrimKafkaChannelServiceNameSuffix(serviceName string) string {
 	return strings.TrimSuffix(serviceName, "-"+constants.KafkaChannelServiceNameSuffix)
 }

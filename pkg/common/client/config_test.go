@@ -32,6 +32,7 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
+	"github.com/ghodss/yaml"
 	"github.com/stretchr/testify/assert"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 	"knative.dev/pkg/logging"
@@ -241,7 +242,7 @@ func TestBuildSaramaConfig(t *testing.T) {
 	// Since it's a simple JSON merge we don't need to test every possible value.
 	config, err := NewConfigBuilder().
 		WithDefaults().
-		FromYaml(commontesting.OldSaramaConfig).
+		FromYaml(extractSaramaConfig(t, commontesting.OldSaramaConfig)).
 		Build(ctx)
 	assert.Nil(t, err)
 	assert.NotNil(t, config)
@@ -252,7 +253,7 @@ func TestBuildSaramaConfig(t *testing.T) {
 
 	config, err = NewConfigBuilder().
 		WithDefaults().
-		FromYaml(commontesting.NewSaramaConfig).
+		FromYaml(extractSaramaConfig(t, commontesting.NewSaramaConfig)).
 		Build(ctx)
 	assert.Nil(t, err)
 	assert.NotNil(t, config)
@@ -266,7 +267,7 @@ func TestBuildSaramaConfig(t *testing.T) {
 	regexVersion := regexp.MustCompile(`Version:\s*\d*\.[\d.]*`) // Must have at least one period or it will match the "Version: 1" in Net.SASL
 	_, err = NewConfigBuilder().
 		WithDefaults().
-		FromYaml(regexVersion.ReplaceAllString(commontesting.NewSaramaConfig, "Version: INVALID")).
+		FromYaml(extractSaramaConfig(t, regexVersion.ReplaceAllString(commontesting.NewSaramaConfig, "Version: INVALID"))).
 		Build(ctx)
 	assert.NotNil(t, err)
 
@@ -313,6 +314,15 @@ func TestBuildSaramaConfig(t *testing.T) {
 	assert.Equal(t, "foo", config.Net.SASL.User)
 	assert.Equal(t, "newClientId", config.ClientID)
 	assert.Equal(t, sarama.V2_0_0_0, config.Version)
+}
+
+func extractSaramaConfig(t *testing.T, saramaConfigField string) string {
+	saramaShell := &struct {
+		EnableLogging bool   `json:"enableLogging"`
+		Config        string `json:"config"`
+	}{}
+	assert.Nil(t, yaml.Unmarshal([]byte(saramaConfigField), &saramaShell))
+	return saramaShell.Config
 }
 
 func TestBuildSaramaConfigWithTLSAuth(t *testing.T) {

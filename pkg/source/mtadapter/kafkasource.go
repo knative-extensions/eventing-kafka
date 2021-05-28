@@ -41,9 +41,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, source *v1beta1.KafkaSou
 	}
 
 	// Update the adapter state
-	r.mtadapter.Update(ctx, source)
-
-	return nil
+	return r.mtadapter.Update(ctx, source)
 }
 
 func (r *Reconciler) deleteFunc(obj interface{}) {

@@ -21,6 +21,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/api/resource"
+
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 )
 
@@ -130,9 +131,9 @@ func TestVerifyConfiguration(t *testing.T) {
 	testCase.dispatcherMemoryRequest = resource.Quantity{}
 	testCases = append(testCases, testCase)
 
-	testCase = getValidTestCase("Invalid Config - Dispatcher.Replicas")
+	testCase = getValidTestCase("Invalid Config - Distributed Dispatcher.Replicas")
 	testCase.dispatcherReplicas = -1
-	testCase.expectedError = ControllerConfigurationError("Dispatcher.Replicas must be > 0")
+	testCase.expectedError = ControllerConfigurationError("Distributed.Dispatcher.Replicas must be > 0")
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Valid Config - Receiver.CpuLimit = Zero (unlimited)")
@@ -151,9 +152,9 @@ func TestVerifyConfiguration(t *testing.T) {
 	testCase.receiverMemoryRequest = resource.Quantity{}
 	testCases = append(testCases, testCase)
 
-	testCase = getValidTestCase("Invalid Config - Receiver.Replicas")
+	testCase = getValidTestCase("Invalid Config - Distributed Receiver.Replicas")
 	testCase.receiverReplicas = -1
-	testCase.expectedError = ControllerConfigurationError("Receiver.Replicas must be > 0")
+	testCase.expectedError = ControllerConfigurationError("Distributed.Receiver.Replicas must be > 0")
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Invalid Config - Kafka.Provider")
@@ -167,17 +168,17 @@ func TestVerifyConfiguration(t *testing.T) {
 			testConfig.Kafka.Topic.DefaultNumPartitions = testCase.kafkaTopicDefaultNumPartitions
 			testConfig.Kafka.Topic.DefaultReplicationFactor = testCase.kafkaTopicDefaultReplicationFactor
 			testConfig.Kafka.Topic.DefaultRetentionMillis = testCase.kafkaTopicDefaultRetentionMillis
-			testConfig.Kafka.AdminType = testCase.kafkaAdminType
-			testConfig.Dispatcher.CpuLimit = testCase.dispatcherCpuLimit
-			testConfig.Dispatcher.CpuRequest = testCase.dispatcherCpuRequest
-			testConfig.Dispatcher.MemoryLimit = testCase.dispatcherMemoryLimit
-			testConfig.Dispatcher.MemoryRequest = testCase.dispatcherMemoryRequest
-			testConfig.Dispatcher.Replicas = testCase.dispatcherReplicas
-			testConfig.Receiver.CpuLimit = testCase.receiverCpuLimit
-			testConfig.Receiver.CpuRequest = testCase.receiverCpuRequest
-			testConfig.Receiver.MemoryLimit = testCase.receiverMemoryLimit
-			testConfig.Receiver.MemoryRequest = testCase.receiverMemoryRequest
-			testConfig.Receiver.Replicas = testCase.receiverReplicas
+			testConfig.Channel.AdminType = testCase.kafkaAdminType
+			testConfig.Channel.Dispatcher.CpuLimit = testCase.dispatcherCpuLimit
+			testConfig.Channel.Dispatcher.CpuRequest = testCase.dispatcherCpuRequest
+			testConfig.Channel.Dispatcher.MemoryLimit = testCase.dispatcherMemoryLimit
+			testConfig.Channel.Dispatcher.MemoryRequest = testCase.dispatcherMemoryRequest
+			testConfig.Channel.Dispatcher.Replicas = testCase.dispatcherReplicas
+			testConfig.Channel.Receiver.CpuLimit = testCase.receiverCpuLimit
+			testConfig.Channel.Receiver.CpuRequest = testCase.receiverCpuRequest
+			testConfig.Channel.Receiver.MemoryLimit = testCase.receiverMemoryLimit
+			testConfig.Channel.Receiver.MemoryRequest = testCase.receiverMemoryRequest
+			testConfig.Channel.Receiver.Replicas = testCase.receiverReplicas
 
 			// Perform The Test
 			err := VerifyConfiguration(testConfig)
@@ -188,20 +189,25 @@ func TestVerifyConfiguration(t *testing.T) {
 				assert.Equal(t, testCase.kafkaTopicDefaultNumPartitions, testConfig.Kafka.Topic.DefaultNumPartitions)
 				assert.Equal(t, testCase.kafkaTopicDefaultReplicationFactor, testConfig.Kafka.Topic.DefaultReplicationFactor)
 				assert.Equal(t, testCase.kafkaTopicDefaultRetentionMillis, testConfig.Kafka.Topic.DefaultRetentionMillis)
-				assert.Equal(t, testCase.kafkaAdminType, testConfig.Kafka.AdminType)
-				assert.Equal(t, testCase.dispatcherCpuLimit, testConfig.Dispatcher.CpuLimit)
-				assert.Equal(t, testCase.dispatcherCpuRequest, testConfig.Dispatcher.CpuRequest)
-				assert.Equal(t, testCase.dispatcherMemoryLimit, testConfig.Dispatcher.MemoryLimit)
-				assert.Equal(t, testCase.dispatcherMemoryRequest, testConfig.Dispatcher.MemoryRequest)
-				assert.Equal(t, testCase.dispatcherReplicas, testConfig.Dispatcher.Replicas)
-				assert.Equal(t, testCase.receiverCpuLimit, testConfig.Receiver.CpuLimit)
-				assert.Equal(t, testCase.receiverCpuRequest, testConfig.Receiver.CpuRequest)
-				assert.Equal(t, testCase.receiverMemoryLimit, testConfig.Receiver.MemoryLimit)
-				assert.Equal(t, testCase.receiverMemoryRequest, testConfig.Receiver.MemoryRequest)
-				assert.Equal(t, testCase.receiverReplicas, testConfig.Receiver.Replicas)
+				assert.Equal(t, testCase.kafkaAdminType, testConfig.Channel.AdminType)
+				assert.Equal(t, testCase.dispatcherCpuLimit, testConfig.Channel.Dispatcher.CpuLimit)
+				assert.Equal(t, testCase.dispatcherCpuRequest, testConfig.Channel.Dispatcher.CpuRequest)
+				assert.Equal(t, testCase.dispatcherMemoryLimit, testConfig.Channel.Dispatcher.MemoryLimit)
+				assert.Equal(t, testCase.dispatcherMemoryRequest, testConfig.Channel.Dispatcher.MemoryRequest)
+				assert.Equal(t, testCase.dispatcherReplicas, testConfig.Channel.Dispatcher.Replicas)
+				assert.Equal(t, testCase.receiverCpuLimit, testConfig.Channel.Receiver.CpuLimit)
+				assert.Equal(t, testCase.receiverCpuRequest, testConfig.Channel.Receiver.CpuRequest)
+				assert.Equal(t, testCase.receiverMemoryLimit, testConfig.Channel.Receiver.MemoryLimit)
+				assert.Equal(t, testCase.receiverMemoryRequest, testConfig.Channel.Receiver.MemoryRequest)
+				assert.Equal(t, testCase.receiverReplicas, testConfig.Channel.Receiver.Replicas)
 			} else {
 				assert.Equal(t, testCase.expectedError, err)
 			}
 		})
 	}
+}
+
+func TestControllerConfigurationError_Error(t *testing.T) {
+	err := ControllerConfigurationError("test")
+	assert.Equal(t, "controller: invalid configuration (test)", err.Error())
 }

@@ -17,8 +17,13 @@ limitations under the License.
 package statefulset
 
 import (
+	"context"
+
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/labels"
+	corev1 "k8s.io/client-go/listers/core/v1"
 	"knative.dev/eventing-kafka/pkg/common/scheduler"
+	"knative.dev/pkg/logging"
 )
 
 type stateAccessor interface {
@@ -38,6 +43,15 @@ type state struct {
 
 	// Pod capacity.
 	capacity int32
+
+	// Number of zones in cluster
+	numZones int32
+
+	// Scheduling policy type for placing vreplicas on pods
+	schedulerPolicy SchedulerPolicyType
+
+	// Mapping node names of nodes currently in cluster to their zone info
+	nodeToZoneMap map[string]string
 }
 
 // Free safely returns the free capacity at the given ordinal
@@ -66,17 +80,23 @@ func (s *state) freeCapacity() int32 {
 
 // stateBuilder reconstruct the state from scratch, by listing vpods
 type stateBuilder struct {
-	logger     *zap.SugaredLogger
-	vpodLister scheduler.VPodLister
-	capacity   int32
+	ctx             context.Context
+	logger          *zap.SugaredLogger
+	vpodLister      scheduler.VPodLister
+	capacity        int32
+	schedulerPolicy SchedulerPolicyType
+	nodeLister      corev1.NodeLister
 }
 
 // newStateBuilder returns a StateAccessor recreating the state from scratch each time it is requested
-func newStateBuilder(logger *zap.SugaredLogger, lister scheduler.VPodLister, podCapacity int32) stateAccessor {
+func newStateBuilder(ctx context.Context, lister scheduler.VPodLister, podCapacity int32, schedulerPolicy SchedulerPolicyType, nodeLister corev1.NodeLister) stateAccessor {
 	return &stateBuilder{
-		logger:     logger,
-		vpodLister: lister,
-		capacity:   podCapacity,
+		ctx:             ctx,
+		logger:          logging.FromContext(ctx),
+		vpodLister:      lister,
+		capacity:        podCapacity,
+		schedulerPolicy: schedulerPolicy,
+		nodeLister:      nodeLister,
 	}
 }
 
@@ -112,7 +132,31 @@ func (s *stateBuilder) State() (*state, error) {
 			}
 		}
 	}
-	return &state{free: free, lastOrdinal: last, capacity: s.capacity}, nil
+
+	if s.schedulerPolicy == EVENSPREAD {
+		//TODO: need a node watch to see if # nodes/ # zones have gone up or down
+		nodes, err := s.nodeLister.List(labels.Everything())
+		if err != nil {
+			return nil, err
+		}
+
+		nodeToZoneMap := make(map[string]string, len(nodes))
+		zoneMap := make(map[string]struct{})
+		for i := 0; i < len(nodes); i++ {
+			node := nodes[i]
+			zoneName, ok := node.GetLabels()[ZoneLabel]
+			if !ok {
+				continue //ignore node that doesn't have zone info (maybe a test setup or control node)
+			}
+
+			nodeToZoneMap[node.Name] = zoneName
+			zoneMap[zoneName] = struct{}{}
+		}
+
+		return &state{free: free, lastOrdinal: last, capacity: s.capacity, numZones: int32(len(zoneMap)), schedulerPolicy: s.schedulerPolicy, nodeToZoneMap: nodeToZoneMap}, nil
+
+	}
+	return &state{free: free, lastOrdinal: last, capacity: s.capacity, schedulerPolicy: s.schedulerPolicy}, nil
 }
 
 func grow(slice []int32, ordinal int32, def int32) []int32 {

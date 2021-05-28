@@ -25,10 +25,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
-	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
-	controllertesting "knative.dev/eventing-kafka/pkg/channel/distributed/controller/testing"
 	"knative.dev/pkg/controller"
+
+	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
+	controllertesting "knative.dev/eventing-kafka/pkg/channel/distributed/controller/testing"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 )
 
 // Define The Topic TestCase Type
@@ -84,7 +85,7 @@ func TestReconcileTopic(t *testing.T) {
 			WantTopicDetail: &sarama.TopicDetail{
 				NumPartitions:     controllertesting.NumPartitions,
 				ReplicationFactor: controllertesting.ReplicationFactor,
-				ConfigEntries:     map[string]*string{constants.KafkaTopicConfigRetentionMs: &controllertesting.DefaultRetentionMillisString},
+				ConfigEntries:     map[string]*string{commonconstants.KafkaTopicConfigRetentionMs: &controllertesting.DefaultRetentionMillisString},
 			},
 		},
 		{
@@ -103,7 +104,7 @@ func TestReconcileTopic(t *testing.T) {
 			WantTopicDetail: &sarama.TopicDetail{
 				NumPartitions:     controllertesting.NumPartitions,
 				ReplicationFactor: controllertesting.ReplicationFactor,
-				ConfigEntries:     map[string]*string{constants.KafkaTopicConfigRetentionMs: &controllertesting.DefaultRetentionMillisString},
+				ConfigEntries:     map[string]*string{commonconstants.KafkaTopicConfigRetentionMs: &controllertesting.DefaultRetentionMillisString},
 			},
 			MockErrorCode: sarama.ErrTopicAlreadyExists,
 		},
@@ -123,7 +124,7 @@ func TestReconcileTopic(t *testing.T) {
 			WantTopicDetail: &sarama.TopicDetail{
 				NumPartitions:     controllertesting.NumPartitions,
 				ReplicationFactor: controllertesting.ReplicationFactor,
-				ConfigEntries:     map[string]*string{constants.KafkaTopicConfigRetentionMs: &controllertesting.DefaultRetentionMillisString},
+				ConfigEntries:     map[string]*string{commonconstants.KafkaTopicConfigRetentionMs: &controllertesting.DefaultRetentionMillisString},
 			},
 			MockErrorCode: sarama.ErrBrokerNotAvailable,
 			WantError:     sarama.ErrBrokerNotAvailable.Error() + " - " + controllertesting.ErrorString,

@@ -22,7 +22,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -32,7 +31,6 @@ import (
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/types"
-	kafkasarama "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
@@ -40,9 +38,8 @@ import (
 	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	"knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
 	kafkalisters "knative.dev/eventing-kafka/pkg/client/listers/messaging/v1beta1"
-	"knative.dev/eventing-kafka/pkg/common/client"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
-	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
+	kafkasarama "knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/reconciler"
@@ -56,17 +53,11 @@ type Reconciler struct {
 	adminClient          types.AdminClientInterface
 	environment          *env.Environment
 	config               *commonconfig.EventingKafkaConfig
-	saramaConfig         *sarama.Config
 	kafkachannelLister   kafkalisters.KafkaChannelLister
 	kafkachannelInformer cache.SharedIndexInformer
 	deploymentLister     appsv1listers.DeploymentLister
 	serviceLister        corev1listers.ServiceLister
 	adminMutex           *sync.Mutex
-	kafkaSecret          string
-	kafkaBrokers         string
-	kafkaUsername        string
-	kafkaPassword        string
-	kafkaSaslType        string
 	kafkaConfigMapHash   string
 }
 
@@ -76,7 +67,7 @@ var (
 )
 
 //
-// Clear / Re-Set The Kafka AdminClient On The Reconciler
+// SetKafkaAdminClient Clears / Re-Sets The Kafka AdminClient On The Reconciler
 //
 // Ideally we would re-use the Kafka AdminClient but due to Issues with the Sarama ClusterAdmin we're
 // forced to recreate a new connection every time.  We were seeing "broken-pipe" failures (non-recoverable)
@@ -91,15 +82,15 @@ var (
 func (r *Reconciler) SetKafkaAdminClient(ctx context.Context) {
 	r.ClearKafkaAdminClient(ctx)
 	var err error
-	brokers := strings.Split(r.kafkaBrokers, ",")
-	r.adminClient, err = admin.CreateAdminClient(ctx, brokers, r.saramaConfig, r.adminClientType)
+	brokers := strings.Split(r.config.Kafka.Brokers, ",")
+	r.adminClient, err = admin.CreateAdminClient(ctx, brokers, r.config.Sarama.Config, r.adminClientType)
 	if err != nil {
 		logger := logging.FromContext(ctx)
 		logger.Error("Failed To Create Kafka AdminClient", zap.Error(err))
 	}
 }
 
-// Clear (Close) The Reconciler's Kafka AdminClient
+// ClearKafkaAdminClient Clears (Closes) The Reconciler's Kafka AdminClient
 func (r *Reconciler) ClearKafkaAdminClient(ctx context.Context) {
 	if r.adminClient != nil {
 		err := r.adminClient.Close()
@@ -117,6 +108,13 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, channel *kafkav1beta1.Ka
 	// Get The Logger Via The Context
 	logger := logging.FromContext(ctx).Desugar()
 	logger.Debug("<==========  START KAFKA-CHANNEL RECONCILIATION  ==========>")
+
+	// Verify channel is valid.
+	channel.SetDefaults(ctx)
+	if err := channel.Validate(ctx); err != nil {
+		logger.Error("Invalid kafka channel", zap.String("channel", channel.Name), zap.Error(err))
+		return err
+	}
 
 	// Add The K8S ClientSet To The Reconcile Context
 	ctx = context.WithValue(ctx, kubeclient.Key{}, r.kubeClientset)
@@ -148,7 +146,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, channel *kafkav1beta1.Ka
 	return reconciler.NewEvent(corev1.EventTypeNormal, event.KafkaChannelReconciled.String(), "KafkaChannel Reconciled Successfully: \"%s/%s\"", channel.Namespace, channel.Name)
 }
 
-// ReconcileKind Implements The Finalizer Interface & Is Responsible For Performing The Finalization (Topic Deletion)
+// FinalizeKind Implements The Finalizer Interface & Is Responsible For Performing The Finalization (Topic Deletion)
 func (r *Reconciler) FinalizeKind(ctx context.Context, channel *kafkav1beta1.KafkaChannel) reconciler.Event {
 
 	// Get The Logger Via The Context
@@ -206,17 +204,21 @@ func (r *Reconciler) reconcile(ctx context.Context, channel *kafkav1beta1.KafkaC
 	// ConfigMap.  Therefore, we will instead check the Kafka Secret associated with the
 	// KafkaChannel here.
 	//
-	if len(r.kafkaSecret) > 0 {
+	if len(r.config.Kafka.AuthSecretName) > 0 {
 		channel.Status.MarkConfigTrue()
 	} else {
 		channel.Status.MarkConfigFailed(event.KafkaSecretReconciled.String(), "No Kafka Secret For KafkaChannel")
 		return fmt.Errorf(constants.ReconciliationFailedError)
 	}
 
+	// Reconcile the Receiver Deployment/Service
+	receiverError := r.reconcileReceiver(ctx, channel)
+
 	// Reconcile The KafkaChannel's Channel & Dispatcher Deployment/Service
 	channelError := r.reconcileChannel(ctx, channel)
+
 	dispatcherError := r.reconcileDispatcher(ctx, channel)
-	if channelError != nil || dispatcherError != nil {
+	if channelError != nil || dispatcherError != nil || receiverError != nil {
 		return fmt.Errorf(constants.ReconciliationFailedError)
 	}
 
@@ -231,62 +233,37 @@ func (r *Reconciler) reconcile(ctx context.Context, channel *kafkav1beta1.KafkaC
 }
 
 // updateKafkaConfig is the callback function that handles changes to our ConfigMap
-func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.ConfigMap) {
+func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.ConfigMap) error {
 	logger := logging.FromContext(ctx)
 
 	if r == nil {
-		// This typically happens during startup and can be ignored
-		return
+		return fmt.Errorf("reconciler is nil (possible startup race condition)")
 	}
 
 	if configMap == nil {
-		logger.Warn("Nil ConfigMap passed to configMapObserver; ignoring")
-		return
+		return fmt.Errorf("nil configMap passed to updateKafkaConfig")
 	}
 
 	logger.Info("Reloading Kafka configuration")
 
 	// Validate The ConfigMap Data
 	if configMap.Data == nil {
-		logger.Fatal("Attempted to merge sarama settings with empty configmap", zap.Any("configMap", configMap))
-		return
+		return fmt.Errorf("configMap.Data is nil")
 	}
 
-	// Enable Sarama Logging If Specified In ConfigMap
-	if ekConfig, err := kafkasarama.LoadEventingKafkaSettings(configMap.Data); err == nil && ekConfig != nil {
-		kafkasarama.EnableSaramaLogging(ekConfig.Kafka.EnableSaramaLogging)
-		logger.Debug("Updated Sarama logging", zap.Any("configMap", configMap), zap.Bool("Kafka.EnableSaramaLogging", ekConfig.Kafka.EnableSaramaLogging))
-	} else {
-		logger.Error("Could Not Extract Eventing-Kafka Setting From Updated ConfigMap", zap.Any("configMap", configMap), zap.Error(err))
-	}
-
-	// Get The Sarama Config Yaml From The ConfigMap
-	saramaSettingsYamlString := configMap.Data[commonconstants.SaramaSettingsConfigKey]
-
-	// Create A Kafka Auth Config From Current Credentials (Secret Data Takes Precedence Over ConfigMap)
-	var kafkaAuthCfg *client.KafkaAuthConfig
-	if r.kafkaUsername != "" {
-		kafkaAuthCfg = &client.KafkaAuthConfig{
-			SASL: &client.KafkaSaslConfig{
-				User:     r.kafkaUsername,
-				Password: r.kafkaPassword,
-				SaslType: r.kafkaSaslType,
-			},
-		}
-	}
-
-	// Build A New Sarama Config With Auth From Secret And YAML Config From ConfigMap
-	saramaConfig, err := client.NewConfigBuilder().
-		WithDefaults().
-		WithAuth(kafkaAuthCfg).
-		FromYaml(saramaSettingsYamlString).
-		Build(ctx)
+	ekConfig, err := kafkasarama.LoadSettings(ctx, constants.Component, configMap.Data, kafkasarama.LoadAuthConfig)
 	if err != nil {
-		logger.Fatal("Failed To Load Eventing-Kafka Settings", zap.Any("configMap", configMap), zap.Error(err))
+		return err
+	} else if ekConfig == nil {
+		return fmt.Errorf("eventing-kafka config is nil")
 	}
+	// Enable Sarama Logging If Specified In ConfigMap
+	kafkasarama.EnableSaramaLogging(ekConfig.Sarama.EnableLogging)
+	logger.Debug("Updated Sarama logging", zap.Bool("Kafka.EnableSaramaLogging", ekConfig.Sarama.EnableLogging))
 
-	logger.Info("ConfigMap Changed; Updating Sarama Configuration")
-	r.saramaConfig = saramaConfig
+	logger.Info("ConfigMap Changed; Updating Sarama And Eventing-Kafka Configuration")
+	r.config = ekConfig
 
 	r.kafkaConfigMapHash = commonconfig.ConfigmapDataCheckSum(configMap.Data)
+	return nil
 }

@@ -93,6 +93,7 @@ rules:
     - events
     - configmaps
     - secrets
+    - nodes
   verbs: *everything
 
 # let the webhook label the appropriate namespace

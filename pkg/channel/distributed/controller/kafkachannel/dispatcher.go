@@ -31,6 +31,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/system"
+
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	commonenv "knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/health"
@@ -38,9 +42,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
 	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/system"
 )
 
 //
@@ -417,7 +418,7 @@ func (r *Reconciler) newDispatcherDeployment(logger *zap.Logger, channel *kafkav
 	deploymentName := util.DispatcherDnsSafeName(channel)
 
 	// Replicas Int Value For De-Referencing
-	replicas := int32(r.config.Dispatcher.Replicas)
+	replicas := int32(r.config.Channel.Dispatcher.Replicas)
 
 	// Create The Dispatcher Container Environment Variables
 	envVars, err := r.dispatcherDeploymentEnvVars(channel)
@@ -431,18 +432,18 @@ func (r *Reconciler) newDispatcherDeployment(logger *zap.Logger, channel *kafkav
 	// If we want "no limit" or "no request" then the entry must not be present in the map.
 	// Note: Since a "Quantity" type has no nil value, we use the Zero value to represent unlimited.
 	resourceLimits := make(map[corev1.ResourceName]resource.Quantity)
-	if !r.config.Dispatcher.MemoryLimit.IsZero() {
-		resourceLimits[corev1.ResourceMemory] = r.config.Dispatcher.MemoryLimit
+	if !r.config.Channel.Dispatcher.MemoryLimit.IsZero() {
+		resourceLimits[corev1.ResourceMemory] = r.config.Channel.Dispatcher.MemoryLimit
 	}
-	if !r.config.Dispatcher.CpuLimit.IsZero() {
-		resourceLimits[corev1.ResourceCPU] = r.config.Dispatcher.CpuLimit
+	if !r.config.Channel.Dispatcher.CpuLimit.IsZero() {
+		resourceLimits[corev1.ResourceCPU] = r.config.Channel.Dispatcher.CpuLimit
 	}
 	resourceRequests := make(map[corev1.ResourceName]resource.Quantity)
-	if !r.config.Dispatcher.MemoryRequest.IsZero() {
-		resourceRequests[corev1.ResourceMemory] = r.config.Dispatcher.MemoryRequest
+	if !r.config.Channel.Dispatcher.MemoryRequest.IsZero() {
+		resourceRequests[corev1.ResourceMemory] = r.config.Channel.Dispatcher.MemoryRequest
 	}
-	if !r.config.Dispatcher.CpuRequest.IsZero() {
-		resourceRequests[corev1.ResourceCPU] = r.config.Dispatcher.CpuRequest
+	if !r.config.Channel.Dispatcher.CpuRequest.IsZero() {
+		resourceRequests[corev1.ResourceCPU] = r.config.Channel.Dispatcher.CpuRequest
 	}
 
 	// If either the limits or requests are an entirely-empty map, this will be translated to a nil
@@ -580,7 +581,7 @@ func (r *Reconciler) dispatcherDeploymentEnvVars(channel *kafkav1beta1.KafkaChan
 			Value: constants.DispatcherContainerName,
 		},
 		{
-			Name:  commonenv.KnativeLoggingConfigMapNameEnvVarKey,
+			Name:  commonconstants.KnativeLoggingConfigMapNameEnvVarKey,
 			Value: logging.ConfigMapName(),
 		},
 		{
@@ -613,24 +614,24 @@ func (r *Reconciler) dispatcherDeploymentEnvVars(channel *kafkav1beta1.KafkaChan
 		},
 	}
 
-	// If The Kafka Secret Env Var Is Specified Then Append Relevant Env Vars
-	if len(r.kafkaSecret) <= 0 {
+	// If The Kafka Secret Name Is Specified Then Append Relevant Env Vars
+	if len(r.config.Kafka.AuthSecretName) <= 0 {
 
-		// Received Invalid Kafka Secret - Cannot Proceed
-		return nil, fmt.Errorf("invalid kafkaSecret for topic '%s'", topicName)
+		// Received Invalid Kafka Secret Name - Cannot Proceed
+		return nil, fmt.Errorf("invalid authSecretName for topic '%s'", topicName)
 
 	} else {
 
 		// Append The Secret Name As Env Var
 		envVars = append(envVars, corev1.EnvVar{
 			Name:  commonenv.KafkaSecretNameEnvVarKey,
-			Value: r.kafkaSecret,
+			Value: r.config.Kafka.AuthSecretName,
 		})
 
 		// Append The Secret Namespace As Env Var
 		envVars = append(envVars, corev1.EnvVar{
 			Name:  commonenv.KafkaSecretNamespaceEnvVarKey,
-			Value: r.environment.SystemNamespace,
+			Value: r.config.Kafka.AuthSecretNamespace,
 		})
 
 	}

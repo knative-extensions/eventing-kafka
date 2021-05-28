@@ -57,7 +57,7 @@ spec:
         # DO NOT MODIFY: The values below are being filled by the kafka source controller
         # See 500-controller.yaml
         - name: K_METRICS_CONFIG
-          value: '{"Domain":"knative.dev/eventing","Component":"kafkasource","ConfigMap":{"profiling.enable": "true"}}'
+          value: '{"Domain":"knative.dev/eventing","Component":"kafkasource","ConfigMap":{"profiling.enable": "false"}}'
         - name: K_LOGGING_CONFIG
           value: '{}'
         - name: K_LEADER_ELECTION_CONFIG
@@ -68,10 +68,10 @@ spec:
         resources:
           requests:
             cpu: 100m
-            memory: 100Mi
+            memory: 250Mi
           limits:
             cpu: 200m
-            memory: 150Mi
+            memory: 300Mi
 
         ports:
         - name: metrics
@@ -80,3 +80,18 @@ spec:
           containerPort: 8008
 
       terminationGracePeriodSeconds: 10
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  control-plane: kafkasource-mt-adapter
+              topologyKey: kubernetes.io/hostname
+            weight: 50
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  control-plane: kafkasource-mt-adapter
+              topologyKey: topology.kubernetes.io/zone
+            weight: 50

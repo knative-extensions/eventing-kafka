@@ -30,6 +30,7 @@ import (
 	versioned "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	bindings "knative.dev/eventing-kafka/pkg/client/informers/externalversions/bindings"
 	internalinterfaces "knative.dev/eventing-kafka/pkg/client/informers/externalversions/internalinterfaces"
+	kafka "knative.dev/eventing-kafka/pkg/client/informers/externalversions/kafka"
 	messaging "knative.dev/eventing-kafka/pkg/client/informers/externalversions/messaging"
 	sources "knative.dev/eventing-kafka/pkg/client/informers/externalversions/sources"
 )
@@ -175,12 +176,17 @@ type SharedInformerFactory interface {
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
 	Bindings() bindings.Interface
+	Kafka() kafka.Interface
 	Messaging() messaging.Interface
 	Sources() sources.Interface
 }
 
 func (f *sharedInformerFactory) Bindings() bindings.Interface {
 	return bindings.New(f, f.namespace, f.tweakListOptions)
+}
+
+func (f *sharedInformerFactory) Kafka() kafka.Interface {
+	return kafka.New(f, f.namespace, f.tweakListOptions)
 }
 
 func (f *sharedInformerFactory) Messaging() messaging.Interface {
