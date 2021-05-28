@@ -45,9 +45,9 @@ import (
 type AdapterConfig struct {
 	adapter.EnvConfig
 
-	PodName     string `envconfig:"POD_NAME" required:"true"`
-	MPSLimit    int    `envconfig:"VREPLICA_LIMITS_MPS" required:"true"`
-	MemoryLimit string `envconfig:"VREPLICA_LIMITS_MEMORY" required:"true"`
+	PodName       string `envconfig:"POD_NAME" required:"true"`
+	MPSLimit      int    `envconfig:"VREPLICA_LIMITS_MPS" required:"true"`
+	MemoryRequest string `envconfig:"REQUESTS_MEMORY" required:"true"`
 }
 
 func NewEnvConfig() adapter.EnvConfigAccessor {
@@ -65,7 +65,8 @@ type Adapter struct {
 	client      cloudevents.Client
 	adapterCtor adapter.MessageAdapterConstructor
 	kubeClient  kubernetes.Interface
-	memLimit    int32
+
+	memoryRequest int64
 
 	sourcesMu sync.RWMutex
 	sources   map[string]cancelContext
@@ -80,17 +81,18 @@ func NewAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, ceClie
 func newAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, ceClient cloudevents.Client, adapterCtor adapter.MessageAdapterConstructor) adapter.Adapter {
 	logger := logging.FromContext(ctx)
 	config := processed.(*AdapterConfig)
-	ml := resource.MustParse(config.MemoryLimit)
+
+	mr := resource.MustParse(config.MemoryRequest)
 
 	return &Adapter{
-		client:      ceClient,
-		config:      config,
-		logger:      logger,
-		adapterCtor: adapterCtor,
-		kubeClient:  kubeclient.Get(ctx),
-		memLimit:    int32(ml.Value()),
-		sourcesMu:   sync.RWMutex{},
-		sources:     make(map[string]cancelContext),
+		client:        ceClient,
+		config:        config,
+		logger:        logger,
+		adapterCtor:   adapterCtor,
+		kubeClient:    kubeclient.Get(ctx),
+		memoryRequest: mr.Value(),
+		sourcesMu:     sync.RWMutex{},
+		sources:       make(map[string]cancelContext),
 	}
 }
 
@@ -123,6 +125,7 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) error {
 
 		// Nothing to stop anymore
 		delete(a.sources, key)
+		a.adjustResponseSize()
 	}
 
 	placement := scheduler.GetPlacementForPod(obj.GetPlacements(), a.config.PodName)
@@ -215,11 +218,6 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) error {
 		sta.SetRateLimits(rate.Limit(a.config.MPSLimit*int(placement.VReplicas)), 2*a.config.MPSLimit*int(placement.VReplicas))
 	}
 
-	if a.memLimit > 0 {
-		sarama.MaxResponseSize = placement.VReplicas * a.memLimit
-		logger.Infof("Setting MaxResponseSize to %d bytes", sarama.MaxResponseSize)
-	}
-
 	ctx, cancelFn := context.WithCancel(ctx)
 
 	cancel = cancelContext{
@@ -236,6 +234,8 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) error {
 	}(ctx)
 
 	a.sources[key] = cancel
+	a.adjustResponseSize()
+
 	a.logger.Infow("source added", "name", obj.Name)
 	return nil
 }
@@ -258,6 +258,8 @@ func (a *Adapter) Remove(obj *v1beta1.KafkaSource) {
 	<-cancel.stopped
 
 	delete(a.sources, key)
+	a.adjustResponseSize()
+
 	a.logger.Infow("source removed", "name", obj.Name, "remaining", len(a.sources))
 }
 
@@ -278,4 +280,25 @@ func (a *Adapter) ResolveSecret(ctx context.Context, ns string, ref *corev1.Secr
 
 	a.logger.Errorw("missing secret key or empty secret value", zap.String("secretname", ref.Name), zap.String("secretkey", ref.Key))
 	return "", fmt.Errorf("missing secret key or empty secret value (%s/%s)", ref.Name, ref.Key)
+}
+
+// adjustResponseSize ensures the sum of all Kafka clients memory usage does not exceed the container memory request.
+func (a *Adapter) adjustResponseSize() {
+	if a.memoryRequest > 0 {
+		maxResponseSize := int32(float64(a.memoryRequest) / float64(len(a.sources)))
+
+		// cap the response size to 100MB.
+		if maxResponseSize > 100*1024*1024 {
+			maxResponseSize = 100 * 1024 * 1024
+		}
+		// Check for compliance.
+		if maxResponseSize < 64*1024 {
+			// Not CloudEvent compliant (https://github.com/cloudevents/spec/blob/v1.0.1/spec.md#size-limits)
+			a.logger.Warnw("Kafka response size is lower than 64KB. Increase the pod memory request and/or lower the pod capacity.",
+				zap.Int32("responseSize", maxResponseSize))
+		}
+
+		sarama.MaxResponseSize = maxResponseSize
+		a.logger.Infof("Setting MaxResponseSize to %d bytes", sarama.MaxResponseSize)
+	}
 }
