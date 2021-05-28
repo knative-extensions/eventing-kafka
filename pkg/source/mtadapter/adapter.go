@@ -42,6 +42,10 @@ import (
 	"knative.dev/eventing-kafka/pkg/source/client"
 )
 
+const (
+	responseSizeCap = 50 * 1024 * 1024
+)
+
 type AdapterConfig struct {
 	adapter.EnvConfig
 
@@ -82,8 +86,9 @@ func newAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, ceClie
 	logger := logging.FromContext(ctx)
 	config := processed.(*AdapterConfig)
 
-	mr := resource.MustParse(config.MemoryRequest)
+	sarama.MaxResponseSize = responseSizeCap
 
+	mr := resource.MustParse(config.MemoryRequest)
 	return &Adapter{
 		client:        ceClient,
 		config:        config,
@@ -225,6 +230,9 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) error {
 		stopped: make(chan bool),
 	}
 
+	a.sources[key] = cancel
+	a.adjustResponseSize()
+
 	go func(ctx context.Context) {
 		err := adapter.Start(ctx)
 		if err != nil {
@@ -232,9 +240,6 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) error {
 		}
 		cancel.stopped <- true
 	}(ctx)
-
-	a.sources[key] = cancel
-	a.adjustResponseSize()
 
 	a.logger.Infow("source added", "name", obj.Name)
 	return nil
@@ -288,7 +293,7 @@ func (a *Adapter) adjustResponseSize() {
 		maxResponseSize := int32(float64(a.memoryRequest) / float64(len(a.sources)))
 
 		// cap the response size to 50MB.
-		if maxResponseSize > 50*1024*1024 {
+		if maxResponseSize > responseSizeCap {
 			maxResponseSize = 50 * 1024 * 1024
 		}
 		// Check for compliance.
