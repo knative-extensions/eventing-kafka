@@ -287,9 +287,9 @@ func (a *Adapter) adjustResponseSize() {
 	if a.memoryRequest > 0 {
 		maxResponseSize := int32(float64(a.memoryRequest) / float64(len(a.sources)))
 
-		// cap the response size to 100MB.
-		if maxResponseSize > 100*1024*1024 {
-			maxResponseSize = 100 * 1024 * 1024
+		// cap the response size to 50MB.
+		if maxResponseSize > 50*1024*1024 {
+			maxResponseSize = 50 * 1024 * 1024
 		}
 		// Check for compliance.
 		if maxResponseSize < 64*1024 {
