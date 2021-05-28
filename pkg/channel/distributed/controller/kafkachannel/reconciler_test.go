@@ -24,44 +24,37 @@ import (
 	"sync"
 	"testing"
 
-	kafkasarama "knative.dev/eventing-kafka/pkg/common/kafka/sarama"
-
-	"github.com/Shopify/sarama"
-	"k8s.io/client-go/kubernetes/fake"
-	"knative.dev/eventing-kafka/pkg/common/constants"
-	"knative.dev/pkg/system"
-
-	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
-
-	"knative.dev/eventing-kafka/pkg/common/client"
-
-	appsv1 "k8s.io/api/apps/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kafkautil "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/util"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
-
-	corev1 "k8s.io/api/core/v1"
-	apitypes "k8s.io/apimachinery/pkg/types"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
-	"knative.dev/pkg/apis/duck"
-
 	"github.com/stretchr/testify/assert"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	apitypes "k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
 	clientgotesting "k8s.io/client-go/testing"
-	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
-	kafkaadmintesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/testing"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/types"
-	controllertesting "knative.dev/eventing-kafka/pkg/channel/distributed/controller/testing"
-	fakekafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client/fake"
-	kafkachannelreconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
-	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
+	"knative.dev/pkg/apis/duck"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
 	. "knative.dev/pkg/reconciler/testing"
+	"knative.dev/pkg/system"
+
+	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
+	kafkaadmintesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/testing"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/types"
+	kafkautil "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/util"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
+	controllertesting "knative.dev/eventing-kafka/pkg/channel/distributed/controller/testing"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
+	fakekafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client/fake"
+	kafkachannelreconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
+	"knative.dev/eventing-kafka/pkg/common/constants"
+	kafkasarama "knative.dev/eventing-kafka/pkg/common/kafka/sarama"
+	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 )
 
 // Initialization - Add types to scheme
@@ -1087,15 +1080,12 @@ func TestReconciler_updateKafkaConfig(t *testing.T) {
   authSecretNamespace: `+system.Namespace(), 1)
 
 	tests := []struct {
-		name         string
-		config       *commonconfig.EventingKafkaConfig
-		saramaConfig *sarama.Config
-		authConfig   *client.KafkaAuthConfig
-		configMap    *corev1.ConfigMap
-		hash         string
-		user         string
-		secretErr    bool
-		expectErr    string
+		name      string
+		configMap *corev1.ConfigMap
+		hash      string
+		user      string
+		secretErr bool
+		expectErr string
 	}{
 		{
 			name:      "Nil ConfigMap",
@@ -1171,7 +1161,6 @@ func TestReconciler_updateKafkaConfig(t *testing.T) {
 			}
 			r := &Reconciler{
 				kubeClientset:      fakeK8sClient,
-				config:             tt.config,
 				kafkaConfigMapHash: tt.hash,
 			}
 			err := r.updateKafkaConfig(ctx, tt.configMap)
@@ -1179,13 +1168,13 @@ func TestReconciler_updateKafkaConfig(t *testing.T) {
 				assert.Nil(t, err)
 				// If no error was expected, verify that the settings in the reconciler were changed to new values
 				assert.NotEqual(t, tt.hash, r.kafkaConfigMapHash)
-				assert.NotEqual(t, tt.config, r.config)
+				assert.NotNil(t, r.config)
 			} else {
 				assert.NotNil(t, err)
 				assert.Regexp(t, tt.expectErr, err.Error())
 				// If an error occurred, verify that the settings in the reconciler do not change from what they were
 				assert.Equal(t, tt.hash, r.kafkaConfigMapHash)
-				assert.Equal(t, tt.config, r.config)
+				assert.Nil(t, r.config)
 			}
 		})
 	}

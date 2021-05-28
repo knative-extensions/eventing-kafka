@@ -32,8 +32,8 @@ import (
 // Test Data
 const (
 	testPrefix       = "testkafkaprefix"
-	channelName      = "testname"
-	channelNamespace = "testnamespace"
+	channelName      = "test-channel-name"
+	channelNamespace = "test-channel-namespace"
 )
 
 // Test The ChannelLogger() Functionality

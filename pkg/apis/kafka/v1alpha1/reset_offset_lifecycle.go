@@ -19,10 +19,12 @@ package v1alpha1
 import (
 	"sync"
 
+	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/apis"
 )
 
 var cs = apis.NewBatchConditionSet(
+	ResetOffsetConditionRefMapped,
 	ResetOffsetConditionResetInitiated,
 	ResetOffsetConditionConsumerGroupsStopped,
 	ResetOffsetConditionOffsetsUpdated,
@@ -33,6 +35,11 @@ var condSetLock = sync.RWMutex{}
 const (
 	// ResetOffsetConditionSucceeded has status True when all sub-conditions below have been set to True.
 	ResetOffsetConditionSucceeded = apis.ConditionSucceeded
+
+	// ResetOffsetConditionRefMapped has status True when the ResetOffset.Spec.Ref has been
+	// successfully mapped to the corresponding Kafka Topic name and ConsumerGroup ID.  These
+	// values will then be populated in the the ResetOffsetStatus.
+	ResetOffsetConditionRefMapped apis.ConditionType = "RefMapped"
 
 	// ResetOffsetConditionResetInitiated has status True when the ResetOffset is being processed
 	// Until that time it is either "Unknown" when first encountered, or "Blocked" if another
@@ -78,14 +85,32 @@ func (ros *ResetOffsetStatus) GetCondition(t apis.ConditionType) *apis.Condition
 	return ros.GetConditionSet().Manage(ros).GetCondition(t)
 }
 
-// IsCompleted returns true if the resource is ready overall.
+// IsInitiated returns true if the ResetOffsetConditionResetInitiated status is true.
+func (ros *ResetOffsetStatus) IsInitiated() bool {
+	return ros.GetConditionSet().Manage(ros).GetCondition(ResetOffsetConditionResetInitiated).Status == corev1.ConditionTrue
+}
+
+// IsCompleted returns true if the ResetOffsetConditionSucceeded status is not unknown.
 func (ros *ResetOffsetStatus) IsCompleted() bool {
+	return ros.GetConditionSet().Manage(ros).GetCondition(ResetOffsetConditionSucceeded).Status != corev1.ConditionUnknown
+}
+
+// IsSucceeded returns true if the ResetOffsetConditionSucceeded status is true.
+func (ros *ResetOffsetStatus) IsSucceeded() bool {
 	return ros.GetConditionSet().Manage(ros).IsHappy()
 }
 
 // InitializeConditions sets relevant unset conditions to Unknown state.
 func (ros *ResetOffsetStatus) InitializeConditions() {
 	ros.GetConditionSet().Manage(ros).InitializeConditions()
+}
+
+func (ros *ResetOffsetStatus) MarkRefMappedFailed(reason, messageFormat string, messageA ...interface{}) {
+	ros.GetConditionSet().Manage(ros).MarkFalse(ResetOffsetConditionRefMapped, reason, messageFormat, messageA...)
+}
+
+func (ros *ResetOffsetStatus) MarkRefMappedTrue() {
+	ros.GetConditionSet().Manage(ros).MarkTrue(ResetOffsetConditionRefMapped)
 }
 
 func (ros *ResetOffsetStatus) MarkResetInitiatedFailed(reason, messageFormat string, messageA ...interface{}) {

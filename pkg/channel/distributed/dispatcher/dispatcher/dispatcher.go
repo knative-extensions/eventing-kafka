@@ -18,26 +18,24 @@ package dispatcher
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
 
-	dispatcherconstants "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/constants"
-
-	gometrics "github.com/rcrowley/go-metrics"
-
-	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
-
 	"github.com/Shopify/sarama"
+	gometrics "github.com/rcrowley/go-metrics"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer"
-	"knative.dev/eventing-kafka/pkg/common/client"
-	"knative.dev/eventing-kafka/pkg/common/metrics"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/channel"
+
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer"
+	commonkafkautil "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/util"
+	dispatcherconstants "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/constants"
+	"knative.dev/eventing-kafka/pkg/common/client"
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
+	"knative.dev/eventing-kafka/pkg/common/metrics"
 )
 
 // DispatcherConfig Defines A Dispatcher Config Struct To Hold Configuration
@@ -143,7 +141,7 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 		if _, ok := d.subscribers[subscriberSpec.UID]; !ok {
 
 			// Format The GroupId For The Specified Subscriber
-			groupId := fmt.Sprintf("kafka.%s", subscriberSpec.UID)
+			groupId := commonkafkautil.GroupId(string(subscriberSpec.UID))
 
 			// Create A ConsumerGroup Logger
 			logger := d.Logger.With(zap.String("GroupId", groupId))
