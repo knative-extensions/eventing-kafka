@@ -28,10 +28,10 @@ import (
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
 
-	controllertesting "knative.dev/eventing-kafka/pkg/channel/distributed/controller/testing"
 	fakeKafkaClient "knative.dev/eventing-kafka/pkg/client/injection/client/fake"
 	_ "knative.dev/eventing-kafka/pkg/client/injection/informers/kafka/v1alpha1/resetoffset/fake" // Force Fake Informer Injection
 	refmapperstesting "knative.dev/eventing-kafka/pkg/common/commands/resetoffset/refmappers/testing"
+	configtesting "knative.dev/eventing-kafka/pkg/common/config/testing"
 	"knative.dev/eventing-kafka/pkg/common/configmaploader"
 	fakeConfigmapLoader "knative.dev/eventing-kafka/pkg/common/configmaploader/fake"
 	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
@@ -50,8 +50,8 @@ func TestNewControllerFactory(t *testing.T) {
 	assert.NotNil(t, fakeInformers)
 
 	// Add The Fake K8S Clientset To The Context (Populated With ConfigMap)
-	configMap := commontesting.GetTestSaramaConfigMap(commonconstants.CurrentConfigVersion, controllertesting.SaramaConfigYaml, controllertesting.ControllerConfigYaml)
-	secret := controllertesting.NewKafkaSecret(controllertesting.WithKafkaSecretFinalizer)
+	configMap := commontesting.GetTestSaramaConfigMap(commonconstants.CurrentConfigVersion, commontesting.OldSaramaConfig, commontesting.TestEKConfig)
+	secret := configtesting.NewKafkaSecret()
 	ctx, fakeClientset := fake.With(ctx, configMap, secret)
 	assert.NotNil(t, fakeClientset)
 
