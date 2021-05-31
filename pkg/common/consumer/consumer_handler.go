@@ -19,6 +19,7 @@ package consumer
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
@@ -52,11 +53,21 @@ func WithSaramaConsumerLifecycleListener(listener SaramaConsumerLifecycleListene
 	}
 }
 
+// WithTimeout configures the request timeout. Default is set to 60s.
+func WithTimeout(timeout time.Duration) SaramaConsumerHandlerOption {
+	return func(handler *SaramaConsumerHandler) {
+		handler.timeout = timeout
+	}
+}
+
 // ConsumerHandler implements sarama.ConsumerGroupHandler and provides some glue code to simplify message handling
 // You must implement KafkaConsumerHandler and create a new SaramaConsumerHandler with it
 type SaramaConsumerHandler struct {
 	// The user message handler
 	handler KafkaConsumerHandler
+
+	// Request to sink timeout
+	timeout time.Duration
 
 	lifecycleListener SaramaConsumerLifecycleListener
 
@@ -72,6 +83,7 @@ func NewConsumerHandler(logger *zap.SugaredLogger, handler KafkaConsumerHandler,
 	sch := SaramaConsumerHandler{
 		handler:           handler,
 		lifecycleListener: noopSaramaConsumerLifecycleListener{},
+		timeout:           60 * time.Second, // default rebalance timeout
 		logger:            logger,
 		errors:            errorsCh,
 	}
@@ -108,33 +120,74 @@ func (consumer *SaramaConsumerHandler) Cleanup(session sarama.ConsumerGroupSessi
 func (consumer *SaramaConsumerHandler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	consumer.logger.Infow(fmt.Sprintf("Starting partition consumer, topic: %s, partition: %d, initialOffset: %d", claim.Topic(), claim.Partition(), claim.InitialOffset()), zap.String("ConsumeGroup", consumer.handler.GetConsumerGroup()))
 	consumer.handler.SetReady(claim.Partition(), true)
+	c := make(chan bool)
+
 	// NOTE:
 	// Do not move the code below to a goroutine.
 	// The `ConsumeClaim` itself is called within a goroutine, see:
 	// https://github.com/Shopify/sarama/blob/master/consumer_group.go#L27-L29
 	for message := range claim.Messages() {
 
-		if ce := consumer.logger.Desugar().Check(zap.DebugLevel, "debugging"); ce != nil {
-			consumer.logger.Debugw("Message claimed", zap.String("topic", message.Topic), zap.Binary("value", message.Value))
+		// Debug Log Kafka ConsumerMessage
+		if consumer.logger.Desugar().Core().Enabled(zap.DebugLevel) {
+			// Checked Logging Level First To Avoid Calling StringifyHeaderPtrs In Production
+			consumer.logger.Debugw("Consuming Kafka Message",
+				zap.ByteString("Key", message.Key),
+				zap.ByteString("Value", message.Value),
+				zap.String("Topic", message.Topic),
+				zap.Int32("Partition", message.Partition),
+				zap.Int64("Offset", message.Offset))
 		}
 
-		// Don't use the session context since it is closed before messages are drained.
-		// Handle must finish before the session timeout.
-		mustMark, err := consumer.handler.Handle(context.Background(), message)
+		// Preemptively interrupt processing messages if the session is closed.
+		// Processing all messages from the buffered channel can take a long time,
+		// potentially exceeding the session timeout, leading to duplicate events.
+		if session.Context().Err() != nil {
+			consumer.logger.Infof("Session closed for %s/%d. Exiting ConsumeClaim ", claim.Topic(), claim.Partition())
+			break
+		}
 
-		if err != nil {
-			consumer.logger.Infow("Failure while handling a message", zap.String("topic", message.Topic), zap.Int32("partition", message.Partition), zap.Int64("offset", message.Offset), zap.Error(err))
-			consumer.errors <- err
-			consumer.handler.SetReady(claim.Partition(), false)
+		// We need to control when to cancel Handle calls so give it a downstream context
+		hctx, cancel := context.WithCancel(context.Background())
+
+		// Start Handle goroutine
+		go func() {
+			mustMark, err := consumer.handler.Handle(hctx, message)
+
+			if err != nil {
+				consumer.logger.Infow("Failure while handling a message", zap.String("topic", message.Topic), zap.Int32("partition", message.Partition), zap.Int64("offset", message.Offset), zap.Error(err))
+				consumer.errors <- err
+				consumer.handler.SetReady(claim.Partition(), false)
+			}
+
+			c <- mustMark
+		}()
+
+		var mustMark bool
+		select {
+		case mustMark = <-c:
+			// Handle returned gracefully, call cancel to free the context resources.
+			cancel()
+		case <-session.Context().Done():
+			// Consumer session canceled, wait for in-flight request to finish before we hit a rebalance timeout
+			select {
+			case <-time.After(consumer.timeout):
+				// Handle still didn't return, cancel the in-flight request
+				cancel()
+				// Unblock the Handle goroutine
+				mustMark = <-c
+			case mustMark = <-c:
+				// Handle returned gracefully, call cancel to free the context resources.
+				cancel()
+			}
 		}
 
 		if mustMark {
 			session.MarkMessage(message, "") // Mark kafka message as processed
-			if ce := consumer.logger.Desugar().Check(zap.DebugLevel, "debugging"); ce != nil {
+			if consumer.logger.Desugar().Core().Enabled(zap.DebugLevel) {
 				consumer.logger.Debugw("Message marked", zap.String("topic", message.Topic), zap.Binary("value", message.Value))
 			}
 		}
-
 	}
 
 	consumer.logger.Infof("Stopping partition consumer, topic: %s, partition: %d", claim.Topic(), claim.Partition())
