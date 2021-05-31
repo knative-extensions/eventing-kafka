@@ -38,7 +38,7 @@ func Example_min() {
 
 	manifest.OutputYAML(os.Stdout, files)
 	// Output:
-	// apiVersion: kafka.strimzi.io/v1beta1
+	// apiVersion: kafka.strimzi.io/v1beta2
 	// kind: KafkaTopic
 	// metadata:
 	//   name: foo
@@ -67,7 +67,7 @@ func Example_full() {
 
 	manifest.OutputYAML(os.Stdout, files)
 	// Output:
-	// apiVersion: kafka.strimzi.io/v1beta1
+	// apiVersion: kafka.strimzi.io/v1beta2
 	// kind: KafkaTopic
 	// metadata:
 	//   name: foo
