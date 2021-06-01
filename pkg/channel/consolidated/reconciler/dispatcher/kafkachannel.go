@@ -23,10 +23,6 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/cache"
-
-	"knative.dev/eventing-kafka/pkg/common/configmaploader"
-	"knative.dev/eventing-kafka/pkg/common/constants"
-
 	"knative.dev/eventing/pkg/apis/eventing"
 	"knative.dev/eventing/pkg/channel/fanout"
 	"knative.dev/eventing/pkg/kncloudevents"
@@ -47,6 +43,9 @@ import (
 	"knative.dev/eventing-kafka/pkg/client/injection/informers/messaging/v1beta1/kafkachannel"
 	kafkachannelreconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
 	listers "knative.dev/eventing-kafka/pkg/client/listers/messaging/v1beta1"
+	"knative.dev/eventing-kafka/pkg/common/configmaploader"
+	"knative.dev/eventing-kafka/pkg/common/constants"
+	"knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 )
 
 const dispatcherClientId = "kafka-ch-dispatcher"
@@ -90,7 +89,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		logger.Fatalw("error loading configuration", zap.Error(err))
 	}
 
-	kafkaConfig, err := utils.GetKafkaConfig(ctx, dispatcherClientId, configMap, utils.GetKafkaAuthData)
+	kafkaConfig, err := utils.GetKafkaConfig(ctx, dispatcherClientId, configMap, sarama.LoadAuthConfig)
 	if err != nil {
 		logger.Fatalw("Error loading kafka config", zap.Error(err))
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"hash/crc32"
+	"strconv"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
@@ -16,6 +17,41 @@ import (
 	"knative.dev/eventing-kafka/pkg/common/constants"
 )
 
+const (
+	TlsEnabled   = "tls.enabled"
+	TlsCacert    = "ca.crt"
+	TlsUsercert  = "user.crt"
+	TlsUserkey   = "user.key"
+	SaslUser     = "user"
+	SaslPassword = "password"
+)
+
+// parseTls allows backward-compatibility with older consolidated channel secrets
+func parseTls(secret *corev1.Secret, kafkaAuthConfig *client.KafkaAuthConfig) {
+
+	// self-signed CERTs we need CA CERT, USER CERT and KEy
+	if string(secret.Data[TlsCacert]) != "" {
+		// We have a self-signed TLS cert
+		tls := &client.KafkaTlsConfig{
+			Cacert:   string(secret.Data[TlsCacert]),
+			Usercert: string(secret.Data[TlsUsercert]),
+			Userkey:  string(secret.Data[TlsUserkey]),
+		}
+		kafkaAuthConfig.TLS = tls
+	} else {
+		// Public CERTS from a proper CA do not need this,
+		// we can just say `tls.enabled: true`
+		tlsEnabled, err := strconv.ParseBool(string(secret.Data[TlsEnabled]))
+		if err != nil {
+			tlsEnabled = false
+		}
+		if tlsEnabled {
+			// Looks like TLS is desired/enabled:
+			kafkaAuthConfig.TLS = &client.KafkaTlsConfig{}
+		}
+	}
+}
+
 func ConfigmapDataCheckSum(configMapData map[string]string) string {
 	if configMapData == nil {
 		return ""
@@ -26,20 +62,31 @@ func ConfigmapDataCheckSum(configMapData map[string]string) string {
 }
 
 // GetAuthConfigFromKubernetes Looks Up And Returns Kafka Auth ConfigAnd Brokers From Named Secret
-func GetAuthConfigFromKubernetes(ctx context.Context, secretName string, secretNamespace string) (*client.KafkaAuthConfig, error) {
+func GetAuthConfigFromKubernetes(ctx context.Context, secretName string, secretNamespace string) *client.KafkaAuthConfig {
 	secrets := kubeclient.Get(ctx).CoreV1().Secrets(secretNamespace)
 	secret, err := secrets.Get(ctx, secretName, metav1.GetOptions{})
 	if err != nil {
-		return nil, err
+		// Consolidated channel backwards-compatibility - A nonexistent secret returns a nil config
+		return nil
 	}
-	kafkaAuthCfg := GetAuthConfigFromSecret(secret)
-	return kafkaAuthCfg, nil
+	return GetAuthConfigFromSecret(secret)
 }
 
 // GetAuthConfigFromSecret Looks Up And Returns Kafka Auth Config And Brokers From Provided Secret
 func GetAuthConfigFromSecret(secret *corev1.Secret) *client.KafkaAuthConfig {
 	if secret == nil || secret.Data == nil {
 		return nil
+	}
+
+	username := string(secret.Data[constants.KafkaSecretKeyUsername])
+	var authConfig client.KafkaAuthConfig
+	// Backwards-compatibility - Support old consolidated secret fields if present
+	// (TLS data is now in the configmap, e.g. sarama.Config.Net.TLS.Config.RootPEMs)
+	_, hasTlsCaCert := secret.Data[TlsCacert]
+	_, hasTlsEnabled := secret.Data[TlsEnabled]
+	if hasTlsEnabled || hasTlsCaCert {
+		parseTls(secret, &authConfig)
+		username = string(secret.Data[SaslUser])
 	}
 
 	// If we don't convert the empty string to the "PLAIN" default, the client.HasSameSettings()
@@ -49,13 +96,13 @@ func GetAuthConfigFromSecret(secret *corev1.Secret) *client.KafkaAuthConfig {
 		saslType = sarama.SASLTypePlaintext
 	}
 
-	return &client.KafkaAuthConfig{
-		SASL: &client.KafkaSaslConfig{
-			User:     string(secret.Data[constants.KafkaSecretKeyUsername]),
-			Password: string(secret.Data[constants.KafkaSecretKeyPassword]),
-			SaslType: saslType,
-		},
+	authConfig.SASL = &client.KafkaSaslConfig{
+		User:     username,
+		Password: string(secret.Data[constants.KafkaSecretKeyPassword]),
+		SaslType: saslType,
 	}
+
+	return &authConfig
 }
 
 // NumPartitions Gets The NumPartitions - First From Channel Spec And Then From ConfigMap-Provided Settings

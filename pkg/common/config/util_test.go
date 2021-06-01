@@ -66,10 +66,10 @@ func TestGetAuthConfigFromKubernetes(t *testing.T) {
 
 	// Define The TestCase Struct
 	type TestCase struct {
-		name    string
-		secret  *corev1.Secret
-		askName string
-		wantErr bool
+		name      string
+		secret    *corev1.Secret
+		askName   string
+		expectNil bool
 	}
 
 	// Create The TestCases
@@ -78,13 +78,12 @@ func TestGetAuthConfigFromKubernetes(t *testing.T) {
 			name:    "Valid secret, valid request",
 			secret:  oldAuthSecret,
 			askName: commontesting.SecretName,
-			wantErr: false,
 		},
 		{
-			name:    "Valid secret, not found",
-			secret:  oldAuthSecret,
-			askName: "invalid-secret-name",
-			wantErr: true,
+			name:      "Valid secret, not found",
+			secret:    oldAuthSecret,
+			askName:   "invalid-secret-name",
+			expectNil: true,
 		},
 	}
 
@@ -92,15 +91,15 @@ func TestGetAuthConfigFromKubernetes(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			ctx := context.WithValue(context.TODO(), injectionclient.Key{}, fake.NewSimpleClientset(testCase.secret))
-			kafkaAuth, err := GetAuthConfigFromKubernetes(ctx, testCase.askName, commontesting.SystemNamespace)
-			if !testCase.wantErr {
-				assert.Nil(t, err)
+			kafkaAuth := GetAuthConfigFromKubernetes(ctx, testCase.askName, commontesting.SystemNamespace)
+			if testCase.expectNil {
+				assert.Nil(t, kafkaAuth)
+			} else {
 				assert.NotNil(t, kafkaAuth)
+				assert.NotNil(t, kafkaAuth.SASL)
 				assert.Equal(t, commontesting.OldAuthUsername, kafkaAuth.SASL.User)
 				assert.Equal(t, commontesting.OldAuthPassword, kafkaAuth.SASL.Password)
 				assert.Equal(t, commontesting.OldAuthSaslType, kafkaAuth.SASL.SaslType)
-			} else {
-				assert.NotNil(t, err)
 			}
 		})
 	}

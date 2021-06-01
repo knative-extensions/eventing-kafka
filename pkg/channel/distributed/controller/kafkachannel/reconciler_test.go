@@ -53,7 +53,6 @@ import (
 	kafkachannelreconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/common/constants"
-	kafkasarama "knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 )
 
@@ -1100,7 +1099,6 @@ func TestReconciler_updateKafkaConfig(t *testing.T) {
 		{
 			name:      "Empty Eventing-Kafka YAML (default for authSecretName)",
 			configMap: &corev1.ConfigMap{Data: map[string]string{constants.EventingKafkaSettingsConfigKey: ""}},
-			expectErr: `^could not load auth config: secrets "` + kafkasarama.DefaultAuthSecretName + `" not found$`,
 		},
 		{
 			name:      "Invalid Eventing-Kafka YAML",
