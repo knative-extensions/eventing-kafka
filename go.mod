@@ -8,7 +8,7 @@ require (
 	github.com/Azure/go-autorest/autorest v0.11.10 // indirect
 	github.com/Azure/go-autorest/autorest/to v0.4.0 // indirect
 	github.com/Azure/go-autorest/autorest/validation v0.3.0 // indirect
-	github.com/Shopify/sarama v1.28.0
+	github.com/Shopify/sarama v1.29.0
 	github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.4.1
 	github.com/cloudevents/sdk-go/v2 v2.4.1
 	github.com/davecgh/go-spew v1.1.1
@@ -22,7 +22,7 @@ require (
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475
 	github.com/slinkydeveloper/loadastic v0.0.0-20201218203601-5c69eea3b7d8
 	github.com/stretchr/testify v1.7.0
-	github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c
+	github.com/xdg/scram v1.0.3
 	go.opencensus.io v0.23.0
 	go.uber.org/atomic v1.7.0
 	go.uber.org/multierr v1.6.0
