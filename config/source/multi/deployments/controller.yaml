@@ -49,7 +49,7 @@ spec:
         - name: AUTOSCALER_REFRESH_PERIOD
           value: '100'
 
-        # The number of virtual replicas this pod can handle.
+        # The number of virtual replicas each adapter pod can handle.
         - name: POD_CAPACITY
           value: '100'
 
