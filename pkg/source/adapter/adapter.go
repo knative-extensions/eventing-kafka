@@ -21,8 +21,10 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"strings"
+	"time"
 
 	"golang.org/x/time/rate"
 
@@ -175,7 +177,13 @@ func (a *Adapter) Handle(ctx context.Context, msg *sarama.ConsumerMessage) (bool
 		return true, err
 	}
 
-	res, err := a.httpMessageSender.Send(req)
+	res, err := a.httpMessageSender.SendWithRetries(req, &kncloudevents.RetryConfig{
+		RetryMax:   5,
+		CheckRetry: kncloudevents.RetryIfGreaterThan300,
+		Backoff: func(attemptNum int, resp *http.Response) time.Duration {
+			return 50 * time.Millisecond * time.Duration(math.Exp2(float64(attemptNum)))
+		},
+	})
 
 	if err != nil {
 		a.logger.Debug("Error while sending the message", zap.Error(err))
