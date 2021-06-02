@@ -27,6 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/system"
@@ -297,6 +298,7 @@ func TestLoadAuthConfig(t *testing.T) {
 		secret        *corev1.Secret
 		secretName    string
 		wantNilConfig bool
+		wantNilSasl   bool
 	}
 
 	// Create The TestCases
@@ -305,6 +307,16 @@ func TestLoadAuthConfig(t *testing.T) {
 			name:       "Valid secret, valid request",
 			secret:     authSecret,
 			secretName: commontesting.SecretName,
+		},
+		{
+			name: "Valid secret, backwards-compatibility",
+			secret: &corev1.Secret{
+				TypeMeta:   metav1.TypeMeta{Kind: "Secret", APIVersion: corev1.SchemeGroupVersion.String()},
+				ObjectMeta: metav1.ObjectMeta{Name: commontesting.SecretName, Namespace: system.Namespace()},
+				Data:       map[string][]byte{"tls.enabled": []byte("true")},
+			},
+			secretName:  commontesting.SecretName,
+			wantNilSasl: true,
 		},
 		{
 			name:          "Valid secret, not found",
@@ -327,6 +339,8 @@ func TestLoadAuthConfig(t *testing.T) {
 			kafkaAuth := LoadAuthConfig(ctx, testCase.secretName, system.Namespace())
 			if testCase.wantNilConfig {
 				assert.Nil(t, kafkaAuth)
+			} else if testCase.wantNilSasl {
+				assert.Nil(t, kafkaAuth.SASL)
 			} else {
 				assert.NotNil(t, kafkaAuth)
 				assert.Equal(t, commontesting.OldAuthUsername, kafkaAuth.SASL.User)
