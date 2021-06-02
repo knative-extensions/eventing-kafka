@@ -1,6 +1,6 @@
 module knative.dev/eventing-kafka
 
-go 1.15
+go 1.16
 
 require (
 	github.com/Azure/azure-event-hubs-go/v3 v3.3.2
