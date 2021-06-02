@@ -23,6 +23,7 @@ const (
 	TlsUsercert  = "user.crt"
 	TlsUserkey   = "user.key"
 	SaslUser     = "user"
+	SaslType     = "saslType"
 	SaslPassword = "password"
 )
 
@@ -79,6 +80,7 @@ func GetAuthConfigFromSecret(secret *corev1.Secret) *client.KafkaAuthConfig {
 	}
 
 	username := string(secret.Data[constants.KafkaSecretKeyUsername])
+	saslType := string(secret.Data[constants.KafkaSecretKeySaslType])
 	var authConfig client.KafkaAuthConfig
 	// Backwards-compatibility - Support old consolidated secret fields if present
 	// (TLS data is now in the configmap, e.g. sarama.Config.Net.TLS.Config.RootPEMs)
@@ -87,11 +89,11 @@ func GetAuthConfigFromSecret(secret *corev1.Secret) *client.KafkaAuthConfig {
 	if hasTlsEnabled || hasTlsCaCert {
 		parseTls(secret, &authConfig)
 		username = string(secret.Data[SaslUser])
+		saslType = string(secret.Data[SaslType])  // old "saslType" is different than new "sasltype"
 	}
 
 	// If we don't convert the empty string to the "PLAIN" default, the client.HasSameSettings()
 	// function will assume that they should be treated as differences and needlessly reconfigure
-	saslType := string(secret.Data[constants.KafkaSecretKeySaslType])
 	if saslType == "" {
 		saslType = sarama.SASLTypePlaintext
 	}
