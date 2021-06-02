@@ -89,7 +89,7 @@ func GetAuthConfigFromSecret(secret *corev1.Secret) *client.KafkaAuthConfig {
 	if hasTlsEnabled || hasTlsCaCert {
 		parseTls(secret, &authConfig)
 		username = string(secret.Data[SaslUser])
-		saslType = string(secret.Data[SaslType])  // old "saslType" is different than new "sasltype"
+		saslType = string(secret.Data[SaslType]) // old "saslType" is different than new "sasltype"
 	}
 
 	// If we don't convert the empty string to the "PLAIN" default, the client.HasSameSettings()
