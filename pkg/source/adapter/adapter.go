@@ -21,12 +21,11 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"net/http"
-	nethttp "net/http"
 	"strings"
 	"time"
 
-	"github.com/hashicorp/go-retryablehttp"
 	"golang.org/x/time/rate"
 	ctrl "knative.dev/control-protocol/pkg"
 	ctrlnetwork "knative.dev/control-protocol/pkg/network"
@@ -311,31 +310,11 @@ func (a *Adapter) InitOffsets(session sarama.ConsumerGroupSession) error {
 
 // Default retry configuration, 5 retries, exponential backoff with 50ms delay
 func defaultRetryConfig() *kncloudevents.RetryConfig {
-	retryConfig := kncloudevents.NoRetries()
-	retryConfig.CheckRetry = func(ctx context.Context, response *nethttp.Response, err error) (bool, error) {
-		// See Knative Eventing spec (WIP) for when to retry
-		// Implement: https://github.com/knative/specs/blob/218f9655c23ca6a35280afc638b2e3c0a5e83f63/specs/eventing/data-plane.md#event-acknowledgement-and-delivery-retry
-
-		// Handle the special cases first
-
-		// do not retry on context.Canceled or context.DeadlineExceeded
-		if ctx.Err() != nil {
-			return false, ctx.Err()
-		}
-
-		if err == nil {
-			if response.StatusCode == http.StatusNotFound || response.StatusCode == http.StatusConflict {
-				return true, nil
-			}
-
-		}
-
-		// Fallback to the default retry policy capturing all other cases.
-		return retryablehttp.DefaultRetryPolicy(ctx, response, err)
+	return &kncloudevents.RetryConfig{
+		CheckRetry: kncloudevents.SelectiveRetry,
+		RetryMax:   5,
+		Backoff: func(attemptNum int, resp *http.Response) time.Duration {
+			return 50 * time.Millisecond * time.Duration(math.Exp2(float64(attemptNum)))
+		},
 	}
-	retryConfig.RetryMax = 5
-	retryConfig.Backoff = func(attemptNum int, resp *nethttp.Response) time.Duration {
-		return retryablehttp.DefaultBackoff(50*time.Millisecond, 2*time.Second, attemptNum, resp)
-	}
-	return &retryConfig
 }
