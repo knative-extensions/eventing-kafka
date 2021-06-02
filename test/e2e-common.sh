@@ -73,17 +73,17 @@ readonly EVENTING_KAFKA_SECRET_TEMPLATE="300-kafka-secret.yaml"
 readonly EVENTING_KAFKA_CONFIG_TEMPLATE="300-eventing-kafka-configmap.yaml"
 
 # Strimzi installation config template used for starting up Kafka clusters.
-readonly STRIMZI_INSTALLATION_CONFIG_TEMPLATE="test/config/100-strimzi-cluster-operator-0.20.0.yaml"
+readonly STRIMZI_INSTALLATION_CONFIG_TEMPLATE="test/config/100-strimzi-cluster-operator-0.23.0.yaml"
 # Strimzi installation config.
 readonly STRIMZI_INSTALLATION_CONFIG="$(mktemp "${ARTIFACTS}/strimzi-XXXXX.yaml")"
 # Kafka cluster CR config file.
-readonly KAFKA_INSTALLATION_CONFIG="test/config/100-kafka-ephemeral-triple-2.6.0.yaml"
+readonly KAFKA_INSTALLATION_CONFIG="test/config/100-kafka-ephemeral-triple-2.8.0.yaml"
 # Kafka TLS ConfigMap.
 readonly KAFKA_TLS_CONFIG="test/config/config-kafka-tls.yaml"
 # Kafka SASL ConfigMap.
 readonly KAFKA_SASL_CONFIG="test/config/config-kafka-sasl.yaml"
 # Kafka Users CR config file.
-readonly KAFKA_USERS_CONFIG="test/config/100-strimzi-users-0.20.0.yaml"
+readonly KAFKA_USERS_CONFIG="test/config/100-strimzi-users-0.23.0.yaml"
 # Kafka PLAIN cluster URL
 readonly KAFKA_PLAIN_CLUSTER_URL="my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
 # Kafka TLS cluster URL
