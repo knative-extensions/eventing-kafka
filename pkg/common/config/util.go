@@ -30,7 +30,7 @@ const (
 // parseTls allows backward-compatibility with older consolidated channel secrets
 func parseTls(secret *corev1.Secret, kafkaAuthConfig *client.KafkaAuthConfig) {
 
-	// self-signed CERTs we need CA CERT, USER CERT and KEy
+	// self-signed CERTs we need CA CERT, USER CERT and KEY
 	if string(secret.Data[TlsCacert]) != "" {
 		// We have a self-signed TLS cert
 		tls := &client.KafkaTlsConfig{
@@ -67,7 +67,8 @@ func GetAuthConfigFromKubernetes(ctx context.Context, secretName string, secretN
 	secrets := kubeclient.Get(ctx).CoreV1().Secrets(secretNamespace)
 	secret, err := secrets.Get(ctx, secretName, metav1.GetOptions{})
 	if err != nil {
-		// Consolidated channel backwards-compatibility - A nonexistent secret returns a nil config
+		// A nonexistent secret returns a nil KafkaAuthConfig, which the Sarama builder
+		// will interpret as "no authentication needed"
 		return nil
 	}
 	return GetAuthConfigFromSecret(secret)

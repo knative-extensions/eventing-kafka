@@ -45,7 +45,7 @@ import (
 	listers "knative.dev/eventing-kafka/pkg/client/listers/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/common/configmaploader"
 	"knative.dev/eventing-kafka/pkg/common/constants"
-	"knative.dev/eventing-kafka/pkg/common/kafka/sarama"
+	kafkasarama "knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 )
 
 const dispatcherClientId = "kafka-ch-dispatcher"
@@ -89,7 +89,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		logger.Fatalw("error loading configuration", zap.Error(err))
 	}
 
-	kafkaConfig, err := utils.GetKafkaConfig(ctx, dispatcherClientId, configMap, sarama.LoadAuthConfig)
+	kafkaConfig, err := utils.GetKafkaConfig(ctx, dispatcherClientId, configMap, kafkasarama.LoadAuthConfig)
 	if err != nil {
 		logger.Fatalw("Error loading kafka config", zap.Error(err))
 	}
