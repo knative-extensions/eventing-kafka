@@ -416,9 +416,9 @@ func TestAdjustResponseSize(t *testing.T) {
 		want          int32
 	}{
 		"no memory request":                           {memoryRequest: 0, sourceCount: 1, want: 100 * 1024 * 1024},
-		"memory request, response size less 64k":      {memoryRequest: 128 * 1024, sourceCount: 4, want: 32 * 1024},
-		"memory request, response size more 64k":      {memoryRequest: 512 * 1024, sourceCount: 4, want: 128 * 1024},
-		"memory request, response size more than cap": {memoryRequest: 100 * 1024 * 1024, sourceCount: 1, want: responseSizeCap},
+		"memory request, response size less 64k":      {memoryRequest: 128 * 1024, sourceCount: 4, want: 32 * 1024 / maxBrokers},
+		"memory request, response size more 64k":      {memoryRequest: 512 * 1024, sourceCount: 4, want: 128 * 1024 / maxBrokers},
+		"memory request, response size more than cap": {memoryRequest: 100 * 1024 * 1024, sourceCount: 1, want: responseSizeCap / maxBrokers},
 	}
 
 	for n, tc := range testCases {
