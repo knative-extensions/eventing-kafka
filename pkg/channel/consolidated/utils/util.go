@@ -20,21 +20,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
 
-	"knative.dev/eventing-kafka/pkg/common/client"
 	"knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/common/kafka/sarama"
-	kubeclient "knative.dev/pkg/client/injection/kube/client"
 )
 
 const (
@@ -44,14 +39,6 @@ const (
 	MaxIdleConnectionsKey        = "maxIdleConns"
 	MaxIdleConnectionsPerHostKey = "maxIdleConnsPerHost"
 
-	TlsEnabled   = "tls.enabled"
-	TlsCacert    = "ca.crt"
-	TlsUsercert  = "user.crt"
-	TlsUserkey   = "user.key"
-	SaslUser     = "user"
-	SaslPassword = "password"
-	SaslType     = "saslType"
-
 	KafkaChannelSeparator = "."
 
 	knativeKafkaTopicPrefix = "knative-messaging-kafka"
@@ -60,64 +47,6 @@ const (
 type KafkaConfig struct {
 	Brokers       []string
 	EventingKafka *config.EventingKafkaConfig
-}
-
-func parseTls(secret *corev1.Secret, kafkaAuthConfig *client.KafkaAuthConfig) {
-
-	// self-signed CERTs we need CA CERT, USER CERT and KEy
-	if string(secret.Data[TlsCacert]) != "" {
-		// We have a self-signed TLS cert
-		tls := &client.KafkaTlsConfig{
-			Cacert:   string(secret.Data[TlsCacert]),
-			Usercert: string(secret.Data[TlsUsercert]),
-			Userkey:  string(secret.Data[TlsUserkey]),
-		}
-		kafkaAuthConfig.TLS = tls
-	} else {
-		// Public CERTS from a proper CA do not need this,
-		// we can just say `tls.enabled: true`
-		tlsEnabled, err := strconv.ParseBool(string(secret.Data[TlsEnabled]))
-		if err != nil {
-			tlsEnabled = false
-		}
-		if tlsEnabled {
-			// Looks like TLS is desired/enabled:
-			kafkaAuthConfig.TLS = &client.KafkaTlsConfig{}
-		}
-	}
-}
-
-func parseSasl(secret *corev1.Secret, kafkaAuthConfig *client.KafkaAuthConfig) {
-	if string(secret.Data[SaslUser]) != "" {
-		sasl := &client.KafkaSaslConfig{
-			User:     string(secret.Data[SaslUser]),
-			Password: string(secret.Data[SaslPassword]),
-			SaslType: string(secret.Data[SaslType]),
-		}
-		kafkaAuthConfig.SASL = sasl
-	}
-}
-
-// GetKafkaAuthData reads auth information from the Secret and puts them into a KafkaAuthConfig struct
-// GetKafkaAuthData returns a nil error in all cases because it matches the sarama.GetAuth prototype
-// (so that it can be used in the sarama.LoadSettings call).
-func GetKafkaAuthData(ctx context.Context, secretname string, secretNS string) (*client.KafkaAuthConfig, error) {
-
-	k8sClient := kubeclient.Get(ctx)
-	secret, err := k8sClient.CoreV1().Secrets(secretNS).Get(ctx, secretname, metav1.GetOptions{})
-
-	if err != nil || secret == nil {
-		logging.FromContext(ctx).Errorf("Referenced Auth Secret not found")
-		return nil, nil // For the consolidated channel type, the secret not existing is not an error
-	}
-
-	kafkaAuthConfig := &client.KafkaAuthConfig{}
-
-	// check for TLS and SASL options
-	parseTls(secret, kafkaAuthConfig)
-	parseSasl(secret, kafkaAuthConfig)
-
-	return kafkaAuthConfig, nil
 }
 
 // GetKafkaConfig returns the details of the Kafka cluster.
@@ -153,12 +82,17 @@ func GetKafkaConfig(ctx context.Context, clientId string, configMap map[string]s
 			configmap.AsInt(MaxIdleConnectionsKey, &eventingKafkaConfig.CloudEvents.MaxIdleConns),
 			configmap.AsInt(MaxIdleConnectionsPerHostKey, &eventingKafkaConfig.CloudEvents.MaxIdleConnsPerHost),
 		)
+		// Since LoadSettings isn't going to be called in this situation, we need to call getAuth explicitly
+		eventingKafkaConfig.Auth = getAuth(ctx, eventingKafkaConfig.Kafka.AuthSecretName, eventingKafkaConfig.Kafka.AuthSecretNamespace)
 	} else {
 		eventingKafkaConfig, err = sarama.LoadSettings(ctx, clientId, configMap, getAuth)
 	}
 	if err != nil {
 		return nil, err
 	}
+
+	// Enable Sarama logging if specified in the ConfigMap
+	sarama.EnableSaramaLogging(eventingKafkaConfig.Sarama.EnableLogging)
 
 	if eventingKafkaConfig.Kafka.Brokers == "" {
 		return nil, errors.New("missing or empty brokers in configuration")

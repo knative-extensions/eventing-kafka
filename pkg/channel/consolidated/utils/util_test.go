@@ -18,10 +18,9 @@ package utils
 
 import (
 	"context"
-	"testing"
-
 	"crypto/tls"
 	"crypto/x509"
+	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -38,6 +37,7 @@ import (
 
 	"knative.dev/eventing-kafka/pkg/common/client"
 	"knative.dev/eventing-kafka/pkg/common/config"
+	configtesting "knative.dev/eventing-kafka/pkg/common/config/testing"
 	"knative.dev/eventing-kafka/pkg/common/constants"
 	kafkasarama "knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 )
@@ -67,7 +67,7 @@ func TestGenerateTopicNameWithHyphen(t *testing.T) {
 	}
 }
 
-func TestGetKafkaAuthData(t *testing.T) {
+func TestGetKafkaConfig_BackwardsCompatibility(t *testing.T) {
 
 	api := &KubernetesAPI{
 		Client: fake.NewSimpleClientset(),
@@ -90,7 +90,7 @@ func TestGetKafkaAuthData(t *testing.T) {
 			corev1Input: api.Client.CoreV1(),
 			secretName:  secretName,
 			secretNS:    secretNamespace,
-			expected:    &client.KafkaAuthConfig{},
+			expected:    nil, // The Sarama builder expects a nil KafkaAuthConfig if no authentication is desired
 		},
 		"wrong secret name": {
 			corev1Input: api.Client.CoreV1(),
@@ -121,6 +121,7 @@ func TestGetKafkaAuthData(t *testing.T) {
 				SASL: &client.KafkaSaslConfig{
 					User:     "user",
 					Password: "password",
+					SaslType: configtesting.DefaultSecretSaslType,
 				},
 			},
 		},
@@ -152,6 +153,7 @@ func TestGetKafkaAuthData(t *testing.T) {
 				SASL: &client.KafkaSaslConfig{
 					User:     "user",
 					Password: "password",
+					SaslType: configtesting.DefaultSecretSaslType,
 				},
 			},
 		},
@@ -186,14 +188,18 @@ func TestGetKafkaAuthData(t *testing.T) {
 			assert.Nil(t, secretCreateError, "error creating secret resources")
 
 			ctx := context.WithValue(context.Background(), injectionclient.Key{}, fake.NewSimpleClientset(secret, namespace))
-			receivedSecret, err := GetKafkaAuthData(ctx, tc.secretName, tc.secretNS)
-
+			configMap := map[string]string{
+				"bootstrapServers":    "kafkabroker.kafka:9092",
+				"authSecretName":      tc.secretName,
+				"authSecretNamespace": tc.secretNS}
+			kafkaConfig, err := GetKafkaConfig(ctx, "test-client-id", configMap, kafkasarama.LoadAuthConfig)
+			assert.Nil(t, err)
 			if tc.expected == nil {
-				assert.Nil(t, receivedSecret)
+				assert.Nil(t, kafkaConfig.EventingKafka.Auth)
 			} else {
 				assert.Nil(t, err)
-				assert.Equal(t, tc.expected.TLS, receivedSecret.TLS)
-				assert.Equal(t, tc.expected.SASL, receivedSecret.SASL)
+				assert.Equal(t, tc.expected.TLS, kafkaConfig.EventingKafka.Auth.TLS)
+				assert.Equal(t, tc.expected.SASL, kafkaConfig.EventingKafka.Auth.SASL)
 			}
 
 			// clean up after test
@@ -365,7 +371,9 @@ func TestGetKafkaConfig(t *testing.T) {
 				EventingKafka: &config.EventingKafkaConfig{
 					Channel: config.EKChannelConfig{
 						Dispatcher: config.EKDispatcherConfig{EKKubernetesConfig: defaultK8SConfig},
-						Receiver:   config.EKReceiverConfig{EKKubernetesConfig: defaultK8SConfig},
+						// The consolidated channel doesn't use the Receiver config, but there are default values in it
+						// (namely "Replicas") that make the zero-value of the Receiver struct invalid for comparisons
+						Receiver: config.EKReceiverConfig{EKKubernetesConfig: defaultK8SConfig},
 					},
 					CloudEvents: defaultCloudEvents,
 					Kafka: config.EKKafkaConfig{
@@ -386,7 +394,7 @@ func TestGetKafkaConfig(t *testing.T) {
 			t.Logf("Running %s", t.Name())
 
 			got, err := GetKafkaConfig(context.TODO(), "test-client-id", tc.data,
-				func(context.Context, string, string) (*client.KafkaAuthConfig, error) { return nil, nil })
+				func(context.Context, string, string) *client.KafkaAuthConfig { return nil })
 
 			if tc.getError != "" {
 				assert.NotNil(t, err)
@@ -475,12 +483,12 @@ func createSecret(cacert string, usercert string, userkey string, user string, p
 			Name:      secretName,
 		},
 		Data: map[string][]byte{
-			TlsCacert:    []byte(cacert),
-			TlsUsercert:  []byte(usercert),
-			TlsUserkey:   []byte(userkey),
-			TlsEnabled:   []byte(tlsEnabled),
-			SaslUser:     []byte(user),
-			SaslPassword: []byte(password),
+			config.TlsCacert:    []byte(cacert),
+			config.TlsUsercert:  []byte(usercert),
+			config.TlsUserkey:   []byte(userkey),
+			config.TlsEnabled:   []byte(tlsEnabled),
+			config.SaslUser:     []byte(user),
+			config.SaslPassword: []byte(password),
 		},
 	}
 }
