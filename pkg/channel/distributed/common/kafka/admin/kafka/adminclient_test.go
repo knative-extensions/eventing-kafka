@@ -336,6 +336,18 @@ func (m *MockClusterAdmin) DescribeCluster() (brokers []*sarama.Broker, controll
 	panic("implement me")
 }
 
+func (m *MockClusterAdmin) DescribeUserScramCredentials(users []string) ([]*sarama.DescribeUserScramCredentialsResult, error) {
+	panic("implement me")
+}
+
+func (m *MockClusterAdmin) DeleteUserScramCredentials(delete []sarama.AlterUserScramCredentialsDelete) ([]*sarama.AlterUserScramCredentialsResult, error) {
+	panic("implement me")
+}
+
+func (m *MockClusterAdmin) UpsertUserScramCredentials(upsert []sarama.AlterUserScramCredentialsUpsert) ([]*sarama.AlterUserScramCredentialsResult, error) {
+	panic("implement me")
+}
+
 func (m *MockClusterAdmin) Close() error {
 	args := m.Called()
 	return args.Error(0)
