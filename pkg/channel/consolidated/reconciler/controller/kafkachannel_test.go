@@ -759,6 +759,18 @@ func (ca *mockClusterAdmin) DescribeLogDirs(brokers []int32) (map[int32][]sarama
 	return nil, nil
 }
 
+func (ca *mockClusterAdmin) DescribeUserScramCredentials(users []string) ([]*sarama.DescribeUserScramCredentialsResult, error) {
+	return nil, nil
+}
+
+func (ca *mockClusterAdmin) DeleteUserScramCredentials(delete []sarama.AlterUserScramCredentialsDelete) ([]*sarama.AlterUserScramCredentialsResult, error) {
+	return nil, nil
+}
+
+func (ca *mockClusterAdmin) UpsertUserScramCredentials(upsert []sarama.AlterUserScramCredentialsUpsert) ([]*sarama.AlterUserScramCredentialsResult, error) {
+	return nil, nil
+}
+
 func (ca *mockClusterAdmin) CreateTopic(topic string, detail *sarama.TopicDetail, validateOnly bool) error {
 	if ca.mockCreateTopicFunc != nil {
 		return ca.mockCreateTopicFunc(topic, detail, validateOnly)

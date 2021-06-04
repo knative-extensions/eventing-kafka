@@ -69,7 +69,7 @@ github.com/Azure/go-autorest/tracing
 github.com/PuerkitoBio/purell
 # github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578
 github.com/PuerkitoBio/urlesc
-# github.com/Shopify/sarama v1.28.0
+# github.com/Shopify/sarama v1.29.0
 ## explicit
 github.com/Shopify/sarama
 # github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751
@@ -211,7 +211,7 @@ github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
 github.com/golang/protobuf/ptypes/wrappers
-# github.com/golang/snappy v0.0.2
+# github.com/golang/snappy v0.0.3
 github.com/golang/snappy
 # github.com/google/go-cmp v0.5.6
 ## explicit
@@ -319,10 +319,9 @@ github.com/jstemmer/go-junit-report/parser
 # github.com/kelseyhightower/envconfig v1.4.0
 ## explicit
 github.com/kelseyhightower/envconfig
-# github.com/klauspost/compress v1.11.7
+# github.com/klauspost/compress v1.12.2
 github.com/klauspost/compress/fse
 github.com/klauspost/compress/huff0
-github.com/klauspost/compress/snappy
 github.com/klauspost/compress/zstd
 github.com/klauspost/compress/zstd/internal/xxhash
 # github.com/konsorten/go-windows-terminal-sequences v1.0.3
@@ -412,10 +411,10 @@ github.com/tsenart/vegeta/v12/lib
 github.com/valyala/bytebufferpool
 # github.com/wavesoftware/go-ensure v1.0.0
 github.com/wavesoftware/go-ensure
-# github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c
+# github.com/xdg/scram v1.0.3
 ## explicit
 github.com/xdg/scram
-# github.com/xdg/stringprep v1.0.0
+# github.com/xdg/stringprep v1.0.3
 github.com/xdg/stringprep
 # go.opencensus.io v0.23.0
 ## explicit
