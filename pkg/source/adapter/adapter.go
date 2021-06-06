@@ -126,6 +126,7 @@ func (a *Adapter) Start(ctx context.Context) (err error) {
 	options := []consumer.SaramaConsumerHandlerOption{consumer.WithSaramaConsumerLifecycleListener(a)}
 	consumerGroupFactory := consumer.NewConsumerGroupFactory(addrs, config)
 	group, err := consumerGroupFactory.StartConsumerGroup(
+		nil, // Not using the manager
 		a.config.ConsumerGroup,
 		a.config.Topics,
 		a.logger,

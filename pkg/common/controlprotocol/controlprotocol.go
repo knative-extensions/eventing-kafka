@@ -19,6 +19,7 @@ package controlprotocol
 import (
 	"context"
 	"fmt"
+
 	"go.uber.org/zap"
 	ctrl "knative.dev/control-protocol/pkg"
 	"knative.dev/control-protocol/pkg/network"
@@ -31,13 +32,14 @@ type AsyncHandlerFunc func(ctx context.Context, commandMessage ctrlservice.Async
 type ServerHandler interface {
 	Stop()
 	AddAsyncHandler(opcode ctrl.OpCode, handler AsyncHandlerFunc)
+	AddSyncHandler(opcode ctrl.OpCode, handler ctrl.MessageHandlerFunc)
 	RemoveHandler(opcode ctrl.OpCode)
 }
 
 // kafkaConsumerGroupManagerImpl is the primary implementation of a KafkaConsumerGroupManager
 type serverHandlerImpl struct {
-	router ctrlservice.MessageRouter
-	server *network.ControlServer
+	router       ctrlservice.MessageRouter
+	server       *network.ControlServer
 	cancelServer context.CancelFunc
 }
 
@@ -56,8 +58,8 @@ func NewServerHandler() (ServerHandler, error) {
 	controlServer.MessageHandler(messageRouter)
 
 	return serverHandlerImpl{
-		server: controlServer,
-		router: messageRouter,
+		server:       controlServer,
+		router:       messageRouter,
 		cancelServer: serverCancelFn,
 	}, nil
 }
@@ -65,12 +67,17 @@ func NewServerHandler() (ServerHandler, error) {
 func (s serverHandlerImpl) Stop() {
 	// Cancel the server and wait for it to stop
 	s.cancelServer()
-	<- s.server.ClosedCh()
+	<-s.server.ClosedCh()
 }
 
 func (s serverHandlerImpl) AddAsyncHandler(opcode ctrl.OpCode, handler AsyncHandlerFunc) {
 	fmt.Printf("EDV: AddAsyncHandler(%d)\n", opcode)
 	s.router[opcode] = ctrlservice.NewAsyncCommandHandler(s.server, &eventingKafkaAsyncCommand{}, opcode, handler)
+}
+
+func (s serverHandlerImpl) AddSyncHandler(opcode ctrl.OpCode, handler ctrl.MessageHandlerFunc) {
+	fmt.Printf("EDV: AddSyncHandler(%d)\n", opcode)
+	s.router[opcode] = handler
 }
 
 func (s serverHandlerImpl) RemoveHandler(opcode ctrl.OpCode) {

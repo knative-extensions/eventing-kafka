@@ -18,16 +18,18 @@ package consumer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/wait"
-	ctrlservice "knative.dev/control-protocol/pkg/service"
-
 	"github.com/Shopify/sarama"
+	"k8s.io/apimachinery/pkg/util/wait"
 	ctrl "knative.dev/control-protocol/pkg"
 	"knative.dev/eventing-kafka/pkg/common/controlprotocol"
 )
+
+// ErrStoppedConsumerGroup is the error returned when a consumer group has been explicitly "stopped" by the manager
+var ErrStoppedConsumerGroup = errors.New("kafka: tried to use a consumer group that was stopped")
 
 // NewConsumerGroupFnType Is A Function Definition Types For A Wrapper Variables (Typesafe Stubbing For Tests)
 type NewConsumerGroupFnType = func(brokers []string, groupId string, config *sarama.Config) (sarama.ConsumerGroup, error)
@@ -47,6 +49,8 @@ type KafkaConsumerGroupManager interface {
 	CreateConsumerGroup(createFn NewConsumerGroupFnType, brokers []string, groupId string, config *sarama.Config) (sarama.ConsumerGroup, error)
 	CloseConsumerGroup(groupId string) error
 	IsValid(groupId string) bool
+	IsStopped(groupId string) bool
+	WaitForStart(groupId string, timeout time.Duration) error
 	Errors(groupId string) <-chan error
 	Consume(groupId string, ctx context.Context, topics []string, handler sarama.ConsumerGroupHandler) error
 	// Close ?   If the dispatcher tears down the CG, this needs to know about it
@@ -63,7 +67,6 @@ type managedGroup struct {
 }
 
 func (m *managedGroup) IsStopped() bool {
-	fmt.Printf("EDV: IsStopped: m.stopped=%v\n", m.stopped)
 	return m.stopped
 }
 
@@ -106,51 +109,66 @@ func NewConsumerGroupManager(serverHandler controlprotocol.ServerHandler) KafkaC
 		server: serverHandler,
 		groups: make(groupMap),
 	}
-	serverHandler.AddAsyncHandler(StopConsumerGroupsOpCode, func(ctx context.Context, commandMessage ctrlservice.AsyncCommandMessage) {
-		fmt.Printf("ConsumerGroupManager received StopConsumerGroupsOpCode\n")
+	//serverHandler.AddAsyncHandler(StopConsumerGroupsOpCode, func(ctx context.Context, commandMessage ctrlservice.AsyncCommandMessage) {
+	//	fmt.Printf("ConsumerGroupManager received StopConsumerGroupsOpCode (Async)\n")
+	//	err := manager.pauseConsumerGroups()
+	//	if err != nil {
+	//		commandMessage.NotifyFailed(err)
+	//	} else {
+	//		commandMessage.NotifySuccess()
+	//	}
+	//})
+	//serverHandler.AddAsyncHandler(StartConsumerGroupsOpCode, func(ctx context.Context, commandMessage ctrlservice.AsyncCommandMessage) {
+	//	fmt.Printf("ConsumerGroupManager received StartConsumerGroupsOpCode (Async)\n")
+	//	err := manager.resumeConsumerGroups()
+	//	if err != nil {
+	//		commandMessage.NotifyFailed(err)
+	//	} else {
+	//		commandMessage.NotifySuccess()
+	//	}
+	//})
+	serverHandler.AddSyncHandler(StopConsumerGroupsOpCode, func(ctx context.Context, message ctrl.ServiceMessage) {
+		fmt.Printf("ConsumerGroupManager received StopConsumerGroupsOpCode (Sync)\n")
 		err := manager.pauseConsumerGroups()
 		if err != nil {
-			commandMessage.NotifyFailed(err)
-		} else {
-			commandMessage.NotifySuccess()
+			fmt.Printf("pauseConsumerGroups error: %v\n", err)
 		}
+		message.Ack()
 	})
-	serverHandler.AddAsyncHandler(StartConsumerGroupsOpCode, func(ctx context.Context, commandMessage ctrlservice.AsyncCommandMessage) {
-		fmt.Printf("ConsumerGroupManager received StartConsumerGroupsOpCode\n")
+	serverHandler.AddSyncHandler(StartConsumerGroupsOpCode, func(ctx context.Context, message ctrl.ServiceMessage) {
+		fmt.Printf("ConsumerGroupManager received StartConsumerGroupsOpCode (Sync)\n")
 		err := manager.resumeConsumerGroups()
 		if err != nil {
-			commandMessage.NotifyFailed(err)
-		} else {
-			commandMessage.NotifySuccess()
+			fmt.Printf("resumeConsumerGroups error: %v\n", err)
 		}
+		message.Ack()
 	})
 	return manager
 }
 
+// Consume calls the Consume method of a managed consumer group and returns a custom error
+// if it was ended due to being stopped by the manager ("paused")
 func (m kafkaConsumerGroupManagerImpl) Consume(groupId string, ctx context.Context, topics []string, handler sarama.ConsumerGroupHandler) error {
+	fmt.Printf("EDV: manager.Consume('%s')\n", groupId)
 	groupInfo, ok := m.groups[groupId]
 	if !ok {
 		return fmt.Errorf("consume called on nonexistent groupId '%s'", groupId)
 	}
-	for {
-		fmt.Printf("EDV: manager.Consume('%s')\n", groupId)
-		err := groupInfo.Group.Consume(ctx, topics, handler)
-		fmt.Printf("EDV: ~manager.Consume('%s')\n", groupId)
-		if !groupInfo.IsStopped() {
-			fmt.Printf("EDV: group '%s' was NOT STOPPED\n", groupId)
-			// This ConsumerGroup wasn't stopped by the manager, so pass the error along to the caller
-			return err
-		}
-		fmt.Printf("EDV:  Group '%s' is stopped; waiting for start\n", groupInfo.GroupId)
-
-		// TODO:  This probably isn't the right place to just wait for a consumergroup to be restarted
-		err = wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
-			return !groupInfo.IsStopped(), nil
-		})
-		if err != nil {
-			return err
-		}
+	err := groupInfo.Group.Consume(ctx, topics, handler)
+	fmt.Printf("EDV: ~manager.Consume('%s')\n", groupId)
+	if !groupInfo.IsStopped() {
+		fmt.Printf("EDV: group '%s' was NOT STOPPED\n", groupId)
+		// This ConsumerGroup wasn't stopped by the manager, so pass the error along to the caller
+		return err
 	}
+	return ErrStoppedConsumerGroup
+}
+
+func (m kafkaConsumerGroupManagerImpl) WaitForStart(groupId string, timeout time.Duration) error {
+	// TODO:  Should wait for a proper signal/channel, not poll the IsStopped function
+	return wait.Poll(10*time.Millisecond, timeout, func() (bool, error) {
+		return !m.IsStopped(groupId), nil
+	})
 }
 
 func (m kafkaConsumerGroupManagerImpl) Errors(groupId string) <-chan error {
@@ -164,6 +182,13 @@ func (m kafkaConsumerGroupManagerImpl) Errors(groupId string) <-chan error {
 func (m kafkaConsumerGroupManagerImpl) IsValid(groupId string) bool {
 	if _, ok := m.groups[groupId]; ok {
 		return true
+	}
+	return false
+}
+
+func (m kafkaConsumerGroupManagerImpl) IsStopped(groupId string) bool {
+	if _, ok := m.groups[groupId]; ok {
+		return m.groups[groupId].IsStopped()
 	}
 	return false
 }

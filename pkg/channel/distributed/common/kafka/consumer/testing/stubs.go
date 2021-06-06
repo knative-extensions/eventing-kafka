@@ -19,6 +19,8 @@ package testing
 import (
 	"testing"
 
+	"knative.dev/eventing-kafka/pkg/common/consumer"
+
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer/wrapper"
@@ -29,7 +31,7 @@ import (
 //
 
 // Replace The NewConsumerGroupFn With Specified Mock / Test Value
-func StubNewConsumerGroupFn(stubNewConsumerGroupFn wrapper.NewConsumerGroupFnType) {
+func StubNewConsumerGroupFn(stubNewConsumerGroupFn consumer.NewConsumerGroupFnType) {
 	wrapper.NewConsumerGroupFn = stubNewConsumerGroupFn
 }
 
@@ -39,7 +41,7 @@ func RestoreNewConsumerGroupFn() {
 }
 
 // Non-Validating NewConsumerGroup Function
-func NonValidatingNewConsumerGroupFn(mockConsumerGroup sarama.ConsumerGroup) wrapper.NewConsumerGroupFnType {
+func NonValidatingNewConsumerGroupFn(mockConsumerGroup sarama.ConsumerGroup) consumer.NewConsumerGroupFnType {
 	return func(brokers []string, groupId string, config *sarama.Config) (sarama.ConsumerGroup, error) {
 		return mockConsumerGroup, nil
 	}
@@ -50,7 +52,7 @@ func ValidatingNewConsumerGroupFn(t *testing.T,
 	expectedBrokers []string,
 	expectedGroupId string,
 	expectedConfig *sarama.Config,
-	mockConsumerGroup sarama.ConsumerGroup) wrapper.NewConsumerGroupFnType {
+	mockConsumerGroup sarama.ConsumerGroup) consumer.NewConsumerGroupFnType {
 
 	return func(brokers []string, groupId string, config *sarama.Config) (sarama.ConsumerGroup, error) {
 		assert.Equal(t, expectedBrokers, brokers)

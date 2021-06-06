@@ -18,9 +18,12 @@ package dispatcher
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
+
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer"
 
 	"github.com/Shopify/sarama"
 	gometrics "github.com/rcrowley/go-metrics"
@@ -30,7 +33,6 @@ import (
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/channel"
 
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer"
 	commonkafkautil "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/util"
 	dispatcherconstants "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/constants"
 	"knative.dev/eventing-kafka/pkg/common/client"
@@ -75,11 +77,12 @@ type Dispatcher interface {
 // DispatcherImpl Is A Struct With Configuration & ConsumerGroup State
 type DispatcherImpl struct {
 	DispatcherConfig
-	subscribers        map[types.UID]*SubscriberWrapper
-	consumerUpdateLock sync.Mutex
-	messageDispatcher  channel.MessageDispatcher
-	MetricsStopChan    chan struct{}
-	MetricsStoppedChan chan struct{}
+	subscribers          map[types.UID]*SubscriberWrapper
+	consumerGroupFactory commonconsumer.KafkaConsumerGroupFactory
+	consumerUpdateLock   sync.Mutex
+	messageDispatcher    channel.MessageDispatcher
+	MetricsStopChan      chan struct{}
+	MetricsStoppedChan   chan struct{}
 }
 
 // Verify The DispatcherImpl Implements The Dispatcher Interface
@@ -90,11 +93,12 @@ func NewDispatcher(dispatcherConfig DispatcherConfig) Dispatcher {
 
 	// Create The DispatcherImpl With Specified Configuration
 	dispatcher := &DispatcherImpl{
-		DispatcherConfig:   dispatcherConfig,
-		subscribers:        make(map[types.UID]*SubscriberWrapper),
-		messageDispatcher:  channel.NewMessageDispatcher(dispatcherConfig.Logger),
-		MetricsStopChan:    make(chan struct{}),
-		MetricsStoppedChan: make(chan struct{}),
+		DispatcherConfig:     dispatcherConfig,
+		subscribers:          make(map[types.UID]*SubscriberWrapper),
+		consumerGroupFactory: commonconsumer.NewConsumerGroupFactory(dispatcherConfig.Brokers, dispatcherConfig.SaramaConfig),
+		messageDispatcher:    channel.NewMessageDispatcher(dispatcherConfig.Logger),
+		MetricsStopChan:      make(chan struct{}),
+		MetricsStoppedChan:   make(chan struct{}),
 	}
 
 	// Start Observing Metrics
@@ -147,8 +151,12 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 			// Create A ConsumerGroup Logger
 			logger := d.Logger.With(zap.String("GroupId", groupId))
 
+			//// Create/Start A New ConsumerGroup With Custom Handler
+			//handler := NewHandler(logger, groupId, &subscriberSpec)
+			//_, err := d.consumerGroupFactory.StartConsumerGroup(d.ConsumerMgr, groupId, []string{d.Topic}, d.Logger.Sugar(), handler)
 			// Attempt To Create A Kafka ConsumerGroup
 			_, err := d.ConsumerMgr.CreateConsumerGroup(consumer.CreateConsumerGroup, d.Brokers, groupId, d.SaramaConfig)
+
 			if err != nil {
 
 				// Log & Return Failure
@@ -160,6 +168,7 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 				// Create A New SubscriberWrapper With The ConsumerGroup
 				subscriber := NewSubscriberWrapper(subscriberSpec, groupId)
 
+				// EDV: Remove this if using the common factory
 				// Start The ConsumerGroup Processing Messages
 				d.startConsuming(subscriber)
 
@@ -235,6 +244,12 @@ func (d *DispatcherImpl) startConsuming(subscriber *SubscriberWrapper) {
 						if err == sarama.ErrClosedConsumerGroup {
 							logger.Info("ConsumerGroup Closed Error - Ceasing Consumption") // Should be caught above but here as added precaution.
 							break
+						} else if err == commonconsumer.ErrStoppedConsumerGroup {
+							fmt.Printf("EDV:  Group '%s' is stopped; waiting for start\n", subscriber.GroupId)
+							err = d.ConsumerMgr.WaitForStart(subscriber.GroupId, 60*time.Minute)
+							if err != nil {
+								logger.Error("ConsumerGroup Failed To Restart", zap.Error(err))
+							}
 						} else {
 							logger.Error("ConsumerGroup Failed To Consume Messages", zap.Error(err))
 						}
@@ -254,6 +269,7 @@ func (d *DispatcherImpl) closeConsumerGroup(subscriber *SubscriberWrapper) {
 	// If The ConsumerGroup Is Valid
 	if d.ConsumerMgr.IsValid(subscriber.GroupId) {
 
+		// EDV: Remove if using common factory
 		// Mark The Subscriber's ConsumerGroup As Stopped
 		close(subscriber.StopChan)
 
