@@ -23,12 +23,13 @@ import (
 	"testing"
 	"time"
 
+	"knative.dev/eventing-kafka/pkg/common/consumer"
+
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	consumertesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer/testing"
-	consumerwrapper "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer/wrapper"
 	commonclient "knative.dev/eventing-kafka/pkg/common/client"
 	clienttesting "knative.dev/eventing-kafka/pkg/common/client/testing"
 	configtesting "knative.dev/eventing-kafka/pkg/common/config/testing"
@@ -49,21 +50,52 @@ const (
 	uid789 = types.UID(id789)
 )
 
+type mockConsumerGroupManager struct {
+	Groups map[string]sarama.ConsumerGroup
+}
+
+func (m mockConsumerGroupManager) AddGroup(groupId string, group sarama.ConsumerGroup) {
+	m.Groups[groupId] = group
+}
+
+func (m mockConsumerGroupManager) CreateConsumerGroup(_ consumer.NewConsumerGroupFnType, _ []string, _ string, _ *sarama.Config) (sarama.ConsumerGroup, error) {
+	return nil, nil
+}
+
+func (m mockConsumerGroupManager) CloseConsumerGroup(groupId string) error {
+	group, ok := m.Groups[groupId]
+	if !ok {
+		return fmt.Errorf("test error:  Group does not exist")
+	}
+	return group.Close()
+}
+
+func (m mockConsumerGroupManager) IsValid(groupId string) bool {
+	_, ok := m.Groups[groupId]
+	return ok
+}
+
+func (m mockConsumerGroupManager) Errors(_ string) <-chan error {
+	return nil
+}
+
+func (m mockConsumerGroupManager) Consume(_ string, _ context.Context, _ []string, _ sarama.ConsumerGroupHandler) error {
+	return nil
+}
+
 // Test The NewSubscriberWrapper() Functionality
 func TestNewSubscriberWrapper(t *testing.T) {
 
 	// Test Data
 	subscriber := eventingduck.SubscriberSpec{UID: uid123}
 	groupId := "TestGroupId"
-	consumerGroup := consumertesting.NewMockConsumerGroup()
 
 	// Perform The Test
-	subscriberWrapper := NewSubscriberWrapper(subscriber, groupId, consumerGroup)
+	subscriberWrapper := NewSubscriberWrapper(subscriber, groupId)
 
 	// Verify Results
 	assert.NotNil(t, subscriberWrapper)
 	assert.Equal(t, subscriber.UID, subscriberWrapper.UID)
-	assert.Equal(t, consumerGroup, subscriberWrapper.ConsumerGroup)
 	assert.Equal(t, groupId, subscriberWrapper.GroupId)
 	assert.NotNil(t, subscriberWrapper.StopChan)
 }
@@ -78,6 +110,8 @@ func TestNewDispatcher(t *testing.T) {
 // Test The Dispatcher's Shutdown() Functionality
 func TestShutdown(t *testing.T) {
 
+	mockManager := mockConsumerGroupManager{}
+
 	// Create Mock ConsumerGroups To Register Close() Requests
 	consumerGroup1 := consumertesting.NewMockConsumerGroup()
 	consumerGroup2 := consumertesting.NewMockConsumerGroup()
@@ -91,15 +125,20 @@ func TestShutdown(t *testing.T) {
 	groupId2 := fmt.Sprintf("kafka.%s", subscriber2.UID)
 	groupId3 := fmt.Sprintf("kafka.%s", subscriber3.UID)
 
+	mockManager.AddGroup(groupId1, consumerGroup1)
+	mockManager.AddGroup(groupId2, consumerGroup2)
+	mockManager.AddGroup(groupId3, consumerGroup3)
+
 	// Create The Dispatcher To Test With Existing Subscribers
 	dispatcher := &DispatcherImpl{
 		DispatcherConfig: DispatcherConfig{
-			Logger: logtesting.TestLogger(t).Desugar(),
+			ConsumerMgr: mockManager,
+			Logger:      logtesting.TestLogger(t).Desugar(),
 		},
 		subscribers: map[types.UID]*SubscriberWrapper{
-			subscriber1.UID: NewSubscriberWrapper(subscriber1, groupId1, consumerGroup1),
-			subscriber2.UID: NewSubscriberWrapper(subscriber2, groupId2, consumerGroup2),
-			subscriber3.UID: NewSubscriberWrapper(subscriber3, groupId3, consumerGroup3),
+			subscriber1.UID: NewSubscriberWrapper(subscriber1, groupId1),
+			subscriber2.UID: NewSubscriberWrapper(subscriber2, groupId2),
+			subscriber3.UID: NewSubscriberWrapper(subscriber3, groupId3),
 		},
 	}
 
@@ -278,7 +317,7 @@ func TestUpdateSubscriptions(t *testing.T) {
 			dispatcher.Shutdown()
 			assert.Len(t, dispatcher.subscribers, 0)
 
-			// Pause Briefly To Let Any Async Shutdown Finish (Lame But Only For Visual Confirmation Of Logging ;)
+			// Stop Briefly To Let Any Async Shutdown Finish (Lame But Only For Visual Confirmation Of Logging ;)
 			time.Sleep(500 * time.Millisecond)
 		})
 	}
@@ -401,7 +440,7 @@ func TestSecretChanged(t *testing.T) {
 
 // Utility Function For Creating A SubscriberWrapper With Specified UID & Mock ConsumerGroup
 func createSubscriberWrapper(uid types.UID) *SubscriberWrapper {
-	return NewSubscriberWrapper(eventingduck.SubscriberSpec{UID: uid}, fmt.Sprintf("kafka.%s", string(uid)), nil)
+	return NewSubscriberWrapper(eventingduck.SubscriberSpec{UID: uid}, fmt.Sprintf("kafka.%s", string(uid)))
 }
 
 // Utility Function For Creating A Dispatcher With Specified Configuration
@@ -440,7 +479,7 @@ func customValidationNewConsumerGroupFn(t *testing.T,
 	expectedBrokers []string,
 	subscriberSpecs []eventingduck.SubscriberSpec,
 	expectedConfig *sarama.Config,
-	mockConsumerGroup sarama.ConsumerGroup) consumerwrapper.NewConsumerGroupFnType {
+	mockConsumerGroup sarama.ConsumerGroup) consumer.NewConsumerGroupFnType {
 
 	expectedGroupIds := make([]string, len(subscriberSpecs))
 	for _, subscriberSpec := range subscriberSpecs {

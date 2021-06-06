@@ -18,8 +18,12 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
+
+	"knative.dev/eventing-kafka/pkg/common/consumer"
+	"knative.dev/eventing-kafka/pkg/common/controlprotocol"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -137,6 +141,12 @@ func main() {
 		MaxIdleConnsPerHost: ekConfig.CloudEvents.MaxIdleConnsPerHost,
 	})
 
+	fmt.Printf("EDV: Creating control-protocol server handler\n")
+	serverHandler, err := controlprotocol.NewServerHandler()
+	if err != nil {
+		logger.Fatal("Failed To Initialize Control-Protocol Server - Terminating", zap.Error(err))
+	}
+
 	// Create The Dispatcher With Specified Configuration
 	dispatcherConfig := dispatch.DispatcherConfig{
 		Logger:          logger,
@@ -147,6 +157,7 @@ func main() {
 		StatsReporter:   statsReporter,
 		MetricsRegistry: ekConfig.Sarama.Config.MetricRegistry,
 		SaramaConfig:    ekConfig.Sarama.Config,
+		ConsumerMgr:     consumer.NewConsumerGroupManager(serverHandler),
 	}
 	dispatcher = dispatch.NewDispatcher(dispatcherConfig)
 

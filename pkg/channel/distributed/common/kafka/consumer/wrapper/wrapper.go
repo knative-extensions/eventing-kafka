@@ -20,9 +20,6 @@ import (
 	"github.com/Shopify/sarama"
 )
 
-// Define Function Types For Wrapper Variables (Typesafe Stubbing For Tests)
-type NewConsumerGroupFnType = func(brokers []string, groupId string, config *sarama.Config) (sarama.ConsumerGroup, error)
-
 // Function Variables To Facilitate Mocking Of Sarama Functionality In Unit Tests
 var NewConsumerGroupFn = SaramaNewConsumerGroupWrapper
 

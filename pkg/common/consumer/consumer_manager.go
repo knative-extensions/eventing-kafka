@@ -1,0 +1,224 @@
+/*
+Copyright 2021 The Knative Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package consumer
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"k8s.io/apimachinery/pkg/util/wait"
+	ctrlservice "knative.dev/control-protocol/pkg/service"
+
+	"github.com/Shopify/sarama"
+	ctrl "knative.dev/control-protocol/pkg"
+	"knative.dev/eventing-kafka/pkg/common/controlprotocol"
+)
+
+// NewConsumerGroupFnType Is A Function Definition Types For A Wrapper Variables (Typesafe Stubbing For Tests)
+type NewConsumerGroupFnType = func(brokers []string, groupId string, config *sarama.Config) (sarama.ConsumerGroup, error)
+
+// The opcodes here shouldn't interfere with those in pkg/source/control/message.go
+// but out of caution we start with 3
+const (
+	// StopConsumerGroupsOpCode instructs the manager to stop all of its managed consumer groups
+	StopConsumerGroupsOpCode ctrl.OpCode = 3
+
+	// StartConsumerGroupsOpCode instructs the manager to start all of its managed consumer groups
+	StartConsumerGroupsOpCode ctrl.OpCode = 4
+)
+
+// KafkaConsumerGroupManager keeps track of Sarama consumer groups and handles messages from control-protocol clients
+type KafkaConsumerGroupManager interface {
+	CreateConsumerGroup(createFn NewConsumerGroupFnType, brokers []string, groupId string, config *sarama.Config) (sarama.ConsumerGroup, error)
+	CloseConsumerGroup(groupId string) error
+	IsValid(groupId string) bool
+	Errors(groupId string) <-chan error
+	Consume(groupId string, ctx context.Context, topics []string, handler sarama.ConsumerGroupHandler) error
+	// Close ?   If the dispatcher tears down the CG, this needs to know about it
+}
+
+// managedGroup contains information about a Sarama ConsumerGroup that is required to start (i.e. re-create) it
+type managedGroup struct {
+	Create  NewConsumerGroupFnType
+	Brokers []string
+	GroupId string
+	Config  *sarama.Config
+	Group   sarama.ConsumerGroup
+	stopped bool
+}
+
+func (m *managedGroup) IsStopped() bool {
+	fmt.Printf("EDV: IsStopped: m.stopped=%v\n", m.stopped)
+	return m.stopped
+}
+
+// Stop closes a consumer group and marks the managedGroup as "stopped"
+// Note that this must be a pointer receiver or setting m.stopped will only set it on the copy of the struct
+func (m *managedGroup) Stop() error {
+	if !m.stopped {
+		m.stopped = true // TODO:  Thread-safety
+		fmt.Printf("EDV: Stop->m.Group.Close ('%s'), m.stopped=%v\n", m.GroupId, m.stopped)
+		err := m.Group.Close()
+		fmt.Printf("EDV: ~Stop->m.Group.Close ('%s'), m.stopped=%v\n", m.GroupId, m.stopped)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (m *managedGroup) Start() error {
+	consumerGroup, err := m.Create(m.Brokers, m.GroupId, m.Config)
+	if err != nil {
+		return err
+	}
+	m.Group = consumerGroup
+	m.stopped = false
+	return nil
+}
+
+type groupMap map[string]*managedGroup
+
+// kafkaConsumerGroupManagerImpl is the primary implementation of a KafkaConsumerGroupManager
+type kafkaConsumerGroupManagerImpl struct {
+	server controlprotocol.ServerHandler
+	groups groupMap
+}
+
+func NewConsumerGroupManager(serverHandler controlprotocol.ServerHandler) KafkaConsumerGroupManager {
+	fmt.Printf("EDV: NewConsumerGroupManager()\n")
+	manager := kafkaConsumerGroupManagerImpl{
+		server: serverHandler,
+		groups: make(groupMap),
+	}
+	serverHandler.AddAsyncHandler(StopConsumerGroupsOpCode, func(ctx context.Context, commandMessage ctrlservice.AsyncCommandMessage) {
+		fmt.Printf("ConsumerGroupManager received StopConsumerGroupsOpCode\n")
+		err := manager.pauseConsumerGroups()
+		if err != nil {
+			commandMessage.NotifyFailed(err)
+		} else {
+			commandMessage.NotifySuccess()
+		}
+	})
+	serverHandler.AddAsyncHandler(StartConsumerGroupsOpCode, func(ctx context.Context, commandMessage ctrlservice.AsyncCommandMessage) {
+		fmt.Printf("ConsumerGroupManager received StartConsumerGroupsOpCode\n")
+		err := manager.resumeConsumerGroups()
+		if err != nil {
+			commandMessage.NotifyFailed(err)
+		} else {
+			commandMessage.NotifySuccess()
+		}
+	})
+	return manager
+}
+
+func (m kafkaConsumerGroupManagerImpl) Consume(groupId string, ctx context.Context, topics []string, handler sarama.ConsumerGroupHandler) error {
+	groupInfo, ok := m.groups[groupId]
+	if !ok {
+		return fmt.Errorf("consume called on nonexistent groupId '%s'", groupId)
+	}
+	for {
+		fmt.Printf("EDV: manager.Consume('%s')\n", groupId)
+		err := groupInfo.Group.Consume(ctx, topics, handler)
+		fmt.Printf("EDV: ~manager.Consume('%s')\n", groupId)
+		if !groupInfo.IsStopped() {
+			fmt.Printf("EDV: group '%s' was NOT STOPPED\n", groupId)
+			// This ConsumerGroup wasn't stopped by the manager, so pass the error along to the caller
+			return err
+		}
+		fmt.Printf("EDV:  Group '%s' is stopped; waiting for start\n", groupInfo.GroupId)
+
+		// TODO:  This probably isn't the right place to just wait for a consumergroup to be restarted
+		err = wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
+			return !groupInfo.IsStopped(), nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+}
+
+func (m kafkaConsumerGroupManagerImpl) Errors(groupId string) <-chan error {
+	groupInfo, ok := m.groups[groupId]
+	if !ok {
+		return nil
+	}
+	return groupInfo.Group.Errors()
+}
+
+func (m kafkaConsumerGroupManagerImpl) IsValid(groupId string) bool {
+	if _, ok := m.groups[groupId]; ok {
+		return true
+	}
+	return false
+}
+
+func (m kafkaConsumerGroupManagerImpl) pauseConsumerGroups() error {
+	fmt.Printf("EDV: pauseConsumerGroups()\n")
+	for id := range m.groups {
+		groupInfo := m.groups[id]
+		fmt.Printf("EDV: Calling Stop(): groups[%s].stopped=%v\n", id, m.groups[id].stopped)
+		err := groupInfo.Stop()
+		fmt.Printf("EDV: Called Stop(): groups[%s].stopped=%v\n", id, m.groups[id].stopped)
+		if err != nil {
+			fmt.Printf("EDV: Error pausing group ID %s: %s (TODO: Add to multi-err?)\n", id, err.Error())
+		}
+	}
+	return nil
+}
+
+func (m kafkaConsumerGroupManagerImpl) resumeConsumerGroups() error {
+	fmt.Printf("EDV: resumeConsumerGroups()\n")
+	for id := range m.groups {
+		err := m.groups[id].Start()
+		if err != nil {
+			fmt.Printf("EDV: Error resuming group ID %s: %s (TODO: Add to multi-err?)\n", id, err.Error())
+		}
+	}
+	return nil
+}
+
+func (m kafkaConsumerGroupManagerImpl) CreateConsumerGroup(createFn NewConsumerGroupFnType, brokers []string, groupId string, config *sarama.Config) (sarama.ConsumerGroup, error) {
+	group, err := createFn(brokers, groupId, config)
+	if err != nil {
+		return group, err
+	}
+	m.groups[groupId] = &managedGroup{
+		Create:  createFn,
+		Brokers: brokers,
+		GroupId: groupId,
+		Config:  config,
+		Group:   group,
+	}
+	return group, nil
+}
+
+func (m kafkaConsumerGroupManagerImpl) CloseConsumerGroup(groupId string) error {
+	groupInfo, ok := m.groups[groupId]
+	if !ok {
+		return fmt.Errorf("could not close consumer group with id '%s' - group is not present in the managed list", groupId)
+	}
+	err := groupInfo.Group.Close()
+	if err != nil {
+		return err
+	}
+	delete(m.groups, groupId)
+	return nil
+}
+
+var _ KafkaConsumerGroupManager = (*kafkaConsumerGroupManagerImpl)(nil)
