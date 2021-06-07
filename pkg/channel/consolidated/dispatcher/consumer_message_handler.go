@@ -23,10 +23,13 @@ import (
 	"github.com/Shopify/sarama"
 	protocolkafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"github.com/cloudevents/sdk-go/v2/binding"
+	"github.com/cloudevents/sdk-go/v2/binding/buffering"
 	"go.uber.org/zap"
 	"knative.dev/eventing-kafka/pkg/common/consumer"
 	"knative.dev/eventing-kafka/pkg/common/tracing"
 	eventingchannels "knative.dev/eventing/pkg/channel"
+	"knative.dev/eventing/pkg/kncloudevents"
+	nethttp "net/http"
 )
 
 type consumerMessageHandler struct {
@@ -35,6 +38,8 @@ type consumerMessageHandler struct {
 	dispatcher        *eventingchannels.MessageDispatcherImpl
 	kafkaSubscription *KafkaSubscription
 	consumerGroup     string
+	reporter          eventingchannels.StatsReporter
+	channelNs         string
 }
 
 var _ consumer.KafkaConsumerHandler = (*consumerMessageHandler)(nil)
@@ -69,9 +74,19 @@ func (c consumerMessageHandler) Handle(ctx context.Context, consumerMessage *sar
 	ctx, span := tracing.StartTraceFromMessage(c.logger, ctx, message, consumerMessage.Topic)
 	defer span.End()
 
-	_, err := c.dispatcher.DispatchMessageWithRetries(
+	te := kncloudevents.TypeExtractorTransformer("")
+
+	bufferedMessage, err := buffering.CopyMessage(ctx, message, &te)
+	args := eventingchannels.ReportArgs{
+		Ns:        c.channelNs,
+		EventType: string(te),
+	}
+
+	_ = message.Finish(nil)
+
+	dispatchExecutionInfo, dispatchErr := c.dispatcher.DispatchMessageWithRetries(
 		ctx,
-		message,
+		bufferedMessage,
 		nil,
 		c.sub.Subscriber,
 		c.sub.Reply,
@@ -79,6 +94,26 @@ func (c consumerMessageHandler) Handle(ctx context.Context, consumerMessage *sar
 		c.sub.RetryConfig,
 	)
 
+	err = parseDispatchResultAndReportMetrics(dispatchExecutionInfo, c.reporter, args, dispatchErr)
+
 	// NOTE: only return `true` here if DispatchMessage actually delivered the message.
 	return err == nil, err
+}
+
+// Ideally this should be moved to Eventing
+func parseDispatchResultAndReportMetrics(info *eventingchannels.DispatchExecutionInfo, reporter eventingchannels.StatsReporter, reportArgs eventingchannels.ReportArgs, dispatchErr error) error {
+	if info != nil && info.Time > eventingchannels.NoDuration {
+		if info.ResponseCode > eventingchannels.NoResponse {
+			_ = reporter.ReportEventDispatchTime(&reportArgs, info.ResponseCode, info.Time)
+		} else {
+			_ = reporter.ReportEventDispatchTime(&reportArgs, nethttp.StatusInternalServerError, info.Time)
+		}
+	}
+	err := dispatchErr
+	if err != nil {
+		eventingchannels.ReportEventCountMetricsForDispatchError(err, reporter, &reportArgs)
+	} else if info != nil {
+		_ = reporter.ReportEventCount(&reportArgs, info.ResponseCode)
+	}
+	return err
 }
