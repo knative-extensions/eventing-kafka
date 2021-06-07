@@ -30,7 +30,7 @@ import (
 type AsyncHandlerFunc func(ctx context.Context, commandMessage ctrlservice.AsyncCommandMessage)
 
 type ServerHandler interface {
-	Stop()
+	Shutdown()
 	AddAsyncHandler(opcode ctrl.OpCode, handler AsyncHandlerFunc)
 	AddSyncHandler(opcode ctrl.OpCode, handler ctrl.MessageHandlerFunc)
 	RemoveHandler(opcode ctrl.OpCode)
@@ -64,7 +64,7 @@ func NewServerHandler() (ServerHandler, error) {
 	}, nil
 }
 
-func (s serverHandlerImpl) Stop() {
+func (s serverHandlerImpl) Shutdown() {
 	// Cancel the server and wait for it to stop
 	s.cancelServer()
 	<-s.server.ClosedCh()

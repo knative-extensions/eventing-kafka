@@ -51,7 +51,7 @@ type KafkaConsumerGroupManager interface {
 	IsValid(groupId string) bool
 	IsStopped(groupId string) bool
 	WaitForStart(groupId string, timeout time.Duration) error
-	Errors(groupId string) <-chan error
+	GetErrors(groupId string) (<-chan error, error)
 	Consume(groupId string, ctx context.Context, topics []string, handler sarama.ConsumerGroupHandler) error
 	// Close ?   If the dispatcher tears down the CG, this needs to know about it
 }
@@ -171,12 +171,15 @@ func (m kafkaConsumerGroupManagerImpl) WaitForStart(groupId string, timeout time
 	})
 }
 
-func (m kafkaConsumerGroupManagerImpl) Errors(groupId string) <-chan error {
+func (m kafkaConsumerGroupManagerImpl) GetErrors(groupId string) (<-chan error, error) {
 	groupInfo, ok := m.groups[groupId]
 	if !ok {
-		return nil
+		return nil, nil
 	}
-	return groupInfo.Group.Errors()
+	if groupInfo.IsStopped() {
+		return nil, ErrStoppedConsumerGroup
+	}
+	return groupInfo.Group.Errors(), nil
 }
 
 func (m kafkaConsumerGroupManagerImpl) IsValid(groupId string) bool {

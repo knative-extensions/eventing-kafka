@@ -213,11 +213,26 @@ func (d *DispatcherImpl) startConsuming(subscriber *SubscriberWrapper) {
 		// Asynchronously Process ConsumerGroup's Error Channel
 		go func() {
 			logger.Info("ConsumerGroup Error Processing Initiated")
-			for err := range d.ConsumerMgr.Errors(subscriber.GroupId) { // Closing ConsumerGroup Will Break Out Of This
-				logger.Error("ConsumerGroup Error", zap.Error(err))
+			for {
+				errChan, managerErr := d.ConsumerMgr.GetErrors(subscriber.GroupId)
+				if managerErr == nil {
+					logger.Info("EDV: Obtained error channel from manager")
+					for err := range errChan { // Closing ConsumerGroup Will Break Out Of This
+						logger.Error("ConsumerGroup Error", zap.Error(err))
+					}
+				} else if managerErr == commonconsumer.ErrStoppedConsumerGroup {
+					fmt.Printf("EDV:  Group '%s' is stopped; waiting for start to resume error processing\n", subscriber.GroupId)
+					err := d.ConsumerMgr.WaitForStart(subscriber.GroupId, 60*time.Minute)
+					if err != nil {
+						logger.Error("ConsumerGroup Failed To Restart During Error Processing", zap.Error(err))
+						break
+					}
+				} else { // managerErr is not nil but also not ErrStoppedConsumerGroup
+					logger.Error("Could not obtain managed ConsumerGroup error channel", zap.Error(managerErr))
+					break
+				}
 			}
 			logger.Info("ConsumerGroup Error Processing Terminated")
-			// EDV:  TODO:  Need to restart this in the event of pause/resume of consumer group
 		}()
 
 		// Create A New ConsumerGroupHandler To Consume Messages With
