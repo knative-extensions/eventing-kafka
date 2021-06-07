@@ -20,6 +20,8 @@ import (
 	"context"
 	"errors"
 
+	nethttp "net/http"
+
 	"github.com/Shopify/sarama"
 	protocolkafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"github.com/cloudevents/sdk-go/v2/binding"
@@ -29,7 +31,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/common/tracing"
 	eventingchannels "knative.dev/eventing/pkg/channel"
 	"knative.dev/eventing/pkg/kncloudevents"
-	nethttp "net/http"
 )
 
 type consumerMessageHandler struct {

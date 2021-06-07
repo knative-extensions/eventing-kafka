@@ -35,11 +35,12 @@ import (
 	eventingchannels "knative.dev/eventing/pkg/channel"
 	"knative.dev/pkg/kmeta"
 
+	nethttp "net/http"
+
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
 	"knative.dev/eventing-kafka/pkg/common/consumer"
 	"knative.dev/eventing-kafka/pkg/common/tracing"
-	nethttp "net/http"
 )
 
 const (
