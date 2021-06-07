@@ -1098,7 +1098,7 @@ k8s.io/utils/buffer
 k8s.io/utils/integer
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# knative.dev/control-protocol v0.0.0-20210603151744-cf14e556c5a7
+# knative.dev/control-protocol v0.0.0-20210604132745-1e48321b7e9b
 ## explicit
 knative.dev/control-protocol/pkg
 knative.dev/control-protocol/pkg/certificates
@@ -1106,7 +1106,7 @@ knative.dev/control-protocol/pkg/message
 knative.dev/control-protocol/pkg/network
 knative.dev/control-protocol/pkg/reconciler
 knative.dev/control-protocol/pkg/service
-# knative.dev/eventing v0.23.1-0.20210603165844-0ca9a9c8c1f2
+# knative.dev/eventing v0.23.1-0.20210607064848-db83525661ba
 ## explicit
 knative.dev/eventing/pkg/adapter/v2
 knative.dev/eventing/pkg/adapter/v2/test
