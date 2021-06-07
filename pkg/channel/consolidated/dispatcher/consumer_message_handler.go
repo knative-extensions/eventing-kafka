@@ -77,6 +77,9 @@ func (c consumerMessageHandler) Handle(ctx context.Context, consumerMessage *sar
 	te := kncloudevents.TypeExtractorTransformer("")
 
 	bufferedMessage, err := buffering.CopyMessage(ctx, message, &te)
+	if err != nil {
+		return false, err
+	}
 	args := eventingchannels.ReportArgs{
 		Ns:        c.channelNs,
 		EventType: string(te),

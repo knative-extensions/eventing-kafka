@@ -18,11 +18,8 @@ package dispatcher
 import (
 	"context"
 	"fmt"
-	nethttp "net/http"
 	"strings"
 	"sync"
-
-	"knative.dev/eventing-kafka/pkg/common/config"
 
 	"github.com/Shopify/sarama"
 	protocolkafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
@@ -32,6 +29,7 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/pkg/logging"
 
 	eventingchannels "knative.dev/eventing/pkg/channel"
@@ -41,6 +39,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
 	"knative.dev/eventing-kafka/pkg/common/consumer"
 	"knative.dev/eventing-kafka/pkg/common/tracing"
+	nethttp "net/http"
 )
 
 const (
