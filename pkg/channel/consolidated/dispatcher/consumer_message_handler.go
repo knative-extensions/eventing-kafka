@@ -20,8 +20,6 @@ import (
 	"context"
 	"errors"
 
-	nethttp "net/http"
-
 	"github.com/Shopify/sarama"
 	protocolkafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"github.com/cloudevents/sdk-go/v2/binding"
@@ -30,6 +28,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/common/consumer"
 	"knative.dev/eventing-kafka/pkg/common/tracing"
 	eventingchannels "knative.dev/eventing/pkg/channel"
+	fanout "knative.dev/eventing/pkg/channel/fanout"
 	"knative.dev/eventing/pkg/kncloudevents"
 )
 
@@ -78,9 +77,11 @@ func (c consumerMessageHandler) Handle(ctx context.Context, consumerMessage *sar
 	te := kncloudevents.TypeExtractorTransformer("")
 
 	bufferedMessage, err := buffering.CopyMessage(ctx, message, &te)
+
 	if err != nil {
 		return false, err
 	}
+
 	args := eventingchannels.ReportArgs{
 		Ns:        c.channelNs,
 		EventType: string(te),
@@ -88,7 +89,7 @@ func (c consumerMessageHandler) Handle(ctx context.Context, consumerMessage *sar
 
 	_ = message.Finish(nil)
 
-	dispatchExecutionInfo, dispatchErr := c.dispatcher.DispatchMessageWithRetries(
+	dispatchExecutionInfo, err := c.dispatcher.DispatchMessageWithRetries(
 		ctx,
 		bufferedMessage,
 		nil,
@@ -98,26 +99,8 @@ func (c consumerMessageHandler) Handle(ctx context.Context, consumerMessage *sar
 		c.sub.RetryConfig,
 	)
 
-	err = parseDispatchResultAndReportMetrics(dispatchExecutionInfo, c.reporter, args, dispatchErr)
+	_ = fanout.ParseDispatchResultAndReportMetrics(fanout.NewDispatchResult(err, dispatchExecutionInfo), c.reporter, args)
 
 	// NOTE: only return `true` here if DispatchMessage actually delivered the message.
 	return err == nil, err
-}
-
-// Ideally this should be moved to Eventing
-func parseDispatchResultAndReportMetrics(info *eventingchannels.DispatchExecutionInfo, reporter eventingchannels.StatsReporter, reportArgs eventingchannels.ReportArgs, dispatchErr error) error {
-	if info != nil && info.Time > eventingchannels.NoDuration {
-		if info.ResponseCode > eventingchannels.NoResponse {
-			_ = reporter.ReportEventDispatchTime(&reportArgs, info.ResponseCode, info.Time)
-		} else {
-			_ = reporter.ReportEventDispatchTime(&reportArgs, nethttp.StatusInternalServerError, info.Time)
-		}
-	}
-	err := dispatchErr
-	if err != nil {
-		eventingchannels.ReportEventCountMetricsForDispatchError(err, reporter, &reportArgs)
-	} else if info != nil {
-		_ = reporter.ReportEventCount(&reportArgs, info.ResponseCode)
-	}
-	return err
 }
