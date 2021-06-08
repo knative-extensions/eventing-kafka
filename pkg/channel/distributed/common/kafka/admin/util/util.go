@@ -24,7 +24,7 @@ import (
 const (
 	// Note - Update These When Sarama KErrors Change
 	minKError = sarama.ErrUnknown
-	maxKError = sarama.ErrFencedInstancedId
+	maxKError = sarama.ErrUnstableOffsetCommit
 )
 
 // Utility Function To Up-Convert Basic Errors Into TopicErrors (With Message Matching For Pertinent Errors)

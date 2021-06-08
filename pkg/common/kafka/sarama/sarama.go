@@ -50,19 +50,23 @@ func EnableSaramaLogging(enable bool) {
 }
 
 // GetAuth Is The Function Type Used To Delay Loading Auth Config Until The Secret Name/Namespace Are Known
-type GetAuth func(ctx context.Context, authSecretName string, authSecretNamespace string) (*client.KafkaAuthConfig, error)
+type GetAuth func(ctx context.Context, authSecretName string, authSecretNamespace string) *client.KafkaAuthConfig
 
 // LoadAuthConfig Creates A Sarama-Safe KafkaAuthConfig From The Specified Secret Name/Namespace
-func LoadAuthConfig(ctx context.Context, name string, namespace string) (*client.KafkaAuthConfig, error) {
+func LoadAuthConfig(ctx context.Context, name string, namespace string) *client.KafkaAuthConfig {
 	// Extract The Relevant Data From The Kafka Secret And Create A Kafka Auth Config
-	kafkaAuthCfg, err := config.GetAuthConfigFromKubernetes(ctx, name, namespace)
-	if err != nil {
-		return nil, err
+	kafkaAuthCfg := config.GetAuthConfigFromKubernetes(ctx, name, namespace)
+	if kafkaAuthCfg != nil &&
+		kafkaAuthCfg.SASL != nil &&
+		kafkaAuthCfg.SASL.User == "" {
+		if kafkaAuthCfg.TLS != nil {
+			// backwards-compatibility requires leaving the TLS auth config alone if it exists
+			kafkaAuthCfg.SASL = nil
+		} else {
+			kafkaAuthCfg = nil // The Sarama builder expects a nil KafkaAuthConfig if no authentication is desired
+		}
 	}
-	if kafkaAuthCfg != nil && kafkaAuthCfg.SASL != nil && kafkaAuthCfg.SASL.User == "" {
-		kafkaAuthCfg = nil // The Sarama builder expects a nil KafakAuthConfig if no authentication is desired
-	}
-	return kafkaAuthCfg, nil
+	return kafkaAuthCfg
 }
 
 // LoadSettings Loads The Sarama & EventingKafka Configuration From The ConfigMap
@@ -78,11 +82,7 @@ func LoadSettings(ctx context.Context, clientId string, configMap map[string]str
 		return nil, err
 	}
 
-	authConfig, err := getAuthConfig(ctx, ekConfig.Kafka.AuthSecretName, ekConfig.Kafka.AuthSecretNamespace)
-	if err != nil {
-		return nil, fmt.Errorf("could not load auth config: %v", err)
-	}
-	ekConfig.Auth = authConfig
+	ekConfig.Auth = getAuthConfig(ctx, ekConfig.Kafka.AuthSecretName, ekConfig.Kafka.AuthSecretNamespace)
 
 	// Merge The ConfigMap Settings Into The Provided Config
 	saramaShell := &struct {
@@ -112,7 +112,7 @@ func LoadSettings(ctx context.Context, clientId string, configMap map[string]str
 	ekConfig.Sarama.Config, err = client.NewConfigBuilder().
 		WithDefaults().
 		FromYaml(saramaConfigString).
-		WithAuth(authConfig).
+		WithAuth(ekConfig.Auth).
 		WithClientId(clientId).
 		Build(ctx)
 

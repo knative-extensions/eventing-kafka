@@ -43,7 +43,8 @@ import (
 )
 
 const (
-	responseSizeCap = 50 * 1024 * 1024
+	responseSizeCap = int32(50 * 1024 * 1024)
+	maxBrokers      = 6
 )
 
 type AdapterConfig struct {
@@ -290,12 +291,21 @@ func (a *Adapter) ResolveSecret(ctx context.Context, ns string, ref *corev1.Secr
 // adjustResponseSize ensures the sum of all Kafka clients memory usage does not exceed the container memory request.
 func (a *Adapter) adjustResponseSize() {
 	if a.memoryRequest > 0 {
-		maxResponseSize := int32(float64(a.memoryRequest) / float64(len(a.sources)))
+		maxResponseSize := responseSizeCap
 
+		if len(a.sources) > 0 {
+			maxResponseSize = int32(float32(a.memoryRequest) / float32(len(a.sources)))
+		}
 		// cap the response size to 50MB.
 		if maxResponseSize > responseSizeCap {
 			maxResponseSize = 50 * 1024 * 1024
 		}
+
+		// maxResponseSize is per connected brokers.
+		// For now cap the number of connected brokers to maxBrokers until a better solution
+		// comes along
+		maxResponseSize = int32(float32(maxResponseSize) / float32(maxBrokers))
+
 		// Check for compliance.
 		if maxResponseSize < 64*1024 {
 			// Not CloudEvent compliant (https://github.com/cloudevents/spec/blob/v1.0.1/spec.md#size-limits)

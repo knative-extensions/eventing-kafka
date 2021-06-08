@@ -19,7 +19,6 @@ package sarama
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"strconv"
 	"testing"
 	"time"
@@ -28,6 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/system"
@@ -139,9 +139,9 @@ func TestEnableSaramaLogging(t *testing.T) {
 }
 
 // mockGetAuth returns a function that satisfies the GetAuth prototype, returning the provided values
-func mockGetAuth(authConfig *client.KafkaAuthConfig, err error) GetAuth {
-	return func(_ context.Context, _ string, _ string) (*client.KafkaAuthConfig, error) {
-		return authConfig, err
+func mockGetAuth(authConfig *client.KafkaAuthConfig) GetAuth {
+	return func(_ context.Context, _ string, _ string) *client.KafkaAuthConfig {
+		return authConfig
 	}
 }
 
@@ -177,7 +177,7 @@ func TestLoadDefaultSaramaSettings(t *testing.T) {
 	// Run The TestCases
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			settings, err := LoadSettings(context.TODO(), "myClient", testCase.data, mockGetAuth(nil, nil))
+			settings, err := LoadSettings(context.TODO(), "myClient", testCase.data, mockGetAuth(nil))
 			assert.Nil(t, err)
 			verifySaramaSettings(t, settings)
 			verifyEventingKafkaSettings(t, settings)
@@ -297,8 +297,8 @@ func TestLoadAuthConfig(t *testing.T) {
 		name          string
 		secret        *corev1.Secret
 		secretName    string
-		wantErr       bool
 		wantNilConfig bool
+		wantNilSasl   bool
 	}
 
 	// Create The TestCases
@@ -309,10 +309,20 @@ func TestLoadAuthConfig(t *testing.T) {
 			secretName: commontesting.SecretName,
 		},
 		{
-			name:       "Valid secret, not found",
-			secret:     authSecret,
-			secretName: "invalid-secret",
-			wantErr:    true,
+			name: "Valid secret, backwards-compatibility",
+			secret: &corev1.Secret{
+				TypeMeta:   metav1.TypeMeta{Kind: "Secret", APIVersion: corev1.SchemeGroupVersion.String()},
+				ObjectMeta: metav1.ObjectMeta{Name: commontesting.SecretName, Namespace: system.Namespace()},
+				Data:       map[string][]byte{"tls.enabled": []byte("true")},
+			},
+			secretName:  commontesting.SecretName,
+			wantNilSasl: true,
+		},
+		{
+			name:          "Valid secret, not found",
+			secret:        authSecret,
+			secretName:    "invalid-secret",
+			wantNilConfig: true,
 		},
 		{
 			name:          "Valid secret, empty user",
@@ -326,19 +336,16 @@ func TestLoadAuthConfig(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			ctx := context.WithValue(context.TODO(), injectionclient.Key{}, fake.NewSimpleClientset(testCase.secret))
-			kafkaAuth, err := LoadAuthConfig(ctx, testCase.secretName, system.Namespace())
-			if !testCase.wantErr {
-				assert.Nil(t, err)
-				if testCase.wantNilConfig {
-					assert.Nil(t, kafkaAuth)
-				} else {
-					assert.NotNil(t, kafkaAuth)
-					assert.Equal(t, commontesting.OldAuthUsername, kafkaAuth.SASL.User)
-					assert.Equal(t, commontesting.OldAuthPassword, kafkaAuth.SASL.Password)
-					assert.Equal(t, commontesting.OldAuthSaslType, kafkaAuth.SASL.SaslType)
-				}
+			kafkaAuth := LoadAuthConfig(ctx, testCase.secretName, system.Namespace())
+			if testCase.wantNilConfig {
+				assert.Nil(t, kafkaAuth)
+			} else if testCase.wantNilSasl {
+				assert.Nil(t, kafkaAuth.SASL)
 			} else {
-				assert.NotNil(t, err)
+				assert.NotNil(t, kafkaAuth)
+				assert.Equal(t, commontesting.OldAuthUsername, kafkaAuth.SASL.User)
+				assert.Equal(t, commontesting.OldAuthPassword, kafkaAuth.SASL.Password)
+				assert.Equal(t, commontesting.OldAuthSaslType, kafkaAuth.SASL.SaslType)
 			}
 		})
 	}
@@ -447,7 +454,7 @@ kafka:
 		t.Run(testCase.name, func(t *testing.T) {
 
 			// Perform The Test (note: LoadSettings calls loadEventingKafkaSettings)
-			eventingKafkaConfig, err := LoadSettings(context.TODO(), "", testCase.ekConfig, mockGetAuth(nil, nil))
+			eventingKafkaConfig, err := LoadSettings(context.TODO(), "", testCase.ekConfig, mockGetAuth(nil))
 
 			// Verify Expected State
 			if testCase.expectErr {
@@ -497,7 +504,6 @@ func TestLoadSettings(t *testing.T) {
 		name           string
 		config         map[string]string
 		authConfig     *client.KafkaAuthConfig
-		authErr        error
 		expectErr      bool
 		expectDefaults bool
 	}
@@ -533,16 +539,6 @@ func TestLoadSettings(t *testing.T) {
 			expectDefaults: true, // The empty auth will remove the user/password from the OldSaramaConfig
 		},
 		{
-			name: "Auth Error",
-			config: map[string]string{
-				constants.VersionConfigKey:               constants.CurrentConfigVersion,
-				constants.SaramaSettingsConfigKey:        commontesting.OldSaramaConfig,
-				constants.EventingKafkaSettingsConfigKey: commontesting.TestEKConfig,
-			},
-			authErr:   fmt.Errorf("test error"),
-			expectErr: true,
-		},
-		{
 			name:           "Empty Config (Defaults Only)",
 			config:         map[string]string{constants.SaramaSettingsConfigKey: ""},
 			expectDefaults: true,
@@ -559,7 +555,7 @@ func TestLoadSettings(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 
 			// Perform The Test (note that the eventingKafkaConfig is tested separately in TestLoadEventingKafkaSettings)
-			settings, err := LoadSettings(context.TODO(), "", testCase.config, mockGetAuth(testCase.authConfig, testCase.authErr))
+			settings, err := LoadSettings(context.TODO(), "", testCase.config, mockGetAuth(testCase.authConfig))
 
 			// Verify Expected State
 			if testCase.expectErr {
