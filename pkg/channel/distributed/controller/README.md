@@ -7,9 +7,10 @@ framework and utilities.
 The controller is based against the KafkaChannel CRD and reconciles all such
 instances in the K8S Cluster, watching `KafkaChannel` resources and performing
 the following functions:
+
 - Provision the Kafka Topic
-- Create the single Receiver (Kafka Producer) Deployment and Service, if it
-  does not already exist
+- Create the single Receiver (Kafka Producer) Deployment and Service, if it does
+  not already exist
 - Create a uniquely-named (per KafkaChannel) Dispatcher (Kafka Consumer)
   Deployment and Service
 
@@ -26,7 +27,7 @@ creation / deletion as specified by the kafka.adminType field in the
 
 - **"kafka"** - The default value if not specified is to use the standard Sarama
   Kafka ClusterAdmin implementation.
-- **"azure"** - If you wish to use the implementation with Azure EventHubs
-  you will need to specify this as a custom client/api must be used for such.
+- **"azure"** - If you wish to use the implementation with Azure EventHubs you
+  will need to specify this as a custom client/api must be used for such.
 - **"custom"** - If you need to implement your own custom AdminClient you will
   use this value (see the [common/kafka/README.md](../common/kafka/README.md)).
