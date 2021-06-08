@@ -161,6 +161,15 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 				// Create A New SubscriberWrapper With The ConsumerGroup
 				subscriber := NewSubscriberWrapper(subscriberSpec, groupId, consumerGroup)
 
+				// Asynchronously Process ConsumerGroup's Error Channel
+				go func() {
+					logger.Info("ConsumerGroup Error Processing Initiated")
+					for err := range subscriber.ConsumerGroup.Errors() { // Closing ConsumerGroup Will Break Out Of This
+						logger.Error("ConsumerGroup Error", zap.Error(err))
+					}
+					logger.Info("ConsumerGroup Error Processing Terminated")
+				}()
+
 				// Track The New SubscriberWrapper For The SubscriberSpec As Active
 				d.subscribers[subscriberSpec.UID] = subscriber
 				activeSubscriptions[subscriberSpec.UID] = true

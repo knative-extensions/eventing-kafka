@@ -31,11 +31,10 @@ import (
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
 
-	consumertesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer/testing"
 	commonclient "knative.dev/eventing-kafka/pkg/common/client"
 	clienttesting "knative.dev/eventing-kafka/pkg/common/client/testing"
 	configtesting "knative.dev/eventing-kafka/pkg/common/config/testing"
-	commonconsumertesting "knative.dev/eventing-kafka/pkg/common/consumer/testing"
+	consumertesting "knative.dev/eventing-kafka/pkg/common/consumer/testing"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 )
@@ -121,9 +120,6 @@ func TestUpdateSubscriptions(t *testing.T) {
 
 	logger := logtesting.TestLogger(t)
 	ctx := logging.WithLogger(context.TODO(), logger)
-
-	// Restore Any Stubbing Of NewConsumerGroupWrapper After Test Is Finished
-	defer consumertesting.RestoreNewConsumerGroupFn()
 
 	// Test Data
 	brokers := []string{configtesting.DefaultKafkaBroker}
@@ -252,7 +248,7 @@ func TestUpdateSubscriptions(t *testing.T) {
 			dispatcher := &DispatcherImpl{
 				DispatcherConfig:     testCase.fields.DispatcherConfig,
 				subscribers:          testCase.fields.subscribers,
-				consumerGroupFactory: &commonconsumertesting.MockKafkaConsumerGroupFactory{},
+				consumerGroupFactory: &consumertesting.MockKafkaConsumerGroupFactory{},
 			}
 
 			// Perform The Test
@@ -361,16 +357,9 @@ func TestSecretChanged(t *testing.T) {
 		filteredTestCases = testCases
 	}
 
-	// Make Sure To Restore The NewConsumerGroup Wrapper After The Test
-	defer consumertesting.RestoreNewConsumerGroupFn()
-
 	// Run The Filtered TestCases
 	for _, testCase := range filteredTestCases {
 		t.Run(testCase.name, func(t *testing.T) {
-
-			// Mock The SyncProducer & Stub The NewConsumerGroupWrapper()
-			mockConsumerGroup := consumertesting.NewMockConsumerGroup()
-			consumertesting.StubNewConsumerGroupFn(consumertesting.NonValidatingNewConsumerGroupFn(mockConsumerGroup))
 
 			// Create A Test Dispatcher To Perform Tests Against
 			dispatcher := createTestDispatcher(t, brokers, baseSaramaConfig)

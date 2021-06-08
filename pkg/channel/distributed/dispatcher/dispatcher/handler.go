@@ -157,16 +157,25 @@ func (h *Handler) Handle(ctx context.Context, consumerMessage *sarama.ConsumerMe
 		markMessage = false
 	}
 
+	//
 	// Return The Results Of Handling The ConsumerMessage
-	return markMessage, err // TODO - Not certain we will be able to return errors if they cause status to change!
+	//
+	// Errors are not currently being returned in order to maintain consistent
+	// behavior with the implementation prior to using the common/consumer
+	// KafkaConsumerGroupFactory.  We do NOT want to mark the status of the
+	// ConsumerGroup as ready just because a single messages encountered an
+	// error.  This is an important and conscious design choice which enables
+	// the use of multi-tenant KafkaChannels and other advanced use cases.
+	//
+	return markMessage, nil
 }
 
 // SetReady is used by the "Prober" implementation for tracking ConsumerGroup
 // status which we are not using at the moment, and is believed to be
 // undergoing refactor / replacement in favor of using the control-protocol
-//  and is thus not supported here yet ; )
+// and is thus not supported here yet ; )
 func (h *Handler) SetReady(partition int32, ready bool) {
-	h.Logger.Info("No-Op SetReady Handler", zap.Int32("Partition", partition), zap.Bool("Ready", ready))
+	h.Logger.Debug("No-Op SetReady Handler", zap.Int32("Partition", partition), zap.Bool("Ready", ready))
 }
 
 // GetConsumerGroup returns the ConsumerGroup ID of the Handler

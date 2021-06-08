@@ -74,14 +74,14 @@ func TestNewHandler(t *testing.T) {
 }
 
 type HandleTestCase struct {
-	only           bool
-	name           string
-	destinationUri *apis.URL
-	replyUri       *apis.URL
-	deadLetterUri  *apis.URL
-	dispatchErr    error
-	retry          bool
-	expectSkipMark bool
+	only              bool
+	name              string
+	destinationUri    *apis.URL
+	replyUri          *apis.URL
+	deadLetterUri     *apis.URL
+	dispatchErr       error
+	retry             bool
+	expectMarkMessage bool
 }
 
 // Test The Handler's Handle() Functionality
@@ -90,49 +90,55 @@ func TestHandle(t *testing.T) {
 	// Define The HandleTestCases
 	testCases := []HandleTestCase{
 		{
-			name:           "Complete Subscriber Configuration",
-			destinationUri: testSubscriberURI,
-			replyUri:       testReplyURI,
-			deadLetterUri:  testDeadLetterURI,
-			retry:          true,
+			name:              "Complete Subscriber Configuration",
+			destinationUri:    testSubscriberURI,
+			replyUri:          testReplyURI,
+			deadLetterUri:     testDeadLetterURI,
+			retry:             true,
+			expectMarkMessage: true,
 		},
 		{
-			name:          "No Subscriber URL",
-			replyUri:      testReplyURI,
-			deadLetterUri: testDeadLetterURI,
-			retry:         true,
+			name:              "No Subscriber URL",
+			replyUri:          testReplyURI,
+			deadLetterUri:     testDeadLetterURI,
+			retry:             true,
+			expectMarkMessage: true,
 		},
 		{
-			name:           "No Reply URL",
-			destinationUri: testSubscriberURI,
-			deadLetterUri:  testDeadLetterURI,
-			retry:          true,
+			name:              "No Reply URL",
+			destinationUri:    testSubscriberURI,
+			deadLetterUri:     testDeadLetterURI,
+			retry:             true,
+			expectMarkMessage: true,
 		},
 		{
-			name:           "No DeadLetter URL",
-			destinationUri: testSubscriberURI,
-			replyUri:       testReplyURI,
-			retry:          true,
+			name:              "No DeadLetter URL",
+			destinationUri:    testSubscriberURI,
+			replyUri:          testReplyURI,
+			retry:             true,
+			expectMarkMessage: true,
 		},
 		{
-			name:           "No Retry",
-			destinationUri: testSubscriberURI,
-			replyUri:       testReplyURI,
-			deadLetterUri:  testDeadLetterURI,
-			retry:          false,
+			name:              "No Retry",
+			destinationUri:    testSubscriberURI,
+			replyUri:          testReplyURI,
+			deadLetterUri:     testDeadLetterURI,
+			retry:             false,
+			expectMarkMessage: true,
 		},
 		{
-			name:  "Empty Subscriber Configuration",
-			retry: false,
+			name:              "Empty Subscriber Configuration",
+			retry:             false,
+			expectMarkMessage: true,
 		},
 		{
-			name:           "Context Canceled",
-			destinationUri: testSubscriberURI,
-			replyUri:       testReplyURI,
-			deadLetterUri:  testDeadLetterURI,
-			retry:          true,
-			dispatchErr:    context.Canceled,
-			expectSkipMark: true,
+			name:              "Context Canceled",
+			destinationUri:    testSubscriberURI,
+			replyUri:          testReplyURI,
+			deadLetterUri:     testDeadLetterURI,
+			retry:             true,
+			dispatchErr:       context.Canceled,
+			expectMarkMessage: false,
 		},
 	}
 
@@ -217,8 +223,8 @@ func performHandleTest(t *testing.T, testCase HandleTestCase) {
 	result, err := handler.Handle(context.TODO(), consumerMessage)
 
 	// Verify The Results
-	assert.NotEqual(t, testCase.expectSkipMark, result)
-	assert.Equal(t, testCase.dispatchErr, err)
+	assert.Nil(t, err)
+	assert.Equal(t, testCase.expectMarkMessage, result)
 	assert.NotNil(t, mockMessageDispatcher.Message())
 	verifyDispatchedMessage(t, mockMessageDispatcher.Message())
 }
