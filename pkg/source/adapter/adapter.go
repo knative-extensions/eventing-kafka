@@ -21,11 +21,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"strings"
+	"time"
 
 	"golang.org/x/time/rate"
-
 	ctrl "knative.dev/control-protocol/pkg"
 	ctrlnetwork "knative.dev/control-protocol/pkg/network"
 
@@ -77,10 +78,13 @@ type Adapter struct {
 	rateLimiter       *rate.Limiter
 }
 
-var _ adapter.MessageAdapter = (*Adapter)(nil)
-var _ consumer.KafkaConsumerHandler = (*Adapter)(nil)
-var _ consumer.SaramaConsumerLifecycleListener = (*Adapter)(nil)
-var _ adapter.MessageAdapterConstructor = NewAdapter
+var (
+	_           adapter.MessageAdapter                   = (*Adapter)(nil)
+	_           consumer.KafkaConsumerHandler            = (*Adapter)(nil)
+	_           consumer.SaramaConsumerLifecycleListener = (*Adapter)(nil)
+	_           adapter.MessageAdapterConstructor        = NewAdapter
+	retryConfig                                          = defaultRetryConfig()
+)
 
 func NewAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, httpMessageSender *kncloudevents.HTTPMessageSender, reporter pkgsource.StatsReporter) adapter.MessageAdapter {
 	logger := logging.FromContext(ctx)
@@ -175,7 +179,7 @@ func (a *Adapter) Handle(ctx context.Context, msg *sarama.ConsumerMessage) (bool
 		return true, err
 	}
 
-	res, err := a.httpMessageSender.Send(req)
+	res, err := a.httpMessageSender.SendWithRetries(req, retryConfig)
 
 	if err != nil {
 		a.logger.Debug("Error while sending the message", zap.Error(err))
@@ -302,4 +306,15 @@ func (a *Adapter) InitOffsets(session sarama.ConsumerGroupSession) error {
 
 	// At this stage the KafkaSource instance is considered Ready (TODO: update KafkaSource status)
 	return nil
+}
+
+// Default retry configuration, 5 retries, exponential backoff with 50ms delay
+func defaultRetryConfig() *kncloudevents.RetryConfig {
+	return &kncloudevents.RetryConfig{
+		CheckRetry: kncloudevents.SelectiveRetry,
+		RetryMax:   5,
+		Backoff: func(attemptNum int, resp *http.Response) time.Duration {
+			return 50 * time.Millisecond * time.Duration(math.Exp2(float64(attemptNum)))
+		},
+	}
 }
