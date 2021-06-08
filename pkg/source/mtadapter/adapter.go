@@ -19,9 +19,10 @@ package mtadapter
 import (
 	"context"
 	"fmt"
+	"math"
+	"strconv"
 	"sync"
 
-	"github.com/Shopify/sarama"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
@@ -42,17 +43,12 @@ import (
 	"knative.dev/eventing-kafka/pkg/source/client"
 )
 
-const (
-	responseSizeCap = int32(50 * 1024 * 1024)
-	maxBrokers      = 6
-)
-
 type AdapterConfig struct {
 	adapter.EnvConfig
 
-	PodName       string `envconfig:"POD_NAME" required:"true"`
-	MPSLimit      int    `envconfig:"VREPLICA_LIMITS_MPS" required:"true"`
-	MemoryRequest string `envconfig:"REQUESTS_MEMORY" required:"true"`
+	PodName     string `envconfig:"POD_NAME" required:"true"`
+	MPSLimit    int    `envconfig:"VREPLICA_LIMITS_MPS" required:"true"`
+	MemoryLimit string `envconfig:"VREPLICA_LIMITS_MEMORY" required:"true"`
 }
 
 func NewEnvConfig() adapter.EnvConfigAccessor {
@@ -70,8 +66,7 @@ type Adapter struct {
 	client      cloudevents.Client
 	adapterCtor adapter.MessageAdapterConstructor
 	kubeClient  kubernetes.Interface
-
-	memoryRequest int64
+	memLimit    int32
 
 	sourcesMu sync.RWMutex
 	sources   map[string]cancelContext
@@ -87,18 +82,16 @@ func newAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, ceClie
 	logger := logging.FromContext(ctx)
 	config := processed.(*AdapterConfig)
 
-	sarama.MaxResponseSize = responseSizeCap
-
-	mr := resource.MustParse(config.MemoryRequest)
+	ml := resource.MustParse(config.MemoryLimit)
 	return &Adapter{
-		client:        ceClient,
-		config:        config,
-		logger:        logger,
-		adapterCtor:   adapterCtor,
-		kubeClient:    kubeclient.Get(ctx),
-		memoryRequest: mr.Value(),
-		sourcesMu:     sync.RWMutex{},
-		sources:       make(map[string]cancelContext),
+		client:      ceClient,
+		config:      config,
+		logger:      logger,
+		adapterCtor: adapterCtor,
+		kubeClient:  kubeclient.Get(ctx),
+		memLimit:    int32(ml.Value()),
+		sourcesMu:   sync.RWMutex{},
+		sources:     make(map[string]cancelContext),
 	}
 }
 
@@ -131,7 +124,6 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) error {
 
 		// Nothing to stop anymore
 		delete(a.sources, key)
-		a.adjustResponseSize()
 	}
 
 	placement := scheduler.GetPlacementForPod(obj.GetPlacements(), a.config.PodName)
@@ -189,6 +181,30 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) error {
 		},
 	}
 
+	// Enforce memory limits
+	if a.memLimit > 0 {
+		// TODO: periodically enforce limits as the number of partitions can dynamically change
+		fetchSizePerVReplica, err := a.partitionFetchSize(ctx, logger, &kafkaEnvConfig, obj.Spec.Topics, scheduler.GetPodCount(obj.Status.Placement))
+		if err != nil {
+			return err
+		}
+		fetchSize := fetchSizePerVReplica * int(placement.VReplicas)
+
+		// Must handle at least 64k messages to the compliant with the CloudEvent spec
+		maxFetchSize := fetchSize
+		if fetchSize < 64*1024 {
+			maxFetchSize = 64 * 1024
+		}
+		a.logger.Infow("setting partition fetch sizes", zap.Int("min", fetchSize), zap.Int("default", fetchSize), zap.Int("max", maxFetchSize))
+
+		// TODO: find a better way to interact with the ST adapter.
+		bufferSizeStr := strconv.Itoa(fetchSize)
+		min := `\n    Min: ` + bufferSizeStr
+		def := `\n    Default: ` + bufferSizeStr
+		max := `\n    Max: ` + strconv.Itoa(maxFetchSize)
+		kafkaEnvConfig.KafkaConfigJson = `{"SaramaYamlString": "Consumer:\n  Fetch:` + min + def + max + `"}`
+	}
+
 	config := stadapter.AdapterConfig{
 		EnvConfig: adapter.EnvConfig{
 			Component: "kafkasource",
@@ -232,7 +248,6 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) error {
 	}
 
 	a.sources[key] = cancel
-	a.adjustResponseSize()
 
 	go func(ctx context.Context) {
 		err := adapter.Start(ctx)
@@ -264,7 +279,6 @@ func (a *Adapter) Remove(obj *v1beta1.KafkaSource) {
 	<-cancel.stopped
 
 	delete(a.sources, key)
-	a.adjustResponseSize()
 
 	a.logger.Infow("source removed", "name", obj.Name, "remaining", len(a.sources))
 }
@@ -288,32 +302,55 @@ func (a *Adapter) ResolveSecret(ctx context.Context, ns string, ref *corev1.Secr
 	return "", fmt.Errorf("missing secret key or empty secret value (%s/%s)", ref.Name, ref.Key)
 }
 
-// adjustResponseSize ensures the sum of all Kafka clients memory usage does not exceed the container memory request.
-func (a *Adapter) adjustResponseSize() {
-	if a.memoryRequest > 0 {
-		maxResponseSize := responseSizeCap
+// partitionFetchSize determines what should be the default fetch size (in bytes)
+// so that the st adapter memory consumption does not exceed
+// the allocated memory per vreplica (see MemoryLimit).
+// Account for pod (consumer) partial outage by reducing the
+// partition buffer size
+func (a *Adapter) partitionFetchSize(ctx context.Context,
+	logger *zap.SugaredLogger,
+	kafkaEnvConfig *client.KafkaEnvConfig,
+	topics []string,
+	podCount int) (int, error) {
 
-		if len(a.sources) > 0 {
-			maxResponseSize = int32(float32(a.memoryRequest) / float32(len(a.sources)))
-		}
-		// cap the response size to 50MB.
-		if maxResponseSize > responseSizeCap {
-			maxResponseSize = 50 * 1024 * 1024
-		}
-
-		// maxResponseSize is per connected brokers.
-		// For now cap the number of connected brokers to maxBrokers until a better solution
-		// comes along
-		maxResponseSize = int32(float32(maxResponseSize) / float32(maxBrokers))
-
-		// Check for compliance.
-		if maxResponseSize < 64*1024 {
-			// Not CloudEvent compliant (https://github.com/cloudevents/spec/blob/v1.0.1/spec.md#size-limits)
-			a.logger.Warnw("Kafka response size is lower than 64KB. Increase the pod memory request and/or lower the pod capacity.",
-				zap.Int32("responseSize", maxResponseSize))
-		}
-
-		sarama.MaxResponseSize = maxResponseSize
-		a.logger.Infof("Setting MaxResponseSize to %d bytes", sarama.MaxResponseSize)
+	// Compute the number of partitions handled by this source
+	// TODO: periodically check for # of resources. Need control-protocol.
+	adminClient, err := client.MakeAdminClient(ctx, kafkaEnvConfig)
+	if err != nil {
+		logger.Errorw("cannot create admin client", zap.Error(err))
+		return 0, err
 	}
+
+	metas, err := adminClient.DescribeTopics(topics)
+	if err != nil {
+		logger.Errorw("cannot describe topics", zap.Error(err))
+		return 0, err
+	}
+
+	totalPartitions := 0
+	for _, meta := range metas {
+		totalPartitions += len(meta.Partitions)
+	}
+	adminClient.Close()
+
+	partitionsPerPod := int(math.Ceil(float64(totalPartitions) / float64(podCount)))
+
+	// Ideally, partitions are evenly spread across Kafka consumers.
+	// However, due to rebalancing or consumer (un)availability, a consumer
+	// might have to handle more partitions than expected.
+	// For now, account for 1 unavailable consumer.
+	handledPartitions := 2 * partitionsPerPod
+	if podCount < 3 {
+		handledPartitions = totalPartitions
+	}
+
+	logger.Infow("partition count",
+		zap.Int("total", totalPartitions),
+		zap.Int("averagePerPod", partitionsPerPod),
+		zap.Int("handled", handledPartitions))
+
+	// A partition consumes about 2 * fetch partition size
+	// Once by FetchResponse blocks and a second time when those blocks are converted to messages
+	// see https://github.com/Shopify/sarama/blob/83d633e6e4f71b402df5e9c53ad5c1c334b7065d/consumer.go#L649
+	return int(math.Floor(float64(a.memLimit) / float64(handledPartitions) / 2.0)), nil
 }
