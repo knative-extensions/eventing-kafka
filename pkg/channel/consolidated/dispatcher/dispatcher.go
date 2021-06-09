@@ -18,11 +18,8 @@ package dispatcher
 import (
 	"context"
 	"fmt"
-	nethttp "net/http"
 	"strings"
 	"sync"
-
-	"knative.dev/eventing-kafka/pkg/common/config"
 
 	"github.com/Shopify/sarama"
 	protocolkafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
@@ -32,10 +29,13 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/pkg/logging"
 
 	eventingchannels "knative.dev/eventing/pkg/channel"
 	"knative.dev/pkg/kmeta"
+
+	nethttp "net/http"
 
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
@@ -58,6 +58,7 @@ type KafkaDispatcherArgs struct {
 type KafkaDispatcher struct {
 	receiver   *eventingchannels.MessageReceiver
 	dispatcher *eventingchannels.MessageDispatcherImpl
+	reporter   eventingchannels.StatsReporter
 
 	// Receiver data structures
 	// map[string]eventingchannels.ChannelReference
@@ -112,6 +113,7 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 		return nil, err
 	}
 	reporter := eventingchannels.NewStatsReporter(containerName, kmeta.ChildName(podName, uuid.New().String()))
+	dispatcher.reporter = reporter
 	receiverFunc, err := eventingchannels.NewMessageReceiver(
 		func(ctx context.Context, channel eventingchannels.ChannelReference, message binding.Message, transformers []binding.Transformer, _ nethttp.Header) error {
 			kafkaProducerMessage := sarama.ProducerMessage{
@@ -303,6 +305,8 @@ func (d *KafkaDispatcher) subscribe(channelRef types.NamespacedName, sub Subscri
 		d.dispatcher,
 		kafkaSubscription,
 		groupID,
+		d.reporter,
+		channelRef.Namespace,
 	}
 	d.logger.Debugw("Starting consumer group", zap.Any("channelRef", channelRef),
 		zap.Any("subscription", sub.UID), zap.String("topic", topicName), zap.String("consumer group", groupID))
