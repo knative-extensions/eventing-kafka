@@ -80,32 +80,6 @@ func TestInitOffsets(t *testing.T) {
 			broker := sarama.NewMockBroker(t, 1)
 			defer broker.Close()
 
-			// group := "my-group"
-
-			// offsetFetchResponse := sarama.NewMockOffsetFetchResponse(t).SetError(sarama.ErrNoError)
-			// for topic, partitions := range tc.cgOffsets {
-			// 	for partition, offset := range partitions {
-			// 		offsetFetchResponse = offsetFetchResponse.SetOffset(group, topic, partition, offset, "", sarama.ErrNoError)
-			// 	}
-			// }
-
-			// metadataResponse := sarama.NewMockMetadataResponse(t).
-			// 	SetController(broker.BrokerID()).
-			// 	SetBroker(broker.Addr(), broker.BrokerID())
-			// for topic, partitions := range tc.topicOffsets {
-			// 	for partition := range partitions {
-			// 		metadataResponse = metadataResponse.SetLeader(topic, partition, broker.BrokerID())
-			// 	}
-			// }
-
-			// broker.SetHandlerByMap(map[string]sarama.MockResponse{
-			// 	"OffsetFetchRequest": offsetFetchResponse,
-
-			// 	"FindCoordinatorRequest": sarama.NewMockFindCoordinatorResponse(t).
-			// 		SetCoordinator(sarama.CoordinatorGroup, group, broker),
-
-			// 	"MetadataRequest": metadataResponse,
-			// })
 			group := "my-group"
 
 			offsetResponse := sarama.NewMockOffsetResponse(t).SetVersion(1)
@@ -170,9 +144,6 @@ func TestInitOffsets(t *testing.T) {
 				t.Errorf("unexpected error: %v", err)
 			}
 
-			// if tc.committed != got {
-			// 	t.Errorf("wanted %t, got %t", tc.committed, got)
-			// }
 		})
 	}
 
