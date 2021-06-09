@@ -20,9 +20,10 @@ import (
 	"github.com/Shopify/sarama"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/system"
+
 	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
-	"knative.dev/pkg/system"
 )
 
 // Constants

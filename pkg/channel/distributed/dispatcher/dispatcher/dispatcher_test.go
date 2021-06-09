@@ -375,10 +375,11 @@ func TestSecretChanged(t *testing.T) {
 
 			// Create A Test Dispatcher To Perform Tests Against
 			dispatcher := createTestDispatcher(t, brokers, baseSaramaConfig)
+			impl := dispatcher.(*DispatcherImpl)
+			impl.subscribers = map[types.UID]*SubscriberWrapper{uid123: createSubscriberWrapper(uid123)}
 
 			// Perform The Test
 			dispatcher.SecretChanged(ctx, testCase.newSecret)
-			impl := dispatcher.(*DispatcherImpl)
 			assert.NotNil(t, impl)
 
 			if testCase.expectEmptyUsername {
