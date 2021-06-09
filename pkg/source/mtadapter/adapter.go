@@ -19,11 +19,8 @@ package mtadapter
 import (
 	"context"
 	"fmt"
-<<<<<<< HEAD
 	"math"
 	"strconv"
-=======
->>>>>>> rebase
 	"sync"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"

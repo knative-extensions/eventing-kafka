@@ -174,6 +174,9 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 		return err
 	}
 
+	// InitOffsets manually commits offsets if needed (see below)
+	config.Consumer.Offsets.AutoCommit.Enable = false
+
 	c, err := sarama.NewClient(bs, config)
 	if err != nil {
 		logging.FromContext(ctx).Errorw("unable to create a kafka client", zap.Error(err))
@@ -183,14 +186,11 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 	defer c.Close()
 	src.Status.MarkConnectionEstablished()
 
-	committed, err := client.CheckOffsetsCommitted(c, src.Spec.Topics, src.Spec.ConsumerGroup)
+	err = client.InitOffsets(ctx, c, src.Spec.Topics, src.Spec.ConsumerGroup)
 	if err != nil {
-		logging.FromContext(ctx).Errorw("unable to determine whether consumergroup offsets are initialized", zap.Error(err))
+		logging.FromContext(ctx).Errorw("unable to initialize consumergroup offsets", zap.Error(err))
+		src.Status.MarkInitialOffsetNotCommitted("OffsetsNotCommitted", "Unable to initialize consumergroup offsets: %v", err)
 		return err
-	}
-	if !committed {
-		src.Status.MarkInitialOffsetNotCommitted("OffsetsNotCommitted", "The adapter hasn't committed the initial offsets yet")
-		return fmt.Errorf("offsets not committed yet")
 	}
 	src.Status.MarkInitialOffsetCommitted()
 

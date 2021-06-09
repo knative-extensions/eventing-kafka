@@ -17,16 +17,28 @@ limitations under the License.
 package client
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/Shopify/sarama"
+	"go.uber.org/zap"
+	"knative.dev/pkg/logging"
 )
 
-// CheckOffsetsCommitted returns true if all consumer group offsets are committed
-func CheckOffsetsCommitted(kafkaClient sarama.Client, topics []string, consumerGroup string) (bool, error) {
+// We want to make sure that ALL consumer group offsets are set before marking
+// the source as ready, to avoid "losing" events in case the consumer group session
+// is closed before at least one message is consumed from ALL partitions.
+// Without InitOffsets, an event sent to a partition with an uninitialized offset
+// will not be forwarded when the session is closed (or a rebalancing is in progress).
+func InitOffsets(ctx context.Context, kafkaClient sarama.Client, topics []string, consumerGroup string) error {
+	offsetManager, err := sarama.NewOffsetManagerFromClient(consumerGroup, kafkaClient)
+	if err != nil {
+		return err
+	}
+
 	kafkaAdminClient, err := sarama.NewClusterAdminFromClient(kafkaClient)
 	if err != nil {
-		return false, fmt.Errorf("failed to create a Kafka admin client: %w", err)
+		return fmt.Errorf("failed to create a Kafka admin client: %w", err)
 	}
 	defer kafkaAdminClient.Close()
 
@@ -36,7 +48,7 @@ func CheckOffsetsCommitted(kafkaClient sarama.Client, topics []string, consumerG
 		partitions, err := kafkaClient.Partitions(topic)
 
 		if err != nil {
-			return false, fmt.Errorf("failed to get partitions for topic %s: %w", topic, err)
+			return fmt.Errorf("failed to get partitions for topic %s: %w", topic, err)
 		}
 
 		topicPartitions[topic] = partitions
@@ -45,16 +57,38 @@ func CheckOffsetsCommitted(kafkaClient sarama.Client, topics []string, consumerG
 	// Look for uninitialized offset (-1)
 	offsets, err := kafkaAdminClient.ListConsumerGroupOffsets(consumerGroup, topicPartitions)
 	if err != nil {
-		return false, err
+		return err
 	}
 
-	for _, partitions := range offsets.Blocks {
-		for _, block := range partitions {
+	dirty := false
+	for topic, partitions := range offsets.Blocks {
+		for partition, block := range partitions {
 			if block.Offset == -1 { // not initialized?
-				return false, nil
+				// Fetch the newest offset in the topic/partition and set it in the consumer group
+				offset, err := kafkaClient.GetOffset(topic, partition, sarama.OffsetNewest)
+				if err != nil {
+					return fmt.Errorf("failed to get the offset for topic %s and partition %d: %w", topic, partition, err)
+				}
+
+				logging.FromContext(ctx).Infow("initializing offset", zap.String("topic", topic), zap.Int32("partition", partition), zap.Int64("offset", offset))
+
+				pm, err := offsetManager.ManagePartition(topic, partition)
+				if err != nil {
+					return fmt.Errorf("failed to create the partition manager for topic %s and partition %d: %w", topic, partition, err)
+				}
+
+				pm.MarkOffset(offset, "")
+				dirty = true
 			}
 		}
 	}
 
-	return true, nil
+	if dirty {
+		offsetManager.Commit()
+		logging.FromContext(ctx).Infow("consumer group offsets committed", zap.String("consumergroup", consumerGroup))
+	}
+
+	// At this stage the KafkaSource instance is considered Ready
+	return nil
+
 }
