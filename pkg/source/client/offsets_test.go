@@ -104,7 +104,7 @@ func TestInitOffsets(t *testing.T) {
 			}
 
 			for topic, partitions := range tc.cgOffsets {
-				for partition, _ := range partitions {
+				for partition := range partitions {
 					offsetCommitResponse = offsetCommitResponse.SetError(group, topic, partition, serr)
 				}
 			}
