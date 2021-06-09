@@ -65,7 +65,7 @@ func NewProducer(logger *zap.Logger,
 	logger.Info("Creating Kafka SyncProducer")
 	kafkaProducer, err := producer.CreateSyncProducer(brokers, config)
 	if err != nil {
-		logger.Error("Failed To Create Kafka SyncProducer - Exiting", zap.Error(err), zap.Any("Brokers", brokers))
+		logger.Error("Failed To Create Kafka SyncProducer - Exiting", zap.Error(err), zap.Any("brokers", brokers))
 		return nil, err
 	} else {
 		logger.Info("Successfully Created Kafka SyncProducer")
@@ -230,7 +230,7 @@ func (p *Producer) Close() {
 func (p *Producer) reconfigure(newConfig *sarama.Config, ekConfig *commonconfig.EventingKafkaConfig) *Producer {
 	p.Close()
 	if ekConfig != nil {
-		// Currently the only thing that a new producer might care about in the EventingKafkaConfig is the Brokers
+		// Currently the only thing that a new producer might care about in the EventingKafkaConfig is the brokers
 		p.brokers = strings.Split(ekConfig.Kafka.Brokers, ",")
 	}
 	reconfiguredKafkaProducer, err := NewProducer(p.logger, newConfig, p.brokers, p.statsReporter, p.healthServer)

@@ -180,7 +180,7 @@ func TestResetOffsetSubscriptionRefMapper_MapRef(t *testing.T) {
 			wantErr:         true,
 		},
 		{
-			name:            "GroupId Mapper Error",
+			name:            "groupId Mapper Error",
 			subscription:    subscription,
 			resetOffset:     controllertesting.NewResetOffset(controllertesting.WithSpecRef(subscriptionRef)),
 			topicNameMapper: newMockSubscriptionTopicNameMapper(t, subscription, TopicName, nil),

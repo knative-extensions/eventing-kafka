@@ -57,7 +57,7 @@ kafka:
   brokers: ` + BrokerString + `
   topic:
     defaultNumPartitions: 4
-    defaultReplicationFactor: 1 # Cannot exceed the number of Kafka Brokers!
+    defaultReplicationFactor: 1 # Cannot exceed the number of Kafka brokers!
     defaultRetentionMillis: 604800000  # 1 week
 `
 

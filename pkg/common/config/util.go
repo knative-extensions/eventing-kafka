@@ -62,7 +62,7 @@ func ConfigmapDataCheckSum(configMapData map[string]string) string {
 	return checksum
 }
 
-// GetAuthConfigFromKubernetes Looks Up And Returns Kafka Auth ConfigAnd Brokers From Named Secret
+// GetAuthConfigFromKubernetes Looks Up And Returns Kafka Auth ConfigAnd brokers From Named Secret
 func GetAuthConfigFromKubernetes(ctx context.Context, secretName string, secretNamespace string) *client.KafkaAuthConfig {
 	secrets := kubeclient.Get(ctx).CoreV1().Secrets(secretNamespace)
 	secret, err := secrets.Get(ctx, secretName, metav1.GetOptions{})
@@ -74,7 +74,7 @@ func GetAuthConfigFromKubernetes(ctx context.Context, secretName string, secretN
 	return GetAuthConfigFromSecret(secret)
 }
 
-// GetAuthConfigFromSecret Looks Up And Returns Kafka Auth Config And Brokers From Provided Secret
+// GetAuthConfigFromSecret Looks Up And Returns Kafka Auth Config And brokers From Provided Secret
 func GetAuthConfigFromSecret(secret *corev1.Secret) *client.KafkaAuthConfig {
 	if secret == nil || secret.Data == nil {
 		return nil

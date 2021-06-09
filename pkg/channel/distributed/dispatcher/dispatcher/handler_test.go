@@ -1,12 +1,9 @@
 /*
 Copyright 2020 The Knative Authors
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -18,6 +15,7 @@ package dispatcher
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"strings"
 	"testing"
@@ -67,6 +65,7 @@ var (
 	testBackoffDelay     = "PT1S"
 	testDeadLetterURI, _ = apis.ParseURL(testDeadLetterURIString)
 	testMsgTime          = time.Now().UTC().Format(time.RFC3339)
+	testConsumerGroupId  = fmt.Sprintf("kafka.%s", testSubscriberUID)
 )
 
 // Test The NewHandler() Functionality
@@ -74,83 +73,77 @@ func TestNewHandler(t *testing.T) {
 	assert.NotNil(t, createTestHandler)
 }
 
-// Test The Handler's Setup() Functionality
-func TestHandlerSetup(t *testing.T) {
-	handler := createTestHandler(t, testSubscriberURI, testReplyURI, nil)
-	assert.Nil(t, handler.Setup(nil))
+type HandleTestCase struct {
+	only              bool
+	name              string
+	destinationUri    *apis.URL
+	replyUri          *apis.URL
+	deadLetterUri     *apis.URL
+	dispatchErr       error
+	retry             bool
+	expectMarkMessage bool
 }
 
-// Test The Handler's Cleanup() Functionality
-func TestHandlerCleanup(t *testing.T) {
-	handler := createTestHandler(t, testSubscriberURI, testReplyURI, nil)
-	assert.Nil(t, handler.Cleanup(nil))
-}
+// Test The Handler's Handle() Functionality
+func TestHandle(t *testing.T) {
 
-type HandlerConsumeClaimTestCase struct {
-	only           bool
-	name           string
-	destinationUri *apis.URL
-	replyUri       *apis.URL
-	deadLetterUri  *apis.URL
-	dispatchErr    error
-	retry          bool
-	expectSkipMark bool
-}
-
-// Test The Handler's ConsumeClaim() Functionality
-func TestHandlerConsumeClaim(t *testing.T) {
-
-	// Define The HandlerConsumeClaimTestCases
-	testCases := []HandlerConsumeClaimTestCase{
+	// Define The HandleTestCases
+	testCases := []HandleTestCase{
 		{
-			name:           "Complete Subscriber Configuration",
-			destinationUri: testSubscriberURI,
-			replyUri:       testReplyURI,
-			deadLetterUri:  testDeadLetterURI,
-			retry:          true,
+			name:              "Complete Subscriber Configuration",
+			destinationUri:    testSubscriberURI,
+			replyUri:          testReplyURI,
+			deadLetterUri:     testDeadLetterURI,
+			retry:             true,
+			expectMarkMessage: true,
 		},
 		{
-			name:          "No Subscriber URL",
-			replyUri:      testReplyURI,
-			deadLetterUri: testDeadLetterURI,
-			retry:         true,
+			name:              "No Subscriber URL",
+			replyUri:          testReplyURI,
+			deadLetterUri:     testDeadLetterURI,
+			retry:             true,
+			expectMarkMessage: true,
 		},
 		{
-			name:           "No Reply URL",
-			destinationUri: testSubscriberURI,
-			deadLetterUri:  testDeadLetterURI,
-			retry:          true,
+			name:              "No Reply URL",
+			destinationUri:    testSubscriberURI,
+			deadLetterUri:     testDeadLetterURI,
+			retry:             true,
+			expectMarkMessage: true,
 		},
 		{
-			name:           "No DeadLetter URL",
-			destinationUri: testSubscriberURI,
-			replyUri:       testReplyURI,
-			retry:          true,
+			name:              "No DeadLetter URL",
+			destinationUri:    testSubscriberURI,
+			replyUri:          testReplyURI,
+			retry:             true,
+			expectMarkMessage: true,
 		},
 		{
-			name:           "No Retry",
-			destinationUri: testSubscriberURI,
-			replyUri:       testReplyURI,
-			deadLetterUri:  testDeadLetterURI,
-			retry:          false,
+			name:              "No Retry",
+			destinationUri:    testSubscriberURI,
+			replyUri:          testReplyURI,
+			deadLetterUri:     testDeadLetterURI,
+			retry:             false,
+			expectMarkMessage: true,
 		},
 		{
-			name:  "Empty Subscriber Configuration",
-			retry: false,
+			name:              "Empty Subscriber Configuration",
+			retry:             false,
+			expectMarkMessage: true,
 		},
 		{
-			name:           "Context Canceled",
-			destinationUri: testSubscriberURI,
-			replyUri:       testReplyURI,
-			deadLetterUri:  testDeadLetterURI,
-			retry:          true,
-			dispatchErr:    context.Canceled,
-			expectSkipMark: true,
+			name:              "Context Canceled",
+			destinationUri:    testSubscriberURI,
+			replyUri:          testReplyURI,
+			deadLetterUri:     testDeadLetterURI,
+			retry:             true,
+			dispatchErr:       context.Canceled,
+			expectMarkMessage: false,
 		},
 	}
 
 	// Filter To Those With "only" Flag (If Any Specified)
-	filteredTestCases := make([]HandlerConsumeClaimTestCase, 0)
+	filteredTestCases := make([]HandleTestCase, 0)
 	for _, testCase := range testCases {
 		if testCase.only {
 			filteredTestCases = append(filteredTestCases, testCase)
@@ -163,13 +156,24 @@ func TestHandlerConsumeClaim(t *testing.T) {
 	// Execute The Individual Test Cases
 	for _, testCase := range filteredTestCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			performHandlerConsumeClaimTest(t, testCase)
+			performHandleTest(t, testCase)
 		})
 	}
 }
 
-// Test One Permutation Of The Handler's ConsumeClaim() Functionality
-func performHandlerConsumeClaimTest(t *testing.T, testCase HandlerConsumeClaimTestCase) {
+func TestSetReady(t *testing.T) {
+	handler := createTestHandler(t, testSubscriberURI, testReplyURI, nil)
+	handler.SetReady(1, true)
+}
+
+func TestGetConsumerGroup(t *testing.T) {
+	handler := createTestHandler(t, testSubscriberURI, testReplyURI, nil)
+	actualConsumerGroupId := handler.GetConsumerGroup()
+	assert.Equal(t, testConsumerGroupId, actualConsumerGroupId)
+}
+
+// Test One Permutation Of The Handler's Handle() Functionality
+func performHandleTest(t *testing.T, testCase HandleTestCase) {
 
 	// Initialize Destination As Specified
 	var destinationUrl *url.URL
@@ -202,8 +206,6 @@ func performHandlerConsumeClaimTest(t *testing.T, testCase HandlerConsumeClaimTe
 	}
 
 	// Create Mocks For Testing
-	mockConsumerGroupSession := dispatchertesting.NewMockConsumerGroupSession(t)
-	mockConsumerGroupClaim := dispatchertesting.NewMockConsumerGroupClaim(t)
 	mockMessageDispatcher := dispatchertesting.NewMockMessageDispatcher(t, nil, destinationUrl, replyUrl, deadLetterUrl, &retryConfig, testCase.dispatchErr)
 
 	// Mock The newMessageDispatcherWrapper Function (And Restore Post-Test)
@@ -216,34 +218,15 @@ func performHandlerConsumeClaimTest(t *testing.T, testCase HandlerConsumeClaimTe
 	// Create The Handler To Test
 	handler := createTestHandler(t, testCase.destinationUri, testCase.replyUri, &deliverySpec)
 
-	consumeFinishedChan := make(chan bool)
-	// Background Start Consuming Claims
-	go func() {
-		err := handler.ConsumeClaim(mockConsumerGroupSession, mockConsumerGroupClaim)
-		assert.Nil(t, err)
-		consumeFinishedChan <- true
-	}()
-
-	// Perform The Test (Add ConsumerMessages To Claims)
+	// Perform The Test
 	consumerMessage := createConsumerMessage(t)
-	mockConsumerGroupClaim.MessageChan <- consumerMessage
+	result, err := handler.Handle(context.TODO(), consumerMessage)
 
-	// Verify The Results (CloudEvent Was Dispatched & ConsumerMessage Was Marked)
-	if !testCase.expectSkipMark {
-		// Wait For Message To Be Marked As Complete
-		markedMessage := <-mockConsumerGroupSession.MarkMessageChan
-
-		assert.Equal(t, consumerMessage, markedMessage)
-		assert.NotNil(t, mockMessageDispatcher.Message())
-		verifyDispatchedMessage(t, mockMessageDispatcher.Message())
-	}
-	assert.Equal(t, !testCase.expectSkipMark, mockConsumerGroupSession.MarkMessageCalled())
-
-	// Close The Mock ConsumerGroupClaim Message Channel To Complete/Exit Handler's ConsumeClaim()
-	close(mockConsumerGroupClaim.MessageChan)
-
-	// Wait for the consumer goroutine to finish to prevent logging attempts after the test is completed
-	<-consumeFinishedChan
+	// Verify The Results
+	assert.Nil(t, err)
+	assert.Equal(t, testCase.expectMarkMessage, result)
+	assert.NotNil(t, mockMessageDispatcher.Message())
+	verifyDispatchedMessage(t, mockMessageDispatcher.Message())
 }
 
 // Verify The Dispatched Message Contains Test Message Contents (Was Not Corrupted)
@@ -303,7 +286,7 @@ func createTestHandler(t *testing.T, subscriberURL *apis.URL, replyUrl *apis.URL
 	}
 
 	// Perform The Test Create The Test Handler
-	handler := NewHandler(logger, testSubscriber)
+	handler := NewHandler(logger, testConsumerGroupId, testSubscriber)
 
 	// Verify The Results
 	assert.NotNil(t, handler)

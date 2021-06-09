@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 
+	"knative.dev/control-protocol/pkg/message"
+
 	"go.uber.org/zap"
 	ctrl "knative.dev/control-protocol/pkg"
 	"knative.dev/control-protocol/pkg/network"
@@ -31,7 +33,7 @@ type AsyncHandlerFunc func(ctx context.Context, commandMessage ctrlservice.Async
 
 type ServerHandler interface {
 	Shutdown()
-	AddAsyncHandler(opcode ctrl.OpCode, handler AsyncHandlerFunc)
+	AddAsyncHandler(opcode ctrl.OpCode, payloadType message.AsyncCommand, handler AsyncHandlerFunc)
 	AddSyncHandler(opcode ctrl.OpCode, handler ctrl.MessageHandlerFunc)
 	RemoveHandler(opcode ctrl.OpCode)
 }
@@ -70,9 +72,9 @@ func (s serverHandlerImpl) Shutdown() {
 	<-s.server.ClosedCh()
 }
 
-func (s serverHandlerImpl) AddAsyncHandler(opcode ctrl.OpCode, handler AsyncHandlerFunc) {
+func (s serverHandlerImpl) AddAsyncHandler(opcode ctrl.OpCode, payloadType message.AsyncCommand, handler AsyncHandlerFunc) {
 	fmt.Printf("EDV: AddAsyncHandler(%d)\n", opcode)
-	s.router[opcode] = ctrlservice.NewAsyncCommandHandler(s.server, &eventingKafkaAsyncCommand{}, opcode, handler)
+	s.router[opcode] = ctrlservice.NewAsyncCommandHandler(s.server, payloadType, opcode, handler)
 }
 
 func (s serverHandlerImpl) AddSyncHandler(opcode ctrl.OpCode, handler ctrl.MessageHandlerFunc) {
@@ -85,18 +87,3 @@ func (s serverHandlerImpl) RemoveHandler(opcode ctrl.OpCode) {
 }
 
 var _ ServerHandler = (*serverHandlerImpl)(nil)
-
-type eventingKafkaAsyncCommand struct {
-}
-
-func (eventingKafkaAsyncCommand) MarshalBinary() (data []byte, err error) {
-	return []byte("unimplemented"), nil
-}
-
-func (eventingKafkaAsyncCommand) UnmarshalBinary(_ []byte) error {
-	return nil
-}
-
-func (eventingKafkaAsyncCommand) SerializedId() []byte {
-	return []byte("unimplementedId")
-}

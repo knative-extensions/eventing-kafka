@@ -311,7 +311,7 @@ func TestReconciler_updateKafkaConfig(t *testing.T) {
   authSecretName: `+commontesting.SecretName+`
   authSecretNamespace: `+system.Namespace(), 1)
 
-	// Define Brokers
+	// Define brokers
 	defaultKafkaBrokers := []string{commontesting.BrokerString}
 
 	// Create A Sarama Config To Match commontesting.OldSaramaConfig

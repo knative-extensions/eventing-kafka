@@ -180,6 +180,7 @@ func (r Reconciler) reconcile(channel *kafkav1beta1.KafkaChannel) error {
 	}
 
 	// Update The ConsumerGroups To Align With Current KafkaChannel Subscribers
+	fmt.Printf("EDV: reconcile:: r.dispatcher.UpdateSubscriptions()\n")
 	failedSubscriptions := r.dispatcher.UpdateSubscriptions(subscribers)
 
 	// Update The KafkaChannel Subscribable Status Based On ConsumerGroup Creation Status

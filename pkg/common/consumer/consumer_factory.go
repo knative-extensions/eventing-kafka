@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The Knative Authors
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -13,14 +13,11 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
 package consumer
 
 import (
 	"context"
-	"fmt"
 	"sync"
-	"time"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
@@ -28,8 +25,7 @@ import (
 
 var newConsumerGroup = sarama.NewConsumerGroup
 
-// KafkaConsumerGroupFactory creates the ConsumerGroup and start consuming the specified topic
-// The manager parameter is optional and may be nil if pause/resume featues are not required
+// Kafka consumer factory creates the ConsumerGroup and start consuming the specified topic
 type KafkaConsumerGroupFactory interface {
 	StartConsumerGroup(manager KafkaConsumerGroupManager, groupID string, topics []string, logger *zap.SugaredLogger, handler KafkaConsumerHandler, options ...SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error)
 }
@@ -62,25 +58,14 @@ func (c *customConsumerGroup) Close() error {
 
 var _ sarama.ConsumerGroup = (*customConsumerGroup)(nil)
 
-func (c kafkaConsumerGroupFactoryImpl) StartConsumerGroup(
-	manager KafkaConsumerGroupManager,
-	groupID string,
-	topics []string,
-	logger *zap.SugaredLogger,
-	handler KafkaConsumerHandler,
-	options ...SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error) {
-
-	// Use the KafkaConsumerGroupManager to create the consumer group, if provided
-	var consumerGroup sarama.ConsumerGroup
-	var err error
-	if manager != nil {
-		consumerGroup, err = manager.CreateConsumerGroup(newConsumerGroup, c.addrs, groupID, c.config)
-	} else {
-		consumerGroup, err = newConsumerGroup(c.addrs, groupID, c.config)
-	}
+func (c kafkaConsumerGroupFactoryImpl) StartConsumerGroup(manager KafkaConsumerGroupManager, groupID string, topics []string, logger *zap.SugaredLogger, handler KafkaConsumerHandler, options ...SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error) {
+	consumerGroup, err := newConsumerGroup(c.addrs, groupID, c.config)
 	if err != nil {
 		return nil, err
 	}
+	// Allow the manager to stop/start this ConsumerGroup, if desired.  This needs to be done before
+	// the "consume" call
+	manager.AddExistingGroup(groupID, consumerGroup, topics, logger, handler, options...)
 
 	errorCh := make(chan error, 10)
 	releasedCh := make(chan bool)
@@ -94,26 +79,8 @@ func (c kafkaConsumerGroupFactoryImpl) StartConsumerGroup(
 		for {
 			consumerHandler := NewConsumerHandler(logger, handler, errorCh, options...)
 
-			var consumeErr error
-			if manager == nil {
-				consumeErr = consumerGroup.Consume(ctx, topics, &consumerHandler)
-			} else {
-				consumeErr = manager.Consume(groupID, ctx, topics, &consumerHandler)
-			}
+			consumeErr := manager.Consume(groupID, ctx, topics, &consumerHandler)
 			if consumeErr == sarama.ErrClosedConsumerGroup {
-				return
-			} else if consumeErr == ErrStoppedConsumerGroup {
-				// This error can only be returned if the manager is non-nil
-				fmt.Printf("EDV:  Group '%s' is stopped; waiting for start\n", groupID)
-				// Wait for the group corresponding to this Group ID to be recreated (This could take an
-				// indefinite amount of time as the pause/resume commands are not necessarily related,
-				// though in the case of a resetoffset command, there shouldn't be much time between
-				// the two signals)
-				waitErr := manager.WaitForStart(groupID, 60*time.Minute)
-				if waitErr != nil {
-					logger.Error("ConsumerGroup Failed To Restart", zap.Error(waitErr))
-				}
-			} else {
 				return
 			}
 			if consumeErr != nil {

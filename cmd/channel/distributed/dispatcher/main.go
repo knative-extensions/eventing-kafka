@@ -22,9 +22,6 @@ import (
 	"strconv"
 	"strings"
 
-	"knative.dev/eventing-kafka/pkg/common/consumer"
-	"knative.dev/eventing-kafka/pkg/common/controlprotocol"
-
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -48,6 +45,7 @@ import (
 	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	"knative.dev/eventing-kafka/pkg/client/informers/externalversions"
 	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
+	"knative.dev/eventing-kafka/pkg/common/controlprotocol"
 	"knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
 	"knative.dev/eventing/pkg/kncloudevents"
@@ -142,7 +140,7 @@ func main() {
 	})
 
 	fmt.Printf("EDV: Creating control-protocol server handler\n")
-	serverHandler, err := controlprotocol.NewServerHandler()
+	controlProtocolServer, err := controlprotocol.NewServerHandler()
 	if err != nil {
 		logger.Fatal("Failed To Initialize Control-Protocol Server - Terminating", zap.Error(err))
 	}
@@ -157,9 +155,8 @@ func main() {
 		StatsReporter:   statsReporter,
 		MetricsRegistry: ekConfig.Sarama.Config.MetricRegistry,
 		SaramaConfig:    ekConfig.Sarama.Config,
-		ConsumerMgr:     consumer.NewConsumerGroupManager(serverHandler),
 	}
-	dispatcher = dispatch.NewDispatcher(dispatcherConfig)
+	dispatcher = dispatch.NewDispatcher(dispatcherConfig, controlProtocolServer)
 
 	// Watch The Secret For Changes
 	err = distributedcommonconfig.InitializeSecretWatcher(ctx, environment.KafkaSecretNamespace, environment.KafkaSecretName, environment.ResyncPeriod, secretObserver)
