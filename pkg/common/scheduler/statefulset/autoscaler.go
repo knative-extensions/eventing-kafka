@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientappsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 
+	"knative.dev/eventing-kafka/pkg/common/scheduler"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
 )
@@ -42,9 +43,11 @@ type Autoscaler interface {
 type autoscaler struct {
 	statefulSetClient clientappsv1.StatefulSetInterface
 	statefulSetName   string
+	vpodLister        scheduler.VPodLister
 	logger            *zap.SugaredLogger
 	stateAccessor     stateAccessor
 	trigger           chan int32
+	evict             scheduler.Evictor
 
 	// capacity is the total number of virtual replicas available per pod.
 	capacity int32
@@ -55,7 +58,9 @@ type autoscaler struct {
 
 func NewAutoscaler(ctx context.Context,
 	namespace, name string,
+	lister scheduler.VPodLister,
 	stateAccessor stateAccessor,
+	evictor scheduler.Evictor,
 	refreshPeriod time.Duration,
 	capacity int32) Autoscaler {
 
@@ -63,7 +68,9 @@ func NewAutoscaler(ctx context.Context,
 		logger:            logging.FromContext(ctx),
 		statefulSetClient: kubeclient.Get(ctx).AppsV1().StatefulSets(namespace),
 		statefulSetName:   name,
+		vpodLister:        lister,
 		stateAccessor:     stateAccessor,
+		evict:             evictor,
 		trigger:           make(chan int32, 1),
 		capacity:          capacity,
 		refreshPeriod:     refreshPeriod,
@@ -155,7 +162,60 @@ func (a *autoscaler) doautoscale(ctx context.Context, attemptScaleDown bool, pen
 			a.logger.Errorw("updating scale subresource failed", zap.Error(err))
 			return err
 		}
+	} else {
+		// since the number of replicas hasn't change, take the opportunity to
+		// compact the vreplicas
+		a.mayCompact(state)
 	}
 
+	return nil
+}
+
+func (a *autoscaler) mayCompact(s *state) {
+	// when there is only one pod there is nothing to move!
+	if s.lastOrdinal < 1 {
+		return
+	}
+
+	if s.schedulerPolicy == MAXFILLUP {
+		// Determine if there is enough free capacity to
+		// move all vreplicas placed in the last pod to pods with a lower ordinal
+		freeCapacity := s.freeCapacity() - s.Free(s.lastOrdinal)
+		usedInLastPod := s.capacity - s.Free(s.lastOrdinal)
+
+		if freeCapacity >= usedInLastPod {
+			err := a.compact(s)
+			if err != nil {
+				a.logger.Errorw("vreplicas compaction failed", zap.Error(err))
+			}
+		}
+
+		// only do 1 replica at a time to avoid overloading the scheduler with too many
+		// rescheduling requests.
+	}
+}
+
+func (a *autoscaler) compact(s *state) error {
+	a.logger.Info("compacting vreplicas")
+	vpods, err := a.vpodLister()
+	if err != nil {
+		return err
+	}
+
+	for _, vpod := range vpods {
+		placements := vpod.GetPlacements()
+		for _, placement := range placements {
+			ordinal := ordinalFromPodName(placement.PodName)
+
+			if ordinal == s.lastOrdinal {
+				a.logger.Infow("evicting vreplica(s)", zap.String("podname", placement.PodName), zap.Int("vreplicas", int(placement.VReplicas)))
+
+				err = a.evict(vpod, &placement)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
 	return nil
 }

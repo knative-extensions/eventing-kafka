@@ -31,6 +31,9 @@ var (
 // VPodLister is the function signature for returning a list of VPods
 type VPodLister func() ([]VPod, error)
 
+// Evictor allows for vreplicas to be evicted
+type Evictor func(vpod VPod, from *duckv1alpha1.Placement) error
+
 // Scheduler is responsible for placing VPods into real Kubernetes pods
 type Scheduler interface {
 	// Schedule computes the new set of placements for vpod.
