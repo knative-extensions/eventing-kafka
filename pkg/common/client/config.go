@@ -253,7 +253,6 @@ func (b *configBuilder) Build(ctx context.Context) (*sarama.Config, error) {
 				config.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA512
 			}
 			config.Net.SASL.User = b.auth.SASL.User
-			config.Net.SASL.Password = b.auth.SASL.Password
 		}
 	}
 
@@ -267,6 +266,10 @@ func (b *configBuilder) Build(ctx context.Context) (*sarama.Config, error) {
 
 	logger := logging.FromContext(ctx)
 	logger.Infof("Built Sarama config: %+v", config)
+
+	if b.auth != nil && b.auth.SASL != nil {
+		config.Net.SASL.Password = b.auth.SASL.Password
+	}
 
 	return config, nil
 }
