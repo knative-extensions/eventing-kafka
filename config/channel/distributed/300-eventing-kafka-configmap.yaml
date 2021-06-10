@@ -25,9 +25,9 @@ data:
         KeepAlive: 30000000000  # 30 seconds
         MaxOpenRequests: 1 # Set to 1 for use with Idempotent Producer
         TLS:
-          Enable: true
+          Enable: false
         SASL:
-          Enable: true
+          Enable: false
           Version: 1
       Metadata:
         RefreshFrequency: 300000000000  # 5 minutes
@@ -46,7 +46,7 @@ data:
     kafka:
       authSecretName: kafka-cluster
       authSecretNamespace: knative-eventing
-      brokers: REPLACE_WITH_CLUSTER_URL
+      brokers: my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092
       topic:
         defaultNumPartitions: 4
         defaultReplicationFactor: 1 # Cannot exceed the number of Kafka Brokers!

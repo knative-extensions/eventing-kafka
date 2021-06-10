@@ -19,23 +19,24 @@ package dispatcher
 import (
 	"context"
 	"fmt"
+	"knative.dev/eventing-kafka/pkg/common/metrics"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/Shopify/sarama"
-	"github.com/eric-sap/knative.dev/eventing-kafka/pkg/common/metrics"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
+	"knative.dev/pkg/logging"
+	logtesting "knative.dev/pkg/logging/testing"
+
 	commonclient "knative.dev/eventing-kafka/pkg/common/client"
 	clienttesting "knative.dev/eventing-kafka/pkg/common/client/testing"
 	configtesting "knative.dev/eventing-kafka/pkg/common/config/testing"
 	consumertesting "knative.dev/eventing-kafka/pkg/common/consumer/testing"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
-	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
-	"knative.dev/pkg/logging"
-	logtesting "knative.dev/pkg/logging/testing"
 )
 
 // Test Data

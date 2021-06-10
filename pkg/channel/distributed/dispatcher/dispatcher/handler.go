@@ -163,7 +163,7 @@ func (h *Handler) Handle(ctx context.Context, consumerMessage *sarama.ConsumerMe
 	// Errors are not currently being returned in order to maintain consistent
 	// behavior with the implementation prior to using the common/consumer
 	// KafkaConsumerGroupFactory.  We do NOT want to mark the status of the
-	// ConsumerGroup as ready just because a single messages encountered an
+	// ConsumerGroup as not-ready just because a single messages encountered an
 	// error.  This is an important and conscious design choice which enables
 	// the use of multi-tenant KafkaChannels and other advanced use cases.
 	//

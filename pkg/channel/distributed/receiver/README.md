@@ -4,6 +4,8 @@ The Receiver implementation is a Kafka Producer which is responsible for
 receiving CloudEvents, converting them to Kafka Messages, and writing them to
 the appropriate Kafka Topic.
 
+## Runtime Deployments
+
 A unique Deployment / Service is created for every installation. The single
 Deployment is horizontally scalable as necessary; the replicas will initially be
 configured by the eventing-kafka.receiver.replicas field in the
@@ -22,8 +24,33 @@ to the appropriate Kafka Topic.
 The Kafka brokers and credentials are obtained from mounted data in the Kafka
 Secret (by default named `kafka-cluster` in the knative-eventing namespace,
 configurable by altering the kafka.authSecretName and/or the
-kafka.authSecretNamespace in the
-[ConfigMap](../../../../config/channel/distributed/300-eventing-kafka-configmap.yaml)).
+kafka.authSecretNamespace values in the
+[ConfigMap](../../../../config/channel/distributed/300-eventing-kafka-configmap.yaml))
+.
+
+## CPU Requirements
+
+Providing CPU guidance is a difficult endeavor as there are so many variables
+(event size, event rate, acceptable latency, kafka provider, use of an event
+mesh, etc...) that can affect performance. The following is a single data point
+to help you get started, and you should analyze your particular use case to fine
+tune.
+
+Sending ~2000 events/second on a single replica of the receiver, without an
+event-mesh, where each event is approximately 20Kb in size, required **~1000m**
+(a full CPU core) where the CPU was a GCP
+[N1-Standard-2](https://cloud.google.com/compute/docs/cpu-platforms) 2 Core
+Intel Skylake processor with a base clock of 2.0GHz
+
+## Memory Requirements
+
+The receiver simply verifies the destination KafkaChannel (Topic) and produces
+the event. It does very little with the actual CloudEvent and thus the memory
+usage is rather low as the events are transitory and garbage collected.
+Preliminary performance testing has shown that the receiver will require less
+than **~50Mi** to process ~2000 events/second where each event is approximately
+20Kb in size. These are rough guidelines, and you should perform your own
+analysis, but hopefully this provides a useful starting point.
 
 ## Tracing, Profiling, and Metrics
 

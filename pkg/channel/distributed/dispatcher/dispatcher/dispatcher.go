@@ -266,12 +266,9 @@ func (d *DispatcherImpl) SecretChanged(ctx context.Context, secret *corev1.Secre
 		return
 	}
 
-	// Create A New Dispatcher With The New Configuration (Reusing All Other Existing Config)
-	d.Logger.Info("Changes Detected In New Secret - Closing & Recreating Consumer Groups")
-	d.reconfigure(newConfig, nil)
-
 	// Close all of the ConsumerGroups so that the settings can be changed
 	// Note: Not calling d.Shutdown because we don't want to close the metrics channel here
+	d.Logger.Info("Changes Detected In New Secret - Closing & Recreating Consumer Groups")
 	for _, subscriber := range d.subscribers {
 		d.closeConsumerGroup(subscriber)
 	}
@@ -280,10 +277,10 @@ func (d *DispatcherImpl) SecretChanged(ctx context.Context, secret *corev1.Secre
 	// of the SaramaConfig, so that's all that needs to be modified
 	d.DispatcherConfig.SaramaConfig = newConfig
 
-	// Since we're using the Consumer Group Factory, that's the only thing that
-	// needs active reconfiguration, once the desired DispatcherConfig has been set.
+	// Replace The Dispatcher's ConsumerGroupFactory With Updated Version Using New Config
 	d.consumerGroupFactory = commonconsumer.NewConsumerGroupFactory(d.DispatcherConfig.Brokers, d.DispatcherConfig.SaramaConfig)
 
+	// Recreate the ConsumerGroups For Active Subscriptions
 	failedSubscriptions := d.UpdateSubscriptions(d.SubscriberSpecs)
 	if len(failedSubscriptions) > 0 {
 		d.Logger.Fatal("Failed To Subscribe Kafka Subscriptions Using Updated Secret", zap.Int("Count", len(failedSubscriptions)))

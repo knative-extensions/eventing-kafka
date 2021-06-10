@@ -98,15 +98,15 @@ type managedGroup struct {
 	stopped bool
 }
 
-// IsStopped is an accessor for the "stopped" flag that indicates whether the KafkaConsumerGroupManager stopped
+// isStopped is an accessor for the "stopped" flag that indicates whether the KafkaConsumerGroupManager stopped
 // ("paused") the managed ConsumerGroup (versus it having been closed outside the manager)
-func (m *managedGroup) IsStopped() bool {
+func (m *managedGroup) isStopped() bool {
 	return m.stopped
 }
 
-// WaitForStart will block until a stopped ("paused") ConsumerGroup has been restarted by the
+// waitForStart will block until a stopped ("paused") ConsumerGroup has been restarted by the
 // KafkaConsumerGroupManager
-func (m *managedGroup) WaitForStart() error {
+func (m *managedGroup) waitForStart() error {
 	// TODO:  Should wait for a proper signal/channel, not poll the stopped field
 	// TODO:  Should have a way to shutdown if the managedGroup is closed
 	return wait.PollInfinite(10*time.Millisecond, func() (bool, error) {
@@ -124,19 +124,12 @@ func (m *managedGroup) transferErrors() {
 			for groupErr := range m.group.Errors() {
 				m.errors <- groupErr
 			}
-			if !m.IsStopped() {
+			if !m.isStopped() || m.waitForStart() != nil {
 				// If the error channel was closed without the consumergroup being stopped,
-				// that happened outside of the manager, so we shouldn't wait for it to be
-				// started again.
+				// or if we were unable to wait for the group to be restarted, that is outside
+				// of the manager's responsibility, so we are finished transferring errors.
 				close(m.errors)
-				return
-			}
-			// Wait for the manager to restart the Consumer Group before calling m.group.Errors() again
-			err := m.WaitForStart()
-			if err != nil {
-				fmt.Printf("EDV: transferErrors WaitForStart failed: %v\n", err.Error())
-				close(m.errors)
-				return
+				break
 			}
 		}
 	}()
@@ -161,7 +154,6 @@ var _ KafkaConsumerGroupManager = (*kafkaConsumerGroupManagerImpl)(nil)
 
 // NewConsumerGroupManager returns a new kafkaConsumerGroupManagerImpl as a KafkaConsumerGroupManager interface
 func NewConsumerGroupManager(serverHandler controlprotocol.ServerHandler, groupFactory KafkaConsumerGroupFactory) KafkaConsumerGroupManager {
-	fmt.Printf("EDV: NewConsumerGroupManager()\n")
 
 	manager := &kafkaConsumerGroupManagerImpl{
 		server:    serverHandler,
@@ -173,14 +165,12 @@ func NewConsumerGroupManager(serverHandler controlprotocol.ServerHandler, groupF
 	// Add a handler that understands the StopConsumerGroupOpCode and stops the requested group
 	serverHandler.AddAsyncHandler(commands.StopConsumerGroupOpCode, &commands.ConsumerGroupAsyncCommand{},
 		func(ctx context.Context, commandMessage ctrlservice.AsyncCommandMessage) {
-			fmt.Printf("EDV: StopConsumerGroupsOpCode, map=%v\n", manager.groups)
 			processAsyncGroupNotification(commandMessage, manager.stopConsumerGroups)
 		})
 
 	// Add a handler that understands the StartConsumerGroupOpCode and starts the requested group
 	serverHandler.AddAsyncHandler(commands.StartConsumerGroupOpCode, &commands.ConsumerGroupAsyncCommand{},
 		func(ctx context.Context, commandMessage ctrlservice.AsyncCommandMessage) {
-			fmt.Printf("EDV: StartConsumerGroupsOpCode, map=%v\n", manager.groups)
 			processAsyncGroupNotification(commandMessage, manager.startConsumerGroups)
 		})
 
@@ -247,12 +237,12 @@ func (m *kafkaConsumerGroupManagerImpl) Consume(groupId string, ctx context.Cont
 	}
 	for {
 		err := groupInfo.group.Consume(ctx, topics, handler)
-		if !groupInfo.IsStopped() {
+		if !groupInfo.isStopped() {
 			// This ConsumerGroup wasn't stopped by the manager, so pass the error along to the caller
 			return err
 		}
 		// Wait for the managed ConsumerGroup to be restarted
-		err = groupInfo.WaitForStart()
+		err = groupInfo.waitForStart()
 		if err != nil {
 			return err
 		}
@@ -282,58 +272,53 @@ func (m *kafkaConsumerGroupManagerImpl) IsValid(groupId string) bool {
 // as "stopped" (that is, "able to be restarted" as opposed to being closed by something outside the manager)
 func (m *kafkaConsumerGroupManagerImpl) stopConsumerGroups(groupIds ...string) error {
 	var multiErr error
-	fmt.Printf("EDV: stopConsumerGroups(), m.groups: %v\n", m.groups)
 	for _, id := range groupIds {
 		groupInfo, ok := m.groups[id]
 		if ok {
 			groupInfo.stopped = true // TODO:  Thread-safety
 			err := groupInfo.group.Close()
-			fmt.Printf("EDV: stopped, groups[%s].stopped=%v\n", id, m.groups[id].stopped)
 			if err != nil {
 				multierr.AppendInto(&multiErr, err)
-				fmt.Printf("EDV: Error pausing group ID %s: %s\n", id, err.Error())
 			}
 		} else {
 			multierr.AppendInto(&multiErr, fmt.Errorf("stop requested for consumer group not in managed list: %s", id))
-			fmt.Printf("EDV: Request to stop group '%s' which is not in the managed list: %v\n", id, m.groups)
 		}
 	}
 	return nil
 }
 
+// startConsumerGroups creates new Consumer Groups based on the groupIds provided
 func (m *kafkaConsumerGroupManagerImpl) startConsumerGroups(groupIds ...string) error {
 	var multiErr error
-	fmt.Printf("EDV: startConsumerGroups(), m.groups: %v\n", m.groups)
 	for _, id := range groupIds {
 		groupInfo, ok := m.groups[id]
 		if ok {
 			group, err := m.factory.StartConsumerGroup(m, id, groupInfo.topics, groupInfo.logger, groupInfo.handler, groupInfo.options...)
 			if err != nil {
-				fmt.Printf("EDV: Error resuming group ID %s: %s\n", id, err.Error())
 				multierr.AppendInto(&multiErr, err)
 			}
 			m.groups[id].group = group
 			m.groups[id].stopped = false
 		} else {
 			multierr.AppendInto(&multiErr, fmt.Errorf("start requested for consumer group not in managed list: %s", id))
-			fmt.Printf("EDV: Request to start group '%s' which is not in the managed list: %v\n", id, m.groups)
 		}
 	}
 	return multiErr
 }
 
+// processAsyncGroupNotification calls the provided groupFunction with whatever GroupId is contained
+// in the commandMessage, after verifying that the command version is correct.  It then calls the
+// appropriate Async response function on the commandMessage (NotifyFailed or NotifySuccess)
 func processAsyncGroupNotification(commandMessage ctrlservice.AsyncCommandMessage, groupFunction func(groupIds ...string) error) {
-	fmt.Printf("EDV: processAsyncGroupNotification()\n")
-	cmd := commandMessage.ParsedCommand().(*commands.ConsumerGroupAsyncCommand)
-	if cmd.Version != commands.ConsumerGroupAsyncCommandVersion {
-		commandMessage.NotifyFailed(fmt.Errorf("version mismatch; expected %d but got %d", commands.ConsumerGroupAsyncCommandVersion, cmd.Version))
-	}
-	err := groupFunction(cmd.GroupId)
-	if err != nil {
-		fmt.Printf("EDV: NotifyFailed(%s)\n", err.Error())
-		// commandMessage.NotifyFailed(err)  // EDV: TODO:  Put this back
-	} else {
-		fmt.Printf("EDV: NotifySuccess\n")
-		// commandMessage.NotifySuccess()  // EDV: TODO:  Put this back
+	if cmd, ok := commandMessage.ParsedCommand().(*commands.ConsumerGroupAsyncCommand); ok {
+		if cmd.Version != commands.ConsumerGroupAsyncCommandVersion {
+			commandMessage.NotifyFailed(fmt.Errorf("version mismatch; expected %d but got %d", commands.ConsumerGroupAsyncCommandVersion, cmd.Version))
+		}
+		err := groupFunction(cmd.GroupId)
+		if err != nil {
+			// commandMessage.NotifyFailed(err)  // EDV: TODO:  Put this back
+		} else {
+			// commandMessage.NotifySuccess()  // EDV: TODO:  Put this back
+		}
 	}
 }
