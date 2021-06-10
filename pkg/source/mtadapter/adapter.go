@@ -18,7 +18,6 @@ package mtadapter
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"strconv"
 	"sync"
@@ -26,9 +25,7 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
 	"knative.dev/eventing/pkg/adapter/v2"
@@ -238,25 +235,6 @@ func (a *Adapter) Remove(obj *v1beta1.KafkaSource) {
 	delete(a.sources, key)
 
 	a.logger.Infow("source removed", "name", obj.Name, "remaining", len(a.sources))
-}
-
-// ResolveSecret resolves the secret reference
-func (a *Adapter) ResolveSecret(ctx context.Context, ns string, ref *corev1.SecretKeySelector) (string, error) {
-	if ref == nil {
-		return "", nil
-	}
-	secret, err := a.kubeClient.CoreV1().Secrets(ns).Get(ctx, ref.Name, metav1.GetOptions{})
-	if err != nil {
-		a.logger.Errorw("failed to read secret", zap.String("secretname", ref.Name), zap.Error(err))
-		return "", err
-	}
-
-	if value, ok := secret.Data[ref.Key]; ok && len(value) > 0 {
-		return string(value), nil
-	}
-
-	a.logger.Errorw("missing secret key or empty secret value", zap.String("secretname", ref.Name), zap.String("secretkey", ref.Key))
-	return "", fmt.Errorf("missing secret key or empty secret value (%s/%s)", ref.Name, ref.Key)
 }
 
 // partitionFetchSize determines what should be the default fetch size (in bytes)
