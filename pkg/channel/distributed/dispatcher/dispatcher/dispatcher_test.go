@@ -71,8 +71,14 @@ func TestNewSubscriberWrapper(t *testing.T) {
 // Test The NewDispatcher() Functionality
 func TestNewDispatcher(t *testing.T) {
 
+	baseSaramaConfig, err := commonclient.NewConfigBuilder().
+		WithDefaults().
+		WithVersion(&sarama.V2_0_0_0).
+		Build(context.TODO())
+	assert.Nil(t, err)
+
 	// Perform The Test & Verify Results (Not Much To See Due To Interface)
-	createTestDispatcher(t, nil, nil)
+	createTestDispatcher(t, nil, baseSaramaConfig)
 }
 
 // Test The Dispatcher's Shutdown() Functionality
@@ -312,67 +318,55 @@ func TestSecretChanged(t *testing.T) {
 
 	// Define The TestCase Struct
 	type TestCase struct {
-		only                bool
 		name                string
 		newSecret           *corev1.Secret
-		expectNewDispatcher bool
+		expectEmptyUsername bool
+		expectNewUsername   string
+		expectNewPassword   string
+		expectNewSaslType   string
 	}
 
 	// Create The TestCases
 	testCases := []TestCase{
 		{
-			name:                "No Changes (Same Dispatcher)",
-			newSecret:           configtesting.NewKafkaSecret(),
-			expectNewDispatcher: false,
+			name:      "No Changes (No Modifications)",
+			newSecret: configtesting.NewKafkaSecret(),
 		},
 		{
-			name:                "Password Change (New Dispatcher)",
-			newSecret:           configtesting.NewKafkaSecret(configtesting.WithModifiedPassword),
-			expectNewDispatcher: true,
+			name:              "Password Change (Modifications)",
+			newSecret:         configtesting.NewKafkaSecret(configtesting.WithModifiedPassword),
+			expectNewPassword: configtesting.ModifiedSecretPassword,
 		},
 		{
-			name:                "Username Change (New Dispatcher)",
-			newSecret:           configtesting.NewKafkaSecret(configtesting.WithModifiedUsername),
-			expectNewDispatcher: true,
+			name:              "Username Change (Modifications)",
+			newSecret:         configtesting.NewKafkaSecret(configtesting.WithModifiedUsername),
+			expectNewUsername: configtesting.ModifiedSecretUsername,
 		},
 		{
-			name:                "Empty Username Change (New Dispatcher)",
+			name:                "Empty Username Change (Modifications)",
 			newSecret:           configtesting.NewKafkaSecret(configtesting.WithEmptyUsername),
-			expectNewDispatcher: true,
+			expectEmptyUsername: true,
 		},
 		{
-			name:                "SaslType Change (New Dispatcher)",
-			newSecret:           configtesting.NewKafkaSecret(configtesting.WithModifiedSaslType),
-			expectNewDispatcher: true,
+			name:              "SaslType Change (Modifications)",
+			newSecret:         configtesting.NewKafkaSecret(configtesting.WithModifiedSaslType),
+			expectNewSaslType: configtesting.ModifiedSecretSaslType,
 		},
 		{
-			name:                "Namespace Change (Same Dispatcher)",
-			newSecret:           configtesting.NewKafkaSecret(configtesting.WithModifiedNamespace),
-			expectNewDispatcher: false,
+			name:      "Namespace Change (No Modifications)",
+			newSecret: configtesting.NewKafkaSecret(configtesting.WithModifiedNamespace),
 		},
 		{
-			name:                "No Auth Config In Secret (Same Dispatcher)",
-			newSecret:           configtesting.NewKafkaSecret(configtesting.WithMissingConfig),
-			expectNewDispatcher: false,
+			name:      "No Auth Config In Secret (No Modifications)",
+			newSecret: configtesting.NewKafkaSecret(configtesting.WithMissingConfig),
 		},
-	}
-
-	// Filter To Those With "only" Flag (If Any Specified)
-	filteredTestCases := make([]TestCase, 0)
-	for _, testCase := range testCases {
-		if testCase.only {
-			filteredTestCases = append(filteredTestCases, testCase)
-		}
-	}
-	if len(filteredTestCases) == 0 {
-		filteredTestCases = testCases
 	}
 
 	// Make Sure To Restore The NewConsumerGroup Wrapper After The Test
 	defer consumertesting.RestoreNewConsumerGroupFn()
 
 	// Run The Filtered TestCases
-	for _, testCase := range filteredTestCases {
+	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 
 			// Mock The SyncProducer & Stub The NewConsumerGroupWrapper()
@@ -381,19 +375,26 @@ func TestSecretChanged(t *testing.T) {
 
 			// Create A Test Dispatcher To Perform Tests Against
 			dispatcher := createTestDispatcher(t, brokers, baseSaramaConfig)
+			impl := dispatcher.(*DispatcherImpl)
+			impl.subscribers = map[types.UID]*SubscriberWrapper{uid123: createSubscriberWrapper(uid123)}
 
 			// Perform The Test
-			newDispatcher := dispatcher.SecretChanged(ctx, testCase.newSecret)
+			dispatcher.SecretChanged(ctx, testCase.newSecret)
+			assert.NotNil(t, impl)
 
-			// Verify Expected State (Not Much To Verify Due To Interface)
-			assert.Equal(t, testCase.expectNewDispatcher, newDispatcher != nil)
-
-			if testCase.expectNewDispatcher {
-				// Verify that the new dispatcher's channels are not the same as the original
-				oldImpl := dispatcher.(*DispatcherImpl)
-				newImpl := newDispatcher.(*DispatcherImpl)
-				assert.NotEqual(t, oldImpl.MetricsStopChan, newImpl.MetricsStopChan)
-				assert.NotEqual(t, oldImpl.MetricsStoppedChan, newImpl.MetricsStoppedChan)
+			if testCase.expectEmptyUsername {
+				// An empty username in the secret will force no-authorization even if it was enabled before
+				assert.Equal(t, false, impl.SaramaConfig.Net.SASL.Enable)
+				assert.Equal(t, "", impl.SaramaConfig.Net.SASL.User)
+				assert.Equal(t, "", impl.SaramaConfig.Net.SASL.Password)
+			} else if testCase.expectNewUsername != "" {
+				assert.Equal(t, testCase.expectNewUsername, impl.SaramaConfig.Net.SASL.User)
+			}
+			if testCase.expectNewPassword != "" {
+				assert.Equal(t, testCase.expectNewPassword, impl.SaramaConfig.Net.SASL.Password)
+			}
+			if testCase.expectNewSaslType != "" {
+				assert.Equal(t, testCase.expectNewSaslType, string(impl.SaramaConfig.Net.SASL.Mechanism))
 			}
 		})
 	}
@@ -421,6 +422,7 @@ func createTestDispatcher(t *testing.T, brokers []string, config *sarama.Config)
 		Logger:          logger,
 		Brokers:         brokers,
 		StatsReporter:   statsReporter,
+		MetricsRegistry: config.MetricRegistry,
 		SaramaConfig:    config,
 		SubscriberSpecs: subscriberSpecs,
 	}
