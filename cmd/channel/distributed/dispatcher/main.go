@@ -217,24 +217,19 @@ func flush(logger *zap.Logger) {
 
 // secretObserver is the callback function that handles changes to our Secret
 func secretObserver(ctx context.Context, secret *corev1.Secret) {
-	logger := logging.FromContext(ctx)
+	secretLogger := logging.FromContext(ctx)
 
 	if secret == nil {
-		logger.Warn("Nil Secret passed to secretObserver; ignoring")
+		secretLogger.Warn("Nil Secret passed to secretObserver; ignoring")
 		return
 	}
 
 	if dispatcher == nil {
 		// This typically happens during startup
-		logger.Debug("Dispatcher is nil during call to secretObserver; ignoring changes")
+		secretLogger.Debug("Dispatcher is nil during call to secretObserver; ignoring changes")
 		return
 	}
 
 	// Toss the new secret to the dispatcher for inspection and action
-	newDispatcher := dispatcher.SecretChanged(ctx, secret)
-	if newDispatcher != nil {
-		// The configuration change caused a new dispatcher to be created, so switch to that one
-		logger.Info("Secret Changed; Dispatcher Reconfigured")
-		dispatcher = newDispatcher
-	}
+	dispatcher.SecretChanged(ctx, secret)
 }

@@ -21,11 +21,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"strings"
+	"time"
 
 	"golang.org/x/time/rate"
-
 	ctrl "knative.dev/control-protocol/pkg"
 	ctrlnetwork "knative.dev/control-protocol/pkg/network"
 
@@ -66,9 +67,10 @@ func NewEnvConfig() adapter.EnvConfigAccessor {
 }
 
 type Adapter struct {
-	config        *AdapterConfig
-	controlServer *ctrlnetwork.ControlServer
-	saramaConfig  *sarama.Config
+	config            *AdapterConfig
+	controlServer     *ctrlnetwork.ControlServer
+	saramaConfig      *sarama.Config
+	offsetInitialized bool
 
 	httpMessageSender *kncloudevents.HTTPMessageSender
 	reporter          pkgsource.StatsReporter
@@ -77,10 +79,13 @@ type Adapter struct {
 	rateLimiter       *rate.Limiter
 }
 
-var _ adapter.MessageAdapter = (*Adapter)(nil)
-var _ consumer.KafkaConsumerHandler = (*Adapter)(nil)
-var _ consumer.SaramaConsumerLifecycleListener = (*Adapter)(nil)
-var _ adapter.MessageAdapterConstructor = NewAdapter
+var (
+	_           adapter.MessageAdapter                   = (*Adapter)(nil)
+	_           consumer.KafkaConsumerHandler            = (*Adapter)(nil)
+	_           consumer.SaramaConsumerLifecycleListener = (*Adapter)(nil)
+	_           adapter.MessageAdapterConstructor        = NewAdapter
+	retryConfig                                          = defaultRetryConfig()
+)
 
 func NewAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, httpMessageSender *kncloudevents.HTTPMessageSender, reporter pkgsource.StatsReporter) adapter.MessageAdapter {
 	logger := logging.FromContext(ctx)
@@ -176,7 +181,7 @@ func (a *Adapter) Handle(ctx context.Context, msg *sarama.ConsumerMessage) (bool
 		return true, err
 	}
 
-	res, err := a.httpMessageSender.Send(req)
+	res, err := a.httpMessageSender.SendWithRetries(req, retryConfig)
 
 	if err != nil {
 		a.logger.Debug("Error while sending the message", zap.Error(err))
@@ -239,7 +244,7 @@ func (a *Adapter) Cleanup(sess sarama.ConsumerGroupSession) {
 
 // InitOffsets makes sure all consumer group offsets are set.
 func (a *Adapter) InitOffsets(session sarama.ConsumerGroupSession) error {
-	if a.saramaConfig.Consumer.Offsets.Initial == sarama.OffsetNewest {
+	if !a.offsetInitialized && a.saramaConfig.Consumer.Offsets.Initial == sarama.OffsetNewest {
 		// We want to make sure that ALL consumer group offsets are set to avoid
 		// losing events in case the consumer group session is closed before at least one message is
 		// consumed from ALL partitions.
@@ -299,8 +304,21 @@ func (a *Adapter) InitOffsets(session sarama.ConsumerGroupSession) error {
 
 			a.logger.Infow("consumer group offsets committed", zap.String("consumergroup", a.config.ConsumerGroup))
 		}
+
+		a.offsetInitialized = true
 	}
 
 	// At this stage the KafkaSource instance is considered Ready (TODO: update KafkaSource status)
 	return nil
+}
+
+// Default retry configuration, 5 retries, exponential backoff with 50ms delay
+func defaultRetryConfig() *kncloudevents.RetryConfig {
+	return &kncloudevents.RetryConfig{
+		CheckRetry: kncloudevents.SelectiveRetry,
+		RetryMax:   5,
+		Backoff: func(attemptNum int, resp *http.Response) time.Duration {
+			return 50 * time.Millisecond * time.Duration(math.Exp2(float64(attemptNum)))
+		},
+	}
 }

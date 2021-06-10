@@ -47,9 +47,11 @@ spec:
         - name: VREPLICA_LIMITS_MPS
           value: '50'
 
-        # The pod requested memory (see resources.requests.memory)
-        - name: REQUESTS_MEMORY
-          value: '300Mi'
+        # The memory limit, per vreplica. Must be a quantity.
+        # see https://github.com/kubernetes/apimachinery/blob/master/pkg/api/resource/quantity.go#L31
+        # Should be (pod requested memory - overhead) / pod capacity (see controller.yaml)
+        - name: VREPLICA_LIMITS_MEMORY
+          value: '6Mi'
 
         # DO NOT MODIFY: The values below are being filled by the kafka source controller
         # See 500-controller.yaml
@@ -64,11 +66,11 @@ spec:
 
         resources:
           requests:
-            cpu: 100m
-            memory: 300Mi
+            cpu: 1000m
+            memory: 700Mi # 600Mi for vreplicas + 100Mi overhead
           limits:
-            cpu: 200m
-            memory: 500Mi
+            cpu: 2000m
+            memory: 1000Mi
 
         ports:
         - name: metrics

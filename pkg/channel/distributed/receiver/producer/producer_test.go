@@ -119,15 +119,13 @@ func TestSecretChanged(t *testing.T) {
 			SaslType: configtesting.DefaultSecretSaslType,
 		},
 	}
-	baseSaramaConfig, err := commonclient.NewConfigBuilder().WithDefaults().FromYaml(clienttesting.DefaultSaramaConfigYaml).WithAuth(auth).Build(ctx)
-	assert.Nil(t, err)
 
 	// Define The TestCase Struct
 	type TestCase struct {
-		only              bool
 		name              string
 		newSecret         *corev1.Secret
 		expectNewProducer bool
+		expectEmptyAuth   bool
 	}
 
 	// Create The TestCases
@@ -151,6 +149,7 @@ func TestSecretChanged(t *testing.T) {
 			name:              "Empty Username Change (New Producer)",
 			newSecret:         configtesting.NewKafkaSecret(configtesting.WithEmptyUsername),
 			expectNewProducer: true,
+			expectEmptyAuth:   true,
 		},
 		{
 			name:              "SaslType Change (New Producer)",
@@ -169,22 +168,11 @@ func TestSecretChanged(t *testing.T) {
 		},
 	}
 
-	// Filter To Those With "only" Flag (If Any Specified)
-	filteredTestCases := make([]TestCase, 0)
-	for _, testCase := range testCases {
-		if testCase.only {
-			filteredTestCases = append(filteredTestCases, testCase)
-		}
-	}
-	if len(filteredTestCases) == 0 {
-		filteredTestCases = testCases
-	}
-
 	// Make Sure To Restore The NewSyncProducer Wrapper After The Test
 	defer producertesting.RestoreNewSyncProducerFn()
 
 	// Run The Filtered TestCases
-	for _, testCase := range filteredTestCases {
+	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 
 			// Mock The SyncProducer & Stub The NewSyncProducerWrapper()
@@ -192,6 +180,8 @@ func TestSecretChanged(t *testing.T) {
 			producertesting.StubNewSyncProducerFn(producertesting.NonValidatingNewSyncProducerFn(mockSyncProducer))
 
 			// Create A Test Producer To Perform Tests Against
+			baseSaramaConfig, err := commonclient.NewConfigBuilder().WithDefaults().FromYaml(clienttesting.DefaultSaramaConfigYaml).WithAuth(auth).Build(ctx)
+			assert.Nil(t, err)
 			producer := createTestProducer(t, brokers, baseSaramaConfig, mockSyncProducer)
 
 			// Perform The Test
@@ -201,6 +191,12 @@ func TestSecretChanged(t *testing.T) {
 			assert.Equal(t, testCase.expectNewProducer, newProducer != nil)
 			assert.Equal(t, testCase.expectNewProducer, mockSyncProducer.Closed())
 			if newProducer != nil {
+				if testCase.expectEmptyAuth {
+					// An empty username in the secret will force no-authorization even if it was enabled before
+					assert.Equal(t, false, newProducer.configuration.Net.SASL.Enable)
+					assert.Equal(t, "", newProducer.configuration.Net.SASL.User)
+					assert.Equal(t, "", newProducer.configuration.Net.SASL.Password)
+				}
 				assert.Equal(t, producer.brokers, newProducer.brokers)
 				assert.Equal(t, producer.statsReporter, newProducer.statsReporter)
 				assert.Equal(t, producer.healthServer, newProducer.healthServer)

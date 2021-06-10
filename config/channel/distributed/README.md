@@ -88,10 +88,10 @@ kafka.authSecretName and/or kafka.authSecretNamespace fields in the
 changed if another secret location is desired). The
 [kakfa-secret.yaml](300-kafka-secret.yaml) is included in the config directory,
 but must be modified to hold real values. The values from this file will
-override any values of `sarama.Net.SASL.User` or `sarama.Net.SASL.Password`
-in [eventing-kafka-configmap.yaml](300-eventing-kafka-configmap.yaml).
-It is also expected that `sarama.Net.SASL.Enable` and `sarama.Net.TLS.Enable`
-are set to true to perform the required authentication with the Kafka cluster.
+override any values of `sarama.Net.SASL.User` or `sarama.Net.SASL.Password` in
+[eventing-kafka-configmap.yaml](300-eventing-kafka-configmap.yaml). It is also
+expected that `sarama.Net.SASL.Enable` and `sarama.Net.TLS.Enable` are set to
+true to perform the required authentication with the Kafka cluster.
 
 Example values for a standard Kafka (must be base64 encoded):
 
@@ -138,7 +138,8 @@ your Kafka cluster.
     private storage of the version numbers and cannot be easily parsed.
     Therefore, we have implemented custom parsing which requires you to enter
     `2.3.0` instead of the Sarama value of `V2_3_0_0`. Further it should be
-    noted that when using with the `azure` adminType it should be set to `1.0.0`.
+    noted that when using with the `azure` adminType it should be set to
+    `1.0.0`.
   - **Net.SASL.Enable** Enable (true) / disable (false) according to your
     authentication needs.
   - **Net.SASL.User:** If you specify the username in the ConfigMap it will be

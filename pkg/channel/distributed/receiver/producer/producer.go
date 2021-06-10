@@ -19,7 +19,6 @@ package producer
 import (
 	"context"
 	"errors"
-	"strings"
 	"time"
 
 	"github.com/Shopify/sarama"
@@ -195,6 +194,10 @@ func (p *Producer) SecretChanged(ctx context.Context, secret *corev1.Secret) *Pr
 	if kafkaAuthCfg.SASL.User == "" {
 		// The config builder expects the entire config object to be nil if not using auth
 		kafkaAuthCfg = nil
+		// Any existing SASL config must be cleared explicitly or the "WithExisting" builder will keep the old values
+		p.configuration.Net.SASL.Enable = false
+		p.configuration.Net.SASL.User = ""
+		p.configuration.Net.SASL.Password = ""
 	}
 	newConfig, err := client.NewConfigBuilder().WithExisting(p.configuration).WithAuth(kafkaAuthCfg).Build(ctx)
 	if err != nil {
@@ -204,7 +207,18 @@ func (p *Producer) SecretChanged(ctx context.Context, secret *corev1.Secret) *Pr
 
 	// Create A New Producer With The New Configuration (Reusing All Other Existing Config)
 	p.logger.Info("Changes Detected In New Secret - Closing & Recreating Producer")
-	return p.reconfigure(newConfig, nil)
+
+	// Shut down the current producer and recreate it with new settings
+	p.Close()
+	reconfiguredKafkaProducer, err := NewProducer(p.logger, newConfig, p.brokers, p.statsReporter, p.healthServer)
+	if err != nil {
+		p.logger.Fatal("Failed To Create Kafka Producer With New Configuration", zap.Error(err))
+		return nil
+	}
+
+	// Successfully Created New Producer - Close Old One And Return New One
+	p.logger.Info("Successfully Created New Producer")
+	return reconfiguredKafkaProducer
 }
 
 // Close The Producer (Stop Processing)
@@ -224,22 +238,4 @@ func (p *Producer) Close() {
 	} else {
 		p.logger.Info("Successfully Closed Kafka Producer")
 	}
-}
-
-// Shut down the current producer and recreate it with new settings
-func (p *Producer) reconfigure(newConfig *sarama.Config, ekConfig *commonconfig.EventingKafkaConfig) *Producer {
-	p.Close()
-	if ekConfig != nil {
-		// Currently the only thing that a new producer might care about in the EventingKafkaConfig is the brokers
-		p.brokers = strings.Split(ekConfig.Kafka.Brokers, ",")
-	}
-	reconfiguredKafkaProducer, err := NewProducer(p.logger, newConfig, p.brokers, p.statsReporter, p.healthServer)
-	if err != nil {
-		p.logger.Fatal("Failed To Create Kafka Producer With New Configuration", zap.Error(err))
-		return nil
-	}
-
-	// Successfully Created New Producer - Close Old One And Return New One
-	p.logger.Info("Successfully Created New Producer")
-	return reconfiguredKafkaProducer
 }

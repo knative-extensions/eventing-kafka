@@ -18,7 +18,6 @@ package dispatcher
 
 import (
 	"context"
-	"strings"
 	"sync"
 	"time"
 
@@ -66,7 +65,7 @@ func NewSubscriberWrapper(subscriberSpec eventingduck.SubscriberSpec, groupId st
 
 // Dispatcher Interface
 type Dispatcher interface {
-	SecretChanged(ctx context.Context, secret *corev1.Secret) Dispatcher
+	SecretChanged(ctx context.Context, secret *corev1.Secret)
 	Shutdown()
 	UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error
 }
@@ -234,7 +233,7 @@ func (d *DispatcherImpl) closeConsumerGroup(subscriber *SubscriberWrapper) {
 }
 
 // SecretChanged is called by the secretObserver handler function in main() so that
-// settings specific to the dispatcher may be extracted and the dispatcher restarted if necessary.
+// settings specific to the dispatcher may be changed if necessary
 func (d *DispatcherImpl) SecretChanged(ctx context.Context, secret *corev1.Secret) {
 
 	// Debug Log The Secret Change
@@ -256,6 +255,10 @@ func (d *DispatcherImpl) SecretChanged(ctx context.Context, secret *corev1.Secre
 	if kafkaAuthCfg.SASL.User == "" {
 		// The config builder expects the entire config object to be nil if not using auth
 		kafkaAuthCfg = nil
+		// Any existing SASL config must be cleared explicitly or the "WithExisting" builder will keep the old values
+		d.SaramaConfig.Net.SASL.Enable = false
+		d.SaramaConfig.Net.SASL.User = ""
+		d.SaramaConfig.Net.SASL.Password = ""
 	}
 	newConfig, err := client.NewConfigBuilder().WithExisting(d.SaramaConfig).WithAuth(kafkaAuthCfg).Build(ctx)
 	if err != nil {
@@ -266,16 +269,16 @@ func (d *DispatcherImpl) SecretChanged(ctx context.Context, secret *corev1.Secre
 	// Create A New Dispatcher With The New Configuration (Reusing All Other Existing Config)
 	d.Logger.Info("Changes Detected In New Secret - Closing & Recreating Consumer Groups")
 	d.reconfigure(newConfig, nil)
-}
 
-// reconfigure shuts down the current dispatcher and recreates it with new settings
-func (d *DispatcherImpl) reconfigure(newConfig *sarama.Config, ekConfig *commonconfig.EventingKafkaConfig) {
-	d.Shutdown()
-	d.DispatcherConfig.SaramaConfig = newConfig
-	if ekConfig != nil {
-		// Currently the only thing that a new dispatcher might care about in the EventingKafkaConfig is the Brokers
-		d.DispatcherConfig.Brokers = strings.Split(ekConfig.Kafka.Brokers, ",")
+	// Close all of the ConsumerGroups so that the settings can be changed
+	// Note: Not calling d.Shutdown because we don't want to close the metrics channel here
+	for _, subscriber := range d.subscribers {
+		d.closeConsumerGroup(subscriber)
 	}
+
+	// The only values in the secret that matter here are the username, password, and SASL type, which are all part
+	// of the SaramaConfig, so that's all that needs to be modified
+	d.DispatcherConfig.SaramaConfig = newConfig
 
 	// Since we're using the Consumer Group Factory, that's the only thing that
 	// needs active reconfiguration, once the desired DispatcherConfig has been set.
@@ -283,7 +286,7 @@ func (d *DispatcherImpl) reconfigure(newConfig *sarama.Config, ekConfig *commonc
 
 	failedSubscriptions := d.UpdateSubscriptions(d.SubscriberSpecs)
 	if len(failedSubscriptions) > 0 {
-		d.Logger.Fatal("Failed To Subscribe Kafka Subscriptions For New Dispatcher", zap.Int("Count", len(failedSubscriptions)))
+		d.Logger.Fatal("Failed To Subscribe Kafka Subscriptions Using Updated Secret", zap.Int("Count", len(failedSubscriptions)))
 	}
 }
 
