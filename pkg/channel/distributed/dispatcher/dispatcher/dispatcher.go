@@ -29,11 +29,11 @@ import (
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/channel"
 
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer"
 	commonkafkautil "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/util"
 	dispatcherconstants "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/constants"
 	"knative.dev/eventing-kafka/pkg/common/client"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
+	commonconsumer "knative.dev/eventing-kafka/pkg/common/consumer"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
 )
 
@@ -55,12 +55,11 @@ type SubscriberWrapper struct {
 	eventingduck.SubscriberSpec
 	GroupId       string
 	ConsumerGroup sarama.ConsumerGroup
-	StopChan      chan struct{}
 }
 
 // NewSubscriberWrapper Is The SubscriberWrapper Constructor
 func NewSubscriberWrapper(subscriberSpec eventingduck.SubscriberSpec, groupId string, consumerGroup sarama.ConsumerGroup) *SubscriberWrapper {
-	return &SubscriberWrapper{subscriberSpec, groupId, consumerGroup, make(chan struct{})}
+	return &SubscriberWrapper{subscriberSpec, groupId, consumerGroup}
 }
 
 // Dispatcher Interface
@@ -73,11 +72,12 @@ type Dispatcher interface {
 // DispatcherImpl Is A Struct With Configuration & ConsumerGroup State
 type DispatcherImpl struct {
 	DispatcherConfig
-	subscribers        map[types.UID]*SubscriberWrapper
-	consumerUpdateLock sync.Mutex
-	messageDispatcher  channel.MessageDispatcher
-	MetricsStopChan    chan struct{}
-	MetricsStoppedChan chan struct{}
+	subscribers          map[types.UID]*SubscriberWrapper
+	consumerGroupFactory commonconsumer.KafkaConsumerGroupFactory
+	consumerUpdateLock   sync.Mutex
+	messageDispatcher    channel.MessageDispatcher
+	MetricsStopChan      chan struct{}
+	MetricsStoppedChan   chan struct{}
 }
 
 // Verify The DispatcherImpl Implements The Dispatcher Interface
@@ -88,11 +88,12 @@ func NewDispatcher(dispatcherConfig DispatcherConfig) Dispatcher {
 
 	// Create The DispatcherImpl With Specified Configuration
 	dispatcher := &DispatcherImpl{
-		DispatcherConfig:   dispatcherConfig,
-		subscribers:        make(map[types.UID]*SubscriberWrapper),
-		messageDispatcher:  channel.NewMessageDispatcher(dispatcherConfig.Logger),
-		MetricsStopChan:    make(chan struct{}),
-		MetricsStoppedChan: make(chan struct{}),
+		DispatcherConfig:     dispatcherConfig,
+		subscribers:          make(map[types.UID]*SubscriberWrapper),
+		consumerGroupFactory: commonconsumer.NewConsumerGroupFactory(dispatcherConfig.Brokers, dispatcherConfig.SaramaConfig),
+		messageDispatcher:    channel.NewMessageDispatcher(dispatcherConfig.Logger),
+		MetricsStopChan:      make(chan struct{}),
+		MetricsStoppedChan:   make(chan struct{}),
 	}
 
 	// Start Observing Metrics
@@ -117,7 +118,7 @@ func (d *DispatcherImpl) Shutdown() {
 	}
 }
 
-// UpdateSubscriptions Updates The Dispatcher's Subscriptions To Align With New State
+// UpdateSubscriptions manages the Dispatcher's Subscriptions to align with new state
 func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error {
 
 	if d.SaramaConfig == nil {
@@ -145,8 +146,9 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 			// Create A ConsumerGroup Logger
 			logger := d.Logger.With(zap.String("GroupId", groupId))
 
-			// Attempt To Create A Kafka ConsumerGroup
-			consumerGroup, err := consumer.CreateConsumerGroup(d.Brokers, groupId, d.SaramaConfig)
+			// Create/Start A New ConsumerGroup With Custom Handler
+			handler := NewHandler(logger, groupId, &subscriberSpec)
+			consumerGroup, err := d.consumerGroupFactory.StartConsumerGroup(groupId, []string{d.Topic}, d.Logger.Sugar(), handler)
 			if err != nil {
 
 				// Log & Return Failure
@@ -158,8 +160,14 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 				// Create A New SubscriberWrapper With The ConsumerGroup
 				subscriber := NewSubscriberWrapper(subscriberSpec, groupId, consumerGroup)
 
-				// Start The ConsumerGroup Processing Messages
-				d.startConsuming(subscriber)
+				// Asynchronously Process ConsumerGroup's Error Channel
+				go func() {
+					logger.Info("ConsumerGroup Error Processing Initiated")
+					for err := range subscriber.ConsumerGroup.Errors() { // Closing ConsumerGroup Will Break Out Of This
+						logger.Error("ConsumerGroup Error", zap.Error(err))
+					}
+					logger.Info("ConsumerGroup Error Processing Terminated")
+				}()
 
 				// Track The New SubscriberWrapper For The SubscriberSpec As Active
 				d.subscribers[subscriberSpec.UID] = subscriber
@@ -190,59 +198,7 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 	return failedSubscriptions
 }
 
-// startConsuming Starts Consuming Messages With The Specified Subscriber's ConsumerGroup
-func (d *DispatcherImpl) startConsuming(subscriber *SubscriberWrapper) {
-
-	// Validate The Subscriber / ConsumerGroup
-	if subscriber != nil && subscriber.ConsumerGroup != nil {
-
-		// Setup The ConsumerGroup Level Logger
-		logger := d.Logger.With(zap.String("GroupId", subscriber.GroupId))
-
-		// Asynchronously Process ConsumerGroup's Error Channel
-		go func() {
-			logger.Info("ConsumerGroup Error Processing Initiated")
-			for err := range subscriber.ConsumerGroup.Errors() { // Closing ConsumerGroup Will Break Out Of This
-				logger.Error("ConsumerGroup Error", zap.Error(err))
-			}
-			logger.Info("ConsumerGroup Error Processing Terminated")
-		}()
-
-		// Create A New ConsumerGroupHandler To Consume Messages With
-		handler := NewHandler(logger, &subscriber.SubscriberSpec)
-
-		// Consume Messages Asynchronously
-		go func() {
-
-			// Infinite Loop To Support Server-Side ConsumerGroup Re-Balance Which Ends Consume() Execution
-			ctx := context.Background()
-			for {
-				select {
-
-				// Non-Blocking Stop Channel Check
-				case <-subscriber.StopChan:
-					logger.Info("ConsumerGroup Closed - Ceasing Consumption")
-					return
-
-				// Start ConsumerGroup Consumption
-				default:
-					logger.Info("ConsumerGroup Message Consumption Initiated")
-					err := subscriber.ConsumerGroup.Consume(ctx, []string{d.Topic}, handler)
-					if err != nil {
-						if err == sarama.ErrClosedConsumerGroup {
-							logger.Info("ConsumerGroup Closed Error - Ceasing Consumption") // Should be caught above but here as added precaution.
-							break
-						} else {
-							logger.Error("ConsumerGroup Failed To Consume Messages", zap.Error(err))
-						}
-					}
-				}
-			}
-		}()
-	}
-}
-
-// closeConsumerGroup Closes The ConsumerGroup Associated With A Single Subscriber
+// closeConsumerGroup closes the ConsumerGroup associated with a single Subscriber
 func (d *DispatcherImpl) closeConsumerGroup(subscriber *SubscriberWrapper) {
 
 	// Get The ConsumerGroup Associated with The Specified Subscriber
@@ -253,9 +209,6 @@ func (d *DispatcherImpl) closeConsumerGroup(subscriber *SubscriberWrapper) {
 
 	// If The ConsumerGroup Is Valid
 	if consumerGroup != nil {
-
-		// Mark The Subscriber's ConsumerGroup As Stopped
-		close(subscriber.StopChan)
 
 		// Close The ConsumerGroup
 		err := consumerGroup.Close()
@@ -308,11 +261,9 @@ func (d *DispatcherImpl) SecretChanged(ctx context.Context, secret *corev1.Secre
 		return
 	}
 
-	// Create A New Dispatcher With The New Configuration (Reusing All Other Existing Config)
-	d.Logger.Info("Changes Detected In New Secret - Closing & Recreating Consumer Groups")
-
 	// Close all of the ConsumerGroups so that the settings can be changed
 	// Note: Not calling d.Shutdown because we don't want to close the metrics channel here
+	d.Logger.Info("Changes Detected In New Secret - Closing & Recreating Consumer Groups")
 	for _, subscriber := range d.subscribers {
 		d.closeConsumerGroup(subscriber)
 	}
@@ -321,6 +272,10 @@ func (d *DispatcherImpl) SecretChanged(ctx context.Context, secret *corev1.Secre
 	// of the SaramaConfig, so that's all that needs to be modified
 	d.DispatcherConfig.SaramaConfig = newConfig
 
+	// Replace The Dispatcher's ConsumerGroupFactory With Updated Version Using New Config
+	d.consumerGroupFactory = commonconsumer.NewConsumerGroupFactory(d.DispatcherConfig.Brokers, d.DispatcherConfig.SaramaConfig)
+
+	// Recreate the ConsumerGroups For Active Subscriptions
 	failedSubscriptions := d.UpdateSubscriptions(d.SubscriberSpecs)
 	if len(failedSubscriptions) > 0 {
 		d.Logger.Fatal("Failed To Subscribe Kafka Subscriptions Using Updated Secret", zap.Int("Count", len(failedSubscriptions)))
