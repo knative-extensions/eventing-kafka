@@ -18,17 +18,14 @@ package mtadapter
 
 import (
 	"context"
-	"strconv"
 	"testing"
 	"time"
 
-	"github.com/Shopify/sarama"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
-	logtesting "knative.dev/pkg/logging/testing"
 	pkgtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/pkg/source"
 
@@ -54,7 +51,7 @@ func TestUpdateRemoveSources(t *testing.T) {
 	ctx, _ := pkgtesting.SetupFakeContext(t)
 	ctx, cancelAdapter := context.WithCancel(ctx)
 
-	env := &AdapterConfig{PodName: podName, MemoryRequest: "0"}
+	env := &AdapterConfig{PodName: podName, MemoryLimit: "0"}
 	ceClient := adaptertest.NewTestClient()
 
 	mtadapter := newAdapter(ctx, env, ceClient, newSampleAdapter).(*Adapter)
@@ -355,7 +352,7 @@ func TestSourceMTAdapter(t *testing.T) {
 
 			ctx, cancelAdapter := context.WithCancel(ctx)
 
-			env := &AdapterConfig{PodName: podName, MemoryRequest: "0"}
+			env := &AdapterConfig{PodName: podName, MemoryLimit: "0"}
 			ceClient := adaptertest.NewTestClient()
 
 			adapter := newAdapter(ctx, env, ceClient, newSampleAdapter).(*Adapter)
@@ -407,41 +404,4 @@ func (d *sampleAdapter) Start(ctx context.Context) error {
 	stoppingAdapterChan <- d
 
 	return nil
-}
-
-func TestAdjustResponseSize(t *testing.T) {
-	testCases := map[string]struct {
-		memoryRequest int64
-		sourceCount   int
-		want          int32
-	}{
-		"no memory request":                           {memoryRequest: 0, sourceCount: 1, want: 100 * 1024 * 1024},
-		"memory request, response size less 64k":      {memoryRequest: 128 * 1024, sourceCount: 4, want: 32 * 1024 / maxBrokers},
-		"memory request, response size more 64k":      {memoryRequest: 512 * 1024, sourceCount: 4, want: 128 * 1024 / maxBrokers},
-		"memory request, response size more than cap": {memoryRequest: 100 * 1024 * 1024, sourceCount: 1, want: responseSizeCap / maxBrokers},
-	}
-
-	for n, tc := range testCases {
-		t.Run(n, func(t *testing.T) {
-			// must run sequentially.
-			sarama.MaxResponseSize = 100 * 1024 * 1024
-
-			sources := make(map[string]cancelContext)
-			for i := 0; i < tc.sourceCount; i++ {
-				sources["s"+strconv.Itoa(i)] = cancelContext{}
-			}
-
-			a := Adapter{
-				memoryRequest: tc.memoryRequest,
-				sources:       sources,
-				logger:        logtesting.TestLogger(t),
-			}
-			a.adjustResponseSize()
-
-			if sarama.MaxResponseSize != tc.want {
-				t.Errorf("Unexpected MaxResponseSize. wanted %d, got %d", tc.want, sarama.MaxResponseSize)
-			}
-		})
-	}
-
 }

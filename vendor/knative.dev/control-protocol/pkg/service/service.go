@@ -135,7 +135,10 @@ func (c *service) startPolling() {
 			select {
 			case err, ok := <-c.connection.Errors():
 				if !ok {
-					logging.FromContext(c.ctx).Debugf("Errors channel closed")
+					// The errors channel from a particular connection won't be re-opened once closed
+					// (usually during baseTcpConnection.cleanup), so there's nothing more to be done in this loop.
+					logging.FromContext(c.ctx).Debugf("Errors channel closed, closing polling loop of control service")
+					return
 				}
 				go c.acceptError(err)
 			case <-c.ctx.Done():
