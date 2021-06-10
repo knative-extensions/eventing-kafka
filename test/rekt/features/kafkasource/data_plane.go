@@ -19,8 +19,6 @@ package kafkasource
 import (
 	"context"
 	"encoding/json"
-	"os"
-	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	. "github.com/cloudevents/sdk-go/v2/test"
@@ -68,8 +66,6 @@ type delivery struct {
 }
 
 var (
-	test_mt_source = os.Getenv("TEST_MT_SOURCE")
-
 	// All auth configurations
 	auths = map[string]auth{
 		"plain": {
@@ -308,11 +304,6 @@ func sinkReceiveEvent(name string, matchers EventMatcher) func(ctx context.Conte
 
 		topicName := state.GetStringOrFail(ctx, t, "topicName")
 		sinkName := state.GetStringOrFail(ctx, t, "sinkName")
-
-		// See https://github.com/knative-sandbox/eventing-kafka/issues/411
-		if test_mt_source == "1" {
-			time.Sleep(10 * time.Second)
-		}
 
 		// Install kafkacat
 		kcopts := []kafkacat.CfgFn{
