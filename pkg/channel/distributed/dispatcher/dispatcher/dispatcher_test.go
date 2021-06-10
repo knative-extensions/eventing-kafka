@@ -19,10 +19,11 @@ package dispatcher
 import (
 	"context"
 	"fmt"
-	"knative.dev/eventing-kafka/pkg/common/metrics"
 	"sync"
 	"testing"
 	"time"
+
+	"knative.dev/eventing-kafka/pkg/common/metrics"
 
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"

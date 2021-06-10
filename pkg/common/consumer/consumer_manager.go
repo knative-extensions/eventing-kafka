@@ -20,15 +20,12 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"time"
 
-	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	ctrlservice "knative.dev/control-protocol/pkg/service"
 	"knative.dev/eventing-kafka/pkg/common/controlprotocol/commands"
 
 	"github.com/Shopify/sarama"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/eventing-kafka/pkg/common/controlprotocol"
 )
 
@@ -87,15 +84,34 @@ func NewPassthroughManager() KafkaConsumerGroupManager {
 
 // managedGroup contains information about a Sarama ConsumerGroup that is required to start (i.e. re-create) it
 type managedGroup struct {
-	factory KafkaConsumerGroupFactory
-	topics  []string
-	logger  *zap.SugaredLogger
-	handler KafkaConsumerHandler
-	options []SaramaConsumerHandlerOption
-	groupId string
-	group   sarama.ConsumerGroup
-	errors  chan error
-	stopped bool
+	factory     KafkaConsumerGroupFactory
+	topics      []string
+	logger      *zap.SugaredLogger
+	handler     KafkaConsumerHandler
+	options     []SaramaConsumerHandlerOption
+	groupId     string
+	group       sarama.ConsumerGroup
+	errors      chan error
+	stopped     bool
+	restartWait sync.WaitGroup
+}
+
+// Stop sets the state of the managed group to "stopped" and increments the restartWait WaitGroup
+// so that waitForStart can block until Start is called
+func (m *managedGroup) Stop() {
+	if !m.stopped {
+		m.restartWait.Add(1)
+		m.stopped = true
+	}
+}
+
+// Start sets the state of the managed group to "not stopped" and decrements the restartWait WaitGroup
+// so that waitForStart will not block
+func (m *managedGroup) Start() {
+	if m.stopped {
+		m.stopped = false
+		m.restartWait.Done()
+	}
 }
 
 // isStopped is an accessor for the "stopped" flag that indicates whether the KafkaConsumerGroupManager stopped
@@ -106,12 +122,8 @@ func (m *managedGroup) isStopped() bool {
 
 // waitForStart will block until a stopped ("paused") ConsumerGroup has been restarted by the
 // KafkaConsumerGroupManager
-func (m *managedGroup) waitForStart() error {
-	// TODO:  Should wait for a proper signal/channel, not poll the stopped field
-	// TODO:  Should have a way to shutdown if the managedGroup is closed
-	return wait.PollInfinite(10*time.Millisecond, func() (bool, error) {
-		return !m.stopped, nil
-	})
+func (m *managedGroup) waitForStart() {
+	m.restartWait.Wait()
 }
 
 // transferErrors starts a goroutine that reads errors from the managedGroup's internal group.Errors() channel
@@ -124,13 +136,15 @@ func (m *managedGroup) transferErrors() {
 			for groupErr := range m.group.Errors() {
 				m.errors <- groupErr
 			}
-			if !m.isStopped() || m.waitForStart() != nil {
+			if !m.isStopped() {
 				// If the error channel was closed without the consumergroup being stopped,
 				// or if we were unable to wait for the group to be restarted, that is outside
 				// of the manager's responsibility, so we are finished transferring errors.
 				close(m.errors)
-				break
+				return
 			}
+			// Wait for the manager to restart the Consumer Group before calling m.group.Errors() again
+			m.waitForStart()
 		}
 	}()
 }
@@ -165,13 +179,13 @@ func NewConsumerGroupManager(serverHandler controlprotocol.ServerHandler, groupF
 	// Add a handler that understands the StopConsumerGroupOpCode and stops the requested group
 	serverHandler.AddAsyncHandler(commands.StopConsumerGroupOpCode, &commands.ConsumerGroupAsyncCommand{},
 		func(ctx context.Context, commandMessage ctrlservice.AsyncCommandMessage) {
-			processAsyncGroupNotification(commandMessage, manager.stopConsumerGroups)
+			processAsyncGroupNotification(commandMessage, manager.stopConsumerGroup)
 		})
 
 	// Add a handler that understands the StartConsumerGroupOpCode and starts the requested group
 	serverHandler.AddAsyncHandler(commands.StartConsumerGroupOpCode, &commands.ConsumerGroupAsyncCommand{},
 		func(ctx context.Context, commandMessage ctrlservice.AsyncCommandMessage) {
-			processAsyncGroupNotification(commandMessage, manager.startConsumerGroups)
+			processAsyncGroupNotification(commandMessage, manager.startConsumerGroup)
 		})
 
 	return manager
@@ -190,7 +204,6 @@ func (m *kafkaConsumerGroupManagerImpl) AddExistingGroup(groupID string, group s
 		options: options,
 		groupId: groupID,
 		group:   group,
-		stopped: false,
 		errors:  make(chan error),
 	}
 	m.groupLock.Unlock()
@@ -217,6 +230,9 @@ func (m *kafkaConsumerGroupManagerImpl) CloseConsumerGroup(groupId string) error
 	if !ok {
 		return fmt.Errorf("could not close consumer group with id '%s' - group is not present in the managed map", groupId)
 	}
+	// Make sure a managed group is "started" before closing the inner ConsumerGroup; otherwise anything
+	// waiting for the manager to restart the group will never return.
+	groupInfo.Start()
 	err := groupInfo.group.Close()
 	if err != nil {
 		return err
@@ -242,10 +258,7 @@ func (m *kafkaConsumerGroupManagerImpl) Consume(groupId string, ctx context.Cont
 			return err
 		}
 		// Wait for the managed ConsumerGroup to be restarted
-		err = groupInfo.waitForStart()
-		if err != nil {
-			return err
-		}
+		groupInfo.waitForStart()
 	}
 }
 
@@ -268,48 +281,40 @@ func (m *kafkaConsumerGroupManagerImpl) IsValid(groupId string) bool {
 	return false
 }
 
-// stopConsumerGroups closes all of the managed Consumer Groups identified by the provided groupIds, and marks them
+// stopConsumerGroups closes the managed Consumer Groups identified by the provided groupId, and marks it
 // as "stopped" (that is, "able to be restarted" as opposed to being closed by something outside the manager)
-func (m *kafkaConsumerGroupManagerImpl) stopConsumerGroups(groupIds ...string) error {
-	var multiErr error
-	for _, id := range groupIds {
-		groupInfo, ok := m.groups[id]
-		if ok {
-			groupInfo.stopped = true // TODO:  Thread-safety
-			err := groupInfo.group.Close()
-			if err != nil {
-				multierr.AppendInto(&multiErr, err)
-			}
-		} else {
-			multierr.AppendInto(&multiErr, fmt.Errorf("stop requested for consumer group not in managed list: %s", id))
+func (m *kafkaConsumerGroupManagerImpl) stopConsumerGroup(groupId string) error {
+	groupInfo, ok := m.groups[groupId]
+	if ok {
+		groupInfo.Stop()
+		err := groupInfo.group.Close()
+		if err != nil {
+			return err
 		}
+		return nil
 	}
-	return nil
+	return fmt.Errorf("stop requested for consumer group not in managed list: %s", groupId)
 }
 
-// startConsumerGroups creates new Consumer Groups based on the groupIds provided
-func (m *kafkaConsumerGroupManagerImpl) startConsumerGroups(groupIds ...string) error {
-	var multiErr error
-	for _, id := range groupIds {
-		groupInfo, ok := m.groups[id]
-		if ok {
-			group, err := m.factory.StartConsumerGroup(m, id, groupInfo.topics, groupInfo.logger, groupInfo.handler, groupInfo.options...)
-			if err != nil {
-				multierr.AppendInto(&multiErr, err)
-			}
-			m.groups[id].group = group
-			m.groups[id].stopped = false
-		} else {
-			multierr.AppendInto(&multiErr, fmt.Errorf("start requested for consumer group not in managed list: %s", id))
+// startConsumerGroups creates a new Consumer Group based on the groupId provided
+func (m *kafkaConsumerGroupManagerImpl) startConsumerGroup(groupId string) error {
+	groupInfo, ok := m.groups[groupId]
+	if ok {
+		group, err := m.factory.StartConsumerGroup(m, groupId, groupInfo.topics, groupInfo.logger, groupInfo.handler, groupInfo.options...)
+		if err != nil {
+			return err
 		}
+		m.groups[groupId].group = group
+		m.groups[groupId].Start()
+		return nil
 	}
-	return multiErr
+	return fmt.Errorf("start requested for consumer group not in managed list: %s", groupId)
 }
 
 // processAsyncGroupNotification calls the provided groupFunction with whatever GroupId is contained
 // in the commandMessage, after verifying that the command version is correct.  It then calls the
 // appropriate Async response function on the commandMessage (NotifyFailed or NotifySuccess)
-func processAsyncGroupNotification(commandMessage ctrlservice.AsyncCommandMessage, groupFunction func(groupIds ...string) error) {
+func processAsyncGroupNotification(commandMessage ctrlservice.AsyncCommandMessage, groupFunction func(groupId string) error) {
 	if cmd, ok := commandMessage.ParsedCommand().(*commands.ConsumerGroupAsyncCommand); ok {
 		if cmd.Version != commands.ConsumerGroupAsyncCommandVersion {
 			commandMessage.NotifyFailed(fmt.Errorf("version mismatch; expected %d but got %d", commands.ConsumerGroupAsyncCommandVersion, cmd.Version))
