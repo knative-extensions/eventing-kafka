@@ -177,13 +177,19 @@ func NewConsumerGroupManager(serverHandler controlprotocol.ServerHandler, groupF
 	}
 
 	// Add a handler that understands the StopConsumerGroupOpCode and stops the requested group
-	serverHandler.AddAsyncHandler(commands.StopConsumerGroupOpCode, &commands.ConsumerGroupAsyncCommand{},
+	serverHandler.AddAsyncHandler(
+		commands.StopConsumerGroupOpCode,
+		commands.StopConsumerGroupResultOpCode,
+		&commands.ConsumerGroupAsyncCommand{},
 		func(ctx context.Context, commandMessage ctrlservice.AsyncCommandMessage) {
 			processAsyncGroupNotification(commandMessage, manager.stopConsumerGroup)
 		})
 
 	// Add a handler that understands the StartConsumerGroupOpCode and starts the requested group
-	serverHandler.AddAsyncHandler(commands.StartConsumerGroupOpCode, &commands.ConsumerGroupAsyncCommand{},
+	serverHandler.AddAsyncHandler(
+		commands.StartConsumerGroupOpCode,
+		commands.StartConsumerGroupResultOpCode,
+		&commands.ConsumerGroupAsyncCommand{},
 		func(ctx context.Context, commandMessage ctrlservice.AsyncCommandMessage) {
 			processAsyncGroupNotification(commandMessage, manager.startConsumerGroup)
 		})
@@ -286,11 +292,11 @@ func (m *kafkaConsumerGroupManagerImpl) IsValid(groupId string) bool {
 func (m *kafkaConsumerGroupManagerImpl) stopConsumerGroup(groupId string) error {
 	groupInfo, ok := m.groups[groupId]
 	if ok {
-		groupInfo.Stop()
 		err := groupInfo.group.Close()
 		if err != nil {
 			return err
 		}
+		groupInfo.Stop()
 		return nil
 	}
 	return fmt.Errorf("stop requested for consumer group not in managed list: %s", groupId)
@@ -318,12 +324,9 @@ func processAsyncGroupNotification(commandMessage ctrlservice.AsyncCommandMessag
 	if cmd, ok := commandMessage.ParsedCommand().(*commands.ConsumerGroupAsyncCommand); ok {
 		if cmd.Version != commands.ConsumerGroupAsyncCommandVersion {
 			commandMessage.NotifyFailed(fmt.Errorf("version mismatch; expected %d but got %d", commands.ConsumerGroupAsyncCommandVersion, cmd.Version))
-		}
-		err := groupFunction(cmd.GroupId)
-		if err != nil {
-			// commandMessage.NotifyFailed(err)  // EDV: TODO:  Put this back
 		} else {
-			// commandMessage.NotifySuccess()  // EDV: TODO:  Put this back
+			// Calling NotifyFailed with a nil error is the same as calling NotifySuccess
+			commandMessage.NotifyFailed(groupFunction(cmd.GroupId))
 		}
 	}
 }

@@ -18,7 +18,11 @@ package consumer
 
 import (
 	"context"
+	"encoding"
 	"fmt"
+	"testing"
+	"time"
+
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
@@ -27,26 +31,36 @@ import (
 	ctrlservice "knative.dev/control-protocol/pkg/service"
 	"knative.dev/eventing-kafka/pkg/common/controlprotocol"
 	"knative.dev/eventing-kafka/pkg/common/controlprotocol/commands"
-	"testing"
-	"time"
 )
 
+// mockControlProtocolService is a stub-only mock of the Control Protocol Service
+type mockControlProtocolService struct{}
+
+var _ ctrl.Service = (*mockControlProtocolService)(nil)
+
+func (mockControlProtocolService) SendAndWaitForAck(_ ctrl.OpCode, _ encoding.BinaryMarshaler) error {
+	return nil
+}
+func (mockControlProtocolService) MessageHandler(_ ctrl.MessageHandler) {}
+func (mockControlProtocolService) ErrorHandler(_ ctrl.ErrorHandler)     {}
+
+// mockServerHandler is a mock of the ServerHandler that only stores results from AddAsyncHandler
 type mockServerHandler struct {
-	handlers map[ctrl.OpCode]controlprotocol.AsyncHandlerFunc
+	router ctrlservice.MessageRouter
 }
 
 var _ controlprotocol.ServerHandler = (*mockServerHandler)(nil)
 
-func (s *mockServerHandler) AddAsyncHandler(opcode ctrl.OpCode, _ message.AsyncCommand, handler controlprotocol.AsyncHandlerFunc) {
-	s.handlers[opcode] = handler
+func (s *mockServerHandler) AddAsyncHandler(opcode ctrl.OpCode, resultOpcode ctrl.OpCode, payloadType message.AsyncCommand, handler controlprotocol.AsyncHandlerFunc) {
+	s.router[opcode] = ctrlservice.NewAsyncCommandHandler(&mockControlProtocolService{}, payloadType, resultOpcode, handler)
 }
 
-func (s *mockServerHandler) Shutdown() {}
+func (s *mockServerHandler) Shutdown()                                               {}
 func (s *mockServerHandler) AddSyncHandler(_ ctrl.OpCode, _ ctrl.MessageHandlerFunc) {}
-func (s *mockServerHandler) RemoveHandler(_ ctrl.OpCode) {}
+func (s *mockServerHandler) RemoveHandler(_ ctrl.OpCode)                             {}
 
 func getMockServerHandler() *mockServerHandler {
-	return &mockServerHandler{handlers:make(map[ctrl.OpCode]controlprotocol.AsyncHandlerFunc)}
+	return &mockServerHandler{router: make(ctrlservice.MessageRouter)}
 }
 
 type mockKafkaConsumerFactory struct {
@@ -68,18 +82,20 @@ type mockConsumerGroupErrors struct {
 	closeErr error
 }
 
-func (m *mockConsumerGroupErrors) Consume(_ context.Context, _ []string, _ sarama.ConsumerGroupHandler) error { return nil }
+var _ sarama.ConsumerGroup = (*mockConsumerGroupErrors)(nil)
+
+func (m *mockConsumerGroupErrors) Consume(_ context.Context, _ []string, _ sarama.ConsumerGroupHandler) error {
+	return nil
+}
 func (m *mockConsumerGroupErrors) Errors() <-chan error { return m.errors }
-func (m *mockConsumerGroupErrors) Close() error { return m.closeErr }
+func (m *mockConsumerGroupErrors) Close() error         { return m.closeErr }
 
 func TestNewConsumerGroupManager(t *testing.T) {
 	server := getMockServerHandler()
 	manager := NewConsumerGroupManager(server, &mockKafkaConsumerFactory{})
 	assert.NotNil(t, manager)
-	assert.NotNil(t, server.handlers[commands.StopConsumerGroupOpCode])
-	assert.NotNil(t, server.handlers[commands.StartConsumerGroupOpCode])
-	server.handlers[commands.StopConsumerGroupOpCode](context.TODO(), ctrlservice.AsyncCommandMessage{})
-	server.handlers[commands.StartConsumerGroupOpCode](context.TODO(), ctrlservice.AsyncCommandMessage{})
+	assert.NotNil(t, server.router[commands.StopConsumerGroupOpCode])
+	assert.NotNil(t, server.router[commands.StartConsumerGroupOpCode])
 }
 
 func TestNewPassthroughManager(t *testing.T) {
@@ -121,21 +137,21 @@ func TestManagedGroup_transferErrors(t *testing.T) {
 
 	// First cycle
 	mockGroup.errors <- fmt.Errorf("first")
-	err := <- group.errors
+	err := <-group.errors
 	assert.NotNil(t, err)
 	assert.Equal(t, "first", err.Error())
 	group.Stop()
-	close(mockGroup.errors)  // Close on a "stopped" consumergroup should wait for a restart
+	close(mockGroup.errors)          // Close on a "stopped" consumergroup should wait for a restart
 	time.Sleep(5 * time.Millisecond) // Let the error handling loop call WaitForStart()
 
 	// Second cycle
 	mockGroup.errors = make(chan error)
 	group.Start() // Signals the error transfer loop to start processing again
 	mockGroup.errors <- fmt.Errorf("second")
-	err = <- group.errors
+	err = <-group.errors
 	assert.NotNil(t, err)
 	assert.Equal(t, "second", err.Error())
-	close(mockGroup.errors)  // Close on a consumergroup that is not "stopped"
+	close(mockGroup.errors) // Close on a consumergroup that is not "stopped"
 
 	time.Sleep(5 * time.Millisecond) // Give the goroutine a chance to exit
 }
@@ -145,12 +161,12 @@ func TestAddExistingGroup(t *testing.T) {
 	group := &mockConsumerGroupErrors{errors: make(chan error)}
 	manager.AddExistingGroup("testid", group, []string{}, nil, nil)
 	group.errors <- fmt.Errorf("test")
-	assert.Equal(t, "test", (<- manager.Errors("testid")).Error())
+	assert.Equal(t, "test", (<-manager.Errors("testid")).Error())
 	close(group.errors)
 }
 
 func TestStartConsumerGroup(t *testing.T) {
-	for _, testCase := range []struct{
+	for _, testCase := range []struct {
 		name       string
 		factoryErr bool
 	}{
@@ -158,111 +174,95 @@ func TestStartConsumerGroup(t *testing.T) {
 			name: "No error",
 		},
 		{
-			name: "Factory error",
+			name:       "Factory error",
 			factoryErr: true,
 		},
-	}{
+	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			manager := NewConsumerGroupManager(getMockServerHandler(), &mockKafkaConsumerFactory{errOnStartup: testCase.factoryErr})
 			err := manager.StartConsumerGroup("testid", []string{}, nil, nil)
-			if testCase.factoryErr {
-				assert.NotNil(t, err)
-			} else {
-				assert.Nil(t, err)
-			}
+			assert.Equal(t, testCase.factoryErr, err != nil)
 		})
 	}
 }
 
 func TestCloseConsumerGroup(t *testing.T) {
-	for _, testCase := range []struct{
+	for _, testCase := range []struct {
 		name      string
-		groupid   string
+		groupId   string
 		expectErr bool
 		closeErr  error
 	}{
 		{
-			name: "Nonexistent GroupID",
+			name:      "Nonexistent GroupID",
 			expectErr: true,
 		},
 		{
-			name: "Existing GroupID",
-			groupid: "test-group-id",
+			name:    "Existing GroupID",
+			groupId: "test-group-id",
 		},
 		{
-			name: "Existing GroupID, Error Closing Group",
-			groupid: "test-group-id",
-			closeErr: fmt.Errorf("test-error"),
+			name:      "Existing GroupID, Error Closing Group",
+			groupId:   "test-group-id",
+			closeErr:  fmt.Errorf("test-error"),
 			expectErr: true,
 		},
-	}{
+	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			manager := NewConsumerGroupManager(getMockServerHandler(), &mockKafkaConsumerFactory{})
-			if testCase.groupid != "" {
-				group := &mockConsumerGroupErrors{closeErr: testCase.closeErr}
-				manager.AddExistingGroup(testCase.groupid, group, []string{}, nil, nil)
+			manager, group, _ := getManagerWithMockGroup(testCase.groupId, false)
+			if group != nil {
+				group.closeErr = testCase.closeErr
 			}
-			err := manager.CloseConsumerGroup(testCase.groupid)
-			if testCase.expectErr {
-				assert.NotNil(t, err)
-			} else {
-				assert.Nil(t, err)
-			}
+			err := manager.CloseConsumerGroup(testCase.groupId)
+			assert.Equal(t, testCase.expectErr, err != nil)
 		})
 	}
 }
 
 func TestConsume(t *testing.T) {
-	for _, testCase := range []struct{
+	for _, testCase := range []struct {
 		name      string
-		groupid   string
+		groupId   string
 		stopped   bool
 		expectErr bool
 	}{
 		{
-			name: "Nonexistent GroupID",
+			name:      "Nonexistent GroupID",
 			expectErr: true,
 		},
 		{
-			name: "Existing GroupID, Started",
-			groupid: "test-group-id",
+			name:    "Existing GroupID, Started",
+			groupId: "test-group-id",
 		},
 		{
 			name:    "Existing GroupID, Stopped",
-			groupid: "test-group-id",
+			groupId: "test-group-id",
 			stopped: true,
 		},
-	}{
+	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			manager := NewConsumerGroupManager(getMockServerHandler(), &mockKafkaConsumerFactory{})
-			if testCase.groupid != "" {
-				group := &mockConsumerGroupErrors{}
-				manager.AddExistingGroup(testCase.groupid, group, []string{}, nil, nil)
-			}
+			manager, _, _ := getManagerWithMockGroup(testCase.groupId, false)
+
 			if testCase.stopped {
 				// this case requires a goroutine so that we can "restart" the group out-of-band
-				mgdGroup := manager.(*kafkaConsumerGroupManagerImpl).groups[testCase.groupid]
+				mgdGroup := manager.(*kafkaConsumerGroupManagerImpl).groups[testCase.groupId]
 				mgdGroup.Stop()
 				go func() {
-					err := manager.Consume(testCase.groupid, context.TODO(), nil, nil)
+					err := manager.Consume(testCase.groupId, context.TODO(), nil, nil)
 					assert.Nil(t, err)
 				}()
-				time.Sleep(5 * time.Millisecond)  // Give Consume() a chance to call waitForStart()
+				time.Sleep(5 * time.Millisecond) // Give Consume() a chance to call waitForStart()
 				mgdGroup.Start()
 			} else {
-				err := manager.Consume(testCase.groupid, context.TODO(), nil, nil)
-				if testCase.expectErr {
-					assert.NotNil(t, err)
-				} else {
-					assert.Nil(t, err)
-				}
+				err := manager.Consume(testCase.groupId, context.TODO(), nil, nil)
+				assert.Equal(t, testCase.expectErr, err != nil)
 			}
 		})
 	}
 }
 
 func TestErrors(t *testing.T) {
-	for _, testCase := range []struct{
+	for _, testCase := range []struct {
 		name      string
 		groupId   string
 		expectErr bool
@@ -272,24 +272,126 @@ func TestErrors(t *testing.T) {
 			groupId: "test-group-id",
 		},
 		{
-			name: "Nonexistent GroupID",
+			name:      "Nonexistent GroupID",
 			expectErr: true,
 		},
-	}{
+	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			manager := NewConsumerGroupManager(getMockServerHandler(), &mockKafkaConsumerFactory{})
-			if testCase.groupId != "" {
-				manager.AddExistingGroup(testCase.groupId, &mockConsumerGroupErrors{errors: make(chan error)}, []string{}, nil, nil)
-			}
+			manager, _, _ := getManagerWithMockGroup(testCase.groupId, false)
 			valid := manager.IsValid(testCase.groupId)
 			errors := manager.Errors(testCase.groupId)
-			if testCase.expectErr {
-				assert.False(t, valid)
-				assert.Nil(t, errors)
-			} else {
-				assert.True(t, valid)
-				assert.NotNil(t, errors)
+			assert.Equal(t, testCase.expectErr, errors == nil)
+			assert.Equal(t, !testCase.expectErr, valid)
+		})
+	}
+}
+
+func TestNotifications(t *testing.T) {
+	for _, testCase := range []struct {
+		name        string
+		groupId     string
+		version     int16
+		opcode      ctrl.OpCode
+		initialStop bool
+		expectStop  bool
+		factoryErr  bool
+		expectErr   bool
+		closeErr    bool
+	}{
+		{
+			name:    "Invalid Command Version",
+			opcode:  commands.StopConsumerGroupOpCode,
+			version: 0,
+		},
+		{
+			name:    "Stop Group OpCode, Nonexistent Group",
+			opcode:  commands.StopConsumerGroupOpCode,
+			version: 1,
+		},
+		{
+			name:    "Start Group OpCode, Nonexistent Group",
+			opcode:  commands.StartConsumerGroupOpCode,
+			version: 1,
+		},
+		{
+			name:       "Stop Group OpCode",
+			opcode:     commands.StopConsumerGroupOpCode,
+			groupId:    "test-group-id",
+			version:    1,
+			expectStop: true,
+		},
+		{
+			name:     "Stop Group OpCode, Group Close Error",
+			opcode:   commands.StopConsumerGroupOpCode,
+			groupId:  "test-group-id",
+			version:  1,
+			closeErr: true,
+		},
+		{
+			name:    "Start Group OpCode, Group Already Started",
+			opcode:  commands.StartConsumerGroupOpCode,
+			groupId: "test-group-id",
+			version: 1,
+		},
+		{
+			name:        "Start Group OpCode, Group Not Started, Factory Error",
+			opcode:      commands.StartConsumerGroupOpCode,
+			groupId:     "test-group-id",
+			version:     1,
+			factoryErr:  true,
+			initialStop: true,
+			expectStop:  true,
+		},
+		{
+			name:        "Start Group OpCode, Group Not Started",
+			opcode:      commands.StartConsumerGroupOpCode,
+			groupId:     "test-group-id",
+			version:     1,
+			initialStop: true,
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			manager, group, serverHandler := getManagerWithMockGroup(testCase.groupId, testCase.factoryErr)
+			impl := manager.(*kafkaConsumerGroupManagerImpl)
+			if testCase.initialStop {
+				impl.groups[testCase.groupId].Stop()
+			}
+			if testCase.closeErr {
+				group.closeErr = fmt.Errorf("test error")
+			}
+
+			handler, ok := serverHandler.router[testCase.opcode]
+			assert.True(t, ok)
+
+			testCommand := commands.ConsumerGroupAsyncCommand{
+				Version:   testCase.version,
+				CommandId: 1,
+				TopicName: "test-topic-name",
+				GroupId:   testCase.groupId,
+			}
+			payload, err := testCommand.MarshalBinary()
+			assert.Nil(t, err)
+
+			msg := ctrl.NewMessage([16]byte{1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4}, uint8(testCase.opcode), payload)
+			handler.HandleServiceMessage(context.TODO(), ctrl.NewServiceMessage(&msg, func(err error) {
+				assert.Equal(t, testCase.expectErr, err != nil)
+			}))
+
+			if group != nil {
+				assert.Equal(t, testCase.expectStop, impl.groups[testCase.groupId].isStopped())
 			}
 		})
 	}
+}
+
+// getManagerWithMockGroup creates a KafkaConsumerGroupManager and optionally seeds it with a mock consumer group
+func getManagerWithMockGroup(groupId string, factoryErr bool) (KafkaConsumerGroupManager, *mockConsumerGroupErrors, *mockServerHandler) {
+	serverHandler := getMockServerHandler()
+	manager := NewConsumerGroupManager(serverHandler, &mockKafkaConsumerFactory{errOnStartup: factoryErr})
+	if groupId != "" {
+		group := mockConsumerGroupErrors{errors: make(chan error)}
+		manager.AddExistingGroup(groupId, &group, []string{}, nil, nil)
+		return manager, &group, serverHandler
+	}
+	return manager, nil, serverHandler
 }

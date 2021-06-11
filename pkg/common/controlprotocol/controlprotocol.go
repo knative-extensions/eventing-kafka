@@ -33,7 +33,7 @@ type AsyncHandlerFunc func(ctx context.Context, commandMessage ctrlservice.Async
 
 type ServerHandler interface {
 	Shutdown()
-	AddAsyncHandler(opcode ctrl.OpCode, payloadType message.AsyncCommand, handler AsyncHandlerFunc)
+	AddAsyncHandler(opcode ctrl.OpCode, resultOpcode ctrl.OpCode, payloadType message.AsyncCommand, handler AsyncHandlerFunc)
 	AddSyncHandler(opcode ctrl.OpCode, handler ctrl.MessageHandlerFunc)
 	RemoveHandler(opcode ctrl.OpCode)
 }
@@ -50,7 +50,7 @@ func NewServerHandler() (ServerHandler, error) {
 	ctx := logging.WithLogger(context.TODO(), logger.Sugar())
 	serverCtx, serverCancelFn := context.WithCancel(ctx)
 
-	controlServer, err := network.StartInsecureControlServer(serverCtx, network.WithPort(9999))
+	controlServer, err := network.StartInsecureControlServer(serverCtx, network.WithPort(9999)) // TODO:  Use an environment variable or const or something for port
 
 	if err != nil {
 		logger.Error("Failed to start control-protocol server", zap.Error(err))
@@ -72,9 +72,9 @@ func (s serverHandlerImpl) Shutdown() {
 	<-s.server.ClosedCh()
 }
 
-func (s serverHandlerImpl) AddAsyncHandler(opcode ctrl.OpCode, payloadType message.AsyncCommand, handler AsyncHandlerFunc) {
+func (s serverHandlerImpl) AddAsyncHandler(opcode ctrl.OpCode, resultOpcode ctrl.OpCode, payloadType message.AsyncCommand, handler AsyncHandlerFunc) {
 	fmt.Printf("EDV: AddAsyncHandler(%d)\n", opcode)
-	s.router[opcode] = ctrlservice.NewAsyncCommandHandler(s.server, payloadType, opcode, handler)
+	s.router[opcode] = ctrlservice.NewAsyncCommandHandler(s.server, payloadType, resultOpcode, handler)
 }
 
 func (s serverHandlerImpl) AddSyncHandler(opcode ctrl.OpCode, handler ctrl.MessageHandlerFunc) {
