@@ -23,6 +23,8 @@ import (
 	"testing"
 	"time"
 
+	controltesting "knative.dev/eventing-kafka/pkg/common/controlprotocol/testing"
+
 	"knative.dev/eventing-kafka/pkg/common/metrics"
 
 	"github.com/Shopify/sarama"
@@ -56,7 +58,6 @@ func TestNewSubscriberWrapper(t *testing.T) {
 	// Test Data
 	subscriber := eventingduck.SubscriberSpec{UID: uid123}
 	groupId := "TestGroupId"
-	consumerGroup := consumertesting.NewMockConsumerGroup()
 
 	// Perform The Test
 	subscriberWrapper := NewSubscriberWrapper(subscriber, groupId)
@@ -83,10 +84,12 @@ func TestNewDispatcher(t *testing.T) {
 // Test The Dispatcher's Shutdown() Functionality
 func TestShutdown(t *testing.T) {
 
+	mockManager := consumertesting.NewMockConsumerGroupManager()
+
 	// Create Mock ConsumerGroups To Register Close() Requests
-	consumerGroup1 := consumertesting.NewMockConsumerGroup()
-	consumerGroup2 := consumertesting.NewMockConsumerGroup()
-	consumerGroup3 := consumertesting.NewMockConsumerGroup()
+	consumerGroup1 := commontesting.NewMockConsumerGroup()
+	consumerGroup2 := commontesting.NewMockConsumerGroup()
+	consumerGroup3 := commontesting.NewMockConsumerGroup()
 
 	// Create Test Subscribers To Close The ConsumerGroups Of
 	subscriber1 := eventingduck.SubscriberSpec{UID: id123}
@@ -96,15 +99,20 @@ func TestShutdown(t *testing.T) {
 	groupId2 := fmt.Sprintf("kafka.%s", subscriber2.UID)
 	groupId3 := fmt.Sprintf("kafka.%s", subscriber3.UID)
 
+	mockManager.AddExistingGroup(groupId1, consumerGroup1, nil, nil, nil)
+	mockManager.AddExistingGroup(groupId2, consumerGroup2, nil, nil, nil)
+	mockManager.AddExistingGroup(groupId3, consumerGroup3, nil, nil, nil)
+
 	// Create The Dispatcher To Test With Existing Subscribers
 	dispatcher := &DispatcherImpl{
 		DispatcherConfig: DispatcherConfig{
 			Logger: logtesting.TestLogger(t).Desugar(),
 		},
+		consumerMgr: mockManager,
 		subscribers: map[types.UID]*SubscriberWrapper{
-			subscriber1.UID: NewSubscriberWrapper(subscriber1, groupId1, consumerGroup1),
-			subscriber2.UID: NewSubscriberWrapper(subscriber2, groupId2, consumerGroup2),
-			subscriber3.UID: NewSubscriberWrapper(subscriber3, groupId3, consumerGroup3),
+			subscriber1.UID: NewSubscriberWrapper(subscriber1, groupId1),
+			subscriber2.UID: NewSubscriberWrapper(subscriber2, groupId2),
+			subscriber3.UID: NewSubscriberWrapper(subscriber3, groupId3),
 		},
 	}
 
@@ -255,6 +263,7 @@ func TestUpdateSubscriptions(t *testing.T) {
 				DispatcherConfig:     testCase.fields.DispatcherConfig,
 				subscribers:          testCase.fields.subscribers,
 				consumerGroupFactory: &consumertesting.MockKafkaConsumerGroupFactory{},
+				consumerMgr:          consumertesting.NewMockConsumerGroupManager(),
 			}
 
 			// Perform The Test
@@ -384,7 +393,7 @@ func TestSecretChanged(t *testing.T) {
 
 // Utility Function For Creating A SubscriberWrapper With Specified UID & Mock ConsumerGroup
 func createSubscriberWrapper(uid types.UID) *SubscriberWrapper {
-	return NewSubscriberWrapper(eventingduck.SubscriberSpec{UID: uid}, fmt.Sprintf("kafka.%s", string(uid)), nil)
+	return NewSubscriberWrapper(eventingduck.SubscriberSpec{UID: uid}, fmt.Sprintf("kafka.%s", string(uid)))
 }
 
 // Utility Function For Creating A Dispatcher With Specified Configuration
@@ -410,7 +419,7 @@ func createTestDispatcher(t *testing.T, brokers []string, config *sarama.Config)
 	}
 
 	// Create The Dispatcher
-	dispatcher := NewDispatcher(dispatcherConfig)
+	dispatcher := NewDispatcher(dispatcherConfig, controltesting.GetMockServerHandler())
 
 	// Verify State
 	assert.NotNil(t, dispatcher)

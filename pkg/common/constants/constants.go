@@ -64,4 +64,7 @@ const (
 
 	// KafkaTopicConfigRetentionMs is the key in the Sarama TopicDetail ConfigEntries map for retention time (in ms)
 	KafkaTopicConfigRetentionMs = "retention.ms"
+
+	// ControlProtocolServerPort is the port used when initializing the control-protocol server
+	ControlProtocolServerPort = 8085
 )

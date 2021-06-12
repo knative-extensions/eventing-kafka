@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package consumer
 
 import (
@@ -25,7 +26,7 @@ import (
 
 var newConsumerGroup = sarama.NewConsumerGroup
 
-// Kafka consumer factory creates the ConsumerGroup and start consuming the specified topic
+// KafkaConsumerGroupFactory creates the ConsumerGroup and start consuming the specified topic
 type KafkaConsumerGroupFactory interface {
 	StartConsumerGroup(manager KafkaConsumerGroupManager, groupID string, topics []string, logger *zap.SugaredLogger, handler KafkaConsumerHandler, options ...SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error)
 }
@@ -42,7 +43,7 @@ type customConsumerGroup struct {
 	releasedCh chan bool
 }
 
-// Merge handler errors chan and consumer group error chan
+// Errors merges handler errors chan and consumer group error chan
 func (c *customConsumerGroup) Errors() <-chan error {
 	return mergeErrorChannels(c.ConsumerGroup.Errors(), c.handlerErrorChannel)
 }

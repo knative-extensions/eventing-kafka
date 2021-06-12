@@ -21,12 +21,12 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
 	ctrlservice "knative.dev/control-protocol/pkg/service"
-	"knative.dev/eventing-kafka/pkg/common/controlprotocol/commands"
 
-	"github.com/Shopify/sarama"
 	"knative.dev/eventing-kafka/pkg/common/controlprotocol"
+	"knative.dev/eventing-kafka/pkg/common/controlprotocol/commands"
 )
 
 // NewConsumerGroupFnType Is A Function Definition Types For A Wrapper Variables (Typesafe Stubbing For Tests)
@@ -40,7 +40,7 @@ type KafkaConsumerGroupManager interface {
 	IsValid(groupId string) bool
 	Errors(groupId string) <-chan error
 	Consume(groupId string, ctx context.Context, topics []string, handler sarama.ConsumerGroupHandler) error
-	// Close ?   If the dispatcher tears down the CG, this needs to know about it
+	// TODO: Close ?   If the dispatcher tears down the CG, this needs to know about it
 }
 
 // passthroughManager does not handle the management of ConsumerGroups, the control protocol, or and start/stop
@@ -243,7 +243,6 @@ func (m *kafkaConsumerGroupManagerImpl) CloseConsumerGroup(groupId string) error
 	if err != nil {
 		return err
 	}
-	close(groupInfo.errors)
 	// Remove this groupId from the map so that Consume, etc cannot be called on it
 	delete(m.groups, groupId)
 	return nil

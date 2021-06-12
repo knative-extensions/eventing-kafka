@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -139,8 +138,8 @@ func main() {
 		MaxIdleConnsPerHost: ekConfig.CloudEvents.MaxIdleConnsPerHost,
 	})
 
-	fmt.Printf("EDV: Creating control-protocol server handler\n")
-	controlProtocolServer, err := controlprotocol.NewServerHandler()
+	logger.Info("Initializing Control-Protocol Server")
+	controlProtocolServer, err := controlprotocol.NewServerHandler(commonconstants.ControlProtocolServerPort)
 	if err != nil {
 		logger.Fatal("Failed To Initialize Control-Protocol Server - Terminating", zap.Error(err))
 	}

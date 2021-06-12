@@ -19,11 +19,12 @@ package testing
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
-
 	"knative.dev/eventing-kafka/pkg/common/consumer"
+	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 )
 
 //
@@ -39,7 +40,7 @@ func (c MockKafkaConsumerGroupFactory) StartConsumerGroup(manager consumer.Kafka
 	if c.CreateErr {
 		return nil, errors.New("error creating consumer")
 	}
-	group := NewMockConsumerGroup()
+	group := commontesting.NewMockConsumerGroup()
 	manager.AddExistingGroup(groupID, group, topics, logger, handler, options...)
 	return group, nil
 }
@@ -47,37 +48,53 @@ func (c MockKafkaConsumerGroupFactory) StartConsumerGroup(manager consumer.Kafka
 var _ consumer.KafkaConsumerGroupFactory = (*MockKafkaConsumerGroupFactory)(nil)
 
 //
-// Mock ConsumerGroup
+// Mock KafkaConsumerGroupManager
 //
 
-var _ sarama.ConsumerGroup = &MockConsumerGroup{}
-
-type MockConsumerGroup struct {
-	errorChan   chan error
-	consumeChan chan struct{}
-	Closed      bool
+// MockConsumerGroupManager implements the KafkaConsumerGroupManager interface
+type MockConsumerGroupManager struct {
+	Groups map[string]sarama.ConsumerGroup
 }
 
-func NewMockConsumerGroup() *MockConsumerGroup {
-	return &MockConsumerGroup{
-		errorChan:   make(chan error),
-		consumeChan: make(chan struct{}),
-		Closed:      false,
+func NewMockConsumerGroupManager() consumer.KafkaConsumerGroupManager {
+	return &MockConsumerGroupManager{
+		Groups: make(map[string]sarama.ConsumerGroup),
 	}
 }
 
-func (m *MockConsumerGroup) Consume(_ context.Context, _ []string, _ sarama.ConsumerGroupHandler) error {
-	<-m.consumeChan                      // Block To Simulate Real Execution
-	return sarama.ErrClosedConsumerGroup // Return ConsumerGroup Closed "Error" For Clean Shutdown
+var _ consumer.KafkaConsumerGroupManager = (*MockConsumerGroupManager)(nil)
+
+func (m MockConsumerGroupManager) AddExistingGroup(groupId string, group sarama.ConsumerGroup,
+	_ []string, _ *zap.SugaredLogger, _ consumer.KafkaConsumerHandler, _ ...consumer.SaramaConsumerHandlerOption) {
+	m.Groups[groupId] = group
 }
 
-func (m *MockConsumerGroup) Errors() <-chan error {
-	return m.errorChan
+func (m MockConsumerGroupManager) CreateConsumerGroup(_ consumer.NewConsumerGroupFnType, _ []string, _ string, _ *sarama.Config) (sarama.ConsumerGroup, error) {
+	return nil, nil
 }
 
-func (m *MockConsumerGroup) Close() error {
-	close(m.errorChan)
-	close(m.consumeChan)
-	m.Closed = true
+func (m MockConsumerGroupManager) StartConsumerGroup(_ string, _ []string,
+	_ *zap.SugaredLogger, _ consumer.KafkaConsumerHandler, _ ...consumer.SaramaConsumerHandlerOption) error {
+	return nil
+}
+
+func (m MockConsumerGroupManager) CloseConsumerGroup(groupId string) error {
+	group, ok := m.Groups[groupId]
+	if !ok {
+		return fmt.Errorf("test error:  Group does not exist")
+	}
+	return group.Close()
+}
+
+func (m MockConsumerGroupManager) IsValid(groupId string) bool {
+	_, ok := m.Groups[groupId]
+	return ok
+}
+
+func (m MockConsumerGroupManager) Errors(_ string) <-chan error {
+	return nil
+}
+
+func (m MockConsumerGroupManager) Consume(_ string, _ context.Context, _ []string, _ sarama.ConsumerGroupHandler) error {
 	return nil
 }

@@ -41,13 +41,13 @@ func (m *mockConsumerGroup) Consume(ctx context.Context, topics []string, handle
 		go func() {
 			m.generateErrorOnce.Do(func() {
 				h := handler.(*SaramaConsumerHandler)
-				h.errors <- errors.New("cgh")
+				h.errors <- errors.New("consumer group handler error")
 				close(h.errors)
 			})
 		}()
 	}
 	if m.consumeMustReturnError {
-		return errors.New("boom!")
+		return errors.New("consume error")
 	}
 	return nil
 }
@@ -56,7 +56,7 @@ func (m *mockConsumerGroup) Errors() <-chan error {
 	ch := make(chan error)
 	go func() {
 		if m.mustGenerateConsumerGroupError {
-			ch <- errors.New("cg")
+			ch <- errors.New("consumer group error")
 		}
 		close(ch)
 	}()
@@ -111,8 +111,8 @@ func TestErrorPropagationCustomConsumerGroup(t *testing.T) {
 		t.Errorf("len(errorsSlice) != 2")
 	}
 
-	assertContainsError(t, errorsSlice, "cgh")
-	assertContainsError(t, errorsSlice, "cg")
+	assertContainsError(t, errorsSlice, "consumer group handler error")
+	assertContainsError(t, errorsSlice, "consumer group error")
 }
 
 func assertContainsError(t *testing.T, collection []error, errorStr string) {
@@ -151,7 +151,7 @@ func TestErrorWhileNewConsumerGroup(t *testing.T) {
 
 	err := <-cg.Errors()
 
-	if err == nil || err.Error() != "boom!" {
-		t.Errorf("Should contain an error with message boom!. Got %v", err)
+	if err == nil || err.Error() != "consume error" {
+		t.Errorf("Should contain an error with message consume error. Got %v", err)
 	}
 }

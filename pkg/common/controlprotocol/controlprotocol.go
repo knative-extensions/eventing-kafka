@@ -18,12 +18,10 @@ package controlprotocol
 
 import (
 	"context"
-	"fmt"
-
-	"knative.dev/control-protocol/pkg/message"
 
 	"go.uber.org/zap"
 	ctrl "knative.dev/control-protocol/pkg"
+	"knative.dev/control-protocol/pkg/message"
 	"knative.dev/control-protocol/pkg/network"
 	ctrlservice "knative.dev/control-protocol/pkg/service"
 	"knative.dev/pkg/logging"
@@ -31,6 +29,12 @@ import (
 
 type AsyncHandlerFunc func(ctx context.Context, commandMessage ctrlservice.AsyncCommandMessage)
 
+// startServerWrapper wraps the Control Protocol initialization call to facilitate
+// unit testing without needing to start live TCP servers
+var startServerWrapper = network.StartInsecureControlServer
+
+// ServerHandler defines the interface for adding and removing sync or async handlers from a
+// control-protocol server
 type ServerHandler interface {
 	Shutdown()
 	AddAsyncHandler(opcode ctrl.OpCode, resultOpcode ctrl.OpCode, payloadType message.AsyncCommand, handler AsyncHandlerFunc)
@@ -45,15 +49,23 @@ type serverHandlerImpl struct {
 	cancelServer context.CancelFunc
 }
 
-func NewServerHandler() (ServerHandler, error) {
+// Verify that the serverHandlerImpl implements the ServerHandler interface
+var _ ServerHandler = (*serverHandlerImpl)(nil)
+
+// NewServerHandler starts a control-protocol server on the specified port and returns
+// the serverHandlerImpl as a ServerHandler interface
+func NewServerHandler(port int) (ServerHandler, error) {
 	logger, _ := zap.NewDevelopment()
 	ctx := logging.WithLogger(context.TODO(), logger.Sugar())
 	serverCtx, serverCancelFn := context.WithCancel(ctx)
 
-	controlServer, err := network.StartInsecureControlServer(serverCtx, network.WithPort(9999)) // TODO:  Use an environment variable or const or something for port
+	// Create a new control-protocol server that will listen on the given port
+	controlServer, err := startServerWrapper(serverCtx, network.WithPort(port))
 
 	if err != nil {
 		logger.Error("Failed to start control-protocol server", zap.Error(err))
+		serverCancelFn()
+		return nil, err
 	}
 
 	messageRouter := make(ctrlservice.MessageRouter)
@@ -66,24 +78,32 @@ func NewServerHandler() (ServerHandler, error) {
 	}, nil
 }
 
+// Shutdown cancels the control-protocol server and wait for it to stop
 func (s serverHandlerImpl) Shutdown() {
-	// Cancel the server and wait for it to stop
 	s.cancelServer()
-	<-s.server.ClosedCh()
+	waitChannelClosed(s.server.ClosedCh())
 }
 
+// waitChannelClosed waits for close() to be called on a channel, unless it is nil
+// (a nil channel blocks forever)
+func waitChannelClosed(channel <-chan struct{}) {
+	if channel != nil {
+		<-channel
+	}
+}
+
+// AddAsyncHandler will add an async handler for the given opcode to the message router used by the
+// control-protocol server, which will send a message using the resultOpcode when it finishes.
 func (s serverHandlerImpl) AddAsyncHandler(opcode ctrl.OpCode, resultOpcode ctrl.OpCode, payloadType message.AsyncCommand, handler AsyncHandlerFunc) {
-	fmt.Printf("EDV: AddAsyncHandler(%d)\n", opcode)
 	s.router[opcode] = ctrlservice.NewAsyncCommandHandler(s.server, payloadType, resultOpcode, handler)
 }
 
+// AddSyncHandler will add a handler to the control-protocol server for the given opcode
 func (s serverHandlerImpl) AddSyncHandler(opcode ctrl.OpCode, handler ctrl.MessageHandlerFunc) {
-	fmt.Printf("EDV: AddSyncHandler(%d)\n", opcode)
 	s.router[opcode] = handler
 }
 
+// RemoveHandler will delete a handler (sync or async) from the internal message router
 func (s serverHandlerImpl) RemoveHandler(opcode ctrl.OpCode) {
 	delete(s.router, opcode)
 }
-
-var _ ServerHandler = (*serverHandlerImpl)(nil)
