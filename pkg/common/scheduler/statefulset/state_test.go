@@ -137,7 +137,7 @@ func TestStateBuilder(t *testing.T) {
 		{
 			name:            "no vpods, all nodes with zone labels",
 			vpods:           [][]duckv1alpha1.Placement{},
-			expected:        state{capacity: 10, free: []int32{}, lastOrdinal: -1, numZones: 3, schedulerPolicy: EVENSPREAD, nodeToZoneMap: map[string]string{"node-0": "zone-0", "node-1": "zone-1", "node-2": "zone-2", "node-3": "zone-2"}},
+			expected:        state{capacity: 10, free: []int32{}, lastOrdinal: -1, numZones: 3, numNodes: 4, schedulerPolicy: EVENSPREAD, nodeToZoneMap: map[string]string{"node-0": "zone-0", "node-1": "zone-1", "node-2": "zone-2", "node-3": "zone-2"}},
 			freec:           int32(0),
 			schedulerPolicy: EVENSPREAD,
 			nodes:           []*v1.Node{makeNode("node-0", "zone-0"), makeNode("node-1", "zone-1"), makeNode("node-2", "zone-2"), makeNode("node-3", "zone-2")},
@@ -145,9 +145,25 @@ func TestStateBuilder(t *testing.T) {
 		{
 			name:            "no vpods, one node with no label",
 			vpods:           [][]duckv1alpha1.Placement{},
-			expected:        state{capacity: 10, free: []int32{}, lastOrdinal: -1, numZones: 2, schedulerPolicy: EVENSPREAD, nodeToZoneMap: map[string]string{"node-0": "zone-0", "node-2": "zone-2", "node-3": "zone-2"}},
+			expected:        state{capacity: 10, free: []int32{}, lastOrdinal: -1, numZones: 2, numNodes: 3, schedulerPolicy: EVENSPREAD, nodeToZoneMap: map[string]string{"node-0": "zone-0", "node-2": "zone-2", "node-3": "zone-2"}},
 			freec:           int32(0),
 			schedulerPolicy: EVENSPREAD,
+			nodes:           []*v1.Node{makeNode("node-0", "zone-0"), makeNodeNoLabel("node-1"), makeNode("node-2", "zone-2"), makeNode("node-3", "zone-2")},
+		},
+		{
+			name:            "no vpods, all nodes with zone labels",
+			vpods:           [][]duckv1alpha1.Placement{},
+			expected:        state{capacity: 10, free: []int32{}, lastOrdinal: -1, numZones: 3, numNodes: 4, schedulerPolicy: EVENSPREAD_BYNODE, nodeToZoneMap: map[string]string{"node-0": "zone-0", "node-1": "zone-1", "node-2": "zone-2", "node-3": "zone-2"}},
+			freec:           int32(0),
+			schedulerPolicy: EVENSPREAD_BYNODE,
+			nodes:           []*v1.Node{makeNode("node-0", "zone-0"), makeNode("node-1", "zone-1"), makeNode("node-2", "zone-2"), makeNode("node-3", "zone-2")},
+		},
+		{
+			name:            "no vpods, one node with no label",
+			vpods:           [][]duckv1alpha1.Placement{},
+			expected:        state{capacity: 10, free: []int32{}, lastOrdinal: -1, numZones: 2, numNodes: 3, schedulerPolicy: EVENSPREAD_BYNODE, nodeToZoneMap: map[string]string{"node-0": "zone-0", "node-2": "zone-2", "node-3": "zone-2"}},
+			freec:           int32(0),
+			schedulerPolicy: EVENSPREAD_BYNODE,
 			nodes:           []*v1.Node{makeNode("node-0", "zone-0"), makeNodeNoLabel("node-1"), makeNode("node-2", "zone-2"), makeNode("node-3", "zone-2")},
 		},
 	}
@@ -165,7 +181,7 @@ func TestStateBuilder(t *testing.T) {
 				vpodClient.Create(vpodNamespace, vpodName, 1, placements)
 			}
 
-			if tc.schedulerPolicy == EVENSPREAD {
+			if tc.schedulerPolicy == EVENSPREAD || tc.schedulerPolicy == EVENSPREAD_BYNODE {
 				for i := 0; i < len(tc.nodes); i++ {
 					node, err := kubeclient.Get(ctx).CoreV1().Nodes().Create(ctx, tc.nodes[i], metav1.CreateOptions{})
 					if err != nil {

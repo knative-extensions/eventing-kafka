@@ -45,10 +45,12 @@ import (
 type SchedulerPolicyType string
 
 const (
-	// MAXFILLUP policy type adds replicas to existing pods to fill them up before adding to new pods
+	// MAXFILLUP policy type adds vreplicas to existing pods to fill them up before adding to new pods
 	MAXFILLUP SchedulerPolicyType = "MAXFILLUP"
-	// EVENSPREAD policy type spreads replicas uniformly across failure-domains such as regions, zones, nodes, etc
+	// EVENSPREAD policy type spreads vreplicas uniformly across zones to reduce impact of failure
 	EVENSPREAD = "EVENSPREAD"
+	// EVENSPREAD_BYNODE policy type spreads vreplicas uniformly across nodes to reduce impact of failure
+	EVENSPREAD_BYNODE = "EVENSPREAD_BYNODE"
 )
 
 const (
@@ -170,6 +172,10 @@ func (s *StatefulSetScheduler) scheduleVPod(vpod scheduler.VPod) ([]duckv1alpha1
 	// - divides up vreplicas equally between the zones and
 	// - allocates as many vreplicas as possible to existing pods while not going over the equal spread value
 	// - allocates remaining vreplicas to new pods created in new zones still satisfying equal spread
+	// Policy: EVENSPREAD_BYNODE (SchedulerPolicyType == EVENSPREAD_BYNODE)
+	// - divides up vreplicas equally between the nodes and
+	// - allocates as many vreplicas as possible to existing pods while not going over the equal spread value
+	// - allocates remaining vreplicas to new pods created on new nodes and zones still satisfying equal spread
 
 	// Exact number of vreplicas => do nothing
 	tr := scheduler.GetTotalVReplicas(placements)
@@ -184,11 +190,15 @@ func (s *StatefulSetScheduler) scheduleVPod(vpod scheduler.VPod) ([]duckv1alpha1
 	// Need less => scale down
 	if tr > vpod.GetVReplicas() {
 		logger.Infow("scaling down", zap.Int32("vreplicas", tr), zap.Int32("new vreplicas", vpod.GetVReplicas()))
-		if state.schedulerPolicy == EVENSPREAD {
-			//spreadVal is the minimum number of replicas to be left behind in each zone for high availability
-			spreadVal = int32(math.Floor(float64(vpod.GetVReplicas()) / float64(state.numZones)))
-			logger.Infow("number of replicas per zone", zap.Int32("spreadVal", spreadVal))
-			placements = s.removeReplicasEvenSpread(tr-vpod.GetVReplicas(), placements, spreadVal)
+		if state.schedulerPolicy == EVENSPREAD || state.schedulerPolicy == EVENSPREAD_BYNODE {
+			//spreadVal is the minimum number of replicas to be left behind in each failure domain for high availability
+			if state.schedulerPolicy == EVENSPREAD {
+				spreadVal = int32(math.Floor(float64(vpod.GetVReplicas()) / float64(state.numZones)))
+			} else if state.schedulerPolicy == EVENSPREAD_BYNODE {
+				spreadVal = int32(math.Floor(float64(vpod.GetVReplicas()) / float64(state.numNodes)))
+			}
+			logger.Infow("number of replicas per domain", zap.Int32("spreadVal", spreadVal))
+			placements = s.removeReplicasEvenSpread(state, tr-vpod.GetVReplicas(), placements, spreadVal)
 		} else {
 			placements = s.removeReplicas(tr-vpod.GetVReplicas(), placements)
 		}
@@ -200,10 +210,14 @@ func (s *StatefulSetScheduler) scheduleVPod(vpod scheduler.VPod) ([]duckv1alpha1
 
 	// Need more => scale up
 	logger.Infow("scaling up", zap.Int32("vreplicas", tr), zap.Int32("new vreplicas", vpod.GetVReplicas()))
-	if state.schedulerPolicy == EVENSPREAD {
-		//spreadVal is the maximum number of replicas to be placed in each zone for high availability
-		spreadVal = int32(math.Ceil(float64(vpod.GetVReplicas()) / float64(state.numZones)))
-		logger.Infow("number of replicas per zone", zap.Int32("spreadVal", spreadVal))
+	if state.schedulerPolicy == EVENSPREAD || state.schedulerPolicy == EVENSPREAD_BYNODE {
+		//spreadVal is the maximum number of replicas to be placed in each failure domain for high availability
+		if state.schedulerPolicy == EVENSPREAD {
+			spreadVal = int32(math.Ceil(float64(vpod.GetVReplicas()) / float64(state.numZones)))
+		} else if state.schedulerPolicy == EVENSPREAD_BYNODE {
+			spreadVal = int32(math.Ceil(float64(vpod.GetVReplicas()) / float64(state.numNodes)))
+		}
+		logger.Infow("number of replicas per domain", zap.Int32("spreadVal", spreadVal))
 		placements, left = s.addReplicasEvenSpread(state, vpod.GetVReplicas()-tr, placements, spreadVal)
 	} else {
 		placements, left = s.addReplicas(state, vpod.GetVReplicas()-tr, placements)
@@ -245,52 +259,65 @@ func (s *StatefulSetScheduler) removeReplicas(diff int32, placements []duckv1alp
 	return newPlacements
 }
 
-func (s *StatefulSetScheduler) removeReplicasEvenSpread(diff int32, placements []duckv1alpha1.Placement, evenSpread int32) []duckv1alpha1.Placement {
-	newPlacements := make([]duckv1alpha1.Placement, 0, len(placements))
+func (s *StatefulSetScheduler) removeReplicasEvenSpread(state *state, diff int32, placements []duckv1alpha1.Placement, evenSpread int32) []duckv1alpha1.Placement {
 	logger := s.logger.Named("remove replicas")
 
-	placementsByZone := getPlacementsByZoneKey(placements)
-	zoneNames := make([]string, 0, len(placementsByZone))
-	for zoneName := range placementsByZone {
-		zoneNames = append(zoneNames, zoneName)
+	newPlacements := s.removeFromExistingReplicas(state, logger, diff, placements, evenSpread)
+	return newPlacements
+}
+
+func (s *StatefulSetScheduler) removeFromExistingReplicas(state *state, logger *zap.SugaredLogger, diff int32, placements []duckv1alpha1.Placement, evenSpread int32) []duckv1alpha1.Placement {
+	var domainNames []string
+	var placementsByDomain map[string][]int32
+	newPlacements := make([]duckv1alpha1.Placement, 0, len(placements))
+
+	if state.schedulerPolicy == EVENSPREAD_BYNODE {
+		placementsByDomain = s.getPlacementsByNodeKey(state, placements)
+	} else {
+		placementsByDomain = s.getPlacementsByZoneKey(state, placements)
 	}
-	sort.Strings(zoneNames) //for ordered accessing of map
+	for domainName := range placementsByDomain {
+		domainNames = append(domainNames, domainName)
+	}
+	sort.Strings(domainNames) //for ordered accessing of map
 
-	for i := 0; i < len(zoneNames); i++ { //iterate through each zone
-		totalInZone := getTotalVReplicasInZone(placements, zoneNames[i])
-		logger.Info(zap.String("zoneName", zoneNames[i]), zap.Int32("totalInZone", totalInZone))
+	for i := 0; i < len(domainNames); i++ { //iterate through each domain
+		var totalInDomain int32
+		if state.schedulerPolicy == EVENSPREAD_BYNODE {
+			totalInDomain = s.getTotalVReplicasInNode(state, placements, domainNames[i])
+		} else {
+			totalInDomain = s.getTotalVReplicasInZone(state, placements, domainNames[i])
+		}
+		logger.Info(zap.String("domainName", domainNames[i]), zap.Int32("totalInDomain", totalInDomain))
 
-		placementOrdinals := placementsByZone[zoneNames[i]]
-		for j := len(placementOrdinals) - 1; j >= 0; j-- { //iterating through all existing pods belonging to a single zone from larger cardinal to smaller
+		placementOrdinals := placementsByDomain[domainNames[i]]
+		for j := len(placementOrdinals) - 1; j >= 0; j-- { //iterating through all existing pods belonging to a single domain from larger cardinal to smaller
 			ordinal := placementOrdinals[j]
 			placement := s.getPlacementFromPodOrdinal(placements, ordinal)
 
-			if diff > 0 && totalInZone >= evenSpread {
-				deallocation := integer.Int32Min(diff, integer.Int32Min(placement.VReplicas, totalInZone-evenSpread))
+			if diff > 0 && totalInDomain >= evenSpread {
+				deallocation := integer.Int32Min(diff, integer.Int32Min(placement.VReplicas, totalInDomain-evenSpread))
 				logger.Info(zap.Int32("diff", diff), zap.Int32("ordinal", ordinal), zap.Int32("deallocation", deallocation))
 
 				if deallocation > 0 && deallocation < placement.VReplicas {
 					newPlacements = append(newPlacements, duckv1alpha1.Placement{
 						PodName:   placement.PodName,
-						ZoneName:  placement.ZoneName,
 						VReplicas: placement.VReplicas - deallocation,
 					})
 					diff -= deallocation
-					totalInZone -= deallocation
+					totalInDomain -= deallocation
 				} else if deallocation >= placement.VReplicas {
 					diff -= placement.VReplicas
-					totalInZone -= placement.VReplicas
+					totalInDomain -= placement.VReplicas
 				} else {
 					newPlacements = append(newPlacements, duckv1alpha1.Placement{
 						PodName:   placement.PodName,
-						ZoneName:  placement.ZoneName,
 						VReplicas: placement.VReplicas,
 					})
 				}
 			} else {
 				newPlacements = append(newPlacements, duckv1alpha1.Placement{
 					PodName:   placement.PodName,
-					ZoneName:  placement.ZoneName,
 					VReplicas: placement.VReplicas,
 				})
 
@@ -351,116 +378,160 @@ func (s *StatefulSetScheduler) addReplicas(state *state, diff int32, placements 
 
 func (s *StatefulSetScheduler) addReplicasEvenSpread(state *state, diff int32, placements []duckv1alpha1.Placement, evenSpread int32) ([]duckv1alpha1.Placement, int32) {
 	// Pod affinity MAXFILLUP algorithm prefer adding replicas to existing pods to fill them up before adding to new pods
-	// Pod affinity EVENSPREAD algorithm spread replicas across pods in different regions for HA
-	newPlacements := make([]duckv1alpha1.Placement, 0, len(placements))
+	// Pod affinity EVENSPREAD and EVENSPREAD_BYNODE algorithm spread replicas across pods in different regions (zone or node) for HA
 	logger := s.logger.Named("add replicas")
 
-	placementsByZone := getPlacementsByZoneKey(placements)
-	zoneNames := make([]string, 0, len(placementsByZone))
-	for zoneName := range placementsByZone {
-		zoneNames = append(zoneNames, zoneName)
+	newPlacements, diff := s.addToExistingReplicas(state, logger, diff, placements, evenSpread)
+
+	if diff > 0 {
+		newPlacements, diff = s.addToNewReplicas(state, logger, diff, newPlacements, evenSpread)
 	}
-	sort.Strings(zoneNames) //for ordered accessing of map
+	return newPlacements, diff
+}
 
-	for i := 0; i < len(zoneNames); i++ { //iterate through each zone
-		totalInZone := getTotalVReplicasInZone(placements, zoneNames[i])
-		logger.Info(zap.String("zoneName", zoneNames[i]), zap.Int32("totalInZone", totalInZone))
+func (s *StatefulSetScheduler) addToExistingReplicas(state *state, logger *zap.SugaredLogger, diff int32, placements []duckv1alpha1.Placement, evenSpread int32) ([]duckv1alpha1.Placement, int32) {
+	var domainNames []string
+	var placementsByDomain map[string][]int32
+	newPlacements := make([]duckv1alpha1.Placement, 0, len(placements))
 
-		placementOrdinals := placementsByZone[zoneNames[i]]
-		for j := 0; j < len(placementOrdinals); j++ { //iterating through all existing pods belonging to a single zone
+	if state.schedulerPolicy == EVENSPREAD_BYNODE {
+		placementsByDomain = s.getPlacementsByNodeKey(state, placements)
+	} else {
+		placementsByDomain = s.getPlacementsByZoneKey(state, placements)
+	}
+	for domainName := range placementsByDomain {
+		domainNames = append(domainNames, domainName)
+	}
+	sort.Strings(domainNames) //for ordered accessing of map
+
+	for i := 0; i < len(domainNames); i++ { //iterate through each domain
+		var totalInDomain int32
+		if state.schedulerPolicy == EVENSPREAD_BYNODE {
+			totalInDomain = s.getTotalVReplicasInNode(state, placements, domainNames[i])
+		} else {
+			totalInDomain = s.getTotalVReplicasInZone(state, placements, domainNames[i])
+		}
+		logger.Info(zap.String("domainName", domainNames[i]), zap.Int32("totalInDomain", totalInDomain))
+
+		placementOrdinals := placementsByDomain[domainNames[i]]
+		for j := 0; j < len(placementOrdinals); j++ { //iterating through all existing pods belonging to a single domain
 			ordinal := placementOrdinals[j]
 			placement := s.getPlacementFromPodOrdinal(placements, ordinal)
 
 			// Is there space in Pod?
 			f := state.Free(ordinal)
-			if diff >= 0 && f > 0 && totalInZone < evenSpread {
-				allocation := integer.Int32Min(diff, integer.Int32Min(f, (evenSpread-totalInZone)))
+			if diff >= 0 && f > 0 && totalInDomain < evenSpread {
+				allocation := integer.Int32Min(diff, integer.Int32Min(f, (evenSpread-totalInDomain)))
 				logger.Info(zap.Int32("diff", diff), zap.Int32("allocation", allocation))
 
 				newPlacements = append(newPlacements, duckv1alpha1.Placement{
 					PodName:   placement.PodName,
-					ZoneName:  placement.ZoneName,
 					VReplicas: placement.VReplicas + allocation,
 				})
 
 				diff -= allocation
 				state.SetFree(ordinal, f-allocation)
-				totalInZone += allocation
+				totalInDomain += allocation
 			} else {
 				newPlacements = append(newPlacements, placement)
-			}
-		}
-	}
-
-	if diff > 0 {
-		for ordinal := int32(0); ordinal < s.replicas; ordinal++ {
-			f := state.Free(ordinal)
-			if f > 0 { //here it is possible to hit pods that are in existing placements
-				podName := podNameFromOrdinal(s.statefulSetName, ordinal)
-				zoneName, err := s.getZoneNameFromPod(state, podName)
-				if err != nil {
-					logger.Errorw("Error getting zone info from pod", zap.Error(err))
-					continue //TODO: not continue?
-				}
-
-				totalInZone := getTotalVReplicasInZone(newPlacements, zoneName)
-				if totalInZone >= evenSpread {
-					continue //since current zone that pod belongs to is already at max spread
-				}
-				logger.Info("Need to schedule on a new pod", zap.Int32("ordinal", ordinal), zap.Int32("free", f), zap.String("zoneName", zoneName), zap.Int32("totalInZone", totalInZone))
-
-				allocation := integer.Int32Min(diff, integer.Int32Min(f, (evenSpread-totalInZone)))
-				logger.Info(zap.Int32("diff", diff), zap.Int32("allocation", allocation))
-
-				newPlacements = append(newPlacements, duckv1alpha1.Placement{
-					PodName:   podName,
-					ZoneName:  zoneName,
-					VReplicas: allocation, //TODO could there be existing vreplicas already?
-				})
-
-				diff -= allocation
-				state.SetFree(ordinal, f-allocation)
-				placementsByZone[zoneName] = append(placementsByZone[zoneName], ordinal)
-			}
-
-			if diff == 0 {
-				break
 			}
 		}
 	}
 	return newPlacements, diff
 }
 
-func (s *StatefulSetScheduler) getZoneNameFromPod(state *state, podName string) (zoneName string, err error) {
+func (s *StatefulSetScheduler) addToNewReplicas(state *state, logger *zap.SugaredLogger, diff int32, newPlacements []duckv1alpha1.Placement, evenSpread int32) ([]duckv1alpha1.Placement, int32) {
+	for ordinal := int32(0); ordinal < s.replicas; ordinal++ {
+		f := state.Free(ordinal)
+		if f > 0 { //here it is possible to hit pods that are in existing placements
+			podName := podNameFromOrdinal(s.statefulSetName, ordinal)
+			zoneName, nodeName, err := s.getPodInfo(state, podName)
+			if err != nil {
+				logger.Errorw("Error getting zone and node info from pod", zap.Error(err))
+				continue //TODO: not continue?
+			}
+
+			var totalInDomain int32
+			if state.schedulerPolicy == EVENSPREAD_BYNODE {
+				totalInDomain = s.getTotalVReplicasInNode(state, newPlacements, nodeName)
+			} else {
+				totalInDomain = s.getTotalVReplicasInZone(state, newPlacements, zoneName)
+			}
+			if totalInDomain >= evenSpread {
+				continue //since current zone that pod belongs to is already at max spread
+			}
+			logger.Info("Need to schedule on a new pod", zap.Int32("ordinal", ordinal), zap.Int32("free", f), zap.String("zoneName", zoneName), zap.String("nodeName", nodeName), zap.Int32("totalInDomain", totalInDomain))
+
+			allocation := integer.Int32Min(diff, integer.Int32Min(f, (evenSpread-totalInDomain)))
+			logger.Info(zap.Int32("diff", diff), zap.Int32("allocation", allocation))
+
+			newPlacements = append(newPlacements, duckv1alpha1.Placement{
+				PodName:   podName,
+				VReplicas: allocation, //TODO could there be existing vreplicas already?
+			})
+
+			diff -= allocation
+			state.SetFree(ordinal, f-allocation)
+		}
+
+		if diff == 0 {
+			break
+		}
+	}
+	return newPlacements, diff
+}
+func (s *StatefulSetScheduler) getPodInfo(state *state, podName string) (zoneName string, nodeName string, err error) {
 	pod, err := s.podLister.Get(podName)
 	if err != nil {
-		return zoneName, err
+		return zoneName, nodeName, err
 	}
 
-	zoneName, ok := state.nodeToZoneMap[pod.Spec.NodeName]
+	nodeName = pod.Spec.NodeName
+	zoneName, ok := state.nodeToZoneMap[nodeName]
 	if !ok {
-		return zoneName, errors.New("Could not find zone")
+		return zoneName, nodeName, errors.New("could not find zone")
 	}
-	return zoneName, nil
+	return zoneName, nodeName, nil
 }
 
-func getPlacementsByZoneKey(placements []duckv1alpha1.Placement) map[string][]int32 {
-	placementsByZone := make(map[string][]int32)
+func (s *StatefulSetScheduler) getPlacementsByZoneKey(state *state, placements []duckv1alpha1.Placement) (placementsByZone map[string][]int32) {
+	placementsByZone = make(map[string][]int32)
 	for i := 0; i < len(placements); i++ {
-		zoneName := placements[i].ZoneName
+		zoneName, _, _ := s.getPodInfo(state, placements[i].PodName)
 		placementsByZone[zoneName] = append(placementsByZone[zoneName], ordinalFromPodName(placements[i].PodName))
 	}
 	return placementsByZone
 }
 
-func getTotalVReplicasInZone(placements []duckv1alpha1.Placement, zoneName string) int32 {
+func (s *StatefulSetScheduler) getPlacementsByNodeKey(state *state, placements []duckv1alpha1.Placement) (placementsByNode map[string][]int32) {
+	placementsByNode = make(map[string][]int32)
+	for i := 0; i < len(placements); i++ {
+		_, nodeName, _ := s.getPodInfo(state, placements[i].PodName)
+		placementsByNode[nodeName] = append(placementsByNode[nodeName], ordinalFromPodName(placements[i].PodName))
+	}
+	return placementsByNode
+}
+
+func (s *StatefulSetScheduler) getTotalVReplicasInZone(state *state, placements []duckv1alpha1.Placement, zoneName string) int32 {
 	var totalReplicasInZone int32
 	for i := 0; i < len(placements); i++ {
-		if placements[i].ZoneName == zoneName {
+		pZone, _, _ := s.getPodInfo(state, placements[i].PodName)
+		if pZone == zoneName {
 			totalReplicasInZone += placements[i].VReplicas
 		}
 	}
 	return totalReplicasInZone
+}
+
+func (s *StatefulSetScheduler) getTotalVReplicasInNode(state *state, placements []duckv1alpha1.Placement, nodeName string) int32 {
+	var totalReplicasInNode int32
+	for i := 0; i < len(placements); i++ {
+		_, pNode, _ := s.getPodInfo(state, placements[i].PodName)
+		if pNode == nodeName {
+			totalReplicasInNode += placements[i].VReplicas
+		}
+	}
+	return totalReplicasInNode
 }
 
 func (s *StatefulSetScheduler) getPlacementFromPodOrdinal(placements []duckv1alpha1.Placement, ordinal int32) (placement duckv1alpha1.Placement) {
