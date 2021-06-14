@@ -18,7 +18,6 @@ package testing
 
 import (
 	"context"
-	"github.com/cloudevents/sdk-go/v2/binding"
 	"net/http"
 	"net/url"
 	"sync"
@@ -26,6 +25,7 @@ import (
 
 	"github.com/Shopify/sarama"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	"github.com/cloudevents/sdk-go/v2/binding"
 	"github.com/stretchr/testify/assert"
 	"knative.dev/eventing/pkg/channel"
 	"knative.dev/eventing/pkg/kncloudevents"
