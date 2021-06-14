@@ -55,7 +55,7 @@ spec:
 
         # The scheduling policy type for placing vreplicas on pods (see type SchedulerPolicyType for enum list)
         - name: SCHEDULER_POLICY_TYPE
-          value: 'MAXFILLUP'
+          value: 'EVENSPREAD_BYNODE'
 
         resources:
           requests:

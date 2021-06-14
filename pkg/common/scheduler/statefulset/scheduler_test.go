@@ -47,6 +47,7 @@ const (
 	vpodName      = "source-name"
 	vpodNamespace = "source-namespace"
 	numZones      = 3
+	numNodes      = 6
 )
 
 func TestStatefulsetScheduler(t *testing.T) {
@@ -158,7 +159,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 			name:            "one replica, one vreplicas, HA scheduling",
 			vreplicas:       1,
 			replicas:        int32(1),
-			expected:        []duckv1alpha1.Placement{{PodName: "statefulset-name-0", ZoneName: "zone0", VReplicas: 1}},
+			expected:        []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 1}},
 			schedulerPolicy: EVENSPREAD,
 		},
 		{
@@ -166,7 +167,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 			vreplicas:       3,
 			replicas:        int32(1),
 			err:             scheduler.ErrNotEnoughReplicas,
-			expected:        []duckv1alpha1.Placement{{PodName: "statefulset-name-0", ZoneName: "zone0", VReplicas: 1}},
+			expected:        []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 1}},
 			schedulerPolicy: EVENSPREAD,
 		},
 		{
@@ -174,7 +175,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 			vreplicas:       15,
 			replicas:        int32(1),
 			err:             scheduler.ErrNotEnoughReplicas,
-			expected:        []duckv1alpha1.Placement{{PodName: "statefulset-name-0", ZoneName: "zone0", VReplicas: 5}},
+			expected:        []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 5}},
 			schedulerPolicy: EVENSPREAD,
 		},
 		{
@@ -183,8 +184,8 @@ func TestStatefulsetScheduler(t *testing.T) {
 			replicas:  int32(2),
 			err:       scheduler.ErrNotEnoughReplicas,
 			expected: []duckv1alpha1.Placement{
-				{PodName: "statefulset-name-0", ZoneName: "zone0", VReplicas: 5},
-				{PodName: "statefulset-name-1", ZoneName: "zone1", VReplicas: 5},
+				{PodName: "statefulset-name-0", VReplicas: 5},
+				{PodName: "statefulset-name-1", VReplicas: 5},
 			},
 			schedulerPolicy: EVENSPREAD,
 		},
@@ -193,12 +194,12 @@ func TestStatefulsetScheduler(t *testing.T) {
 			vreplicas: 15,
 			replicas:  int32(2),
 			placements: []duckv1alpha1.Placement{
-				{PodName: "statefulset-name-0", ZoneName: "zone0", VReplicas: 10},
-				{PodName: "statefulset-name-1", ZoneName: "zone1", VReplicas: 5},
+				{PodName: "statefulset-name-0", VReplicas: 10},
+				{PodName: "statefulset-name-1", VReplicas: 5},
 			},
 			expected: []duckv1alpha1.Placement{
-				{PodName: "statefulset-name-0", ZoneName: "zone0", VReplicas: 10},
-				{PodName: "statefulset-name-1", ZoneName: "zone1", VReplicas: 5},
+				{PodName: "statefulset-name-0", VReplicas: 10},
+				{PodName: "statefulset-name-1", VReplicas: 5},
 			},
 			schedulerPolicy: EVENSPREAD,
 		},
@@ -207,14 +208,14 @@ func TestStatefulsetScheduler(t *testing.T) {
 			vreplicas: 30,
 			replicas:  int32(3),
 			placements: []duckv1alpha1.Placement{
-				{PodName: "statefulset-name-0", ZoneName: "zone0", VReplicas: 5},
-				{PodName: "statefulset-name-1", ZoneName: "zone1", VReplicas: 5},
-				{PodName: "statefulset-name-2", ZoneName: "zone2", VReplicas: 10},
+				{PodName: "statefulset-name-0", VReplicas: 5},
+				{PodName: "statefulset-name-1", VReplicas: 5},
+				{PodName: "statefulset-name-2", VReplicas: 10},
 			},
 			expected: []duckv1alpha1.Placement{
-				{PodName: "statefulset-name-0", ZoneName: "zone0", VReplicas: 10},
-				{PodName: "statefulset-name-1", ZoneName: "zone1", VReplicas: 10},
-				{PodName: "statefulset-name-2", ZoneName: "zone2", VReplicas: 10},
+				{PodName: "statefulset-name-0", VReplicas: 10},
+				{PodName: "statefulset-name-1", VReplicas: 10},
+				{PodName: "statefulset-name-2", VReplicas: 10},
 			},
 			schedulerPolicy: EVENSPREAD,
 		},
@@ -223,14 +224,14 @@ func TestStatefulsetScheduler(t *testing.T) {
 			vreplicas: 15,
 			replicas:  int32(3),
 			placements: []duckv1alpha1.Placement{
-				{PodName: "statefulset-name-0", ZoneName: "zone0", VReplicas: 10},
-				{PodName: "statefulset-name-1", ZoneName: "zone1", VReplicas: 10},
-				{PodName: "statefulset-name-2", ZoneName: "zone2", VReplicas: 5},
+				{PodName: "statefulset-name-0", VReplicas: 10},
+				{PodName: "statefulset-name-1", VReplicas: 10},
+				{PodName: "statefulset-name-2", VReplicas: 5},
 			},
 			expected: []duckv1alpha1.Placement{
-				{PodName: "statefulset-name-0", ZoneName: "zone0", VReplicas: 5},
-				{PodName: "statefulset-name-1", ZoneName: "zone1", VReplicas: 5},
-				{PodName: "statefulset-name-2", ZoneName: "zone2", VReplicas: 5},
+				{PodName: "statefulset-name-0", VReplicas: 5},
+				{PodName: "statefulset-name-1", VReplicas: 5},
+				{PodName: "statefulset-name-2", VReplicas: 5},
 			},
 			schedulerPolicy: EVENSPREAD,
 		},
@@ -239,20 +240,20 @@ func TestStatefulsetScheduler(t *testing.T) {
 			vreplicas: 15,
 			replicas:  int32(3),
 			expected: []duckv1alpha1.Placement{
-				{PodName: "statefulset-name-0", ZoneName: "zone0", VReplicas: 5},
-				{PodName: "statefulset-name-1", ZoneName: "zone1", VReplicas: 5},
-				{PodName: "statefulset-name-2", ZoneName: "zone2", VReplicas: 5},
+				{PodName: "statefulset-name-0", VReplicas: 5},
+				{PodName: "statefulset-name-1", VReplicas: 5},
+				{PodName: "statefulset-name-2", VReplicas: 5},
 			},
 			schedulerPolicy: EVENSPREAD,
 		},
 		{
-			name:      "three replicas, 15 vreplicas, HA scheduling",
+			name:      "three replicas, 20 vreplicas, HA scheduling",
 			vreplicas: 20,
 			replicas:  int32(3),
 			expected: []duckv1alpha1.Placement{
-				{PodName: "statefulset-name-0", ZoneName: "zone0", VReplicas: 7},
-				{PodName: "statefulset-name-1", ZoneName: "zone1", VReplicas: 7},
-				{PodName: "statefulset-name-2", ZoneName: "zone2", VReplicas: 6},
+				{PodName: "statefulset-name-0", VReplicas: 7},
+				{PodName: "statefulset-name-1", VReplicas: 7},
+				{PodName: "statefulset-name-2", VReplicas: 6},
 			},
 			schedulerPolicy: EVENSPREAD,
 		},
@@ -261,13 +262,13 @@ func TestStatefulsetScheduler(t *testing.T) {
 			vreplicas: 2,
 			replicas:  int32(3),
 			placements: []duckv1alpha1.Placement{
-				{PodName: "statefulset-name-0", ZoneName: "zone0", VReplicas: 1},
-				{PodName: "statefulset-name-1", ZoneName: "zone1", VReplicas: 1},
-				{PodName: "statefulset-name-2", ZoneName: "zone2", VReplicas: 1},
+				{PodName: "statefulset-name-0", VReplicas: 1},
+				{PodName: "statefulset-name-1", VReplicas: 1},
+				{PodName: "statefulset-name-2", VReplicas: 1},
 			},
 			expected: []duckv1alpha1.Placement{
-				{PodName: "statefulset-name-1", ZoneName: "zone1", VReplicas: 1},
-				{PodName: "statefulset-name-2", ZoneName: "zone2", VReplicas: 1},
+				{PodName: "statefulset-name-1", VReplicas: 1},
+				{PodName: "statefulset-name-2", VReplicas: 1},
 			},
 			schedulerPolicy: EVENSPREAD,
 		},
@@ -276,34 +277,205 @@ func TestStatefulsetScheduler(t *testing.T) {
 			vreplicas: 3,
 			replicas:  int32(3),
 			placements: []duckv1alpha1.Placement{
-				{PodName: "statefulset-name-0", ZoneName: "zone0", VReplicas: 2},
-				{PodName: "statefulset-name-1", ZoneName: "zone1", VReplicas: 2},
-				{PodName: "statefulset-name-2", ZoneName: "zone1", VReplicas: 2},
-				{PodName: "statefulset-name-3", ZoneName: "zone2", VReplicas: 2},
+				{PodName: "statefulset-name-0", VReplicas: 2},
+				{PodName: "statefulset-name-1", VReplicas: 2},
+				{PodName: "statefulset-name-2", VReplicas: 2},
 			},
 			expected: []duckv1alpha1.Placement{
-				{PodName: "statefulset-name-0", ZoneName: "zone0", VReplicas: 1},
-				{PodName: "statefulset-name-1", ZoneName: "zone1", VReplicas: 1},
-				{PodName: "statefulset-name-3", ZoneName: "zone2", VReplicas: 1},
+				{PodName: "statefulset-name-0", VReplicas: 1},
+				{PodName: "statefulset-name-1", VReplicas: 1},
+				{PodName: "statefulset-name-2", VReplicas: 1},
 			},
 			schedulerPolicy: EVENSPREAD,
 		},
 		{
-			name:      "three replicas, 7 vreplicas, too much scheduled (scale down), HA scheduling",
+			name:      "four replicas, 7 vreplicas, too much scheduled (scale down), HA scheduling",
+			vreplicas: 7,
+			replicas:  int32(4),
+			placements: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 4},
+				{PodName: "statefulset-name-1", VReplicas: 3},
+				{PodName: "statefulset-name-2", VReplicas: 4},
+				{PodName: "statefulset-name-3", VReplicas: 3},
+			},
+			expected: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 2},
+				{PodName: "statefulset-name-1", VReplicas: 2},
+				{PodName: "statefulset-name-2", VReplicas: 3},
+			},
+			schedulerPolicy: EVENSPREAD,
+		},
+		{
+			name:            "no replicas, no vreplicas, HA scheduling by node",
+			vreplicas:       0,
+			replicas:        int32(0),
+			expected:        nil,
+			schedulerPolicy: EVENSPREAD_BYNODE,
+		},
+		{
+			name:            "no replicas, 1 vreplicas, fail, HA scheduling by node",
+			vreplicas:       1,
+			replicas:        int32(0),
+			err:             scheduler.ErrNotEnoughReplicas,
+			expected:        []duckv1alpha1.Placement{},
+			schedulerPolicy: EVENSPREAD_BYNODE,
+		},
+		{
+			name:            "one replica, one vreplicas, HA scheduling by node",
+			vreplicas:       1,
+			replicas:        int32(1),
+			expected:        []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 1}},
+			schedulerPolicy: EVENSPREAD_BYNODE,
+		},
+		{
+			name:            "one replica, 3 vreplicas, HA scheduling by node",
+			vreplicas:       3,
+			replicas:        int32(1),
+			err:             scheduler.ErrNotEnoughReplicas,
+			expected:        []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 1}},
+			schedulerPolicy: EVENSPREAD_BYNODE,
+		},
+		{
+			name:            "one replica, 15 vreplicas, unschedulable, HA scheduling by node",
+			vreplicas:       15,
+			replicas:        int32(1),
+			err:             scheduler.ErrNotEnoughReplicas,
+			expected:        []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 3}},
+			schedulerPolicy: EVENSPREAD_BYNODE,
+		},
+		{
+			name:      "five replicas, 15 vreplicas, scheduled, HA scheduling by node",
+			vreplicas: 15,
+			replicas:  int32(5),
+			expected: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 3},
+				{PodName: "statefulset-name-1", VReplicas: 3},
+				{PodName: "statefulset-name-2", VReplicas: 3},
+				{PodName: "statefulset-name-3", VReplicas: 3},
+				{PodName: "statefulset-name-4", VReplicas: 3},
+			},
+			schedulerPolicy: EVENSPREAD_BYNODE,
+		},
+		{
+			name:      "two replicas, 15 vreplicas, already scheduled, HA scheduling by node",
+			vreplicas: 15,
+			replicas:  int32(2),
+			placements: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 10},
+				{PodName: "statefulset-name-1", VReplicas: 5},
+			},
+			expected: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 10},
+				{PodName: "statefulset-name-1", VReplicas: 5},
+			},
+			schedulerPolicy: EVENSPREAD_BYNODE,
+		},
+		{
+			name:      "three replicas, 30 vreplicas, HA scheduling by node",
+			vreplicas: 30,
+			replicas:  int32(3),
+			placements: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 5},
+				{PodName: "statefulset-name-1", VReplicas: 5},
+				{PodName: "statefulset-name-2", VReplicas: 2},
+			},
+			err: scheduler.ErrNotEnoughReplicas,
+			expected: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 5},
+				{PodName: "statefulset-name-1", VReplicas: 5},
+				{PodName: "statefulset-name-2", VReplicas: 5},
+			},
+			schedulerPolicy: EVENSPREAD_BYNODE,
+		},
+		{
+			name:      "three replicas, 6 vreplicas, too much scheduled (scale down), HA scheduling by node",
 			vreplicas: 7,
 			replicas:  int32(3),
 			placements: []duckv1alpha1.Placement{
-				{PodName: "statefulset-name-0", ZoneName: "zone0", VReplicas: 4},
-				{PodName: "statefulset-name-1", ZoneName: "zone1", VReplicas: 3},
-				{PodName: "statefulset-name-2", ZoneName: "zone1", VReplicas: 4},
-				{PodName: "statefulset-name-3", ZoneName: "zone2", VReplicas: 3},
+				{PodName: "statefulset-name-0", VReplicas: 10},
+				{PodName: "statefulset-name-1", VReplicas: 10},
+				{PodName: "statefulset-name-2", VReplicas: 5},
 			},
 			expected: []duckv1alpha1.Placement{
-				{PodName: "statefulset-name-0", ZoneName: "zone0", VReplicas: 2},
-				{PodName: "statefulset-name-1", ZoneName: "zone1", VReplicas: 2},
-				{PodName: "statefulset-name-3", ZoneName: "zone2", VReplicas: 3},
+				{PodName: "statefulset-name-0", VReplicas: 1},
+				{PodName: "statefulset-name-1", VReplicas: 1},
+				{PodName: "statefulset-name-2", VReplicas: 5},
 			},
-			schedulerPolicy: EVENSPREAD,
+			schedulerPolicy: EVENSPREAD_BYNODE,
+		},
+		{
+			name:      "three replicas, 15 vreplicas, HA scheduling by node",
+			vreplicas: 15,
+			replicas:  int32(3),
+			err:       scheduler.ErrNotEnoughReplicas,
+			expected: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 3},
+				{PodName: "statefulset-name-1", VReplicas: 3},
+				{PodName: "statefulset-name-2", VReplicas: 3},
+			},
+			schedulerPolicy: EVENSPREAD_BYNODE,
+		},
+		{
+			name:      "five replicas, 20 vreplicas, HA scheduling by node",
+			vreplicas: 20,
+			replicas:  int32(5),
+			expected: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 4},
+				{PodName: "statefulset-name-1", VReplicas: 4},
+				{PodName: "statefulset-name-2", VReplicas: 4},
+				{PodName: "statefulset-name-3", VReplicas: 4},
+				{PodName: "statefulset-name-4", VReplicas: 4},
+			},
+			schedulerPolicy: EVENSPREAD_BYNODE,
+		},
+		{
+			name:      "three replicas, 2 vreplicas, too much scheduled (scale down), HA scheduling by node",
+			vreplicas: 2,
+			replicas:  int32(3),
+			placements: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 1},
+				{PodName: "statefulset-name-1", VReplicas: 1},
+				{PodName: "statefulset-name-2", VReplicas: 1},
+			},
+			expected: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-1", VReplicas: 1},
+				{PodName: "statefulset-name-2", VReplicas: 1},
+			},
+			schedulerPolicy: EVENSPREAD_BYNODE,
+		},
+		{
+			name:      "four replicas, 6 vreplicas, too much scheduled (scale down), HA scheduling by node",
+			vreplicas: 6,
+			replicas:  int32(4),
+			placements: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 2},
+				{PodName: "statefulset-name-1", VReplicas: 2},
+				{PodName: "statefulset-name-2", VReplicas: 2},
+				{PodName: "statefulset-name-3", VReplicas: 2},
+			},
+			expected: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 1},
+				{PodName: "statefulset-name-1", VReplicas: 1},
+				{PodName: "statefulset-name-2", VReplicas: 2},
+				{PodName: "statefulset-name-3", VReplicas: 2},
+			},
+			schedulerPolicy: EVENSPREAD_BYNODE,
+		},
+		{
+			name:      "three replicas, 7 vreplicas, too much scheduled (scale down), HA scheduling by node",
+			vreplicas: 7,
+			replicas:  int32(3),
+			placements: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 4},
+				{PodName: "statefulset-name-1", VReplicas: 3},
+				{PodName: "statefulset-name-2", VReplicas: 4},
+			},
+			expected: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 1},
+				{PodName: "statefulset-name-1", VReplicas: 2},
+				{PodName: "statefulset-name-2", VReplicas: 4},
+			},
+			schedulerPolicy: EVENSPREAD_BYNODE,
 		},
 	}
 
@@ -314,15 +486,17 @@ func TestStatefulsetScheduler(t *testing.T) {
 			podlist := make([]runtime.Object, 0, tc.replicas)
 			vpodClient := tscheduler.NewVPodClient()
 
-			if tc.schedulerPolicy == EVENSPREAD {
+			if tc.schedulerPolicy == EVENSPREAD || tc.schedulerPolicy == EVENSPREAD_BYNODE {
 				for i := int32(0); i < numZones; i++ {
-					nodeName := "node" + fmt.Sprint(i)
-					zoneName := "zone" + fmt.Sprint(i)
-					node, err := kubeclient.Get(ctx).CoreV1().Nodes().Create(ctx, makeNode(nodeName, zoneName), metav1.CreateOptions{})
-					if err != nil {
-						t.Fatal("unexpected error", err)
+					for j := int32(0); j < numNodes/numZones; j++ {
+						nodeName := "node" + fmt.Sprint((j*((numNodes/numZones)+1))+i)
+						zoneName := "zone" + fmt.Sprint(i)
+						node, err := kubeclient.Get(ctx).CoreV1().Nodes().Create(ctx, makeNode(nodeName, zoneName), metav1.CreateOptions{})
+						if err != nil {
+							t.Fatal("unexpected error", err)
+						}
+						nodelist = append(nodelist, node)
 					}
-					nodelist = append(nodelist, node)
 				}
 				for i := int32(0); i < tc.replicas; i++ {
 					nodeName := "node" + fmt.Sprint(i)

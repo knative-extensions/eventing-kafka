@@ -18,6 +18,7 @@ package statefulset
 
 import (
 	"context"
+	"fmt"
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/labels"
@@ -49,6 +50,9 @@ type state struct {
 
 	// Number of zones in cluster
 	numZones int32
+
+	// Number of available nodes in cluster
+	numNodes int32
 
 	// Scheduling policy type for placing vreplicas on pods
 	schedulerPolicy SchedulerPolicyType
@@ -147,17 +151,20 @@ func (s *stateBuilder) State(reserved map[types.NamespacedName]map[string]int32)
 		}
 	}
 
-	if s.schedulerPolicy == EVENSPREAD {
+	if s.schedulerPolicy == EVENSPREAD || s.schedulerPolicy == EVENSPREAD_BYNODE {
 		//TODO: need a node watch to see if # nodes/ # zones have gone up or down
 		nodes, err := s.nodeLister.List(labels.Everything())
 		if err != nil {
 			return nil, err
 		}
 
-		nodeToZoneMap := make(map[string]string, len(nodes))
+		nodeToZoneMap := make(map[string]string)
 		zoneMap := make(map[string]struct{})
 		for i := 0; i < len(nodes); i++ {
 			node := nodes[i]
+			if node.Spec.Unschedulable {
+				continue //ignore node that is currently unschedulable
+			}
 			zoneName, ok := node.GetLabels()[ZoneLabel]
 			if !ok {
 				continue //ignore node that doesn't have zone info (maybe a test setup or control node)
@@ -167,7 +174,8 @@ func (s *stateBuilder) State(reserved map[types.NamespacedName]map[string]int32)
 			zoneMap[zoneName] = struct{}{}
 		}
 
-		return &state{free: free, lastOrdinal: last, capacity: s.capacity, numZones: int32(len(zoneMap)), schedulerPolicy: s.schedulerPolicy, nodeToZoneMap: nodeToZoneMap}, nil
+		s.logger.Infow("cluster state info", zap.String("numZones", fmt.Sprint(len(zoneMap))), zap.String("numNodes", fmt.Sprint(len(nodeToZoneMap))))
+		return &state{free: free, lastOrdinal: last, capacity: s.capacity, numZones: int32(len(zoneMap)), numNodes: int32(len(nodeToZoneMap)), schedulerPolicy: s.schedulerPolicy, nodeToZoneMap: nodeToZoneMap}, nil
 
 	}
 	return &state{free: free, lastOrdinal: last, capacity: s.capacity, schedulerPolicy: s.schedulerPolicy}, nil

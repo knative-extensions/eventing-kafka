@@ -207,6 +207,30 @@ func TestAutoscaler(t *testing.T) {
 			wantReplicas:    int32(3),
 			schedulerPolicy: EVENSPREAD,
 		},
+		{
+			name:     "no replicas, with placements, with pending, enough capacity",
+			replicas: int32(0),
+			vpods: []scheduler.VPod{
+				tscheduler.NewVPod(testNs, "vpod-1", 15, []duckv1alpha1.Placement{
+					{PodName: "pod-0", VReplicas: int32(8)},
+					{PodName: "pod-1", VReplicas: int32(7)}}),
+			},
+			pendings:        int32(3),
+			wantReplicas:    int32(3),
+			schedulerPolicy: EVENSPREAD_BYNODE,
+		},
+		{
+			name:     "with replicas, with placements, with pending, enough capacity",
+			replicas: int32(2),
+			vpods: []scheduler.VPod{
+				tscheduler.NewVPod(testNs, "vpod-1", 15, []duckv1alpha1.Placement{
+					{PodName: "pod-0", VReplicas: int32(8)},
+					{PodName: "pod-1", VReplicas: int32(7)}}),
+			},
+			pendings:        int32(3),
+			wantReplicas:    int32(3),
+			schedulerPolicy: EVENSPREAD_BYNODE,
+		},
 	}
 
 	for _, tc := range testCases {
