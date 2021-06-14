@@ -18,6 +18,7 @@ package testing
 
 import (
 	"context"
+	"github.com/cloudevents/sdk-go/v2/binding"
 	"net/http"
 	"net/url"
 	"sync"
@@ -74,7 +75,7 @@ func (m *MockMessageDispatcher) DispatchMessage(ctx context.Context, message clo
 	panic("implement me")
 }
 
-func (m *MockMessageDispatcher) DispatchMessageWithRetries(ctx context.Context, message cloudevents.Message, headers http.Header, destinationUrl *url.URL, replyUrl *url.URL, deadLetterUrl *url.URL, retryConfig *kncloudevents.RetryConfig) (*channel.DispatchExecutionInfo, error) {
+func (m *MockMessageDispatcher) DispatchMessageWithRetries(ctx context.Context, message cloudevents.Message, headers http.Header, destinationUrl *url.URL, replyUrl *url.URL, deadLetterUrl *url.URL, retryConfig *kncloudevents.RetryConfig, transformers ...binding.Transformer) (*channel.DispatchExecutionInfo, error) {
 
 	// Validate The Expected Args
 	assert.NotNil(m.t, ctx)
