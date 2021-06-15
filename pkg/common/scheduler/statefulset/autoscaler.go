@@ -47,7 +47,7 @@ type autoscaler struct {
 	logger            *zap.SugaredLogger
 	stateAccessor     stateAccessor
 	trigger           chan int32
-	evict             scheduler.Evictor
+	evictor           scheduler.Evictor
 
 	// capacity is the total number of virtual replicas available per pod.
 	capacity int32
@@ -70,7 +70,7 @@ func NewAutoscaler(ctx context.Context,
 		statefulSetName:   name,
 		vpodLister:        lister,
 		stateAccessor:     stateAccessor,
-		evict:             evictor,
+		evictor:           evictor,
 		trigger:           make(chan int32, 1),
 		capacity:          capacity,
 		refreshPeriod:     refreshPeriod,
@@ -210,7 +210,7 @@ func (a *autoscaler) compact(s *state) error {
 			if ordinal == s.lastOrdinal {
 				a.logger.Infow("evicting vreplica(s)", zap.String("podname", placement.PodName), zap.Int("vreplicas", int(placement.VReplicas)))
 
-				err = a.evict(vpod, &placement)
+				err = a.evictor(vpod, &placement)
 				if err != nil {
 					return err
 				}
