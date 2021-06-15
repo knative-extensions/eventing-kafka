@@ -58,13 +58,11 @@ spec:
           containerPort: 8008
         resources:
           requests:
-            # taken from serving.
             cpu: 100m
             memory: 50Mi
           limits:
-            # taken from serving.
             cpu: 200m
-            memory: 200Mi
+            memory: 1024Mi
         readinessProbe: &probe
           periodSeconds: 1
           httpGet:
