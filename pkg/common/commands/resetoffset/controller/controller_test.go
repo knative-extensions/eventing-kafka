@@ -29,7 +29,7 @@ import (
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
 
-	fakeKafkaClient "knative.dev/eventing-kafka/pkg/client/injection/client/fake"
+	fakekafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client/fake"
 	_ "knative.dev/eventing-kafka/pkg/client/injection/informers/kafka/v1alpha1/resetoffset/fake" // Force Fake Informer Injection
 	refmapperstesting "knative.dev/eventing-kafka/pkg/common/commands/resetoffset/refmappers/testing"
 	configtesting "knative.dev/eventing-kafka/pkg/common/config/testing"
@@ -37,7 +37,7 @@ import (
 	fakeConfigmapLoader "knative.dev/eventing-kafka/pkg/common/configmaploader/fake"
 	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
-	// TODO _ "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/fake" // Knative Fake Informer Injection
+	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/fake" // Knative Fake Informer Injection
 )
 
 // Test The NewControllerFactory() Functionality
@@ -63,7 +63,7 @@ func TestNewControllerFactory(t *testing.T) {
 	ctx = context.WithValue(ctx, configmaploader.Key{}, configmapLoader.Load)
 
 	// Add The Fake Kafka Clientset To The Context (Empty)
-	ctx, fakeKafkaClientset := fakeKafkaClient.With(ctx)
+	ctx, fakeKafkaClientset := fakekafkaclient.With(ctx)
 	assert.NotNil(t, fakeKafkaClientset)
 
 	// Create A Watcher On The Configuration Settings ConfigMap & Dynamically Update Configuration
@@ -74,11 +74,11 @@ func TestNewControllerFactory(t *testing.T) {
 	mockResetOffsetRefMapperFactory := &refmapperstesting.MockResetOffsetRefMapperFactory{}
 	mockResetOffsetRefMapperFactory.On("Create", ctx).Return(mockResetOffsetRefMapper)
 
-	// TODO - create a mockConnectionPool !!! maybe add to control-protocol?
-	var mockConnectionPool *ctrlreconciler.ControlPlaneConnectionPool
+	// Dummy ConnectionPool For Testing
+	var connectionPool *ctrlreconciler.ControlPlaneConnectionPool
 
 	// Verify The ResetOffset ControllerFactory Creates A ControllerConstructor
-	controllerConstructor := NewControllerFactory(mockResetOffsetRefMapperFactory, mockConnectionPool)
+	controllerConstructor := NewControllerFactory(mockResetOffsetRefMapperFactory, connectionPool)
 	assert.NotNil(t, controllerConstructor)
 
 	// Verify The ResetOffset ControllerConstructor
