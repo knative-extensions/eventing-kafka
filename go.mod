@@ -24,20 +24,20 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/xdg/scram v1.0.3
 	go.opencensus.io v0.23.0
-	go.uber.org/atomic v1.7.0
+	go.uber.org/atomic v1.8.0
 	go.uber.org/multierr v1.6.0
 	go.uber.org/zap v1.17.0
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
 	google.golang.org/protobuf v1.26.0
-	k8s.io/api v0.19.7
-	k8s.io/apimachinery v0.19.7
-	k8s.io/client-go v0.19.7
-	k8s.io/utils v0.0.0-20200729134348-d5654de09c73
+	k8s.io/api v0.20.7
+	k8s.io/apimachinery v0.20.7
+	k8s.io/client-go v0.20.7
+	k8s.io/utils v0.0.0-20201110183641-67b214c5f920
 	knative.dev/control-protocol v0.0.0-20210608143842-1c4b3e61cbc0
-	knative.dev/eventing v0.23.1-0.20210609142642-5e0d9023926a
-	knative.dev/hack v0.0.0-20210609124042-e35bcb8f21ec
-	knative.dev/networking v0.0.0-20210609135543-afa764805e49
-	knative.dev/pkg v0.0.0-20210609135543-c1db741846b8
+	knative.dev/eventing v0.23.1-0.20210615125721-af6744d48af9
+	knative.dev/hack v0.0.0-20210614141220-66ab1a098940
+	knative.dev/networking v0.0.0-20210615114921-e291c8011a20
+	knative.dev/pkg v0.0.0-20210615143321-77ff8d962c73
 	knative.dev/reconciler-test v0.0.0-20210603210445-0071c48281c7
 )
