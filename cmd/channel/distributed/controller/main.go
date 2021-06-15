@@ -51,6 +51,5 @@ func main() {
 	ctx = controller.WithResyncPeriod(ctx, environment.ResyncPeriod)
 	ctx = context.WithValue(ctx, env.Key{}, environment)
 	ctx = context.WithValue(ctx, configmaploader.Key{}, configmap.Load)
-
 	sharedmain.MainWithContext(ctx, constants.ControllerComponentName, kafkachannel.NewController)
 }
