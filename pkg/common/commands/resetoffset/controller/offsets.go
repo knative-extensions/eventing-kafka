@@ -27,6 +27,7 @@ import (
 	"knative.dev/pkg/logging"
 
 	kafkav1alpha1 "knative.dev/eventing-kafka/pkg/apis/kafka/v1alpha1"
+	"knative.dev/eventing-kafka/pkg/common/commands/resetoffset/refmappers"
 )
 
 // PartitionOffsetManagers is a map of Partition -> Sarama PartitionOffsetManager
@@ -51,12 +52,12 @@ var SaramaNewOffsetManagerFromClientFn SaramaNewOffsetManagerFromClientFnType = 
 // offsetTime (millis since epoch) and return OffsetMappings of the old/new
 // state.  An error will be returned and the Offsets will not be committed
 // if any problems occur.
-func (r *Reconciler) reconcileOffsets(ctx context.Context, topicName string, groupId string, offsetTime int64) ([]kafkav1alpha1.OffsetMapping, error) {
+func (r *Reconciler) reconcileOffsets(ctx context.Context, refInfo *refmappers.RefInfo, offsetTime int64) ([]kafkav1alpha1.OffsetMapping, error) {
 
 	// Get The Logger From The Context & Enhance The With Parameters
 	logger := logging.FromContext(ctx).Desugar().With(
-		zap.String("Topic", topicName),
-		zap.String("Group", groupId),
+		zap.String("Topic", refInfo.TopicName),
+		zap.String("Group", refInfo.GroupId),
 		zap.Int64("Time", offsetTime))
 
 	// Initialize A New Sarama Client
@@ -74,7 +75,7 @@ func (r *Reconciler) reconcileOffsets(ctx context.Context, topicName string, gro
 	}
 
 	// Get The Partitions Of The Specified Kafka Topic
-	partitions, err := saramaClient.Partitions(topicName)
+	partitions, err := saramaClient.Partitions(refInfo.TopicName)
 	if err != nil {
 		logger.Error("Failed to determine Partitions for Topic", zap.Error(err))
 		return nil, err
@@ -82,14 +83,14 @@ func (r *Reconciler) reconcileOffsets(ctx context.Context, topicName string, gro
 	logger.Debug("Found Topic Partitions", zap.Any("Partitions", partitions))
 
 	// Create An OffsetManager For The Specified ConsumerGroup
-	offsetManager, err := SaramaNewOffsetManagerFromClientFn(groupId, saramaClient)
+	offsetManager, err := SaramaNewOffsetManagerFromClientFn(refInfo.GroupId, saramaClient)
 	if offsetManager == nil || err != nil {
 		logger.Error("Failed to create OffsetManager for ConsumerGroup", zap.Error(err))
 		return nil, err
 	}
 
 	// Create The Required PartitionOffsetManagers For The Specified Topic / Partitions
-	partitionOffsetManagers, err := createPartitionOffsetManagers(offsetManager, topicName, partitions)
+	partitionOffsetManagers, err := createPartitionOffsetManagers(offsetManager, refInfo.TopicName, partitions)
 	if err != nil {
 		logger.Error("Failed to create PartitionOffsetManagers for Topic Partitions", zap.Error(err))
 		_ = closeManagersAndDrainErrors(logger, offsetManager, partitionOffsetManagers)
@@ -97,7 +98,7 @@ func (r *Reconciler) reconcileOffsets(ctx context.Context, topicName string, gro
 	}
 
 	// Update All Topic Partitions To The Specified Offset Time
-	offsetMappings, err := updateOffsets(logger, saramaClient, offsetManager, partitionOffsetManagers, topicName, partitions, offsetTime)
+	offsetMappings, err := updateOffsets(logger, saramaClient, offsetManager, partitionOffsetManagers, refInfo.TopicName, partitions, offsetTime)
 	if err != nil {
 		logger.Error("Failed to update Offsets for Topic Partitions", zap.Error(err))
 		_ = closeManagersAndDrainErrors(logger, offsetManager, partitionOffsetManagers)

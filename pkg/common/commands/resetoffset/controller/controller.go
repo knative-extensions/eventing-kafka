@@ -20,6 +20,9 @@ import (
 	"context"
 
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/types"
+	ctrlreconciler "knative.dev/control-protocol/pkg/reconciler"
+	"knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection"
@@ -33,7 +36,9 @@ import (
 )
 
 // NewControllerFactory returns a ControllerConstructor function capable of creating a "typed" ResetOffset Controller
-func NewControllerFactory(refMapperFactory refmappers.ResetOffsetRefMapperFactory) injection.ControllerConstructor {
+func NewControllerFactory(
+	refMapperFactory refmappers.ResetOffsetRefMapperFactory,
+	connectionPool *ctrlreconciler.ControlPlaneConnectionPool) injection.ControllerConstructor {
 
 	// Return The New ResetOffset ControllerConstructor Function
 	return func(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
@@ -42,15 +47,23 @@ func NewControllerFactory(refMapperFactory refmappers.ResetOffsetRefMapperFactor
 		logger := logging.FromContext(ctx)
 
 		// Get The Needed Informers
+		podInformer := pod.Get(ctx)
 		resetoffsetInformer := resetoffset.Get(ctx)
 
 		// Create The RefMapper Via The Supplied Factory Using Initialized Context
 		refMapper := refMapperFactory.Create(ctx)
 
+		// Create A Control-Protocol AsyncCommandNotificationStore - No-Op Debug Logger Enqueue Function For ResetOffset Use Case
+		enqueueFunc := func(key types.NamespacedName) { logger.Info("Control-Protocol Enqueue Function", zap.String("Key", key.String())) }
+		asyncCommandNotificationStore := ctrlreconciler.NewAsyncCommandNotificationStore(enqueueFunc)
+
 		// Create A ResetOffset Reconciler
 		reconciler := &Reconciler{
-			resetoffsetLister: resetoffsetInformer.Lister(),
-			refMapper:         refMapper,
+			podLister:                     podInformer.Lister(),
+			resetoffsetLister:             resetoffsetInformer.Lister(),
+			refMapper:                     refMapper,
+			connectionPool:                connectionPool,
+			asyncCommandNotificationStore: asyncCommandNotificationStore,
 		}
 
 		// Setup Reconciler To Watch The Kafka ConfigMap For Changes

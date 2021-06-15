@@ -18,11 +18,13 @@ package util
 
 import (
 	"fmt"
+	"os"
 
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	messagingv1 "knative.dev/eventing/pkg/apis/messaging/v1"
+	"knative.dev/pkg/system"
 
 	commonkafkautil "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/util"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
@@ -61,4 +63,35 @@ func GroupIdMapper(subscription *messagingv1.Subscription) (string, error) {
 		return "", fmt.Errorf("unable to format group id for nil Subscription")
 	}
 	return commonkafkautil.GroupId(string(subscription.UID)), nil
+}
+
+// ConnectionPoolKeyMapper returns a string representing the control-protocol ControlPlaneConnectionPool Key for the specified Knative Subscription.
+func ConnectionPoolKeyMapper(subscription *messagingv1.Subscription) (string, error) {
+	return TopicNameMapper(subscription) // Distributed KafkaChannel is using the TopicName as ConnectionPool Key since it is 1:1 with KafkaChannel.
+}
+
+// DataPlaneNamespaceMapper returns the Kubernetes Namespace where the data-plane components
+// (e.g. Dispatcher) are created by the distributed KafkaChannel controller.
+func DataPlaneNamespaceMapper(_ *messagingv1.Subscription) (string, error) {
+	systemNamespace := os.Getenv(system.NamespaceEnvKey)
+	if systemNamespace == "" {
+		systemNamespace = "knative-eventing"
+	}
+	return systemNamespace, nil
+}
+
+// DataPlaneLabelsMapper returns a map of Kubernetes Labels identifying the distributed
+// KafkaChannels' Dispatcher pods.
+func DataPlaneLabelsMapper(subscription *messagingv1.Subscription) (map[string]string, error) {
+	channelName := subscription.Spec.Channel.Name
+	channelNamespace := subscription.Spec.Channel.Namespace
+	if channelNamespace == "" {
+		channelNamespace = subscription.Namespace
+	}
+	labels := map[string]string{
+		constants.KafkaChannelDispatcherLabel: "true",
+		constants.KafkaChannelNameLabel:       channelName,
+		constants.KafkaChannelNamespaceLabel:  channelNamespace,
+	}
+	return labels, nil
 }

@@ -42,8 +42,18 @@ const (
 	SubscriptionNamespace = "subscription-namespace"
 	SubscriptionName      = "subscription-name"
 
-	TopicName = "TestTopicName"
-	GroupId   = "TestGroupId"
+	TopicName            = "TestTopicName"
+	GroupId              = "TestGroupId"
+	ConnectionPoolKey    = "TestConnectionPoolKey"
+	DataPlaneNamespace   = "TestDataPlaneNamespace"
+	DataPlaneLabelKey1   = "TestDataPlaneLabelKey1"
+	DataPlaneLabelValue1 = "TestDataPlaneLabelValue1"
+	DataPlaneLabelKey2   = "TestDataPlaneLabelKey2"
+	DataPlaneLabelValue2 = "TestDataPlaneLabelValue2"
+)
+
+var (
+	DataPlaneLabels = map[string]string{DataPlaneLabelKey1: DataPlaneLabelValue1, DataPlaneLabelKey2: DataPlaneLabelValue2}
 )
 
 func TestNewSubscriptionRefMapperFactory(t *testing.T) {
@@ -59,9 +69,12 @@ func TestNewSubscriptionRefMapperFactory(t *testing.T) {
 	// Create Test Mappers
 	topicNameMapper := newMockSubscriptionTopicNameMapper(t, nil, TopicName, nil)
 	groupIdMapper := newMockSubscriptionConsumerGroupIdMapper(t, nil, GroupId, nil)
+	connectionPoolKeyMapper := newMockSubscriptionConnectionPoolKeyMapper(t, nil, ConnectionPoolKey, nil)
+	dataPlaneNamespaceMapper := newMockSubscriptionDataPlaneNamespaceMapper(t, nil, DataPlaneNamespace, nil)
+	dataPlaneLabelsMapper := newMockSubscriptionDataPlaneLabelsMapper(t, nil, DataPlaneLabels, nil)
 
 	// Perform The Test - Create New Subscription RefMapper Factory
-	factory := NewSubscriptionRefMapperFactory(topicNameMapper, groupIdMapper)
+	factory := NewSubscriptionRefMapperFactory(topicNameMapper, groupIdMapper, connectionPoolKeyMapper, dataPlaneNamespaceMapper, dataPlaneLabelsMapper)
 	assert.NotNil(t, factory)
 
 	// Test The Factory Create()
@@ -82,9 +95,12 @@ func TestNewResetOffsetSubscriptionRefMapper(t *testing.T) {
 	// Create Test Mappers
 	topicNameMapper := newMockSubscriptionTopicNameMapper(t, nil, TopicName, nil)
 	groupIdMapper := newMockSubscriptionConsumerGroupIdMapper(t, nil, GroupId, nil)
+	connectionPoolKeyMapper := newMockSubscriptionConnectionPoolKeyMapper(t, nil, ConnectionPoolKey, nil)
+	dataPlaneNamespaceMapper := newMockSubscriptionDataPlaneNamespaceMapper(t, nil, DataPlaneNamespace, nil)
+	dataPlaneLabelsMapper := newMockSubscriptionDataPlaneLabelsMapper(t, nil, DataPlaneLabels, nil)
 
 	// Perform The Test - Create A New SubscriptionRefMapper
-	resetOffsetSubscriptionRefMapper := NewSubscriptionRefMapper(ctx, topicNameMapper, groupIdMapper)
+	resetOffsetSubscriptionRefMapper := NewSubscriptionRefMapper(ctx, topicNameMapper, groupIdMapper, connectionPoolKeyMapper, dataPlaneNamespaceMapper, dataPlaneLabelsMapper)
 
 	// Verify The Results
 	assert.NotNil(t, resetOffsetSubscriptionRefMapper)
@@ -92,6 +108,7 @@ func TestNewResetOffsetSubscriptionRefMapper(t *testing.T) {
 	assert.NotNil(t, resetOffsetSubscriptionRefMapper.subscriptionLister)
 	assert.NotNil(t, resetOffsetSubscriptionRefMapper.topicNameMapper) // Testify / DeepEqual Cannot Compare func Types
 	assert.NotNil(t, resetOffsetSubscriptionRefMapper.groupIdMapper)
+	assert.NotNil(t, resetOffsetSubscriptionRefMapper.connectionPoolKeyMapper)
 }
 
 func TestResetOffsetSubscriptionRefMapper_MapRef(t *testing.T) {
@@ -122,24 +139,34 @@ func TestResetOffsetSubscriptionRefMapper_MapRef(t *testing.T) {
 
 	// Define The Test Cases
 	tests := []struct {
-		name            string
-		subscription    *messagingv1.Subscription
-		subscriptionErr error
-		resetOffset     *kafkav1alpha1.ResetOffset
-		topicNameMapper SubscriptionTopicNameMapper
-		groupIdMapper   SubscriptionConsumerGroupIdMapper
-		wantTopic       string
-		wantGroup       string
-		wantErr         bool
+		name                     string
+		subscription             *messagingv1.Subscription
+		subscriptionErr          error
+		resetOffset              *kafkav1alpha1.ResetOffset
+		topicNameMapper          SubscriptionTopicNameMapper
+		groupIdMapper            SubscriptionConsumerGroupIdMapper
+		connectionPoolKeyMapper  SubscriptionConnectionPoolKeyMapper
+		dataPlaneNamespaceMapper SubscriptionDataPlaneNamespaceMapper
+		dataPlaneLabelsMapper    SubscriptionDataPlaneLabelsMapper
+		wantRefInfo              *RefInfo
+		wantErr                  bool
 	}{
 		{
-			name:            "Success",
-			subscription:    subscription,
-			resetOffset:     controllertesting.NewResetOffset(controllertesting.WithSpecRef(subscriptionRef)),
-			topicNameMapper: newMockSubscriptionTopicNameMapper(t, subscription, TopicName, nil),
-			groupIdMapper:   newMockSubscriptionConsumerGroupIdMapper(t, subscription, GroupId, nil),
-			wantTopic:       TopicName,
-			wantGroup:       GroupId,
+			name:                     "Success",
+			subscription:             subscription,
+			resetOffset:              controllertesting.NewResetOffset(controllertesting.WithSpecRef(subscriptionRef)),
+			topicNameMapper:          newMockSubscriptionTopicNameMapper(t, subscription, TopicName, nil),
+			groupIdMapper:            newMockSubscriptionConsumerGroupIdMapper(t, subscription, GroupId, nil),
+			connectionPoolKeyMapper:  newMockSubscriptionConnectionPoolKeyMapper(t, subscription, ConnectionPoolKey, nil),
+			dataPlaneNamespaceMapper: newMockSubscriptionDataPlaneNamespaceMapper(t, subscription, DataPlaneNamespace, nil),
+			dataPlaneLabelsMapper:    newMockSubscriptionDataPlaneLabelsMapper(t, subscription, DataPlaneLabels, nil),
+			wantRefInfo: &RefInfo{
+				TopicName:          TopicName,
+				GroupId:            GroupId,
+				ConnectionPoolKey:  ConnectionPoolKey,
+				DataPlaneNamespace: DataPlaneNamespace,
+				DataPlaneLabels:    DataPlaneLabels,
+			},
 		},
 		{
 			name:        "Nil ResetOffset",
@@ -157,11 +184,33 @@ func TestResetOffsetSubscriptionRefMapper_MapRef(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "Sparse ResetOffset.Spec.Ref",
+			name:         "ResetOffset.Spec.Ref Without Namespace",
+			subscription: subscription,
 			resetOffset: controllertesting.NewResetOffset(controllertesting.WithSpecRef(&duckv1.KReference{
 				Kind:       "Subscription",
 				APIVersion: messagingv1.SchemeGroupVersion.String(),
 				Name:       SubscriptionName,
+			})),
+			topicNameMapper:          newMockSubscriptionTopicNameMapper(t, subscription, TopicName, nil),
+			groupIdMapper:            newMockSubscriptionConsumerGroupIdMapper(t, subscription, GroupId, nil),
+			connectionPoolKeyMapper:  newMockSubscriptionConnectionPoolKeyMapper(t, subscription, ConnectionPoolKey, nil),
+			dataPlaneNamespaceMapper: newMockSubscriptionDataPlaneNamespaceMapper(t, subscription, DataPlaneNamespace, nil),
+			dataPlaneLabelsMapper:    newMockSubscriptionDataPlaneLabelsMapper(t, subscription, DataPlaneLabels, nil),
+			wantRefInfo: &RefInfo{
+				TopicName:          TopicName,
+				GroupId:            GroupId,
+				ConnectionPoolKey:  ConnectionPoolKey,
+				DataPlaneNamespace: DataPlaneNamespace,
+				DataPlaneLabels:    DataPlaneLabels,
+			},
+			wantErr: false,
+		},
+		{
+			name: "ResetOffset.Spec.Ref Without Name",
+			resetOffset: controllertesting.NewResetOffset(controllertesting.WithSpecRef(&duckv1.KReference{
+				Kind:       "Subscription",
+				APIVersion: messagingv1.SchemeGroupVersion.String(),
+				Namespace:  SubscriptionNamespace,
 			})),
 			wantErr: true,
 		},
@@ -172,20 +221,59 @@ func TestResetOffsetSubscriptionRefMapper_MapRef(t *testing.T) {
 			wantErr:         true,
 		},
 		{
-			name:            "TopicName Mapper Error",
-			subscription:    subscription,
-			resetOffset:     controllertesting.NewResetOffset(controllertesting.WithSpecRef(subscriptionRef)),
-			topicNameMapper: newMockSubscriptionTopicNameMapper(t, subscription, TopicName, testErr),
-			groupIdMapper:   newMockSubscriptionConsumerGroupIdMapper(t, subscription, GroupId, nil),
-			wantErr:         true,
+			name:                     "TopicName Mapper Error",
+			subscription:             subscription,
+			resetOffset:              controllertesting.NewResetOffset(controllertesting.WithSpecRef(subscriptionRef)),
+			topicNameMapper:          newMockSubscriptionTopicNameMapper(t, subscription, TopicName, testErr),
+			groupIdMapper:            newMockSubscriptionConsumerGroupIdMapper(t, subscription, GroupId, nil),
+			connectionPoolKeyMapper:  newMockSubscriptionConnectionPoolKeyMapper(t, subscription, ConnectionPoolKey, nil),
+			dataPlaneNamespaceMapper: newMockSubscriptionDataPlaneNamespaceMapper(t, subscription, DataPlaneNamespace, nil),
+			dataPlaneLabelsMapper:    newMockSubscriptionDataPlaneLabelsMapper(t, subscription, DataPlaneLabels, nil),
+			wantErr:                  true,
 		},
 		{
-			name:            "GroupId Mapper Error",
-			subscription:    subscription,
-			resetOffset:     controllertesting.NewResetOffset(controllertesting.WithSpecRef(subscriptionRef)),
-			topicNameMapper: newMockSubscriptionTopicNameMapper(t, subscription, TopicName, nil),
-			groupIdMapper:   newMockSubscriptionConsumerGroupIdMapper(t, subscription, GroupId, testErr),
-			wantErr:         true,
+			name:                     "GroupId Mapper Error",
+			subscription:             subscription,
+			resetOffset:              controllertesting.NewResetOffset(controllertesting.WithSpecRef(subscriptionRef)),
+			topicNameMapper:          newMockSubscriptionTopicNameMapper(t, subscription, TopicName, nil),
+			groupIdMapper:            newMockSubscriptionConsumerGroupIdMapper(t, subscription, GroupId, testErr),
+			connectionPoolKeyMapper:  newMockSubscriptionConnectionPoolKeyMapper(t, subscription, ConnectionPoolKey, nil),
+			dataPlaneNamespaceMapper: newMockSubscriptionDataPlaneNamespaceMapper(t, subscription, DataPlaneNamespace, nil),
+			dataPlaneLabelsMapper:    newMockSubscriptionDataPlaneLabelsMapper(t, subscription, DataPlaneLabels, nil),
+			wantErr:                  true,
+		},
+		{
+			name:                     "ConnectionPoolKey Mapper Error",
+			subscription:             subscription,
+			resetOffset:              controllertesting.NewResetOffset(controllertesting.WithSpecRef(subscriptionRef)),
+			topicNameMapper:          newMockSubscriptionTopicNameMapper(t, subscription, TopicName, nil),
+			groupIdMapper:            newMockSubscriptionConsumerGroupIdMapper(t, subscription, GroupId, nil),
+			connectionPoolKeyMapper:  newMockSubscriptionConnectionPoolKeyMapper(t, subscription, ConnectionPoolKey, testErr),
+			dataPlaneNamespaceMapper: newMockSubscriptionDataPlaneNamespaceMapper(t, subscription, DataPlaneNamespace, nil),
+			dataPlaneLabelsMapper:    newMockSubscriptionDataPlaneLabelsMapper(t, subscription, DataPlaneLabels, nil),
+			wantErr:                  true,
+		},
+		{
+			name:                     "DataPlaneNamespace Mapper Error",
+			subscription:             subscription,
+			resetOffset:              controllertesting.NewResetOffset(controllertesting.WithSpecRef(subscriptionRef)),
+			topicNameMapper:          newMockSubscriptionTopicNameMapper(t, subscription, TopicName, nil),
+			groupIdMapper:            newMockSubscriptionConsumerGroupIdMapper(t, subscription, GroupId, nil),
+			connectionPoolKeyMapper:  newMockSubscriptionConnectionPoolKeyMapper(t, subscription, ConnectionPoolKey, nil),
+			dataPlaneNamespaceMapper: newMockSubscriptionDataPlaneNamespaceMapper(t, subscription, DataPlaneNamespace, testErr),
+			dataPlaneLabelsMapper:    newMockSubscriptionDataPlaneLabelsMapper(t, subscription, DataPlaneLabels, nil),
+			wantErr:                  true,
+		},
+		{
+			name:                     "DataPlaneLabels Mapper Error",
+			subscription:             subscription,
+			resetOffset:              controllertesting.NewResetOffset(controllertesting.WithSpecRef(subscriptionRef)),
+			topicNameMapper:          newMockSubscriptionTopicNameMapper(t, subscription, TopicName, nil),
+			groupIdMapper:            newMockSubscriptionConsumerGroupIdMapper(t, subscription, GroupId, nil),
+			connectionPoolKeyMapper:  newMockSubscriptionConnectionPoolKeyMapper(t, subscription, ConnectionPoolKey, nil),
+			dataPlaneNamespaceMapper: newMockSubscriptionDataPlaneNamespaceMapper(t, subscription, DataPlaneNamespace, nil),
+			dataPlaneLabelsMapper:    newMockSubscriptionDataPlaneLabelsMapper(t, subscription, DataPlaneLabels, testErr),
+			wantErr:                  true,
 		},
 	}
 
@@ -204,19 +292,21 @@ func TestResetOffsetSubscriptionRefMapper_MapRef(t *testing.T) {
 
 			// Create A New SubscriptionRefMapper To Test
 			subscriptionRefMapper := &SubscriptionRefMapper{
-				logger:             logger,
-				subscriptionLister: mockSubscriptionLister,
-				topicNameMapper:    test.topicNameMapper,
-				groupIdMapper:      test.groupIdMapper,
+				logger:                   logger,
+				subscriptionLister:       mockSubscriptionLister,
+				topicNameMapper:          test.topicNameMapper,
+				groupIdMapper:            test.groupIdMapper,
+				connectionPoolKeyMapper:  test.connectionPoolKeyMapper,
+				dataPlaneNamespaceMapper: test.dataPlaneNamespaceMapper,
+				dataPlaneLabelsMapper:    test.dataPlaneLabelsMapper,
 			}
 
 			// Perform The Test - Map A Subscription To Kafka Topic Name & ConsumerGroup ID
-			topicName, groupId, err := subscriptionRefMapper.MapRef(test.resetOffset)
+			refInfo, err := subscriptionRefMapper.MapRef(test.resetOffset)
 
 			// Validate The Results
 			assert.Equal(t, test.wantErr, err != nil)
-			assert.Equal(t, test.wantTopic, topicName)
-			assert.Equal(t, test.wantGroup, groupId)
+			assert.Equal(t, test.wantRefInfo, refInfo)
 		})
 	}
 }
@@ -276,5 +366,26 @@ func newMockSubscriptionConsumerGroupIdMapper(t *testing.T, expectedSubscription
 	return func(subscription *messagingv1.Subscription) (string, error) {
 		assert.Equal(t, expectedSubscription, subscription)
 		return groupId, err
+	}
+}
+
+func newMockSubscriptionConnectionPoolKeyMapper(t *testing.T, expectedSubscription *messagingv1.Subscription, connectionPoolKey string, err error) SubscriptionConnectionPoolKeyMapper {
+	return func(subscription *messagingv1.Subscription) (string, error) {
+		assert.Equal(t, expectedSubscription, subscription)
+		return connectionPoolKey, err
+	}
+}
+
+func newMockSubscriptionDataPlaneNamespaceMapper(t *testing.T, expectedSubscription *messagingv1.Subscription, dataPlaneNamespace string, err error) SubscriptionDataPlaneNamespaceMapper {
+	return func(subscription *messagingv1.Subscription) (string, error) {
+		assert.Equal(t, expectedSubscription, subscription)
+		return dataPlaneNamespace, err
+	}
+}
+
+func newMockSubscriptionDataPlaneLabelsMapper(t *testing.T, expectedSubscription *messagingv1.Subscription, dataPlaneLabels map[string]string, err error) SubscriptionDataPlaneLabelsMapper {
+	return func(subscription *messagingv1.Subscription) (map[string]string, error) {
+		assert.Equal(t, expectedSubscription, subscription)
+		return dataPlaneLabels, err
 	}
 }

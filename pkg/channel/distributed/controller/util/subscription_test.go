@@ -18,6 +18,7 @@ package util
 
 import (
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -27,6 +28,7 @@ import (
 	messagingv1 "knative.dev/eventing/pkg/apis/messaging/v1"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/system"
 
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 )
@@ -190,6 +192,177 @@ func TestGroupIdMapper(t *testing.T) {
 			// Verify Results
 			assert.Equal(t, test.err, err != nil)
 			assert.Equal(t, test.expected, actual)
+		})
+	}
+}
+
+func TestConnectionPoolKeyMapper(t *testing.T) {
+
+	// Test Data
+	kafkaChannelGroupVersion := schema.GroupVersion{
+		Group:   messagingv1.SchemeGroupVersion.Group,
+		Version: messagingv1.SchemeGroupVersion.Version,
+	}
+
+	// Define The TestCases
+	tests := []struct {
+		name         string
+		subscription *messagingv1.Subscription
+		expected     string
+		err          bool
+	}{
+		{
+			name: "fully populated subscription",
+			subscription: &messagingv1.Subscription{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      subscriptionName,
+					Namespace: subscriptionNamespace,
+				},
+				Spec: messagingv1.SubscriptionSpec{
+					Channel: duckv1.KReference{
+						Kind:       constants.KafkaChannelKind,
+						Namespace:  channelNamespace,
+						Name:       channelName,
+						APIVersion: kafkaChannelGroupVersion.String(),
+					},
+				},
+			},
+			expected: fmt.Sprintf("%s.%s", channelNamespace, channelName),
+			err:      false,
+		},
+		{
+			name: "sparsely populated subscription",
+			subscription: &messagingv1.Subscription{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      subscriptionName,
+					Namespace: subscriptionNamespace,
+				},
+				Spec: messagingv1.SubscriptionSpec{
+					Channel: duckv1.KReference{
+						Kind:       constants.KafkaChannelKind,
+						Name:       channelName,
+						APIVersion: kafkaChannelGroupVersion.String(),
+					},
+				},
+			},
+			expected: fmt.Sprintf("%s.%s", subscriptionNamespace, channelName),
+			err:      false,
+		},
+		{
+			name:         "nil subscription",
+			subscription: nil,
+			expected:     "",
+			err:          true,
+		},
+	}
+
+	// Execute The Tests
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+
+			// Perform The Test
+			actual, err := ConnectionPoolKeyMapper(test.subscription)
+
+			// Verify Results
+			assert.Equal(t, test.err, err != nil)
+			assert.Equal(t, test.expected, actual)
+		})
+	}
+}
+
+func TestDataPlaneNamespaceMapper(t *testing.T) {
+
+	// Define The TestCases
+	tests := []struct {
+		name      string
+		namespace string
+		expected  string
+	}{
+		{
+			name:      "OS Value",
+			namespace: "test-namespace",
+			expected:  "test-namespace"},
+		{
+			name:      "Default Value",
+			namespace: "",
+			expected:  "knative-eventing",
+		},
+	}
+
+	// Execute The Tests
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+
+			// Setup The Environment
+			os.Clearenv()
+			if test.namespace != "" {
+				assert.Nil(t, os.Setenv(system.NamespaceEnvKey, test.namespace))
+			}
+
+			// Perform The Test
+			result, err := DataPlaneNamespaceMapper(nil)
+
+			// Verify Results
+			assert.Nil(t, err)
+			assert.Equal(t, test.expected, result)
+		})
+	}
+}
+
+func TestDataPlaneLabelsMapper(t *testing.T) {
+
+	// Define The TestCases
+	tests := []struct {
+		name         string
+		subscription *messagingv1.Subscription
+		expected     map[string]string
+	}{
+		{
+			name: "Complete Channel Reference",
+			subscription: &messagingv1.Subscription{
+				Spec: messagingv1.SubscriptionSpec{
+					Channel: duckv1.KReference{
+						Namespace: channelNamespace,
+						Name:      channelName,
+					},
+				},
+			},
+			expected: map[string]string{
+				constants.KafkaChannelDispatcherLabel: "true",
+				constants.KafkaChannelNameLabel:       channelName,
+				constants.KafkaChannelNamespaceLabel:  channelNamespace,
+			},
+		},
+		{
+			name: "Sparse Channel Reference",
+			subscription: &messagingv1.Subscription{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: channelNamespace,
+				},
+				Spec: messagingv1.SubscriptionSpec{
+					Channel: duckv1.KReference{
+						Name: channelName,
+					},
+				},
+			},
+			expected: map[string]string{
+				constants.KafkaChannelDispatcherLabel: "true",
+				constants.KafkaChannelNameLabel:       channelName,
+				constants.KafkaChannelNamespaceLabel:  channelNamespace,
+			},
+		},
+	}
+
+	// Execute The Tests
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+
+			// Perform The Test
+			result, err := DataPlaneLabelsMapper(test.subscription)
+
+			// Verify Results
+			assert.Nil(t, err)
+			assert.Equal(t, test.expected, result)
 		})
 	}
 }
