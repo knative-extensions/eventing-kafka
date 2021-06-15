@@ -19,9 +19,10 @@ package controlprotocol
 import (
 	"context"
 	"fmt"
-	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 	"sync"
 	"testing"
+
+	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 
 	"github.com/stretchr/testify/assert"
 	ctrl "knative.dev/control-protocol/pkg"
@@ -53,7 +54,7 @@ func TestNewServerHandler(t *testing.T) {
 				return &network.ControlServer{Service: commontesting.MockControlProtocolService{}}, testCase.serverErr
 			}
 
-			handler, err := NewServerHandler(12345)
+			handler, err := NewServerHandler(context.Background(), 12345)
 			if testCase.serverErr == nil {
 				assert.NotNil(t, handler)
 			}
@@ -64,7 +65,7 @@ func TestNewServerHandler(t *testing.T) {
 
 func TestWaitChannelClosed(t *testing.T) {
 	var c chan struct{}
-	waitChannelClosed(c)  // Null channel should not block
+	waitChannelClosed(c) // Null channel should not block
 	c = make(chan struct{})
 	waitGroup := sync.WaitGroup{}
 	waitGroup.Add(1)
@@ -83,7 +84,7 @@ func TestHandlers(t *testing.T) {
 	startServerWrapper = func(_ context.Context, _ ...network.ControlServerOption) (*network.ControlServer, error) {
 		return &network.ControlServer{Service: commontesting.MockControlProtocolService{}}, nil
 	}
-	handler, err := NewServerHandler(12345)
+	handler, err := NewServerHandler(context.Background(), 12345)
 	assert.NotNil(t, handler)
 	assert.Nil(t, err)
 

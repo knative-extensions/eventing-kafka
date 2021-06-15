@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding"
 	"fmt"
+
 	"github.com/Shopify/sarama"
 	ctrl "knative.dev/control-protocol/pkg"
 )
@@ -72,7 +73,9 @@ func (m *MockConsumerGroup) Errors() <-chan error {
 
 func (m *MockConsumerGroup) Close() error {
 	close(m.ErrorChan)
-	close(m.consumeChan)
+	if m.consumeChan != nil {
+		close(m.consumeChan)
+	}
 	m.Closed = true
 	if m.CloseErr {
 		return fmt.Errorf("error closing consumer group")

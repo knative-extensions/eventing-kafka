@@ -73,14 +73,13 @@ type Dispatcher interface {
 // DispatcherImpl Is A Struct With Configuration & ConsumerGroup State
 type DispatcherImpl struct {
 	DispatcherConfig
-	subscribers          map[types.UID]*SubscriberWrapper
-	consumerGroupFactory commonconsumer.KafkaConsumerGroupFactory
-	consumerUpdateLock   sync.Mutex
-	messageDispatcher    channel.MessageDispatcher
-	MetricsStopChan      chan struct{}
-	MetricsStoppedChan   chan struct{}
-	consumerMgr          commonconsumer.KafkaConsumerGroupManager
-	controlServer        controlprotocol.ServerHandler
+	subscribers        map[types.UID]*SubscriberWrapper
+	consumerUpdateLock sync.Mutex
+	messageDispatcher  channel.MessageDispatcher
+	MetricsStopChan    chan struct{}
+	MetricsStoppedChan chan struct{}
+	consumerMgr        commonconsumer.KafkaConsumerGroupManager
+	controlServer      controlprotocol.ServerHandler
 }
 
 // Verify The DispatcherImpl Implements The Dispatcher Interface
@@ -89,19 +88,17 @@ var _ Dispatcher = &DispatcherImpl{}
 // NewDispatcher Is The Dispatcher Constructor
 func NewDispatcher(dispatcherConfig DispatcherConfig, controlServer controlprotocol.ServerHandler) Dispatcher {
 
-	consumerGroupFactory := commonconsumer.NewConsumerGroupFactory(dispatcherConfig.Brokers, dispatcherConfig.SaramaConfig)
-	consumerGroupManager := commonconsumer.NewConsumerGroupManager(controlServer, consumerGroupFactory)
+	consumerGroupManager := commonconsumer.NewConsumerGroupManager(controlServer, dispatcherConfig.Brokers, dispatcherConfig.SaramaConfig)
 
 	// Create The DispatcherImpl With Specified Configuration
 	dispatcher := &DispatcherImpl{
-		DispatcherConfig:     dispatcherConfig,
-		subscribers:          make(map[types.UID]*SubscriberWrapper),
-		consumerGroupFactory: consumerGroupFactory,
-		messageDispatcher:    channel.NewMessageDispatcher(dispatcherConfig.Logger),
-		MetricsStopChan:      make(chan struct{}),
-		MetricsStoppedChan:   make(chan struct{}),
-		controlServer:        controlServer,
-		consumerMgr:          consumerGroupManager,
+		DispatcherConfig:   dispatcherConfig,
+		subscribers:        make(map[types.UID]*SubscriberWrapper),
+		messageDispatcher:  channel.NewMessageDispatcher(dispatcherConfig.Logger),
+		MetricsStopChan:    make(chan struct{}),
+		MetricsStoppedChan: make(chan struct{}),
+		controlServer:      controlServer,
+		consumerMgr:        consumerGroupManager,
 	}
 
 	// Start Observing Metrics
@@ -278,7 +275,7 @@ func (d *DispatcherImpl) SecretChanged(ctx context.Context, secret *corev1.Secre
 	d.DispatcherConfig.SaramaConfig = newConfig
 
 	// Replace The Dispatcher's ConsumerGroupFactory With Updated Version Using New Config
-	d.consumerGroupFactory = commonconsumer.NewConsumerGroupFactory(d.DispatcherConfig.Brokers, d.DispatcherConfig.SaramaConfig)
+	d.consumerMgr.Reconfigure(d.DispatcherConfig.Brokers, d.DispatcherConfig.SaramaConfig)
 
 	// Recreate the ConsumerGroups For Active Subscriptions
 	failedSubscriptions := d.UpdateSubscriptions(d.SubscriberSpecs)

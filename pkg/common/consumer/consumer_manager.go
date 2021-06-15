@@ -34,119 +34,11 @@ type NewConsumerGroupFnType = func(brokers []string, groupId string, config *sar
 
 // KafkaConsumerGroupManager keeps track of Sarama consumer groups and handles messages from control-protocol clients
 type KafkaConsumerGroupManager interface {
-	AddExistingGroup(groupID string, group sarama.ConsumerGroup, topics []string, logger *zap.SugaredLogger, handler KafkaConsumerHandler, options ...SaramaConsumerHandlerOption)
+	Reconfigure(brokers []string, config *sarama.Config)
 	StartConsumerGroup(groupID string, topics []string, logger *zap.SugaredLogger, handler KafkaConsumerHandler, options ...SaramaConsumerHandlerOption) error
 	CloseConsumerGroup(groupId string) error
-	IsValid(groupId string) bool
 	Errors(groupId string) <-chan error
-	Consume(groupId string, ctx context.Context, topics []string, handler sarama.ConsumerGroupHandler) error
-	// TODO: Close ?   If the dispatcher tears down the CG, this needs to know about it
-}
-
-// passthroughManager does not handle the management of ConsumerGroups, the control protocol, or and start/stop
-// functionality. Its purpose is to implement the KafkaConsumerGroupManager interface in a transparent way so that
-// components that call the StartConsumerGroup() function in the KafkaConsumerGroupFactory can use it instead of the
-// kafkaConsumerGroupManagerImpl if no management is desired.
-type passthroughManager struct {
-	groups map[string]sarama.ConsumerGroup
-}
-
-// Verify that the passthroughManager satisfies the KafkaConsumerGroupManager interface
-var _ KafkaConsumerGroupManager = (*passthroughManager)(nil)
-
-// AddExistingGroup places the given ConsumerGroup into the local groups map associated with the given groupID
-func (p passthroughManager) AddExistingGroup(groupID string, group sarama.ConsumerGroup, _ []string, _ *zap.SugaredLogger, _ KafkaConsumerHandler, _ ...SaramaConsumerHandlerOption) {
-	p.groups[groupID] = group
-}
-
-// Consume is called by the KafkaConsumerGroupFactory, so it needs to call the stored ConsumerGroup's Consume function
-func (p passthroughManager) Consume(groupId string, ctx context.Context, topics []string, handler sarama.ConsumerGroupHandler) error {
-	group, ok := p.groups[groupId]
-	if !ok {
-		return fmt.Errorf("no group with id %s was added to the manager", groupId)
-	}
-	return group.Consume(ctx, topics, handler)
-}
-
-// StartConsumerGroup and the other functions here exist solely to satisfy the KafkaConsumerGroupManager
-// interface.  They are not called by the KafkaConsumerGroupFactory and so do not need full implementations (yet).
-func (p passthroughManager) StartConsumerGroup(_ string, _ []string, _ *zap.SugaredLogger, _ KafkaConsumerHandler, _ ...SaramaConsumerHandlerOption) error {
-	return nil
-}
-func (p passthroughManager) CloseConsumerGroup(_ string) error { return nil }
-func (p passthroughManager) IsValid(_ string) bool             { return false }
-func (p passthroughManager) Errors(_ string) <-chan error      { return nil }
-
-// NewPassthroughManager returns a passthroughManager as a KafkaConsumerGroupManager interface
-func NewPassthroughManager() KafkaConsumerGroupManager {
-	return passthroughManager{groups: make(map[string]sarama.ConsumerGroup)}
-}
-
-// managedGroup contains information about a Sarama ConsumerGroup that is required to start (i.e. re-create) it
-type managedGroup struct {
-	factory     KafkaConsumerGroupFactory
-	topics      []string
-	logger      *zap.SugaredLogger
-	handler     KafkaConsumerHandler
-	options     []SaramaConsumerHandlerOption
-	groupId     string
-	group       sarama.ConsumerGroup
-	errors      chan error
-	stopped     bool
-	restartWait sync.WaitGroup
-}
-
-// Stop sets the state of the managed group to "stopped" and increments the restartWait WaitGroup
-// so that waitForStart can block until Start is called
-func (m *managedGroup) Stop() {
-	if !m.stopped {
-		m.restartWait.Add(1)
-		m.stopped = true
-	}
-}
-
-// Start sets the state of the managed group to "not stopped" and decrements the restartWait WaitGroup
-// so that waitForStart will not block
-func (m *managedGroup) Start() {
-	if m.stopped {
-		m.stopped = false
-		m.restartWait.Done()
-	}
-}
-
-// isStopped is an accessor for the "stopped" flag that indicates whether the KafkaConsumerGroupManager stopped
-// ("paused") the managed ConsumerGroup (versus it having been closed outside the manager)
-func (m *managedGroup) isStopped() bool {
-	return m.stopped
-}
-
-// waitForStart will block until a stopped ("paused") ConsumerGroup has been restarted by the
-// KafkaConsumerGroupManager
-func (m *managedGroup) waitForStart() {
-	m.restartWait.Wait()
-}
-
-// transferErrors starts a goroutine that reads errors from the managedGroup's internal group.Errors() channel
-// and sends them to the m.errors channel.  This is done so that when the group.Errors() channel is closed during
-// a stop ("pause") of the group, the m.errors channel can remain open (so that users of the manager do not
-// receive a closed error channel during stop/start events).
-func (m *managedGroup) transferErrors() {
-	go func() {
-		for {
-			for groupErr := range m.group.Errors() {
-				m.errors <- groupErr
-			}
-			if !m.isStopped() {
-				// If the error channel was closed without the consumergroup being stopped,
-				// or if we were unable to wait for the group to be restarted, that is outside
-				// of the manager's responsibility, so we are finished transferring errors.
-				close(m.errors)
-				return
-			}
-			// Wait for the manager to restart the Consumer Group before calling m.group.Errors() again
-			m.waitForStart()
-		}
-	}()
+	IsValid(groupId string) bool
 }
 
 // groupMap is a mapping of GroupIDs to managed Consumer Group pointers (fields in the managedGroup
@@ -158,7 +50,7 @@ type groupMap map[string]*managedGroup
 // handles control protocol messages and stopping/starting ("pausing/resuming") of ConsumerGroups.
 type kafkaConsumerGroupManagerImpl struct {
 	server    controlprotocol.ServerHandler
-	factory   KafkaConsumerGroupFactory
+	factory   *kafkaConsumerGroupFactoryImpl
 	groups    groupMap
 	groupLock sync.RWMutex // Synchronizes write access to the groupMap
 }
@@ -167,14 +59,14 @@ type kafkaConsumerGroupManagerImpl struct {
 var _ KafkaConsumerGroupManager = (*kafkaConsumerGroupManagerImpl)(nil)
 
 // NewConsumerGroupManager returns a new kafkaConsumerGroupManagerImpl as a KafkaConsumerGroupManager interface
-func NewConsumerGroupManager(serverHandler controlprotocol.ServerHandler, groupFactory KafkaConsumerGroupFactory) KafkaConsumerGroupManager {
+func NewConsumerGroupManager(serverHandler controlprotocol.ServerHandler, brokers []string, config *sarama.Config) KafkaConsumerGroupManager {
 
 	manager := &kafkaConsumerGroupManagerImpl{
 		server:    serverHandler,
-		factory:   groupFactory,
 		groups:    make(groupMap),
 		groupLock: sync.RWMutex{},
 	}
+	manager.Reconfigure(brokers, config)
 
 	// Add a handler that understands the StopConsumerGroupOpCode and stops the requested group
 	serverHandler.AddAsyncHandler(
@@ -197,35 +89,26 @@ func NewConsumerGroupManager(serverHandler controlprotocol.ServerHandler, groupF
 	return manager
 }
 
-// AddExistingGroup adds an existing Sarama ConsumerGroup to the managed group map,
-// so that it can be stopped and started via control-protocol messages.
-func (m *kafkaConsumerGroupManagerImpl) AddExistingGroup(groupID string, group sarama.ConsumerGroup, topics []string, logger *zap.SugaredLogger, handler KafkaConsumerHandler, options ...SaramaConsumerHandlerOption) {
-	// Synchronize access to groups map
-	m.groupLock.Lock()
-	m.groups[groupID] = &managedGroup{
-		factory: m.factory,
-		topics:  topics,
-		logger:  logger,
-		handler: handler,
-		options: options,
-		groupId: groupID,
-		group:   group,
-		errors:  make(chan error),
-	}
-	m.groupLock.Unlock()
-
-	// Listen on the group's Errors() channel and write them to the managedGroup's errors channel
-	m.groups[groupID].transferErrors()
+// Reconfigure will incorporate a new set of brokers and Sarama config settings into the manager
+// without requiring a new control-protocol server or losing the current map of managed groups
+func (m *kafkaConsumerGroupManagerImpl) Reconfigure(brokers []string, config *sarama.Config) {
+	m.factory = &kafkaConsumerGroupFactoryImpl{addrs: brokers, config: config}
 }
 
 // StartConsumerGroup uses the consumer factory to create a new ConsumerGroup, and start consuming.
-func (m *kafkaConsumerGroupManagerImpl) StartConsumerGroup(groupID string, topics []string, logger *zap.SugaredLogger, handler KafkaConsumerHandler, options ...SaramaConsumerHandlerOption) error {
-	// We don't use the resulting ConsumerGroup because the AddExistingGroup function will be
-	// called by the factory, and adding the group an additional time here would serve no purpose.
-	_, err := m.factory.StartConsumerGroup(m, groupID, topics, logger, handler, options...)
+func (m *kafkaConsumerGroupManagerImpl) StartConsumerGroup(groupId string, topics []string, logger *zap.SugaredLogger, handler KafkaConsumerHandler, options ...SaramaConsumerHandlerOption) error {
+	ctx, group, err := m.factory.createConsumerGroup(context.Background(), groupId)
 	if err != nil {
 		return err
 	}
+
+	group.consume = func(ctx context.Context, topics []string, handler sarama.ConsumerGroupHandler) error {
+		return m.consume(ctx, groupId, topics, handler)
+	}
+
+	m.addExistingGroup(ctx, groupId, group, topics, logger, handler, options...)
+
+	m.factory.startExistingConsumerGroup(ctx, group, topics, logger, handler, options...)
 	return nil
 }
 
@@ -248,25 +131,6 @@ func (m *kafkaConsumerGroupManagerImpl) CloseConsumerGroup(groupId string) error
 	return nil
 }
 
-// Consume calls the Consume method of a managed consumer group, using a loop to call it again if that
-// group is restarted by the manager.  If the Consume call is terminated by some other mechanism, the
-// result will be returned to the caller.
-func (m *kafkaConsumerGroupManagerImpl) Consume(groupId string, ctx context.Context, topics []string, handler sarama.ConsumerGroupHandler) error {
-	groupInfo, ok := m.groups[groupId]
-	if !ok {
-		return fmt.Errorf("consume called on nonexistent groupId '%s'", groupId)
-	}
-	for {
-		err := groupInfo.group.Consume(ctx, topics, handler)
-		if !groupInfo.isStopped() {
-			// This ConsumerGroup wasn't stopped by the manager, so pass the error along to the caller
-			return err
-		}
-		// Wait for the managed ConsumerGroup to be restarted
-		groupInfo.waitForStart()
-	}
-}
-
 // Errors returns the errors channel of the managedGroup associated with the given groupId.  This channel
 // is different than using the Errors() channel of a ConsumerGroup directly, as it will remain open during
 //  a stop/start ("pause/resume") cycle.
@@ -284,6 +148,51 @@ func (m *kafkaConsumerGroupManagerImpl) IsValid(groupId string) bool {
 		return true
 	}
 	return false
+}
+
+// addExistingGroup adds an existing Sarama ConsumerGroup to the managed group map,
+// so that it can be stopped and started via control-protocol messages.
+func (m *kafkaConsumerGroupManagerImpl) addExistingGroup(ctx context.Context, groupID string, group *customConsumerGroup, topics []string, logger *zap.SugaredLogger, handler KafkaConsumerHandler, options ...SaramaConsumerHandlerOption) {
+	// Synchronize access to groups map
+	m.groupLock.Lock()
+	m.groups[groupID] = &managedGroup{
+		factory: m.factory,
+		topics:  topics,
+		logger:  logger,
+		handler: handler,
+		options: options,
+		groupId: groupID,
+		group:   group,
+		errors:  make(chan error),
+	}
+	m.groupLock.Unlock()
+
+	// Listen on the group's Errors() channel and write them to the managedGroup's errors channel
+	m.groups[groupID].transferErrors(ctx)
+}
+
+// Consume calls the Consume method of a managed consumer group, using a loop to call it again if that
+// group is restarted by the manager.  If the Consume call is terminated by some other mechanism, the
+// result will be returned to the caller.
+func (m *kafkaConsumerGroupManagerImpl) consume(ctx context.Context, groupId string, topics []string, handler sarama.ConsumerGroupHandler) error {
+	groupInfo, ok := m.groups[groupId]
+	if !ok {
+		return fmt.Errorf("consume called on nonexistent groupId '%s'", groupId)
+	}
+	for {
+		// Don't call the customConsumerGroup's "Consume" function; that would lead to calling this consume
+		// function again in a recursive overflow.  Instead call the internal sarama.ConsumerGroup function directly
+		err := groupInfo.group.ConsumerGroup.Consume(ctx, topics, handler)
+		if !groupInfo.isStopped() {
+			// This ConsumerGroup wasn't stopped by the manager, so pass the error along to the caller
+			return err
+		}
+		// Wait for the managed ConsumerGroup to be restarted
+		if !groupInfo.waitForStart(ctx) {
+			// Context was canceled; abort
+			return fmt.Errorf("context was canceled waiting for group '%s' to start", groupId)
+		}
+	}
 }
 
 // stopConsumerGroups closes the managed Consumer Groups identified by the provided groupId, and marks it
@@ -305,10 +214,11 @@ func (m *kafkaConsumerGroupManagerImpl) stopConsumerGroup(groupId string) error 
 func (m *kafkaConsumerGroupManagerImpl) startConsumerGroup(groupId string) error {
 	groupInfo, ok := m.groups[groupId]
 	if ok {
-		group, err := m.factory.StartConsumerGroup(m, groupId, groupInfo.topics, groupInfo.logger, groupInfo.handler, groupInfo.options...)
+		ctx, group, err := m.factory.createConsumerGroup(context.Background(), groupId)
 		if err != nil {
 			return err
 		}
+		m.factory.startExistingConsumerGroup(ctx, groupInfo.group, groupInfo.topics, groupInfo.logger, groupInfo.handler, groupInfo.options...)
 		m.groups[groupId].group = group
 		m.groups[groupId].Start()
 		return nil
@@ -328,4 +238,84 @@ func processAsyncGroupNotification(commandMessage ctrlservice.AsyncCommandMessag
 			commandMessage.NotifyFailed(groupFunction(cmd.GroupId))
 		}
 	}
+}
+
+// managedGroup contains information about a Sarama ConsumerGroup that is required to start (i.e. re-create) it
+type managedGroup struct {
+	factory   KafkaConsumerGroupFactory
+	topics    []string
+	logger    *zap.SugaredLogger
+	handler   KafkaConsumerHandler
+	options   []SaramaConsumerHandlerOption
+	groupId   string
+	group     *customConsumerGroup
+	errors    chan error
+	restartCh chan struct{}
+}
+
+// Stop sets the state of the managed group to "stopped" by creating the restartCh channel that
+// will be closed when the group is restarted
+func (m *managedGroup) Stop() {
+	// If the restartCh is not nil, the channel is already stopped
+	if m.restartCh == nil {
+		m.restartCh = make(chan struct{})
+	}
+}
+
+// Start sets the state of the managed group to "not stopped" by closing the restartCh channel
+func (m *managedGroup) Start() {
+	// If the restartCh is nil, the channel is not stopped
+	if m.restartCh != nil {
+		close(m.restartCh)
+		m.restartCh = nil
+	}
+}
+
+// isStopped is an accessor for the restartCh channel's status, which if non-nil indicates that
+// the KafkaConsumerGroupManager stopped ("paused") the managed ConsumerGroup (versus it having
+// been closed outside the manager)
+func (m *managedGroup) isStopped() bool {
+	return m.restartCh != nil
+}
+
+// waitForStart will block until a stopped ("paused") ConsumerGroup has been restarted by the
+// KafkaConsumerGroupManager, returning true in that case or false if the context's cancel function is called
+func (m *managedGroup) waitForStart(ctx context.Context) bool {
+	if m.restartCh == nil {
+		return true // group is already started; don't block on nil channel read
+	}
+	// Wait for either the restartCh (closed during the Start function) or the provided
+	// context has its cancel function called.
+	select {
+	case <-m.restartCh:
+		return true
+	case <-ctx.Done():
+		return false
+	}
+}
+
+// transferErrors starts a goroutine that reads errors from the managedGroup's internal group.Errors() channel
+// and sends them to the m.errors channel.  This is done so that when the group.Errors() channel is closed during
+// a stop ("pause") of the group, the m.errors channel can remain open (so that users of the manager do not
+// receive a closed error channel during stop/start events).
+func (m *managedGroup) transferErrors(ctx context.Context) {
+	go func() {
+		for {
+			for groupErr := range m.group.Errors() {
+				m.errors <- groupErr
+			}
+			if !m.isStopped() {
+				// If the error channel was closed without the consumergroup being stopped,
+				// or if we were unable to wait for the group to be restarted, that is outside
+				// of the manager's responsibility, so we are finished transferring errors.
+				close(m.errors)
+				return
+			}
+			// Wait for the manager to restart the Consumer Group before calling m.group.Errors() again
+			if !m.waitForStart(ctx) {
+				// Context was canceled; abort
+				return
+			}
+		}
+	}()
 }

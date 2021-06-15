@@ -74,7 +74,7 @@ func TestNewDispatcher(t *testing.T) {
 	baseSaramaConfig, err := commonclient.NewConfigBuilder().
 		WithDefaults().
 		WithVersion(&sarama.V2_0_0_0).
-		Build(context.TODO())
+		Build(context.Background())
 	assert.Nil(t, err)
 
 	// Perform The Test & Verify Results (Not Much To See Due To Interface)
@@ -83,7 +83,6 @@ func TestNewDispatcher(t *testing.T) {
 
 // Test The Dispatcher's Shutdown() Functionality
 func TestShutdown(t *testing.T) {
-
 	mockManager := consumertesting.NewMockConsumerGroupManager()
 
 	// Create Mock ConsumerGroups To Register Close() Requests
@@ -99,9 +98,9 @@ func TestShutdown(t *testing.T) {
 	groupId2 := fmt.Sprintf("kafka.%s", subscriber2.UID)
 	groupId3 := fmt.Sprintf("kafka.%s", subscriber3.UID)
 
-	mockManager.AddExistingGroup(groupId1, consumerGroup1, nil, nil, nil)
-	mockManager.AddExistingGroup(groupId2, consumerGroup2, nil, nil, nil)
-	mockManager.AddExistingGroup(groupId3, consumerGroup3, nil, nil, nil)
+	mockManager.Groups[groupId1] = consumerGroup1
+	mockManager.Groups[groupId2] = consumerGroup2
+	mockManager.Groups[groupId3] = consumerGroup3
 
 	// Create The Dispatcher To Test With Existing Subscribers
 	dispatcher := &DispatcherImpl{
@@ -133,7 +132,7 @@ func TestShutdown(t *testing.T) {
 func TestUpdateSubscriptions(t *testing.T) {
 
 	logger := logtesting.TestLogger(t)
-	ctx := logging.WithLogger(context.TODO(), logger)
+	ctx := logging.WithLogger(context.Background(), logger)
 
 	// Test Data
 	brokers := []string{configtesting.DefaultKafkaBroker}
@@ -260,10 +259,9 @@ func TestUpdateSubscriptions(t *testing.T) {
 
 			// Create A New DispatcherImpl To Test
 			dispatcher := &DispatcherImpl{
-				DispatcherConfig:     testCase.fields.DispatcherConfig,
-				subscribers:          testCase.fields.subscribers,
-				consumerGroupFactory: &consumertesting.MockKafkaConsumerGroupFactory{},
-				consumerMgr:          consumertesting.NewMockConsumerGroupManager(),
+				DispatcherConfig: testCase.fields.DispatcherConfig,
+				subscribers:      testCase.fields.subscribers,
+				consumerMgr:      consumertesting.NewMockConsumerGroupManager(),
 			}
 
 			// Perform The Test
@@ -292,7 +290,7 @@ func TestUpdateSubscriptions(t *testing.T) {
 func TestSecretChanged(t *testing.T) {
 
 	logger := logtesting.TestLogger(t)
-	ctx := logging.WithLogger(context.TODO(), logger)
+	ctx := logging.WithLogger(context.Background(), logger)
 
 	// Setup Test Environment Namespaces
 	commontesting.SetTestEnvironment(t)

@@ -28,7 +28,7 @@ var newConsumerGroup = sarama.NewConsumerGroup
 
 // KafkaConsumerGroupFactory creates the ConsumerGroup and start consuming the specified topic
 type KafkaConsumerGroupFactory interface {
-	StartConsumerGroup(manager KafkaConsumerGroupManager, groupID string, topics []string, logger *zap.SugaredLogger, handler KafkaConsumerHandler, options ...SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error)
+	StartConsumerGroup(groupID string, topics []string, logger *zap.SugaredLogger, handler KafkaConsumerHandler, options ...SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error)
 }
 
 type kafkaConsumerGroupFactoryImpl struct {
@@ -38,6 +38,7 @@ type kafkaConsumerGroupFactoryImpl struct {
 
 type customConsumerGroup struct {
 	cancel              func()
+	consume             func(ctx context.Context, topics []string, handler sarama.ConsumerGroupHandler) error
 	handlerErrorChannel chan error
 	sarama.ConsumerGroup
 	releasedCh chan bool
@@ -57,35 +58,59 @@ func (c *customConsumerGroup) Close() error {
 	return c.ConsumerGroup.Close()
 }
 
+func (c *customConsumerGroup) Consume(ctx context.Context, topics []string, handler sarama.ConsumerGroupHandler) error {
+	return c.consume(ctx, topics, handler)
+}
+
 var _ sarama.ConsumerGroup = (*customConsumerGroup)(nil)
 
-func (c kafkaConsumerGroupFactoryImpl) StartConsumerGroup(manager KafkaConsumerGroupManager, groupID string, topics []string, logger *zap.SugaredLogger, handler KafkaConsumerHandler, options ...SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error) {
-	consumerGroup, err := newConsumerGroup(c.addrs, groupID, c.config)
+// StartConsumerGroup creates a new customConsumerGroup and starts a Consume goroutine on it
+func (c kafkaConsumerGroupFactoryImpl) StartConsumerGroup(groupID string, topics []string, logger *zap.SugaredLogger, handler KafkaConsumerHandler, options ...SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error) {
+	ctx, consumerGroup, err := c.createConsumerGroup(context.Background(), groupID)
 	if err != nil {
 		return nil, err
 	}
-	// Allow the manager to stop/start this ConsumerGroup, if desired.  This needs to be done before
-	// the "consume" call
-	manager.AddExistingGroup(groupID, consumerGroup, topics, logger, handler, options...)
+	c.startExistingConsumerGroup(ctx, consumerGroup, topics, logger, handler, options...)
+	return consumerGroup, nil
 
+}
+
+// createConsumerGroup creates a Sarama ConsumerGroup and adds status/error channels to it, returning
+// a customConsumerGroup wrapper around the Sarama group.
+func (c kafkaConsumerGroupFactoryImpl) createConsumerGroup(ctx context.Context, groupID string) (context.Context, *customConsumerGroup, error) {
+	consumerGroup, err := newConsumerGroup(c.addrs, groupID, c.config)
+	if err != nil {
+		return ctx, nil, err
+	}
 	errorCh := make(chan error, 10)
 	releasedCh := make(chan bool)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
+	return ctx, &customConsumerGroup{cancel, consumerGroup.Consume, errorCh, consumerGroup, releasedCh}, nil
+}
+
+// startExistingConsumerGroup creates a goroutine that begin a Consume loop on the provided customConsumerGroup
+// It is cancelable via the Done channel in the provided context
+func (c kafkaConsumerGroupFactoryImpl) startExistingConsumerGroup(ctx context.Context,
+	consumerGroup *customConsumerGroup,
+	topics []string,
+	logger *zap.SugaredLogger,
+	handler KafkaConsumerHandler,
+	options ...SaramaConsumerHandlerOption) {
 
 	go func() {
 		defer func() {
-			close(errorCh)
-			releasedCh <- true
+			close(consumerGroup.handlerErrorChannel)
+			consumerGroup.releasedCh <- true
 		}()
 		for {
-			consumerHandler := NewConsumerHandler(logger, handler, errorCh, options...)
+			consumerHandler := NewConsumerHandler(logger, handler, consumerGroup.handlerErrorChannel, options...)
 
-			consumeErr := manager.Consume(groupID, ctx, topics, &consumerHandler)
+			consumeErr := consumerGroup.Consume(ctx, topics, &consumerHandler)
 			if consumeErr == sarama.ErrClosedConsumerGroup {
 				return
 			}
 			if consumeErr != nil {
-				errorCh <- consumeErr
+				consumerGroup.handlerErrorChannel <- consumeErr
 			}
 
 			select {
@@ -96,7 +121,6 @@ func (c kafkaConsumerGroupFactoryImpl) StartConsumerGroup(manager KafkaConsumerG
 		}
 	}()
 
-	return &customConsumerGroup{cancel, errorCh, consumerGroup, releasedCh}, err
 }
 
 func NewConsumerGroupFactory(addrs []string, config *sarama.Config) KafkaConsumerGroupFactory {

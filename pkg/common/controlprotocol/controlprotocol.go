@@ -54,9 +54,8 @@ var _ ServerHandler = (*serverHandlerImpl)(nil)
 
 // NewServerHandler starts a control-protocol server on the specified port and returns
 // the serverHandlerImpl as a ServerHandler interface
-func NewServerHandler(port int) (ServerHandler, error) {
-	logger, _ := zap.NewDevelopment()
-	ctx := logging.WithLogger(context.TODO(), logger.Sugar())
+func NewServerHandler(ctx context.Context, port int) (ServerHandler, error) {
+	logger := logging.FromContext(ctx)
 	serverCtx, serverCancelFn := context.WithCancel(ctx)
 
 	// Create a new control-protocol server that will listen on the given port

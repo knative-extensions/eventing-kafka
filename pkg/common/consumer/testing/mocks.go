@@ -17,7 +17,6 @@ limitations under the License.
 package testing
 
 import (
-	"context"
 	"errors"
 	"fmt"
 
@@ -36,13 +35,11 @@ type MockKafkaConsumerGroupFactory struct {
 	CreateErr bool
 }
 
-func (c MockKafkaConsumerGroupFactory) StartConsumerGroup(manager consumer.KafkaConsumerGroupManager, groupID string, topics []string, logger *zap.SugaredLogger, handler consumer.KafkaConsumerHandler, options ...consumer.SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error) {
+func (c MockKafkaConsumerGroupFactory) StartConsumerGroup(_ string, _ []string, _ *zap.SugaredLogger, _ consumer.KafkaConsumerHandler, _ ...consumer.SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error) {
 	if c.CreateErr {
 		return nil, errors.New("error creating consumer")
 	}
-	group := commontesting.NewMockConsumerGroup()
-	manager.AddExistingGroup(groupID, group, topics, logger, handler, options...)
-	return group, nil
+	return commontesting.NewMockConsumerGroup(), nil
 }
 
 var _ consumer.KafkaConsumerGroupFactory = (*MockKafkaConsumerGroupFactory)(nil)
@@ -56,7 +53,7 @@ type MockConsumerGroupManager struct {
 	Groups map[string]sarama.ConsumerGroup
 }
 
-func NewMockConsumerGroupManager() consumer.KafkaConsumerGroupManager {
+func NewMockConsumerGroupManager() *MockConsumerGroupManager {
 	return &MockConsumerGroupManager{
 		Groups: make(map[string]sarama.ConsumerGroup),
 	}
@@ -64,14 +61,7 @@ func NewMockConsumerGroupManager() consumer.KafkaConsumerGroupManager {
 
 var _ consumer.KafkaConsumerGroupManager = (*MockConsumerGroupManager)(nil)
 
-func (m MockConsumerGroupManager) AddExistingGroup(groupId string, group sarama.ConsumerGroup,
-	_ []string, _ *zap.SugaredLogger, _ consumer.KafkaConsumerHandler, _ ...consumer.SaramaConsumerHandlerOption) {
-	m.Groups[groupId] = group
-}
-
-func (m MockConsumerGroupManager) CreateConsumerGroup(_ consumer.NewConsumerGroupFnType, _ []string, _ string, _ *sarama.Config) (sarama.ConsumerGroup, error) {
-	return nil, nil
-}
+func (m MockConsumerGroupManager) Reconfigure(_ []string, _ *sarama.Config) {}
 
 func (m MockConsumerGroupManager) StartConsumerGroup(_ string, _ []string,
 	_ *zap.SugaredLogger, _ consumer.KafkaConsumerHandler, _ ...consumer.SaramaConsumerHandlerOption) error {
@@ -92,9 +82,5 @@ func (m MockConsumerGroupManager) IsValid(groupId string) bool {
 }
 
 func (m MockConsumerGroupManager) Errors(_ string) <-chan error {
-	return nil
-}
-
-func (m MockConsumerGroupManager) Consume(_ string, _ context.Context, _ []string, _ sarama.ConsumerGroupHandler) error {
 	return nil
 }
