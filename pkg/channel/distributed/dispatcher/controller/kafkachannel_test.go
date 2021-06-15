@@ -174,7 +174,7 @@ func TestAllCases(t *testing.T) {
 		}
 	}))
 
-	// Stop to let async go processes finish logging :(
+	// Pause to let async go processes finish logging :(
 	time.Sleep(1 * time.Second)
 }
 

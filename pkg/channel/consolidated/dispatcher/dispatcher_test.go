@@ -50,7 +50,7 @@ type mockKafkaConsumerFactory struct {
 	createErr bool
 }
 
-func (c mockKafkaConsumerFactory) StartConsumerGroup(_ string, _ []string, _ *zap.SugaredLogger, _ consumer.KafkaConsumerHandler, _ ...consumer.SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error) {
+func (c mockKafkaConsumerFactory) StartConsumerGroup(groupID string, topics []string, logger *zap.SugaredLogger, handler consumer.KafkaConsumerHandler, options ...consumer.SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error) {
 	if c.createErr {
 		return nil, errors.New("error creating consumer")
 	}
@@ -62,7 +62,7 @@ var _ consumer.KafkaConsumerGroupFactory = (*mockKafkaConsumerFactory)(nil)
 
 type mockConsumerGroup struct{}
 
-func (m mockConsumerGroup) Consume(_ context.Context, _ []string, _ sarama.ConsumerGroupHandler) error {
+func (m mockConsumerGroup) Consume(ctx context.Context, topics []string, handler sarama.ConsumerGroupHandler) error {
 	return nil
 }
 

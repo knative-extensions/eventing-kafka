@@ -64,7 +64,7 @@ func NewProducer(logger *zap.Logger,
 	logger.Info("Creating Kafka SyncProducer")
 	kafkaProducer, err := producer.CreateSyncProducer(brokers, config)
 	if err != nil {
-		logger.Error("Failed To Create Kafka SyncProducer - Exiting", zap.Error(err), zap.Any("brokers", brokers))
+		logger.Error("Failed To Create Kafka SyncProducer - Exiting", zap.Error(err), zap.Any("Brokers", brokers))
 		return nil, err
 	} else {
 		logger.Info("Successfully Created Kafka SyncProducer")

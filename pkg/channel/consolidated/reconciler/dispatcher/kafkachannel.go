@@ -111,7 +111,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		logger.Fatalw("Unable to create kafka dispatcher", zap.Error(err))
 	}
 	logger.Info("Starting the Kafka dispatcher")
-	logger.Infow("Kafka broker configuration", zap.Strings("brokers", kafkaConfig.Brokers))
+	logger.Infow("Kafka broker configuration", zap.Strings("Brokers", kafkaConfig.Brokers))
 
 	r := &Reconciler{
 		kafkaDispatcher:      kafkaDispatcher,

@@ -50,7 +50,7 @@ func NewSubscriptionRefMapperFactory(topicNameMapper SubscriptionTopicNameMapper
 }
 
 // Create implements the ResetOffsetRefMapperFactory interface for Subscription references.  It will return
-// a new SubscriptionRefMapper instance using the specific TopicName / groupId mappers.  It also relies on
+// a new SubscriptionRefMapper instance using the specific TopicName / GroupId mappers.  It also relies on
 // the Context having injected informers (SubscriptionInformer).
 func (f *SubscriptionRefMapperFactory) Create(ctx context.Context) ResetOffsetRefMapper {
 	return NewSubscriptionRefMapper(ctx, f.TopicNameMapper, f.GroupIdMapper)
