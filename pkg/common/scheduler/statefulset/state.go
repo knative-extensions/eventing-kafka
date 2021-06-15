@@ -21,14 +21,17 @@ import (
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	corev1 "k8s.io/client-go/listers/core/v1"
 	"knative.dev/eventing-kafka/pkg/common/scheduler"
 	"knative.dev/pkg/logging"
 )
 
 type stateAccessor interface {
-	// State returns the current state about placed vpods get
-	State() (*state, error)
+	// State returns the current state (snapshot) about placed vpods
+	// Take into account reserved vreplicas and update `reserved` to reflect
+	// the current state.
+	State(reserved map[types.NamespacedName]map[string]int32) (*state, error)
 }
 
 // state provides information about the current scheduling of all vpods
@@ -100,7 +103,7 @@ func newStateBuilder(ctx context.Context, lister scheduler.VPodLister, podCapaci
 	}
 }
 
-func (s *stateBuilder) State() (*state, error) {
+func (s *stateBuilder) State(reserved map[types.NamespacedName]map[string]int32) (*state, error) {
 	vpods, err := s.vpodLister()
 	if err != nil {
 		return nil, err
@@ -109,27 +112,37 @@ func (s *stateBuilder) State() (*state, error) {
 	free := make([]int32, 0, 256)
 	last := int32(-1)
 
+	withPlacement := make(map[types.NamespacedName]map[string]bool)
+
 	for _, vpod := range vpods {
 		ps := vpod.GetPlacements()
+
+		withPlacement[vpod.GetKey()] = make(map[string]bool)
 
 		for i := 0; i < len(ps); i++ {
 			podName := ps[i].PodName
 			vreplicas := ps[i].VReplicas
 
-			ordinal := ordinalFromPodName(podName)
+			// Account for reserved vreplicas
+			vreplicas = withReserved(vpod.GetKey(), podName, vreplicas, reserved)
 
-			free = grow(free, ordinal, s.capacity)
+			free, last = s.updateFreeCapacity(free, last, podName, vreplicas)
 
-			free[ordinal] -= vreplicas
+			withPlacement[vpod.GetKey()][podName] = true
+		}
+	}
 
-			if free[ordinal] < 0 {
-				// Over committed. The autoscaler will fix it.
-				s.logger.Infow("pod is overcommitted", zap.String("podName", podName))
+	// Account for reserved vreplicas with no prior placements
+	for key, ps := range reserved {
+		for podName, rvreplicas := range ps {
+			if wp, ok := withPlacement[key]; ok {
+				if _, ok := wp[podName]; ok {
+					// already accounted for
+					break
+				}
 			}
 
-			if ordinal > last && free[ordinal] != s.capacity {
-				last = ordinal
-			}
+			free, last = s.updateFreeCapacity(free, last, podName, rvreplicas)
 		}
 	}
 
@@ -159,6 +172,25 @@ func (s *stateBuilder) State() (*state, error) {
 	return &state{free: free, lastOrdinal: last, capacity: s.capacity, schedulerPolicy: s.schedulerPolicy}, nil
 }
 
+func (s *stateBuilder) updateFreeCapacity(free []int32, last int32, podName string, vreplicas int32) ([]int32, int32) {
+	ordinal := ordinalFromPodName(podName)
+	free = grow(free, ordinal, s.capacity)
+
+	free[ordinal] -= vreplicas
+
+	// Assert the pod is not overcommitted
+	if free[ordinal] < 0 {
+		// This should not happen anymore. Log as an error but do not interrupt the current scheduling.
+		s.logger.Errorw("pod is overcommitted", zap.String("podName", podName), zap.Int32("free", free[ordinal]))
+	}
+
+	if ordinal > last && free[ordinal] != s.capacity {
+		last = ordinal
+	}
+
+	return free, last
+}
+
 func grow(slice []int32, ordinal int32, def int32) []int32 {
 	l := int32(len(slice))
 	diff := ordinal - l + 1
@@ -171,4 +203,28 @@ func grow(slice []int32, ordinal int32, def int32) []int32 {
 		slice = append(slice, def)
 	}
 	return slice
+}
+
+func withReserved(key types.NamespacedName, podName string, committed int32, reserved map[types.NamespacedName]map[string]int32) int32 {
+	if reserved != nil {
+		if rps, ok := reserved[key]; ok {
+			if rvreplicas, ok := rps[podName]; ok {
+				if committed < rvreplicas {
+					// new placement hasn't been committed yet. Adjust locally
+					return rvreplicas
+				} else if committed == rvreplicas {
+					// new placement has been committed.
+					delete(rps, podName)
+					if len(rps) == 0 {
+						delete(reserved, key)
+					}
+				}
+				// else {
+				// 	// the number of vreplicas has been reduced but not committed yet.
+				// 	// do nothing.
+				// }
+			}
+		}
+	}
+	return committed
 }

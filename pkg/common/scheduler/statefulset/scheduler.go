@@ -89,9 +89,14 @@ type StatefulSetScheduler struct {
 	// replicas is the (cached) number of statefulset replicas.
 	replicas int32
 
-	// pending tracks the number of virtual replicas that haven't been scheduled yet.
-	// Used by the autoscaler
+	// pending tracks the number of virtual replicas that haven't been scheduled yet
+	// because there wasn't enough free capacity.
+	// The autoscaler uses
 	pending map[types.NamespacedName]int32
+
+	// reserved tracks vreplicas that have been placed (ie. scheduled) but haven't been
+	// committed yet (ie. not appearing in vpodLister)
+	reserved map[types.NamespacedName]map[string]int32
 }
 
 func NewStatefulSetScheduler(ctx context.Context,
@@ -109,6 +114,7 @@ func NewStatefulSetScheduler(ctx context.Context,
 		pending:           make(map[types.NamespacedName]int32),
 		lock:              new(sync.Mutex),
 		stateAccessor:     stateAccessor,
+		reserved:          make(map[types.NamespacedName]map[string]int32),
 		autoscaler:        autoscaler,
 	}
 
@@ -123,13 +129,21 @@ func NewStatefulSetScheduler(ctx context.Context,
 }
 
 func (s *StatefulSetScheduler) Schedule(vpod scheduler.VPod) ([]duckv1alpha1.Placement, error) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
 	placements, err := s.scheduleVPod(vpod)
 	if placements == nil {
 		return placements, err
 	}
+
 	sort.SliceStable(placements, func(i int, j int) bool {
 		return ordinalFromPodName(placements[i].PodName) < ordinalFromPodName(placements[j].PodName)
 	})
+
+	// Reserve new placements until they are committed to the vpod.
+	s.reservePlacements(vpod, placements)
+
 	return placements, err
 }
 
@@ -142,7 +156,7 @@ func (s *StatefulSetScheduler) scheduleVPod(vpod scheduler.VPod) ([]duckv1alpha1
 
 	// Get the current placements state
 	// Quite an expensive operation but safe and simple.
-	state, err := s.stateAccessor.State()
+	state, err := s.stateAccessor.State(s.reserved)
 	if err != nil {
 		logger.Info("error while refreshing scheduler state (will retry)", zap.Error(err))
 		return nil, err
@@ -197,6 +211,7 @@ func (s *StatefulSetScheduler) scheduleVPod(vpod scheduler.VPod) ([]duckv1alpha1
 	} else {
 		placements, left = s.addReplicas(state, vpod.GetVReplicas()-tr, placements)
 	}
+
 	if left > 0 {
 		// Give time for the autoscaler to do its job
 		logger.Info("scheduling failed (not enough pod replicas)", zap.Any("placement", placements), zap.Int32("left", left))
@@ -290,7 +305,6 @@ func (s *StatefulSetScheduler) removeReplicasEvenSpread(diff int32, placements [
 
 func (s *StatefulSetScheduler) addReplicas(state *state, diff int32, placements []duckv1alpha1.Placement) ([]duckv1alpha1.Placement, int32) {
 	// Pod affinity algorithm: prefer adding replicas to existing pods before considering other replicas
-	// In the future, we might want to spread replicas across pods in different regions.
 	newPlacements := make([]duckv1alpha1.Placement, 0, len(placements))
 
 	// Add to existing
@@ -485,5 +499,31 @@ func (s *StatefulSetScheduler) updateStatefulset(obj interface{}) {
 	} else if s.replicas != *statefulset.Spec.Replicas {
 		s.replicas = *statefulset.Spec.Replicas
 		s.logger.Infow("statefulset replicas updated", zap.Int32("replicas", s.replicas))
+	}
+}
+
+func (s *StatefulSetScheduler) reservePlacements(vpod scheduler.VPod, placements []duckv1alpha1.Placement) {
+	existing := vpod.GetPlacements()
+	for _, p := range placements {
+		placed := int32(0)
+		for _, e := range existing {
+			if e.PodName == p.PodName {
+				placed = e.VReplicas
+				break
+			}
+		}
+
+		// Only record placements exceeding existing ones, since the
+		// goal is to prevent pods to be overcommitted.
+		if p.VReplicas > placed {
+			if _, ok := s.reserved[vpod.GetKey()]; !ok {
+				s.reserved[vpod.GetKey()] = make(map[string]int32)
+			}
+
+			// note: track all vreplicas, not only the new ones since
+			// the next time `state()` is called some vreplicas might
+			// have been committed.
+			s.reserved[vpod.GetKey()][p.PodName] = p.VReplicas
+		}
 	}
 }

@@ -24,6 +24,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	duckv1alpha1 "knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
 	tscheduler "knative.dev/eventing-kafka/pkg/common/scheduler/testing"
 	listers "knative.dev/eventing/pkg/reconciler/testing/v1"
@@ -37,6 +38,7 @@ func TestStateBuilder(t *testing.T) {
 		expected        state
 		freec           int32
 		schedulerPolicy SchedulerPolicyType
+		reserved        map[types.NamespacedName]map[string]int32
 		nodes           []*v1.Node
 		err             error
 	}{
@@ -74,6 +76,42 @@ func TestStateBuilder(t *testing.T) {
 			},
 			expected:        state{capacity: 10, free: []int32{int32(9), int32(10), int32(5), int32(10)}, lastOrdinal: 2, schedulerPolicy: MAXFILLUP},
 			freec:           int32(24),
+			schedulerPolicy: MAXFILLUP,
+		},
+		{
+			name: "many vpods, with gaps and reserved vreplicas",
+			vpods: [][]duckv1alpha1.Placement{
+				{{PodName: "statefulset-name-0", VReplicas: 1}, {PodName: "statefulset-name-2", VReplicas: 5}},
+				{{PodName: "statefulset-name-1", VReplicas: 0}},
+				{{PodName: "statefulset-name-1", VReplicas: 0}, {PodName: "statefulset-name-3", VReplicas: 0}},
+			},
+			expected: state{capacity: 10, free: []int32{int32(4), int32(10), int32(5), int32(10)}, lastOrdinal: 2, schedulerPolicy: MAXFILLUP},
+			freec:    int32(19),
+			reserved: map[types.NamespacedName]map[string]int32{
+				{Name: "s1", Namespace: testNs}: {
+					"statefulset-name-0": 5,
+				},
+			},
+			schedulerPolicy: MAXFILLUP,
+		},
+		{
+			name: "many vpods, with gaps and reserved vreplicas on existing and new placements",
+			vpods: [][]duckv1alpha1.Placement{
+				{{PodName: "statefulset-name-0", VReplicas: 1}, {PodName: "statefulset-name-2", VReplicas: 5}},
+				{{PodName: "statefulset-name-1", VReplicas: 0}},
+				{{PodName: "statefulset-name-1", VReplicas: 0}, {PodName: "statefulset-name-3", VReplicas: 0}},
+			},
+			expected: state{capacity: 10, free: []int32{int32(4), int32(7), int32(5), int32(10), int32(5)}, lastOrdinal: 4, schedulerPolicy: MAXFILLUP},
+			freec:    int32(31),
+			reserved: map[types.NamespacedName]map[string]int32{
+				{Name: "s1", Namespace: testNs}: {
+					"statefulset-name-4": 5,
+				},
+				{Name: "s2", Namespace: testNs}: {
+					"statefulset-name-0": 5,
+					"statefulset-name-1": 3,
+				},
+			},
 			schedulerPolicy: MAXFILLUP,
 		},
 		{
@@ -119,7 +157,7 @@ func TestStateBuilder(t *testing.T) {
 
 			ls := listers.NewListers(nodelist)
 			stateBuilder := newStateBuilder(ctx, vpodClient.List, int32(10), tc.schedulerPolicy, ls.GetNodeLister())
-			state, err := stateBuilder.State()
+			state, err := stateBuilder.State(tc.reserved)
 			if err != nil {
 				t.Fatal("unexpected error", err)
 			}
