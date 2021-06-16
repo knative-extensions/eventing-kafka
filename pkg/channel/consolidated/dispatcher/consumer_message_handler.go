@@ -83,7 +83,7 @@ func (c consumerMessageHandler) Handle(ctx context.Context, consumerMessage *sar
 		c.sub.Reply,
 		c.sub.DeadLetter,
 		c.sub.RetryConfig,
-		[]binding.Transformer{&te}...,
+		&te,
 	)
 
 	args := eventingchannels.ReportArgs{
