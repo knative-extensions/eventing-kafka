@@ -25,6 +25,7 @@ import (
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	control "knative.dev/control-protocol/pkg"
 	ctrlreconciler "knative.dev/control-protocol/pkg/reconciler"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/reconciler"
@@ -102,25 +103,29 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, resetOffset *kafkav1alph
 	dataPlaneServices, err := r.reconcileDataPlaneServices(ctx, resetOffset, refInfo)
 	if err != nil {
 		logger.Error("Failed to reconcile DataPlane services from ConnectionPool", zap.Error(err))
+		// TODO - how to handle this - need another status condition and mark as failed?
 	}
+	logger.Info("Successfully reconciled DataPlane Services", zap.Any("Services", dataPlaneServiceIPs(dataPlaneServices)))
 
 	// TODO - Send "Initiate" Message to Dispatcher Replicas to lock mutext and start process.
 	resetOffset.Status.MarkResetInitiatedTrue()
 
-	// TODO - Send "Stop" Message to Dispatcher Replicas to stop ConsumerGroups
 	// Stop The ConsumerGroup In Associated Dispatchers
 	err = r.stopConsumerGroups(ctx, resetOffset, dataPlaneServices, refInfo)
 	if err != nil {
 		logger.Error("Failed to stop ConsumerGroups", zap.Error(err))
+		resetOffset.Status.MarkConsumerGroupsStoppedFailed("FailedToStopConsumerGroups", "Failed to stop one or more ConsumerGroups: %v", err)
 		// TODO - should we re-reconcile and keep trying (stuck) or rollback here or in stopConsumerGroups() ???
+		return nil // TODO - for now stopping without re-queueing
 	}
+	logger.Info("Successfully stopped ConsumerGroups")
 	resetOffset.Status.MarkConsumerGroupsStoppedTrue()
 
 	// Update The Sarama Offsets & Update ResetOffset CRD With OffsetMappings
 	offsetMappings, err := r.reconcileOffsets(ctx, refInfo, offsetTime)
 	if err != nil {
 		logger.Error("Failed to update Offsets of one or more partitions", zap.Error(err))
-		resetOffset.Status.MarkOffsetsUpdatedFailed("FailedToUpdateOffsets", "Failed to update offsets of one or more partitions: %v", err)
+		resetOffset.Status.MarkOffsetsUpdatedFailed("FailedToUpdateOffsets", "Failed to update Offsets of one or more Partitions: %v", err)
 		return fmt.Errorf("failed to update offsets of one or more partitions: %v", err)
 	}
 	if offsetMappings != nil {
@@ -129,7 +134,15 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, resetOffset *kafkav1alph
 	logger.Info("Successfully updated Offsets of all partitions")
 	resetOffset.Status.MarkOffsetsUpdatedTrue()
 
-	// TODO - Send "Start" Message to Dispatcher Replicas to restart ConsumerGroups
+	// Start The ConsumerGroup In Associated Dispatchers
+	err = r.startConsumerGroups(ctx, resetOffset, dataPlaneServices, refInfo)
+	if err != nil {
+		logger.Error("Failed to start ConsumerGroups", zap.Error(err))
+		resetOffset.Status.MarkConsumerGroupsStartedFailed("FailedToStartConsumerGroups", "Failed to start one or more ConsumerGroups: %v", err)
+		// TODO - should we re-reconcile and keep trying (stuck) or rollback here or in stopConsumerGroups() ???
+		return nil // TODO - for now stopping without re-queueing
+	}
+	logger.Info("Successfully started ConsumerGroups")
 	resetOffset.Status.MarkConsumerGroupsStartedTrue()
 
 	// Return Reconciled Success Event
@@ -206,4 +219,15 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 
 	// Update Reconciler With New Config
 	r.saramaConfig = ekConfig.Sarama.Config
+}
+
+// dataPlaneServiceIPs returns the control-protocol Service IPs which are the keys in the specified map.
+func dataPlaneServiceIPs(services map[string]control.Service) []string {
+	i := 0
+	ips := make([]string, len(services))
+	for ip := range services {
+		ips[i] = ip
+		i++
+	}
+	return ips
 }

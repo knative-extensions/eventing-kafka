@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"hash/fnv"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"sync"
 	"time"
 
@@ -28,6 +27,7 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	ctrl "knative.dev/control-protocol/pkg"
 	ctrlmessage "knative.dev/control-protocol/pkg/message"
 	ctrlreconciler "knative.dev/control-protocol/pkg/reconciler"
@@ -39,9 +39,8 @@ import (
 )
 
 const (
-	asyncCommandResultPollDuration   = 1 * time.Second // AsyncCommand Result Polling Sleep Duration
-	asyncCommandResultPollTimeout    = 10 * time.Second
-	asyncCommandResultPollIterations = 5 // AsyncCommand Result Polling Number Of Iterations
+	asyncCommandResultPollDuration    = 1 * time.Second  // AsyncCommandResult Polling Duration
+	asyncCommandResultTimeoutDuration = 10 * time.Second // AsyncCommandResult Timeout Duration
 )
 
 // reconcileDataPlaneServices updates the Reconciler ConnectionPool Services associated with the specified RefInfo.
@@ -57,6 +56,7 @@ func (r *Reconciler) reconcileDataPlaneServices(ctx context.Context, resetOffset
 		logger.Error("Failed to getting data-plane Pod IPs", zap.Error(err))
 		return nil, err
 	}
+	logger.Debug("Detected DataPlane Services", zap.Any("Pod IPs", podIPs))
 
 	// Define Service Callback Functions To Manage The Reconciler AsyncCommandNotificationStore
 	resetOffsetNamespacedName := types.NamespacedName{
@@ -83,28 +83,34 @@ func (r *Reconciler) reconcileDataPlaneServices(ctx context.Context, resetOffset
 	return services, nil
 }
 
-//
-func (r *Reconciler) startConsumerGroups(ctx context.Context, services map[string]ctrl.Service, efInfo *refmappers.RefInfo) error {
-	return nil // TODO replicate stopConsumerGroups() logic
-}
-
-//
-func (r *Reconciler) startConsumerGroup(ctx context.Context, services map[string]ctrl.Service, efInfo *refmappers.RefInfo) error {
-	return nil // TODO replicate stopConsumerGroup() logic
+// startConsumerGroups sends Start messages to the specified DataPlane services for a Topic / ConsumerGroup and
+// waits for the async responses.  A multi-error is returned if any ConsumerGroup was not started successfully.
+func (r *Reconciler) startConsumerGroups(ctx context.Context, resetOffset *kafkav1alpha1.ResetOffset, services map[string]ctrl.Service, refInfo *refmappers.RefInfo) error {
+	return r.sendConsumerGroupAsyncCommands(ctx, resetOffset, services, refInfo, commands.StartConsumerGroupOpCode)
 }
 
 // stopConsumerGroups sends Stop messages to the specified DataPlane services for a Topic / ConsumerGroup and
 // waits for the async responses.  A multi-error is returned if any ConsumerGroup was not stopped successfully.
 func (r *Reconciler) stopConsumerGroups(ctx context.Context, resetOffset *kafkav1alpha1.ResetOffset, services map[string]ctrl.Service, refInfo *refmappers.RefInfo) error {
+	return r.sendConsumerGroupAsyncCommands(ctx, resetOffset, services, refInfo, commands.StopConsumerGroupOpCode)
+}
 
-	// Stop All The ConsumerGroups In Parallel
+// sendConsumerGroupAsyncCommands sends ConsumerGroupAsyncCommands to the specified control-protocol Services in
+// parallel and blocks waiting for all the AsyncCommandResults.  Any errors are returned in a single multi-error.
+func (r *Reconciler) sendConsumerGroupAsyncCommands(ctx context.Context,
+	resetOffset *kafkav1alpha1.ResetOffset,
+	services map[string]ctrl.Service,
+	refInfo *refmappers.RefInfo,
+	opCode ctrl.OpCode) error {
+
+	// Send To All The ConsumerGroups In Parallel
 	waitGroup := &sync.WaitGroup{}
 	waitGroup.Add(len(services))
 	errChan := make(chan error, len(services))
 	for podIP, service := range services {
 		go func(podIP string, service ctrl.Service) {
 			defer waitGroup.Done()
-			err := r.stopConsumerGroup(ctx, resetOffset, podIP, service, refInfo)
+			err := r.sendConsumerGroupAsyncCommand(ctx, resetOffset, podIP, service, refInfo, opCode)
 			if err != nil {
 				errChan <- err
 			}
@@ -127,29 +133,34 @@ func (r *Reconciler) stopConsumerGroups(ctx context.Context, resetOffset *kafkav
 	return multiErr
 }
 
-// stopConsumerGroup sends a Stop message to the specified DataPlane service for a Topic / ConsumerGroup and
-// waits for the async response.  An error is returned if the ConsumerGroup was not stopped successfully.
-func (r *Reconciler) stopConsumerGroup(ctx context.Context, resetOffset *kafkav1alpha1.ResetOffset, podIP string, service ctrl.Service, refInfo *refmappers.RefInfo) error {
+// sendConsumerGroupAsyncCommand sends a ConsumerGroupAsyncCommand with the specified opCode to the
+// specified pods and blocks waiting for AsyncCommandResult response which is then returned.
+func (r *Reconciler) sendConsumerGroupAsyncCommand(ctx context.Context,
+	resetOffset *kafkav1alpha1.ResetOffset,
+	podIP string,
+	service ctrl.Service,
+	refInfo *refmappers.RefInfo,
+	opCode ctrl.OpCode) error {
 
 	// Get The Logger From Context
-	logger := logging.FromContext(ctx).Desugar()
+	logger := logging.FromContext(ctx).Desugar().With(zap.String("PodIP", podIP), zap.Int("OpCode", int(opCode)))
 
 	// Generate A CommandID For The ResetOffset
-	commandId, err := r.generateCommandId(resetOffset, podIP, commands.StopConsumerGroupOpCode)
+	commandId, err := r.generateCommandId(resetOffset, podIP, opCode)
 	if err != nil {
 		logger.Error("Failed to generate Command ID for ResetOffset", zap.Error(err))
 		return fmt.Errorf("failed to generate Command ID for ResetOffset: %v", err)
 	}
 
-	// Create And Send A Stop ConsumerGroupAsyncCommand to The Control-Protocol Service (Dispatcher)
+	// Create And Send A The ConsumerGroupAsyncCommand to The Control-Protocol Service
 	consumerGroupAsyncCommand := commands.NewConsumerGroupAsyncCommand(commandId, refInfo.TopicName, refInfo.GroupId)
-	err = service.SendAndWaitForAck(commands.StopConsumerGroupOpCode, consumerGroupAsyncCommand)
+	err = service.SendAndWaitForAck(opCode, consumerGroupAsyncCommand)
 	if err != nil {
-		logger.Error("Failed to send Stop ConsumerGroup AsyncCommand", zap.Int64("CommandID", commandId), zap.Error(err))
-		return fmt.Errorf("failed to send Stop ConsumerGroup AsyncCommand '%d' : %v", commandId, err)
+		logger.Error("Failed to send ConsumerGroup AsyncCommand", zap.Int64("CommandID", commandId), zap.Error(err))
+		return fmt.Errorf("failed to send ConsumerGroup AsyncCommand '%d' : %v", commandId, err)
 	}
 
-	// Wait For And Return The AsyncCommand Result
+	// Wait For The AsyncCommand Result & Return Results
 	return r.waitForAsyncCommandResult(resetOffset, podIP, consumerGroupAsyncCommand)
 }
 
@@ -176,37 +187,7 @@ func (r *Reconciler) waitForAsyncCommandResult(resetOffset *kafkav1alpha1.ResetO
 	}
 
 	// Poll The AsyncCommandNotificationStore For AsyncCommandResult
-	for iteration := 0; iteration < asyncCommandResultPollIterations; iteration++ {
-
-		// Check The AsyncCommandNotificationStore For Specified AsyncCommandResult
-		time.Sleep(asyncCommandResultPollDuration)
-		asyncCommandResult := r.asyncCommandNotificationStore.GetCommandResult(resetOffsetNamespacedName, podIP, asyncCommand)
-
-		// If Result Received - Stop Polling And Return
-		if asyncCommandResult != nil {
-			if asyncCommandResult.IsFailed() {
-				return fmt.Errorf("AsyncCommand ID '%x' resulted in error: %s", asyncCommand.SerializedId(), asyncCommandResult.Error)
-			} else {
-				return nil // Return Success
-			}
-		}
-	}
-
-	// Finished Polling - No Result - Return Error
-	return fmt.Errorf("AsyncCommand ID '%x' timed out waiting for response", asyncCommand.SerializedId())
-}
-
-// TODO - Hmmm.... uses wait library but results in less useful error messages
-func (r *Reconciler) waitForAsyncCommandResult_NEW(resetOffset *kafkav1alpha1.ResetOffset, podIP string, asyncCommand ctrlmessage.AsyncCommand) error {
-
-	// Create A NamespacedName For The ResetOffset
-	resetOffsetNamespacedName := types.NamespacedName{
-		Namespace: resetOffset.GetNamespace(),
-		Name:      resetOffset.GetName(),
-	}
-
-	// Poll The AsyncCommandNotificationStore For AsyncCommandResult
-	err := wait.Poll(asyncCommandResultPollDuration, asyncCommandResultPollTimeout, func() (done bool, err error) {
+	err := wait.Poll(asyncCommandResultPollDuration, asyncCommandResultTimeoutDuration, func() (done bool, err error) {
 		asyncCommandResult := r.asyncCommandNotificationStore.GetCommandResult(resetOffsetNamespacedName, podIP, asyncCommand)
 		if asyncCommandResult != nil {
 			if asyncCommandResult.IsFailed() {

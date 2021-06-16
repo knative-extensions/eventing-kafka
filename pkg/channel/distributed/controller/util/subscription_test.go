@@ -328,9 +328,7 @@ func TestDataPlaneLabelsMapper(t *testing.T) {
 				},
 			},
 			expected: map[string]string{
-				constants.KafkaChannelDispatcherLabel: "true",
-				constants.KafkaChannelNameLabel:       channelName,
-				constants.KafkaChannelNamespaceLabel:  channelNamespace,
+				constants.AppLabel: "test-channel-name-test-channel-nam-59d657a5-dispatcher",
 			},
 		},
 		{
@@ -346,9 +344,7 @@ func TestDataPlaneLabelsMapper(t *testing.T) {
 				},
 			},
 			expected: map[string]string{
-				constants.KafkaChannelDispatcherLabel: "true",
-				constants.KafkaChannelNameLabel:       channelName,
-				constants.KafkaChannelNamespaceLabel:  channelNamespace,
+				constants.AppLabel: "test-channel-name-test-channel-nam-59d657a5-dispatcher",
 			},
 		},
 	}

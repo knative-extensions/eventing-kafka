@@ -26,6 +26,7 @@ import (
 	messagingv1 "knative.dev/eventing/pkg/apis/messaging/v1"
 	"knative.dev/pkg/system"
 
+	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	commonkafkautil "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/util"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 )
@@ -83,15 +84,23 @@ func DataPlaneNamespaceMapper(_ *messagingv1.Subscription) (string, error) {
 // DataPlaneLabelsMapper returns a map of Kubernetes Labels identifying the distributed
 // KafkaChannels' Dispatcher pods.
 func DataPlaneLabelsMapper(subscription *messagingv1.Subscription) (map[string]string, error) {
+
 	channelName := subscription.Spec.Channel.Name
 	channelNamespace := subscription.Spec.Channel.Namespace
 	if channelNamespace == "" {
 		channelNamespace = subscription.Namespace
 	}
-	labels := map[string]string{
-		constants.KafkaChannelDispatcherLabel: "true",
-		constants.KafkaChannelNameLabel:       channelName,
-		constants.KafkaChannelNamespaceLabel:  channelNamespace,
+
+	sparseKafkaChannel := &kafkav1beta1.KafkaChannel{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      channelName,
+			Namespace: channelNamespace,
+		},
 	}
+
+	dispatcherAppLabelValue := DispatcherDnsSafeName(sparseKafkaChannel)
+
+	labels := map[string]string{constants.AppLabel: dispatcherAppLabelValue}
+
 	return labels, nil
 }
