@@ -27,5 +27,6 @@ import (
 
 // TestChannelDeadLetterSink tests DeadLetterSink
 func TestChannelDeadLetterSink(t *testing.T) {
+	t.Skip()
 	helpers.ChannelDeadLetterSinkTestHelper(context.Background(), t, helpers.SubscriptionV1, channelTestRunner)
 }

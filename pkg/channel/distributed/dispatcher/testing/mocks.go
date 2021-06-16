@@ -25,6 +25,7 @@ import (
 
 	"github.com/Shopify/sarama"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	"github.com/cloudevents/sdk-go/v2/binding"
 	"github.com/stretchr/testify/assert"
 	"knative.dev/eventing/pkg/channel"
 	"knative.dev/eventing/pkg/kncloudevents"
@@ -74,8 +75,7 @@ func (m *MockMessageDispatcher) DispatchMessage(ctx context.Context, message clo
 	panic("implement me")
 }
 
-func (m *MockMessageDispatcher) DispatchMessageWithRetries(ctx context.Context, message cloudevents.Message, headers http.Header, destinationUrl *url.URL, replyUrl *url.URL, deadLetterUrl *url.URL, retryConfig *kncloudevents.RetryConfig) (*channel.DispatchExecutionInfo, error) {
-
+func (m *MockMessageDispatcher) DispatchMessageWithRetries(ctx context.Context, message cloudevents.Message, headers http.Header, destinationUrl *url.URL, replyUrl *url.URL, deadLetterUrl *url.URL, retryConfig *kncloudevents.RetryConfig, transformers ...binding.Transformer) (*channel.DispatchExecutionInfo, error) {
 	// Validate The Expected Args
 	assert.NotNil(m.t, ctx)
 	assert.NotNil(m.t, message)

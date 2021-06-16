@@ -109,7 +109,7 @@ type Reconciler struct {
 	configs KafkaSourceConfigAccessor
 
 	podIpGetter             ctrlreconciler.PodIpGetter
-	connectionPool          *ctrlreconciler.ControlPlaneConnectionPool
+	connectionPool          ctrlreconciler.ControlPlaneConnectionPool
 	claimsNotificationStore *ctrlreconciler.NotificationStore
 }
 

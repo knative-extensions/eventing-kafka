@@ -18,10 +18,10 @@ package reconciler
 
 import control "knative.dev/control-protocol/pkg"
 
-type ControlPlaneConnectionPoolOption func(*ControlPlaneConnectionPool)
+type ControlPlaneConnectionPoolOption func(*controlPlaneConnectionPoolImpl)
 
 func WithServiceWrapper(wrapper control.ServiceWrapper) ControlPlaneConnectionPoolOption {
-	return func(pool *ControlPlaneConnectionPool) {
+	return func(pool *controlPlaneConnectionPoolImpl) {
 		pool.serviceWrapperFactories = append(pool.serviceWrapperFactories, wrapper)
 	}
 }

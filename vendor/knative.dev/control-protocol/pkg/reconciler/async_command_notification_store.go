@@ -25,14 +25,24 @@ import (
 	"knative.dev/control-protocol/pkg/message"
 )
 
-// AsyncCommandNotificationStore is a specialized NotificationStore that is capable to handle message.AsyncCommandResult
-type AsyncCommandNotificationStore struct {
+// AsyncCommandNotificationStore defines a specialized NotificationStore capable of handling message.AsyncCommandResults
+type AsyncCommandNotificationStore interface {
+	GetCommandResult(srcName types.NamespacedName, pod string, command message.AsyncCommand) *message.AsyncCommandResult
+	CleanPodsNotifications(srcName types.NamespacedName)
+	CleanPodNotification(srcName types.NamespacedName, pod string)
+	MessageHandler(srcName types.NamespacedName, pod string) control.MessageHandler
+}
+
+var _ AsyncCommandNotificationStore = (*asyncCommandNotificationStoreImpl)(nil)
+
+// asyncCommandNotificationStoreImpl is a specialized NotificationStore that is capable to handle message.AsyncCommandResult
+type asyncCommandNotificationStoreImpl struct {
 	ns *NotificationStore
 }
 
 // NewAsyncCommandNotificationStore creates an AsyncCommandNotificationStore
-func NewAsyncCommandNotificationStore(enqueueKey func(name types.NamespacedName)) *AsyncCommandNotificationStore {
-	return &AsyncCommandNotificationStore{
+func NewAsyncCommandNotificationStore(enqueueKey func(name types.NamespacedName)) AsyncCommandNotificationStore {
+	return &asyncCommandNotificationStoreImpl{
 		ns: &NotificationStore{
 			enqueueKey:        enqueueKey,
 			payloadParser:     message.ParseAsyncCommandResult,
@@ -42,7 +52,7 @@ func NewAsyncCommandNotificationStore(enqueueKey func(name types.NamespacedName)
 }
 
 // GetCommandResult returns the message.AsyncCommandResult when the notification store contains the command result matching srcName, pod and generation
-func (ns *AsyncCommandNotificationStore) GetCommandResult(srcName types.NamespacedName, pod string, command message.AsyncCommand) *message.AsyncCommandResult {
+func (ns *asyncCommandNotificationStoreImpl) GetCommandResult(srcName types.NamespacedName, pod string, command message.AsyncCommand) *message.AsyncCommandResult {
 	val, ok := ns.ns.GetPodNotification(srcName, pod)
 	if !ok {
 		return nil
@@ -58,16 +68,16 @@ func (ns *AsyncCommandNotificationStore) GetCommandResult(srcName types.Namespac
 }
 
 // CleanPodsNotifications is like NotificationStore.CleanPodsNotifications
-func (ns *AsyncCommandNotificationStore) CleanPodsNotifications(srcName types.NamespacedName) {
+func (ns *asyncCommandNotificationStoreImpl) CleanPodsNotifications(srcName types.NamespacedName) {
 	ns.ns.CleanPodsNotifications(srcName)
 }
 
 // CleanPodNotification is like NotificationStore.CleanPodNotification
-func (ns *AsyncCommandNotificationStore) CleanPodNotification(srcName types.NamespacedName, pod string) {
+func (ns *asyncCommandNotificationStoreImpl) CleanPodNotification(srcName types.NamespacedName, pod string) {
 	ns.ns.CleanPodNotification(srcName, pod)
 }
 
 // MessageHandler is like NotificationStore.MessageHandler
-func (ns *AsyncCommandNotificationStore) MessageHandler(srcName types.NamespacedName, pod string) control.MessageHandler {
+func (ns *asyncCommandNotificationStoreImpl) MessageHandler(srcName types.NamespacedName, pod string) control.MessageHandler {
 	return ns.ns.MessageHandler(srcName, pod, PassNewValue)
 }
