@@ -19,35 +19,28 @@ package testing
 import (
 	"testing"
 
-	"knative.dev/eventing-kafka/pkg/common/consumer"
-
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
+
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer/wrapper"
+	"knative.dev/eventing-kafka/pkg/common/consumer"
 )
 
 //
 // Test Utilities For Stubbing The NewConsumerGroupFn
 //
 
-// Replace The NewConsumerGroupFn With Specified Mock / Test Value
+// StubNewConsumerGroupFn Replaces The NewConsumerGroupFn With Specified Mock / Test Value
 func StubNewConsumerGroupFn(stubNewConsumerGroupFn consumer.NewConsumerGroupFnType) {
 	wrapper.NewConsumerGroupFn = stubNewConsumerGroupFn
 }
 
-// Restore The NewConsumerGroupFn To Official Production Value
+// RestoreNewConsumerGroupFn Restores The NewConsumerGroupFn To Official Production Value
 func RestoreNewConsumerGroupFn() {
 	wrapper.NewConsumerGroupFn = wrapper.SaramaNewConsumerGroupWrapper
 }
 
-// Non-Validating NewConsumerGroup Function
-func NonValidatingNewConsumerGroupFn(mockConsumerGroup sarama.ConsumerGroup) consumer.NewConsumerGroupFnType {
-	return func(brokers []string, groupId string, config *sarama.Config) (sarama.ConsumerGroup, error) {
-		return mockConsumerGroup, nil
-	}
-}
-
-// Validating NewConsumerGroup Function
+// ValidatingNewConsumerGroupFn Validates Parameters To The NewConsumerGroup Function
 func ValidatingNewConsumerGroupFn(t *testing.T,
 	expectedBrokers []string,
 	expectedGroupId string,

@@ -22,6 +22,7 @@ import (
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
+
 	"knative.dev/eventing-kafka/pkg/common/consumer"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 )

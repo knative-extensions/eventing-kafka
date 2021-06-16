@@ -94,14 +94,6 @@ func TestManagedGroup(t *testing.T) {
 
 }
 
-func createTestGroup() (*commontesting.MockConsumerGroup, *managedGroup) {
-	mockGroup := commontesting.NewMockConsumerGroup()
-	return mockGroup, &managedGroup{
-		group:  mockGroup,
-		errors: make(chan error),
-	}
-}
-
 func TestManagedGroup_transferErrors(t *testing.T) {
 	for _, testCase := range []struct {
 		name       string
@@ -441,7 +433,15 @@ func getManagerWithMockGroup(groupId string, factoryErr bool) (KafkaConsumerGrou
 	return manager, nil, nil, serverHandler
 }
 
-// restoreNewConsumerGroup allows a one-line defer call to be used for saving and restoring the newConsumerGroup wrapper
+func createTestGroup() (*commontesting.MockConsumerGroup, *managedGroup) {
+	mockGroup := commontesting.NewMockConsumerGroup()
+	return mockGroup, &managedGroup{
+		group:  mockGroup,
+		errors: make(chan error),
+	}
+}
+
+// restoreNewConsumerGroup allows a single defer call to be used for saving and restoring the newConsumerGroup wrapper
 func restoreNewConsumerGroup(fn func(addrs []string, groupID string, config *sarama.Config) (sarama.ConsumerGroup, error)) {
 	newConsumerGroup = fn
 }

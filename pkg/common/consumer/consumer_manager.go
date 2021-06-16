@@ -29,7 +29,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/common/controlprotocol/commands"
 )
 
-// NewConsumerGroupFnType Is A Function Definition Types For A Wrapper Variables (Typesafe Stubbing For Tests)
+// NewConsumerGroupFnType Is A Function Definition Type For Wrapper Variables (Typesafe Stubbing For Tests)
 type NewConsumerGroupFnType = func(brokers []string, groupId string, config *sarama.Config) (sarama.ConsumerGroup, error)
 
 // KafkaConsumerGroupManager keeps track of Sarama consumer groups and handles messages from control-protocol clients
@@ -102,19 +102,32 @@ func (m *kafkaConsumerGroupManagerImpl) StartConsumerGroup(groupId string, topic
 		return err
 	}
 
-	consumeFunc := func(ctx context.Context, topics []string, handler sarama.ConsumerGroupHandler) error {
+	ctx := context.Background()
+	// Add the Sarama ConsumerGroup we obtained from the factory to the managed group map,
+	// so that it can be stopped and started via control-protocol messages.
+	m.groupLock.Lock()
+	m.groups[groupId] = &managedGroup{
+		group:  group,
+		errors: make(chan error),
+	}
+	m.groupLock.Unlock()
+
+	// Begin listening on the group's Errors() channel and write them to the managedGroup's errors channel
+	m.groups[groupId].transferErrors(ctx)
+
+	// consume is passed in to the KafkaConsumerGroupFactory so that it will call the manager's
+	// consume() function instead of the one on the internal sarama ConsumerGroup.  This allows the
+	// manager to continue to block in the Consume call while a group goes through a stop/start cycle.
+	consume := func(ctx context.Context, topics []string, handler sarama.ConsumerGroupHandler) error {
 		return m.consume(ctx, groupId, topics, handler)
 	}
 
-	ctx := context.Background()
-	m.addExistingGroup(ctx, groupId, group)
-
-	_ = m.factory.startExistingConsumerGroup(ctx, group, consumeFunc, topics, logger, handler, options...)
+	_ = m.factory.startExistingConsumerGroup(ctx, group, consume, topics, logger, handler, options...)
 	return nil
 }
 
 // CloseConsumerGroup calls the Close function on the ConsumerGroup embedded in the managedGroup
-// associate with the given groupId, and also closes its managed errors channel.
+// associated with the given groupId, and also closes its managed errors channel
 func (m *kafkaConsumerGroupManagerImpl) CloseConsumerGroup(groupId string) error {
 	groupInfo, ok := m.groups[groupId]
 	if !ok {
@@ -127,14 +140,14 @@ func (m *kafkaConsumerGroupManagerImpl) CloseConsumerGroup(groupId string) error
 	if err != nil {
 		return err
 	}
-	// Remove this groupId from the map so that Consume, etc cannot be called on it
+	// Remove this groupId from the map so that manager functions may not be called on it
 	delete(m.groups, groupId)
 	return nil
 }
 
 // Errors returns the errors channel of the managedGroup associated with the given groupId.  This channel
 // is different than using the Errors() channel of a ConsumerGroup directly, as it will remain open during
-//  a stop/start ("pause/resume") cycle.
+//  a stop/start ("pause/resume") cycle
 func (m *kafkaConsumerGroupManagerImpl) Errors(groupId string) <-chan error {
 	groupInfo, ok := m.groups[groupId]
 	if !ok {
@@ -149,21 +162,6 @@ func (m *kafkaConsumerGroupManagerImpl) IsValid(groupId string) bool {
 		return true
 	}
 	return false
-}
-
-// addExistingGroup adds an existing Sarama ConsumerGroup to the managed group map,
-// so that it can be stopped and started via control-protocol messages.
-func (m *kafkaConsumerGroupManagerImpl) addExistingGroup(ctx context.Context, groupID string, group sarama.ConsumerGroup) {
-	// Synchronize access to groups map
-	m.groupLock.Lock()
-	m.groups[groupID] = &managedGroup{
-		group:  group,
-		errors: make(chan error),
-	}
-	m.groupLock.Unlock()
-
-	// Listen on the group's Errors() channel and write them to the managedGroup's errors channel
-	m.groups[groupID].transferErrors(ctx)
 }
 
 // Consume calls the Consume method of a managed consumer group, using a loop to call it again if that
@@ -189,7 +187,7 @@ func (m *kafkaConsumerGroupManagerImpl) consume(ctx context.Context, groupId str
 	}
 }
 
-// stopConsumerGroups closes the managed Consumer Groups identified by the provided groupId, and marks it
+// stopConsumerGroups closes the managed ConsumerGroup identified by the provided groupId, and marks it
 // as "stopped" (that is, "able to be restarted" as opposed to being closed by something outside the manager)
 func (m *kafkaConsumerGroupManagerImpl) stopConsumerGroup(groupId string) error {
 	groupInfo, ok := m.groups[groupId]

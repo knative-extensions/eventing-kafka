@@ -21,9 +21,6 @@ import (
 	"sync"
 	"time"
 
-	"knative.dev/eventing-kafka/pkg/common/client"
-	"knative.dev/eventing-kafka/pkg/common/controlprotocol"
-
 	"github.com/Shopify/sarama"
 	gometrics "github.com/rcrowley/go-metrics"
 	"go.uber.org/zap"
@@ -34,8 +31,10 @@ import (
 
 	commonkafkautil "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/util"
 	dispatcherconstants "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/constants"
+	"knative.dev/eventing-kafka/pkg/common/client"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	commonconsumer "knative.dev/eventing-kafka/pkg/common/consumer"
+	"knative.dev/eventing-kafka/pkg/common/controlprotocol"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
 )
 

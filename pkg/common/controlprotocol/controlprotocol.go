@@ -19,14 +19,13 @@ package controlprotocol
 import (
 	"context"
 
-	"go.uber.org/zap"
 	ctrl "knative.dev/control-protocol/pkg"
 	"knative.dev/control-protocol/pkg/message"
 	"knative.dev/control-protocol/pkg/network"
 	ctrlservice "knative.dev/control-protocol/pkg/service"
-	"knative.dev/pkg/logging"
 )
 
+// AsyncHandlerFunc is a definition that matches the type used in the control-protocol's NewAsyncCommandHandler function
 type AsyncHandlerFunc func(ctx context.Context, commandMessage ctrlservice.AsyncCommandMessage)
 
 // startServerWrapper wraps the Control Protocol initialization call to facilitate
@@ -42,7 +41,7 @@ type ServerHandler interface {
 	RemoveHandler(opcode ctrl.OpCode)
 }
 
-// kafkaConsumerGroupManagerImpl is the primary implementation of a KafkaConsumerGroupManager
+// serverHandlerImpl is the primary implementation of a ServerHandler
 type serverHandlerImpl struct {
 	router       ctrlservice.MessageRouter
 	server       *network.ControlServer
@@ -55,14 +54,12 @@ var _ ServerHandler = (*serverHandlerImpl)(nil)
 // NewServerHandler starts a control-protocol server on the specified port and returns
 // the serverHandlerImpl as a ServerHandler interface
 func NewServerHandler(ctx context.Context, port int) (ServerHandler, error) {
-	logger := logging.FromContext(ctx)
 	serverCtx, serverCancelFn := context.WithCancel(ctx)
 
 	// Create a new control-protocol server that will listen on the given port
 	controlServer, err := startServerWrapper(serverCtx, network.WithPort(port))
 
 	if err != nil {
-		logger.Error("Failed to start control-protocol server", zap.Error(err))
 		serverCancelFn()
 		return nil, err
 	}

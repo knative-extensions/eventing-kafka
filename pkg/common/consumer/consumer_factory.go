@@ -24,7 +24,11 @@ import (
 	"go.uber.org/zap"
 )
 
+// newConsumerGroup is a wrapper for the Sarama NewConsumerGroup function, to facilitate unit testing
 var newConsumerGroup = sarama.NewConsumerGroup
+
+// consumeFunc is a function type that matches the Sarama ConsumerGroup's Consume function
+type consumeFunc func(ctx context.Context, topics []string, handler sarama.ConsumerGroupHandler) error
 
 // KafkaConsumerGroupFactory creates the ConsumerGroup and start consuming the specified topic
 type KafkaConsumerGroupFactory interface {
@@ -74,11 +78,12 @@ func (c kafkaConsumerGroupFactoryImpl) createConsumerGroup(groupID string) (sara
 	return newConsumerGroup(c.addrs, groupID, c.config)
 }
 
-// startExistingConsumerGroup creates a goroutine that begin a Consume loop on the provided customConsumerGroup
-// It is cancelable via the Done channel in the provided context
+// startExistingConsumerGroup creates a goroutine that begins a custom Consume loop on the provided ConsumerGroup
+// Note: Pass in the saramaGroup.Consume function as the "consume" parameter if the default behavior is desired
+// This loop is cancelable via the function provided in the returned customConsumerGroup.
 func (c kafkaConsumerGroupFactoryImpl) startExistingConsumerGroup(ctx context.Context,
 	saramaGroup sarama.ConsumerGroup,
-	consumeFunc func(ctx context.Context, topics []string, handler sarama.ConsumerGroupHandler) error,
+	consume consumeFunc,
 	topics []string,
 	logger *zap.SugaredLogger,
 	handler KafkaConsumerHandler,
@@ -96,7 +101,7 @@ func (c kafkaConsumerGroupFactoryImpl) startExistingConsumerGroup(ctx context.Co
 		for {
 			consumerHandler := NewConsumerHandler(logger, handler, errorCh, options...)
 
-			err := consumeFunc(ctx, topics, &consumerHandler)
+			err := consume(ctx, topics, &consumerHandler)
 			if err == sarama.ErrClosedConsumerGroup {
 				return
 			}
