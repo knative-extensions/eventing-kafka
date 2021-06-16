@@ -56,8 +56,13 @@ spec:
           containerPort: 9090
         - name: profiling
           containerPort: 8008
-        # TODO set proper resource limits.
-
+        resources:
+          requests:
+            cpu: 100m
+            memory: 50Mi
+          limits:
+            cpu: 200m
+            memory: 1024Mi
         readinessProbe: &probe
           periodSeconds: 1
           httpGet:

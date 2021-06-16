@@ -26,5 +26,6 @@ import (
 )
 
 func TestChannelSpec(t *testing.T) {
+	t.Skip()
 	eventingconformancehelpers.ChannelSpecTestHelperWithChannelTestRunner(t, channelTestRunner, testlib.SetupClientOptionNoop)
 }
