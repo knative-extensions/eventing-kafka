@@ -33,7 +33,20 @@ const (
 	keepAlive = 30 * time.Second
 )
 
-type ControlPlaneConnectionPool struct {
+type ControlPlaneConnectionPool interface {
+	GetConnectedHosts(key string) []string
+	GetServices(key string) map[string]control.Service
+	ResolveControlInterface(key string, host string) (string, control.Service)
+	RemoveConnection(ctx context.Context, key string, host string)
+	RemoveAllConnections(ctx context.Context, key string)
+	Close(ctx context.Context)
+	ReconcileConnections(ctx context.Context, key string, wantConnections []string, newServiceCb func(string, control.Service), oldServiceCb func(string)) (map[string]control.Service, error)
+	DialControlService(ctx context.Context, key string, host string) (string, control.Service, error)
+}
+
+var _ ControlPlaneConnectionPool = (*controlPlaneConnectionPoolImpl)(nil)
+
+type controlPlaneConnectionPoolImpl struct {
 	tlsDialerFactory TLSDialerFactory
 	baseDialOptions  *net.Dialer
 
@@ -48,12 +61,12 @@ type clientServiceHolder struct {
 	cancelFn context.CancelFunc
 }
 
-func NewInsecureControlPlaneConnectionPool(opts ...ControlPlaneConnectionPoolOption) *ControlPlaneConnectionPool {
+func NewInsecureControlPlaneConnectionPool(opts ...ControlPlaneConnectionPoolOption) ControlPlaneConnectionPool {
 	return NewControlPlaneConnectionPool(nil, opts...)
 }
 
-func NewControlPlaneConnectionPool(tlsDialerFactory TLSDialerFactory, opts ...ControlPlaneConnectionPoolOption) *ControlPlaneConnectionPool {
-	pool := &ControlPlaneConnectionPool{
+func NewControlPlaneConnectionPool(tlsDialerFactory TLSDialerFactory, opts ...ControlPlaneConnectionPoolOption) ControlPlaneConnectionPool {
+	pool := &controlPlaneConnectionPoolImpl{
 		tlsDialerFactory: tlsDialerFactory,
 		baseDialOptions: &net.Dialer{
 			KeepAlive: keepAlive,
@@ -69,7 +82,7 @@ func NewControlPlaneConnectionPool(tlsDialerFactory TLSDialerFactory, opts ...Co
 	return pool
 }
 
-func (cc *ControlPlaneConnectionPool) GetConnectedHosts(key string) []string {
+func (cc *controlPlaneConnectionPoolImpl) GetConnectedHosts(key string) []string {
 	cc.connsLock.Lock()
 	defer cc.connsLock.Unlock()
 	var m map[string]clientServiceHolder
@@ -84,7 +97,7 @@ func (cc *ControlPlaneConnectionPool) GetConnectedHosts(key string) []string {
 	return hosts
 }
 
-func (cc *ControlPlaneConnectionPool) GetServices(key string) map[string]control.Service {
+func (cc *controlPlaneConnectionPoolImpl) GetServices(key string) map[string]control.Service {
 	cc.connsLock.Lock()
 	defer cc.connsLock.Unlock()
 	var m map[string]clientServiceHolder
@@ -99,7 +112,7 @@ func (cc *ControlPlaneConnectionPool) GetServices(key string) map[string]control
 	return svcs
 }
 
-func (cc *ControlPlaneConnectionPool) ResolveControlInterface(key string, host string) (string, control.Service) {
+func (cc *controlPlaneConnectionPoolImpl) ResolveControlInterface(key string, host string) (string, control.Service) {
 	cc.connsLock.Lock()
 	defer cc.connsLock.Unlock()
 	if m, ok := cc.conns[key]; !ok {
@@ -111,7 +124,7 @@ func (cc *ControlPlaneConnectionPool) ResolveControlInterface(key string, host s
 	return "", nil
 }
 
-func (cc *ControlPlaneConnectionPool) RemoveConnection(ctx context.Context, key string, host string) {
+func (cc *controlPlaneConnectionPoolImpl) RemoveConnection(ctx context.Context, key string, host string) {
 	cc.connsLock.Lock()
 	defer cc.connsLock.Unlock()
 	m, ok := cc.conns[key]
@@ -129,7 +142,7 @@ func (cc *ControlPlaneConnectionPool) RemoveConnection(ctx context.Context, key 
 	}
 }
 
-func (cc *ControlPlaneConnectionPool) RemoveAllConnections(ctx context.Context, key string) {
+func (cc *controlPlaneConnectionPoolImpl) RemoveAllConnections(ctx context.Context, key string) {
 	cc.connsLock.Lock()
 	defer cc.connsLock.Unlock()
 	m, ok := cc.conns[key]
@@ -142,7 +155,7 @@ func (cc *ControlPlaneConnectionPool) RemoveAllConnections(ctx context.Context, 
 	delete(cc.conns, key)
 }
 
-func (cc *ControlPlaneConnectionPool) Close(ctx context.Context) {
+func (cc *controlPlaneConnectionPoolImpl) Close(ctx context.Context) {
 	cc.connsLock.Lock()
 	defer cc.connsLock.Unlock()
 	for _, m := range cc.conns {
@@ -154,7 +167,7 @@ func (cc *ControlPlaneConnectionPool) Close(ctx context.Context) {
 	cc.conns = make(map[string]map[string]clientServiceHolder)
 }
 
-func (cc *ControlPlaneConnectionPool) ReconcileConnections(ctx context.Context, key string, wantConnections []string, newServiceCb func(string, control.Service), oldServiceCb func(string)) (map[string]control.Service, error) {
+func (cc *controlPlaneConnectionPoolImpl) ReconcileConnections(ctx context.Context, key string, wantConnections []string, newServiceCb func(string, control.Service), oldServiceCb func(string)) (map[string]control.Service, error) {
 	existingConnections := cc.GetConnectedHosts(key)
 
 	newConnections := setDifference(wantConnections, existingConnections)
@@ -190,7 +203,7 @@ func (cc *ControlPlaneConnectionPool) ReconcileConnections(ctx context.Context, 
 	return cc.GetServices(key), nil
 }
 
-func (cc *ControlPlaneConnectionPool) DialControlService(ctx context.Context, key string, host string) (string, control.Service, error) {
+func (cc *controlPlaneConnectionPoolImpl) DialControlService(ctx context.Context, key string, host string) (string, control.Service, error) {
 	var dialer network.Dialer
 	dialer = cc.baseDialOptions
 	// Check if tlsDialerFactory is set up, otherwise connect without tls

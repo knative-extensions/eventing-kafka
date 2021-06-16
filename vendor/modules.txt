@@ -1110,7 +1110,7 @@ k8s.io/utils/buffer
 k8s.io/utils/integer
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# knative.dev/control-protocol v0.0.0-20210608143842-1c4b3e61cbc0
+# knative.dev/control-protocol v0.0.0-20210616092621-1469a722be79
 ## explicit
 knative.dev/control-protocol/pkg
 knative.dev/control-protocol/pkg/certificates
