@@ -208,7 +208,11 @@ func (a *autoscaler) compact(s *state) error {
 			ordinal := ordinalFromPodName(placement.PodName)
 
 			if ordinal == s.lastOrdinal {
-				a.logger.Infow("evicting vreplica(s)", zap.String("podname", placement.PodName), zap.Int("vreplicas", int(placement.VReplicas)))
+				a.logger.Infow("evicting vreplica(s)",
+					zap.String("name", vpod.GetKey().Name),
+					zap.String("namespace", vpod.GetKey().Namespace),
+					zap.String("podname", placement.PodName),
+					zap.Int("vreplicas", int(placement.VReplicas)))
 
 				err = a.evictor(vpod, &placement)
 				if err != nil {
