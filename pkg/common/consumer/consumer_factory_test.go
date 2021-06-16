@@ -42,7 +42,7 @@ func (m *mockConsumerGroup) Consume(ctx context.Context, topics []string, handle
 			m.generateErrorOnce.Do(func() {
 				h := handler.(*SaramaConsumerHandler)
 				h.errors <- errors.New("consumer group handler error")
-				close(h.errors)
+				// Don't close h.errors here; the deferred shutdown in startExistingConsumerGroup already does that
 			})
 		}()
 	}
@@ -103,13 +103,25 @@ func TestErrorPropagationCustomConsumerGroup(t *testing.T) {
 
 	errorsSlice := make([]error, 0)
 
-	for e := range consumerGroup.Errors() {
-		errorsSlice = append(errorsSlice, e)
-	}
+	errorsWait := sync.WaitGroup{}
+	errorsWait.Add(2)
+	go func() {
+		for e := range consumerGroup.Errors() {
+			errorsSlice = append(errorsSlice, e)
+			errorsWait.Done() // Should be called twice, once for the ConsumerGroup error and once for the Handler error
+		}
+	}()
+
+	// Wait for the mock to send the errors
+	errorsWait.Wait()
+	consumerGroup.(*customConsumerGroup).cancel() // Stop the consume loop and close the error channel
 
 	if len(errorsSlice) != 2 {
 		t.Errorf("len(errorsSlice) != 2")
 	}
+
+	// Wait for the goroutine inside of startExistingConsumerGroup to finish
+	<-consumerGroup.(*customConsumerGroup).releasedCh
 
 	assertContainsError(t, errorsSlice, "consumer group handler error")
 	assertContainsError(t, errorsSlice, "consumer group error")
@@ -147,9 +159,12 @@ func TestErrorWhileNewConsumerGroup(t *testing.T) {
 		config: sarama.NewConfig(),
 		addrs:  []string{"b1", "b2"},
 	}
-	cg, _ := factory.StartConsumerGroup("bla", []string{}, zap.L().Sugar(), nil)
+	consumerGroup, _ := factory.StartConsumerGroup("bla", []string{}, zap.L().Sugar(), nil)
 
-	err := <-cg.Errors()
+	err := <-consumerGroup.Errors()
+	consumerGroup.(*customConsumerGroup).cancel() // Stop the consume loop from spinning after the test is complete
+	// Wait for the goroutine inside of startExistingConsumerGroup to finish
+	<-consumerGroup.(*customConsumerGroup).releasedCh
 
 	if err == nil || err.Error() != "consume error" {
 		t.Errorf("Should contain an error with message consume error. Got %v", err)

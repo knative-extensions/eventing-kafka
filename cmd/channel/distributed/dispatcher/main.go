@@ -143,6 +143,7 @@ func main() {
 	if err != nil {
 		logger.Fatal("Failed To Initialize Control-Protocol Server - Terminating", zap.Error(err))
 	}
+	defer controlProtocolServer.Shutdown()
 
 	// Create The Dispatcher With Specified Configuration
 	dispatcherConfig := dispatch.DispatcherConfig{

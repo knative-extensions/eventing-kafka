@@ -97,18 +97,19 @@ func (m *kafkaConsumerGroupManagerImpl) Reconfigure(brokers []string, config *sa
 
 // StartConsumerGroup uses the consumer factory to create a new ConsumerGroup, and start consuming.
 func (m *kafkaConsumerGroupManagerImpl) StartConsumerGroup(groupId string, topics []string, logger *zap.SugaredLogger, handler KafkaConsumerHandler, options ...SaramaConsumerHandlerOption) error {
-	ctx, group, err := m.factory.createConsumerGroup(context.Background(), groupId)
+	group, err := m.factory.createConsumerGroup(groupId)
 	if err != nil {
 		return err
 	}
 
-	group.consume = func(ctx context.Context, topics []string, handler sarama.ConsumerGroupHandler) error {
+	consumeFunc := func(ctx context.Context, topics []string, handler sarama.ConsumerGroupHandler) error {
 		return m.consume(ctx, groupId, topics, handler)
 	}
 
-	m.addExistingGroup(ctx, groupId, group, topics, logger, handler, options...)
+	ctx := context.Background()
+	m.addExistingGroup(ctx, groupId, group)
 
-	m.factory.startExistingConsumerGroup(ctx, group, topics, logger, handler, options...)
+	_ = m.factory.startExistingConsumerGroup(ctx, group, consumeFunc, topics, logger, handler, options...)
 	return nil
 }
 
@@ -152,18 +153,12 @@ func (m *kafkaConsumerGroupManagerImpl) IsValid(groupId string) bool {
 
 // addExistingGroup adds an existing Sarama ConsumerGroup to the managed group map,
 // so that it can be stopped and started via control-protocol messages.
-func (m *kafkaConsumerGroupManagerImpl) addExistingGroup(ctx context.Context, groupID string, group *customConsumerGroup, topics []string, logger *zap.SugaredLogger, handler KafkaConsumerHandler, options ...SaramaConsumerHandlerOption) {
+func (m *kafkaConsumerGroupManagerImpl) addExistingGroup(ctx context.Context, groupID string, group sarama.ConsumerGroup) {
 	// Synchronize access to groups map
 	m.groupLock.Lock()
 	m.groups[groupID] = &managedGroup{
-		factory: m.factory,
-		topics:  topics,
-		logger:  logger,
-		handler: handler,
-		options: options,
-		groupId: groupID,
-		group:   group,
-		errors:  make(chan error),
+		group:  group,
+		errors: make(chan error),
 	}
 	m.groupLock.Unlock()
 
@@ -180,9 +175,8 @@ func (m *kafkaConsumerGroupManagerImpl) consume(ctx context.Context, groupId str
 		return fmt.Errorf("consume called on nonexistent groupId '%s'", groupId)
 	}
 	for {
-		// Don't call the customConsumerGroup's "Consume" function; that would lead to calling this consume
-		// function again in a recursive overflow.  Instead call the internal sarama.ConsumerGroup function directly
-		err := groupInfo.group.ConsumerGroup.Consume(ctx, topics, handler)
+		// Call the internal sarama ConsumerGroup's Consume function directly
+		err := groupInfo.group.Consume(ctx, topics, handler)
 		if !groupInfo.isStopped() {
 			// This ConsumerGroup wasn't stopped by the manager, so pass the error along to the caller
 			return err
@@ -200,11 +194,17 @@ func (m *kafkaConsumerGroupManagerImpl) consume(ctx context.Context, groupId str
 func (m *kafkaConsumerGroupManagerImpl) stopConsumerGroup(groupId string) error {
 	groupInfo, ok := m.groups[groupId]
 	if ok {
+		// The managedGroup must be stopped before closing the internal ConsumerGroup, otherwise
+		// the consume function would return control to the factory.
+		groupInfo.Stop()
+		// Close the inner sarama ConsumerGroup, which will cause our consume() function to stop
+		// and wait for the managedGroup to start again.
 		err := groupInfo.group.Close()
 		if err != nil {
+			// Don't leave the group "stopped" if the Close call failed; it would be misleading
+			groupInfo.Start()
 			return err
 		}
-		groupInfo.Stop()
 		return nil
 	}
 	return fmt.Errorf("stop requested for consumer group not in managed list: %s", groupId)
@@ -212,13 +212,13 @@ func (m *kafkaConsumerGroupManagerImpl) stopConsumerGroup(groupId string) error 
 
 // startConsumerGroups creates a new Consumer Group based on the groupId provided
 func (m *kafkaConsumerGroupManagerImpl) startConsumerGroup(groupId string) error {
-	groupInfo, ok := m.groups[groupId]
-	if ok {
-		ctx, group, err := m.factory.createConsumerGroup(context.Background(), groupId)
+	m.groupLock.Lock() // Don't allow m.groups to be modified while processing a start request
+	defer m.groupLock.Unlock()
+	if _, ok := m.groups[groupId]; ok {
+		group, err := m.factory.createConsumerGroup(groupId)
 		if err != nil {
 			return err
 		}
-		m.factory.startExistingConsumerGroup(ctx, groupInfo.group, groupInfo.topics, groupInfo.logger, groupInfo.handler, groupInfo.options...)
 		m.groups[groupId].group = group
 		m.groups[groupId].Start()
 		return nil
@@ -242,13 +242,7 @@ func processAsyncGroupNotification(commandMessage ctrlservice.AsyncCommandMessag
 
 // managedGroup contains information about a Sarama ConsumerGroup that is required to start (i.e. re-create) it
 type managedGroup struct {
-	factory   KafkaConsumerGroupFactory
-	topics    []string
-	logger    *zap.SugaredLogger
-	handler   KafkaConsumerHandler
-	options   []SaramaConsumerHandlerOption
-	groupId   string
-	group     *customConsumerGroup
+	group     sarama.ConsumerGroup
 	errors    chan error
 	restartCh chan struct{}
 }

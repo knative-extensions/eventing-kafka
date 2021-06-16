@@ -18,7 +18,6 @@ package consumer
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -27,27 +26,12 @@ import (
 	ctrl "knative.dev/control-protocol/pkg"
 
 	"github.com/Shopify/sarama"
-	"go.uber.org/zap"
 	controltesting "knative.dev/eventing-kafka/pkg/common/controlprotocol/testing"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 
 	"github.com/stretchr/testify/assert"
 	"knative.dev/eventing-kafka/pkg/common/controlprotocol/commands"
 )
-
-// MockKafkaConsumerGroupFactory is similar to the struct in pkg/common/consumer/testing/mocks.go but is replicated
-// here to avoid an import cycle (the mocks in mocks.go are for other packages to use, not this one)
-type mockKafkaConsumerGroupFactory struct {
-	// CreateErr will return an error when creating a consumer
-	CreateErr bool
-}
-
-func (c mockKafkaConsumerGroupFactory) StartConsumerGroup(_ string, _ []string, _ *zap.SugaredLogger, _ KafkaConsumerHandler, _ ...SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error) {
-	if c.CreateErr {
-		return nil, errors.New("error creating consumer")
-	}
-	return commontesting.NewMockConsumerGroup(), nil
-}
 
 func TestNewConsumerGroupManager(t *testing.T) {
 	server := controltesting.GetMockServerHandler()
@@ -113,14 +97,8 @@ func TestManagedGroup(t *testing.T) {
 func createTestGroup() (*commontesting.MockConsumerGroup, *managedGroup) {
 	mockGroup := commontesting.NewMockConsumerGroup()
 	return mockGroup, &managedGroup{
-		factory: &mockKafkaConsumerGroupFactory{},
-		topics:  nil,
-		logger:  nil,
-		handler: KafkaConsumerHandler(nil),
-		options: nil,
-		groupId: "testid",
-		group:   &customConsumerGroup{func() {}, mockGroup.Consume, make(chan error), mockGroup, make(chan bool)},
-		errors:  make(chan error),
+		group:  mockGroup,
+		errors: make(chan error),
 	}
 }
 
@@ -166,12 +144,11 @@ func TestManagedGroup_transferErrors(t *testing.T) {
 				cancel()
 			}
 			close(mockGrp.ErrorChan)
-			close(managedGrp.group.handlerErrorChannel)
 			time.Sleep(5 * time.Millisecond) // Let the error handling loop move forward
 			if testCase.startGroup {
 				// Simulate the effects of startConsumerGroup (new ConsumerGroup, same managedConsumerGroup)
 				mockGrp = commontesting.NewMockConsumerGroup()
-				managedGrp.group = &customConsumerGroup{func() {}, mockGrp.Consume, make(chan error), mockGrp, make(chan bool)}
+				managedGrp.group = mockGrp
 				managedGrp.Start()
 
 				time.Sleep(5 * time.Millisecond) // Let the waitForStart function finish
@@ -181,7 +158,6 @@ func TestManagedGroup_transferErrors(t *testing.T) {
 				assert.NotNil(t, err)
 				assert.Equal(t, "test-error-2", err.Error())
 				close(mockGrp.ErrorChan)
-				close(managedGrp.group.handlerErrorChannel)
 			}
 		})
 	}
@@ -241,10 +217,9 @@ func TestCloseConsumerGroup(t *testing.T) {
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			manager, group, mgGroup, _ := getManagerWithMockGroup(testCase.groupId, false)
+			manager, group, _, _ := getManagerWithMockGroup(testCase.groupId, false)
 			if group != nil {
 				group.CloseErr = testCase.closeErr
-				close(mgGroup.group.releasedCh)
 			}
 			err := manager.CloseConsumerGroup(testCase.groupId)
 			assert.Equal(t, testCase.expectErr, err != nil)
@@ -312,7 +287,6 @@ func TestConsume(t *testing.T) {
 				} else {
 					mgdGroup.Start()
 				}
-				close(mgdGroup.group.releasedCh)      // Allows customConsumerGroup's Close() to finish
 				assert.Nil(t, mgdGroup.group.Close()) // Stops the MockConsumerGroup's Consume() call
 			}
 			waitGroup.Wait() // Allows the goroutine with the consume call to finish
@@ -413,7 +387,7 @@ func TestNotifications(t *testing.T) {
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			manager, group, mgdGroup, serverHandler := getManagerWithMockGroup(testCase.groupId, testCase.factoryErr)
+			manager, group, _, serverHandler := getManagerWithMockGroup(testCase.groupId, testCase.factoryErr)
 			impl := manager.(*kafkaConsumerGroupManagerImpl)
 			if testCase.initialStop {
 				impl.groups[testCase.groupId].Stop()
@@ -435,9 +409,6 @@ func TestNotifications(t *testing.T) {
 			assert.Nil(t, err)
 
 			msg := ctrl.NewMessage([16]byte{1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4}, uint8(testCase.opcode), payload)
-			if mgdGroup != nil {
-				close(mgdGroup.group.releasedCh) // Allows customConsumerGroup's Close() to finish
-			}
 			handler.HandleServiceMessage(context.Background(), ctrl.NewServiceMessage(&msg, func(err error) {
 				assert.Equal(t, testCase.expectErr, err != nil)
 			}))
