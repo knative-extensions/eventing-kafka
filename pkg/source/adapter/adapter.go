@@ -67,10 +67,10 @@ func NewEnvConfig() adapter.EnvConfigAccessor {
 }
 
 type Adapter struct {
-	config            *AdapterConfig
-	controlServer     *ctrlnetwork.ControlServer
-	saramaConfig      *sarama.Config
-	offsetInitialized bool
+	config        *AdapterConfig
+	controlServer *ctrlnetwork.ControlServer
+	saramaConfig  *sarama.Config
+	// offsetInitialized bool
 
 	httpMessageSender *kncloudevents.HTTPMessageSender
 	reporter          pkgsource.StatsReporter
