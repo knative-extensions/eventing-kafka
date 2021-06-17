@@ -1118,7 +1118,7 @@ knative.dev/control-protocol/pkg/message
 knative.dev/control-protocol/pkg/network
 knative.dev/control-protocol/pkg/reconciler
 knative.dev/control-protocol/pkg/service
-# knative.dev/eventing v0.23.1-0.20210615213121-4eb1738b5e35
+# knative.dev/eventing v0.23.1-0.20210616164922-6adafe56e55e
 ## explicit
 knative.dev/eventing/pkg/adapter/v2
 knative.dev/eventing/pkg/adapter/v2/test
@@ -1243,7 +1243,7 @@ knative.dev/hack/shell
 # knative.dev/networking v0.0.0-20210615114921-e291c8011a20
 ## explicit
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20210615143321-77ff8d962c73
+# knative.dev/pkg v0.0.0-20210616195222-841aa7369ca1
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
