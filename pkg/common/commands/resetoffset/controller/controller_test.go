@@ -22,7 +22,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"k8s.io/client-go/rest"
-	ctrlreconciler "knative.dev/control-protocol/pkg/reconciler"
 	"knative.dev/pkg/client/injection/kube/client/fake"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
@@ -31,6 +30,7 @@ import (
 
 	fakekafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client/fake"
 	_ "knative.dev/eventing-kafka/pkg/client/injection/informers/kafka/v1alpha1/resetoffset/fake" // Force Fake Informer Injection
+	controllertesting "knative.dev/eventing-kafka/pkg/common/commands/resetoffset/controller/testing"
 	refmapperstesting "knative.dev/eventing-kafka/pkg/common/commands/resetoffset/refmappers/testing"
 	configtesting "knative.dev/eventing-kafka/pkg/common/config/testing"
 	"knative.dev/eventing-kafka/pkg/common/configmaploader"
@@ -74,11 +74,11 @@ func TestNewControllerFactory(t *testing.T) {
 	mockResetOffsetRefMapperFactory := &refmapperstesting.MockResetOffsetRefMapperFactory{}
 	mockResetOffsetRefMapperFactory.On("Create", ctx).Return(mockResetOffsetRefMapper)
 
-	// Dummy ConnectionPool For Testing
-	var connectionPool *ctrlreconciler.ControlPlaneConnectionPool
+	// Create Mock ConnectionPool For Testing
+	mockConnectionPool := &controllertesting.MockConnectionPool{}
 
 	// Verify The ResetOffset ControllerFactory Creates A ControllerConstructor
-	controllerConstructor := NewControllerFactory(mockResetOffsetRefMapperFactory, connectionPool)
+	controllerConstructor := NewControllerFactory(mockResetOffsetRefMapperFactory, mockConnectionPool)
 	assert.NotNil(t, controllerConstructor)
 
 	// Verify The ResetOffset ControllerConstructor

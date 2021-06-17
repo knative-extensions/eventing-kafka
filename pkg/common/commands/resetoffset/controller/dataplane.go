@@ -41,6 +41,8 @@ import (
 const (
 	asyncCommandResultPollDuration    = 1 * time.Second  // AsyncCommandResult Polling Duration
 	asyncCommandResultTimeoutDuration = 10 * time.Second // AsyncCommandResult Timeout Duration
+
+	ControlProtocolServerPort = 8085 // TODO - Use common constant once eric delivers - for now match dispatcher/main.go!
 )
 
 // reconcileDataPlaneServices updates the Reconciler ConnectionPool Services associated with the specified RefInfo.
@@ -55,6 +57,11 @@ func (r *Reconciler) reconcileDataPlaneServices(ctx context.Context, resetOffset
 	if err != nil {
 		logger.Error("Failed to getting data-plane Pod IPs", zap.Error(err))
 		return nil, err
+	}
+
+	// Append The Control-Protocol Server Port Number To The PodIPs
+	for index, podIP := range podIPs {
+		podIPs[index] = fmt.Sprintf("%s:%d", podIP, ControlProtocolServerPort)
 	}
 	logger.Debug("Detected DataPlane Services", zap.Any("Pod IPs", podIPs))
 
@@ -146,7 +153,7 @@ func (r *Reconciler) sendConsumerGroupAsyncCommand(ctx context.Context,
 	logger := logging.FromContext(ctx).Desugar().With(zap.String("PodIP", podIP), zap.Int("OpCode", int(opCode)))
 
 	// Generate A CommandID For The ResetOffset
-	commandId, err := r.generateCommandId(resetOffset, podIP, opCode)
+	commandId, err := generateCommandId(resetOffset, podIP, opCode)
 	if err != nil {
 		logger.Error("Failed to generate Command ID for ResetOffset", zap.Error(err))
 		return fmt.Errorf("failed to generate Command ID for ResetOffset: %v", err)
@@ -162,16 +169,6 @@ func (r *Reconciler) sendConsumerGroupAsyncCommand(ctx context.Context,
 
 	// Wait For The AsyncCommand Result & Return Results
 	return r.waitForAsyncCommandResult(resetOffset, podIP, consumerGroupAsyncCommand)
-}
-
-// generateCommandId returns an int64 hash based on the specified ResetOffset.
-func (r *Reconciler) generateCommandId(resetOffset *kafkav1alpha1.ResetOffset, podIP string, opCode ctrl.OpCode) (int64, error) {
-	hash := fnv.New32a()
-	_, err := hash.Write([]byte(fmt.Sprintf("%s-%d-%s-%d", string(resetOffset.UID), resetOffset.Generation, podIP, opCode)))
-	if err != nil {
-		return -1, err
-	}
-	return int64(hash.Sum32()), nil
 }
 
 // waitForAsyncCommandResult polls the Reconciler AsyncCommandNotificationStore waiting for the
@@ -202,4 +199,14 @@ func (r *Reconciler) waitForAsyncCommandResult(resetOffset *kafkav1alpha1.ResetO
 
 	// Return The Result
 	return err
+}
+
+// generateCommandId returns an int64 hash based on the specified ResetOffset.
+func generateCommandId(resetOffset *kafkav1alpha1.ResetOffset, podIP string, opCode ctrl.OpCode) (int64, error) {
+	hash := fnv.New32a()
+	_, err := hash.Write([]byte(fmt.Sprintf("%s-%d-%s-%d", string(resetOffset.UID), resetOffset.Generation, podIP, opCode)))
+	if err != nil {
+		return -1, err
+	}
+	return int64(hash.Sum32()), nil
 }

@@ -52,8 +52,8 @@ type Reconciler struct {
 	podLister                     corev1listers.PodLister
 	resetoffsetLister             kafkalisters.ResetOffsetLister
 	refMapper                     refmappers.ResetOffsetRefMapper
-	connectionPool                *ctrlreconciler.ControlPlaneConnectionPool
-	asyncCommandNotificationStore *ctrlreconciler.AsyncCommandNotificationStore
+	connectionPool                ctrlreconciler.ControlPlaneConnectionPool
+	asyncCommandNotificationStore ctrlreconciler.AsyncCommandNotificationStore
 }
 
 // ReconcileKind implements the Reconciler Interface and is responsible for performing Offset repositioning.
@@ -104,6 +104,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, resetOffset *kafkav1alph
 	if err != nil {
 		logger.Error("Failed to reconcile DataPlane services from ConnectionPool", zap.Error(err))
 		// TODO - how to handle this - need another status condition and mark as failed?
+		return fmt.Errorf("failed to reconcile DataPlane Services from ConnectionPool: %v", err)
 	}
 	logger.Info("Successfully reconciled DataPlane Services", zap.Any("Services", dataPlaneServiceIPs(dataPlaneServices)))
 
@@ -116,7 +117,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, resetOffset *kafkav1alph
 		logger.Error("Failed to stop ConsumerGroups", zap.Error(err))
 		resetOffset.Status.MarkConsumerGroupsStoppedFailed("FailedToStopConsumerGroups", "Failed to stop one or more ConsumerGroups: %v", err)
 		// TODO - should we re-reconcile and keep trying (stuck) or rollback here or in stopConsumerGroups() ???
-		return nil // TODO - for now stopping without re-queueing
+		return nil
 	}
 	logger.Info("Successfully stopped ConsumerGroups")
 	resetOffset.Status.MarkConsumerGroupsStoppedTrue()

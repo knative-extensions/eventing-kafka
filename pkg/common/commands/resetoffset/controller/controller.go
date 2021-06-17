@@ -38,7 +38,7 @@ import (
 // NewControllerFactory returns a ControllerConstructor function capable of creating a "typed" ResetOffset Controller
 func NewControllerFactory(
 	refMapperFactory refmappers.ResetOffsetRefMapperFactory,
-	connectionPool *ctrlreconciler.ControlPlaneConnectionPool) injection.ControllerConstructor {
+	connectionPool ctrlreconciler.ControlPlaneConnectionPool) injection.ControllerConstructor {
 
 	// Return The New ResetOffset ControllerConstructor Function
 	return func(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
