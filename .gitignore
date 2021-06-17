@@ -2,6 +2,7 @@
 *.iml
 .idea/
 .run/
+.history/
 
 # System Files
 .DS_Store

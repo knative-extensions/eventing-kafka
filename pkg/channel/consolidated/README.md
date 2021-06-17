@@ -52,11 +52,13 @@ topics.
    spec:
      numPartitions: 1
      replicationFactor: 1
+     retentionMillis: 604800000
    ```
 
    You can configure the number of partitions with `numPartitions`, as well as
-   the replication factor with `replicationFactor`. If not set, both will
-   default to the values provided in the `eventing-kafka.kafka.topic` section of
+   the replication factor with `replicationFactor`. You can set the 
+   retention Time of topic (in millisecond) with `retentionMillis`. If not set, 
+   all values will default to the values provided in the `eventing-kafka.kafka.topic` section of
    the `config-kafka` ConfigMap.
 
 ## Components
@@ -136,6 +138,7 @@ metadata:
 spec:
   numPartitions: 1
   replicationFactor: 1
+  retentionMillis: 604800000
 ```
 
 The dispatcher is created in `<YOUR_NAMESPACE>`:

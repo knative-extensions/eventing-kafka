@@ -127,3 +127,13 @@ func ReplicationFactor(channel *kafkav1beta1.KafkaChannel, configuration *Eventi
 	}
 	return value
 }
+
+// RetentionMillis Gets The RetentionMillis - First From Channel Spec And Then From ConfigMap-Provided Settings
+func RetentionMillis(channel *kafkav1beta1.KafkaChannel, configuration *EventingKafkaConfig, logger *zap.SugaredLogger) int64 {
+	value := channel.Spec.RetentionMillis
+	if value <= 0 && configuration != nil {
+		logger.Debug("Kafka Channel Spec 'RetentionMillis' Not Specified - Using Default", zap.Int64("Value", configuration.Kafka.Topic.DefaultRetentionMillis))
+		value = int64(configuration.Kafka.Topic.DefaultRetentionMillis)
+	}
+	return value
+}

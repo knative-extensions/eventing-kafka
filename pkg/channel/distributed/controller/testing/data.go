@@ -89,6 +89,8 @@ const (
 	NumPartitions = 123
 	// ReplicationFactor - ChannelSpec Test Data
 	ReplicationFactor = 456
+	// RetentionMillis - ChannelSpec Test Data
+	RetentionMillis = 123456
 
 	// ErrorString - Mock Test Error MetaData
 	ErrorString = "Expected Mock Test Error"
@@ -167,6 +169,7 @@ Producer:
 var (
 	DefaultRetentionMillisString = strconv.FormatInt(DefaultRetentionMillis, 10)
 	DeletionTimestamp            = metav1.Now()
+	RetentionMillisString 		 = strconv.FormatInt(RetentionMillis, 10)
 )
 
 //
@@ -521,7 +524,7 @@ func NewKafkaChannel(options ...KafkaChannelOption) *kafkav1beta1.KafkaChannel {
 		Spec: kafkav1beta1.KafkaChannelSpec{
 			NumPartitions:     NumPartitions,
 			ReplicationFactor: ReplicationFactor,
-			// TODO RetentionMillis:   RetentionMillis,
+			RetentionMillis:   RetentionMillis,
 		},
 	}
 

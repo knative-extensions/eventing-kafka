@@ -48,11 +48,7 @@ func (r *Reconciler) reconcileKafkaTopic(ctx context.Context, channel *kafkav1be
 	numPartitions := config.NumPartitions(channel, r.config, logger)
 	replicationFactor := config.ReplicationFactor(channel, r.config, logger)
 
-	// TODO - The eventing-kafka KafkaChannel spec does not include RetentionMillis so we're
-	//        currently just using the default value specified in the ConfigMap.  If/when the
-	//        RetentionMillis is added, any value from channel.Spec.RetentionMillis should
-	//        take precedence.
-	retentionMillis := r.config.Kafka.Topic.DefaultRetentionMillis
+	retentionMillis := config.RetentionMillis(channel, r.config, logger)
 
 	// Create The Topic (Handles Case Where Already Exists)
 	err := r.createTopic(ctx, topicName, numPartitions, replicationFactor, retentionMillis)

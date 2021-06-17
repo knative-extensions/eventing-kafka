@@ -546,11 +546,7 @@ func (r *Reconciler) reconcileTopic(ctx context.Context, channel *v1beta1.KafkaC
 	logger.Infow("Creating topic on Kafka cluster", zap.String("topic", topicName),
 		zap.Int32("partitions", channel.Spec.NumPartitions), zap.Int16("replication", channel.Spec.ReplicationFactor))
 
-	// TODO - The eventing-kafka KafkaChannel spec does not include RetentionMillis so we're
-	//        currently just using the default value specified in the ConfigMap.  If/when the
-	//        RetentionMillis is added, any value from channel.Spec.RetentionMillis should
-	//        take precedence.
-	retentionMillisString := strconv.FormatInt(r.kafkaConfig.EventingKafka.Kafka.Topic.DefaultRetentionMillis, 10)
+	retentionMillisString := strconv.FormatInt(commonconfig.RetentionMillis(channel, r.kafkaConfig.EventingKafka, logger), 10)
 
 	err := kafkaClusterAdmin.CreateTopic(topicName, &sarama.TopicDetail{
 		ReplicationFactor: commonconfig.ReplicationFactor(channel, r.kafkaConfig.EventingKafka, logger),

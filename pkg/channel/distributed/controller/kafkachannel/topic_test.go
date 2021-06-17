@@ -85,7 +85,7 @@ func TestReconcileTopic(t *testing.T) {
 			WantTopicDetail: &sarama.TopicDetail{
 				NumPartitions:     controllertesting.NumPartitions,
 				ReplicationFactor: controllertesting.ReplicationFactor,
-				ConfigEntries:     map[string]*string{commonconstants.KafkaTopicConfigRetentionMs: &controllertesting.DefaultRetentionMillisString},
+				ConfigEntries:     map[string]*string{commonconstants.KafkaTopicConfigRetentionMs: &controllertesting.RetentionMillisString},
 			},
 		},
 		{
@@ -104,7 +104,7 @@ func TestReconcileTopic(t *testing.T) {
 			WantTopicDetail: &sarama.TopicDetail{
 				NumPartitions:     controllertesting.NumPartitions,
 				ReplicationFactor: controllertesting.ReplicationFactor,
-				ConfigEntries:     map[string]*string{commonconstants.KafkaTopicConfigRetentionMs: &controllertesting.DefaultRetentionMillisString},
+				ConfigEntries:     map[string]*string{commonconstants.KafkaTopicConfigRetentionMs: &controllertesting.RetentionMillisString},
 			},
 			MockErrorCode: sarama.ErrTopicAlreadyExists,
 		},
@@ -124,7 +124,7 @@ func TestReconcileTopic(t *testing.T) {
 			WantTopicDetail: &sarama.TopicDetail{
 				NumPartitions:     controllertesting.NumPartitions,
 				ReplicationFactor: controllertesting.ReplicationFactor,
-				ConfigEntries:     map[string]*string{commonconstants.KafkaTopicConfigRetentionMs: &controllertesting.DefaultRetentionMillisString},
+				ConfigEntries:     map[string]*string{commonconstants.KafkaTopicConfigRetentionMs: &controllertesting.RetentionMillisString},
 			},
 			MockErrorCode: sarama.ErrBrokerNotAvailable,
 			WantError:     sarama.ErrBrokerNotAvailable.Error() + " - " + controllertesting.ErrorString,

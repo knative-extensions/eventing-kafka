@@ -67,6 +67,10 @@ type KafkaChannelSpec struct {
 	// ReplicationFactor is the replication factor of a Kafka topic. By default, it is set to 1.
 	ReplicationFactor int16 `json:"replicationFactor"`
 
+	// RetentionMillis is the retention Time period (in millisecond) of a Kafka topic.
+	// +optional
+	RetentionMillis int64 `json:"retentionMillis,omitempty"`
+
 	// Channel conforms to Duck type Channelable.
 	eventingduck.ChannelableSpec `json:",inline"`
 }
