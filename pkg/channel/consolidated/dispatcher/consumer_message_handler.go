@@ -23,7 +23,6 @@ import (
 	"github.com/Shopify/sarama"
 	protocolkafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"github.com/cloudevents/sdk-go/v2/binding"
-	"github.com/cloudevents/sdk-go/v2/binding/buffering"
 	"go.uber.org/zap"
 	"knative.dev/eventing-kafka/pkg/common/consumer"
 	"knative.dev/eventing-kafka/pkg/common/tracing"
@@ -76,29 +75,21 @@ func (c consumerMessageHandler) Handle(ctx context.Context, consumerMessage *sar
 
 	te := kncloudevents.TypeExtractorTransformer("")
 
-	bufferedMessage, err := buffering.CopyMessage(ctx, message, &te)
-
-	if err != nil {
-		return false, err
-	}
-
-	args := eventingchannels.ReportArgs{
-		Ns:        c.channelNs,
-		EventType: string(te),
-	}
-
-	_ = message.Finish(nil)
-
 	dispatchExecutionInfo, err := c.dispatcher.DispatchMessageWithRetries(
 		ctx,
-		bufferedMessage,
+		message,
 		nil,
 		c.sub.Subscriber,
 		c.sub.Reply,
 		c.sub.DeadLetter,
 		c.sub.RetryConfig,
+		&te,
 	)
 
+	args := eventingchannels.ReportArgs{
+		Ns:        c.channelNs,
+		EventType: string(te),
+	}
 	_ = fanout.ParseDispatchResultAndReportMetrics(fanout.NewDispatchResult(err, dispatchExecutionInfo), c.reporter, args)
 
 	// NOTE: only return `true` here if DispatchMessage actually delivered the message.

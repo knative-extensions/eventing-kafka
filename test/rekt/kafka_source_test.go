@@ -19,6 +19,7 @@ limitations under the License.
 package rekt
 
 import (
+	"os"
 	"testing"
 	"time"
 
@@ -36,9 +37,10 @@ const (
 	kafkaTLSSecret  = "strimzi-tls-secret"
 )
 
+var test_mt_soure = os.Getenv("TEST_MT_SOURCE")
+
 func TestKafkaSource(t *testing.T) {
 	t.Parallel()
-
 	ctx, env := global.Environment(
 		knative.WithKnativeNamespace(system.Namespace()),
 		knative.WithLoggingConfig,
@@ -59,7 +61,12 @@ func TestKafkaSource(t *testing.T) {
 		t.Fatalf("could not copy secret(%s): %v", kafkaSASLSecret, err)
 	}
 
-	for _, f := range kafkasource.DataPlaneDelivery() {
+	testFeatures := kafkasource.DataPlaneDelivery()
+	if test_mt_soure == "1" {
+		testFeatures = append(testFeatures, kafkasource.MtDataPlaneDelivery())
+	}
+
+	for _, f := range testFeatures {
 		env.Test(ctx, t, f)
 	}
 }
