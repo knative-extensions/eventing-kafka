@@ -18,27 +18,10 @@ package testing
 
 import (
 	"context"
-	"encoding"
 	"fmt"
 
 	"github.com/Shopify/sarama"
-	ctrl "knative.dev/control-protocol/pkg"
 )
-
-//
-// Mock Control-Protocol Service
-//
-
-// MockControlProtocolService is a stub-only mock of the Control Protocol Service
-type MockControlProtocolService struct{}
-
-var _ ctrl.Service = (*MockControlProtocolService)(nil)
-
-func (MockControlProtocolService) SendAndWaitForAck(_ ctrl.OpCode, _ encoding.BinaryMarshaler) error {
-	return nil
-}
-func (MockControlProtocolService) MessageHandler(_ ctrl.MessageHandler) {}
-func (MockControlProtocolService) ErrorHandler(_ ctrl.ErrorHandler)     {}
 
 //
 // Mock ConsumerGroup

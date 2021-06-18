@@ -87,7 +87,7 @@ var _ Dispatcher = &DispatcherImpl{}
 // NewDispatcher Is The Dispatcher Constructor
 func NewDispatcher(dispatcherConfig DispatcherConfig, controlServer controlprotocol.ServerHandler) Dispatcher {
 
-	consumerGroupManager := commonconsumer.NewConsumerGroupManager(controlServer, dispatcherConfig.Brokers, dispatcherConfig.SaramaConfig)
+	consumerGroupManager := commonconsumer.NewConsumerGroupManager(dispatcherConfig.Logger, controlServer, dispatcherConfig.Brokers, dispatcherConfig.SaramaConfig)
 
 	// Create The DispatcherImpl With Specified Configuration
 	dispatcher := &DispatcherImpl{
@@ -209,7 +209,7 @@ func (d *DispatcherImpl) closeConsumerGroup(subscriber *SubscriberWrapper) {
 	logger := d.Logger.With(zap.String("GroupId", subscriber.GroupId), zap.String("URI", subscriber.SubscriberURI.String()))
 
 	// If The ConsumerGroup Is Valid
-	if d.consumerMgr.IsValid(subscriber.GroupId) {
+	if d.consumerMgr.IsManaged(subscriber.GroupId) {
 
 		// Close The ConsumerGroup
 		err := d.consumerMgr.CloseConsumerGroup(subscriber.GroupId)
@@ -262,24 +262,15 @@ func (d *DispatcherImpl) SecretChanged(ctx context.Context, secret *corev1.Secre
 		return
 	}
 
-	// Close all of the ConsumerGroups so that the settings can be changed
-	// Note: Not calling d.Shutdown because we don't want to close the metrics channel here
-	d.Logger.Info("Changes Detected In New Secret - Closing & Recreating Consumer Groups")
-	for _, subscriber := range d.subscribers {
-		d.closeConsumerGroup(subscriber)
-	}
-
 	// The only values in the secret that matter here are the username, password, and SASL type, which are all part
 	// of the SaramaConfig, so that's all that needs to be modified
 	d.DispatcherConfig.SaramaConfig = newConfig
 
 	// Replace The Dispatcher's ConsumerGroupFactory With Updated Version Using New Config
-	d.consumerMgr.Reconfigure(d.DispatcherConfig.Brokers, d.DispatcherConfig.SaramaConfig)
-
-	// Recreate the ConsumerGroups For Active Subscriptions
-	failedSubscriptions := d.UpdateSubscriptions(d.SubscriberSpecs)
-	if len(failedSubscriptions) > 0 {
-		d.Logger.Fatal("Failed To Subscribe Kafka Subscriptions Using Updated Secret", zap.Int("Count", len(failedSubscriptions)))
+	// Note:  This will close and recreate all of the managed consumer groups
+	err = d.consumerMgr.Reconfigure(d.DispatcherConfig.Brokers, d.DispatcherConfig.SaramaConfig)
+	if err != nil {
+		d.Logger.Error("Failed To Reconfigure Consumer Group Manager Using Updated Secret", zap.Error(err))
 	}
 }
 

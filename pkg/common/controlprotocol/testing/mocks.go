@@ -17,11 +17,13 @@ limitations under the License.
 package testing
 
 import (
+	"context"
+	"encoding"
+
+	"github.com/stretchr/testify/mock"
 	ctrl "knative.dev/control-protocol/pkg"
 	"knative.dev/control-protocol/pkg/message"
 	ctrlservice "knative.dev/control-protocol/pkg/service"
-	"knative.dev/eventing-kafka/pkg/common/controlprotocol"
-	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 )
 
 //
@@ -30,20 +32,57 @@ import (
 
 // MockServerHandler is a mock of the ServerHandler that only stores results from AddAsyncHandler
 type MockServerHandler struct {
+	mock.Mock
 	// Export the Router field so that tests can verify handlers in it directly
-	Router ctrlservice.MessageRouter
+	Router  ctrlservice.MessageRouter
+	Service *MockControlProtocolService
 }
 
-var _ controlprotocol.ServerHandler = (*MockServerHandler)(nil)
-
-func (s *MockServerHandler) AddAsyncHandler(opcode ctrl.OpCode, resultOpcode ctrl.OpCode, payloadType message.AsyncCommand, handler controlprotocol.AsyncHandlerFunc) {
-	s.Router[opcode] = ctrlservice.NewAsyncCommandHandler(&commontesting.MockControlProtocolService{}, payloadType, resultOpcode, handler)
+func (s *MockServerHandler) AddAsyncHandler(opcode ctrl.OpCode, resultOpcode ctrl.OpCode, payloadType message.AsyncCommand,
+	handler func(ctx context.Context, commandMessage ctrlservice.AsyncCommandMessage)) {
+	_ = s.Called(opcode, resultOpcode, payloadType, handler)
+	s.Router[opcode] = ctrlservice.NewAsyncCommandHandler(s.Service, payloadType, resultOpcode, handler)
 }
 
-func (s *MockServerHandler) Shutdown()                                               {}
-func (s *MockServerHandler) AddSyncHandler(_ ctrl.OpCode, _ ctrl.MessageHandlerFunc) {}
-func (s *MockServerHandler) RemoveHandler(_ ctrl.OpCode)                             {}
+func (s *MockServerHandler) Shutdown() {
+	_ = s.Called()
+}
+
+func (s *MockServerHandler) AddSyncHandler(opcode ctrl.OpCode, handler ctrl.MessageHandlerFunc) {
+	_ = s.Called(opcode, handler)
+}
+
+func (s *MockServerHandler) RemoveHandler(opcode ctrl.OpCode) {
+	_ = s.Called(opcode)
+}
 
 func GetMockServerHandler() *MockServerHandler {
-	return &MockServerHandler{Router: make(ctrlservice.MessageRouter)}
+	return &MockServerHandler{
+		Router:  make(ctrlservice.MessageRouter),
+		Service: &MockControlProtocolService{},
+	}
+}
+
+//
+// Mock Control-Protocol Service
+//
+
+// MockControlProtocolService is a stub-only mock of the Control Protocol Service
+type MockControlProtocolService struct {
+	mock.Mock
+}
+
+var _ ctrl.Service = (*MockControlProtocolService)(nil)
+
+func (m *MockControlProtocolService) SendAndWaitForAck(opcode ctrl.OpCode, payload encoding.BinaryMarshaler) error {
+	args := m.Called(opcode, payload)
+	return args.Error(0)
+}
+
+func (m *MockControlProtocolService) MessageHandler(handler ctrl.MessageHandler) {
+	_ = m.Called(handler)
+}
+
+func (m *MockControlProtocolService) ErrorHandler(handler ctrl.ErrorHandler) {
+	_ = m.Called(handler)
 }

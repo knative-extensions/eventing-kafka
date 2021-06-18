@@ -23,6 +23,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/mock"
+
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -112,6 +114,13 @@ func TestShutdown(t *testing.T) {
 			subscriber3.UID: NewSubscriberWrapper(subscriber3, groupId3),
 		},
 	}
+
+	mockManager.On("IsManaged", groupId1).Return(true)
+	mockManager.On("IsManaged", groupId2).Return(true)
+	mockManager.On("IsManaged", groupId3).Return(true)
+	mockManager.On("CloseConsumerGroup", groupId1).Return(nil)
+	mockManager.On("CloseConsumerGroup", groupId2).Return(nil)
+	mockManager.On("CloseConsumerGroup", groupId3).Return(nil)
 
 	// Perform The Test
 	dispatcher.Shutdown()
@@ -255,11 +264,20 @@ func TestUpdateSubscriptions(t *testing.T) {
 	for _, testCase := range filteredTestCases {
 		t.Run(testCase.name, func(t *testing.T) {
 
+			mockManager := consumertesting.NewMockConsumerGroupManager()
 			// Create A New DispatcherImpl To Test
 			dispatcher := &DispatcherImpl{
 				DispatcherConfig: testCase.fields.DispatcherConfig,
 				subscribers:      testCase.fields.subscribers,
-				consumerMgr:      consumertesting.NewMockConsumerGroupManager(),
+				consumerMgr:      mockManager,
+			}
+
+			for _, id := range []string{id123, id456, id789} {
+				group := "kafka." + id
+				mockManager.On("StartConsumerGroup", group, []string{""}, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+				mockManager.On("IsManaged", group).Return(true)
+				mockManager.On("Errors", group).Return(make(<-chan error))
+				mockManager.On("CloseConsumerGroup", group).Return(nil)
 			}
 
 			// Perform The Test
@@ -414,8 +432,12 @@ func createTestDispatcher(t *testing.T, brokers []string, config *sarama.Config)
 		SubscriberSpecs: subscriberSpecs,
 	}
 
+	serverHandler := controltesting.GetMockServerHandler()
+	serverHandler.On("AddAsyncHandler", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return()
+	serverHandler.Service.On("SendAndWaitForAck", mock.Anything, mock.Anything).Return(nil)
+
 	// Create The Dispatcher
-	dispatcher := NewDispatcher(dispatcherConfig, controltesting.GetMockServerHandler())
+	dispatcher := NewDispatcher(dispatcherConfig, serverHandler)
 
 	// Verify State
 	assert.NotNil(t, dispatcher)

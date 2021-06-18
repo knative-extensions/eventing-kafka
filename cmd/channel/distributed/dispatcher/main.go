@@ -139,7 +139,7 @@ func main() {
 	})
 
 	logger.Info("Initializing Control-Protocol Server")
-	controlProtocolServer, err := controlprotocol.NewServerHandler(ctx, commonconstants.ControlProtocolServerPort)
+	controlProtocolServer, err := controlprotocol.NewServerHandler(ctx, controlprotocol.ServerPort)
 	if err != nil {
 		logger.Fatal("Failed To Initialize Control-Protocol Server - Terminating", zap.Error(err))
 	}

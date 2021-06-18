@@ -23,19 +23,21 @@ import (
 	"testing"
 	"time"
 
-	ctrl "knative.dev/control-protocol/pkg"
+	"github.com/stretchr/testify/mock"
 
 	"github.com/Shopify/sarama"
+	"github.com/stretchr/testify/assert"
+	ctrl "knative.dev/control-protocol/pkg"
+	logtesting "knative.dev/pkg/logging/testing"
+
+	"knative.dev/eventing-kafka/pkg/common/controlprotocol/commands"
 	controltesting "knative.dev/eventing-kafka/pkg/common/controlprotocol/testing"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
-
-	"github.com/stretchr/testify/assert"
-	"knative.dev/eventing-kafka/pkg/common/controlprotocol/commands"
 )
 
 func TestNewConsumerGroupManager(t *testing.T) {
-	server := controltesting.GetMockServerHandler()
-	manager := NewConsumerGroupManager(server, []string{}, &sarama.Config{})
+	server := getMockServerHandler()
+	manager := NewConsumerGroupManager(logtesting.TestLogger(t).Desugar(), server, []string{}, &sarama.Config{})
 	assert.NotNil(t, manager)
 	assert.NotNil(t, server.Router[commands.StopConsumerGroupOpCode])
 	assert.NotNil(t, server.Router[commands.StartConsumerGroupOpCode])
@@ -69,11 +71,11 @@ func TestManagedGroup(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			waitGroup := sync.WaitGroup{}
-			assert.False(t, group.isStopped())
+			assert.Nil(t, group.restartWaitChannel)
 
 			if testCase.restart || testCase.cancel {
-				group.Stop()
-				assert.True(t, group.isStopped())
+				group.createRestartChannel()
+				assert.NotNil(t, group.restartWaitChannel)
 			}
 
 			waitGroup.Add(1)
@@ -84,7 +86,7 @@ func TestManagedGroup(t *testing.T) {
 			time.Sleep(5 * time.Millisecond) // Let the waitForStart function begin
 
 			if testCase.restart {
-				group.Start()
+				group.closeRestartChannel()
 			} else if testCase.cancel {
 				cancel()
 			}
@@ -130,7 +132,7 @@ func TestManagedGroup_transferErrors(t *testing.T) {
 			assert.NotNil(t, err)
 			assert.Equal(t, "test-error", err.Error())
 			if testCase.stopGroup {
-				managedGrp.Stop()
+				managedGrp.createRestartChannel()
 			}
 			if testCase.cancel {
 				cancel()
@@ -141,7 +143,7 @@ func TestManagedGroup_transferErrors(t *testing.T) {
 				// Simulate the effects of startConsumerGroup (new ConsumerGroup, same managedConsumerGroup)
 				mockGrp = commontesting.NewMockConsumerGroup()
 				managedGrp.group = mockGrp
-				managedGrp.Start()
+				managedGrp.closeRestartChannel()
 
 				time.Sleep(5 * time.Millisecond) // Let the waitForStart function finish
 				// Verify that errors work again after restart
@@ -150,6 +152,52 @@ func TestManagedGroup_transferErrors(t *testing.T) {
 				assert.NotNil(t, err)
 				assert.Equal(t, "test-error-2", err.Error())
 				close(mockGrp.ErrorChan)
+			}
+		})
+	}
+}
+
+func TestReconfigure(t *testing.T) {
+	defer restoreNewConsumerGroup(newConsumerGroup)
+
+	for _, testCase := range []struct {
+		name       string
+		groupId    string
+		factoryErr bool
+		closeErr   bool
+		expectErr  string
+	}{
+		{
+			name: "No managed groups",
+		},
+		{
+			name:    "One managed group",
+			groupId: "test-id1",
+		},
+		{
+			name:      "Error stopping groups",
+			groupId:   "test-id1",
+			closeErr:  true,
+			expectErr: "error closing consumer group",
+		},
+		{
+			name:       "Error starting groups",
+			groupId:    "test-id1",
+			factoryErr: true,
+			expectErr:  "factory error",
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			manager, group, _, _ := getManagerWithMockGroup(t, testCase.groupId, testCase.factoryErr)
+			if group != nil {
+				group.CloseErr = testCase.closeErr
+			}
+			err := manager.Reconfigure([]string{"new-broker"}, &sarama.Config{})
+			if testCase.expectErr == "" {
+				assert.Nil(t, err)
+			} else {
+				assert.NotNil(t, err)
+				assert.Equal(t, testCase.expectErr, err.Error())
 			}
 		})
 	}
@@ -171,7 +219,7 @@ func TestStartConsumerGroup(t *testing.T) {
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			manager := NewConsumerGroupManager(controltesting.GetMockServerHandler(), []string{}, &sarama.Config{})
+			manager := NewConsumerGroupManager(logtesting.TestLogger(t).Desugar(), getMockServerHandler(), []string{}, &sarama.Config{})
 			newConsumerGroup = func(addrs []string, groupID string, config *sarama.Config) (sarama.ConsumerGroup, error) {
 				if testCase.factoryErr {
 					return &commontesting.MockConsumerGroup{}, fmt.Errorf("factory error")
@@ -192,6 +240,7 @@ func TestCloseConsumerGroup(t *testing.T) {
 		groupId   string
 		expectErr bool
 		closeErr  bool
+		cancel    bool
 	}{
 		{
 			name:      "Nonexistent GroupID",
@@ -207,14 +256,26 @@ func TestCloseConsumerGroup(t *testing.T) {
 			closeErr:  true,
 			expectErr: true,
 		},
+		{
+			name:    "With Cancel Functions",
+			groupId: "test-group-id",
+			cancel:  true,
+		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			manager, group, _, _ := getManagerWithMockGroup(testCase.groupId, false)
+			manager, group, managedGrp, _ := getManagerWithMockGroup(t, testCase.groupId, false)
+			var cancelConsumeCalled, cancelErrorsCalled bool
 			if group != nil {
 				group.CloseErr = testCase.closeErr
+				if testCase.cancel {
+					managedGrp.cancelConsume = func() { cancelConsumeCalled = true }
+					managedGrp.cancelErrors = func() { cancelErrorsCalled = true }
+				}
 			}
 			err := manager.CloseConsumerGroup(testCase.groupId)
 			assert.Equal(t, testCase.expectErr, err != nil)
+			assert.Equal(t, testCase.cancel, cancelConsumeCalled)
+			assert.Equal(t, testCase.cancel, cancelErrorsCalled)
 		})
 	}
 }
@@ -255,10 +316,10 @@ func TestConsume(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			manager, _, mgdGroup, _ := getManagerWithMockGroup(testCase.groupId, false)
+			manager, _, mgdGroup, _ := getManagerWithMockGroup(t, testCase.groupId, false)
 
 			if testCase.stopped {
-				mgdGroup.Stop()
+				mgdGroup.createRestartChannel()
 			}
 			waitGroup := sync.WaitGroup{}
 			waitGroup.Add(1)
@@ -277,7 +338,7 @@ func TestConsume(t *testing.T) {
 				if testCase.cancel {
 					cancel()
 				} else {
-					mgdGroup.Start()
+					mgdGroup.closeRestartChannel()
 				}
 				assert.Nil(t, mgdGroup.group.Close()) // Stops the MockConsumerGroup's Consume() call
 			}
@@ -304,8 +365,8 @@ func TestErrors(t *testing.T) {
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			manager, _, _, _ := getManagerWithMockGroup(testCase.groupId, false)
-			valid := manager.IsValid(testCase.groupId)
+			manager, _, _, _ := getManagerWithMockGroup(t, testCase.groupId, false)
+			valid := manager.IsManaged(testCase.groupId)
 			mgrErrors := manager.Errors(testCase.groupId)
 			assert.Equal(t, testCase.expectErr, mgrErrors == nil)
 			assert.Equal(t, !testCase.expectErr, valid)
@@ -379,10 +440,10 @@ func TestNotifications(t *testing.T) {
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			manager, group, _, serverHandler := getManagerWithMockGroup(testCase.groupId, testCase.factoryErr)
+			manager, group, _, serverHandler := getManagerWithMockGroup(t, testCase.groupId, testCase.factoryErr)
 			impl := manager.(*kafkaConsumerGroupManagerImpl)
 			if testCase.initialStop {
-				impl.groups[testCase.groupId].Stop()
+				impl.groups[testCase.groupId].createRestartChannel()
 			}
 			if group != nil {
 				group.CloseErr = testCase.closeErr
@@ -406,31 +467,43 @@ func TestNotifications(t *testing.T) {
 			}))
 
 			if group != nil {
-				assert.Equal(t, testCase.expectStop, impl.groups[testCase.groupId].isStopped())
+				assert.Equal(t, testCase.expectStop, impl.groups[testCase.groupId].restartWaitChannel != nil)
 			}
 		})
 	}
 }
 
 // getManagerWithMockGroup creates a KafkaConsumerGroupManager and optionally seeds it with a mock consumer group
-func getManagerWithMockGroup(groupId string, factoryErr bool) (KafkaConsumerGroupManager,
+func getManagerWithMockGroup(t *testing.T, groupId string, factoryErr bool) (KafkaConsumerGroupManager,
 	*commontesting.MockConsumerGroup,
 	*managedGroup,
 	*controltesting.MockServerHandler) {
-	serverHandler := controltesting.GetMockServerHandler()
+
+	serverHandler := getMockServerHandler()
 	newConsumerGroup = func(addrs []string, groupID string, config *sarama.Config) (sarama.ConsumerGroup, error) {
 		if factoryErr {
 			return nil, fmt.Errorf("factory error")
 		}
 		return commontesting.NewMockConsumerGroup(), nil
 	}
-	manager := NewConsumerGroupManager(serverHandler, []string{}, &sarama.Config{})
+	manager := NewConsumerGroupManager(logtesting.TestLogger(t).Desugar(), serverHandler, []string{}, &sarama.Config{})
 	if groupId != "" {
 		mockGrp, managedGrp := createTestGroup()
 		manager.(*kafkaConsumerGroupManagerImpl).groups[groupId] = managedGrp
 		return manager, mockGrp, managedGrp, serverHandler
 	}
 	return manager, nil, nil, serverHandler
+}
+
+func getMockServerHandler() *controltesting.MockServerHandler {
+	serverHandler := controltesting.GetMockServerHandler()
+	serverHandler.On("AddAsyncHandler", commands.StopConsumerGroupOpCode, commands.StopConsumerGroupResultOpCode, mock.Anything, mock.Anything).Return()
+	serverHandler.On("AddAsyncHandler", commands.StartConsumerGroupOpCode, commands.StartConsumerGroupResultOpCode, mock.Anything, mock.Anything).Return()
+	serverHandler.Service.On("SendAndWaitForAck", commands.StopConsumerGroupOpCode, mock.Anything).Return(nil)
+	serverHandler.Service.On("SendAndWaitForAck", commands.StartConsumerGroupOpCode, mock.Anything).Return(nil)
+	serverHandler.Service.On("SendAndWaitForAck", commands.StopConsumerGroupResultOpCode, mock.Anything).Return(nil)
+	serverHandler.Service.On("SendAndWaitForAck", commands.StartConsumerGroupResultOpCode, mock.Anything).Return(nil)
+	return serverHandler
 }
 
 func createTestGroup() (*commontesting.MockConsumerGroup, *managedGroup) {

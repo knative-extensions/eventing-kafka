@@ -22,7 +22,7 @@ import (
 	"sync"
 	"testing"
 
-	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
+	"github.com/stretchr/testify/mock"
 
 	"github.com/stretchr/testify/assert"
 	ctrl "knative.dev/control-protocol/pkg"
@@ -30,6 +30,7 @@ import (
 	ctrlservice "knative.dev/control-protocol/pkg/service"
 
 	"knative.dev/eventing-kafka/pkg/common/controlprotocol/commands"
+	ctrltesting "knative.dev/eventing-kafka/pkg/common/controlprotocol/testing"
 )
 
 func TestNewServerHandler(t *testing.T) {
@@ -50,8 +51,10 @@ func TestNewServerHandler(t *testing.T) {
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
+			mockService := &ctrltesting.MockControlProtocolService{}
+			mockService.On("MessageHandler", mock.Anything).Return()
 			startServerWrapper = func(_ context.Context, _ ...network.ControlServerOption) (*network.ControlServer, error) {
-				return &network.ControlServer{Service: commontesting.MockControlProtocolService{}}, testCase.serverErr
+				return &network.ControlServer{Service: mockService}, testCase.serverErr
 			}
 
 			handler, err := NewServerHandler(context.Background(), 12345)
@@ -81,8 +84,11 @@ func TestHandlers(t *testing.T) {
 	saveStartServer := startServerWrapper
 	defer func() { startServerWrapper = saveStartServer }()
 
+	mockService := &ctrltesting.MockControlProtocolService{}
+	mockService.On("MessageHandler", mock.Anything).Return()
+
 	startServerWrapper = func(_ context.Context, _ ...network.ControlServerOption) (*network.ControlServer, error) {
-		return &network.ControlServer{Service: commontesting.MockControlProtocolService{}}, nil
+		return &network.ControlServer{Service: mockService}, nil
 	}
 	handler, err := NewServerHandler(context.Background(), 12345)
 	assert.NotNil(t, handler)

@@ -18,7 +18,8 @@ package testing
 
 import (
 	"errors"
-	"fmt"
+
+	"github.com/stretchr/testify/mock"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
@@ -51,37 +52,41 @@ var _ consumer.KafkaConsumerGroupFactory = (*MockKafkaConsumerGroupFactory)(nil)
 
 // MockConsumerGroupManager implements the KafkaConsumerGroupManager interface
 type MockConsumerGroupManager struct {
+	mock.Mock
 	Groups map[string]sarama.ConsumerGroup
 }
 
 func NewMockConsumerGroupManager() *MockConsumerGroupManager {
-	return &MockConsumerGroupManager{
-		Groups: make(map[string]sarama.ConsumerGroup),
-	}
+	return &MockConsumerGroupManager{Groups: make(map[string]sarama.ConsumerGroup)}
 }
 
 var _ consumer.KafkaConsumerGroupManager = (*MockConsumerGroupManager)(nil)
 
-func (m MockConsumerGroupManager) Reconfigure(_ []string, _ *sarama.Config) {}
-
-func (m MockConsumerGroupManager) StartConsumerGroup(_ string, _ []string,
-	_ *zap.SugaredLogger, _ consumer.KafkaConsumerHandler, _ ...consumer.SaramaConsumerHandlerOption) error {
-	return nil
+func (m *MockConsumerGroupManager) Reconfigure(brokers []string, config *sarama.Config) error {
+	args := m.Called(brokers, config)
+	return args.Error(0)
 }
 
-func (m MockConsumerGroupManager) CloseConsumerGroup(groupId string) error {
-	group, ok := m.Groups[groupId]
-	if !ok {
-		return fmt.Errorf("test error:  Group does not exist")
+func (m *MockConsumerGroupManager) StartConsumerGroup(groupId string, topics []string, logger *zap.SugaredLogger,
+	handler consumer.KafkaConsumerHandler, options ...consumer.SaramaConsumerHandlerOption) error {
+	args := m.Called(groupId, topics, logger, handler, options)
+	return args.Error(0)
+}
+
+func (m *MockConsumerGroupManager) CloseConsumerGroup(groupId string) error {
+	args := m.Called(groupId)
+	if group, ok := m.Groups[groupId]; ok {
+		_ = group.Close()
 	}
-	return group.Close()
+	return args.Error(0)
 }
 
-func (m MockConsumerGroupManager) IsValid(groupId string) bool {
-	_, ok := m.Groups[groupId]
-	return ok
+func (m *MockConsumerGroupManager) IsManaged(groupId string) bool {
+	args := m.Called(groupId)
+	return args.Bool(0)
 }
 
-func (m MockConsumerGroupManager) Errors(_ string) <-chan error {
-	return nil
+func (m *MockConsumerGroupManager) Errors(groupId string) <-chan error {
+	args := m.Called(groupId)
+	return args.Get(0).(<-chan error)
 }

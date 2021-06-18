@@ -69,7 +69,8 @@ func (c kafkaConsumerGroupFactoryImpl) StartConsumerGroup(groupID string, topics
 	if err != nil {
 		return nil, err
 	}
-	return c.startExistingConsumerGroup(context.Background(), consumerGroup, consumerGroup.Consume, topics, logger, handler, options...), nil
+	// Start the consumerGroup.Consume function in a separate goroutine
+	return c.startExistingConsumerGroup(consumerGroup, consumerGroup.Consume, topics, logger, handler, options...), nil
 }
 
 // createConsumerGroup creates a Sarama ConsumerGroup using the newConsumerGroup wrapper, with the
@@ -79,9 +80,8 @@ func (c kafkaConsumerGroupFactoryImpl) createConsumerGroup(groupID string) (sara
 }
 
 // startExistingConsumerGroup creates a goroutine that begins a custom Consume loop on the provided ConsumerGroup
-// Note: Pass in the saramaGroup.Consume function as the "consume" parameter if the default behavior is desired
 // This loop is cancelable via the function provided in the returned customConsumerGroup.
-func (c kafkaConsumerGroupFactoryImpl) startExistingConsumerGroup(ctx context.Context,
+func (c kafkaConsumerGroupFactoryImpl) startExistingConsumerGroup(
 	saramaGroup sarama.ConsumerGroup,
 	consume consumeFunc,
 	topics []string,
@@ -91,7 +91,7 @@ func (c kafkaConsumerGroupFactoryImpl) startExistingConsumerGroup(ctx context.Co
 
 	errorCh := make(chan error, 10)
 	releasedCh := make(chan bool)
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithCancel(context.Background())
 
 	go func() {
 		defer func() {

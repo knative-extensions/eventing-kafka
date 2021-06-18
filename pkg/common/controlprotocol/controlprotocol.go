@@ -25,8 +25,13 @@ import (
 	ctrlservice "knative.dev/control-protocol/pkg/service"
 )
 
-// AsyncHandlerFunc is a definition that matches the type used in the control-protocol's NewAsyncCommandHandler function
-type AsyncHandlerFunc func(ctx context.Context, commandMessage ctrlservice.AsyncCommandMessage)
+const (
+	// ServerPort is the port used when initializing the control-protocol server
+	ServerPort = 8085
+)
+
+// AsyncHandlerFunc is an alias that matches the type used in the control-protocol's NewAsyncCommandHandler function
+type AsyncHandlerFunc = func(ctx context.Context, commandMessage ctrlservice.AsyncCommandMessage)
 
 // startServerWrapper wraps the Control Protocol initialization call to facilitate
 // unit testing without needing to start live TCP servers
