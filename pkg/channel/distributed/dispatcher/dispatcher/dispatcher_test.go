@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/mock"
-
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
