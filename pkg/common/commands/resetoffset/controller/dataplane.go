@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"hash/fnv"
+	"strings"
 	"sync"
 	"time"
 
@@ -59,9 +60,11 @@ func (r *Reconciler) reconcileDataPlaneServices(ctx context.Context, resetOffset
 		return nil, err
 	}
 
-	// Append The Control-Protocol Server Port Number To The PodIPs
+	// Append The Control-Protocol Server Port Number To The PodIPs If Not Already Present
 	for index, podIP := range podIPs {
-		podIPs[index] = fmt.Sprintf("%s:%d", podIP, ControlProtocolServerPort)
+		if !strings.Contains(podIP, ":") {
+			podIPs[index] = fmt.Sprintf("%s:%d", podIP, ControlProtocolServerPort)
+		}
 	}
 	logger.Debug("Detected DataPlane Services", zap.Any("Pod IPs", podIPs))
 

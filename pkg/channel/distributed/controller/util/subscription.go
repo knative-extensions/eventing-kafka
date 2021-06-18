@@ -18,8 +18,6 @@ package util
 
 import (
 	"fmt"
-	"os"
-
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -74,11 +72,7 @@ func ConnectionPoolKeyMapper(subscription *messagingv1.Subscription) (string, er
 // DataPlaneNamespaceMapper returns the Kubernetes Namespace where the data-plane components
 // (e.g. Dispatcher) are created by the distributed KafkaChannel controller.
 func DataPlaneNamespaceMapper(_ *messagingv1.Subscription) (string, error) {
-	systemNamespace := os.Getenv(system.NamespaceEnvKey)
-	if systemNamespace == "" {
-		systemNamespace = "knative-eventing"
-	}
-	return systemNamespace, nil
+	return system.Namespace(), nil
 }
 
 // DataPlaneLabelsMapper returns a map of Kubernetes Labels identifying the distributed

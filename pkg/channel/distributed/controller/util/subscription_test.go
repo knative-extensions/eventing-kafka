@@ -272,41 +272,19 @@ func TestConnectionPoolKeyMapper(t *testing.T) {
 
 func TestDataPlaneNamespaceMapper(t *testing.T) {
 
-	// Define The TestCases
-	tests := []struct {
-		name      string
-		namespace string
-		expected  string
-	}{
-		{
-			name:      "OS Value",
-			namespace: "test-namespace",
-			expected:  "test-namespace"},
-		{
-			name:      "Default Value",
-			namespace: "",
-			expected:  "knative-eventing",
-		},
-	}
+	// Test Data
+	namespace := "test-namespace"
 
-	// Execute The Tests
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
+	// Setup The Environment
+	os.Clearenv()
+	assert.Nil(t, os.Setenv(system.NamespaceEnvKey, namespace))
 
-			// Setup The Environment
-			os.Clearenv()
-			if test.namespace != "" {
-				assert.Nil(t, os.Setenv(system.NamespaceEnvKey, test.namespace))
-			}
+	// Perform The Test
+	result, err := DataPlaneNamespaceMapper(nil)
 
-			// Perform The Test
-			result, err := DataPlaneNamespaceMapper(nil)
-
-			// Verify Results
-			assert.Nil(t, err)
-			assert.Equal(t, test.expected, result)
-		})
-	}
+	// Verify Results
+	assert.Nil(t, err)
+	assert.Equal(t, namespace, result)
 }
 
 func TestDataPlaneLabelsMapper(t *testing.T) {
