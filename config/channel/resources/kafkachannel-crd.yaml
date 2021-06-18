@@ -49,7 +49,7 @@ spec:
                   maximum: 32767
                   default: 1
                 retentionMillis:
-                  description: retentionMillis is the topic retention period (in ms) of a Kafka Topic. This is an optional field. By default, the Channel default retention time would be used
+                  description: retentionMillis is the topic retention period (in ms) of a Kafka Topic. This is an optional field. By default, the Channel default retention time provided in the ConfigMap would be used. If the default value is not provided in Config Map, 604800000(1 week) is used.
                   type: integer
                 delivery:
                   description: DeliverySpec contains the default delivery spec for each subscription to this Channelable. Each subscription delivery spec, if any, overrides this global delivery spec.
