@@ -236,7 +236,7 @@ func (m *kafkaConsumerGroupManagerImpl) consume(ctx context.Context, groupId str
 // as "stopped" (that is, "able to be restarted" as opposed to being closed by something outside the manager)
 func (m *kafkaConsumerGroupManagerImpl) stopConsumerGroup(groupId string) error {
 	groupLogger := m.logger.With(zap.String("GroupId", groupId))
-	groupLogger.Info("Stopping Managed ConsumerGroup", zap.String("GroupId", groupId))
+	groupLogger.Info("Stopping Managed ConsumerGroup")
 	managedGrp, ok := m.groups[groupId]
 	if ok {
 		// The managedGroup's start channel must be created (that is, the managedGroup must be marked
@@ -261,7 +261,7 @@ func (m *kafkaConsumerGroupManagerImpl) stopConsumerGroup(groupId string) error 
 // startConsumerGroups creates a new Consumer Group based on the groupId provided
 func (m *kafkaConsumerGroupManagerImpl) startConsumerGroup(groupId string) error {
 	groupLogger := m.logger.With(zap.String("GroupId", groupId))
-	groupLogger.Info("Starting Managed ConsumerGroup", zap.String("GroupId", groupId))
+	groupLogger.Info("Starting Managed ConsumerGroup")
 	m.groupLock.Lock() // Don't allow m.groups to be modified while processing a start request
 	defer m.groupLock.Unlock()
 	if _, ok := m.groups[groupId]; ok {
