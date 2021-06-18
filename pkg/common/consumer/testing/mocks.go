@@ -17,14 +17,11 @@ limitations under the License.
 package testing
 
 import (
-	"errors"
-
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap"
 
 	"knative.dev/eventing-kafka/pkg/common/consumer"
-	kafkatesting "knative.dev/eventing-kafka/pkg/common/kafka/testing"
 )
 
 //
@@ -34,14 +31,11 @@ import (
 type MockKafkaConsumerGroupFactory struct {
 	// CreateErr will return an error when creating a consumer
 	mock.Mock
-	CreateErr bool
 }
 
-func (c *MockKafkaConsumerGroupFactory) StartConsumerGroup(_ string, _ []string, _ *zap.SugaredLogger, _ consumer.KafkaConsumerHandler, _ ...consumer.SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error) {
-	if c.CreateErr {
-		return nil, errors.New("error creating consumer")
-	}
-	return kafkatesting.NewStubbedMockConsumerGroup(), nil
+func (c *MockKafkaConsumerGroupFactory) StartConsumerGroup(groupId string, topics []string, logger *zap.SugaredLogger, handler consumer.KafkaConsumerHandler, options ...consumer.SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error) {
+	args := c.Called(groupId, topics, logger, handler, options)
+	return args.Get(0).(sarama.ConsumerGroup), args.Error(1)
 }
 
 var _ consumer.KafkaConsumerGroupFactory = (*MockKafkaConsumerGroupFactory)(nil)
