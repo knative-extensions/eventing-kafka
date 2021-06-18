@@ -23,10 +23,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/mock"
-
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	ctrl "knative.dev/control-protocol/pkg"
 	logtesting "knative.dev/pkg/logging/testing"
 

@@ -78,7 +78,6 @@ type DispatcherImpl struct {
 	MetricsStopChan    chan struct{}
 	MetricsStoppedChan chan struct{}
 	consumerMgr        commonconsumer.KafkaConsumerGroupManager
-	controlServer      controlprotocol.ServerHandler
 }
 
 // Verify The DispatcherImpl Implements The Dispatcher Interface
@@ -96,7 +95,6 @@ func NewDispatcher(dispatcherConfig DispatcherConfig, controlServer controlproto
 		messageDispatcher:  channel.NewMessageDispatcher(dispatcherConfig.Logger),
 		MetricsStopChan:    make(chan struct{}),
 		MetricsStoppedChan: make(chan struct{}),
-		controlServer:      controlServer,
 		consumerMgr:        consumerGroupManager,
 	}
 

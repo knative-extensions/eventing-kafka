@@ -22,9 +22,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stretchr/testify/mock"
-
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	ctrl "knative.dev/control-protocol/pkg"
 	"knative.dev/control-protocol/pkg/network"
 	ctrlservice "knative.dev/control-protocol/pkg/service"

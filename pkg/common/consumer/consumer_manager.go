@@ -37,9 +37,8 @@ import (
 	"fmt"
 	"sync"
 
-	"go.uber.org/multierr"
-
 	"github.com/Shopify/sarama"
+	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	ctrlservice "knative.dev/control-protocol/pkg/service"
 
@@ -202,7 +201,7 @@ func (m *kafkaConsumerGroupManagerImpl) Errors(groupId string) <-chan error {
 	return m.groups[groupId].errors
 }
 
-// IsValid returns true if the given groupId corresponds to a managed ConsumerGroup
+// IsManaged returns true if the given groupId corresponds to a managed ConsumerGroup
 func (m *kafkaConsumerGroupManagerImpl) IsManaged(groupId string) bool {
 	if _, ok := m.groups[groupId]; ok {
 		return true
@@ -236,7 +235,8 @@ func (m *kafkaConsumerGroupManagerImpl) consume(ctx context.Context, groupId str
 // stopConsumerGroups closes the managed ConsumerGroup identified by the provided groupId, and marks it
 // as "stopped" (that is, "able to be restarted" as opposed to being closed by something outside the manager)
 func (m *kafkaConsumerGroupManagerImpl) stopConsumerGroup(groupId string) error {
-	m.logger.Info("Stopping Managed ConsumerGroup", zap.String("GroupId", groupId))
+	groupLogger := m.logger.With(zap.String("GroupId", groupId))
+	groupLogger.Info("Stopping Managed ConsumerGroup", zap.String("GroupId", groupId))
 	managedGrp, ok := m.groups[groupId]
 	if ok {
 		// The managedGroup's start channel must be created (that is, the managedGroup must be marked
@@ -247,29 +247,34 @@ func (m *kafkaConsumerGroupManagerImpl) stopConsumerGroup(groupId string) error 
 		// and wait for the managedGroup to start again.
 		err := managedGrp.group.Close()
 		if err != nil {
+			groupLogger.Error("Failed To Close Managed ConsumerGroup", zap.Error(err))
 			// Don't leave the start channel open if the group.Close() call failed; that would be misleading
 			managedGrp.closeRestartChannel()
 			return err
 		}
 		return nil
 	}
+	groupLogger.Info("ConsumerGroup Not Managed - Ignoring Stop Request")
 	return fmt.Errorf("stop requested for consumer group not in managed list: %s", groupId)
 }
 
 // startConsumerGroups creates a new Consumer Group based on the groupId provided
 func (m *kafkaConsumerGroupManagerImpl) startConsumerGroup(groupId string) error {
-	m.logger.Info("Starting Managed ConsumerGroup", zap.String("GroupId", groupId))
+	groupLogger := m.logger.With(zap.String("GroupId", groupId))
+	groupLogger.Info("Starting Managed ConsumerGroup", zap.String("GroupId", groupId))
 	m.groupLock.Lock() // Don't allow m.groups to be modified while processing a start request
 	defer m.groupLock.Unlock()
 	if _, ok := m.groups[groupId]; ok {
 		group, err := m.factory.createConsumerGroup(groupId)
 		if err != nil {
+			groupLogger.Error("Failed To Restart Managed ConsumerGroup", zap.Error(err))
 			return err
 		}
 		m.groups[groupId].group = group
 		m.groups[groupId].closeRestartChannel() // Closing this allows the waitForStart function to finish
 		return nil
 	}
+	groupLogger.Info("ConsumerGroup Not Managed - Ignoring Start Request")
 	return fmt.Errorf("start requested for consumer group not in managed list: %s", groupId)
 }
 
