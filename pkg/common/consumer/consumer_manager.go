@@ -131,9 +131,11 @@ func (m *kafkaConsumerGroupManagerImpl) Reconfigure(brokers []string, config *sa
 // StartConsumerGroup uses the consumer factory to create a new ConsumerGroup, add it to the list
 // of managed groups (for start/stop functionality) and start the Consume loop.
 func (m *kafkaConsumerGroupManagerImpl) StartConsumerGroup(groupId string, topics []string, logger *zap.SugaredLogger, handler KafkaConsumerHandler, options ...SaramaConsumerHandlerOption) error {
-	m.logger.Info("Creating New Managed ConsumerGroup", zap.String("GroupId", groupId))
+	groupLogger := m.logger.With(zap.String("GroupId", groupId))
+	groupLogger.Info("Creating New Managed ConsumerGroup")
 	group, err := m.factory.createConsumerGroup(groupId)
 	if err != nil {
+		groupLogger.Error("Failed To Create New Managed ConsumerGroup")
 		return err
 	}
 
