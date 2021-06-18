@@ -161,8 +161,8 @@ func TestErrorWhileNewConsumerGroup(t *testing.T) {
 	}
 	consumerGroup, _ := factory.StartConsumerGroup("bla", []string{}, zap.L().Sugar(), nil)
 
+	consumerGroup.(*customConsumerGroup).cancel() // Stop the consume loop from spinning after the error is generated
 	err := <-consumerGroup.Errors()
-	consumerGroup.(*customConsumerGroup).cancel() // Stop the consume loop from spinning after the test is complete
 	// Wait for the goroutine inside of startExistingConsumerGroup to finish
 	<-consumerGroup.(*customConsumerGroup).releasedCh
 
