@@ -62,10 +62,11 @@ func NewScheduler(ctx context.Context,
 	refreshPeriod time.Duration,
 	capacity int32,
 	schedulerPolicy SchedulerPolicyType,
-	nodeLister corev1listers.NodeLister) scheduler.Scheduler {
+	nodeLister corev1listers.NodeLister,
+	evictor scheduler.Evictor) scheduler.Scheduler {
 
 	stateAccessor := newStateBuilder(ctx, lister, capacity, schedulerPolicy, nodeLister)
-	autoscaler := NewAutoscaler(ctx, namespace, name, stateAccessor, refreshPeriod, capacity)
+	autoscaler := NewAutoscaler(ctx, namespace, name, lister, stateAccessor, evictor, refreshPeriod, capacity)
 	podInformer := podinformer.Get(ctx)
 	podLister := podInformer.Lister().Pods(namespace)
 
@@ -136,7 +137,7 @@ func (s *StatefulSetScheduler) scheduleVPod(vpod scheduler.VPod) ([]duckv1alpha1
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	logger := s.logger.With("key", zap.Any("key", vpod.GetKey()))
+	logger := s.logger.With("key", vpod.GetKey())
 	logger.Info("scheduling")
 
 	// Get the current placements state
@@ -481,9 +482,8 @@ func (s *StatefulSetScheduler) updateStatefulset(obj interface{}) {
 
 	if statefulset.Spec.Replicas == nil {
 		s.replicas = 1
-	} else {
+	} else if s.replicas != *statefulset.Spec.Replicas {
 		s.replicas = *statefulset.Spec.Replicas
+		s.logger.Infow("statefulset replicas updated", zap.Int32("replicas", s.replicas))
 	}
-
-	s.logger.Infow("updated statefulset replicas", zap.Int32("replicas", s.replicas))
 }
