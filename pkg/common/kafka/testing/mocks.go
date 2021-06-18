@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors
+Copyright 2021 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,8 +18,10 @@ package testing
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/Shopify/sarama"
+	"github.com/stretchr/testify/mock"
 )
 
 //
@@ -29,31 +31,45 @@ import (
 var _ sarama.ConsumerGroup = &MockConsumerGroup{}
 
 type MockConsumerGroup struct {
-	errorChan   chan error
+	mock.Mock
+	ErrorChan   chan error
 	consumeChan chan struct{}
 	Closed      bool
+	CloseErr    bool
 }
 
-func NewMockConsumerGroup() *MockConsumerGroup {
-	return &MockConsumerGroup{
-		errorChan:   make(chan error),
+func NewStubbedMockConsumerGroup() *MockConsumerGroup {
+	mockGroup := &MockConsumerGroup{
+		ErrorChan:   make(chan error),
 		consumeChan: make(chan struct{}),
 		Closed:      false,
 	}
+
+	// Stub out the mock functions since this mock returns "real" data
+	mockGroup.On("Consume", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	mockGroup.On("Errors").Return(nil)
+	mockGroup.On("Close").Return(nil)
+	return mockGroup
 }
 
-func (m *MockConsumerGroup) Consume(_ context.Context, _ []string, _ sarama.ConsumerGroupHandler) error {
+func (m *MockConsumerGroup) Consume(ctx context.Context, topics []string, handler sarama.ConsumerGroupHandler) error {
+	_ = m.Called(ctx, topics, handler)
 	<-m.consumeChan                      // Block To Simulate Real Execution
 	return sarama.ErrClosedConsumerGroup // Return ConsumerGroup Closed "Error" For Clean Shutdown
 }
 
 func (m *MockConsumerGroup) Errors() <-chan error {
-	return m.errorChan
+	_ = m.Called()
+	return m.ErrorChan
 }
 
 func (m *MockConsumerGroup) Close() error {
-	close(m.errorChan)
+	_ = m.Called()
+	close(m.ErrorChan)
 	close(m.consumeChan)
 	m.Closed = true
+	if m.CloseErr {
+		return fmt.Errorf("error closing consumer group")
+	}
 	return nil
 }

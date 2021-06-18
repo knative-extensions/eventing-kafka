@@ -31,7 +31,7 @@ import (
 
 	"knative.dev/eventing-kafka/pkg/common/controlprotocol/commands"
 	controltesting "knative.dev/eventing-kafka/pkg/common/controlprotocol/testing"
-	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
+	kafkatesting "knative.dev/eventing-kafka/pkg/common/kafka/testing"
 )
 
 func TestNewConsumerGroupManager(t *testing.T) {
@@ -140,7 +140,7 @@ func TestManagedGroup_transferErrors(t *testing.T) {
 			time.Sleep(5 * time.Millisecond) // Let the error handling loop move forward
 			if testCase.startGroup {
 				// Simulate the effects of startConsumerGroup (new ConsumerGroup, same managedConsumerGroup)
-				mockGrp = commontesting.NewMockConsumerGroup()
+				mockGrp = kafkatesting.NewStubbedMockConsumerGroup()
 				managedGrp.group = mockGrp
 				managedGrp.closeRestartChannel()
 
@@ -221,9 +221,9 @@ func TestStartConsumerGroup(t *testing.T) {
 			manager := NewConsumerGroupManager(logtesting.TestLogger(t).Desugar(), getMockServerHandler(), []string{}, &sarama.Config{})
 			newConsumerGroup = func(addrs []string, groupID string, config *sarama.Config) (sarama.ConsumerGroup, error) {
 				if testCase.factoryErr {
-					return &commontesting.MockConsumerGroup{}, fmt.Errorf("factory error")
+					return kafkatesting.NewStubbedMockConsumerGroup(), fmt.Errorf("factory error")
 				}
-				return &commontesting.MockConsumerGroup{}, nil
+				return kafkatesting.NewStubbedMockConsumerGroup(), nil
 			}
 			err := manager.StartConsumerGroup("testid", []string{}, nil, nil)
 			assert.Equal(t, testCase.factoryErr, err != nil)
@@ -474,7 +474,7 @@ func TestNotifications(t *testing.T) {
 
 // getManagerWithMockGroup creates a KafkaConsumerGroupManager and optionally seeds it with a mock consumer group
 func getManagerWithMockGroup(t *testing.T, groupId string, factoryErr bool) (KafkaConsumerGroupManager,
-	*commontesting.MockConsumerGroup,
+	*kafkatesting.MockConsumerGroup,
 	*managedGroup,
 	*controltesting.MockServerHandler) {
 
@@ -483,7 +483,7 @@ func getManagerWithMockGroup(t *testing.T, groupId string, factoryErr bool) (Kaf
 		if factoryErr {
 			return nil, fmt.Errorf("factory error")
 		}
-		return commontesting.NewMockConsumerGroup(), nil
+		return kafkatesting.NewStubbedMockConsumerGroup(), nil
 	}
 	manager := NewConsumerGroupManager(logtesting.TestLogger(t).Desugar(), serverHandler, []string{}, &sarama.Config{})
 	if groupId != "" {
@@ -505,8 +505,8 @@ func getMockServerHandler() *controltesting.MockServerHandler {
 	return serverHandler
 }
 
-func createTestGroup() (*commontesting.MockConsumerGroup, *managedGroup) {
-	mockGroup := commontesting.NewMockConsumerGroup()
+func createTestGroup() (*kafkatesting.MockConsumerGroup, *managedGroup) {
+	mockGroup := kafkatesting.NewStubbedMockConsumerGroup()
 	return mockGroup, &managedGroup{
 		group:  mockGroup,
 		errors: make(chan error),

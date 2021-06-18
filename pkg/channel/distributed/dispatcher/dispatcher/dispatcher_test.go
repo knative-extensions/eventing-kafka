@@ -37,6 +37,7 @@ import (
 	configtesting "knative.dev/eventing-kafka/pkg/common/config/testing"
 	consumertesting "knative.dev/eventing-kafka/pkg/common/consumer/testing"
 	controltesting "knative.dev/eventing-kafka/pkg/common/controlprotocol/testing"
+	kafkatesting "knative.dev/eventing-kafka/pkg/common/kafka/testing"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 )
@@ -85,9 +86,9 @@ func TestShutdown(t *testing.T) {
 	mockManager := consumertesting.NewMockConsumerGroupManager()
 
 	// Create Mock ConsumerGroups To Register Close() Requests
-	consumerGroup1 := commontesting.NewMockConsumerGroup()
-	consumerGroup2 := commontesting.NewMockConsumerGroup()
-	consumerGroup3 := commontesting.NewMockConsumerGroup()
+	consumerGroup1 := kafkatesting.NewStubbedMockConsumerGroup()
+	consumerGroup2 := kafkatesting.NewStubbedMockConsumerGroup()
+	consumerGroup3 := kafkatesting.NewStubbedMockConsumerGroup()
 
 	// Create Test Subscribers To Close The ConsumerGroups Of
 	subscriber1 := eventingduck.SubscriberSpec{UID: id123}
