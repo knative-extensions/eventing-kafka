@@ -116,22 +116,26 @@ func TestShutdown(t *testing.T) {
 	}
 
 	mockManager.On("IsManaged", groupId1).Return(true)
-	mockManager.On("IsManaged", groupId2).Return(true)
+	mockManager.On("IsManaged", groupId2).Return(false)
 	mockManager.On("IsManaged", groupId3).Return(true)
 	mockManager.On("CloseConsumerGroup", groupId1).Return(nil)
 	mockManager.On("CloseConsumerGroup", groupId2).Return(nil)
-	mockManager.On("CloseConsumerGroup", groupId3).Return(nil)
+	mockManager.On("CloseConsumerGroup", groupId3).Return(fmt.Errorf("close error"))
 
 	// Perform The Test
 	dispatcher.Shutdown()
 
 	// Verify The Results
 	assert.True(t, consumerGroup1.Closed)
-	assert.True(t, consumerGroup2.Closed)
-	assert.True(t, consumerGroup3.Closed)
-	assert.Len(t, dispatcher.subscribers, 0)
+	assert.False(t, consumerGroup2.Closed) // Not managed
+	assert.True(t, consumerGroup3.Closed) // Error during shutdown
+	assert.Len(t, dispatcher.subscribers, 1) // One was unmanaged and should be ignored
 
-	// Verify that calling Shutdown a second time does not cause a panic
+	// Verify that calling Shutdown a second time does not cause a panic, and that the
+	// metrics channel is properly stopped if it exists
+	dispatcher.MetricsStopChan = make(chan struct{})
+	dispatcher.MetricsStoppedChan = make(chan struct{})
+	close(dispatcher.MetricsStoppedChan)
 	dispatcher.Shutdown()
 }
 
@@ -152,6 +156,12 @@ func TestUpdateSubscriptions(t *testing.T) {
 		SaramaConfig: config,
 	}
 
+	badDispatcherConfig := DispatcherConfig{
+		Logger:       logger.Desugar(),
+		Brokers:      brokers,
+		SaramaConfig: nil,
+	}
+
 	// Define The TestCase Struct
 	type fields struct {
 		DispatcherConfig DispatcherConfig
@@ -163,11 +173,13 @@ func TestUpdateSubscriptions(t *testing.T) {
 
 	// Define The TestCase Struct
 	type TestCase struct {
-		only   bool
-		name   string
-		fields fields
-		args   args
-		want   map[eventingduck.SubscriberSpec]error
+		name        string
+		fields      fields
+		createErr   bool
+		consumeErr  bool
+		args        args
+		wantErrors  int
+		wantFailure bool
 	}
 
 	// Create The Test Cases
@@ -183,7 +195,46 @@ func TestUpdateSubscriptions(t *testing.T) {
 					{UID: uid123},
 				},
 			},
-			want: map[eventingduck.SubscriberSpec]error{},
+		},
+		{
+			name: "Create ConsumerGroup Error",
+			fields: fields{
+				DispatcherConfig: dispatcherConfig,
+				subscribers:      map[types.UID]*SubscriberWrapper{},
+			},
+			args: args{
+				subscriberSpecs: []eventingduck.SubscriberSpec{
+					{UID: uid123},
+				},
+			},
+			wantErrors: 1,
+			createErr: true,
+		},
+		{
+			name: "Error During Consume",
+			fields: fields{
+				DispatcherConfig: dispatcherConfig,
+				subscribers:      map[types.UID]*SubscriberWrapper{},
+			},
+			args: args{
+				subscriberSpecs: []eventingduck.SubscriberSpec{
+					{UID: uid123},
+				},
+			},
+			consumeErr: true,
+		},
+		{
+			name: "Invalid Config",
+			fields: fields{
+				DispatcherConfig: badDispatcherConfig,
+				subscribers:      map[types.UID]*SubscriberWrapper{},
+			},
+			args: args{
+				subscriberSpecs: []eventingduck.SubscriberSpec{
+					{UID: uid123},
+				},
+			},
+			wantFailure: true,
 		},
 		{
 			name: "Add Second Subscription",
@@ -199,7 +250,6 @@ func TestUpdateSubscriptions(t *testing.T) {
 					{UID: uid456},
 				},
 			},
-			want: map[eventingduck.SubscriberSpec]error{},
 		},
 		{
 			name: "Add And Remove Subscriptions",
@@ -216,7 +266,6 @@ func TestUpdateSubscriptions(t *testing.T) {
 					{UID: uid789},
 				},
 			},
-			want: map[eventingduck.SubscriberSpec]error{},
 		},
 		{
 			name: "Remove Penultimate Subscription",
@@ -232,7 +281,6 @@ func TestUpdateSubscriptions(t *testing.T) {
 					{UID: uid123},
 				},
 			},
-			want: map[eventingduck.SubscriberSpec]error{},
 		},
 		{
 			name: "Remove Last Subscription",
@@ -245,23 +293,11 @@ func TestUpdateSubscriptions(t *testing.T) {
 			args: args{
 				subscriberSpecs: []eventingduck.SubscriberSpec{},
 			},
-			want: map[eventingduck.SubscriberSpec]error{},
 		},
 	}
 
-	// Filter To Those With "only" Flag (If Any Specified)
-	filteredTestCases := make([]TestCase, 0)
-	for _, testCase := range testCases {
-		if testCase.only {
-			filteredTestCases = append(filteredTestCases, testCase)
-		}
-	}
-	if len(filteredTestCases) == 0 {
-		filteredTestCases = testCases
-	}
-
 	// Execute The Test Cases (Create A DispatcherImpl & UpdateSubscriptions() :)
-	for _, testCase := range filteredTestCases {
+	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 
 			mockManager := consumertesting.NewMockConsumerGroupManager()
@@ -272,32 +308,51 @@ func TestUpdateSubscriptions(t *testing.T) {
 				consumerMgr:      mockManager,
 			}
 
+			errorSource := make(chan error, 1)
+			if testCase.consumeErr {
+				errorSource <- fmt.Errorf("consume error")
+			}
+
 			for _, id := range []string{id123, id456, id789} {
 				group := "kafka." + id
-				mockManager.On("StartConsumerGroup", group, []string{""}, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+				createErr := fmt.Errorf("create error")
+				if !testCase.createErr {
+					createErr = nil
+				}
+				mockManager.On("StartConsumerGroup", group, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(createErr)
 				mockManager.On("IsManaged", group).Return(true)
-				mockManager.On("Errors", group).Return(make(<-chan error))
+				mockManager.On("Errors", group).Return((<- chan error)(errorSource))
 				mockManager.On("CloseConsumerGroup", group).Return(nil)
 			}
 
 			// Perform The Test
-			got := dispatcher.UpdateSubscriptions(testCase.args.subscriberSpecs)
+			result := dispatcher.UpdateSubscriptions(testCase.args.subscriberSpecs)
 
-			// Verify Results
-			assert.Equal(t, testCase.want, got)
+			close(errorSource)
 
-			// Verify The Dispatcher's Tracking Of Subscribers Matches Specified State
-			assert.Len(t, dispatcher.subscribers, len(testCase.args.subscriberSpecs))
-			for _, subscriber := range testCase.args.subscriberSpecs {
-				assert.NotNil(t, dispatcher.subscribers[subscriber.UID])
+			if testCase.wantFailure {
+				assert.Nil(t, result)
+			} else {
+				// Verify Results
+				assert.Equal(t, testCase.wantErrors, len(result))
+
+				// Verify The Dispatcher's Tracking Of Subscribers Matches Specified State
+				assert.Equal(t, len(testCase.args.subscriberSpecs)-testCase.wantErrors, len(dispatcher.subscribers))
+				for _, subscriber := range testCase.args.subscriberSpecs {
+					if testCase.createErr {
+						assert.Nil(t, dispatcher.subscribers[subscriber.UID])
+					} else {
+						assert.NotNil(t, dispatcher.subscribers[subscriber.UID])
+					}
+				}
+
+				// Shutdown The Dispatcher to Cleanup Resources
+				dispatcher.Shutdown()
+				assert.Len(t, dispatcher.subscribers, 0)
+
+				// Pause Briefly To Let Any Async Shutdown Finish (Lame But Only For Visual Confirmation Of Logging ;)
+				time.Sleep(500 * time.Millisecond)
 			}
-
-			// Shutdown The Dispatcher to Cleanup Resources
-			dispatcher.Shutdown()
-			assert.Len(t, dispatcher.subscribers, 0)
-
-			// Pause Briefly To Let Any Async Shutdown Finish (Lame But Only For Visual Confirmation Of Logging ;)
-			time.Sleep(500 * time.Millisecond)
 		})
 	}
 }
@@ -336,6 +391,7 @@ func TestSecretChanged(t *testing.T) {
 		expectNewUsername   string
 		expectNewPassword   string
 		expectNewSaslType   string
+		reconfigureErr      bool
 	}
 
 	// Create The TestCases
@@ -372,6 +428,12 @@ func TestSecretChanged(t *testing.T) {
 			name:      "No Auth Config In Secret (No Modifications)",
 			newSecret: configtesting.NewKafkaSecret(configtesting.WithMissingConfig),
 		},
+		{
+			name:              "Reconfigure Error",
+			newSecret:         configtesting.NewKafkaSecret(configtesting.WithModifiedSaslType),
+			expectNewSaslType: configtesting.ModifiedSecretSaslType,
+			reconfigureErr:    true,
+		},
 	}
 
 	// Run The Filtered TestCases
@@ -382,6 +444,11 @@ func TestSecretChanged(t *testing.T) {
 			dispatcher := createTestDispatcher(t, brokers, baseSaramaConfig)
 			impl := dispatcher.(*DispatcherImpl)
 			impl.subscribers = map[types.UID]*SubscriberWrapper{uid123: createSubscriberWrapper(uid123)}
+			if testCase.reconfigureErr {
+				mockManager := consumertesting.NewMockConsumerGroupManager()
+				mockManager.On("Reconfigure", mock.Anything, mock.Anything).Return(fmt.Errorf("reconfigure error"))
+				impl.consumerMgr = mockManager
+			}
 
 			// Perform The Test
 			dispatcher.SecretChanged(ctx, testCase.newSecret)

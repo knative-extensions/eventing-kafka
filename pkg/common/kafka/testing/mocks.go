@@ -65,11 +65,11 @@ func (m *MockConsumerGroup) Errors() <-chan error {
 
 func (m *MockConsumerGroup) Close() error {
 	_ = m.Called()
-	close(m.ErrorChan)
-	close(m.consumeChan)
-	m.Closed = true
 	if m.CloseErr {
 		return fmt.Errorf("error closing consumer group")
 	}
+	close(m.ErrorChan)
+	close(m.consumeChan)
+	m.Closed = true
 	return nil
 }

@@ -66,7 +66,7 @@ func TestManagedGroup(t *testing.T) {
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			// Test stop/start of a managedGroup
-			group := managedGroup{}
+			group := managedGroup{ restartChanMutex: sync.Mutex{} }
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			waitGroup := sync.WaitGroup{}
@@ -508,8 +508,9 @@ func getMockServerHandler() *controltesting.MockServerHandler {
 func createTestGroup() (*kafkatesting.MockConsumerGroup, *managedGroup) {
 	mockGroup := kafkatesting.NewStubbedMockConsumerGroup()
 	return mockGroup, &managedGroup{
-		group:  mockGroup,
-		errors: make(chan error),
+		group:            mockGroup,
+		errors:           make(chan error),
+		restartChanMutex: sync.Mutex{},
 	}
 }
 

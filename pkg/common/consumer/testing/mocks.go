@@ -71,6 +71,7 @@ func (m *MockConsumerGroupManager) CloseConsumerGroup(groupId string) error {
 	args := m.Called(groupId)
 	if group, ok := m.Groups[groupId]; ok {
 		_ = group.Close()
+		delete(m.Groups, groupId)
 	}
 	return args.Error(0)
 }
