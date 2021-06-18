@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	ConsumerGroupAsyncCommandVersion int16 = 1 // Basic AsyncCommand Compatability Check
+	ConsumerGroupAsyncCommandVersion int16 = 1 // Basic AsyncCommand Compatibility Check
 
 	StopConsumerGroupOpCode        ctrl.OpCode = 10
 	StopConsumerGroupResultOpCode  ctrl.OpCode = 11
@@ -46,7 +46,7 @@ type ConsumerGroupAsyncCommand struct {
 // NewConsumerGroupAsyncCommand constructs and returns a new ConsumerGroupAsyncCommand.
 func NewConsumerGroupAsyncCommand(commandId int64, topicName string, groupId string) *ConsumerGroupAsyncCommand {
 	return &ConsumerGroupAsyncCommand{
-		Version:   ConsumerGroupAsyncCommandVersion, // Only One Version For Now - Validate Compatability In Handler ; )
+		Version:   ConsumerGroupAsyncCommandVersion, // Only One Version For Now - Validate Compatibility In Handler ; )
 		CommandId: commandId,
 		TopicName: topicName,
 		GroupId:   groupId,

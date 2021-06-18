@@ -54,7 +54,9 @@ func NewControllerFactory(
 		refMapper := refMapperFactory.Create(ctx)
 
 		// Create A Control-Protocol AsyncCommandNotificationStore - No-Op Enqueue Function For ResetOffset Use Case
-		enqueueFunc := func(key types.NamespacedName) { logger.Info("Control-Protocol Enqueue Function", zap.String("Key", key.String())) }
+		enqueueFunc := func(key types.NamespacedName) {
+			logger.Info("Control-Protocol Enqueue Function", zap.String("Key", key.String()))
+		}
 		asyncCommandNotificationStore := ctrlreconciler.NewAsyncCommandNotificationStore(enqueueFunc)
 
 		// Create A ResetOffset Reconciler
