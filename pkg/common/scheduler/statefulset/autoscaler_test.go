@@ -17,11 +17,13 @@ limitations under the License.
 package statefulset
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	gtesting "k8s.io/client-go/testing"
 
 	listers "knative.dev/eventing/pkg/reconciler/testing/v1"
@@ -222,7 +224,11 @@ func TestAutoscaler(t *testing.T) {
 				t.Fatal("unexpected error", err)
 			}
 
-			autoscaler := NewAutoscaler(ctx, testNs, sfsName, stateAccessor, 10*time.Second, int32(10)).(*autoscaler)
+			noopEvictor := func(vpod scheduler.VPod, from *duckv1alpha1.Placement) error {
+				return nil
+			}
+
+			autoscaler := NewAutoscaler(ctx, testNs, sfsName, vpodClient.List, stateAccessor, noopEvictor, 10*time.Second, int32(10)).(*autoscaler)
 
 			for _, vpod := range tc.vpods {
 				vpodClient.Append(vpod)
@@ -266,7 +272,11 @@ func TestAutoscalerScaleDownToZero(t *testing.T) {
 		t.Fatal("unexpected error", err)
 	}
 
-	autoscaler := NewAutoscaler(ctx, testNs, sfsName, stateAccessor, 2*time.Second, int32(10)).(*autoscaler)
+	noopEvictor := func(vpod scheduler.VPod, from *duckv1alpha1.Placement) error {
+		return nil
+	}
+
+	autoscaler := NewAutoscaler(ctx, testNs, sfsName, vpodClient.List, stateAccessor, noopEvictor, 2*time.Second, int32(10)).(*autoscaler)
 
 	done := make(chan bool)
 	go func() {
@@ -295,5 +305,143 @@ func TestAutoscalerScaleDownToZero(t *testing.T) {
 	case <-done:
 	case <-time.After(1 * time.Second):
 		t.Fatal("timeout waiting for autoscaler to stop")
+	}
+}
+
+func TestCompactor(t *testing.T) {
+	testCases := []struct {
+		name            string
+		replicas        int32
+		vpods           []scheduler.VPod
+		schedulerPolicy SchedulerPolicyType
+		wantEvictions   map[types.NamespacedName]duckv1alpha1.Placement
+	}{
+		{
+			name:     "no replicas, no placements, no pending",
+			replicas: int32(0),
+			vpods: []scheduler.VPod{
+				tscheduler.NewVPod(testNs, "vpod-1", 0, nil),
+			},
+			schedulerPolicy: MAXFILLUP,
+			wantEvictions:   nil,
+		},
+		{
+			name:     "one vpod, with placements in 2 pods, compacted",
+			replicas: int32(2),
+			vpods: []scheduler.VPod{
+				tscheduler.NewVPod(testNs, "vpod-1", 15, []duckv1alpha1.Placement{
+					{PodName: "pod-0", VReplicas: int32(8)},
+					{PodName: "pod-1", VReplicas: int32(7)}}),
+			},
+			schedulerPolicy: MAXFILLUP,
+			wantEvictions:   nil,
+		},
+		{
+			name:     "one vpod, with  placements in 2 pods, compacted edge",
+			replicas: int32(2),
+			vpods: []scheduler.VPod{
+				tscheduler.NewVPod(testNs, "vpod-1", 11, []duckv1alpha1.Placement{
+					{PodName: "pod-0", VReplicas: int32(8)},
+					{PodName: "pod-1", VReplicas: int32(3)}}),
+			},
+			schedulerPolicy: MAXFILLUP,
+			wantEvictions:   nil,
+		},
+		{
+			name:     "one vpod, with placements in 2 pods, not compacted",
+			replicas: int32(2),
+			vpods: []scheduler.VPod{
+				tscheduler.NewVPod(testNs, "vpod-1", 10, []duckv1alpha1.Placement{
+					{PodName: "pod-0", VReplicas: int32(8)},
+					{PodName: "pod-1", VReplicas: int32(2)}}),
+			},
+			schedulerPolicy: MAXFILLUP,
+			wantEvictions: map[types.NamespacedName]duckv1alpha1.Placement{
+				{Name: "vpod-1", Namespace: testNs}: {PodName: "pod-1", VReplicas: int32(2)},
+			},
+		},
+		{
+			name:     "multiple vpods, with placements in multiple pods, compacted",
+			replicas: int32(2),
+			// pod-0:6, pod-1:8, pod-2:7
+			vpods: []scheduler.VPod{
+				tscheduler.NewVPod(testNs, "vpod-1", 12, []duckv1alpha1.Placement{
+					{PodName: "pod-0", VReplicas: int32(4)},
+					{PodName: "pod-1", VReplicas: int32(8)}}),
+				tscheduler.NewVPod(testNs, "vpod-2", 9, []duckv1alpha1.Placement{
+					{PodName: "pod-0", VReplicas: int32(2)},
+					{PodName: "pod-2", VReplicas: int32(7)}}),
+			},
+			schedulerPolicy: MAXFILLUP,
+			wantEvictions:   nil,
+		},
+		{
+			name:     "multiple vpods, with placements in multiple pods, not compacted",
+			replicas: int32(2),
+			// pod-0:6, pod-1:7, pod-2:7
+			vpods: []scheduler.VPod{
+				tscheduler.NewVPod(testNs, "vpod-1", 6, []duckv1alpha1.Placement{
+					{PodName: "pod-0", VReplicas: int32(4)},
+					{PodName: "pod-1", VReplicas: int32(7)}}),
+				tscheduler.NewVPod(testNs, "vpod-2", 15, []duckv1alpha1.Placement{
+					{PodName: "pod-0", VReplicas: int32(2)},
+					{PodName: "pod-2", VReplicas: int32(7)}}),
+			},
+			schedulerPolicy: MAXFILLUP,
+			wantEvictions: map[types.NamespacedName]duckv1alpha1.Placement{
+				{Name: "vpod-2", Namespace: testNs}: {PodName: "pod-2", VReplicas: int32(7)},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, _ := setupFakeContext(t)
+
+			vpodClient := tscheduler.NewVPodClient()
+			ls := listers.NewListers(nil)
+			stateAccessor := newStateBuilder(ctx, vpodClient.List, 10, tc.schedulerPolicy, ls.GetNodeLister())
+
+			evictions := make(map[types.NamespacedName]duckv1alpha1.Placement)
+			recordEviction := func(vpod scheduler.VPod, from *duckv1alpha1.Placement) error {
+				evictions[vpod.GetKey()] = *from
+				return nil
+			}
+
+			autoscaler := NewAutoscaler(ctx, testNs, sfsName, vpodClient.List, stateAccessor, recordEviction, 10*time.Second, int32(10)).(*autoscaler)
+
+			for _, vpod := range tc.vpods {
+				vpodClient.Append(vpod)
+			}
+
+			state, err := stateAccessor.State()
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			fmt.Println(state)
+
+			autoscaler.mayCompact(state)
+
+			if tc.wantEvictions == nil && len(evictions) != 0 {
+				t.Fatalf("unexpected evictions: %v", evictions)
+
+			}
+			for key, placement := range tc.wantEvictions {
+				got, ok := evictions[key]
+				if !ok {
+					t.Fatalf("unexpected %v to be evicted but was not", key)
+				}
+
+				if got != placement {
+					t.Fatalf("expected evicted placement to be %v, but got %v", placement, got)
+				}
+
+				delete(evictions, key)
+			}
+
+			if len(evictions) != 0 {
+				t.Fatalf("unexpected evictions %v", evictions)
+			}
+		})
 	}
 }

@@ -31,6 +31,11 @@ var (
 // VPodLister is the function signature for returning a list of VPods
 type VPodLister func() ([]VPod, error)
 
+// Evictor allows for vreplicas to be evicted.
+// For instance, the evictor is used by the statefulset scheduler to
+// move vreplicas to pod with a lower ordinal.
+type Evictor func(vpod VPod, from *duckv1alpha1.Placement) error
+
 // Scheduler is responsible for placing VPods into real Kubernetes pods
 type Scheduler interface {
 	// Schedule computes the new set of placements for vpod.
