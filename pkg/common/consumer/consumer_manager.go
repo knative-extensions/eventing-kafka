@@ -303,7 +303,7 @@ type managedGroup struct {
 	group              sarama.ConsumerGroup
 	errors             chan error
 	restartWaitChannel chan struct{}
-	restartChanMutex   sync.Mutex  // Keeps waitForStart from racing with createRestartChannel/closeRestartChannel
+	restartChanMutex   sync.Mutex // Keeps waitForStart from racing with createRestartChannel/closeRestartChannel
 	cancelErrors       func()
 	cancelConsume      func()
 }

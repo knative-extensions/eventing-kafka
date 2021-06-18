@@ -127,8 +127,8 @@ func TestShutdown(t *testing.T) {
 
 	// Verify The Results
 	assert.True(t, consumerGroup1.Closed)
-	assert.False(t, consumerGroup2.Closed) // Not managed
-	assert.True(t, consumerGroup3.Closed) // Error during shutdown
+	assert.False(t, consumerGroup2.Closed)   // Not managed
+	assert.True(t, consumerGroup3.Closed)    // Error during shutdown
 	assert.Len(t, dispatcher.subscribers, 1) // One was unmanaged and should be ignored
 
 	// Verify that calling Shutdown a second time does not cause a panic, and that the
@@ -208,7 +208,7 @@ func TestUpdateSubscriptions(t *testing.T) {
 				},
 			},
 			wantErrors: 1,
-			createErr: true,
+			createErr:  true,
 		},
 		{
 			name: "Error During Consume",
@@ -321,7 +321,7 @@ func TestUpdateSubscriptions(t *testing.T) {
 				}
 				mockManager.On("StartConsumerGroup", group, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(createErr)
 				mockManager.On("IsManaged", group).Return(true)
-				mockManager.On("Errors", group).Return((<- chan error)(errorSource))
+				mockManager.On("Errors", group).Return((<-chan error)(errorSource))
 				mockManager.On("CloseConsumerGroup", group).Return(nil)
 			}
 

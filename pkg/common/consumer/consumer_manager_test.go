@@ -66,7 +66,7 @@ func TestManagedGroup(t *testing.T) {
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			// Test stop/start of a managedGroup
-			group := managedGroup{ restartChanMutex: sync.Mutex{} }
+			group := managedGroup{restartChanMutex: sync.Mutex{}}
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			waitGroup := sync.WaitGroup{}
