@@ -24,6 +24,7 @@ import (
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	control "knative.dev/control-protocol/pkg"
 	ctrlreconciler "knative.dev/control-protocol/pkg/reconciler"
@@ -163,7 +164,11 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, resetOffset *kafkav1alpha
 		return fmt.Errorf("skipping finalization of in-progress ResetOffset instance")
 	}
 
-	// TODO - need to r.asyncCommandNotificationStore.CleanPodNotification() in finalize? (see KafkaSource implementation for example?)
+	// Clean The AsyncCommandNotificationStore
+	r.asyncCommandNotificationStore.CleanPodsNotifications(types.NamespacedName{
+		Namespace: resetOffset.Namespace,
+		Name:      resetOffset.Name,
+	})
 
 	// No-Op Finalization - Nothing To Do
 	logger.Info("No-Op Finalization Successful")

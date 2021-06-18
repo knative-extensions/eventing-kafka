@@ -42,7 +42,7 @@ const (
 	asyncCommandResultPollDuration    = 1 * time.Second  // AsyncCommandResult Polling Duration
 	asyncCommandResultTimeoutDuration = 10 * time.Second // AsyncCommandResult Timeout Duration
 
-	ControlProtocolServerPort = 8085 // TODO - Use common constant once eric delivers - for now match dispatcher/main.go!
+	ControlProtocolServerPort = 8085 // TODO - Use common constant once eric delivers!
 )
 
 // reconcileDataPlaneServices updates the Reconciler ConnectionPool Services associated with the specified RefInfo.

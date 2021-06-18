@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/types"
 	"strings"
 	"testing"
 
@@ -411,6 +412,10 @@ func TestReconcile(t *testing.T) {
 		mockAsyncCommandNotificationStore := &controllertesting.MockAsyncCommandNotificationStore{}
 		mockAsyncCommandNotificationStore.On("GetCommandResult", resetOffsetNamespacedName, podIp, stopConsumerGroupAsyncCommand).Return(successResult)
 		mockAsyncCommandNotificationStore.On("GetCommandResult", resetOffsetNamespacedName, podIp, startConsumerGroupAsyncCommand).Return(successResult)
+		mockAsyncCommandNotificationStore.On("CleanPodsNotifications", types.NamespacedName{
+			Namespace: controllertesting.ResetOffsetNamespace,
+			Name:      controllertesting.ResetOffsetName,
+		}).Return()
 
 		// Check SaramaNewClientFnErr Option
 		var saramaNewClientFnErr error
