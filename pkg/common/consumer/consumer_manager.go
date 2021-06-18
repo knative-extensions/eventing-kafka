@@ -168,9 +168,11 @@ func (m *kafkaConsumerGroupManagerImpl) StartConsumerGroup(groupId string, topic
 // associated with the given groupId, and also closes its managed errors channel.  It then removes the
 // group from management.
 func (m *kafkaConsumerGroupManagerImpl) CloseConsumerGroup(groupId string) error {
-	m.logger.Info("Closing ConsumerGroup and removing from management", zap.String("GroupId", groupId))
+	groupLogger := m.logger.With(zap.String("GroupId", groupId))
+	groupLogger.Info("Closing ConsumerGroup and removing from management")
 	managedGrp, ok := m.groups[groupId]
 	if !ok {
+		groupLogger.Warn("CloseConsumerGroup called on unmanaged group")
 		return fmt.Errorf("could not close consumer group with id '%s' - group is not present in the managed map", groupId)
 	}
 	// Make sure a managed group is "started" before closing the inner ConsumerGroup; otherwise anything
@@ -184,6 +186,7 @@ func (m *kafkaConsumerGroupManagerImpl) CloseConsumerGroup(groupId string) error
 	}
 	err := managedGrp.group.Close()
 	if err != nil {
+		groupLogger.Error("Failed To Close Managed ConsumerGroup", zap.Error(err))
 		return err
 	}
 	// Remove this groupId from the map so that manager functions may not be called on it
