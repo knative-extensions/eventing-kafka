@@ -66,15 +66,15 @@ func TestManagedGroup(t *testing.T) {
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			// Test stop/start of a managedGroup
-			group := managedGroup{restartChanMutex: sync.Mutex{}}
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
+			group := createManagedGroup(nil, cancel)
 			waitGroup := sync.WaitGroup{}
-			assert.Nil(t, group.restartWaitChannel)
+			assert.False(t, group.isStopped())
 
 			if testCase.restart || testCase.cancel {
 				group.createRestartChannel()
-				assert.NotNil(t, group.restartWaitChannel)
+				assert.True(t, group.isStopped())
 			}
 
 			waitGroup.Add(1)
@@ -466,7 +466,7 @@ func TestNotifications(t *testing.T) {
 			}))
 
 			if group != nil {
-				assert.Equal(t, testCase.expectStop, impl.groups[testCase.groupId].restartWaitChannel != nil)
+				assert.Equal(t, testCase.expectStop, impl.groups[testCase.groupId].isStopped())
 			}
 		})
 	}
@@ -507,11 +507,7 @@ func getMockServerHandler() *controltesting.MockServerHandler {
 
 func createTestGroup() (*kafkatesting.MockConsumerGroup, *managedGroup) {
 	mockGroup := kafkatesting.NewStubbedMockConsumerGroup()
-	return mockGroup, &managedGroup{
-		group:            mockGroup,
-		errors:           make(chan error),
-		restartChanMutex: sync.Mutex{},
-	}
+	return mockGroup, createManagedGroup(mockGroup, func() {})
 }
 
 // restoreNewConsumerGroup allows a single defer call to be used for saving and restoring the newConsumerGroup wrapper

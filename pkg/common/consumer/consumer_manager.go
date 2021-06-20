@@ -36,6 +36,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/multierr"
@@ -143,12 +144,7 @@ func (m *kafkaConsumerGroupManagerImpl) StartConsumerGroup(groupId string, topic
 	// Add the Sarama ConsumerGroup we obtained from the factory to the managed group map,
 	// so that it can be stopped and started via control-protocol messages.
 	m.groupLock.Lock()
-	m.groups[groupId] = &managedGroup{
-		group:            group,
-		errors:           make(chan error),
-		restartChanMutex: sync.Mutex{},
-		cancelErrors:     cancel,
-	}
+	m.groups[groupId] = createManagedGroup(group, cancel)
 	m.groupLock.Unlock()
 
 	// Begin listening on the group's Errors() channel and write them to the managedGroup's errors channel
@@ -226,7 +222,7 @@ func (m *kafkaConsumerGroupManagerImpl) consume(ctx context.Context, groupId str
 	for {
 		// Call the internal sarama ConsumerGroup's Consume function directly
 		err := managedGrp.group.Consume(ctx, topics, handler)
-		if managedGrp.restartWaitChannel == nil {
+		if !managedGrp.isStopped() {
 			// This ConsumerGroup wasn't stopped by the manager, so pass the error along to the caller
 			return err
 		}
@@ -303,42 +299,57 @@ type managedGroup struct {
 	group              sarama.ConsumerGroup
 	errors             chan error
 	restartWaitChannel chan struct{}
-	restartChanMutex   sync.Mutex // Keeps waitForStart from racing with createRestartChannel/closeRestartChannel
+	stopped            atomic.Value  // Boolean value indicating channel is stopped
 	cancelErrors       func()
 	cancelConsume      func()
+}
+
+// createManagedGroup associates a Sarama ConsumerGroup and cancel function (usually from the factory)
+// inside a new managedGroup struct
+func createManagedGroup(group sarama.ConsumerGroup, cancel func()) *managedGroup {
+	managedGrp := managedGroup{
+		group:        group,
+		errors:       make(chan error),
+		cancelErrors: cancel,
+	}
+	// Initialize the atomic boolean value to false, otherwise it will be a nil interface
+	// (restartWaitChannel is only accessed when "stopped" is true)
+	managedGrp.stopped.Store(false)
+	return &managedGrp
+}
+
+// isStopped is an accessor for the restartWaitChannel channel's status, which if non-nil indicates
+// that the KafkaConsumerGroupManager stopped ("paused") the managed ConsumerGroup (versus it having
+// been closed outside the manager)
+func (m *managedGroup) isStopped() bool {
+	return m.stopped.Load().(bool)
 }
 
 // createRestartChannel sets the state of the managed group to "stopped" by creating the restartWaitChannel
 // channel that will be closed when the group is restarted.
 func (m *managedGroup) createRestartChannel() {
 	// Don't re-create the channel if it already exists (the managed group is already stopped)
-	m.restartChanMutex.Lock()
-	if m.restartWaitChannel == nil {
+	if !m.isStopped() {
 		m.restartWaitChannel = make(chan struct{})
+		m.stopped.Store(true)
 	}
-	m.restartChanMutex.Unlock()
 }
 
 // closeRestartChannel sets the state of the managed group to "started" by closing the restartWaitChannel channel.
 func (m *managedGroup) closeRestartChannel() {
-	// If the restartCh is nil, don't try to close it (the managed group is already started)
-	m.restartChanMutex.Lock()
-	if m.restartWaitChannel != nil {
+	// If the managed group is already started, don't try to close the restart wait channel
+	if m.isStopped() {
+		m.stopped.Store(false)
 		close(m.restartWaitChannel)
-		m.restartWaitChannel = nil
 	}
-	m.restartChanMutex.Unlock()
 }
 
 // waitForStart will block until a stopped ("paused") ConsumerGroup has been restarted by the
 // KafkaConsumerGroupManager, returning true in that case or false if the context's cancel function is called
 func (m *managedGroup) waitForStart(ctx context.Context) bool {
-	m.restartChanMutex.Lock()
-	if m.restartWaitChannel == nil {
-		m.restartChanMutex.Unlock()
-		return true // group is already started; don't block on nil channel read
+	if !m.isStopped() {
+		return true // group is already started; don't try to read from closed channel
 	}
-	m.restartChanMutex.Unlock()
 	// Wait for either the restartWaitChannel to be closed, or for the provided context to have its cancel function called.
 	select {
 	case <-m.restartWaitChannel:
@@ -358,16 +369,13 @@ func (m *managedGroup) transferErrors(ctx context.Context) {
 			for groupErr := range m.group.Errors() {
 				m.errors <- groupErr
 			}
-			m.restartChanMutex.Lock()
-			if m.restartWaitChannel == nil {
+			if !m.isStopped() {
 				// If the error channel was closed without the consumergroup being marked as stopped,
 				// or if we were unable to wait for the group to be restarted, that is outside
 				// of the manager's responsibility, so we are finished transferring errors.
-				m.restartChanMutex.Unlock()
 				close(m.errors)
 				return
 			}
-			m.restartChanMutex.Unlock()
 			// Wait for the manager to restart the Consumer Group before calling m.group.Errors() again
 			if !m.waitForStart(ctx) {
 				// Abort if the context was canceled
