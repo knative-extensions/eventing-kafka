@@ -299,7 +299,7 @@ type managedGroup struct {
 	group              sarama.ConsumerGroup
 	errors             chan error
 	restartWaitChannel chan struct{}
-	stopped            atomic.Value  // Boolean value indicating channel is stopped
+	stopped            atomic.Value // Boolean value indicating channel is stopped
 	cancelErrors       func()
 	cancelConsume      func()
 }
