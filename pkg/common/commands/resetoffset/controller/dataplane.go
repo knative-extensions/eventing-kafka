@@ -134,9 +134,7 @@ func (r *Reconciler) sendConsumerGroupAsyncCommands(ctx context.Context,
 	close(errChan)
 	var multiErr error
 	for err := range errChan {
-		if err != nil {
-			multiErr = multierr.Append(multiErr, err)
-		}
+		multierr.AppendInto(&multiErr, err)
 	}
 
 	// Return Any Errors
