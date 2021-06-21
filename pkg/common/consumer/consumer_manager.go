@@ -85,6 +85,8 @@ func NewConsumerGroupManager(logger *zap.Logger, serverHandler controlprotocol.S
 		groupLock: sync.RWMutex{},
 	}
 
+	logger.Info("Registering Consumer Group Manager Control-Protocol Handlers")
+
 	// Add a handler that understands the StopConsumerGroupOpCode and stops the requested group
 	serverHandler.AddAsyncHandler(
 		commands.StopConsumerGroupOpCode,
@@ -154,6 +156,7 @@ func (m *kafkaConsumerGroupManagerImpl) StartConsumerGroup(groupId string, topic
 	// consume() function instead of the one on the internal sarama ConsumerGroup.  This allows the
 	// manager to continue to block in the Consume call while a group goes through a stop/start cycle.
 	consume := func(ctx context.Context, topics []string, handler sarama.ConsumerGroupHandler) error {
+		logger.Debug("Consuming Messages On managed Consumer Group", zap.String("GroupId", groupId))
 		return m.consume(ctx, groupId, topics, handler)
 	}
 
@@ -223,12 +226,14 @@ func (m *kafkaConsumerGroupManagerImpl) consume(ctx context.Context, groupId str
 		// Call the internal sarama ConsumerGroup's Consume function directly
 		err := managedGrp.group.Consume(ctx, topics, handler)
 		if !managedGrp.isStopped() {
+			m.logger.Debug("Managed Consume Finished Without Stop", zap.String("GroupId", groupId), zap.Error(err))
 			// This ConsumerGroup wasn't stopped by the manager, so pass the error along to the caller
 			return err
 		}
 		// Wait for the managed ConsumerGroup to be restarted
 		if !managedGrp.waitForStart(ctx) {
 			// Context was canceled; abort
+			m.logger.Debug("Managed Consume Canceled", zap.String("GroupId", groupId))
 			return fmt.Errorf("context was canceled waiting for group '%s' to start", groupId)
 		}
 	}
