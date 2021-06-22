@@ -36,7 +36,6 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"sync/atomic"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/multierr"
@@ -110,7 +109,7 @@ func NewConsumerGroupManager(logger *zap.Logger, serverHandler controlprotocol.S
 
 // Reconfigure will incorporate a new set of brokers and Sarama config settings into the manager
 // without requiring a new control-protocol server or losing the current map of managed groups.
-// It will stop and start all of the managed groups in
+// It will stop and start all of the managed groups in the group map.
 func (m *kafkaConsumerGroupManagerImpl) Reconfigure(brokers []string, config *sarama.Config) error {
 	m.logger.Info("Reconfigure Consumer Group Manager - Stopping All Managed Consumer Groups")
 	var multiErr error
@@ -181,9 +180,11 @@ func (m *kafkaConsumerGroupManagerImpl) CloseConsumerGroup(groupId string) error
 	// waiting for the manager to restart the group will never return.
 	managedGrp.closeRestartChannel()
 	if managedGrp.cancelErrors != nil {
+		m.logger.Warn("The cancelErrors function of the managed group is nil")
 		managedGrp.cancelErrors() // This will terminate any transferError call that is waiting for a restart
 	}
 	if managedGrp.cancelConsume != nil {
+		m.logger.Warn("The cancelConsume function of the managed group is nil")
 		managedGrp.cancelConsume() // This will stop the factory's consume loop after the ConsumerGroup is closed
 	}
 	err := managedGrp.group.Close()
@@ -191,8 +192,12 @@ func (m *kafkaConsumerGroupManagerImpl) CloseConsumerGroup(groupId string) error
 		groupLogger.Error("Failed To Close Managed ConsumerGroup", zap.Error(err))
 		return err
 	}
+
 	// Remove this groupId from the map so that manager functions may not be called on it
+	m.groupLock.Lock()
 	delete(m.groups, groupId)
+	m.groupLock.Unlock()
+
 	return nil
 }
 
@@ -293,99 +298,12 @@ func processAsyncGroupNotification(commandMessage ctrlservice.AsyncCommandMessag
 		if cmd.Version != commands.ConsumerGroupAsyncCommandVersion {
 			commandMessage.NotifyFailed(fmt.Errorf("version mismatch; expected %d but got %d", commands.ConsumerGroupAsyncCommandVersion, cmd.Version))
 		} else {
-			// Calling NotifyFailed with a nil error is the same as calling NotifySuccess
-			commandMessage.NotifyFailed(groupFunction(cmd.GroupId))
-		}
-	}
-}
-
-// managedGroup contains information about a Sarama ConsumerGroup that is required to start (i.e. re-create) it
-type managedGroup struct {
-	group              sarama.ConsumerGroup
-	errors             chan error
-	restartWaitChannel chan struct{}
-	stopped            atomic.Value // Boolean value indicating channel is stopped
-	cancelErrors       func()
-	cancelConsume      func()
-}
-
-// createManagedGroup associates a Sarama ConsumerGroup and cancel function (usually from the factory)
-// inside a new managedGroup struct
-func createManagedGroup(group sarama.ConsumerGroup, cancel func()) *managedGroup {
-	managedGrp := managedGroup{
-		group:        group,
-		errors:       make(chan error),
-		cancelErrors: cancel,
-	}
-	// Initialize the atomic boolean value to false, otherwise it will be a nil interface
-	// (restartWaitChannel is only accessed when "stopped" is true)
-	managedGrp.stopped.Store(false)
-	return &managedGrp
-}
-
-// isStopped is an accessor for the restartWaitChannel channel's status, which if non-nil indicates
-// that the KafkaConsumerGroupManager stopped ("paused") the managed ConsumerGroup (versus it having
-// been closed outside the manager)
-func (m *managedGroup) isStopped() bool {
-	return m.stopped.Load().(bool)
-}
-
-// createRestartChannel sets the state of the managed group to "stopped" by creating the restartWaitChannel
-// channel that will be closed when the group is restarted.
-func (m *managedGroup) createRestartChannel() {
-	// Don't re-create the channel if it already exists (the managed group is already stopped)
-	if !m.isStopped() {
-		m.restartWaitChannel = make(chan struct{})
-		m.stopped.Store(true)
-	}
-}
-
-// closeRestartChannel sets the state of the managed group to "started" by closing the restartWaitChannel channel.
-func (m *managedGroup) closeRestartChannel() {
-	// If the managed group is already started, don't try to close the restart wait channel
-	if m.isStopped() {
-		m.stopped.Store(false)
-		close(m.restartWaitChannel)
-	}
-}
-
-// waitForStart will block until a stopped ("paused") ConsumerGroup has been restarted by the
-// KafkaConsumerGroupManager, returning true in that case or false if the context's cancel function is called
-func (m *managedGroup) waitForStart(ctx context.Context) bool {
-	if !m.isStopped() {
-		return true // group is already started; don't try to read from closed channel
-	}
-	// Wait for either the restartWaitChannel to be closed, or for the provided context to have its cancel function called.
-	select {
-	case <-m.restartWaitChannel:
-		return true
-	case <-ctx.Done():
-		return false
-	}
-}
-
-// transferErrors starts a goroutine that reads errors from the managedGroup's internal group.Errors() channel
-// and sends them to the m.errors channel.  This is done so that when the group.Errors() channel is closed during
-// a stop ("pause") of the group, the m.errors channel can remain open (so that users of the manager do not
-// receive a closed error channel during stop/start events).
-func (m *managedGroup) transferErrors(ctx context.Context) {
-	go func() {
-		for {
-			for groupErr := range m.group.Errors() {
-				m.errors <- groupErr
-			}
-			if !m.isStopped() {
-				// If the error channel was closed without the consumergroup being marked as stopped,
-				// or if we were unable to wait for the group to be restarted, that is outside
-				// of the manager's responsibility, so we are finished transferring errors.
-				close(m.errors)
-				return
-			}
-			// Wait for the manager to restart the Consumer Group before calling m.group.Errors() again
-			if !m.waitForStart(ctx) {
-				// Abort if the context was canceled
-				return
+			err := groupFunction(cmd.GroupId)
+			if err != nil {
+				commandMessage.NotifyFailed(err)
+			} else {
+				commandMessage.NotifySuccess()
 			}
 		}
-	}()
+	}
 }

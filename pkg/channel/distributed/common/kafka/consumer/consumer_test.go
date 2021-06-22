@@ -34,7 +34,7 @@ func TestCreateConsumerGroup(t *testing.T) {
 	config := sarama.NewConfig()
 
 	// Create A Mock ConsumerGroup, Stub NewConsumerGroupWrapper() & Restore After Test
-	mockConsumerGroup := kafkatesting.NewStubbedMockConsumerGroup()
+	mockConsumerGroup := kafkatesting.NewMockConsumerGroup()
 	consumertesting.StubNewConsumerGroupFn(consumertesting.ValidatingNewConsumerGroupFn(t, brokers, groupId, config, mockConsumerGroup))
 	defer consumertesting.RestoreNewConsumerGroupFn()
 

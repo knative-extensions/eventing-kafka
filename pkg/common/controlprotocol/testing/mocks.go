@@ -19,6 +19,7 @@ package testing
 import (
 	"context"
 	"encoding"
+	"time"
 
 	"github.com/stretchr/testify/mock"
 	ctrl "knative.dev/control-protocol/pkg"
@@ -44,8 +45,8 @@ func (s *MockServerHandler) AddAsyncHandler(opcode ctrl.OpCode, resultOpcode ctr
 	s.Router[opcode] = ctrlservice.NewAsyncCommandHandler(s.Service, payloadType, resultOpcode, handler)
 }
 
-func (s *MockServerHandler) Shutdown() {
-	_ = s.Called()
+func (s *MockServerHandler) Shutdown(timeout time.Duration) {
+	_ = s.Called(timeout)
 }
 
 func (s *MockServerHandler) AddSyncHandler(opcode ctrl.OpCode, handler ctrl.MessageHandlerFunc) {

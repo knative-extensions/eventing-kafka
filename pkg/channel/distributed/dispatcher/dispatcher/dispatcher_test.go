@@ -86,9 +86,9 @@ func TestShutdown(t *testing.T) {
 	mockManager := consumertesting.NewMockConsumerGroupManager()
 
 	// Create Mock ConsumerGroups To Register Close() Requests
-	consumerGroup1 := kafkatesting.NewStubbedMockConsumerGroup()
-	consumerGroup2 := kafkatesting.NewStubbedMockConsumerGroup()
-	consumerGroup3 := kafkatesting.NewStubbedMockConsumerGroup()
+	consumerGroup1 := kafkatesting.NewMockConsumerGroup()
+	consumerGroup2 := kafkatesting.NewMockConsumerGroup()
+	consumerGroup3 := kafkatesting.NewMockConsumerGroup()
 
 	// Create Test Subscribers To Close The ConsumerGroups Of
 	subscriber1 := eventingduck.SubscriberSpec{UID: id123}
@@ -115,20 +115,26 @@ func TestShutdown(t *testing.T) {
 		},
 	}
 
+	consumerGroup1.On("Close").Return(nil)
+	// Note that consumerGroup2 does not have Close called because we are returning false for IsManaged()
+	consumerGroup3.On("Close").Return(nil)
+
 	mockManager.On("IsManaged", groupId1).Return(true)
 	mockManager.On("IsManaged", groupId2).Return(false)
 	mockManager.On("IsManaged", groupId3).Return(true)
 	mockManager.On("CloseConsumerGroup", groupId1).Return(nil)
-	mockManager.On("CloseConsumerGroup", groupId2).Return(nil)
+	// Group 2 is not managed, so CloseConsumerGroup is not called
 	mockManager.On("CloseConsumerGroup", groupId3).Return(fmt.Errorf("close error"))
 
 	// Perform The Test
 	dispatcher.Shutdown()
 
 	// Verify The Results
-	assert.True(t, consumerGroup1.Closed)
-	assert.False(t, consumerGroup2.Closed)   // Not managed
-	assert.True(t, consumerGroup3.Closed)    // Error during shutdown
+	consumerGroup1.AssertExpectations(t)
+	consumerGroup2.AssertExpectations(t)
+	consumerGroup3.AssertExpectations(t)
+	mockManager.AssertExpectations(t)
+
 	assert.Len(t, dispatcher.subscribers, 1) // One was unmanaged and should be ignored
 
 	// Verify that calling Shutdown a second time does not cause a panic, and that the
@@ -173,13 +179,16 @@ func TestUpdateSubscriptions(t *testing.T) {
 
 	// Define The TestCase Struct
 	type TestCase struct {
-		name        string
-		fields      fields
-		createErr   bool
-		consumeErr  bool
-		args        args
-		wantErrors  int
-		wantFailure bool
+		name          string
+		fields        fields
+		createErr     error
+		consumeErr    bool
+		args          args
+		wantErrors    int
+		wantFailure   bool
+		expectStarted []string
+		expectErrors  []string
+		expectManaged []string
 	}
 
 	// Create The Test Cases
@@ -195,6 +204,9 @@ func TestUpdateSubscriptions(t *testing.T) {
 					{UID: uid123},
 				},
 			},
+			expectStarted: []string{id123},
+			expectErrors:  []string{id123},
+			expectManaged: []string{id123},
 		},
 		{
 			name: "Create ConsumerGroup Error",
@@ -207,8 +219,9 @@ func TestUpdateSubscriptions(t *testing.T) {
 					{UID: uid123},
 				},
 			},
-			wantErrors: 1,
-			createErr:  true,
+			wantErrors:    1,
+			createErr:     fmt.Errorf("create error"),
+			expectStarted: []string{id123},
 		},
 		{
 			name: "Error During Consume",
@@ -221,7 +234,10 @@ func TestUpdateSubscriptions(t *testing.T) {
 					{UID: uid123},
 				},
 			},
-			consumeErr: true,
+			consumeErr:    true,
+			expectStarted: []string{id123},
+			expectErrors:  []string{id123},
+			expectManaged: []string{id123},
 		},
 		{
 			name: "Invalid Config",
@@ -250,6 +266,9 @@ func TestUpdateSubscriptions(t *testing.T) {
 					{UID: uid456},
 				},
 			},
+			expectStarted: []string{id456},
+			expectErrors:  []string{id456},
+			expectManaged: []string{id123, id456},
 		},
 		{
 			name: "Add And Remove Subscriptions",
@@ -266,6 +285,9 @@ func TestUpdateSubscriptions(t *testing.T) {
 					{UID: uid789},
 				},
 			},
+			expectStarted: []string{id789},
+			expectErrors:  []string{id789},
+			expectManaged: []string{id123, id456, id789},
 		},
 		{
 			name: "Remove Penultimate Subscription",
@@ -281,6 +303,7 @@ func TestUpdateSubscriptions(t *testing.T) {
 					{UID: uid123},
 				},
 			},
+			expectManaged: []string{id123, id456},
 		},
 		{
 			name: "Remove Last Subscription",
@@ -293,6 +316,7 @@ func TestUpdateSubscriptions(t *testing.T) {
 			args: args{
 				subscriberSpecs: []eventingduck.SubscriberSpec{},
 			},
+			expectManaged: []string{id123},
 		},
 	}
 
@@ -313,16 +337,15 @@ func TestUpdateSubscriptions(t *testing.T) {
 				errorSource <- fmt.Errorf("consume error")
 			}
 
-			for _, id := range []string{id123, id456, id789} {
-				group := "kafka." + id
-				createErr := fmt.Errorf("create error")
-				if !testCase.createErr {
-					createErr = nil
-				}
-				mockManager.On("StartConsumerGroup", group, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(createErr)
-				mockManager.On("IsManaged", group).Return(true)
-				mockManager.On("Errors", group).Return((<-chan error)(errorSource))
-				mockManager.On("CloseConsumerGroup", group).Return(nil)
+			for _, id := range testCase.expectStarted {
+				mockManager.On("StartConsumerGroup", "kafka."+id, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(testCase.createErr)
+			}
+			for _, id := range testCase.expectErrors {
+				mockManager.On("Errors", "kafka."+id).Return((<-chan error)(errorSource))
+			}
+			for _, id := range testCase.expectManaged {
+				mockManager.On("IsManaged", "kafka."+id).Return(true)
+				mockManager.On("CloseConsumerGroup", "kafka."+id).Return(nil)
 			}
 
 			// Perform The Test
@@ -339,7 +362,7 @@ func TestUpdateSubscriptions(t *testing.T) {
 				// Verify The Dispatcher's Tracking Of Subscribers Matches Specified State
 				assert.Equal(t, len(testCase.args.subscriberSpecs)-testCase.wantErrors, len(dispatcher.subscribers))
 				for _, subscriber := range testCase.args.subscriberSpecs {
-					if testCase.createErr {
+					if testCase.createErr != nil {
 						assert.Nil(t, dispatcher.subscribers[subscriber.UID])
 					} else {
 						assert.NotNil(t, dispatcher.subscribers[subscriber.UID])
@@ -353,6 +376,7 @@ func TestUpdateSubscriptions(t *testing.T) {
 				// Pause Briefly To Let Any Async Shutdown Finish (Lame But Only For Visual Confirmation Of Logging ;)
 				time.Sleep(500 * time.Millisecond)
 			}
+			mockManager.AssertExpectations(t)
 		})
 	}
 }
@@ -440,12 +464,12 @@ func TestSecretChanged(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 
+			mockManager := consumertesting.NewMockConsumerGroupManager()
 			// Create A Test Dispatcher To Perform Tests Against
 			dispatcher := createTestDispatcher(t, brokers, baseSaramaConfig)
 			impl := dispatcher.(*DispatcherImpl)
 			impl.subscribers = map[types.UID]*SubscriberWrapper{uid123: createSubscriberWrapper(uid123)}
 			if testCase.reconfigureErr {
-				mockManager := consumertesting.NewMockConsumerGroupManager()
 				mockManager.On("Reconfigure", mock.Anything, mock.Anything).Return(fmt.Errorf("reconfigure error"))
 				impl.consumerMgr = mockManager
 			}
@@ -468,6 +492,8 @@ func TestSecretChanged(t *testing.T) {
 			if testCase.expectNewSaslType != "" {
 				assert.Equal(t, testCase.expectNewSaslType, string(impl.SaramaConfig.Net.SASL.Mechanism))
 			}
+
+			mockManager.AssertExpectations(t)
 		})
 	}
 }
@@ -505,6 +531,7 @@ func createTestDispatcher(t *testing.T, brokers []string, config *sarama.Config)
 
 	// Create The Dispatcher
 	dispatcher := NewDispatcher(dispatcherConfig, serverHandler)
+	serverHandler.AssertExpectations(t)
 
 	// Verify State
 	assert.NotNil(t, dispatcher)

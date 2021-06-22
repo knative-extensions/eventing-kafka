@@ -18,6 +18,7 @@ package controlprotocol
 
 import (
 	"context"
+	"time"
 
 	ctrl "knative.dev/control-protocol/pkg"
 	"knative.dev/control-protocol/pkg/message"
@@ -40,7 +41,7 @@ var startServerWrapper = network.StartInsecureControlServer
 // ServerHandler defines the interface for adding and removing sync or async handlers from a
 // control-protocol server
 type ServerHandler interface {
-	Shutdown()
+	Shutdown(timeout time.Duration)
 	AddAsyncHandler(opcode ctrl.OpCode, resultOpcode ctrl.OpCode, payloadType message.AsyncCommand, handler AsyncHandlerFunc)
 	AddSyncHandler(opcode ctrl.OpCode, handler ctrl.MessageHandlerFunc)
 	RemoveHandler(opcode ctrl.OpCode)
@@ -80,16 +81,11 @@ func NewServerHandler(ctx context.Context, port int) (ServerHandler, error) {
 }
 
 // Shutdown cancels the control-protocol server and wait for it to stop
-func (s serverHandlerImpl) Shutdown() {
+func (s serverHandlerImpl) Shutdown(timeout time.Duration) {
 	s.cancelServer()
-	waitChannelClosed(s.server.ClosedCh())
-}
-
-// waitChannelClosed waits for close() to be called on a channel, unless it is nil
-// (a nil channel blocks forever)
-func waitChannelClosed(channel <-chan struct{}) {
-	if channel != nil {
-		<-channel
+	select {
+	case <-s.server.ClosedCh():
+	case <-time.After(timeout):
 	}
 }
 

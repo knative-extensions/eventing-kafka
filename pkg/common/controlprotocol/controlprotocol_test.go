@@ -19,8 +19,8 @@ package controlprotocol
 import (
 	"context"
 	"fmt"
-	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -59,24 +59,11 @@ func TestNewServerHandler(t *testing.T) {
 			handler, err := NewServerHandler(context.Background(), 12345)
 			if testCase.serverErr == nil {
 				assert.NotNil(t, handler)
+				mockService.AssertExpectations(t)
 			}
 			assert.Equal(t, testCase.serverErr, err)
 		})
 	}
-}
-
-func TestWaitChannelClosed(t *testing.T) {
-	var c chan struct{}
-	waitChannelClosed(c) // Null channel should not block
-	c = make(chan struct{})
-	waitGroup := sync.WaitGroup{}
-	waitGroup.Add(1)
-	go func() {
-		waitChannelClosed(c)
-		waitGroup.Done()
-	}()
-	close(c)
-	waitGroup.Wait()
 }
 
 func TestHandlers(t *testing.T) {
@@ -108,5 +95,7 @@ func TestHandlers(t *testing.T) {
 	assert.Nil(t, impl.router[ctrl.OpCode(1)])
 	assert.Nil(t, impl.router[ctrl.OpCode(2)])
 
-	handler.Shutdown()
+	mockService.AssertExpectations(t)
+
+	handler.Shutdown(time.Millisecond)
 }

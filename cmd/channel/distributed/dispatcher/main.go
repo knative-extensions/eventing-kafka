@@ -20,6 +20,7 @@ import (
 	"context"
 	"strconv"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -143,7 +144,7 @@ func main() {
 	if err != nil {
 		logger.Fatal("Failed To Initialize Control-Protocol Server - Terminating", zap.Error(err))
 	}
-	defer controlProtocolServer.Shutdown()
+	defer controlProtocolServer.Shutdown(5 * time.Second)
 
 	// Create The Dispatcher With Specified Configuration
 	dispatcherConfig := dispatch.DispatcherConfig{
