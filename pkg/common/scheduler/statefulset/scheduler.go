@@ -148,9 +148,6 @@ func (s *StatefulSetScheduler) Schedule(vpod scheduler.VPod) ([]duckv1alpha1.Pla
 }
 
 func (s *StatefulSetScheduler) scheduleVPod(vpod scheduler.VPod) ([]duckv1alpha1.Placement, error) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
 	logger := s.logger.With("key", vpod.GetKey())
 	logger.Info("scheduling")
 
