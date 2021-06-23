@@ -81,7 +81,7 @@ func TestHandlers(t *testing.T) {
 	assert.Nil(t, err)
 
 	// Extract the unexported implementation of the ServerHandler for testing the router directly
-	impl := handler.(serverHandlerImpl)
+	impl := handler.(*serverHandlerImpl)
 
 	handler.AddSyncHandler(ctrl.OpCode(1), func(ctx context.Context, message ctrl.ServiceMessage) {})
 	assert.NotNil(t, impl.router[ctrl.OpCode(1)])

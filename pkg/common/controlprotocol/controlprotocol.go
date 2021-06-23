@@ -18,6 +18,7 @@ package controlprotocol
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	ctrl "knative.dev/control-protocol/pkg"
@@ -52,6 +53,7 @@ type serverHandlerImpl struct {
 	router       ctrlservice.MessageRouter
 	server       *network.ControlServer
 	cancelServer context.CancelFunc
+	routerLock   sync.RWMutex
 }
 
 // Verify that the serverHandlerImpl implements the ServerHandler interface
@@ -70,18 +72,18 @@ func NewServerHandler(ctx context.Context, port int) (ServerHandler, error) {
 		return nil, err
 	}
 
-	messageRouter := make(ctrlservice.MessageRouter)
-	controlServer.MessageHandler(messageRouter)
-
-	return serverHandlerImpl{
+	serverHandler := &serverHandlerImpl{
 		server:       controlServer,
-		router:       messageRouter,
 		cancelServer: serverCancelFn,
-	}, nil
+		router:       make(ctrlservice.MessageRouter),
+		routerLock:   sync.RWMutex{},
+	}
+	serverHandler.setHandler()
+	return serverHandler, nil
 }
 
 // Shutdown cancels the control-protocol server and wait for it to stop
-func (s serverHandlerImpl) Shutdown(timeout time.Duration) {
+func (s *serverHandlerImpl) Shutdown(timeout time.Duration) {
 	s.cancelServer()
 	select {
 	case <-s.server.ClosedCh():
@@ -91,16 +93,38 @@ func (s serverHandlerImpl) Shutdown(timeout time.Duration) {
 
 // AddAsyncHandler will add an async handler for the given opcode to the message router used by the
 // control-protocol server, which will send a message using the resultOpcode when it finishes.
-func (s serverHandlerImpl) AddAsyncHandler(opcode ctrl.OpCode, resultOpcode ctrl.OpCode, payloadType message.AsyncCommand, handler AsyncHandlerFunc) {
+func (s *serverHandlerImpl) AddAsyncHandler(opcode ctrl.OpCode, resultOpcode ctrl.OpCode, payloadType message.AsyncCommand, handler AsyncHandlerFunc) {
+	s.routerLock.Lock()
 	s.router[opcode] = ctrlservice.NewAsyncCommandHandler(s.server, payloadType, resultOpcode, handler)
+	s.routerLock.Unlock()
+	s.setHandler()
 }
 
 // AddSyncHandler will add a handler to the control-protocol server for the given opcode
-func (s serverHandlerImpl) AddSyncHandler(opcode ctrl.OpCode, handler ctrl.MessageHandlerFunc) {
+func (s *serverHandlerImpl) AddSyncHandler(opcode ctrl.OpCode, handler ctrl.MessageHandlerFunc) {
+	s.routerLock.Lock()
 	s.router[opcode] = handler
+	s.routerLock.Unlock()
+	s.setHandler()
 }
 
 // RemoveHandler will delete a handler (sync or async) from the internal message router
-func (s serverHandlerImpl) RemoveHandler(opcode ctrl.OpCode) {
+func (s *serverHandlerImpl) RemoveHandler(opcode ctrl.OpCode) {
+	s.routerLock.Lock()
 	delete(s.router, opcode)
+	s.routerLock.Unlock()
+	s.setHandler()
+}
+
+// setHandler re-sets the MessageHandler on the internal control-protocol service to a copy of the router
+func (s *serverHandlerImpl) setHandler() {
+	// Invoke the MessageHandler on the control-protocol service with a copy of our router map, to avoid it being
+	// changed in this ServerHandlerImpl while in active use as a MessageHandler.
+	routerCopy := make(ctrlservice.MessageRouter, len(s.router))
+	s.routerLock.RLock()
+	for opcode := range s.router {
+		routerCopy[opcode] = s.router[opcode]
+	}
+	s.routerLock.RUnlock()
+	s.server.MessageHandler(routerCopy)
 }
