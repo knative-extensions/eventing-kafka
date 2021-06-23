@@ -282,6 +282,9 @@ func TestGetKafkaConfig(t *testing.T) {
 				EventingKafka: &config.EventingKafkaConfig{
 					CloudEvents: defaultCloudEvents,
 					Kafka:       kafkaConfig("kafkabroker.kafka:9092", kafkasarama.DefaultAuthSecretName, system.Namespace()),
+					Sarama: config.EKSaramaConfig{
+						Config: saramaEmptyConfig,
+					},
 				},
 			},
 		},
@@ -293,6 +296,9 @@ func TestGetKafkaConfig(t *testing.T) {
 				EventingKafka: &config.EventingKafkaConfig{
 					CloudEvents: defaultCloudEvents,
 					Kafka:       kafkaConfig("kafkabroker.kafka:9092", "kafka-auth-secret", "default"),
+					Sarama: config.EKSaramaConfig{
+						Config: saramaEmptyConfig,
+					},
 				},
 			},
 		},
@@ -304,6 +310,9 @@ func TestGetKafkaConfig(t *testing.T) {
 				EventingKafka: &config.EventingKafkaConfig{
 					CloudEvents: defaultCloudEvents,
 					Kafka:       kafkaConfig("kafkabroker1.kafka:9092,kafkabroker2.kafka:9092", kafkasarama.DefaultAuthSecretName, system.Namespace()),
+					Sarama: config.EKSaramaConfig{
+						Config: saramaEmptyConfig,
+					},
 				},
 			},
 		},
@@ -318,6 +327,9 @@ func TestGetKafkaConfig(t *testing.T) {
 						MaxIdleConnsPerHost: 100,
 					},
 					Kafka: kafkaConfig("kafkabroker.kafka:9092", kafkasarama.DefaultAuthSecretName, system.Namespace()),
+					Sarama: config.EKSaramaConfig{
+						Config: saramaEmptyConfig,
+					},
 				},
 			},
 		},
@@ -332,6 +344,9 @@ func TestGetKafkaConfig(t *testing.T) {
 						MaxIdleConnsPerHost: 900,
 					},
 					Kafka: kafkaConfig("kafkabroker.kafka:9092", kafkasarama.DefaultAuthSecretName, system.Namespace()),
+					Sarama: config.EKSaramaConfig{
+						Config: saramaEmptyConfig,
+					},
 				},
 			},
 		},
@@ -346,6 +361,9 @@ func TestGetKafkaConfig(t *testing.T) {
 						MaxIdleConnsPerHost: 600,
 					},
 					Kafka: kafkaConfig("kafkabroker.kafka:9092", kafkasarama.DefaultAuthSecretName, system.Namespace()),
+					Sarama: config.EKSaramaConfig{
+						Config: saramaEmptyConfig,
+					},
 				},
 			},
 		},
