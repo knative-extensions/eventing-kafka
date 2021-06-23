@@ -88,7 +88,7 @@ func TestStateBuilder(t *testing.T) {
 			expected: state{capacity: 10, free: []int32{int32(4), int32(10), int32(5), int32(10)}, lastOrdinal: 2, schedulerPolicy: MAXFILLUP},
 			freec:    int32(19),
 			reserved: map[types.NamespacedName]map[string]int32{
-				{Name: "s1", Namespace: testNs}: {
+				{Name: "vpod-name-3", Namespace: testNs}: {
 					"statefulset-name-0": 5,
 				},
 			},
