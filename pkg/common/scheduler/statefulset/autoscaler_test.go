@@ -17,7 +17,6 @@ limitations under the License.
 package statefulset
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -414,11 +413,10 @@ func TestCompactor(t *testing.T) {
 				vpodClient.Append(vpod)
 			}
 
-			state, err := stateAccessor.State()
+			state, err := stateAccessor.State(nil)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			fmt.Println(state)
 
 			autoscaler.mayCompact(state)
 

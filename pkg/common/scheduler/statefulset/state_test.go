@@ -95,7 +95,7 @@ func TestStateBuilder(t *testing.T) {
 			schedulerPolicy: MAXFILLUP,
 		},
 		{
-			name: "many vpods, with gaps and reserved vreplicas on existing and new placements",
+			name: "many vpods, with gaps and reserved vreplicas on existing and new placements, fully committed",
 			vpods: [][]duckv1alpha1.Placement{
 				{{PodName: "statefulset-name-0", VReplicas: 1}, {PodName: "statefulset-name-2", VReplicas: 5}},
 				{{PodName: "statefulset-name-1", VReplicas: 0}},
@@ -104,10 +104,30 @@ func TestStateBuilder(t *testing.T) {
 			expected: state{capacity: 10, free: []int32{int32(4), int32(7), int32(5), int32(10), int32(5)}, lastOrdinal: 4, schedulerPolicy: MAXFILLUP},
 			freec:    int32(31),
 			reserved: map[types.NamespacedName]map[string]int32{
-				{Name: "s1", Namespace: testNs}: {
+				{Name: "vpod-name-3", Namespace: "vpod-ns-3"}: {
 					"statefulset-name-4": 5,
 				},
-				{Name: "s2", Namespace: testNs}: {
+				{Name: "vpod-name-4", Namespace: "vpod-ns-4"}: {
+					"statefulset-name-0": 5,
+					"statefulset-name-1": 3,
+				},
+			},
+			schedulerPolicy: MAXFILLUP,
+		},
+		{
+			name: "many vpods, with gaps and reserved vreplicas on existing and new placements, partially committed",
+			vpods: [][]duckv1alpha1.Placement{
+				{{PodName: "statefulset-name-0", VReplicas: 1}, {PodName: "statefulset-name-2", VReplicas: 5}},
+				{{PodName: "statefulset-name-1", VReplicas: 0}},
+				{{PodName: "statefulset-name-1", VReplicas: 0}, {PodName: "statefulset-name-3", VReplicas: 0}},
+			},
+			expected: state{capacity: 10, free: []int32{int32(4), int32(7), int32(2), int32(10)}, lastOrdinal: 2, schedulerPolicy: MAXFILLUP},
+			freec:    int32(13),
+			reserved: map[types.NamespacedName]map[string]int32{
+				{Name: "vpod-name-0", Namespace: "vpod-ns-0"}: {
+					"statefulset-name-2": 8,
+				},
+				{Name: "vpod-name-4", Namespace: "vpod-ns-4"}: {
 					"statefulset-name-0": 5,
 					"statefulset-name-1": 3,
 				},

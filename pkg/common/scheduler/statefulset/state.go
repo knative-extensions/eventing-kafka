@@ -112,6 +112,7 @@ func (s *stateBuilder) State(reserved map[types.NamespacedName]map[string]int32)
 	free := make([]int32, 0, 256)
 	last := int32(-1)
 
+	// keep track of (vpod key, podname) pairs with existing placements
 	withPlacement := make(map[types.NamespacedName]map[string]bool)
 
 	for _, vpod := range vpods {
