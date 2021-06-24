@@ -36,7 +36,7 @@ type Autoscaler interface {
 	Start(ctx context.Context)
 
 	// Autoscale is used to immediately trigger the autoscaler with the hint
-	// that pending number of vreplicas coudn't be scheduled.
+	// that pending number of vreplicas couldn't be scheduled.
 	Autoscale(pending int32)
 }
 
@@ -106,7 +106,7 @@ func (a *autoscaler) Autoscale(pending int32) {
 }
 
 func (a *autoscaler) doautoscale(ctx context.Context, attemptScaleDown bool, pending int32) error {
-	state, err := a.stateAccessor.State()
+	state, err := a.stateAccessor.State(nil)
 	if err != nil {
 		a.logger.Info("error while refreshing scheduler state (will retry)", zap.Error(err))
 		return err
@@ -128,19 +128,8 @@ func (a *autoscaler) doautoscale(ctx context.Context, attemptScaleDown bool, pen
 
 	// Take into account pending replicas
 	if pending > 0 {
-		// The number of replicas may be lower than the last ordinal, for instance
-		// when the statefulset is manually scaled down. In that case, replicas above
-		// scale.Spec.Replicas have not been considered when scheduling vreplicas.
-		// Adjust accordingly (applicable only for MAXFILLUP scheduling policy and not for HA)
-		if state.schedulerPolicy != EVENSPREAD {
-			pending -= state.freeCapacity()
-		}
-
-		// Still need more?
-		if pending > 0 {
-			// Make sure to allocate enough pods for holding all pending replicas.
-			newreplicas += int32(math.Ceil(float64(pending) / float64(a.capacity)))
-		}
+		// Make sure to allocate enough pods for holding all pending replicas.
+		newreplicas += int32(math.Ceil(float64(pending) / float64(a.capacity)))
 	}
 
 	// Make sure to never scale down past the last ordinal
