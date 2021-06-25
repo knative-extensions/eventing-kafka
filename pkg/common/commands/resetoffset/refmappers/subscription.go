@@ -40,20 +40,39 @@ var _ ResetOffsetRefMapperFactory = &SubscriptionRefMapperFactory{}
 
 // SubscriptionRefMapperFactory implements the ResetOffsetRefMapperFactory for Knative Subscriptions
 type SubscriptionRefMapperFactory struct {
-	TopicNameMapper SubscriptionTopicNameMapper
-	GroupIdMapper   SubscriptionConsumerGroupIdMapper
+	TopicNameMapper          SubscriptionTopicNameMapper
+	GroupIdMapper            SubscriptionConsumerGroupIdMapper
+	ConnectionPoolKeyMapper  SubscriptionConnectionPoolKeyMapper
+	DataPlaneNamespaceMapper SubscriptionDataPlaneNamespaceMapper
+	DataPlaneLabelsMapper    SubscriptionDataPlaneLabelsMapper
 }
 
 // NewSubscriptionRefMapperFactory returns an initialized SubscriptionRefMapperFactory
-func NewSubscriptionRefMapperFactory(topicNameMapper SubscriptionTopicNameMapper, groupIdMapper SubscriptionConsumerGroupIdMapper) *SubscriptionRefMapperFactory {
-	return &SubscriptionRefMapperFactory{TopicNameMapper: topicNameMapper, GroupIdMapper: groupIdMapper}
+func NewSubscriptionRefMapperFactory(topicNameMapper SubscriptionTopicNameMapper,
+	groupIdMapper SubscriptionConsumerGroupIdMapper,
+	connectionPoolKeyMapper SubscriptionConnectionPoolKeyMapper,
+	dataPlaneNamespaceMapper SubscriptionDataPlaneNamespaceMapper,
+	dataPlaneLabelsMapper SubscriptionDataPlaneLabelsMapper) *SubscriptionRefMapperFactory {
+
+	return &SubscriptionRefMapperFactory{
+		TopicNameMapper:          topicNameMapper,
+		GroupIdMapper:            groupIdMapper,
+		ConnectionPoolKeyMapper:  connectionPoolKeyMapper,
+		DataPlaneNamespaceMapper: dataPlaneNamespaceMapper,
+		DataPlaneLabelsMapper:    dataPlaneLabelsMapper,
+	}
 }
 
 // Create implements the ResetOffsetRefMapperFactory interface for Subscription references.  It will return
 // a new SubscriptionRefMapper instance using the specific TopicName / GroupId mappers.  It also relies on
 // the Context having injected informers (SubscriptionInformer).
 func (f *SubscriptionRefMapperFactory) Create(ctx context.Context) ResetOffsetRefMapper {
-	return NewSubscriptionRefMapper(ctx, f.TopicNameMapper, f.GroupIdMapper)
+	return NewSubscriptionRefMapper(ctx,
+		f.TopicNameMapper,
+		f.GroupIdMapper,
+		f.ConnectionPoolKeyMapper,
+		f.DataPlaneNamespaceMapper,
+		f.DataPlaneLabelsMapper)
 }
 
 //
@@ -66,21 +85,36 @@ type SubscriptionTopicNameMapper func(*messagingv1.Subscription) (string, error)
 // SubscriptionConsumerGroupIdMapper defines a function signature for mapping a Subscription to a Kafka ConsumerGroup ID.
 type SubscriptionConsumerGroupIdMapper func(*messagingv1.Subscription) (string, error)
 
+// SubscriptionConnectionPoolKeyMapper defines a function signature for mapping a Subscription to a control-protocol ControlPlaneConnectionPool Key.
+type SubscriptionConnectionPoolKeyMapper func(*messagingv1.Subscription) (string, error)
+
+// SubscriptionDataPlaneNamespaceMapper defines a function signature for mapping a Subscription to the Kubernetes namespace of the DataPlane components.
+type SubscriptionDataPlaneNamespaceMapper func(subscription *messagingv1.Subscription) (string, error)
+
+// SubscriptionDataPlaneLabelsMapper defines a function signature for mapping a Subscription to the Kubernetes labels of the DataPlane Pods.
+type SubscriptionDataPlaneLabelsMapper func(subscription *messagingv1.Subscription) (map[string]string, error)
+
 // Verify The Subscription ResetOffsetRefMapper Implements The Interface
 var _ ResetOffsetRefMapper = &SubscriptionRefMapper{}
 
 // SubscriptionRefMapper implements the ResetOffsetRefMapper for Knative Subscriptions
 type SubscriptionRefMapper struct {
-	logger             *zap.Logger
-	subscriptionLister messaginglisters.SubscriptionLister
-	topicNameMapper    SubscriptionTopicNameMapper
-	groupIdMapper      SubscriptionConsumerGroupIdMapper
+	logger                   *zap.Logger
+	subscriptionLister       messaginglisters.SubscriptionLister
+	topicNameMapper          SubscriptionTopicNameMapper
+	groupIdMapper            SubscriptionConsumerGroupIdMapper
+	connectionPoolKeyMapper  SubscriptionConnectionPoolKeyMapper
+	dataPlaneNamespaceMapper SubscriptionDataPlaneNamespaceMapper
+	dataPlaneLabelsMapper    SubscriptionDataPlaneLabelsMapper
 }
 
 // NewSubscriptionRefMapper returns an initialized ResetOffsetSubscriptionRefMapper
 func NewSubscriptionRefMapper(ctx context.Context,
 	topicNameMapper SubscriptionTopicNameMapper,
-	groupIdMapper SubscriptionConsumerGroupIdMapper) *SubscriptionRefMapper {
+	groupIdMapper SubscriptionConsumerGroupIdMapper,
+	connectionPoolKeyMapper SubscriptionConnectionPoolKeyMapper,
+	dataPlaneNamespaceMapper SubscriptionDataPlaneNamespaceMapper,
+	dataPlaneLabelsMapper SubscriptionDataPlaneLabelsMapper) *SubscriptionRefMapper {
 
 	// Get The Logger From Context
 	logger := logging.FromContext(ctx).Desugar()
@@ -90,21 +124,24 @@ func NewSubscriptionRefMapper(ctx context.Context,
 
 	// Return An Initialized ResetOffsetSubscriptionRefMapper
 	return &SubscriptionRefMapper{
-		logger:             logger,
-		subscriptionLister: subscriptionInformer.Lister(),
-		topicNameMapper:    topicNameMapper,
-		groupIdMapper:      groupIdMapper,
+		logger:                   logger,
+		subscriptionLister:       subscriptionInformer.Lister(),
+		topicNameMapper:          topicNameMapper,
+		groupIdMapper:            groupIdMapper,
+		connectionPoolKeyMapper:  connectionPoolKeyMapper,
+		dataPlaneNamespaceMapper: dataPlaneNamespaceMapper,
+		dataPlaneLabelsMapper:    dataPlaneLabelsMapper,
 	}
 }
 
 // MapRef implements the ResetOffsetRefMapper interface for Subscription references. It will return an
 // error in all cases other than successfully mapping the ResetOffset.Spec.Ref to a Kafka Topic / Group.
-func (m *SubscriptionRefMapper) MapRef(resetOffset *kafkav1alpha1.ResetOffset) (string, string, error) {
+func (m *SubscriptionRefMapper) MapRef(resetOffset *kafkav1alpha1.ResetOffset) (*RefInfo, error) {
 
 	// Validate The ResetOffset
 	if resetOffset == nil {
 		m.logger.Warn("Received nil ResetOffset argument")
-		return "", "", fmt.Errorf("unable to map nil ResetOffset")
+		return nil, fmt.Errorf("unable to map nil ResetOffset")
 	}
 
 	// Get The ResetOffset Ref From Spec & Enhance Logger
@@ -114,11 +151,11 @@ func (m *SubscriptionRefMapper) MapRef(resetOffset *kafkav1alpha1.ResetOffset) (
 	// Validate The Reference
 	if !strings.HasPrefix(ref.APIVersion, messaging.GroupName) || ref.Kind != "Subscription" {
 		m.logger.Warn("Received ResetOffset with non Subscription reference")
-		return "", "", fmt.Errorf("received ResetOffset with non Subscription reference: %v", ref)
+		return nil, fmt.Errorf("received ResetOffset with non Subscription reference: %v", ref)
 	}
 	if ref.Name == "" {
 		m.logger.Warn("Received ResetOffset with unnamed Subscription reference")
-		return "", "", fmt.Errorf("received ResetOffset with unnamed Subscription reference: %v", ref)
+		return nil, fmt.Errorf("received ResetOffset with unnamed Subscription reference: %v", ref)
 	}
 
 	// Default Optional Ref.Namespace If Not Provided
@@ -131,27 +168,57 @@ func (m *SubscriptionRefMapper) MapRef(resetOffset *kafkav1alpha1.ResetOffset) (
 	subscription, err := m.subscriptionLister.Subscriptions(refNamespace).Get(ref.Name)
 	if err != nil {
 		logger.Error("Failed to get Subscription referenced by ResetOffset", zap.Error(err))
-		return "", "", fmt.Errorf("failed to get Subscription referenced by ResetOffset.Spec.Ref '%v': %v", ref, err)
+		return nil, fmt.Errorf("failed to get Subscription referenced by ResetOffset.Spec.Ref '%v': %v", ref, err)
 	}
 	if subscription == nil {
 		logger.Info("No Subscription found for ResetOffset reference")
-		return "", "", fmt.Errorf("no Subscription found for ResetOffset.Spec.Ref %v", ref)
+		return nil, fmt.Errorf("no Subscription found for ResetOffset.Spec.Ref %v", ref)
 	}
 
 	// Map The Subscription To Kafka Topic Name Via Custom SubscriptionTopicNameMapper
 	topicName, err := m.topicNameMapper(subscription)
 	if err != nil {
 		logger.Error("Failed to map Knative Subscription to Kafka Topic name", zap.Error(err))
-		return "", "", fmt.Errorf("failed to map Knative Subscription '%v' to Kafka Topic name: %v", ref, err)
+		return nil, fmt.Errorf("failed to map Knative Subscription '%v' to Kafka Topic name: %v", ref, err)
 	}
 
 	// Map The Subscription To Kafka ConsumerGroup ID Via Custom SubscriptionGroupIdMapper
 	groupId, err := m.groupIdMapper(subscription)
 	if err != nil {
 		logger.Error("Failed to map Knative Subscription to Kafka ConsumerGroup ID", zap.Error(err))
-		return "", "", fmt.Errorf("failed to map Knative Subscription '%v' to Kafka ConsumerGroup ID: %v", ref, err)
+		return nil, fmt.Errorf("failed to map Knative Subscription '%v' to Kafka ConsumerGroup ID: %v", ref, err)
 	}
 
-	// Successfully Mapped The Ref To Kafka Topic / Group - Return Results
-	return topicName, groupId, nil
+	// Map The Subscription To The control-protocol ControlPlaneConnectionPool Key Via Custom SubscriptionConnectionPoolKeyMapper
+	connectionPoolKey, err := m.connectionPoolKeyMapper(subscription)
+	if err != nil {
+		logger.Error("Failed to map Knative Subscription to ControlPlaneConnectionPool Key", zap.Error(err))
+		return nil, fmt.Errorf("failed to map Knative Subscription '%v' to ConnectinPool Key: %v", ref, err)
+	}
+
+	// Map The Subscription To The Kubernetes Namespace of the DataPlane Pods.
+	dataPlaneNamespace, err := m.dataPlaneNamespaceMapper(subscription)
+	if err != nil {
+		logger.Error("Failed to map Knative Subscription to DataPlane Namespace", zap.Error(err))
+		return nil, fmt.Errorf("failed to map Knative Subscription '%v' to DataPlane Namespace: %v", ref, err)
+	}
+
+	// Map The Subscription To The Kubernetes Namespace of the DataPlane Pods.
+	dataPlaneLabels, err := m.dataPlaneLabelsMapper(subscription)
+	if err != nil {
+		logger.Error("Failed to map Knative Subscription to DataPlane Pod Labels", zap.Error(err))
+		return nil, fmt.Errorf("failed to map Knative Subscription '%v' to DataPlane Pod Labels: %v", ref, err)
+	}
+
+	// Create The RefInfo Struct
+	refInfo := &RefInfo{
+		TopicName:          topicName,
+		GroupId:            groupId,
+		ConnectionPoolKey:  connectionPoolKey,
+		DataPlaneNamespace: dataPlaneNamespace,
+		DataPlaneLabels:    dataPlaneLabels,
+	}
+
+	// Successfully Mapped The Ref - Return Results
+	return refInfo, nil
 }

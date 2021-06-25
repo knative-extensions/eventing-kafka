@@ -29,6 +29,7 @@ import (
 
 	kafkav1alpha1 "knative.dev/eventing-kafka/pkg/apis/kafka/v1alpha1"
 	controllertesting "knative.dev/eventing-kafka/pkg/common/commands/resetoffset/controller/testing"
+	"knative.dev/eventing-kafka/pkg/common/commands/resetoffset/refmappers"
 )
 
 //
@@ -310,7 +311,7 @@ func TestReconciler_ReconcileOffsets(t *testing.T) {
 				controllertesting.WithOffsetManagerMockManagePartition(topicName, partition, partitionOffsetManager, nil)(test.offsetManager)
 			}
 
-			// Create A Reconciler
+			// Create A Reconciler To Test
 			reconciler := &Reconciler{
 				kafkaBrokers:      kafkaBrokers,
 				saramaConfig:      saramaConfig,
@@ -318,8 +319,14 @@ func TestReconciler_ReconcileOffsets(t *testing.T) {
 				refMapper:         nil,
 			}
 
+			// Create The RefInfo
+			refInfo := &refmappers.RefInfo{
+				TopicName: topicName,
+				GroupId:   groupId,
+			}
+
 			// Perform The Test
-			offsetMappings, err := reconciler.reconcileOffsets(ctx, topicName, groupId, offsetTime)
+			offsetMappings, err := reconciler.reconcileOffsets(ctx, refInfo, offsetTime)
 
 			// Verify The Results
 			assert.Equal(t, test.expectedErr, err)

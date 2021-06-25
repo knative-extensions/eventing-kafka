@@ -23,7 +23,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	messagingv1 "knative.dev/eventing/pkg/apis/messaging/v1"
+	"knative.dev/pkg/system"
 
+	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	commonkafkautil "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/util"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 )
@@ -61,4 +63,39 @@ func GroupIdMapper(subscription *messagingv1.Subscription) (string, error) {
 		return "", fmt.Errorf("unable to format group id for nil Subscription")
 	}
 	return commonkafkautil.GroupId(string(subscription.UID)), nil
+}
+
+// ConnectionPoolKeyMapper returns a string representing the control-protocol ControlPlaneConnectionPool Key for the specified Knative Subscription.
+func ConnectionPoolKeyMapper(subscription *messagingv1.Subscription) (string, error) {
+	return TopicNameMapper(subscription) // Distributed KafkaChannel is using the TopicName as ConnectionPool Key since it is 1:1 with KafkaChannel.
+}
+
+// DataPlaneNamespaceMapper returns the Kubernetes Namespace where the data-plane components
+// (e.g. Dispatcher) are created by the distributed KafkaChannel controller.
+func DataPlaneNamespaceMapper(_ *messagingv1.Subscription) (string, error) {
+	return system.Namespace(), nil
+}
+
+// DataPlaneLabelsMapper returns a map of Kubernetes Labels identifying the distributed
+// KafkaChannels' Dispatcher pods.
+func DataPlaneLabelsMapper(subscription *messagingv1.Subscription) (map[string]string, error) {
+
+	channelName := subscription.Spec.Channel.Name
+	channelNamespace := subscription.Spec.Channel.Namespace
+	if channelNamespace == "" {
+		channelNamespace = subscription.Namespace
+	}
+
+	sparseKafkaChannel := &kafkav1beta1.KafkaChannel{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      channelName,
+			Namespace: channelNamespace,
+		},
+	}
+
+	dispatcherAppLabelValue := DispatcherDnsSafeName(sparseKafkaChannel)
+
+	labels := map[string]string{constants.AppLabel: dispatcherAppLabelValue}
+
+	return labels, nil
 }
