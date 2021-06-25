@@ -36,6 +36,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/multierr"
@@ -45,6 +46,13 @@ import (
 	"knative.dev/eventing-kafka/pkg/common/controlprotocol"
 	"knative.dev/eventing-kafka/pkg/common/controlprotocol/commands"
 )
+
+const (
+	defaultLockTimeout = 5 * time.Minute
+)
+
+// GroupLockedError is the error returned if the a locked managed group is given a different token for access
+var GroupLockedError = fmt.Errorf("managed group lock failed: locked by a different token")
 
 // KafkaConsumerGroupManager keeps track of Sarama consumer groups and handles messages from control-protocol clients
 type KafkaConsumerGroupManager interface {
@@ -113,21 +121,38 @@ func NewConsumerGroupManager(logger *zap.Logger, serverHandler controlprotocol.S
 func (m *kafkaConsumerGroupManagerImpl) Reconfigure(brokers []string, config *sarama.Config) error {
 	m.logger.Info("Reconfigure Consumer Group Manager - Stopping All Managed Consumer Groups")
 	var multiErr error
+	groupsToRestart := make([]string, 0, len(m.groups))
 	for groupId := range m.groups {
-		err := m.stopConsumerGroup(groupId)
+		// If we couldn't get a lock on any particular group, note it as an error, but practically
+		// the new brokers/config will be used when whatever locked it restarts it anyway.
+		err := m.stopConsumerGroup(getInternalLockCommand(true), groupId)
 		if err != nil {
 			multierr.AppendInto(&multiErr, err)
+		} else {
+			groupsToRestart = append(groupsToRestart, groupId)
 		}
 	}
 	m.factory = &kafkaConsumerGroupFactoryImpl{addrs: brokers, config: config}
 	m.logger.Info("Reconfigure Consumer Group Manager - Starting All Managed Consumer Groups")
-	for groupId := range m.groups {
-		err := m.startConsumerGroup(groupId)
+	// Restart any groups we actually stopped
+	for _, groupId := range groupsToRestart {
+		err := m.startConsumerGroup(getInternalLockCommand(false), groupId)
 		if err != nil {
 			multierr.AppendInto(&multiErr, err)
 		}
 	}
 	return multiErr
+}
+
+// getInternalLockCommand returns a CommandLock object with a constant lock token used internally by
+// the consumer manager.
+func getInternalLockCommand(lock bool) *commands.CommandLock {
+	return &commands.CommandLock{
+		Token:       "consumer-manager-internal-token",
+		Timeout:     time.Minute,
+		LockBefore:  lock,
+		UnlockAfter: !lock,
+	}
 }
 
 // StartConsumerGroup uses the consumer factory to create a new ConsumerGroup, add it to the list
@@ -145,7 +170,7 @@ func (m *kafkaConsumerGroupManagerImpl) StartConsumerGroup(groupId string, topic
 	// Add the Sarama ConsumerGroup we obtained from the factory to the managed group map,
 	// so that it can be stopped and started via control-protocol messages.
 	m.groupLock.Lock()
-	m.groups[groupId] = createManagedGroup(group, cancel)
+	m.groups[groupId] = createManagedGroup(m.logger, group, cancel)
 	m.groupLock.Unlock()
 
 	// Begin listening on the group's Errors() channel and write them to the managedGroup's errors channel
@@ -213,6 +238,8 @@ func (m *kafkaConsumerGroupManagerImpl) Errors(groupId string) <-chan error {
 
 // IsManaged returns true if the given groupId corresponds to a managed ConsumerGroup
 func (m *kafkaConsumerGroupManagerImpl) IsManaged(groupId string) bool {
+	m.groupLock.RLock()
+	defer m.groupLock.RUnlock()
 	if _, ok := m.groups[groupId]; ok {
 		return true
 	}
@@ -223,8 +250,8 @@ func (m *kafkaConsumerGroupManagerImpl) IsManaged(groupId string) bool {
 // group is restarted by the manager.  If the Consume call is terminated by some other mechanism, the
 // result will be returned to the caller.
 func (m *kafkaConsumerGroupManagerImpl) consume(ctx context.Context, groupId string, topics []string, handler sarama.ConsumerGroupHandler) error {
-	managedGrp, ok := m.groups[groupId]
-	if !ok {
+	managedGrp := m.getGroup(groupId)
+	if managedGrp == nil {
 		return fmt.Errorf("consume called on nonexistent groupId '%s'", groupId)
 	}
 	for {
@@ -246,64 +273,124 @@ func (m *kafkaConsumerGroupManagerImpl) consume(ctx context.Context, groupId str
 
 // stopConsumerGroups closes the managed ConsumerGroup identified by the provided groupId, and marks it
 // as "stopped" (that is, "able to be restarted" as opposed to being closed by something outside the manager)
-func (m *kafkaConsumerGroupManagerImpl) stopConsumerGroup(groupId string) error {
+func (m *kafkaConsumerGroupManagerImpl) stopConsumerGroup(lock *commands.CommandLock, groupId string) error {
+	if err := m.processLock(lock, groupId, true); err != nil {
+		return err
+	}
+
 	groupLogger := m.logger.With(zap.String("GroupId", groupId))
 	groupLogger.Info("Stopping Managed ConsumerGroup")
-	managedGrp, ok := m.groups[groupId]
-	if ok {
-		// The managedGroup's start channel must be created (that is, the managedGroup must be marked
-		// as "stopped") before closing the internal ConsumerGroup, otherwise the consume function would
-		// return control to the factory.
-		managedGrp.createRestartChannel()
-		// Close the inner sarama ConsumerGroup, which will cause our consume() function to stop
-		// and wait for the managedGroup to start again.
-		err := managedGrp.group.Close()
-		if err != nil {
-			groupLogger.Error("Failed To Close Managed ConsumerGroup", zap.Error(err))
-			// Don't leave the start channel open if the group.Close() call failed; that would be misleading
-			managedGrp.closeRestartChannel()
-			return err
-		}
-		return nil
+
+	managedGrp := m.getGroup(groupId)
+	if managedGrp == nil {
+		groupLogger.Info("ConsumerGroup Not Managed - Ignoring Stop Request")
+		return fmt.Errorf("stop requested for consumer group not in managed list: %s", groupId)
 	}
-	groupLogger.Info("ConsumerGroup Not Managed - Ignoring Stop Request")
-	return fmt.Errorf("stop requested for consumer group not in managed list: %s", groupId)
+
+	// The managedGroup's start channel must be created (that is, the managedGroup must be marked
+	// as "stopped") before closing the internal ConsumerGroup, otherwise the consume function would
+	// return control to the factory.
+	managedGrp.createRestartChannel()
+	// Close the inner sarama ConsumerGroup, which will cause our consume() function to stop
+	// and wait for the managedGroup to start again.
+	err := managedGrp.group.Close()
+	if err != nil {
+		groupLogger.Error("Failed To Close Managed ConsumerGroup", zap.Error(err))
+		// Don't leave the start channel open if the group.Close() call failed; that would be misleading
+		managedGrp.closeRestartChannel()
+		return err
+	}
+
+	return m.processLock(lock, groupId, false)
 }
 
 // startConsumerGroups creates a new Consumer Group based on the groupId provided
-func (m *kafkaConsumerGroupManagerImpl) startConsumerGroup(groupId string) error {
+func (m *kafkaConsumerGroupManagerImpl) startConsumerGroup(lock *commands.CommandLock, groupId string) error {
+	if err := m.processLock(lock, groupId, true); err != nil {
+		return err
+	}
+
 	groupLogger := m.logger.With(zap.String("GroupId", groupId))
 	groupLogger.Info("Starting Managed ConsumerGroup")
-	m.groupLock.Lock() // Don't allow m.groups to be modified while processing a start request
-	defer m.groupLock.Unlock()
-	if _, ok := m.groups[groupId]; ok {
-		group, err := m.factory.createConsumerGroup(groupId)
-		if err != nil {
-			groupLogger.Error("Failed To Restart Managed ConsumerGroup", zap.Error(err))
-			return err
-		}
-		m.groups[groupId].group = group
-		m.groups[groupId].closeRestartChannel() // Closing this allows the waitForStart function to finish
-		return nil
+	if !m.IsManaged(groupId) {
+		groupLogger.Info("ConsumerGroup Not Managed - Ignoring Start Request")
+		return fmt.Errorf("start requested for consumer group not in managed list: %s", groupId)
 	}
-	groupLogger.Info("ConsumerGroup Not Managed - Ignoring Start Request")
-	return fmt.Errorf("start requested for consumer group not in managed list: %s", groupId)
+
+	group, err := m.factory.createConsumerGroup(groupId)
+	if err != nil {
+		groupLogger.Error("Failed To Restart Managed ConsumerGroup", zap.Error(err))
+		return err
+	}
+
+	m.groupLock.Lock()
+	m.groups[groupId].group = group
+	m.groups[groupId].closeRestartChannel() // Closing this allows the waitForStart function to finish
+	m.groupLock.Unlock()
+
+	return m.processLock(lock, groupId, false)
+}
+
+// getGroup returns a group from the groups map using the groupLock mutex
+func (m *kafkaConsumerGroupManagerImpl) getGroup(groupId string) *managedGroup {
+	m.groupLock.RLock()
+	defer m.groupLock.RUnlock()
+	return m.groups[groupId]
+}
+
+// processLock handles setting and removing the managedGroup's lock status.
+// For the managedGroup with the given groupId, if that group exists and the provided CommandLock fields warrant it,
+// this function will:
+// - if "before" is true, set the lockedBy field of the group
+// - if "before" is false, remove the lockedBy field of the group
+// Returns an error if the lock.Token field doesn't match an existing token in the managedGroup (for either case), as
+// this indicates that the group is locked by a different sender
+func (m *kafkaConsumerGroupManagerImpl) processLock(lock *commands.CommandLock, groupId string, before bool) error {
+	if lock == nil {
+		return nil // No lock processing was requested
+	}
+
+	group := m.getGroup(groupId)
+	if group == nil {
+		return nil // Can't lock a nonexistent group
+	}
+
+	if !group.canUnlock(lock.Token) {
+		m.logger.Info("Managed group access denied; already locked with a different token",
+			zap.String("Token", lock.Token), zap.String("GroupId", groupId), zap.Bool("Before", before))
+		return GroupLockedError // Already locked by a different command token
+	}
+
+	if before && lock.LockBefore {
+		timeout := lock.Timeout
+		if timeout == 0 {
+			timeout = defaultLockTimeout
+		}
+		group.resetLockTimer(lock.Token, timeout)
+	} else if !before && lock.UnlockAfter {
+		group.removeLock()
+	}
+
+	return nil // Lock succeeded
 }
 
 // processAsyncGroupNotification calls the provided groupFunction with whatever GroupId is contained
 // in the commandMessage, after verifying that the command version is correct.  It then calls the
 // appropriate Async response function on the commandMessage (NotifyFailed or NotifySuccess)
-func processAsyncGroupNotification(commandMessage ctrlservice.AsyncCommandMessage, groupFunction func(groupId string) error) {
-	if cmd, ok := commandMessage.ParsedCommand().(*commands.ConsumerGroupAsyncCommand); ok {
-		if cmd.Version != commands.ConsumerGroupAsyncCommandVersion {
-			commandMessage.NotifyFailed(fmt.Errorf("version mismatch; expected %d but got %d", commands.ConsumerGroupAsyncCommandVersion, cmd.Version))
-		} else {
-			err := groupFunction(cmd.GroupId)
-			if err != nil {
-				commandMessage.NotifyFailed(err)
-			} else {
-				commandMessage.NotifySuccess()
-			}
-		}
+func processAsyncGroupNotification(commandMessage ctrlservice.AsyncCommandMessage, groupFunction func(lock *commands.CommandLock, groupId string) error) {
+	cmd, ok := commandMessage.ParsedCommand().(*commands.ConsumerGroupAsyncCommand)
+	if !ok {
+		return
 	}
+	if cmd.Version != commands.ConsumerGroupAsyncCommandVersion {
+		commandMessage.NotifyFailed(fmt.Errorf("version mismatch; expected %d but got %d", commands.ConsumerGroupAsyncCommandVersion, cmd.Version))
+		return
+	}
+	fmt.Printf("EDV: processAsyncGroupNotification groupId=%v\n", cmd.GroupId)
+	err := groupFunction(cmd.Lock, cmd.GroupId)
+	if err != nil {
+		commandMessage.NotifyFailed(err)
+		return
+	}
+	commandMessage.NotifySuccess()
 }

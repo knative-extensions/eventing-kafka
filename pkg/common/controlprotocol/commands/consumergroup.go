@@ -18,6 +18,7 @@ package commands
 
 import (
 	"encoding/json"
+	"fmt"
 
 	ctrl "knative.dev/control-protocol/pkg"
 	ctrlmessage "knative.dev/control-protocol/pkg/message"
@@ -37,19 +38,21 @@ var _ ctrlmessage.AsyncCommand = (*ConsumerGroupAsyncCommand)(nil)
 
 // ConsumerGroupAsyncCommand implements an AsyncCommand for handling ConsumerGroup related operations.
 type ConsumerGroupAsyncCommand struct {
-	Version   int16  `json:"version"`
-	CommandId int64  `json:"id"`
-	TopicName string `json:"topic"`
-	GroupId   string `json:"group"`
+	Version   int16        `json:"version"`
+	CommandId int64        `json:"commandId"`
+	TopicName string       `json:"topicName"`
+	GroupId   string       `json:"groupId"`
+	Lock      *CommandLock `json:"lock,omitempty"`
 }
 
 // NewConsumerGroupAsyncCommand constructs and returns a new ConsumerGroupAsyncCommand.
-func NewConsumerGroupAsyncCommand(commandId int64, topicName string, groupId string) *ConsumerGroupAsyncCommand {
+func NewConsumerGroupAsyncCommand(commandId int64, topicName string, groupId string, lock *CommandLock) *ConsumerGroupAsyncCommand {
 	return &ConsumerGroupAsyncCommand{
 		Version:   ConsumerGroupAsyncCommandVersion, // Only One Version For Now - Validate Compatibility In Handler ; )
 		CommandId: commandId,
 		TopicName: topicName,
 		GroupId:   groupId,
+		Lock:      lock,
 	}
 }
 
@@ -60,6 +63,7 @@ func (s *ConsumerGroupAsyncCommand) MarshalBinary() (data []byte, err error) {
 
 // UnmarshalBinary implements the Control-Protocol AsyncCommand interface.
 func (s *ConsumerGroupAsyncCommand) UnmarshalBinary(data []byte) error {
+	fmt.Printf("EDV: Received:\n%s\n", string(data))
 	return json.Unmarshal(data, &s)
 }
 

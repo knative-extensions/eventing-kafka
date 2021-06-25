@@ -23,6 +23,8 @@ import (
 	"testing"
 	"time"
 
+	logtesting "knative.dev/pkg/logging/testing"
+
 	"github.com/stretchr/testify/assert"
 
 	kafkatesting "knative.dev/eventing-kafka/pkg/common/kafka/testing"
@@ -54,7 +56,7 @@ func TestManagedGroup(t *testing.T) {
 			// Test stop/start of a managedGroup
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			group := createManagedGroup(nil, cancel)
+			group := createManagedGroup(logtesting.TestLogger(t).Desugar(), nil, cancel)
 			waitGroup := sync.WaitGroup{}
 			assert.False(t, group.isStopped())
 
@@ -79,6 +81,96 @@ func TestManagedGroup(t *testing.T) {
 		})
 	}
 
+}
+
+func TestResetLockTimer(t *testing.T) {
+	for _, testCase := range []struct {
+		name          string
+		cancelTimer   func()
+		existingToken string
+		token         string
+		timeout       time.Duration
+		existingTimer bool
+		expiredTimer  bool
+		expected      string
+	}{
+		{
+			name:          "Running Timer",
+			timeout:       4 * time.Millisecond,
+			token:         "123",
+			expected:      "123",
+			existingTimer: true,
+		},
+		{
+			name:         "Expired Timer",
+			timeout:      4 * time.Millisecond,
+			token:        "123",
+			expected:     "123",
+			expiredTimer: true,
+		},
+		{
+			name:        "Existing Cancel Function",
+			timeout:     4 * time.Millisecond,
+			token:       "123",
+			expected:    "123",
+			cancelTimer: func() {},
+		},
+		{
+			name:          "Different LockToken",
+			timeout:       4 * time.Millisecond,
+			token:         "123",
+			expected:      "123",
+			existingToken: "456",
+		},
+		{
+			name:    "Empty LockToken, With Duration",
+			timeout: 4 * time.Millisecond,
+		},
+		{
+			name: "Empty LockToken, No Duration",
+		},
+		{
+			name:     "Valid LockToken, With Duration",
+			token:    "123",
+			expected: "123",
+			timeout:  4 * time.Millisecond,
+		},
+		{
+			name:     "Valid LockToken, No Duration",
+			token:    "123",
+			expected: "",
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			_, managedGrp := createTestGroup(t)
+			if testCase.cancelTimer != nil {
+				managedGrp.cancelLockTimeout = testCase.cancelTimer
+			}
+			if testCase.existingTimer {
+				managedGrp.resetLockTimer("existing-token", time.Second)
+				assert.False(t, managedGrp.canUnlock(testCase.token))
+				time.Sleep(time.Millisecond) // Let the timer loop start executing
+			} else if testCase.expiredTimer {
+				managedGrp.resetLockTimer("existing-token", time.Microsecond)
+				time.Sleep(2 * time.Millisecond)
+			} else {
+				assert.True(t, managedGrp.canUnlock(testCase.token))
+			}
+			if testCase.existingToken != "" {
+				managedGrp.lockedBy.Store(testCase.existingToken)
+				assert.Equal(t, testCase.existingToken == testCase.token, managedGrp.canUnlock(testCase.token))
+			}
+			managedGrp.resetLockTimer(testCase.token, testCase.timeout)
+			if testCase.existingTimer || testCase.expiredTimer {
+				time.Sleep(time.Millisecond) // Let the timer loop finish executing
+			}
+			assert.Equal(t, testCase.expected, managedGrp.lockedBy.Load())
+			if testCase.timeout != 0 && testCase.token != "" {
+				time.Sleep(2 * testCase.timeout)
+				assert.Equal(t, "", managedGrp.lockedBy.Load())
+			}
+		})
+	}
 }
 
 func TestTransferErrors(t *testing.T) {
@@ -107,7 +199,7 @@ func TestTransferErrors(t *testing.T) {
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			mockGrp, managedGrp := createTestGroup()
+			mockGrp, managedGrp := createTestGroup(t)
 			mockGrp.On("Errors").Return(mockGrp.ErrorChan)
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()

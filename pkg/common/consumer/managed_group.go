@@ -19,32 +19,98 @@ package consumer
 import (
 	"context"
 	"sync/atomic"
+	"time"
+
+	"go.uber.org/zap"
 
 	"github.com/Shopify/sarama"
 )
 
 // managedGroup contains information about a Sarama ConsumerGroup that is required to start (i.e. re-create) it
 type managedGroup struct {
+	logger             *zap.Logger
 	group              sarama.ConsumerGroup
 	errors             chan error
 	restartWaitChannel chan struct{}
 	stopped            atomic.Value // Boolean value indicating channel is stopped
 	cancelErrors       func()
 	cancelConsume      func()
+	lockedBy           atomic.Value // The LockToken of the ConsumerGroupAsyncCommand that requested the lock
+	cancelLockTimeout  func()
 }
 
 // createManagedGroup associates a Sarama ConsumerGroup and cancel function (usually from the factory)
-// inside a new managedGroup struct
-func createManagedGroup(group sarama.ConsumerGroup, cancel func()) *managedGroup {
+// inside a new managedGroup struct.  If a timeout is given (nonzero), the lockId will be reset to zero
+// (i.e. "unlocked" after that time has passed)
+func createManagedGroup(logger *zap.Logger, group sarama.ConsumerGroup, cancel func()) *managedGroup {
+
 	managedGrp := managedGroup{
+		logger:       logger,
 		group:        group,
 		errors:       make(chan error),
 		cancelErrors: cancel,
 	}
+
+	managedGrp.lockedBy.Store("") // Make sure the lockedBy value is a string and not a nil interface
+
 	// Initialize the atomic boolean value to false, otherwise it will be a nil interface
 	// (restartWaitChannel is only accessed when "stopped" is true)
 	managedGrp.stopped.Store(false)
 	return &managedGrp
+}
+
+// resetLockTimer will set the "lockedBy" field to the given lockToken (need not be the same as the
+// existing one) and reset the timer to the provided timeout.  After the timer expires, the lockToken
+// will be set to an empty string (representing "unlocked")
+func (m *managedGroup) resetLockTimer(lockToken string, timeout time.Duration) {
+
+	// Stop any existing timer (without releasing the lock) so that it won't inadvertently do an unlock
+	if m.cancelLockTimeout != nil {
+		m.cancelLockTimeout()
+	}
+
+	if lockToken != "" && timeout != 0 {
+		// Use the provided lockToken, which will prevent any caller with a different token from executing commands
+		lockTimer := time.NewTimer(timeout)
+		ctx, cancel := context.WithCancel(context.Background())
+		m.cancelLockTimeout = cancel
+		m.lockedBy.Store(lockToken)
+
+		// Reset the lockedBy field to zero whenever the lockTimer expires.  We need to create a new routine each
+		// time (instead of calling lockTimer.Reset) because an existing timer may have expired long ago and exited
+		// the goroutine.
+		go func() {
+			select {
+			case <-lockTimer.C:
+				m.logger.Debug("Managed Group lock timer expired; removing lock token")
+				m.removeLock()
+			case <-ctx.Done():
+				m.logger.Debug("Managed Group lock timer canceled")
+				if lockTimer.Stop() {
+					// Drain the timer channel
+					<-lockTimer.C
+				}
+			}
+		}()
+
+	} else {
+		m.removeLock() // Can't lock with either a missing token or timeout
+	}
+}
+
+// canUnlock returns true if the provided token is sufficient to unlock the group (that is,
+// if it either matches the existing token, or if the existing token is empty)
+func (m *managedGroup) canUnlock(token string) bool {
+	lockToken := m.lockedBy.Load()
+	return lockToken == "" || lockToken == token
+}
+
+// removeLock sets the lockedBy token to an empty string, meaning "unlocked"
+func (m *managedGroup) removeLock() {
+	if m.lockedBy.Load() != "" {
+		m.lockedBy.Store("")
+		m.cancelLockTimeout()
+	}
 }
 
 // isStopped is an accessor for the restartWaitChannel channel's status, which if non-nil indicates
