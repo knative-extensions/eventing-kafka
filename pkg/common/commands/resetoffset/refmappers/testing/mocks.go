@@ -50,7 +50,7 @@ type MockResetOffsetRefMapper struct {
 	mock.Mock
 }
 
-func (m *MockResetOffsetRefMapper) MapRef(resetOffset *kafkav1alpha1.ResetOffset) (string, string, error) {
+func (m *MockResetOffsetRefMapper) MapRef(resetOffset *kafkav1alpha1.ResetOffset) (*refmappers.RefInfo, error) {
 	args := m.Called(resetOffset)
-	return args.String(0), args.String(1), args.Error(2)
+	return args.Get(0).(*refmappers.RefInfo), args.Error(1)
 }

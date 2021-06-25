@@ -17,7 +17,6 @@ limitations under the License.
 package statefulset
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -87,7 +86,7 @@ func TestAutoscaler(t *testing.T) {
 					{PodName: "pod-1", VReplicas: int32(7)}}),
 			},
 			pendings:     int32(3),
-			wantReplicas: int32(2),
+			wantReplicas: int32(3),
 		},
 		{
 			name:     "no replicas, with placements, with pending, not enough capacity",
@@ -171,7 +170,7 @@ func TestAutoscaler(t *testing.T) {
 					{PodName: "pod-1", VReplicas: int32(7)}}),
 			},
 			pendings:     int32(3),
-			wantReplicas: int32(2),
+			wantReplicas: int32(3),
 		},
 		{
 			name:     "with replicas, with placements, with pending, not enough capacity",
@@ -414,11 +413,10 @@ func TestCompactor(t *testing.T) {
 				vpodClient.Append(vpod)
 			}
 
-			state, err := stateAccessor.State()
+			state, err := stateAccessor.State(nil)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			fmt.Println(state)
 
 			autoscaler.mayCompact(state)
 

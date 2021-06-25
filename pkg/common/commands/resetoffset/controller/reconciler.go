@@ -24,6 +24,10 @@ import (
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
+	corev1listers "k8s.io/client-go/listers/core/v1"
+	control "knative.dev/control-protocol/pkg"
+	ctrlreconciler "knative.dev/control-protocol/pkg/reconciler"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/reconciler"
 
@@ -44,10 +48,13 @@ var (
 
 // Reconciler Implements controller.Reconciler for ResetOffset Resources
 type Reconciler struct {
-	kafkaBrokers      []string
-	saramaConfig      *sarama.Config
-	resetoffsetLister kafkalisters.ResetOffsetLister
-	refMapper         refmappers.ResetOffsetRefMapper
+	kafkaBrokers                  []string
+	saramaConfig                  *sarama.Config
+	podLister                     corev1listers.PodLister
+	resetoffsetLister             kafkalisters.ResetOffsetLister
+	refMapper                     refmappers.ResetOffsetRefMapper
+	connectionPool                ctrlreconciler.ControlPlaneConnectionPool
+	asyncCommandNotificationStore ctrlreconciler.AsyncCommandNotificationStore
 }
 
 // ReconcileKind implements the Reconciler Interface and is responsible for performing Offset repositioning.
@@ -57,7 +64,14 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, resetOffset *kafkav1alph
 	logger := logging.FromContext(ctx).Desugar()
 	logger.Debug("<==========  START RESET-OFFSET RECONCILIATION  ==========>")
 
+	//
 	// Ignore Previously Initiated ResetOffset Instances
+	//
+	// Normally this would be achieved via a cache.FilteringResourceEventHandler{} directly
+	// in the controller, but that only has a metav1.Object to deal with which does not
+	// expose the ResetOffset.Status we need to make the filtering decision, so we are left
+	// to handle it here in the Reconciler.
+	//
 	if resetOffset.Status.IsInitiated() || resetOffset.Status.IsCompleted() {
 		logger.Debug("Skipping reconciliation of previously executed ResetOffset instance")
 		return reconciler.NewEvent(corev1.EventTypeNormal, ResetOffsetSkipped.String(), "Skipped previously executed ResetOffset")
@@ -67,15 +81,15 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, resetOffset *kafkav1alph
 	resetOffset.Status.InitializeConditions()
 
 	// Map The ResetOffset's Ref To Kafka Topic Name / ConsumerGroup ID
-	topic, group, err := r.refMapper.MapRef(resetOffset)
+	refInfo, err := r.refMapper.MapRef(resetOffset)
 	if err != nil {
 		logger.Error("Failed to map ResetOffset.Spec.Ref to Kafka Topic name and ConsumerGroup ID", zap.Error(err))
 		resetOffset.Status.MarkRefMappedFailed("FailedToMapRef", "Failed to map 'ref' to Kafka Topic and Group: %v", err)
 		return fmt.Errorf("failed to map 'ref' to Kafka Topic and Group: %v", err)
 	}
-	logger.Info("Successfully mapped ResetOffset.Spec.Ref to Kafka Topic name and ConsumerGroup ID", zap.String("Topic", topic), zap.String("Group", group))
-	resetOffset.Status.SetTopic(topic)
-	resetOffset.Status.SetGroup(group)
+	logger.Info("Successfully mapped ResetOffset.Spec.Ref", zap.Any("RefInfo", refInfo))
+	resetOffset.Status.SetTopic(refInfo.TopicName)
+	resetOffset.Status.SetGroup(refInfo.GroupId)
 	resetOffset.Status.MarkRefMappedTrue()
 
 	// Parse The Sarama Offset Time From ResetOffset Spec
@@ -86,19 +100,34 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, resetOffset *kafkav1alph
 	}
 	logger.Info("Successfully parsed Sarama Offset time from ResetOffset Spec", zap.Int64("Time (millis)", offsetTime))
 
-	// TODO - Map ResetOffset.Spec.Ref to "owning" Dispatcher Deployment/Service (Consolidated = one, Distributed = many)
+	// Reconcile The DataPlane "Services" From The ConnectionPool For Specified Key
+	dataPlaneServices, err := r.reconcileDataPlaneServices(ctx, resetOffset, refInfo)
+	if err != nil {
+		logger.Error("Failed to reconcile DataPlane services from ConnectionPool", zap.Error(err))
+		// TODO - how to handle this - need another status condition and mark as failed?
+		return fmt.Errorf("failed to reconcile DataPlane Services from ConnectionPool: %v", err)
+	}
+	logger.Info("Successfully reconciled DataPlane Services", zap.Any("Services", dataPlaneServiceIPs(dataPlaneServices)))
 
 	// TODO - Send "Initiate" Message to Dispatcher Replicas to lock mutext and start process.
 	resetOffset.Status.MarkResetInitiatedTrue()
 
-	// TODO - Send "Stop" Message to Dispatcher Replicas to stop ConsumerGroups
+	// Stop The ConsumerGroup In Associated Dispatchers
+	err = r.stopConsumerGroups(ctx, resetOffset, dataPlaneServices, refInfo)
+	if err != nil {
+		logger.Error("Failed to stop ConsumerGroups", zap.Error(err))
+		resetOffset.Status.MarkConsumerGroupsStoppedFailed("FailedToStopConsumerGroups", "Failed to stop one or more ConsumerGroups: %v", err)
+		// TODO - should we re-reconcile and keep trying (stuck) or rollback here or in stopConsumerGroups() ???
+		return nil
+	}
+	logger.Info("Successfully stopped ConsumerGroups")
 	resetOffset.Status.MarkConsumerGroupsStoppedTrue()
 
 	// Update The Sarama Offsets & Update ResetOffset CRD With OffsetMappings
-	offsetMappings, err := r.reconcileOffsets(ctx, topic, group, offsetTime)
+	offsetMappings, err := r.reconcileOffsets(ctx, refInfo, offsetTime)
 	if err != nil {
 		logger.Error("Failed to update Offsets of one or more partitions", zap.Error(err))
-		resetOffset.Status.MarkOffsetsUpdatedFailed("FailedToUpdateOffsets", "Failed to update offsets of one or more partitions: %v", err)
+		resetOffset.Status.MarkOffsetsUpdatedFailed("FailedToUpdateOffsets", "Failed to update Offsets of one or more Partitions: %v", err)
 		return fmt.Errorf("failed to update offsets of one or more partitions: %v", err)
 	}
 	if offsetMappings != nil {
@@ -107,7 +136,15 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, resetOffset *kafkav1alph
 	logger.Info("Successfully updated Offsets of all partitions")
 	resetOffset.Status.MarkOffsetsUpdatedTrue()
 
-	// TODO - Send "Start" Message to Dispatcher Replicas to restart ConsumerGroups
+	// Start The ConsumerGroup In Associated Dispatchers
+	err = r.startConsumerGroups(ctx, resetOffset, dataPlaneServices, refInfo)
+	if err != nil {
+		logger.Error("Failed to start ConsumerGroups", zap.Error(err))
+		resetOffset.Status.MarkConsumerGroupsStartedFailed("FailedToStartConsumerGroups", "Failed to start one or more ConsumerGroups: %v", err)
+		// TODO - should we re-reconcile and keep trying (stuck) or rollback here or in stopConsumerGroups() ???
+		return nil // TODO - for now stopping without re-queueing
+	}
+	logger.Info("Successfully started ConsumerGroups")
 	resetOffset.Status.MarkConsumerGroupsStartedTrue()
 
 	// Return Reconciled Success Event
@@ -126,6 +163,12 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, resetOffset *kafkav1alpha
 		logger.Debug("Skipping finalization of in-progress ResetOffset instance")
 		return fmt.Errorf("skipping finalization of in-progress ResetOffset instance")
 	}
+
+	// Clean The AsyncCommandNotificationStore
+	r.asyncCommandNotificationStore.CleanPodsNotifications(types.NamespacedName{
+		Namespace: resetOffset.Namespace,
+		Name:      resetOffset.Name,
+	})
 
 	// No-Op Finalization - Nothing To Do
 	logger.Info("No-Op Finalization Successful")
@@ -182,4 +225,15 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 
 	// Update Reconciler With New Config
 	r.saramaConfig = ekConfig.Sarama.Config
+}
+
+// dataPlaneServiceIPs returns the control-protocol Service IPs which are the keys in the specified map.
+func dataPlaneServiceIPs(services map[string]control.Service) []string {
+	i := 0
+	ips := make([]string, len(services))
+	for ip := range services {
+		ips[i] = ip
+		i++
+	}
+	return ips
 }

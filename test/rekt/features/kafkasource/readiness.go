@@ -22,11 +22,17 @@ import (
 	"knative.dev/reconciler-test/pkg/feature"
 
 	"knative.dev/eventing-kafka/test/rekt/resources/kafkasource"
+	"knative.dev/eventing-kafka/test/rekt/resources/kafkatopic"
 )
 
 // KafkaSourceGoesReady returns a feature testing if a KafkaSourceGoesReady becomes ready.
 func KafkaSourceGoesReady(name string, cfg ...kafkasource.CfgFn) *feature.Feature {
 	f := feature.NewFeatureNamed("KafkaSource goes ready.")
+
+	topicName := feature.MakeRandomK8sName("topic") // A k8s name is also a valid topic name.
+	f.Setup("install kafka topic", kafkatopic.Install(topicName))
+
+	cfg = append(cfg, kafkasource.WithTopics([]string{topicName}))
 
 	sink := feature.MakeRandomK8sName("sink")
 	f.Setup("install a service", svc.Install(sink, "app", "rekt"))
@@ -38,7 +44,9 @@ func KafkaSourceGoesReady(name string, cfg ...kafkasource.CfgFn) *feature.Featur
 	}, ""))
 
 	f.Setup("install a kafkasource", kafkasource.Install(name, cfg...))
-	f.Requirement("be ready", kafkasource.IsReady(name))
+
+	f.Requirement("topic is ready", kafkatopic.IsReady(topicName))
+	f.Requirement("kafkasource is ready", kafkasource.IsReady(name))
 
 	return f
 }

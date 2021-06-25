@@ -26,12 +26,25 @@ import (
 // instances based on the provided Context which comes from SharedMain and includes the
 // injected Informers.  It is necessary for delayed initialization against that Context.
 type ResetOffsetRefMapperFactory interface {
-	Create(ctx context.Context) ResetOffsetRefMapper
+	Create(context.Context) ResetOffsetRefMapper
 }
 
 // ResetOffsetRefMapper defines the interface for the capability to map ResetOffset.Spec.Ref
-// to Kafka Topic / Group. This abstraction allows for future extensibility to support
-// additional KRef types, such as Triggers, instead of just Subscriptions.
+// to Kafka Topic, Group and ConnectionPool Key. This abstraction allows for future
+// extensibility to support additional KRef types, such as Triggers, instead of just
+// Subscriptions.
 type ResetOffsetRefMapper interface {
-	MapRef(resetOffset *kafkav1alpha1.ResetOffset) (topic string, group string, err error)
+	MapRef(*kafkav1alpha1.ResetOffset) (*RefInfo, error)
+}
+
+// RefInfo contains the data necessary for ResetOffset reconciliation which is specific
+// to a particular use-case, as provided by a customized ResetOffsetRefMapper implementation.
+// This allows implementations of Kafka Channels/Brokers/etc to differ from one another
+// and still make use of the shared ResetOffset Controller.
+type RefInfo struct {
+	TopicName          string
+	GroupId            string
+	ConnectionPoolKey  string
+	DataPlaneNamespace string
+	DataPlaneLabels    map[string]string
 }
