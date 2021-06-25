@@ -29,13 +29,13 @@ import (
 // managedGroup contains information about a Sarama ConsumerGroup that is required to start (i.e. re-create) it
 type managedGroup struct {
 	logger             *zap.Logger
-	group              sarama.ConsumerGroup
-	errors             chan error
-	restartWaitChannel chan struct{}
-	stopped            atomic.Value // Boolean value indicating channel is stopped
-	cancelErrors       func()
-	cancelConsume      func()
-	lockedBy           atomic.Value // The LockToken of the ConsumerGroupAsyncCommand that requested the lock
+	group              sarama.ConsumerGroup // The Sarama ConsumerGroup which is under management
+	errors             chan error           // An error channel that will replicate the errors from the Sarama ConsumerGroup
+	restartWaitChannel chan struct{}        // A channel that will be closed when a stopped group is restarted
+	stopped            atomic.Value         // Boolean value indicating that the managed group is stopped
+	cancelErrors       func()               // Called by the manager  CloseConsumerGroup to terminal the error forwarding
+	cancelConsume      func()               // Called by the manager during CloseConsumerGroup
+	lockedBy           atomic.Value         // The LockToken of the ConsumerGroupAsyncCommand that requested the lock
 	cancelLockTimeout  func()
 }
 
@@ -72,8 +72,11 @@ func (m *managedGroup) resetLockTimer(lockToken string, timeout time.Duration) {
 	if lockToken != "" && timeout != 0 {
 		// Use the provided lockToken, which will prevent any caller with a different token from executing commands
 		lockTimer := time.NewTimer(timeout)
+		// Create a cancel function that will be used by further calls to resetLockTimer, or to removeLock(),
+		// for the purpose of stopping the lockTimer without clearing the token
 		ctx, cancel := context.WithCancel(context.Background())
 		m.cancelLockTimeout = cancel
+		// Mark this group as "locked" by the provided token
 		m.lockedBy.Store(lockToken)
 
 		// Reset the lockedBy field to zero whenever the lockTimer expires.  We need to create a new routine each
@@ -94,7 +97,7 @@ func (m *managedGroup) resetLockTimer(lockToken string, timeout time.Duration) {
 		}()
 
 	} else {
-		m.removeLock() // Can't lock with either a missing token or timeout
+		m.removeLock() // Can't lock with either a missing token or missing timeout
 	}
 }
 
@@ -109,7 +112,7 @@ func (m *managedGroup) canUnlock(token string) bool {
 func (m *managedGroup) removeLock() {
 	if m.lockedBy.Load() != "" {
 		m.lockedBy.Store("")
-		m.cancelLockTimeout()
+		m.cancelLockTimeout() // Make sure an existing timer doesn't re-clear the token later
 	}
 }
 
