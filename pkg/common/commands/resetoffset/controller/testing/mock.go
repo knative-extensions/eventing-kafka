@@ -17,18 +17,11 @@ limitations under the License.
 package testing
 
 import (
-	"context"
-	"encoding"
-
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/types"
 	listerscorev1 "k8s.io/client-go/listers/core/v1"
-	ctrl "knative.dev/control-protocol/pkg"
-	ctrlmessage "knative.dev/control-protocol/pkg/message"
-	ctrlreconciler "knative.dev/control-protocol/pkg/reconciler"
 )
 
 //
@@ -324,106 +317,6 @@ func WithPartitionOffsetManagerMockAsyncClose() MockPartitionOffsetManagerOption
 	return func(mockPartitionOffsetManager *MockPartitionOffsetManager) {
 		mockPartitionOffsetManager.On("AsyncClose").Return()
 	}
-}
-
-// TODO - Move these control-protocol mocks to common/controlprotocol/testing/mocks.go once eric merges!
-
-//
-// Mock Control-Protocol ConnectionPool
-//
-
-var _ ctrlreconciler.ControlPlaneConnectionPool = (*MockConnectionPool)(nil)
-
-type MockConnectionPool struct {
-	mock.Mock
-}
-
-func (c *MockConnectionPool) GetConnectedHosts(key string) []string {
-	args := c.Called(key)
-	return args.Get(0).([]string)
-}
-
-func (c *MockConnectionPool) GetServices(key string) map[string]ctrl.Service {
-	args := c.Called(key)
-	return args.Get(0).(map[string]ctrl.Service)
-}
-
-func (c *MockConnectionPool) ResolveControlInterface(key string, host string) (string, ctrl.Service) {
-	args := c.Called(key, host)
-	return args.String(0), args.Get(1).(ctrl.Service)
-}
-
-func (c *MockConnectionPool) RemoveConnection(ctx context.Context, key string, host string) {
-	c.Called(ctx, key, host)
-}
-
-func (c *MockConnectionPool) RemoveAllConnections(ctx context.Context, key string) {
-	c.Called(ctx, key)
-}
-
-func (c *MockConnectionPool) Close(ctx context.Context) {
-	c.Called(ctx)
-}
-
-func (c *MockConnectionPool) ReconcileConnections(ctx context.Context, key string, wantConnections []string, newServiceCb func(string, ctrl.Service), oldServiceCb func(string)) (map[string]ctrl.Service, error) {
-	args := c.Called(ctx, key, wantConnections, newServiceCb, oldServiceCb)
-	return args.Get(0).(map[string]ctrl.Service), args.Error(1)
-}
-
-func (c *MockConnectionPool) DialControlService(ctx context.Context, key string, host string) (string, ctrl.Service, error) {
-	args := c.Called(ctx, key, host)
-	return args.String(0), args.Get(1).(ctrl.Service), args.Error(2)
-}
-
-//
-// Mock Control-Protocol AsyncCommandNotificationStore
-//
-
-var _ ctrlreconciler.AsyncCommandNotificationStore = (*MockAsyncCommandNotificationStore)(nil)
-
-type MockAsyncCommandNotificationStore struct {
-	mock.Mock
-}
-
-func (a *MockAsyncCommandNotificationStore) GetCommandResult(srcName types.NamespacedName, pod string, command ctrlmessage.AsyncCommand) *ctrlmessage.AsyncCommandResult {
-	args := a.Called(srcName, pod, command)
-	return args.Get(0).(*ctrlmessage.AsyncCommandResult)
-}
-
-func (a *MockAsyncCommandNotificationStore) CleanPodsNotifications(srcName types.NamespacedName) {
-	a.Called(srcName)
-}
-
-func (a *MockAsyncCommandNotificationStore) CleanPodNotification(srcName types.NamespacedName, pod string) {
-	a.Called(srcName, pod)
-}
-
-func (a *MockAsyncCommandNotificationStore) MessageHandler(srcName types.NamespacedName, pod string) ctrl.MessageHandler {
-	args := a.Called(srcName, pod)
-	return args.Get(0).(ctrl.MessageHandler)
-}
-
-//
-// Mock Control-Protocol Service
-//
-
-var _ ctrl.Service = (*MockService)(nil)
-
-type MockService struct {
-	mock.Mock
-}
-
-func (s *MockService) SendAndWaitForAck(opcode ctrl.OpCode, payload encoding.BinaryMarshaler) error {
-	args := s.Called(opcode, payload)
-	return args.Error(0)
-}
-
-func (s *MockService) MessageHandler(handler ctrl.MessageHandler) {
-	s.Called(handler)
-}
-
-func (s *MockService) ErrorHandler(handler ctrl.ErrorHandler) {
-	s.Called(handler)
 }
 
 //

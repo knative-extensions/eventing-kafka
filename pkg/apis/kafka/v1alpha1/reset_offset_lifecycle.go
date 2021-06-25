@@ -25,7 +25,7 @@ import (
 
 var cs = apis.NewBatchConditionSet(
 	ResetOffsetConditionRefMapped,
-	ResetOffsetConditionResetInitiated,
+	ResetOffsetConditionAcquireDataPlaneServices,
 	ResetOffsetConditionConsumerGroupsStopped,
 	ResetOffsetConditionOffsetsUpdated,
 	ResetOffsetConditionConsumerGroupsStarted)
@@ -41,10 +41,9 @@ const (
 	// values will then be populated in the the ResetOffsetStatus.
 	ResetOffsetConditionRefMapped apis.ConditionType = "RefMapped"
 
-	// ResetOffsetConditionResetInitiated has status True when the ResetOffset is being processed
-	// Until that time it is either "Unknown" when first encountered, or "Blocked" if another
-	// ResetOffset is being processed for the same "Ref" resource.
-	ResetOffsetConditionResetInitiated apis.ConditionType = "ResetInitiated"
+	// ResetOffsetConditionAcquireDataPlaneServices has status True if the most recent attempt to
+	// reconcile the control-protocol DataPlane Services from the ConnectionPool was successful.
+	ResetOffsetConditionAcquireDataPlaneServices apis.ConditionType = "AcquireDataPlaneServices"
 
 	// ResetOffsetConditionConsumerGroupsStopped has status True when all of the ConsumerGroups
 	// associated with the referenced object (Subscription, Trigger, etc.) have been stopped.
@@ -85,14 +84,9 @@ func (ros *ResetOffsetStatus) GetCondition(t apis.ConditionType) *apis.Condition
 	return ros.GetConditionSet().Manage(ros).GetCondition(t)
 }
 
-// IsInitiated returns true if the ResetOffsetConditionResetInitiated status is true.
-func (ros *ResetOffsetStatus) IsInitiated() bool {
-	return ros.GetConditionSet().Manage(ros).GetCondition(ResetOffsetConditionResetInitiated).Status == corev1.ConditionTrue
-}
-
-// IsCompleted returns true if the ResetOffsetConditionSucceeded status is not unknown.
-func (ros *ResetOffsetStatus) IsCompleted() bool {
-	return ros.GetConditionSet().Manage(ros).GetCondition(ResetOffsetConditionSucceeded).Status != corev1.ConditionUnknown
+// IsOffsetsUpdated returns true if the ResetOffsetConditionOffsetsUpdates status is true.
+func (ros *ResetOffsetStatus) IsOffsetsUpdated() bool {
+	return ros.GetConditionSet().Manage(ros).GetCondition(ResetOffsetConditionOffsetsUpdated).Status == corev1.ConditionTrue
 }
 
 // IsSucceeded returns true if the ResetOffsetConditionSucceeded status is true.
@@ -113,12 +107,12 @@ func (ros *ResetOffsetStatus) MarkRefMappedTrue() {
 	ros.GetConditionSet().Manage(ros).MarkTrue(ResetOffsetConditionRefMapped)
 }
 
-func (ros *ResetOffsetStatus) MarkResetInitiatedFailed(reason, messageFormat string, messageA ...interface{}) {
-	ros.GetConditionSet().Manage(ros).MarkFalse(ResetOffsetConditionResetInitiated, reason, messageFormat, messageA...)
+func (ros *ResetOffsetStatus) MarkAcquireDataPlaneServicesFailed(reason, messageFormat string, messageA ...interface{}) {
+	ros.GetConditionSet().Manage(ros).MarkFalse(ResetOffsetConditionAcquireDataPlaneServices, reason, messageFormat, messageA...)
 }
 
-func (ros *ResetOffsetStatus) MarkResetInitiatedTrue() {
-	ros.GetConditionSet().Manage(ros).MarkTrue(ResetOffsetConditionResetInitiated)
+func (ros *ResetOffsetStatus) MarkAcquireDataPlaneServicesTrue() {
+	ros.GetConditionSet().Manage(ros).MarkTrue(ResetOffsetConditionAcquireDataPlaneServices)
 }
 
 func (ros *ResetOffsetStatus) MarkConsumerGroupsStoppedFailed(reason, messageFormat string, messageA ...interface{}) {

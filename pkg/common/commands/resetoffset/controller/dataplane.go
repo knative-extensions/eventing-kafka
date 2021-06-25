@@ -19,7 +19,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"hash/fnv"
 	"strings"
 	"sync"
 	"time"
@@ -36,14 +35,18 @@ import (
 
 	kafkav1alpha1 "knative.dev/eventing-kafka/pkg/apis/kafka/v1alpha1"
 	"knative.dev/eventing-kafka/pkg/common/commands/resetoffset/refmappers"
+	"knative.dev/eventing-kafka/pkg/common/controlprotocol"
 	"knative.dev/eventing-kafka/pkg/common/controlprotocol/commands"
 )
 
 const (
 	asyncCommandResultPollDuration    = 1 * time.Second  // AsyncCommandResult Polling Duration
 	asyncCommandResultTimeoutDuration = 10 * time.Second // AsyncCommandResult Timeout Duration
+)
 
-	ControlProtocolServerPort = 8085 // TODO - Use common constant once eric delivers!
+var (
+	// TODO - How long should a Successful ResetOffset Reconciliation Take ???
+	asyncCommandLockTimeout = 1 * time.Minute // AsyncCommand ConsumerGroup Lock Timeout (Enough for successful ResetOffset reconciliation)
 )
 
 // reconcileDataPlaneServices updates the Reconciler ConnectionPool Services associated with the specified RefInfo.
@@ -63,7 +66,7 @@ func (r *Reconciler) reconcileDataPlaneServices(ctx context.Context, resetOffset
 	// Append The Control-Protocol Server Port Number To The PodIPs If Not Already Present
 	for index, podIP := range podIPs {
 		if !strings.Contains(podIP, ":") {
-			podIPs[index] = fmt.Sprintf("%s:%d", podIP, ControlProtocolServerPort)
+			podIPs[index] = fmt.Sprintf("%s:%d", podIP, controlprotocol.ServerPort)
 		}
 	}
 	logger.Debug("Detected DataPlane Services", zap.Any("Pod IPs", podIPs))
@@ -154,18 +157,35 @@ func (r *Reconciler) sendConsumerGroupAsyncCommand(ctx context.Context,
 	logger := logging.FromContext(ctx).Desugar().With(zap.String("PodIP", podIP), zap.Int("OpCode", int(opCode)))
 
 	// Generate A CommandID For The ResetOffset
-	commandId, err := generateCommandId(resetOffset, podIP, opCode)
+	commandId, err := GenerateCommandId(resetOffset, podIP, opCode)
 	if err != nil {
 		logger.Error("Failed to generate Command ID for ResetOffset", zap.Error(err))
 		return fmt.Errorf("failed to generate Command ID for ResetOffset: %v", err)
 	}
 
-	// Create And Send A The ConsumerGroupAsyncCommand to The Control-Protocol Service
-	consumerGroupAsyncCommand := commands.NewConsumerGroupAsyncCommand(commandId, refInfo.TopicName, refInfo.GroupId)
+	// Generate A Lock Token For The Current Reconciler & ResetOffset
+	lockToken := GenerateLockToken(r.uid, resetOffset.UID)
+
+	// Create The OpCode Specific CommandLock (Lock Before Stop, Unlock After Start)
+	var commandLock *commands.CommandLock
+	switch opCode {
+	case commands.StopConsumerGroupOpCode:
+		commandLock = commands.NewCommandLock(lockToken, asyncCommandLockTimeout, true, false)
+	case commands.StartConsumerGroupOpCode:
+		commandLock = commands.NewCommandLock(lockToken, 0, false, true)
+	default:
+		logger.Error("Received invalid ConsumerGroupAsyncCommand OpCode", zap.Uint8("OpCode", uint8(opCode)))
+		return fmt.Errorf("received invalid ConsumerGroupAsyncCommand OpCode: %d", uint8(opCode))
+	}
+
+	// Create The ConsumerGroupAsyncCommand With CommandLock
+	consumerGroupAsyncCommand := commands.NewConsumerGroupAsyncCommand(commandId, refInfo.TopicName, refInfo.GroupId, commandLock)
+
+	// Send The ConsumerGroupAsyncCommand & Wait For Acknowledgement
 	err = service.SendAndWaitForAck(opCode, consumerGroupAsyncCommand)
 	if err != nil {
 		logger.Error("Failed to send ConsumerGroup AsyncCommand", zap.Int64("CommandID", commandId), zap.Error(err))
-		return fmt.Errorf("failed to send ConsumerGroup AsyncCommand '%d' : %v", commandId, err)
+		return fmt.Errorf("failed to send ConsumerGroup AsyncCommand '%d': %v", commandId, err)
 	}
 
 	// Wait For The AsyncCommand Result & Return Results
@@ -200,14 +220,4 @@ func (r *Reconciler) waitForAsyncCommandResult(resetOffset *kafkav1alpha1.ResetO
 
 	// Return The Result
 	return err
-}
-
-// generateCommandId returns an int64 hash based on the specified ResetOffset.
-func generateCommandId(resetOffset *kafkav1alpha1.ResetOffset, podIP string, opCode ctrl.OpCode) (int64, error) {
-	hash := fnv.New32a()
-	_, err := hash.Write([]byte(fmt.Sprintf("%s-%d-%s-%d", string(resetOffset.UID), resetOffset.Generation, podIP, opCode)))
-	if err != nil {
-		return -1, err
-	}
-	return int64(hash.Sum32()), nil
 }

@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
 	ctrlreconciler "knative.dev/control-protocol/pkg/reconciler"
@@ -61,6 +62,7 @@ func NewControllerFactory(
 
 		// Create A ResetOffset Reconciler
 		reconciler := &Reconciler{
+			uid:                           types.UID(uuid.NewString()),
 			podLister:                     podInformer.Lister(),
 			resetoffsetLister:             resetoffsetInformer.Lister(),
 			refMapper:                     refMapper,

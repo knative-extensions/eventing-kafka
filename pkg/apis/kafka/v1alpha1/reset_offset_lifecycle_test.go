@@ -28,12 +28,12 @@ import (
 )
 
 var (
-	condSucceeded             = apis.Condition{Type: ResetOffsetConditionSucceeded, Status: corev1.ConditionTrue}
-	condRefMapped             = apis.Condition{Type: ResetOffsetConditionRefMapped, Status: corev1.ConditionTrue}
-	condResetInitiated        = apis.Condition{Type: ResetOffsetConditionResetInitiated, Status: corev1.ConditionTrue}
-	condConsumerGroupsStopped = apis.Condition{Type: ResetOffsetConditionConsumerGroupsStopped, Status: corev1.ConditionTrue}
-	condOffsetsUpdated        = apis.Condition{Type: ResetOffsetConditionOffsetsUpdated, Status: corev1.ConditionTrue}
-	condConsumerGroupsStarted = apis.Condition{Type: ResetOffsetConditionConsumerGroupsStarted, Status: corev1.ConditionTrue}
+	condSucceeded                 = apis.Condition{Type: ResetOffsetConditionSucceeded, Status: corev1.ConditionTrue}
+	condRefMapped                 = apis.Condition{Type: ResetOffsetConditionRefMapped, Status: corev1.ConditionTrue}
+	condAcquiredDataPlaneServices = apis.Condition{Type: ResetOffsetConditionAcquireDataPlaneServices, Status: corev1.ConditionTrue}
+	condConsumerGroupsStopped     = apis.Condition{Type: ResetOffsetConditionConsumerGroupsStopped, Status: corev1.ConditionTrue}
+	condOffsetsUpdated            = apis.Condition{Type: ResetOffsetConditionOffsetsUpdated, Status: corev1.ConditionTrue}
+	condConsumerGroupsStarted     = apis.Condition{Type: ResetOffsetConditionConsumerGroupsStarted, Status: corev1.ConditionTrue}
 )
 
 func TestResetOffset_GetConditionSet(t *testing.T) {
@@ -71,14 +71,14 @@ func TestResetOffsetStatus_GetCondition(t *testing.T) {
 			wantCondition: &condRefMapped,
 		},
 		{
-			name: "ResetOffsetConditionResetInitiated",
+			name: "ResetOffsetConditionAcquireDataPlaneServices",
 			status: &ResetOffsetStatus{
 				Status: duckv1.Status{
-					Conditions: []apis.Condition{condResetInitiated},
+					Conditions: []apis.Condition{condAcquiredDataPlaneServices},
 				},
 			},
-			conditionType: ResetOffsetConditionResetInitiated,
-			wantCondition: &condResetInitiated,
+			conditionType: ResetOffsetConditionAcquireDataPlaneServices,
+			wantCondition: &condAcquiredDataPlaneServices,
 		},
 		{
 			name: "ResetOffsetConditionConsumerGroupsStopped",
@@ -134,11 +134,11 @@ func TestResetOffsetStatus_InitializeConditions(t *testing.T) {
 			wantStatus: &ResetOffsetStatus{
 				Status: duckv1.Status{
 					Conditions: []apis.Condition{
+						{Type: ResetOffsetConditionAcquireDataPlaneServices, Status: corev1.ConditionUnknown},
 						{Type: ResetOffsetConditionConsumerGroupsStarted, Status: corev1.ConditionUnknown},
 						{Type: ResetOffsetConditionConsumerGroupsStopped, Status: corev1.ConditionUnknown},
 						{Type: ResetOffsetConditionOffsetsUpdated, Status: corev1.ConditionUnknown},
 						{Type: ResetOffsetConditionRefMapped, Status: corev1.ConditionUnknown},
-						{Type: ResetOffsetConditionResetInitiated, Status: corev1.ConditionUnknown},
 						{Type: ResetOffsetConditionSucceeded, Status: corev1.ConditionUnknown},
 					},
 				},
@@ -156,11 +156,11 @@ func TestResetOffsetStatus_InitializeConditions(t *testing.T) {
 			wantStatus: &ResetOffsetStatus{
 				Status: duckv1.Status{
 					Conditions: []apis.Condition{
+						{Type: ResetOffsetConditionAcquireDataPlaneServices, Status: corev1.ConditionUnknown},
 						{Type: ResetOffsetConditionConsumerGroupsStarted, Status: corev1.ConditionFalse},
 						{Type: ResetOffsetConditionConsumerGroupsStopped, Status: corev1.ConditionUnknown},
 						{Type: ResetOffsetConditionOffsetsUpdated, Status: corev1.ConditionUnknown},
 						{Type: ResetOffsetConditionRefMapped, Status: corev1.ConditionUnknown},
-						{Type: ResetOffsetConditionResetInitiated, Status: corev1.ConditionUnknown},
 						{Type: ResetOffsetConditionSucceeded, Status: corev1.ConditionUnknown},
 					},
 				},
@@ -178,11 +178,11 @@ func TestResetOffsetStatus_InitializeConditions(t *testing.T) {
 			wantStatus: &ResetOffsetStatus{
 				Status: duckv1.Status{
 					Conditions: []apis.Condition{
+						{Type: ResetOffsetConditionAcquireDataPlaneServices, Status: corev1.ConditionUnknown},
 						{Type: ResetOffsetConditionConsumerGroupsStarted, Status: corev1.ConditionUnknown},
 						{Type: ResetOffsetConditionConsumerGroupsStopped, Status: corev1.ConditionUnknown},
 						{Type: ResetOffsetConditionOffsetsUpdated, Status: corev1.ConditionTrue},
 						{Type: ResetOffsetConditionRefMapped, Status: corev1.ConditionUnknown},
-						{Type: ResetOffsetConditionResetInitiated, Status: corev1.ConditionUnknown},
 						{Type: ResetOffsetConditionSucceeded, Status: corev1.ConditionUnknown},
 					},
 				},
@@ -200,11 +200,11 @@ func TestResetOffsetStatus_InitializeConditions(t *testing.T) {
 			wantStatus: &ResetOffsetStatus{
 				Status: duckv1.Status{
 					Conditions: []apis.Condition{
+						{Type: ResetOffsetConditionAcquireDataPlaneServices, Status: corev1.ConditionTrue},
 						{Type: ResetOffsetConditionConsumerGroupsStarted, Status: corev1.ConditionTrue},
 						{Type: ResetOffsetConditionConsumerGroupsStopped, Status: corev1.ConditionTrue},
 						{Type: ResetOffsetConditionOffsetsUpdated, Status: corev1.ConditionTrue},
 						{Type: ResetOffsetConditionRefMapped, Status: corev1.ConditionTrue},
-						{Type: ResetOffsetConditionResetInitiated, Status: corev1.ConditionTrue},
 						{Type: ResetOffsetConditionSucceeded, Status: corev1.ConditionTrue},
 					},
 				},
@@ -224,181 +224,133 @@ func TestResetOffsetStatus_InitializeConditions(t *testing.T) {
 	}
 }
 
-func TestResetOffsetStatus_IsInitiated(t *testing.T) {
+func TestResetOffsetStatus_IsOffsetsUpdated(t *testing.T) {
 
 	tests := []struct {
-		name          string
-		markInitiated corev1.ConditionStatus
-		wantInitiated bool
+		name        string
+		markUpdated corev1.ConditionStatus
+		wantUpdated bool
 	}{
 		{
-			name:          "Initiated True",
-			markInitiated: corev1.ConditionTrue,
-			wantInitiated: true,
+			name:        "Offsets Updated True",
+			markUpdated: corev1.ConditionTrue,
+			wantUpdated: true,
 		},
 		{
-			name:          "Initiated False",
-			markInitiated: corev1.ConditionFalse,
-			wantInitiated: false,
+			name:        "Offsets Updated False",
+			markUpdated: corev1.ConditionFalse,
+			wantUpdated: false,
 		},
 		{
-			name:          "Initiated Unknown",
-			markInitiated: corev1.ConditionUnknown,
-			wantInitiated: false,
+			name:        "Offsets Updated Unknown",
+			markUpdated: corev1.ConditionUnknown,
+			wantUpdated: false,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+
 			resetOffsetStatus := &ResetOffsetStatus{}
 			resetOffsetStatus.InitializeConditions()
 
-			switch test.markInitiated {
+			switch test.markUpdated {
 			case corev1.ConditionTrue:
-				resetOffsetStatus.MarkResetInitiatedTrue()
-			case corev1.ConditionFalse:
-				resetOffsetStatus.MarkResetInitiatedFailed("TestingOffsetsResetInitiatedStatus", "TestMessage")
-			case corev1.ConditionUnknown:
-				for _, condition := range resetOffsetStatus.Conditions {
-					assert.True(t, condition.IsUnknown()) // Verify Initiated Is "Unknown" From InitializeConditions()
-				}
-			}
-			assert.Equal(t, test.wantInitiated, resetOffsetStatus.IsInitiated())
-		})
-	}
-}
-
-func TestResetOffsetStatus_IsCompleted(t *testing.T) {
-
-	tests := []struct {
-		name          string
-		markSucceeded corev1.ConditionStatus
-		wantCompleted bool
-	}{
-		{
-			name:          "Succeeded True",
-			markSucceeded: corev1.ConditionTrue,
-			wantCompleted: true,
-		},
-		{
-			name:          "Succeeded False",
-			markSucceeded: corev1.ConditionFalse,
-			wantCompleted: true,
-		},
-		{
-			name:          "Succeeded Unknown",
-			markSucceeded: corev1.ConditionUnknown,
-			wantCompleted: false,
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			resetOffsetStatus := &ResetOffsetStatus{}
-			resetOffsetStatus.InitializeConditions()
-
-			switch test.markSucceeded {
-			case corev1.ConditionTrue:
-				resetOffsetStatus.MarkRefMappedTrue()
-				resetOffsetStatus.MarkResetInitiatedTrue()
-				resetOffsetStatus.MarkConsumerGroupsStoppedTrue()
 				resetOffsetStatus.MarkOffsetsUpdatedTrue()
-				resetOffsetStatus.MarkConsumerGroupsStartedTrue()
 			case corev1.ConditionFalse:
-				resetOffsetStatus.MarkRefMappedFailed("TestingOffsetsRefMappedStatus", "TestMessage")
-				resetOffsetStatus.MarkResetInitiatedFailed("TestingOffsetsResetInitiatedStatus", "TestMessage")
-				resetOffsetStatus.MarkConsumerGroupsStoppedFailed("TestingConsumerGroupsStoppedStatus", "TestMessage")
 				resetOffsetStatus.MarkOffsetsUpdatedFailed("TestingOffsetsUpdatedFailedStatus", "TestMessage")
-				resetOffsetStatus.MarkConsumerGroupsStartedFailed("TestingConsumerGroupsStartedStatus", "TestMessage")
 			case corev1.ConditionUnknown:
 				for _, condition := range resetOffsetStatus.Conditions {
-					assert.True(t, condition.IsUnknown()) // Verify Succeeded Is "Unknown" From InitializeConditions()
+					assert.True(t, condition.IsUnknown()) // Verify OffsetsUpdated Is "Unknown" From InitializeConditions()
 				}
 			}
-			assert.Equal(t, test.wantCompleted, resetOffsetStatus.IsCompleted())
+
+			assert.Equal(t, test.wantUpdated, resetOffsetStatus.IsOffsetsUpdated())
 		})
 	}
 }
 
 func TestResetOffsetStatus_IsSucceeded(t *testing.T) {
 	tests := []struct {
-		name                      string
-		markRefMapped             bool
-		markResetInitiated        bool
-		markConsumerGroupsStopped bool
-		markOffsetsUpdated        bool
-		markConsumerGroupsStarted bool
-		wantSucceeded             bool
+		name                         string
+		markRefMapped                bool
+		markAcquireDataPlaneServices bool
+		markConsumerGroupsStopped    bool
+		markOffsetsUpdated           bool
+		markConsumerGroupsStarted    bool
+		wantSucceeded                bool
 	}{
 		{
-			name:                      "Happy",
-			markRefMapped:             true,
-			markResetInitiated:        true,
-			markConsumerGroupsStopped: true,
-			markOffsetsUpdated:        true,
-			markConsumerGroupsStarted: true,
-			wantSucceeded:             true,
+			name:                         "Happy",
+			markRefMapped:                true,
+			markAcquireDataPlaneServices: true,
+			markConsumerGroupsStopped:    true,
+			markOffsetsUpdated:           true,
+			markConsumerGroupsStarted:    true,
+			wantSucceeded:                true,
 		},
 		{
-			name:                      "RefMapped Failed",
-			markRefMapped:             false,
-			markResetInitiated:        true,
-			markConsumerGroupsStopped: true,
-			markOffsetsUpdated:        true,
-			markConsumerGroupsStarted: true,
-			wantSucceeded:             false,
+			name:                         "RefMapped Failed",
+			markRefMapped:                false,
+			markAcquireDataPlaneServices: true,
+			markConsumerGroupsStopped:    true,
+			markOffsetsUpdated:           true,
+			markConsumerGroupsStarted:    true,
+			wantSucceeded:                false,
 		},
 		{
-			name:                      "ResetInitiated Failed",
-			markRefMapped:             true,
-			markResetInitiated:        false,
-			markConsumerGroupsStopped: true,
-			markOffsetsUpdated:        true,
-			markConsumerGroupsStarted: true,
-			wantSucceeded:             false,
+			name:                         "AcquireDataPlaneServices Failed",
+			markRefMapped:                true,
+			markAcquireDataPlaneServices: false,
+			markConsumerGroupsStopped:    true,
+			markOffsetsUpdated:           true,
+			markConsumerGroupsStarted:    true,
+			wantSucceeded:                false,
 		},
 		{
-			name:                      "ConsumerGroupsStopped Failed",
-			markRefMapped:             true,
-			markResetInitiated:        true,
-			markConsumerGroupsStopped: false,
-			markOffsetsUpdated:        true,
-			markConsumerGroupsStarted: true,
-			wantSucceeded:             false,
+			name:                         "ConsumerGroupsStopped Failed",
+			markRefMapped:                true,
+			markAcquireDataPlaneServices: true,
+			markConsumerGroupsStopped:    false,
+			markOffsetsUpdated:           true,
+			markConsumerGroupsStarted:    true,
+			wantSucceeded:                false,
 		},
 		{
-			name:                      "OffsetsUpdated Failed",
-			markRefMapped:             true,
-			markResetInitiated:        true,
-			markConsumerGroupsStopped: true,
-			markOffsetsUpdated:        false,
-			markConsumerGroupsStarted: true,
-			wantSucceeded:             false,
+			name:                         "OffsetsUpdated Failed",
+			markRefMapped:                true,
+			markAcquireDataPlaneServices: true,
+			markConsumerGroupsStopped:    true,
+			markOffsetsUpdated:           false,
+			markConsumerGroupsStarted:    true,
+			wantSucceeded:                false,
 		},
 		{
-			name:                      "ConsumerGroupsStarted Failed",
-			markRefMapped:             true,
-			markResetInitiated:        true,
-			markConsumerGroupsStopped: true,
-			markOffsetsUpdated:        true,
-			markConsumerGroupsStarted: false,
-			wantSucceeded:             false,
+			name:                         "ConsumerGroupsStarted Failed",
+			markRefMapped:                true,
+			markAcquireDataPlaneServices: true,
+			markConsumerGroupsStopped:    true,
+			markOffsetsUpdated:           true,
+			markConsumerGroupsStarted:    false,
+			wantSucceeded:                false,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+
 			resetOffsetStatus := &ResetOffsetStatus{}
 			resetOffsetStatus.InitializeConditions()
+
 			if test.markRefMapped {
 				resetOffsetStatus.MarkRefMappedTrue()
 			} else {
 				resetOffsetStatus.MarkRefMappedFailed("TestingOffsetsRefMappedStatus", "TestMessage")
 			}
-			if test.markResetInitiated {
-				resetOffsetStatus.MarkResetInitiatedTrue()
+			if test.markAcquireDataPlaneServices {
+				resetOffsetStatus.MarkAcquireDataPlaneServicesTrue()
 			} else {
-				resetOffsetStatus.MarkResetInitiatedFailed("TestingOffsetsResetInitiatedStatus", "TestMessage")
+				resetOffsetStatus.MarkAcquireDataPlaneServicesFailed("TestingAcquireDataPlaneServicesStatus", "TestMessage")
 			}
 			if test.markConsumerGroupsStopped {
 				resetOffsetStatus.MarkConsumerGroupsStoppedTrue()
@@ -415,6 +367,7 @@ func TestResetOffsetStatus_IsSucceeded(t *testing.T) {
 			} else {
 				resetOffsetStatus.MarkConsumerGroupsStartedFailed("TestingConsumerGroupsStartedStatus", "TestMessage")
 			}
+
 			assert.Equal(t, test.wantSucceeded, resetOffsetStatus.IsSucceeded())
 		})
 	}

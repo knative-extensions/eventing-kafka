@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"github.com/Shopify/sarama"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
@@ -47,7 +48,9 @@ import (
 	controllertesting "knative.dev/eventing-kafka/pkg/common/commands/resetoffset/controller/testing"
 	refmapperstesting "knative.dev/eventing-kafka/pkg/common/commands/resetoffset/refmappers/testing"
 	"knative.dev/eventing-kafka/pkg/common/constants"
+	"knative.dev/eventing-kafka/pkg/common/controlprotocol"
 	"knative.dev/eventing-kafka/pkg/common/controlprotocol/commands"
+	controlprotocoltesting "knative.dev/eventing-kafka/pkg/common/controlprotocol/testing"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 )
 
@@ -56,6 +59,8 @@ func TestReconcile(t *testing.T) {
 
 	// Test Data
 	logger := logtesting.TestLogger(t)
+
+	reconcilerUID := types.UID(uuid.NewString())
 
 	kafkaBrokers := []string{controllertesting.Brokers}
 	saramaConfig := sarama.NewConfig()
@@ -75,7 +80,7 @@ func TestReconcile(t *testing.T) {
 
 	podIp := "1.2.3.4"
 	pods := []*corev1.Pod{{Status: corev1.PodStatus{PodIP: podIp}}}
-	podIpPort := fmt.Sprintf("%s:%d", podIp, ControlProtocolServerPort)
+	podIpPort := fmt.Sprintf("%s:%d", podIp, controlprotocol.ServerPort)
 	podIpPorts := []string{podIpPort}
 
 	testErr := fmt.Errorf("test-error")
@@ -113,7 +118,7 @@ func TestReconcile(t *testing.T) {
 						controllertesting.WithStatusGroup(groupId),
 						controllertesting.WithStatusPartitions(offsetMappings),
 						controllertesting.WithStatusRefMapped(true),
-						controllertesting.WithStatusResetInitiated(true),
+						controllertesting.WithStatusAcquireDataPlaneServices(true),
 						controllertesting.WithStatusConsumerGroupsStopped(true),
 						controllertesting.WithStatusOffsetsUpdated(true),
 						controllertesting.WithStatusConsumerGroupsStarted(true)),
@@ -129,38 +134,19 @@ func TestReconcile(t *testing.T) {
 		//
 
 		{
-			Name: "Skipping Previously Initiated",
-			Key:  controllertesting.ResetOffsetKey,
-			Objects: []runtime.Object{
-				controllertesting.NewResetOffset(controllertesting.WithFinalizer,
-					controllertesting.WithStatusResetInitiated(true)),
-			},
-			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
-				{
-					Object: controllertesting.NewResetOffset(
-						controllertesting.WithFinalizer,
-						controllertesting.WithStatusInitialized,
-						controllertesting.WithStatusResetInitiated(true)),
-				},
-			},
-			WantEvents: []string{
-				Eventf(corev1.EventTypeNormal, ResetOffsetSkipped.String(), "Skipped previously executed ResetOffset"),
-			},
-		},
-		{
-			Name: "Skipping Previously Completed",
+			Name: "Skipping Previously Succeeded",
 			Key:  controllertesting.ResetOffsetKey,
 			Objects: []runtime.Object{
 				controllertesting.NewResetOffset(
 					controllertesting.WithFinalizer,
 					controllertesting.WithStatusRefMapped(true),
-					controllertesting.WithStatusResetInitiated(true),
+					controllertesting.WithStatusAcquireDataPlaneServices(true),
 					controllertesting.WithStatusConsumerGroupsStopped(true),
 					controllertesting.WithStatusOffsetsUpdated(true),
 					controllertesting.WithStatusConsumerGroupsStarted(true)),
 			},
 			WantEvents: []string{
-				Eventf(corev1.EventTypeNormal, ResetOffsetSkipped.String(), "Skipped previously executed ResetOffset"),
+				Eventf(corev1.EventTypeNormal, ResetOffsetSkipped.String(), "Skipped previously successful ResetOffset"),
 			},
 		},
 
@@ -198,7 +184,8 @@ func TestReconcile(t *testing.T) {
 						controllertesting.WithStatusInitialized,
 						controllertesting.WithStatusTopic(topicName),
 						controllertesting.WithStatusGroup(groupId),
-						controllertesting.WithStatusRefMapped(true)),
+						controllertesting.WithStatusRefMapped(true),
+						controllertesting.WithStatusAcquireDataPlaneServices(false, "FailedToAcquireDataPlaneServices", "Failed to reconciler DataPlane Services from ConnectionPool: test-error")),
 				},
 			},
 			WantErr: true,
@@ -219,11 +206,14 @@ func TestReconcile(t *testing.T) {
 						controllertesting.WithStatusTopic(topicName),
 						controllertesting.WithStatusGroup(groupId),
 						controllertesting.WithStatusRefMapped(true),
-						controllertesting.WithStatusResetInitiated(true),
-						controllertesting.WithStatusConsumerGroupsStopped(false, "FailedToStopConsumerGroups", fmt.Sprintf("Failed to stop one or more ConsumerGroups: failed to send ConsumerGroup AsyncCommand '3866008807' : %v", testErr.Error()))),
+						controllertesting.WithStatusAcquireDataPlaneServices(true),
+						controllertesting.WithStatusConsumerGroupsStopped(false, "FailedToStopConsumerGroups", fmt.Sprintf("Failed to stop one or more ConsumerGroups: failed to send ConsumerGroup AsyncCommand '3866008807': %v", testErr.Error()))),
 				},
 			},
-			WantErr: false,
+			WantErr: true,
+			WantEvents: []string{
+				Eventf(corev1.EventTypeWarning, "InternalError", fmt.Sprintf("failed to stop one or more ConsumerGroups: failed to send ConsumerGroup AsyncCommand '3866008807': %v", testErr.Error())),
+			},
 		},
 		{
 			Name:          "Reconcile Offsets Error",
@@ -238,14 +228,14 @@ func TestReconcile(t *testing.T) {
 						controllertesting.WithStatusTopic(topicName),
 						controllertesting.WithStatusGroup(groupId),
 						controllertesting.WithStatusRefMapped(true),
-						controllertesting.WithStatusResetInitiated(true),
+						controllertesting.WithStatusAcquireDataPlaneServices(true),
 						controllertesting.WithStatusConsumerGroupsStopped(true),
-						controllertesting.WithStatusOffsetsUpdated(false, "FailedToUpdateOffsets", "Failed to update Offsets of one or more Partitions: test-error")),
+						controllertesting.WithStatusOffsetsUpdated(false, "FailedToUpdateOffsets", "Failed to update Offsets of ConsumerGroup Partitions: test-error")),
 				},
 			},
 			WantErr: true,
 			WantEvents: []string{
-				Eventf(corev1.EventTypeWarning, "InternalError", fmt.Sprintf("failed to update offsets of one or more partitions: %v", testErr.Error())),
+				Eventf(corev1.EventTypeWarning, "InternalError", fmt.Sprintf("failed to update Offsets of ConsumerGroup Partitions: %v", testErr.Error())),
 			},
 		},
 		{
@@ -262,13 +252,16 @@ func TestReconcile(t *testing.T) {
 						controllertesting.WithStatusGroup(groupId),
 						controllertesting.WithStatusPartitions(offsetMappings),
 						controllertesting.WithStatusRefMapped(true),
-						controllertesting.WithStatusResetInitiated(true),
+						controllertesting.WithStatusAcquireDataPlaneServices(true),
 						controllertesting.WithStatusConsumerGroupsStopped(true),
 						controllertesting.WithStatusOffsetsUpdated(true),
-						controllertesting.WithStatusConsumerGroupsStarted(false, "FailedToStartConsumerGroups", fmt.Sprintf("Failed to start one or more ConsumerGroups: failed to send ConsumerGroup AsyncCommand '3899564045' : %v", testErr))),
+						controllertesting.WithStatusConsumerGroupsStarted(false, "FailedToStartConsumerGroups", fmt.Sprintf("Failed to restart one or more ConsumerGroups: failed to send ConsumerGroup AsyncCommand '3899564045': %v", testErr))),
 				},
 			},
-			WantErr: false,
+			WantErr: true,
+			WantEvents: []string{
+				Eventf(corev1.EventTypeWarning, "InternalError", fmt.Sprintf("failed to restart one or more ConsumerGroups: failed to send ConsumerGroup AsyncCommand '3899564045': %v", testErr.Error())),
+			},
 		},
 
 		//
@@ -285,7 +278,7 @@ func TestReconcile(t *testing.T) {
 				controllertesting.WithStatusGroup(groupId),
 				controllertesting.WithStatusPartitions(offsetMappings),
 				controllertesting.WithStatusRefMapped(true),
-				controllertesting.WithStatusResetInitiated(true),
+				controllertesting.WithStatusAcquireDataPlaneServices(true),
 				controllertesting.WithStatusConsumerGroupsStopped(true),
 				controllertesting.WithStatusOffsetsUpdated(true),
 				controllertesting.WithStatusConsumerGroupsStarted(true))},
@@ -305,23 +298,6 @@ func TestReconcile(t *testing.T) {
 			WantEvents: []string{
 				Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated \"resetoffset-name\" finalizers"),
 				Eventf(corev1.EventTypeNormal, ResetOffsetFinalized.String(), "Finalized successfully"),
-			},
-		},
-		{
-			Name: "Finalization Executing Instance",
-			Key:  controllertesting.ResetOffsetKey,
-			Objects: []runtime.Object{controllertesting.NewResetOffset(
-				controllertesting.WithFinalizer,
-				controllertesting.WithDeletionTimestamp,
-				controllertesting.WithStatusTopic(topicName),
-				controllertesting.WithStatusGroup(groupId),
-				controllertesting.WithStatusPartitions(offsetMappings),
-				controllertesting.WithStatusRefMapped(true),
-				controllertesting.WithStatusResetInitiated(true),
-				controllertesting.WithStatusConsumerGroupsStopped(true))},
-			WantErr: true,
-			WantEvents: []string{
-				Eventf(corev1.EventTypeWarning, "InternalError", "skipping finalization of in-progress ResetOffset instance"),
 			},
 		},
 	}
@@ -379,21 +355,24 @@ func TestReconcile(t *testing.T) {
 		mockPodLister.On("Pods", refInfo.DataPlaneNamespace).Return(mockPodNamespaceLister)
 
 		// Create Test ConsumerGroupAsyncCommands
-		stopCommandId, err := generateCommandId(controllertesting.NewResetOffset(), podIp, commands.StopConsumerGroupOpCode)
+		lockToken := GenerateLockToken(reconcilerUID, "") // TableTest Resources Don't Have A UID And Setting Them Above Doesn't Help
+		stopCommandLock := commands.NewCommandLock(lockToken, asyncCommandLockTimeout, true, false)
+		startCommandLock := commands.NewCommandLock(lockToken, 0, false, true)
+		stopCommandId, err := GenerateCommandId(controllertesting.NewResetOffset(), podIp, commands.StopConsumerGroupOpCode)
 		assert.Nil(t, err)
-		startCommandId, err := generateCommandId(controllertesting.NewResetOffset(), podIp, commands.StartConsumerGroupOpCode)
+		startCommandId, err := GenerateCommandId(controllertesting.NewResetOffset(), podIp, commands.StartConsumerGroupOpCode)
 		assert.Nil(t, err)
-		stopConsumerGroupAsyncCommand := &commands.ConsumerGroupAsyncCommand{Version: 1, CommandId: stopCommandId, TopicName: refInfo.TopicName, GroupId: refInfo.GroupId}
-		startConsumerGroupAsyncCommand := &commands.ConsumerGroupAsyncCommand{Version: 1, CommandId: startCommandId, TopicName: refInfo.TopicName, GroupId: refInfo.GroupId}
+		stopConsumerGroupAsyncCommand := &commands.ConsumerGroupAsyncCommand{Version: 1, CommandId: stopCommandId, TopicName: refInfo.TopicName, GroupId: refInfo.GroupId, Lock: stopCommandLock}
+		startConsumerGroupAsyncCommand := &commands.ConsumerGroupAsyncCommand{Version: 1, CommandId: startCommandId, TopicName: refInfo.TopicName, GroupId: refInfo.GroupId, Lock: startCommandLock}
 
 		// Create The Mock Service To Test Against
-		mockDataPlaneService := &controllertesting.MockService{}
+		mockDataPlaneService := &controlprotocoltesting.MockService{}
 		mockDataPlaneService.On("SendAndWaitForAck", commands.StopConsumerGroupOpCode, stopConsumerGroupAsyncCommand).Return(stopConsumerGroupsErr)
 		mockDataPlaneService.On("SendAndWaitForAck", commands.StartConsumerGroupOpCode, startConsumerGroupAsyncCommand).Return(startConsumerGroupsErr)
 		services := map[string]ctrl.Service{podIp: mockDataPlaneService}
 
 		// Create A Mock Control-Protocol ConnectionPool
-		mockConnectionPool := &controllertesting.MockConnectionPool{}
+		mockConnectionPool := &controlprotocoltesting.MockConnectionPool{}
 		mockConnectionPool.On("ReconcileConnections",
 			mock.Anything,
 			refInfo.ConnectionPoolKey,
@@ -409,7 +388,7 @@ func TestReconcile(t *testing.T) {
 		// Create A Mock Control-Protocol AsyncCommandNotificationStore & Assign To Reconciler
 		resetOffsetNamespacedName := controllertesting.NewResetOffsetNamespacedName()
 		successResult := &ctrlmessage.AsyncCommandResult{}
-		mockAsyncCommandNotificationStore := &controllertesting.MockAsyncCommandNotificationStore{}
+		mockAsyncCommandNotificationStore := &controlprotocoltesting.MockAsyncCommandNotificationStore{}
 		mockAsyncCommandNotificationStore.On("GetCommandResult", resetOffsetNamespacedName, podIp, stopConsumerGroupAsyncCommand).Return(successResult)
 		mockAsyncCommandNotificationStore.On("GetCommandResult", resetOffsetNamespacedName, podIp, startConsumerGroupAsyncCommand).Return(successResult)
 		mockAsyncCommandNotificationStore.On("CleanPodsNotifications", types.NamespacedName{
@@ -434,6 +413,7 @@ func TestReconcile(t *testing.T) {
 
 		// Create The ResetOffset Reconciler Struct
 		r := &Reconciler{
+			uid:                           reconcilerUID,
 			kafkaBrokers:                  kafkaBrokers,
 			saramaConfig:                  saramaConfig,
 			podLister:                     mockPodLister,
