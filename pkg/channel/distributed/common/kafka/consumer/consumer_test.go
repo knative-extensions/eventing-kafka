@@ -22,6 +22,7 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	consumertesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/consumer/testing"
+	kafkatesting "knative.dev/eventing-kafka/pkg/common/kafka/testing"
 )
 
 // Test The CreateConsumerGroup() Functionality
@@ -33,7 +34,7 @@ func TestCreateConsumerGroup(t *testing.T) {
 	config := sarama.NewConfig()
 
 	// Create A Mock ConsumerGroup, Stub NewConsumerGroupWrapper() & Restore After Test
-	mockConsumerGroup := consumertesting.NewMockConsumerGroup()
+	mockConsumerGroup := kafkatesting.NewMockConsumerGroup()
 	consumertesting.StubNewConsumerGroupFn(consumertesting.ValidatingNewConsumerGroupFn(t, brokers, groupId, config, mockConsumerGroup))
 	defer consumertesting.RestoreNewConsumerGroupFn()
 

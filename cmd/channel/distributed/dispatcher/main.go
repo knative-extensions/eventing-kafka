@@ -20,6 +20,7 @@ import (
 	"context"
 	"strconv"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -44,6 +45,7 @@ import (
 	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	"knative.dev/eventing-kafka/pkg/client/informers/externalversions"
 	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
+	"knative.dev/eventing-kafka/pkg/common/controlprotocol"
 	"knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
 	"knative.dev/eventing/pkg/kncloudevents"
@@ -137,6 +139,13 @@ func main() {
 		MaxIdleConnsPerHost: ekConfig.CloudEvents.MaxIdleConnsPerHost,
 	})
 
+	logger.Info("Initializing Control-Protocol Server")
+	controlProtocolServer, err := controlprotocol.NewServerHandler(ctx, controlprotocol.ServerPort)
+	if err != nil {
+		logger.Fatal("Failed To Initialize Control-Protocol Server - Terminating", zap.Error(err))
+	}
+	defer controlProtocolServer.Shutdown(5 * time.Second)
+
 	// Create The Dispatcher With Specified Configuration
 	dispatcherConfig := dispatch.DispatcherConfig{
 		Logger:          logger,
@@ -148,7 +157,7 @@ func main() {
 		MetricsRegistry: ekConfig.Sarama.Config.MetricRegistry,
 		SaramaConfig:    ekConfig.Sarama.Config,
 	}
-	dispatcher = dispatch.NewDispatcher(dispatcherConfig)
+	dispatcher = dispatch.NewDispatcher(dispatcherConfig, controlProtocolServer)
 
 	// Watch The Secret For Changes
 	err = distributedcommonconfig.InitializeSecretWatcher(ctx, environment.KafkaSecretNamespace, environment.KafkaSecretName, environment.ResyncPeriod, secretObserver)

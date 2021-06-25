@@ -17,10 +17,8 @@ limitations under the License.
 package testing
 
 import (
-	"context"
-	"errors"
-
 	"github.com/Shopify/sarama"
+	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap"
 
 	"knative.dev/eventing-kafka/pkg/common/consumer"
@@ -32,50 +30,58 @@ import (
 
 type MockKafkaConsumerGroupFactory struct {
 	// CreateErr will return an error when creating a consumer
-	CreateErr bool
+	mock.Mock
 }
 
-func (c MockKafkaConsumerGroupFactory) StartConsumerGroup(groupID string, topics []string, logger *zap.SugaredLogger, handler consumer.KafkaConsumerHandler, options ...consumer.SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error) {
-	if c.CreateErr {
-		return nil, errors.New("error creating consumer")
-	}
-	return NewMockConsumerGroup(), nil
+func (c *MockKafkaConsumerGroupFactory) StartConsumerGroup(groupId string, topics []string, logger *zap.SugaredLogger, handler consumer.KafkaConsumerHandler, options ...consumer.SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error) {
+	args := c.Called(groupId, topics, logger, handler, options)
+	return args.Get(0).(sarama.ConsumerGroup), args.Error(1)
 }
 
 var _ consumer.KafkaConsumerGroupFactory = (*MockKafkaConsumerGroupFactory)(nil)
 
 //
-// Mock ConsumerGroup
+// Mock KafkaConsumerGroupManager
 //
 
-var _ sarama.ConsumerGroup = &MockConsumerGroup{}
-
-type MockConsumerGroup struct {
-	errorChan   chan error
-	consumeChan chan struct{}
-	Closed      bool
+// MockConsumerGroupManager implements the KafkaConsumerGroupManager interface
+type MockConsumerGroupManager struct {
+	mock.Mock
+	Groups map[string]sarama.ConsumerGroup
 }
 
-func NewMockConsumerGroup() *MockConsumerGroup {
-	return &MockConsumerGroup{
-		errorChan:   make(chan error),
-		consumeChan: make(chan struct{}),
-		Closed:      false,
+func NewMockConsumerGroupManager() *MockConsumerGroupManager {
+	return &MockConsumerGroupManager{Groups: make(map[string]sarama.ConsumerGroup)}
+}
+
+var _ consumer.KafkaConsumerGroupManager = (*MockConsumerGroupManager)(nil)
+
+func (m *MockConsumerGroupManager) Reconfigure(brokers []string, config *sarama.Config) error {
+	args := m.Called(brokers, config)
+	return args.Error(0)
+}
+
+func (m *MockConsumerGroupManager) StartConsumerGroup(groupId string, topics []string, logger *zap.SugaredLogger,
+	handler consumer.KafkaConsumerHandler, options ...consumer.SaramaConsumerHandlerOption) error {
+	args := m.Called(groupId, topics, logger, handler, options)
+	return args.Error(0)
+}
+
+func (m *MockConsumerGroupManager) CloseConsumerGroup(groupId string) error {
+	args := m.Called(groupId)
+	if group, ok := m.Groups[groupId]; ok {
+		_ = group.Close()
+		delete(m.Groups, groupId)
 	}
+	return args.Error(0)
 }
 
-func (m *MockConsumerGroup) Consume(_ context.Context, _ []string, _ sarama.ConsumerGroupHandler) error {
-	<-m.consumeChan                      // Block To Simulate Real Execution
-	return sarama.ErrClosedConsumerGroup // Return ConsumerGroup Closed "Error" For Clean Shutdown
+func (m *MockConsumerGroupManager) IsManaged(groupId string) bool {
+	args := m.Called(groupId)
+	return args.Bool(0)
 }
 
-func (m *MockConsumerGroup) Errors() <-chan error {
-	return m.errorChan
-}
-
-func (m *MockConsumerGroup) Close() error {
-	close(m.errorChan)
-	close(m.consumeChan)
-	m.Closed = true
-	return nil
+func (m *MockConsumerGroupManager) Errors(groupId string) <-chan error {
+	args := m.Called(groupId)
+	return args.Get(0).(<-chan error)
 }

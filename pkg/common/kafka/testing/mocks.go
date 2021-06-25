@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"github.com/Shopify/sarama"
+	"github.com/stretchr/testify/mock"
 )
 
 //
@@ -29,31 +30,33 @@ import (
 var _ sarama.ConsumerGroup = &MockConsumerGroup{}
 
 type MockConsumerGroup struct {
-	errorChan   chan error
+	mock.Mock
+	ErrorChan   chan error
 	consumeChan chan struct{}
-	Closed      bool
 }
 
 func NewMockConsumerGroup() *MockConsumerGroup {
-	return &MockConsumerGroup{
-		errorChan:   make(chan error),
+	mockGroup := &MockConsumerGroup{
+		ErrorChan:   make(chan error),
 		consumeChan: make(chan struct{}),
-		Closed:      false,
 	}
+	return mockGroup
 }
 
-func (m *MockConsumerGroup) Consume(_ context.Context, _ []string, _ sarama.ConsumerGroupHandler) error {
-	<-m.consumeChan                      // Block To Simulate Real Execution
-	return sarama.ErrClosedConsumerGroup // Return ConsumerGroup Closed "Error" For Clean Shutdown
+func (m *MockConsumerGroup) Consume(ctx context.Context, topics []string, handler sarama.ConsumerGroupHandler) error {
+	args := m.Called(ctx, topics, handler)
+	<-m.consumeChan // Block To Simulate Real Execution
+	return args.Error(0)
 }
 
 func (m *MockConsumerGroup) Errors() <-chan error {
-	return m.errorChan
+	args := m.Called()
+	return args.Get(0).(chan error)
 }
 
 func (m *MockConsumerGroup) Close() error {
-	close(m.errorChan)
+	args := m.Called()
+	close(m.ErrorChan)
 	close(m.consumeChan)
-	m.Closed = true
-	return nil
+	return args.Error(0)
 }

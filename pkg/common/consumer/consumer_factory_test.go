@@ -41,13 +41,13 @@ func (m *mockConsumerGroup) Consume(ctx context.Context, topics []string, handle
 		go func() {
 			m.generateErrorOnce.Do(func() {
 				h := handler.(*SaramaConsumerHandler)
-				h.errors <- errors.New("cgh")
-				close(h.errors)
+				h.errors <- errors.New("consumer group handler error")
+				// Don't close h.errors here; the deferred shutdown in startExistingConsumerGroup already does that
 			})
 		}()
 	}
 	if m.consumeMustReturnError {
-		return errors.New("boom!")
+		return errors.New("consume error")
 	}
 	return nil
 }
@@ -56,7 +56,7 @@ func (m *mockConsumerGroup) Errors() <-chan error {
 	ch := make(chan error)
 	go func() {
 		if m.mustGenerateConsumerGroupError {
-			ch <- errors.New("cg")
+			ch <- errors.New("consumer group error")
 		}
 		close(ch)
 	}()
@@ -103,16 +103,28 @@ func TestErrorPropagationCustomConsumerGroup(t *testing.T) {
 
 	errorsSlice := make([]error, 0)
 
-	for e := range consumerGroup.Errors() {
-		errorsSlice = append(errorsSlice, e)
-	}
+	errorsWait := sync.WaitGroup{}
+	errorsWait.Add(2)
+	go func() {
+		for e := range consumerGroup.Errors() {
+			errorsSlice = append(errorsSlice, e)
+			errorsWait.Done() // Should be called twice, once for the ConsumerGroup error and once for the Handler error
+		}
+	}()
+
+	// Wait for the mock to send the errors
+	errorsWait.Wait()
+	consumerGroup.(*customConsumerGroup).cancel() // Stop the consume loop and close the error channel
 
 	if len(errorsSlice) != 2 {
 		t.Errorf("len(errorsSlice) != 2")
 	}
 
-	assertContainsError(t, errorsSlice, "cgh")
-	assertContainsError(t, errorsSlice, "cg")
+	// Wait for the goroutine inside of startExistingConsumerGroup to finish
+	<-consumerGroup.(*customConsumerGroup).releasedCh
+
+	assertContainsError(t, errorsSlice, "consumer group handler error")
+	assertContainsError(t, errorsSlice, "consumer group error")
 }
 
 func assertContainsError(t *testing.T, collection []error, errorStr string) {
@@ -147,11 +159,14 @@ func TestErrorWhileNewConsumerGroup(t *testing.T) {
 		config: sarama.NewConfig(),
 		addrs:  []string{"b1", "b2"},
 	}
-	cg, _ := factory.StartConsumerGroup("bla", []string{}, zap.L().Sugar(), nil)
+	consumerGroup, _ := factory.StartConsumerGroup("bla", []string{}, zap.L().Sugar(), nil)
 
-	err := <-cg.Errors()
+	consumerGroup.(*customConsumerGroup).cancel() // Stop the consume loop from spinning after the error is generated
+	err := <-consumerGroup.Errors()
+	// Wait for the goroutine inside of startExistingConsumerGroup to finish
+	<-consumerGroup.(*customConsumerGroup).releasedCh
 
-	if err == nil || err.Error() != "boom!" {
-		t.Errorf("Should contain an error with message boom!. Got %v", err)
+	if err == nil || err.Error() != "consume error" {
+		t.Errorf("Should contain an error with message consume error. Got %v", err)
 	}
 }
