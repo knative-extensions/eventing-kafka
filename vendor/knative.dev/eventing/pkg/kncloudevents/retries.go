@@ -63,6 +63,9 @@ type RetryConfig struct {
 
 	CheckRetry CheckRetry
 	Backoff    Backoff
+
+	// RequestTimeout represents the timeout of the single request
+	RequestTimeout time.Duration
 }
 
 func NoRetries() RetryConfig {
@@ -99,6 +102,14 @@ func RetryConfigFromDeliverySpec(spec v1.DeliverySpec) (RetryConfig, error) {
 				return delayDuration * time.Duration(attemptNum)
 			}
 		}
+	}
+
+	if spec.Timeout != nil {
+		timeout, err := period.Parse(*spec.Timeout)
+		if err != nil {
+			return retryConfig, fmt.Errorf("failed to parse Spec.Timeout: %w", err)
+		}
+		retryConfig.RequestTimeout, _ = timeout.Duration()
 	}
 
 	return retryConfig, nil

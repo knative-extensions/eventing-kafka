@@ -84,6 +84,11 @@ func GetKafkaConfig(ctx context.Context, clientId string, configMap map[string]s
 		)
 		// Since LoadSettings isn't going to be called in this situation, we need to call getAuth explicitly
 		eventingKafkaConfig.Auth = getAuth(ctx, eventingKafkaConfig.Kafka.AuthSecretName, eventingKafkaConfig.Kafka.AuthSecretNamespace)
+		ekConfigFromOldFormat, err := sarama.LoadSettings(ctx, clientId, configMap, getAuth)
+		if err != nil {
+			return nil, err
+		}
+		eventingKafkaConfig.Sarama = ekConfigFromOldFormat.Sarama
 	} else {
 		eventingKafkaConfig, err = sarama.LoadSettings(ctx, clientId, configMap, getAuth)
 	}

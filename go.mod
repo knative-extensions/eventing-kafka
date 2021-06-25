@@ -8,7 +8,7 @@ require (
 	github.com/Azure/go-autorest/autorest v0.11.10 // indirect
 	github.com/Azure/go-autorest/autorest/to v0.4.0 // indirect
 	github.com/Azure/go-autorest/autorest/validation v0.3.0 // indirect
-	github.com/Shopify/sarama v1.29.0
+	github.com/Shopify/sarama v1.29.1
 	github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.4.1
 	github.com/cloudevents/sdk-go/v2 v2.4.1
 	github.com/davecgh/go-spew v1.1.1
@@ -34,10 +34,10 @@ require (
 	k8s.io/apimachinery v0.20.7
 	k8s.io/client-go v0.20.7
 	k8s.io/utils v0.0.0-20201110183641-67b214c5f920
-	knative.dev/control-protocol v0.0.0-20210616092621-1469a722be79
-	knative.dev/eventing v0.23.1-0.20210616164922-6adafe56e55e
-	knative.dev/hack v0.0.0-20210614141220-66ab1a098940
-	knative.dev/networking v0.0.0-20210615114921-e291c8011a20
-	knative.dev/pkg v0.0.0-20210616195222-841aa7369ca1
-	knative.dev/reconciler-test v0.0.0-20210603210445-0071c48281c7
+	knative.dev/control-protocol v0.0.0-20210622195244-f6f46782b93d
+	knative.dev/eventing v0.23.1-0.20210624083445-2fcbc0ac500d
+	knative.dev/hack v0.0.0-20210622141627-e28525d8d260
+	knative.dev/networking v0.0.0-20210622182128-53f45d6d2cfa
+	knative.dev/pkg v0.0.0-20210622173328-dd0db4b05c80
+	knative.dev/reconciler-test v0.0.0-20210623134345-88c84739abd9
 )

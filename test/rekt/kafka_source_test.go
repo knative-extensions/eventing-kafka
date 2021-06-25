@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"knative.dev/eventing-kafka/test/rekt/features/kafkasource"
+	ks "knative.dev/eventing-kafka/test/rekt/resources/kafkasource"
 	"knative.dev/eventing/pkg/utils"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/system"
@@ -33,11 +34,12 @@ import (
 )
 
 const (
-	kafkaSASLSecret = "strimzi-sasl-secret"
-	kafkaTLSSecret  = "strimzi-tls-secret"
+	kafkaSASLSecret        = "strimzi-sasl-secret"
+	kafkaTLSSecret         = "strimzi-tls-secret"
+	kafkaBootstrapUrlPlain = "my-cluster-kafka-bootstrap.kafka.svc:9092"
 )
 
-var test_mt_soure = os.Getenv("TEST_MT_SOURCE")
+var test_mt_source = os.Getenv("TEST_MT_SOURCE")
 
 func TestKafkaSource(t *testing.T) {
 	t.Parallel()
@@ -62,9 +64,12 @@ func TestKafkaSource(t *testing.T) {
 	}
 
 	testFeatures := kafkasource.DataPlaneDelivery()
-	if test_mt_soure == "1" {
+	if test_mt_source == "1" {
 		testFeatures = append(testFeatures, kafkasource.MtDataPlaneDelivery())
 	}
+
+	testFeatures = append(testFeatures,
+		kafkasource.KafkaSourceGoesReady("readysource", ks.WithBootstrapServers([]string{kafkaBootstrapUrlPlain})))
 
 	for _, f := range testFeatures {
 		env.Test(ctx, t, f)

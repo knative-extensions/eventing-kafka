@@ -18,6 +18,7 @@ package testing
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 
 	kafkav1alpha1 "knative.dev/eventing-kafka/pkg/apis/kafka/v1alpha1"
@@ -173,5 +174,12 @@ func WithStatusConsumerGroupsStarted(state bool, failed ...string) ResetOffsetOp
 		} else {
 			resetOffset.Status.MarkConsumerGroupsStartedFailed(failed[0], failed[1])
 		}
+	}
+}
+
+func NewResetOffsetNamespacedName() types.NamespacedName {
+	return types.NamespacedName{
+		Namespace: ResetOffsetNamespace,
+		Name:      ResetOffsetName,
 	}
 }
