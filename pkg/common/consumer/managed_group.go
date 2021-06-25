@@ -36,7 +36,7 @@ type managedGroup struct {
 	cancelErrors       func()               // Called by the manager  CloseConsumerGroup to terminal the error forwarding
 	cancelConsume      func()               // Called by the manager during CloseConsumerGroup
 	lockedBy           atomic.Value         // The LockToken of the ConsumerGroupAsyncCommand that requested the lock
-	cancelLockTimeout  func()
+	cancelLockTimeout  func()               // Called internally to stop the lock timeout when a lock is removed
 }
 
 // createManagedGroup associates a Sarama ConsumerGroup and cancel function (usually from the factory)
@@ -51,11 +51,11 @@ func createManagedGroup(logger *zap.Logger, group sarama.ConsumerGroup, cancel f
 		cancelErrors: cancel,
 	}
 
-	managedGrp.lockedBy.Store("") // Make sure the lockedBy value is a string and not a nil interface
+	// Atomic values must be initialized with their desired type before being accessed, or a nil
+	// interface will be returned that is not of that type (string or bool in these cases)
+	managedGrp.lockedBy.Store("")   // Empty token string indicates "unlocked"
+	managedGrp.stopped.Store(false) // A managed group defaults to "started" when created
 
-	// Initialize the atomic boolean value to false, otherwise it will be a nil interface
-	// (restartWaitChannel is only accessed when "stopped" is true)
-	managedGrp.stopped.Store(false)
 	return &managedGrp
 }
 
@@ -64,7 +64,7 @@ func createManagedGroup(logger *zap.Logger, group sarama.ConsumerGroup, cancel f
 // will be set to an empty string (representing "unlocked")
 func (m *managedGroup) resetLockTimer(lockToken string, timeout time.Duration) {
 
-	// Stop any existing timer (without releasing the lock) so that it won't inadvertently do an unlock
+	// Stop any existing timer (without releasing the lock) so that it won't inadvertently do an unlock later
 	if m.cancelLockTimeout != nil {
 		m.cancelLockTimeout()
 	}
@@ -97,7 +97,10 @@ func (m *managedGroup) resetLockTimer(lockToken string, timeout time.Duration) {
 		}()
 
 	} else {
-		m.removeLock() // Can't lock with either a missing token or missing timeout
+		// If a lockToken and a timeout were not both provided, remove any existing lock
+		// (locking a managed group for literally forever is not supported, although an
+		// arbitrarily long time may be used).
+		m.removeLock()
 	}
 }
 

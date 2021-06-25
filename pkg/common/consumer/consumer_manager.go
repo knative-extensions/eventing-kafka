@@ -123,18 +123,22 @@ func (m *kafkaConsumerGroupManagerImpl) Reconfigure(brokers []string, config *sa
 	var multiErr error
 	groupsToRestart := make([]string, 0, len(m.groups))
 	for groupId := range m.groups {
-		// If we couldn't get a lock on any particular group, note it as an error, but practically
-		// the new brokers/config will be used when whatever locked it restarts it anyway.
 		err := m.stopConsumerGroup(getInternalLockCommand(true), groupId)
 		if err != nil {
+			// If we couldn't stop a group, or failed to obtain a lock, note it as an error.  However,
+			// in a practical sense, the new brokers/config will be used when whatever locked the group
+			// restarts it anyway.
 			multierr.AppendInto(&multiErr, err)
 		} else {
+			// Only attempt to restart groups that this function stopped
 			groupsToRestart = append(groupsToRestart, groupId)
 		}
 	}
+
 	m.factory = &kafkaConsumerGroupFactoryImpl{addrs: brokers, config: config}
+
+	// Restart any groups this function stopped
 	m.logger.Info("Reconfigure Consumer Group Manager - Starting All Managed Consumer Groups")
-	// Restart any groups we actually stopped
 	for _, groupId := range groupsToRestart {
 		err := m.startConsumerGroup(getInternalLockCommand(false), groupId)
 		if err != nil {
