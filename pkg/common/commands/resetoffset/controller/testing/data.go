@@ -137,12 +137,12 @@ func WithStatusRefMapped(state bool, failed ...string) ResetOffsetOption {
 	}
 }
 
-func WithStatusResetInitiated(state bool, failed ...string) ResetOffsetOption {
+func WithStatusAcquireDataPlaneServices(state bool, failed ...string) ResetOffsetOption {
 	return func(resetOffset *kafkav1alpha1.ResetOffset) {
 		if state {
-			resetOffset.Status.MarkResetInitiatedTrue()
+			resetOffset.Status.MarkAcquireDataPlaneServicesTrue()
 		} else {
-			resetOffset.Status.MarkResetInitiatedFailed(failed[0], failed[1])
+			resetOffset.Status.MarkAcquireDataPlaneServicesFailed(failed[0], failed[1])
 		}
 	}
 }

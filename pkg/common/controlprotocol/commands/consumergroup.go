@@ -47,6 +47,7 @@ type ConsumerGroupAsyncCommand struct {
 
 // NewConsumerGroupAsyncCommand constructs and returns a new ConsumerGroupAsyncCommand.
 func NewConsumerGroupAsyncCommand(commandId int64, topicName string, groupId string, lock *CommandLock) *ConsumerGroupAsyncCommand {
+
 	return &ConsumerGroupAsyncCommand{
 		Version:   ConsumerGroupAsyncCommandVersion, // Only One Version For Now - Validate Compatibility In Handler ; )
 		CommandId: commandId,
@@ -63,7 +64,6 @@ func (s *ConsumerGroupAsyncCommand) MarshalBinary() (data []byte, err error) {
 
 // UnmarshalBinary implements the Control-Protocol AsyncCommand interface.
 func (s *ConsumerGroupAsyncCommand) UnmarshalBinary(data []byte) error {
-	fmt.Printf("EDV: Received:\n%s\n", string(data))
 	return json.Unmarshal(data, &s)
 }
 

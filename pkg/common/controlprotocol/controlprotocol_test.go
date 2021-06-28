@@ -50,7 +50,7 @@ func TestNewServerHandler(t *testing.T) {
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			mockService := &ctrltesting.MockControlProtocolService{}
+			mockService := &ctrltesting.MockService{}
 			mockService.On("MessageHandler", mock.Anything).Return()
 			startServerWrapper = func(_ context.Context, _ ...network.ControlServerOption) (*network.ControlServer, error) {
 				return &network.ControlServer{Service: mockService}, testCase.serverErr
@@ -70,7 +70,7 @@ func TestHandlers(t *testing.T) {
 	saveStartServer := startServerWrapper
 	defer func() { startServerWrapper = saveStartServer }()
 
-	mockService := &ctrltesting.MockControlProtocolService{}
+	mockService := &ctrltesting.MockService{}
 	mockService.On("MessageHandler", mock.Anything).Return()
 
 	startServerWrapper = func(_ context.Context, _ ...network.ControlServerOption) (*network.ControlServer, error) {

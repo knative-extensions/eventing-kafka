@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"k8s.io/client-go/rest"
 	"knative.dev/pkg/client/injection/kube/client/fake"
+	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/fake" // Knative Fake Informer Injection
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/logging"
@@ -30,14 +31,13 @@ import (
 
 	fakekafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client/fake"
 	_ "knative.dev/eventing-kafka/pkg/client/injection/informers/kafka/v1alpha1/resetoffset/fake" // Force Fake Informer Injection
-	controllertesting "knative.dev/eventing-kafka/pkg/common/commands/resetoffset/controller/testing"
 	refmapperstesting "knative.dev/eventing-kafka/pkg/common/commands/resetoffset/refmappers/testing"
 	configtesting "knative.dev/eventing-kafka/pkg/common/config/testing"
 	"knative.dev/eventing-kafka/pkg/common/configmaploader"
 	fakeConfigmapLoader "knative.dev/eventing-kafka/pkg/common/configmaploader/fake"
 	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
+	controlprotocoltesting "knative.dev/eventing-kafka/pkg/common/controlprotocol/testing"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
-	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/fake" // Knative Fake Informer Injection
 )
 
 // Test The NewControllerFactory() Functionality
@@ -75,7 +75,7 @@ func TestNewControllerFactory(t *testing.T) {
 	mockResetOffsetRefMapperFactory.On("Create", ctx).Return(mockResetOffsetRefMapper)
 
 	// Create Mock ConnectionPool For Testing
-	mockConnectionPool := &controllertesting.MockConnectionPool{}
+	mockConnectionPool := &controlprotocoltesting.MockConnectionPool{}
 
 	// Verify The ResetOffset ControllerFactory Creates A ControllerConstructor
 	controllerConstructor := NewControllerFactory(mockResetOffsetRefMapperFactory, mockConnectionPool)
