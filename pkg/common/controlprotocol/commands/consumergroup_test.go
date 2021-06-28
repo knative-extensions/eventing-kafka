@@ -18,6 +18,7 @@ package commands
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -29,40 +30,89 @@ func TestNewConsumerGroupAsyncCommand(t *testing.T) {
 	topicName := "TestTopicName"
 	groupId := "TestGroupId"
 
-	// Perform The Test
-	consumerGroupAsyncCommand := NewConsumerGroupAsyncCommand(commandId, topicName, groupId)
+	// Define The Test Cases
+	tests := []struct {
+		name string
+		lock *CommandLock
+	}{
+		{
+			name: "With Lock",
+			lock: NewCommandLock("TestLockToken", 1*time.Minute, true, true),
+		},
+		{
+			name: "Without Lock",
+			lock: nil,
+		},
+	}
 
-	// Verify The Results
-	assert.NotNil(t, consumerGroupAsyncCommand)
-	assert.Equal(t, ConsumerGroupAsyncCommandVersion, consumerGroupAsyncCommand.Version)
-	assert.Equal(t, commandId, consumerGroupAsyncCommand.CommandId)
-	assert.Equal(t, topicName, consumerGroupAsyncCommand.TopicName)
-	assert.Equal(t, groupId, consumerGroupAsyncCommand.GroupId)
+	// Execute The Test Cases
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+
+			// Perform The Test
+			consumerGroupAsyncCommand := NewConsumerGroupAsyncCommand(commandId, topicName, groupId, test.lock)
+
+			// Verify The Results
+			assert.NotNil(t, consumerGroupAsyncCommand)
+			assert.Equal(t, ConsumerGroupAsyncCommandVersion, consumerGroupAsyncCommand.Version)
+			assert.Equal(t, commandId, consumerGroupAsyncCommand.CommandId)
+			assert.Equal(t, topicName, consumerGroupAsyncCommand.TopicName)
+			assert.Equal(t, groupId, consumerGroupAsyncCommand.GroupId)
+			assert.Equal(t, test.lock, consumerGroupAsyncCommand.Lock)
+		})
+	}
 }
 
 func TestConsumerGroupAsyncCommand_MarshalUnmarshal(t *testing.T) {
 
-	// Create A ConsumerGroupAsyncCommand To Test
-	origConsumerGroupAsyncCommand := NewConsumerGroupAsyncCommand(int64(1234), "TestTopicName", "TestGroupId")
+	// Test Data
+	commandId := int64(1234)
+	topicName := "TestTopicName"
+	groupId := "TestGroupId"
 
-	// Perform The Test (Marshal & Unmarshal Round Trip)
-	binaryData, err := origConsumerGroupAsyncCommand.MarshalBinary()
-	assert.Nil(t, err)
-	newConsumerGroupAsyncCommand := &ConsumerGroupAsyncCommand{}
-	err = newConsumerGroupAsyncCommand.UnmarshalBinary(binaryData)
-	assert.Nil(t, err)
+	// Define The Test Cases
+	tests := []struct {
+		name string
+		lock *CommandLock
+	}{
+		{
+			name: "With Lock",
+			lock: NewCommandLock("TestLockToken", 1*time.Minute, true, true),
+		},
+		{
+			name: "Without Lock",
+			lock: nil,
+		},
+	}
 
-	// Verify The Results
-	assert.Equal(t, ConsumerGroupAsyncCommandVersion, newConsumerGroupAsyncCommand.Version)
-	assert.Equal(t, origConsumerGroupAsyncCommand.CommandId, newConsumerGroupAsyncCommand.CommandId)
-	assert.Equal(t, origConsumerGroupAsyncCommand.TopicName, newConsumerGroupAsyncCommand.TopicName)
-	assert.Equal(t, origConsumerGroupAsyncCommand.GroupId, newConsumerGroupAsyncCommand.GroupId)
+	// Execute The Test Cases
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+
+			// Create A ConsumerGroupAsyncCommand To Test
+			origConsumerGroupAsyncCommand := NewConsumerGroupAsyncCommand(commandId, topicName, groupId, test.lock)
+
+			// Perform The Test (Marshal & Unmarshal Round Trip)
+			binaryData, err := origConsumerGroupAsyncCommand.MarshalBinary()
+			assert.Nil(t, err)
+			newConsumerGroupAsyncCommand := &ConsumerGroupAsyncCommand{}
+			err = newConsumerGroupAsyncCommand.UnmarshalBinary(binaryData)
+			assert.Nil(t, err)
+
+			// Verify The Results
+			assert.Equal(t, ConsumerGroupAsyncCommandVersion, newConsumerGroupAsyncCommand.Version)
+			assert.Equal(t, origConsumerGroupAsyncCommand.CommandId, newConsumerGroupAsyncCommand.CommandId)
+			assert.Equal(t, origConsumerGroupAsyncCommand.TopicName, newConsumerGroupAsyncCommand.TopicName)
+			assert.Equal(t, origConsumerGroupAsyncCommand.GroupId, newConsumerGroupAsyncCommand.GroupId)
+			assert.Equal(t, origConsumerGroupAsyncCommand.Lock, newConsumerGroupAsyncCommand.Lock)
+		})
+	}
 }
 
 func TestConsumerGroupAsyncCommand_SerializedId(t *testing.T) {
 
 	// Create A ConsumerGroupAsyncCommand To Test
-	consumerGroupAsyncCommand := NewConsumerGroupAsyncCommand(int64(1234), "TestTopicName", "TestGroupId1")
+	consumerGroupAsyncCommand := NewConsumerGroupAsyncCommand(int64(1234), "TestTopicName", "TestGroupId", nil)
 
 	// Perform The Test
 	serializedId := consumerGroupAsyncCommand.SerializedId()

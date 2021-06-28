@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"go.uber.org/multierr"
@@ -34,7 +35,9 @@ import (
 
 	controllertesting "knative.dev/eventing-kafka/pkg/common/commands/resetoffset/controller/testing"
 	refmapperstesting "knative.dev/eventing-kafka/pkg/common/commands/resetoffset/refmappers/testing"
+	"knative.dev/eventing-kafka/pkg/common/controlprotocol"
 	"knative.dev/eventing-kafka/pkg/common/controlprotocol/commands"
+	controlprotocoltesting "knative.dev/eventing-kafka/pkg/common/controlprotocol/testing"
 )
 
 func TestReconciler_ReconcileDataPlaneServices(t *testing.T) {
@@ -42,15 +45,15 @@ func TestReconciler_ReconcileDataPlaneServices(t *testing.T) {
 	// Test Data
 	podIp1 := "1.2.3.4"
 	podIp2 := "2.3.4.5"
-	podIpPort1 := fmt.Sprintf("%s:%d", podIp1, ControlProtocolServerPort)
-	podIpPort2 := fmt.Sprintf("%s:%d", podIp2, ControlProtocolServerPort)
+	podIpPort1 := fmt.Sprintf("%s:%d", podIp1, controlprotocol.ServerPort)
+	podIpPort2 := fmt.Sprintf("%s:%d", podIp2, controlprotocol.ServerPort)
 	podIpPorts := []string{podIpPort1, podIpPort2}
 	pods := []*corev1.Pod{
 		{Status: corev1.PodStatus{PodIP: podIp1}},
 		{Status: corev1.PodStatus{PodIP: podIp2}},
 	}
-	mockDataPlaneService1 := &controllertesting.MockService{}
-	mockDataPlaneService2 := &controllertesting.MockService{}
+	mockDataPlaneService1 := &controlprotocoltesting.MockService{}
+	mockDataPlaneService2 := &controlprotocoltesting.MockService{}
 	testErr := fmt.Errorf("test-error")
 
 	// Create A Context With Test Logger
@@ -105,7 +108,7 @@ func TestReconciler_ReconcileDataPlaneServices(t *testing.T) {
 			mockPodLister.On("Pods", refInfo.DataPlaneNamespace).Return(mockPodNamespaceLister)
 
 			// Create A Mock Control-Protocol ConnectionPool
-			mockConnectionPool := &controllertesting.MockConnectionPool{}
+			mockConnectionPool := &controlprotocoltesting.MockConnectionPool{}
 			if test.podListerErr == nil {
 				mockConnectionPool.On("ReconcileConnections",
 					ctx,
@@ -117,7 +120,7 @@ func TestReconciler_ReconcileDataPlaneServices(t *testing.T) {
 			}
 
 			// Create A Mock Control-Protocol AsyncCommandNotificationStore
-			mockAsyncCommandNotificationStore := &controllertesting.MockAsyncCommandNotificationStore{}
+			mockAsyncCommandNotificationStore := &controlprotocoltesting.MockAsyncCommandNotificationStore{}
 
 			// Create A Reconciler To Test
 			reconciler := &Reconciler{
@@ -150,6 +153,7 @@ func TestReconciler_StopConsumerGroups(t *testing.T) {
 func performStartStopConsumerGroupAsyncCommandsTest(t *testing.T, opCode ctrl.OpCode) {
 
 	// Test Data
+	reconcilerUID := types.UID(uuid.NewString())
 	podIp1 := "1.2.3.4"
 	podIp2 := "2.3.4.5"
 	testErr := fmt.Errorf("test-error")
@@ -191,31 +195,44 @@ func performStartStopConsumerGroupAsyncCommandsTest(t *testing.T, opCode ctrl.Op
 			refInfo := refmapperstesting.NewRefInfo()
 
 			// Determine The Expected CommandIDs
-			commandId1, err := generateCommandId(resetOffset, podIp1, opCode)
+			commandId1, err := GenerateCommandId(resetOffset, podIp1, opCode)
 			assert.Nil(t, err)
-			commandId2, err := generateCommandId(resetOffset, podIp2, opCode)
+			commandId2, err := GenerateCommandId(resetOffset, podIp2, opCode)
 			assert.Nil(t, err)
+
+			// Determine The Expected CommandLock Based On OpCode
+			lockToken := GenerateLockToken(reconcilerUID, resetOffset.UID)
+			var commandLock *commands.CommandLock
+			switch opCode {
+			case commands.StopConsumerGroupOpCode:
+				commandLock = commands.NewCommandLock(lockToken, asyncCommandLockTimeout, true, false)
+			case commands.StartConsumerGroupOpCode:
+				commandLock = commands.NewCommandLock(lockToken, 0, false, true)
+			default:
+				assert.Fail(t, "Unexpected OpCode - Unable To Determine Expected CommandLock")
+			}
 
 			// Create Test ConsumerGroupAsyncCommands For Each Pod
-			consumerGroupAsyncCommand1 := &commands.ConsumerGroupAsyncCommand{Version: 1, CommandId: commandId1, TopicName: refInfo.TopicName, GroupId: refInfo.GroupId}
-			consumerGroupAsyncCommand2 := &commands.ConsumerGroupAsyncCommand{Version: 1, CommandId: commandId2, TopicName: refInfo.TopicName, GroupId: refInfo.GroupId}
+			consumerGroupAsyncCommand1 := &commands.ConsumerGroupAsyncCommand{Version: 1, CommandId: commandId1, TopicName: refInfo.TopicName, GroupId: refInfo.GroupId, Lock: commandLock}
+			consumerGroupAsyncCommand2 := &commands.ConsumerGroupAsyncCommand{Version: 1, CommandId: commandId2, TopicName: refInfo.TopicName, GroupId: refInfo.GroupId, Lock: commandLock}
 
 			// Create A Mock Control-Protocol AsyncCommandNotificationStore & Assign To Reconciler
-			mockAsyncCommandNotificationStore := &controllertesting.MockAsyncCommandNotificationStore{}
+			mockAsyncCommandNotificationStore := &controlprotocoltesting.MockAsyncCommandNotificationStore{}
 			if test.result != nil {
 				mockAsyncCommandNotificationStore.On("GetCommandResult", resetOffsetNamespacedName, podIp1, consumerGroupAsyncCommand1).Return(test.result)
 				mockAsyncCommandNotificationStore.On("GetCommandResult", resetOffsetNamespacedName, podIp2, consumerGroupAsyncCommand2).Return(test.result)
 			}
 
 			// Create The Mock Services To Test Against
-			mockDataPlaneService1 := &controllertesting.MockService{}
-			mockDataPlaneService2 := &controllertesting.MockService{}
+			mockDataPlaneService1 := &controlprotocoltesting.MockService{}
+			mockDataPlaneService2 := &controlprotocoltesting.MockService{}
 			mockDataPlaneService1.On("SendAndWaitForAck", opCode, consumerGroupAsyncCommand1).Return(test.sendErr)
 			mockDataPlaneService2.On("SendAndWaitForAck", opCode, consumerGroupAsyncCommand2).Return(test.sendErr)
 			services := map[string]ctrl.Service{podIp1: mockDataPlaneService1, podIp2: mockDataPlaneService2}
 
 			// Create A Reconciler To Test
 			reconciler := &Reconciler{
+				uid:                           reconcilerUID,
 				asyncCommandNotificationStore: mockAsyncCommandNotificationStore,
 			}
 
@@ -227,15 +244,15 @@ func performStartStopConsumerGroupAsyncCommandsTest(t *testing.T, opCode ctrl.Op
 			case commands.StopConsumerGroupOpCode:
 				actualErr = reconciler.stopConsumerGroups(ctx, resetOffset, services, refInfo)
 			default:
-				assert.Fail(t, "Unexpected OpCode")
+				assert.Fail(t, "Unexpected OpCode - Unable To Determine Test Operation")
 			}
 
 			// Setup Expected Errors Based On Test
 			var expectedErrs []error
 			if test.sendErr != nil {
 				expectedErrs = []error{
-					fmt.Errorf("failed to send ConsumerGroup AsyncCommand '%d' : %v", commandId1, testErr),
-					fmt.Errorf("failed to send ConsumerGroup AsyncCommand '%d' : %v", commandId2, testErr),
+					fmt.Errorf("failed to send ConsumerGroup AsyncCommand '%d': %v", commandId1, testErr),
+					fmt.Errorf("failed to send ConsumerGroup AsyncCommand '%d': %v", commandId2, testErr),
 				}
 			}
 

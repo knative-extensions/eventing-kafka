@@ -22,10 +22,110 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/mock"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "knative.dev/control-protocol/pkg"
-	"knative.dev/control-protocol/pkg/message"
+	ctrlmessage "knative.dev/control-protocol/pkg/message"
+	ctrlreconciler "knative.dev/control-protocol/pkg/reconciler"
 	ctrlservice "knative.dev/control-protocol/pkg/service"
 )
+
+//
+// Mock Control-Protocol ConnectionPool
+//
+
+var _ ctrlreconciler.ControlPlaneConnectionPool = (*MockConnectionPool)(nil)
+
+type MockConnectionPool struct {
+	mock.Mock
+}
+
+func (c *MockConnectionPool) GetConnectedHosts(key string) []string {
+	args := c.Called(key)
+	return args.Get(0).([]string)
+}
+
+func (c *MockConnectionPool) GetServices(key string) map[string]ctrl.Service {
+	args := c.Called(key)
+	return args.Get(0).(map[string]ctrl.Service)
+}
+
+func (c *MockConnectionPool) ResolveControlInterface(key string, host string) (string, ctrl.Service) {
+	args := c.Called(key, host)
+	return args.String(0), args.Get(1).(ctrl.Service)
+}
+
+func (c *MockConnectionPool) RemoveConnection(ctx context.Context, key string, host string) {
+	c.Called(ctx, key, host)
+}
+
+func (c *MockConnectionPool) RemoveAllConnections(ctx context.Context, key string) {
+	c.Called(ctx, key)
+}
+
+func (c *MockConnectionPool) Close(ctx context.Context) {
+	c.Called(ctx)
+}
+
+func (c *MockConnectionPool) ReconcileConnections(ctx context.Context, key string, wantConnections []string, newServiceCb func(string, ctrl.Service), oldServiceCb func(string)) (map[string]ctrl.Service, error) {
+	args := c.Called(ctx, key, wantConnections, newServiceCb, oldServiceCb)
+	return args.Get(0).(map[string]ctrl.Service), args.Error(1)
+}
+
+func (c *MockConnectionPool) DialControlService(ctx context.Context, key string, host string) (string, ctrl.Service, error) {
+	args := c.Called(ctx, key, host)
+	return args.String(0), args.Get(1).(ctrl.Service), args.Error(2)
+}
+
+//
+// Mock Control-Protocol AsyncCommandNotificationStore
+//
+
+var _ ctrlreconciler.AsyncCommandNotificationStore = (*MockAsyncCommandNotificationStore)(nil)
+
+type MockAsyncCommandNotificationStore struct {
+	mock.Mock
+}
+
+func (a *MockAsyncCommandNotificationStore) GetCommandResult(srcName types.NamespacedName, pod string, command ctrlmessage.AsyncCommand) *ctrlmessage.AsyncCommandResult {
+	args := a.Called(srcName, pod, command)
+	return args.Get(0).(*ctrlmessage.AsyncCommandResult)
+}
+
+func (a *MockAsyncCommandNotificationStore) CleanPodsNotifications(srcName types.NamespacedName) {
+	a.Called(srcName)
+}
+
+func (a *MockAsyncCommandNotificationStore) CleanPodNotification(srcName types.NamespacedName, pod string) {
+	a.Called(srcName, pod)
+}
+
+func (a *MockAsyncCommandNotificationStore) MessageHandler(srcName types.NamespacedName, pod string) ctrl.MessageHandler {
+	args := a.Called(srcName, pod)
+	return args.Get(0).(ctrl.MessageHandler)
+}
+
+//
+// Mock Control-Protocol Service
+//
+
+var _ ctrl.Service = (*MockService)(nil)
+
+type MockService struct {
+	mock.Mock
+}
+
+func (s *MockService) SendAndWaitForAck(opcode ctrl.OpCode, payload encoding.BinaryMarshaler) error {
+	args := s.Called(opcode, payload)
+	return args.Error(0)
+}
+
+func (s *MockService) MessageHandler(handler ctrl.MessageHandler) {
+	s.Called(handler)
+}
+
+func (s *MockService) ErrorHandler(handler ctrl.ErrorHandler) {
+	s.Called(handler)
+}
 
 //
 // Mock Control-Protocol ServerHandler
@@ -36,10 +136,10 @@ type MockServerHandler struct {
 	mock.Mock
 	// Export the Router field so that tests can verify handlers in it directly
 	Router  ctrlservice.MessageRouter
-	Service *MockControlProtocolService
+	Service *MockService
 }
 
-func (s *MockServerHandler) AddAsyncHandler(opcode ctrl.OpCode, resultOpcode ctrl.OpCode, payloadType message.AsyncCommand,
+func (s *MockServerHandler) AddAsyncHandler(opcode ctrl.OpCode, resultOpcode ctrl.OpCode, payloadType ctrlmessage.AsyncCommand,
 	handler func(ctx context.Context, commandMessage ctrlservice.AsyncCommandMessage)) {
 	_ = s.Called(opcode, resultOpcode, payloadType, handler)
 	s.Router[opcode] = ctrlservice.NewAsyncCommandHandler(s.Service, payloadType, resultOpcode, handler)
@@ -60,30 +160,6 @@ func (s *MockServerHandler) RemoveHandler(opcode ctrl.OpCode) {
 func GetMockServerHandler() *MockServerHandler {
 	return &MockServerHandler{
 		Router:  make(ctrlservice.MessageRouter),
-		Service: &MockControlProtocolService{},
+		Service: &MockService{},
 	}
-}
-
-//
-// Mock Control-Protocol Service
-//
-
-// MockControlProtocolService is a stub-only mock of the Control Protocol Service
-type MockControlProtocolService struct {
-	mock.Mock
-}
-
-var _ ctrl.Service = (*MockControlProtocolService)(nil)
-
-func (m *MockControlProtocolService) SendAndWaitForAck(opcode ctrl.OpCode, payload encoding.BinaryMarshaler) error {
-	args := m.Called(opcode, payload)
-	return args.Error(0)
-}
-
-func (m *MockControlProtocolService) MessageHandler(handler ctrl.MessageHandler) {
-	_ = m.Called(handler)
-}
-
-func (m *MockControlProtocolService) ErrorHandler(handler ctrl.ErrorHandler) {
-	_ = m.Called(handler)
 }

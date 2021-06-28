@@ -37,19 +37,22 @@ var _ ctrlmessage.AsyncCommand = (*ConsumerGroupAsyncCommand)(nil)
 
 // ConsumerGroupAsyncCommand implements an AsyncCommand for handling ConsumerGroup related operations.
 type ConsumerGroupAsyncCommand struct {
-	Version   int16  `json:"version"`
-	CommandId int64  `json:"id"`
-	TopicName string `json:"topic"`
-	GroupId   string `json:"group"`
+	Version   int16        `json:"version"`
+	CommandId int64        `json:"commandId"`
+	TopicName string       `json:"topicName"`
+	GroupId   string       `json:"groupId"`
+	Lock      *CommandLock `json:"lock,omitempty"`
 }
 
 // NewConsumerGroupAsyncCommand constructs and returns a new ConsumerGroupAsyncCommand.
-func NewConsumerGroupAsyncCommand(commandId int64, topicName string, groupId string) *ConsumerGroupAsyncCommand {
+func NewConsumerGroupAsyncCommand(commandId int64, topicName string, groupId string, lock *CommandLock) *ConsumerGroupAsyncCommand {
+
 	return &ConsumerGroupAsyncCommand{
 		Version:   ConsumerGroupAsyncCommandVersion, // Only One Version For Now - Validate Compatibility In Handler ; )
 		CommandId: commandId,
 		TopicName: topicName,
 		GroupId:   groupId,
+		Lock:      lock,
 	}
 }
 
