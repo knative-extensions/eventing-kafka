@@ -78,6 +78,7 @@ func (m *managedGroup) resetLockTimer(lockToken string, timeout time.Duration) {
 		m.cancelLockTimeout = cancel
 		// Mark this group as "locked" by the provided token
 		m.lockedBy.Store(lockToken)
+		m.logger.Info("Managed group locked", zap.String("token", lockToken))
 
 		// Reset the lockedBy field to zero whenever the lockTimer expires.  We need to create a new routine each
 		// time (instead of calling lockTimer.Reset) because an existing timer may have expired long ago and exited
@@ -85,7 +86,7 @@ func (m *managedGroup) resetLockTimer(lockToken string, timeout time.Duration) {
 		go func() {
 			select {
 			case <-lockTimer.C:
-				m.logger.Debug("Managed Group lock timer expired; removing lock token")
+				m.logger.Debug("Managed Group lock timer expired")
 				m.removeLock()
 			case <-ctx.Done():
 				m.logger.Debug("Managed Group lock timer canceled")
@@ -114,6 +115,7 @@ func (m *managedGroup) canUnlock(token string) bool {
 // removeLock sets the lockedBy token to an empty string, meaning "unlocked"
 func (m *managedGroup) removeLock() {
 	if m.lockedBy.Load() != "" {
+		m.logger.Debug("Managed Group lock removed")
 		m.lockedBy.Store("")
 		m.cancelLockTimeout() // Make sure an existing timer doesn't re-clear the token later
 	}
@@ -167,6 +169,7 @@ func (m *managedGroup) waitForStart(ctx context.Context) bool {
 func (m *managedGroup) transferErrors(ctx context.Context) {
 	go func() {
 		for {
+			m.logger.Debug("Starting managed group error transfer")
 			for groupErr := range m.group.Errors() {
 				m.errors <- groupErr
 			}
@@ -178,6 +181,7 @@ func (m *managedGroup) transferErrors(ctx context.Context) {
 				return
 			}
 			// Wait for the manager to restart the Consumer Group before calling m.group.Errors() again
+			m.logger.Debug("Error transfer is waiting for managed group restart")
 			if !m.waitForStart(ctx) {
 				// Abort if the context was canceled
 				return

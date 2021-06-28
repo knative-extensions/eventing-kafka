@@ -267,6 +267,7 @@ func (m *kafkaConsumerGroupManagerImpl) consume(ctx context.Context, groupId str
 			return err
 		}
 		// Wait for the managed ConsumerGroup to be restarted
+		m.logger.Debug("Consume is waiting for managed group restart")
 		if !managedGrp.waitForStart(ctx) {
 			// Context was canceled; abort
 			m.logger.Debug("Managed Consume Canceled", zap.String("GroupId", groupId))
@@ -390,7 +391,6 @@ func processAsyncGroupNotification(commandMessage ctrlservice.AsyncCommandMessag
 		commandMessage.NotifyFailed(fmt.Errorf("version mismatch; expected %d but got %d", commands.ConsumerGroupAsyncCommandVersion, cmd.Version))
 		return
 	}
-	fmt.Printf("EDV: processAsyncGroupNotification groupId=%v\n", cmd.GroupId)
 	err := groupFunction(cmd.Lock, cmd.GroupId)
 	if err != nil {
 		commandMessage.NotifyFailed(err)

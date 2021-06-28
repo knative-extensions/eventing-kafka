@@ -18,7 +18,6 @@ package commands
 
 import (
 	"encoding/json"
-	"fmt"
 
 	ctrl "knative.dev/control-protocol/pkg"
 	ctrlmessage "knative.dev/control-protocol/pkg/message"
