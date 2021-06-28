@@ -382,17 +382,19 @@ func (m *kafkaConsumerGroupManagerImpl) processLock(lock *commands.CommandLock, 
 // processAsyncGroupNotification calls the provided groupFunction with whatever GroupId is contained
 // in the commandMessage, after verifying that the command version is correct.  It then calls the
 // appropriate Async response function on the commandMessage (NotifyFailed or NotifySuccess)
-func processAsyncGroupNotification(commandMessage ctrlservice.AsyncCommandMessage, groupFunction func(groupId string) error) {
-	if cmd, ok := commandMessage.ParsedCommand().(*commands.ConsumerGroupAsyncCommand); ok {
-		if cmd.Version != commands.ConsumerGroupAsyncCommandVersion {
-			commandMessage.NotifyFailed(fmt.Errorf("version mismatch; expected %d but got %d", commands.ConsumerGroupAsyncCommandVersion, cmd.Version))
-		} else {
-			err := groupFunction(cmd.GroupId)
-			if err != nil {
-				commandMessage.NotifyFailed(err)
-			} else {
-				commandMessage.NotifySuccess()
-			}
-		}
+func processAsyncGroupNotification(commandMessage ctrlservice.AsyncCommandMessage, groupFunction func(lock *commands.CommandLock, groupId string) error) {
+	cmd, ok := commandMessage.ParsedCommand().(*commands.ConsumerGroupAsyncCommand)
+	if !ok {
+		return
 	}
+	if cmd.Version != commands.ConsumerGroupAsyncCommandVersion {
+		commandMessage.NotifyFailed(fmt.Errorf("version mismatch; expected %d but got %d", commands.ConsumerGroupAsyncCommandVersion, cmd.Version))
+		return
+	}
+	err := groupFunction(cmd.Lock, cmd.GroupId)
+	if err != nil {
+		commandMessage.NotifyFailed(err)
+		return
+	}
+	commandMessage.NotifySuccess()
 }
