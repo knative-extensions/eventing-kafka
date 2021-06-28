@@ -425,7 +425,7 @@ func TestProcessLock(t *testing.T) {
 	defer restoreNewConsumerGroup(newConsumerGroup) // must use if calling getManagerWithMockGroup in the test
 	const existingGroup = "existing-group"
 	const newToken = "new-token"
-	const shortTimeout = 5 * time.Millisecond
+	const shortTimeout = 40 * time.Millisecond
 
 	for _, testCase := range []struct {
 		name            string
