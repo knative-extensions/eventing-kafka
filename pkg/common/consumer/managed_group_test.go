@@ -83,7 +83,7 @@ func TestManagedGroup(t *testing.T) {
 }
 
 func TestResetLockTimer(t *testing.T) {
-	const shortTimeout = 5 * time.Millisecond
+	const shortTimeout = 10 * time.Millisecond
 
 	for _, testCase := range []struct {
 		name          string
@@ -175,7 +175,7 @@ func TestResetLockTimer(t *testing.T) {
 }
 
 func TestTransferErrors(t *testing.T) {
-	const shortTimeout = 5 * time.Millisecond
+	const shortTimeout = 10 * time.Millisecond
 
 	for _, testCase := range []struct {
 		name       string
