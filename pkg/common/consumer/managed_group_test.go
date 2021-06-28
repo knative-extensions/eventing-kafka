@@ -83,7 +83,7 @@ func TestManagedGroup(t *testing.T) {
 }
 
 func TestResetLockTimer(t *testing.T) {
-	const shortTimeout = 10 * time.Millisecond
+	const shortTimeout = 50 * time.Millisecond
 
 	for _, testCase := range []struct {
 		name          string
@@ -143,6 +143,7 @@ func TestResetLockTimer(t *testing.T) {
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
+			time.Sleep(time.Millisecond)
 			_, managedGrp := createTestGroup(t)
 			if testCase.cancelTimer != nil {
 				managedGrp.cancelLockTimeout = testCase.cancelTimer
@@ -175,7 +176,7 @@ func TestResetLockTimer(t *testing.T) {
 }
 
 func TestTransferErrors(t *testing.T) {
-	const shortTimeout = 10 * time.Millisecond
+	const shortTimeout = 50 * time.Millisecond
 
 	for _, testCase := range []struct {
 		name       string
@@ -202,6 +203,7 @@ func TestTransferErrors(t *testing.T) {
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
+			time.Sleep(time.Millisecond)
 			mockGrp, managedGrp := createTestGroup(t)
 			mockGrp.On("Errors").Return(mockGrp.ErrorChan)
 			ctx, cancel := context.WithCancel(context.Background())

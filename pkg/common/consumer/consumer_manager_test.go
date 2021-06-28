@@ -496,6 +496,7 @@ func TestProcessLock(t *testing.T) {
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
+			time.Sleep(time.Millisecond)
 			manager, _, managedGrp, server := getManagerWithMockGroup(t, existingGroup, false)
 			if testCase.existingToken != "" {
 				managedGrp.lockedBy.Store(testCase.existingToken)
