@@ -24,9 +24,7 @@ import (
 	"time"
 
 	ctrlservice "knative.dev/control-protocol/pkg/service"
-
 	"github.com/stretchr/testify/mock"
-
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	ctrl "knative.dev/control-protocol/pkg"

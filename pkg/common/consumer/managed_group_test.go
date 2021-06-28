@@ -24,7 +24,6 @@ import (
 	"time"
 
 	logtesting "knative.dev/pkg/logging/testing"
-
 	"github.com/stretchr/testify/assert"
 
 	kafkatesting "knative.dev/eventing-kafka/pkg/common/kafka/testing"

@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-
 	"github.com/Shopify/sarama"
 )
 
