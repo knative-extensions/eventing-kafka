@@ -425,6 +425,7 @@ func TestProcessLock(t *testing.T) {
 	defer restoreNewConsumerGroup(newConsumerGroup) // must use if calling getManagerWithMockGroup in the test
 	const existingGroup = "existing-group"
 	const newToken = "new-token"
+	const shortTimeout = 5 * time.Millisecond
 
 	for _, testCase := range []struct {
 		name            string
@@ -472,7 +473,7 @@ func TestProcessLock(t *testing.T) {
 		{
 			name:            "Explicit Timeout",
 			groupId:         existingGroup,
-			lock:            &commands.CommandLock{LockBefore: true, UnlockAfter: true, Token: newToken, Timeout: time.Millisecond},
+			lock:            &commands.CommandLock{LockBefore: true, UnlockAfter: true, Token: newToken, Timeout: shortTimeout},
 			expectLock:      newToken,
 			expectTimerStop: true,
 		},
@@ -503,7 +504,7 @@ func TestProcessLock(t *testing.T) {
 			errBefore := impl.processLock(testCase.lock, testCase.groupId, true)
 			assert.Equal(t, testCase.expectLock, managedGrp.lockedBy.Load())
 			if testCase.expectTimerStop {
-				time.Sleep(3 * time.Millisecond)
+				time.Sleep(2 * shortTimeout)
 				assert.Equal(t, "", managedGrp.lockedBy.Load())
 			}
 			errAfter := impl.processLock(testCase.lock, testCase.groupId, false)
