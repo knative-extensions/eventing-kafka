@@ -23,8 +23,8 @@ import (
 	"testing"
 	"time"
 
-	logtesting "knative.dev/pkg/logging/testing"
 	"github.com/stretchr/testify/assert"
+	logtesting "knative.dev/pkg/logging/testing"
 
 	kafkatesting "knative.dev/eventing-kafka/pkg/common/kafka/testing"
 )

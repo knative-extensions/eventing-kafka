@@ -21,8 +21,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"go.uber.org/zap"
 	"github.com/Shopify/sarama"
+	"go.uber.org/zap"
 )
 
 // managedGroup contains information about a Sarama ConsumerGroup that is required to start (i.e. re-create) it
@@ -32,15 +32,15 @@ type managedGroup struct {
 	errors             chan error           // An error channel that will replicate the errors from the Sarama ConsumerGroup
 	restartWaitChannel chan struct{}        // A channel that will be closed when a stopped group is restarted
 	stopped            atomic.Value         // Boolean value indicating that the managed group is stopped
-	cancelErrors       func()               // Called by the manager  CloseConsumerGroup to terminal the error forwarding
+	cancelErrors       func()               // Called by the manager's CloseConsumerGroup to terminate the error forwarding
 	cancelConsume      func()               // Called by the manager during CloseConsumerGroup
 	lockedBy           atomic.Value         // The LockToken of the ConsumerGroupAsyncCommand that requested the lock
 	cancelLockTimeout  func()               // Called internally to stop the lock timeout when a lock is removed
 }
 
 // createManagedGroup associates a Sarama ConsumerGroup and cancel function (usually from the factory)
-// inside a new managedGroup struct.  If a timeout is given (nonzero), the lockId will be reset to zero
-// (i.e. "unlocked" after that time has passed)
+// inside a new managedGroup struct.  If a timeout is given (nonzero), the lockId will be reset to an
+// empty string (i.e. "unlocked") after that time has passed.
 func createManagedGroup(logger *zap.Logger, group sarama.ConsumerGroup, cancel func()) *managedGroup {
 
 	managedGrp := managedGroup{
@@ -79,9 +79,9 @@ func (m *managedGroup) resetLockTimer(lockToken string, timeout time.Duration) {
 		m.lockedBy.Store(lockToken)
 		m.logger.Info("Managed group locked", zap.String("token", lockToken))
 
-		// Reset the lockedBy field to zero whenever the lockTimer expires.  We need to create a new routine each
-		// time (instead of calling lockTimer.Reset) because an existing timer may have expired long ago and exited
-		// the goroutine.
+		// Reset the lockedBy field to an empty string when the lockTimer expires.  We create a new routine
+		// each time (instead of calling lockTimer.Reset) because an existing timer may have expired long ago
+		// and exited the goroutine.
 		go func() {
 			select {
 			case <-lockTimer.C:

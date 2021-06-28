@@ -23,11 +23,11 @@ import (
 	"testing"
 	"time"
 
-	ctrlservice "knative.dev/control-protocol/pkg/service"
-	"github.com/stretchr/testify/mock"
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	ctrl "knative.dev/control-protocol/pkg"
+	ctrlservice "knative.dev/control-protocol/pkg/service"
 	logtesting "knative.dev/pkg/logging/testing"
 
 	"knative.dev/eventing-kafka/pkg/common/controlprotocol/commands"
