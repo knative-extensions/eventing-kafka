@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	logtesting "knative.dev/pkg/logging/testing"
 
 	kafkatesting "knative.dev/eventing-kafka/pkg/common/kafka/testing"
 )
@@ -54,7 +55,7 @@ func TestManagedGroup(t *testing.T) {
 			// Test stop/start of a managedGroup
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			group := createManagedGroup(nil, cancel)
+			group := createManagedGroup(logtesting.TestLogger(t).Desugar(), nil, cancel)
 			waitGroup := sync.WaitGroup{}
 			assert.False(t, group.isStopped())
 
@@ -81,7 +82,102 @@ func TestManagedGroup(t *testing.T) {
 
 }
 
+func TestResetLockTimer(t *testing.T) {
+	const shortTimeout = 60 * time.Millisecond
+
+	for _, testCase := range []struct {
+		name          string
+		cancelTimer   func()
+		existingToken string
+		token         string
+		timeout       time.Duration
+		existingTimer bool
+		expiredTimer  bool
+		expected      string
+	}{
+		{
+			name:          "Running Timer",
+			timeout:       shortTimeout,
+			token:         "123",
+			expected:      "123",
+			existingTimer: true,
+		},
+		{
+			name:         "Expired Timer",
+			timeout:      shortTimeout,
+			token:        "123",
+			expected:     "123",
+			expiredTimer: true,
+		},
+		{
+			name:        "Existing Cancel Function",
+			timeout:     shortTimeout,
+			token:       "123",
+			expected:    "123",
+			cancelTimer: func() {},
+		},
+		{
+			name:          "Different LockToken",
+			timeout:       shortTimeout,
+			token:         "123",
+			expected:      "123",
+			existingToken: "456",
+		},
+		{
+			name:    "Empty LockToken, With Duration",
+			timeout: shortTimeout,
+		},
+		{
+			name: "Empty LockToken, No Duration",
+		},
+		{
+			name:     "Valid LockToken, With Duration",
+			token:    "123",
+			expected: "123",
+			timeout:  shortTimeout,
+		},
+		{
+			name:     "Valid LockToken, No Duration",
+			token:    "123",
+			expected: "",
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			time.Sleep(time.Millisecond)
+			_, managedGrp := createTestGroup(t)
+			if testCase.cancelTimer != nil {
+				managedGrp.cancelLockTimeout = testCase.cancelTimer
+			}
+			if testCase.existingTimer {
+				managedGrp.resetLock("existing-token", time.Second) // Long enough not to expire during the test
+				assert.False(t, managedGrp.canUnlock(testCase.token))
+				time.Sleep(time.Millisecond) // Let the timer loop start executing
+			} else if testCase.expiredTimer {
+				managedGrp.resetLock("existing-token", time.Microsecond) // Expire the timer immediately
+				time.Sleep(shortTimeout / 2)
+			} else {
+				assert.True(t, managedGrp.canUnlock(testCase.token))
+			}
+			if testCase.existingToken != "" {
+				managedGrp.lockedBy.Store(testCase.existingToken)
+				assert.Equal(t, testCase.existingToken == testCase.token, managedGrp.canUnlock(testCase.token))
+			}
+			managedGrp.resetLock(testCase.token, testCase.timeout)
+			if testCase.existingTimer || testCase.expiredTimer {
+				time.Sleep(time.Millisecond) // Let the timer loop finish executing
+			}
+			assert.Equal(t, testCase.expected, managedGrp.lockedBy.Load())
+			if testCase.timeout != 0 && testCase.token != "" {
+				time.Sleep(2 * testCase.timeout)
+				assert.Equal(t, "", managedGrp.lockedBy.Load())
+			}
+		})
+	}
+}
+
 func TestTransferErrors(t *testing.T) {
+	const shortTimeout = 60 * time.Millisecond
+
 	for _, testCase := range []struct {
 		name       string
 		stopGroup  bool
@@ -107,7 +203,8 @@ func TestTransferErrors(t *testing.T) {
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			mockGrp, managedGrp := createTestGroup()
+			time.Sleep(time.Millisecond)
+			mockGrp, managedGrp := createTestGroup(t)
 			mockGrp.On("Errors").Return(mockGrp.ErrorChan)
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
@@ -126,7 +223,7 @@ func TestTransferErrors(t *testing.T) {
 			close(mockGrp.ErrorChan)
 			mockGrp.AssertExpectations(t)
 
-			time.Sleep(5 * time.Millisecond) // Let the error handling loop move forward
+			time.Sleep(shortTimeout) // Let the error handling loop move forward
 			if testCase.startGroup {
 				// Simulate the effects of startConsumerGroup (new ConsumerGroup, same managedConsumerGroup)
 				mockGrp = kafkatesting.NewMockConsumerGroup()
@@ -134,7 +231,7 @@ func TestTransferErrors(t *testing.T) {
 				managedGrp.group = mockGrp
 				managedGrp.closeRestartChannel()
 
-				time.Sleep(5 * time.Millisecond) // Let the waitForStart function finish
+				time.Sleep(shortTimeout) // Let the waitForStart function finish
 				// Verify that errors work again after restart
 				mockGrp.ErrorChan <- fmt.Errorf("test-error-2")
 				err = <-managedGrp.errors
