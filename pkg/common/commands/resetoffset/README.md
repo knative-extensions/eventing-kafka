@@ -67,7 +67,7 @@ The general algorithm for reconciling ResetOffset instances is as follows...
 
 4 - Reposition the Offsets of all ConsumerGroup Partitions.
 
-5 - Re-Start all related ConsumerGroups in the Dispatcher Replicas. 
+5 - Re-Start all related ConsumerGroups in the Dispatcher Replicas.
 ```
 
 The reconciler will continue to process a ResetOffset until is has `Succeeded`.

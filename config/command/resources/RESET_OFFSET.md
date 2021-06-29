@@ -85,7 +85,7 @@ the Offsets when reviewing the following sections.
 
 4 - Reposition the Offsets of all ConsumerGroup Partitions.
 
-5 - Re-Start all related ConsumerGroups in the Dispatcher Replicas. 
+5 - Re-Start all related ConsumerGroups in the Dispatcher Replicas.
 ```
 
 The first two steps are read-only and do not alter the cluster in any way.
