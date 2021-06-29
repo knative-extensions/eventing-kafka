@@ -58,10 +58,10 @@ func createManagedGroup(logger *zap.Logger, group sarama.ConsumerGroup, cancel f
 	return &managedGrp
 }
 
-// resetLockTimer will set the "lockedBy" field to the given lockToken (need not be the same as the
+// resetLock will set the "lockedBy" field to the given lockToken (need not be the same as the
 // existing one) and reset the timer to the provided timeout.  After the timer expires, the lockToken
 // will be set to an empty string (representing "unlocked")
-func (m *managedGroup) resetLockTimer(lockToken string, timeout time.Duration) {
+func (m *managedGroup) resetLock(lockToken string, timeout time.Duration) {
 
 	// Stop any existing timer (without releasing the lock) so that it won't inadvertently do an unlock later
 	if m.cancelLockTimeout != nil {
@@ -71,7 +71,7 @@ func (m *managedGroup) resetLockTimer(lockToken string, timeout time.Duration) {
 	if lockToken != "" && timeout != 0 {
 		// Use the provided lockToken, which will prevent any caller with a different token from executing commands
 		lockTimer := time.NewTimer(timeout)
-		// Create a cancel function that will be used by further calls to resetLockTimer, or to removeLock(),
+		// Create a cancel function that will be used by further calls to resetLock, or to removeLock(),
 		// for the purpose of stopping the lockTimer without clearing the token
 		ctx, cancel := context.WithCancel(context.Background())
 		m.cancelLockTimeout = cancel

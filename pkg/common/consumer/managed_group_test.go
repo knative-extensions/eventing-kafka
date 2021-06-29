@@ -149,11 +149,11 @@ func TestResetLockTimer(t *testing.T) {
 				managedGrp.cancelLockTimeout = testCase.cancelTimer
 			}
 			if testCase.existingTimer {
-				managedGrp.resetLockTimer("existing-token", time.Second) // Long enough not to expire during the test
+				managedGrp.resetLock("existing-token", time.Second) // Long enough not to expire during the test
 				assert.False(t, managedGrp.canUnlock(testCase.token))
 				time.Sleep(time.Millisecond) // Let the timer loop start executing
 			} else if testCase.expiredTimer {
-				managedGrp.resetLockTimer("existing-token", time.Microsecond) // Expire the timer immediately
+				managedGrp.resetLock("existing-token", time.Microsecond) // Expire the timer immediately
 				time.Sleep(shortTimeout / 2)
 			} else {
 				assert.True(t, managedGrp.canUnlock(testCase.token))
@@ -162,7 +162,7 @@ func TestResetLockTimer(t *testing.T) {
 				managedGrp.lockedBy.Store(testCase.existingToken)
 				assert.Equal(t, testCase.existingToken == testCase.token, managedGrp.canUnlock(testCase.token))
 			}
-			managedGrp.resetLockTimer(testCase.token, testCase.timeout)
+			managedGrp.resetLock(testCase.token, testCase.timeout)
 			if testCase.existingTimer || testCase.expiredTimer {
 				time.Sleep(time.Millisecond) // Let the timer loop finish executing
 			}

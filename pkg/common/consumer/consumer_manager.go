@@ -171,14 +171,10 @@ func (m *kafkaConsumerGroupManagerImpl) StartConsumerGroup(groupId string, topic
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	// Add the Sarama ConsumerGroup we obtained from the factory to the managed group map,
-	// so that it can be stopped and started via control-protocol messages.
-	m.groupLock.Lock()
-	m.groups[groupId] = createManagedGroup(m.logger, group, cancel)
-	m.groupLock.Unlock()
+	managedGrp := createManagedGroup(m.logger, group, cancel)
 
 	// Begin listening on the group's Errors() channel and write them to the managedGroup's errors channel
-	m.groups[groupId].transferErrors(ctx)
+	managedGrp.transferErrors(ctx)
 
 	// consume is passed in to the KafkaConsumerGroupFactory so that it will call the manager's
 	// consume() function instead of the one on the internal sarama ConsumerGroup.  This allows the
@@ -190,7 +186,11 @@ func (m *kafkaConsumerGroupManagerImpl) StartConsumerGroup(groupId string, topic
 
 	// The only thing we really want from the factory is the cancel function for the customConsumerGroup
 	customGroup := m.factory.startExistingConsumerGroup(group, consume, topics, logger, handler, options...)
-	m.groups[groupId].cancelConsume = customGroup.cancel
+	managedGrp.cancelConsume = customGroup.cancel
+
+	// Add the Sarama ConsumerGroup we obtained from the factory to the managed group map,
+	// so that it can be stopped and started via control-protocol messages.
+	m.setGroup(groupId, managedGrp)
 	return nil
 }
 
@@ -223,9 +223,7 @@ func (m *kafkaConsumerGroupManagerImpl) CloseConsumerGroup(groupId string) error
 	}
 
 	// Remove this groupId from the map so that manager functions may not be called on it
-	m.groupLock.Lock()
-	delete(m.groups, groupId)
-	m.groupLock.Unlock()
+	m.removeGroup(groupId)
 
 	return nil
 }
@@ -242,12 +240,7 @@ func (m *kafkaConsumerGroupManagerImpl) Errors(groupId string) <-chan error {
 
 // IsManaged returns true if the given groupId corresponds to a managed ConsumerGroup
 func (m *kafkaConsumerGroupManagerImpl) IsManaged(groupId string) bool {
-	m.groupLock.RLock()
-	defer m.groupLock.RUnlock()
-	if _, ok := m.groups[groupId]; ok {
-		return true
-	}
-	return false
+	return m.getGroup(groupId) != nil
 }
 
 // Consume calls the Consume method of a managed consumer group, using a loop to call it again if that
@@ -279,11 +272,14 @@ func (m *kafkaConsumerGroupManagerImpl) consume(ctx context.Context, groupId str
 // stopConsumerGroups closes the managed ConsumerGroup identified by the provided groupId, and marks it
 // as "stopped" (that is, "able to be restarted" as opposed to being closed by something outside the manager)
 func (m *kafkaConsumerGroupManagerImpl) stopConsumerGroup(lock *commands.CommandLock, groupId string) error {
-	if err := m.processLock(lock, groupId, true); err != nil {
+	groupLogger := m.logger.With(zap.String("GroupId", groupId))
+
+	// Lock the managedGroup before stopping it, if lock.LockBefore is true
+	if err := m.lockBefore(lock, groupId); err != nil {
+		groupLogger.Error("Failed to lock consumer group prior to stopping", zap.Error(err))
 		return err
 	}
 
-	groupLogger := m.logger.With(zap.String("GroupId", groupId))
 	groupLogger.Info("Stopping Managed ConsumerGroup")
 
 	managedGrp := m.getGroup(groupId)
@@ -306,16 +302,24 @@ func (m *kafkaConsumerGroupManagerImpl) stopConsumerGroup(lock *commands.Command
 		return err
 	}
 
-	return m.processLock(lock, groupId, false)
+	// Unlock the managedGroup after stopping it, if lock.UnlockAfter is true
+	if err = m.unlockAfter(lock, groupId); err != nil {
+		groupLogger.Error("Failed to unlock consumer group after stopping", zap.Error(err))
+		return err
+	}
+	return nil
 }
 
 // startConsumerGroups creates a new Consumer Group based on the groupId provided
 func (m *kafkaConsumerGroupManagerImpl) startConsumerGroup(lock *commands.CommandLock, groupId string) error {
-	if err := m.processLock(lock, groupId, true); err != nil {
+	groupLogger := m.logger.With(zap.String("GroupId", groupId))
+
+	// Lock the managedGroup before starting it, if lock.LockBefore is true
+	if err := m.lockBefore(lock, groupId); err != nil {
+		groupLogger.Error("Failed to lock consumer group prior to starting", zap.Error(err))
 		return err
 	}
 
-	groupLogger := m.logger.With(zap.String("GroupId", groupId))
 	groupLogger.Info("Starting Managed ConsumerGroup")
 	if !m.IsManaged(groupId) {
 		groupLogger.Info("ConsumerGroup Not Managed - Ignoring Start Request")
@@ -328,12 +332,16 @@ func (m *kafkaConsumerGroupManagerImpl) startConsumerGroup(lock *commands.Comman
 		return err
 	}
 
-	m.groupLock.Lock()
-	m.groups[groupId].group = group
-	m.groups[groupId].closeRestartChannel() // Closing this allows the waitForStart function to finish
-	m.groupLock.Unlock()
+	managedGrp := m.getGroup(groupId)
+	managedGrp.group = group
+	managedGrp.closeRestartChannel() // Closing this allows the waitForStart function to finish
 
-	return m.processLock(lock, groupId, false)
+	// Unlock the managedGroup after starting it, if lock.UnlockAfter is true
+	if err = m.unlockAfter(lock, groupId); err != nil {
+		groupLogger.Error("Failed to unlock consumer group after starting", zap.Error(err))
+		return err
+	}
+	return nil
 }
 
 // getGroup returns a group from the groups map using the groupLock mutex
@@ -343,15 +351,38 @@ func (m *kafkaConsumerGroupManagerImpl) getGroup(groupId string) *managedGroup {
 	return m.groups[groupId]
 }
 
+// getGroup associates a group with a groupId in the groups map using the groupLock mutex
+func (m *kafkaConsumerGroupManagerImpl) setGroup(groupId string, group *managedGroup) {
+	m.groupLock.Lock()
+	m.groups[groupId] = group
+	m.groupLock.Unlock()
+}
+
+// getGroup removes a group from the groups map by groupId, using the groupLock mutex
+func (m *kafkaConsumerGroupManagerImpl) removeGroup(groupId string) {
+	m.groupLock.Lock()
+	delete(m.groups, groupId)
+	m.groupLock.Unlock()
+}
+
+// lockBefore will lock the managedGroup corresponding to the groupId, if lock.LockBefore is true
+func (m *kafkaConsumerGroupManagerImpl) lockBefore(lock *commands.CommandLock, groupId string) error {
+	return m.processLock(lock, groupId, true)
+}
+
+// unlockAfter will unlock the managedGroup corresponding to the groupId, if lock.UnlockAfter is true
+func (m *kafkaConsumerGroupManagerImpl) unlockAfter(lock *commands.CommandLock, groupId string) error {
+	return m.processLock(lock, groupId, false)
+}
+
 // processLock handles setting and removing the managedGroup's lock status.
-// For the managedGroup with the given groupId, if that group exists and the provided CommandLock fields warrant it,
-// this function will:
-// - if "before" is true, set the lockedBy field of the group
-// - if "before" is false, remove the lockedBy field of the group
+// For the managedGroup with the given groupId, if that group exists, this function will:
+// - Lock the group, if "lock" is true and cmdLock.LockBefore is true
+// - Unlock the group, if "lock" is false and cmdLock.UnlockAfter is true
 // Returns an error if the lock.Token field doesn't match an existing token in the managedGroup (for either case), as
 // this indicates that the group is locked by a different sender
-func (m *kafkaConsumerGroupManagerImpl) processLock(lock *commands.CommandLock, groupId string, before bool) error {
-	if lock == nil {
+func (m *kafkaConsumerGroupManagerImpl) processLock(cmdLock *commands.CommandLock, groupId string, lock bool) error {
+	if cmdLock == nil {
 		return nil // No lock processing was requested
 	}
 
@@ -360,19 +391,23 @@ func (m *kafkaConsumerGroupManagerImpl) processLock(lock *commands.CommandLock, 
 		return nil // Can't lock a nonexistent group
 	}
 
-	if !group.canUnlock(lock.Token) {
+	if (lock && !cmdLock.LockBefore) || (!lock && !cmdLock.UnlockAfter) {
+		return nil // If neither a lock nor unlock were requested, no need to go any further
+	}
+
+	if !group.canUnlock(cmdLock.Token) {
 		m.logger.Info("Managed group access denied; already locked with a different token",
-			zap.String("Token", lock.Token), zap.String("GroupId", groupId), zap.Bool("Before", before))
+			zap.String("Token", cmdLock.Token), zap.String("GroupId", groupId))
 		return GroupLockedError // Already locked by a different command token
 	}
 
-	if before && lock.LockBefore {
-		timeout := lock.Timeout
+	if lock && cmdLock.LockBefore {
+		timeout := cmdLock.Timeout
 		if timeout == 0 {
 			timeout = defaultLockTimeout
 		}
-		group.resetLockTimer(lock.Token, timeout)
-	} else if !before && lock.UnlockAfter {
+		group.resetLock(cmdLock.Token, timeout)
+	} else if cmdLock.UnlockAfter {
 		group.removeLock()
 	}
 
