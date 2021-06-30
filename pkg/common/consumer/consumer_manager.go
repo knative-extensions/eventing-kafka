@@ -297,7 +297,7 @@ func (m *kafkaConsumerGroupManagerImpl) getGroup(groupId string) managedGroup {
 	return m.groups[groupId]
 }
 
-// getGroup associates a group with a groupId in the groups map using the groupLock mutex
+// setGroup associates a group with a groupId in the groups map using the groupLock mutex
 func (m *kafkaConsumerGroupManagerImpl) setGroup(groupId string, group managedGroup) {
 	m.groupLock.Lock()
 	m.groups[groupId] = group
