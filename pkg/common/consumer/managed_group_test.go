@@ -513,7 +513,7 @@ func TestTransferErrors(t *testing.T) {
 // Mock managedGroup
 //
 
-// MockManagedGroup implements the managedGroup interface
+// mockManagedGroup implements the managedGroup interface
 type mockManagedGroup struct {
 	mock.Mock
 }
