@@ -32,10 +32,13 @@ import (
 // GroupLockedError is the error returned if the a locked managed group is given a different token for access
 var GroupLockedError = fmt.Errorf("managed group lock failed: locked by a different token")
 
+// createSaramaGroupFn represents the mechanism the managedGroup should use when creating a Sarama ConsumerGroup
+type createSaramaGroupFn func() (sarama.ConsumerGroup, error)
+
 // managedGroup contains information about a Sarama ConsumerGroup that is required to start (i.e. re-create) it
 type managedGroup interface {
 	consume(context.Context, []string, sarama.ConsumerGroupHandler) error
-	start(sarama.ConsumerGroup)
+	start(createSaramaGroupFn) error
 	stop() error
 	close() error
 	errors() chan error
@@ -45,15 +48,15 @@ type managedGroup interface {
 // managedGroupImpl implements the managedGroup interface
 type managedGroupImpl struct {
 	logger             *zap.Logger
-	group              sarama.ConsumerGroup // The Sarama ConsumerGroup which is under management
-	groupErrors        chan error           // An error channel that will replicate the errors from the Sarama ConsumerGroup
+	saramaGroup        sarama.ConsumerGroup // The Sarama ConsumerGroup which is under management
+	transferredErrors  chan error           // An error channel that will replicate the errors from the Sarama ConsumerGroup
 	restartWaitChannel chan struct{}        // A channel that will be closed when a stopped group is restarted
 	stopped            atomic.Value         // Boolean value indicating that the managed group is stopped
 	cancelErrors       func()               // Called by the manager's CloseConsumerGroup to terminate the error forwarding
 	cancelConsume      func()               // Called by the manager during CloseConsumerGroup
 	lockedBy           atomic.Value         // The LockToken of the ConsumerGroupAsyncCommand that requested the lock
 	cancelLockTimeout  func()               // Called internally to stop the lock timeout when a lock is removed
-	groupMutex         sync.Mutex           // Used to synchronize access to the internal sarama ConsumerGroup
+	groupMutex         sync.RWMutex         // Used to synchronize access to the internal sarama ConsumerGroup
 }
 
 // createManagedGroup associates a Sarama ConsumerGroup and cancel function (usually from the factory)
@@ -62,12 +65,12 @@ type managedGroupImpl struct {
 func createManagedGroup(ctx context.Context, logger *zap.Logger, group sarama.ConsumerGroup, cancelErrors func(), cancelConsume func()) managedGroup {
 
 	managedGrp := &managedGroupImpl{
-		logger:        logger,
-		group:         group,
-		groupErrors:   make(chan error),
-		cancelErrors:  cancelErrors,
-		cancelConsume: cancelConsume,
-		groupMutex:    sync.Mutex{},
+		logger:            logger,
+		saramaGroup:       group,
+		transferredErrors: make(chan error),
+		cancelErrors:      cancelErrors,
+		cancelConsume:     cancelConsume,
+		groupMutex:        sync.RWMutex{},
 	}
 
 	// Atomic values must be initialized with their desired type before being accessed, or a nil
@@ -88,13 +91,9 @@ func (m *managedGroupImpl) stop() error {
 	// return control to the factory.
 	m.createRestartChannel()
 
-	m.groupMutex.Lock()
-	group := m.group
-	m.groupMutex.Unlock()
-
 	// Close the inner sarama ConsumerGroup, which will cause our consume() function to stop
 	// and wait for the managedGroup to start again.
-	if err := group.Close(); err != nil {
+	if err := m.getSaramaGroup().Close(); err != nil {
 		// Don't leave the start channel open if the group.Close() call failed; that would be misleading
 		m.closeRestartChannel()
 		return err
@@ -102,12 +101,16 @@ func (m *managedGroupImpl) stop() error {
 	return nil
 }
 
-// start starts the managed group, using the provided group as the "restarted" internal group
-func (m *managedGroupImpl) start(group sarama.ConsumerGroup) {
-	m.groupMutex.Lock()
-	m.group = group
-	m.groupMutex.Unlock()
+// start creates a Sarama ConsumerGroup using the provided createGroup function and marks the
+// managedGroup as "started" by closing the restartWaitChannel
+func (m *managedGroupImpl) start(createGroup createSaramaGroupFn) error {
+	group, err := createGroup()
+	if err != nil {
+		return err
+	}
+	m.setSaramaGroup(group)
 	m.closeRestartChannel() // Closing this allows the waitForStart function to finish
+	return nil
 }
 
 // close shuts down the internal sarama ConsumerGroup, canceling the consume and/or error transfer
@@ -129,20 +132,14 @@ func (m *managedGroupImpl) close() error {
 	} else {
 		m.cancelConsume() // This will stop the factory's consume loop after the ConsumerGroup is closed
 	}
-	m.groupMutex.Lock()
-	defer m.groupMutex.Unlock()
-	return m.group.Close()
+	return m.getSaramaGroup().Close()
 }
 
 // consume calls the Consume function on the managed ConsumerGroup, supporting the stop/start functionality
 func (m *managedGroupImpl) consume(ctx context.Context, topics []string, handler sarama.ConsumerGroupHandler) error {
 	for {
 		// Call the internal sarama ConsumerGroup's Consume function directly
-		m.groupMutex.Lock()
-		group := m.group
-		m.groupMutex.Unlock()
-
-		err := group.Consume(ctx, topics, handler)
+		err := m.getSaramaGroup().Consume(ctx, topics, handler)
 		if !m.isStopped() {
 			m.logger.Debug("Managed Consume Finished Without Stop", zap.Error(err))
 			// This ConsumerGroup wasn't stopped by the manager, so pass the error along to the caller
@@ -160,7 +157,21 @@ func (m *managedGroupImpl) consume(ctx context.Context, topics []string, handler
 
 // getErrors returns the error channel, which is relayed from the internal managed ConsumerGroup
 func (m *managedGroupImpl) errors() chan error {
-	return m.groupErrors
+	return m.transferredErrors
+}
+
+// getSaramaGroup returns the internal Sarama ConsumerGroup, protected by the mutex
+func (m *managedGroupImpl) getSaramaGroup() sarama.ConsumerGroup {
+	m.groupMutex.RLock()
+	defer m.groupMutex.RUnlock()
+	return m.saramaGroup
+}
+
+// setSaramaGroup sets the internal Sarama ConsumerGroup, protected by the mutex
+func (m *managedGroupImpl) setSaramaGroup(group sarama.ConsumerGroup) {
+	m.groupMutex.Lock()
+	defer m.groupMutex.Unlock()
+	m.saramaGroup = group
 }
 
 // resetLock will set the "lockedBy" field to the given lockToken (need not be the same as the
@@ -309,17 +320,14 @@ func (m *managedGroupImpl) transferErrors(ctx context.Context) {
 	go func() {
 		for {
 			m.logger.Debug("Starting managed group error transfer")
-			m.groupMutex.Lock()
-			group := m.group
-			m.groupMutex.Unlock()
-			for groupErr := range group.Errors() {
-				m.groupErrors <- groupErr
+			for groupErr := range m.getSaramaGroup().Errors() {
+				m.transferredErrors <- groupErr
 			}
 			if !m.isStopped() {
 				// If the error channel was closed without the consumergroup being marked as stopped,
 				// or if we were unable to wait for the group to be restarted, that is outside
 				// of the manager's responsibility, so we are finished transferring errors.
-				close(m.groupErrors)
+				close(m.transferredErrors)
 				return
 			}
 			// Wait for the manager to restart the Consumer Group before calling m.group.Errors() again

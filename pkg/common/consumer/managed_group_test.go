@@ -338,7 +338,7 @@ func TestManagedGroupConsume(t *testing.T) {
 				} else {
 					mgdGroup.closeRestartChannel()
 				}
-				assert.Nil(t, mgdGroup.group.Close()) // Stops the MockConsumerGroup's Consume() call
+				assert.Nil(t, mgdGroup.saramaGroup.Close()) // Stops the MockConsumerGroup's Consume() call
 			}
 			waitGroup.Wait() // Allows the goroutine with the consume call to finish
 		})
@@ -350,18 +350,24 @@ func TestStopStart(t *testing.T) {
 	for _, testCase := range []struct {
 		name        string
 		errStopping bool
+		errStarting bool
 		stopped     bool
 	}{
 		{
 			name: "Initially Started",
 		},
 		{
-			name:        "Initially Started, Error Stopping",
+			name: "Initially Started, Error Stopping",
 			errStopping: true,
 		},
 		{
-			name:    "Initially Stopped",
+			name: "Initially Stopped",
 			stopped: true,
+		},
+		{
+			name: "Initially Stopped, Error Starting",
+			stopped: true,
+			errStarting: true,
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -379,12 +385,18 @@ func TestStopStart(t *testing.T) {
 				mgdGroup.stopped.Store(testCase.stopped)
 			}
 
-			mgdGroup.start(mockGroup)
+			err := mgdGroup.start(func() (sarama.ConsumerGroup, error) {
+				startErr := fmt.Errorf("error starting")
+				if !testCase.errStarting {
+					startErr = nil
+				}
+				return mockGroup, startErr })
+			assert.Equal(t, testCase.errStarting, err != nil)
 
-			// Verify that the group is not stopped, regardless of initial state
-			assert.False(t, mgdGroup.stopped.Load().(bool))
+			// Verify that the group is not stopped (unless there was an error)
+			assert.Equal(t, testCase.errStarting, mgdGroup.stopped.Load().(bool))
 
-			err := mgdGroup.stop()
+			err = mgdGroup.stop()
 
 			assert.Equal(t, !testCase.errStopping || testCase.stopped, mgdGroup.stopped.Load().(bool))
 			assert.Equal(t, testCase.errStopping, err != nil)
@@ -463,10 +475,10 @@ func TestTransferErrors(t *testing.T) {
 
 			mockGrp := kafkatesting.NewMockConsumerGroup()
 			managedGrp := managedGroupImpl{
-				logger:      logtesting.TestLogger(t).Desugar(),
-				group:       mockGrp,
-				groupErrors: make(chan error),
-				groupMutex:  sync.Mutex{},
+				logger:            logtesting.TestLogger(t).Desugar(),
+				saramaGroup:       mockGrp,
+				transferredErrors: make(chan error),
+				groupMutex:        sync.RWMutex{},
 			}
 			managedGrp.lockedBy.Store("")
 			managedGrp.stopped.Store(false)
@@ -494,7 +506,7 @@ func TestTransferErrors(t *testing.T) {
 				// Simulate the effects of startConsumerGroup (new ConsumerGroup, same managedConsumerGroup)
 				mockGrp = kafkatesting.NewMockConsumerGroup()
 				mockGrp.On("Errors").Return(mockGrp.ErrorChan)
-				managedGrp.group = mockGrp
+				managedGrp.saramaGroup = mockGrp
 				managedGrp.closeRestartChannel()
 
 				time.Sleep(shortTimeout) // Let the waitForStart function finish
@@ -523,8 +535,8 @@ func (m *mockManagedGroup) consume(ctx context.Context, topics []string, handler
 	return m.Called(ctx, topics, handler).Error(0)
 }
 
-func (m *mockManagedGroup) start(group sarama.ConsumerGroup) {
-	_ = m.Called(group)
+func (m *mockManagedGroup) start(createGroup createSaramaGroupFn) error {
+	return m.Called(createGroup).Error(0)
 }
 
 func (m *mockManagedGroup) stop() error {

@@ -176,7 +176,7 @@ func TestConsume(t *testing.T) {
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			manager := &kafkaConsumerGroupManagerImpl{groups: make(groupMap)}
+			manager := &kafkaConsumerGroupManagerImpl{logger: logtesting.TestLogger(t).Desugar(), groups: make(groupMap)}
 			if testCase.groupId != "" {
 				mockGroup := &mockManagedGroup{}
 				mockGroup.On("consume", context.Background(), []string{"topic"}, nil).Return(nil)
@@ -210,7 +210,7 @@ func TestLockUnlockWrappers(t *testing.T) {
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			manager := &kafkaConsumerGroupManagerImpl{groups: make(groupMap)}
+			manager := &kafkaConsumerGroupManagerImpl{logger: logtesting.TestLogger(t).Desugar(), groups: make(groupMap)}
 			if testCase.groupId != "" {
 				mockGroup := &mockManagedGroup{}
 				mockGroup.On("processLock", mock.Anything, mock.Anything).Return(fmt.Errorf("test error"))
@@ -421,7 +421,7 @@ func TestNotifications(t *testing.T) {
 				mockGroup := &mockManagedGroup{}
 				mockGroup.On("processLock", mock.Anything, true).Return(nil)
 				mockGroup.On("stop").Return(nil)
-				mockGroup.On("start", mock.Anything).Return()
+				mockGroup.On("start", mock.Anything).Return(nil)
 				mockGroup.On("processLock", mock.Anything, false).Return(fmt.Errorf("unlock error"))
 				impl.groups[testCase.groupId] = mockGroup
 			}

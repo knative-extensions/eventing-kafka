@@ -273,14 +273,16 @@ func (m *kafkaConsumerGroupManagerImpl) startConsumerGroup(lock *commands.Comman
 		return fmt.Errorf("start requested for consumer group not in managed list: %s", groupId)
 	}
 
-	group, err := m.factory.createConsumerGroup(groupId)
+	createGroup := func() (sarama.ConsumerGroup, error) {
+		return m.factory.createConsumerGroup(groupId)
+	}
+
+	// Instruct the managed group to use this new ConsumerGroup
+	err := managedGrp.start(createGroup)
 	if err != nil {
 		groupLogger.Error("Failed To Restart Managed ConsumerGroup", zap.Error(err))
 		return err
 	}
-
-	// Instruct the managed group to use this new ConsumerGroup
-	managedGrp.start(group)
 
 	// Unlock the managedGroup after starting it, if lock.UnlockAfter is true
 	if err = m.unlockAfter(lock, groupId); err != nil {
@@ -300,15 +302,15 @@ func (m *kafkaConsumerGroupManagerImpl) getGroup(groupId string) managedGroup {
 // setGroup associates a group with a groupId in the groups map using the groupLock mutex
 func (m *kafkaConsumerGroupManagerImpl) setGroup(groupId string, group managedGroup) {
 	m.groupLock.Lock()
+	defer m.groupLock.Unlock()
 	m.groups[groupId] = group
-	m.groupLock.Unlock()
 }
 
 // getGroup removes a group from the groups map by groupId, using the groupLock mutex
 func (m *kafkaConsumerGroupManagerImpl) removeGroup(groupId string) {
 	m.groupLock.Lock()
+	defer m.groupLock.Unlock()
 	delete(m.groups, groupId)
-	m.groupLock.Unlock()
 }
 
 // lockBefore will lock the managedGroup corresponding to the groupId, if lock.LockBefore is true
