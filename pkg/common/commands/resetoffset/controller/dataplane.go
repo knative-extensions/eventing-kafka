@@ -45,8 +45,12 @@ const (
 )
 
 var (
-	// TODO - How long should a Successful ResetOffset Reconciliation Take ???
-	asyncCommandLockTimeout = 1 * time.Minute // AsyncCommand ConsumerGroup Lock Timeout (Enough for successful ResetOffset reconciliation)
+	// asyncCommandLockTimeout defines the timeout of the lock kept in the DataPlane (Dispatcher)
+	// during stopping / starting the ConsumerGroups.  It should be long enough to safely perform
+	// a successful ResetOffset operation, but short enough that a failed ResetOffset attempt
+	// isn't blocking another attempt.  The locks are in-memory only and can be cleared by
+	// restarting the DataPlane (Dispatcher) Pods in order to recover.
+	asyncCommandLockTimeout = 1 * time.Minute
 )
 
 // reconcileDataPlaneServices updates the Reconciler ConnectionPool Services associated with the specified RefInfo.
