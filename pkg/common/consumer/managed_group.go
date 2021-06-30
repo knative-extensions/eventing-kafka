@@ -87,12 +87,13 @@ func (m *managedGroupImpl) stop() error {
 	// as "stopped") before closing the internal ConsumerGroup, otherwise the consume function would
 	// return control to the factory.
 	m.createRestartChannel()
-	// Close the inner sarama ConsumerGroup, which will cause our consume() function to stop
-	// and wait for the managedGroup to start again.
+
 	m.groupMutex.Lock()
 	group := m.group
 	m.groupMutex.Unlock()
 
+	// Close the inner sarama ConsumerGroup, which will cause our consume() function to stop
+	// and wait for the managedGroup to start again.
 	if err := group.Close(); err != nil {
 		// Don't leave the start channel open if the group.Close() call failed; that would be misleading
 		m.closeRestartChannel()
