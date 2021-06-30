@@ -19,7 +19,6 @@ package consumer
 import (
 	"context"
 	"fmt"
-	"sync"
 	"testing"
 	"time"
 
@@ -132,7 +131,6 @@ func TestCloseConsumerGroup(t *testing.T) {
 		groupId   string
 		expectErr bool
 		closeErr  error
-		cancel    bool
 	}{
 		{
 			name:      "Nonexistent GroupID",
@@ -148,39 +146,24 @@ func TestCloseConsumerGroup(t *testing.T) {
 			closeErr:  fmt.Errorf("close error"),
 			expectErr: true,
 		},
-		{
-			name:    "With Cancel Functions",
-			groupId: "test-group-id",
-			cancel:  true,
-		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			manager, group, managedGrp, server := getManagerWithMockGroup(t, testCase.groupId, false)
-			var cancelConsumeCalled, cancelErrorsCalled bool
+			manager, group, _, server := getManagerWithMockGroup(t, testCase.groupId, false)
 			if group != nil {
 				group.On("Close").Return(testCase.closeErr)
-				if testCase.cancel {
-					managedGrp.cancelConsume = func() { cancelConsumeCalled = true }
-					managedGrp.cancelErrors = func() { cancelErrorsCalled = true }
-				}
+				group.On("Errors").Return(make(chan error))
 			}
 			err := manager.CloseConsumerGroup(testCase.groupId)
 			assert.Equal(t, testCase.expectErr, err != nil)
-			assert.Equal(t, testCase.cancel, cancelConsumeCalled)
-			assert.Equal(t, testCase.cancel, cancelErrorsCalled)
 			server.AssertExpectations(t)
 		})
 	}
 }
 
 func TestConsume(t *testing.T) {
-	defer restoreNewConsumerGroup(newConsumerGroup) // must use if calling getManagerWithMockGroup in the test
-
 	for _, testCase := range []struct {
 		name      string
 		groupId   string
-		stopped   bool
-		cancel    bool
 		expectErr string
 	}{
 		{
@@ -188,59 +171,55 @@ func TestConsume(t *testing.T) {
 			expectErr: "consume called on nonexistent groupId ''",
 		},
 		{
-			name:      "Existing GroupID, Started",
-			groupId:   "test-group-id",
-			expectErr: "kafka: tried to use a consumer group that was closed",
-		},
-		{
-			name:      "Existing GroupID, Stopped",
-			groupId:   "test-group-id",
-			stopped:   true,
-			expectErr: "kafka: tried to use a consumer group that was closed",
-		},
-		{
-			name:      "Existing GroupID, Canceled",
-			groupId:   "test-group-id",
-			stopped:   true,
-			cancel:    true,
-			expectErr: "context was canceled waiting for group 'test-group-id' to start",
+			name:    "Existing GroupID",
+			groupId: "test-group-id",
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			manager, mockGroup, mgdGroup, server := getManagerWithMockGroup(t, testCase.groupId, false)
-			if mockGroup != nil {
-				mockGroup.On("Consume", ctx, []string{"topic"}, nil).Return(sarama.ErrClosedConsumerGroup)
-				mockGroup.On("Close").Return(nil)
+			manager := &kafkaConsumerGroupManagerImpl{groups: make(groupMap)}
+			if testCase.groupId != "" {
+				mockGroup := &mockManagedGroup{}
+				mockGroup.On("consume", context.Background(), []string{"topic"}, nil).Return(nil)
+				manager.groups[testCase.groupId] = mockGroup
 			}
+			err := manager.consume(context.Background(), testCase.groupId, []string{"topic"}, nil)
+			if testCase.expectErr != "" {
+				assert.NotNil(t, err)
+				assert.Equal(t, testCase.expectErr, err.Error())
+			} else {
+				assert.Nil(t, err)
+			}
+		})
+	}
+}
 
-			if testCase.stopped {
-				mgdGroup.createRestartChannel()
+func TestLockUnlockWrappers(t *testing.T) {
+
+	for _, testCase := range []struct {
+		name      string
+		groupId   string
+		expectErr bool
+	}{
+		{
+			name: "Nonexistent GroupID",
+		},
+		{
+			name:      "Existing GroupID",
+			groupId:   "test-group-id",
+			expectErr: true,
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			manager := &kafkaConsumerGroupManagerImpl{groups: make(groupMap)}
+			if testCase.groupId != "" {
+				mockGroup := &mockManagedGroup{}
+				mockGroup.On("processLock", mock.Anything, mock.Anything).Return(fmt.Errorf("test error"))
+				manager.groups[testCase.groupId] = mockGroup
 			}
-			waitGroup := sync.WaitGroup{}
-			waitGroup.Add(1)
-			go func() {
-				err := manager.(*kafkaConsumerGroupManagerImpl).consume(ctx, testCase.groupId, []string{"topic"}, nil)
-				if testCase.expectErr != "" {
-					assert.NotNil(t, err)
-					assert.Equal(t, testCase.expectErr, err.Error())
-				} else {
-					assert.Nil(t, err)
-				}
-				waitGroup.Done()
-			}()
-			time.Sleep(5 * time.Millisecond) // Give Consume() a chance to call waitForStart()
-			if mgdGroup != nil {
-				if testCase.cancel {
-					cancel()
-				} else {
-					mgdGroup.closeRestartChannel()
-				}
-				assert.Nil(t, mgdGroup.group.Close()) // Stops the MockConsumerGroup's Consume() call
-			}
-			waitGroup.Wait() // Allows the goroutine with the consume call to finish
-			server.AssertExpectations(t)
+			err := manager.lockBefore(nil, testCase.groupId)
+			assert.Equal(t, testCase.expectErr, err != nil)
+			err = manager.unlockAfter(nil, testCase.groupId)
+			assert.Equal(t, testCase.expectErr, err != nil)
 		})
 	}
 }
@@ -287,6 +266,7 @@ func TestNotifications(t *testing.T) {
 		closeErr    error
 		expectClose bool
 		lockFail    bool
+		unlockFail  bool
 		lock        *commands.CommandLock
 	}{
 		{
@@ -367,17 +347,16 @@ func TestNotifications(t *testing.T) {
 			version:     1,
 			lock:        &commands.CommandLock{UnlockAfter: true, Token: "token"},
 			initialStop: true,
+			expectStop:  true, // Still stopped, because the group is locked by a different token
 			lockFail:    true,
 		},
 		{
-			name:        "Stop Group OpCode, Unlock Failure",
-			opcode:      commands.StopConsumerGroupOpCode,
-			groupId:     "test-group-id",
-			version:     1,
-			lock:        &commands.CommandLock{UnlockAfter: true, Token: "token"},
-			expectClose: true,
-			lockFail:    true,
-			expectStop:  true,
+			name:     "Stop Group OpCode, Unlock Failure",
+			opcode:   commands.StopConsumerGroupOpCode,
+			groupId:  "test-group-id",
+			version:  1,
+			lock:     &commands.CommandLock{UnlockAfter: true, Token: "token"},
+			lockFail: true,
 		},
 		{
 			name:        "Start Group OpCode, Lock Success",
@@ -396,12 +375,31 @@ func TestNotifications(t *testing.T) {
 			expectStop:  true,
 			version:     1,
 		},
+		{
+			name:        "Start Group OpCode, Lock Success, Unlock Failure",
+			opcode:      commands.StartConsumerGroupOpCode,
+			groupId:     "test-group-id",
+			version:     1,
+			lock:        &commands.CommandLock{LockBefore: true, Token: "token"},
+			initialStop: true,
+			unlockFail:  true,
+		},
+		{
+			name:       "Stop Group OpCode, Lock Success, Unlock Failure",
+			opcode:     commands.StopConsumerGroupOpCode,
+			groupId:    "test-group-id",
+			version:    1,
+			lock:       &commands.CommandLock{LockBefore: true, Token: "token"},
+			expectStop: true,
+			unlockFail: true,
+		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
+
 			manager, group, managedGrp, serverHandler := getManagerWithMockGroup(t, testCase.groupId, testCase.factoryErr)
 			impl := manager.(*kafkaConsumerGroupManagerImpl)
 			if testCase.initialStop {
-				impl.groups[testCase.groupId].createRestartChannel()
+				impl.groups[testCase.groupId].(*managedGroupImpl).createRestartChannel()
 			}
 			if group != nil && testCase.expectClose {
 				group.On("Close").Return(testCase.closeErr)
@@ -411,9 +409,21 @@ func TestNotifications(t *testing.T) {
 			assert.True(t, ok)
 
 			if testCase.lockFail {
-				managedGrp.lockedBy.Store("different-lock-token")
+				managedGrp.(*managedGroupImpl).lockedBy.Store("different-lock-token")
 			} else if testCase.lock != nil {
-				managedGrp.lockedBy.Store(testCase.lock.Token)
+				managedGrp.(*managedGroupImpl).lockedBy.Store(testCase.lock.Token)
+			}
+
+			mockingManagedGroup := false
+			if testCase.unlockFail {
+				// Having lock succeed but unlock fail is difficult to accomplish practically, so use a mock instead
+				mockingManagedGroup = true
+				mockGroup := &mockManagedGroup{}
+				mockGroup.On("processLock", mock.Anything, true).Return(nil)
+				mockGroup.On("stop").Return(nil)
+				mockGroup.On("start", mock.Anything).Return()
+				mockGroup.On("processLock", mock.Anything, false).Return(fmt.Errorf("unlock error"))
+				impl.groups[testCase.groupId] = mockGroup
 			}
 
 			testCommand := commands.ConsumerGroupAsyncCommand{
@@ -432,107 +442,12 @@ func TestNotifications(t *testing.T) {
 			}))
 
 			if group != nil {
-				assert.Equal(t, testCase.expectStop, impl.groups[testCase.groupId].isStopped())
+				if !mockingManagedGroup {
+					assert.Equal(t, testCase.expectStop, impl.groups[testCase.groupId].(*managedGroupImpl).isStopped())
+				}
 				group.AssertExpectations(t)
 			}
 			serverHandler.AssertExpectations(t)
-		})
-	}
-}
-
-func TestProcessLock(t *testing.T) {
-	defer restoreNewConsumerGroup(newConsumerGroup) // must use if calling getManagerWithMockGroup in the test
-	const existingGroup = "existing-group"
-	const newToken = "new-token"
-	const shortTimeout = 60 * time.Millisecond
-
-	for _, testCase := range []struct {
-		name            string
-		groupId         string
-		lock            *commands.CommandLock
-		existingToken   string
-		expectLock      string
-		expectUnlock    string
-		expectErrBefore error
-		expectErrAfter  error
-		expectTimerStop bool
-	}{
-		{
-			name:    "Nil LockCommand",
-			groupId: existingGroup,
-		},
-		{
-			name:    "Nonexistent Group",
-			groupId: "nonexistent-group",
-			lock:    &commands.CommandLock{LockBefore: true, UnlockAfter: true},
-		},
-		{
-			name:            "Different Lock Token",
-			groupId:         existingGroup,
-			existingToken:   "existing-token",
-			expectLock:      "existing-token",
-			expectUnlock:    "existing-token",
-			lock:            &commands.CommandLock{LockBefore: true, UnlockAfter: true, Token: newToken},
-			expectErrBefore: GroupLockedError,
-			expectErrAfter:  GroupLockedError,
-		},
-		{
-			name:          "Same Lock Token",
-			groupId:       existingGroup,
-			existingToken: newToken,
-			expectLock:    newToken,
-			lock:          &commands.CommandLock{LockBefore: true, UnlockAfter: true, Token: newToken},
-		},
-		{
-			name:       "Zero Timeout",
-			groupId:    existingGroup,
-			lock:       &commands.CommandLock{LockBefore: true, UnlockAfter: true, Token: newToken},
-			expectLock: newToken,
-		},
-		{
-			name:            "Explicit Timeout",
-			groupId:         existingGroup,
-			lock:            &commands.CommandLock{LockBefore: true, UnlockAfter: true, Token: newToken, Timeout: shortTimeout},
-			expectLock:      newToken,
-			expectTimerStop: true,
-		},
-		{
-			name:         "LockBefore Only",
-			groupId:      existingGroup,
-			lock:         &commands.CommandLock{LockBefore: true, Token: newToken},
-			expectLock:   newToken,
-			expectUnlock: newToken,
-		},
-		{
-			name:    "UnlockAfter Only",
-			groupId: existingGroup,
-			lock:    &commands.CommandLock{UnlockAfter: true, Token: newToken},
-		},
-		{
-			name:    "No Lock Or Unlock",
-			groupId: existingGroup,
-			lock:    &commands.CommandLock{Token: newToken},
-		},
-	} {
-		t.Run(testCase.name, func(t *testing.T) {
-			time.Sleep(time.Millisecond)
-			manager, _, managedGrp, server := getManagerWithMockGroup(t, existingGroup, false)
-			if testCase.existingToken != "" {
-				managedGrp.lockedBy.Store(testCase.existingToken)
-			}
-			impl := manager.(*kafkaConsumerGroupManagerImpl)
-			errBefore := impl.processLock(testCase.lock, testCase.groupId, true)
-			assert.Equal(t, testCase.expectLock, managedGrp.lockedBy.Load())
-			if testCase.expectTimerStop {
-				time.Sleep(2 * shortTimeout)
-				assert.Equal(t, "", managedGrp.lockedBy.Load())
-			}
-			errAfter := impl.processLock(testCase.lock, testCase.groupId, false)
-			assert.Equal(t, testCase.expectUnlock, managedGrp.lockedBy.Load())
-			assert.Equal(t, testCase.expectErrBefore, errBefore)
-			assert.Equal(t, testCase.expectErrAfter, errAfter)
-
-			server.AssertExpectations(t)
 		})
 	}
 }
@@ -551,7 +466,7 @@ func TestProcessAsyncGroupNotification_BadMessage(t *testing.T) {
 // getManagerWithMockGroup creates a KafkaConsumerGroupManager and optionally seeds it with a mock consumer group
 func getManagerWithMockGroup(t *testing.T, groupId string, factoryErr bool) (KafkaConsumerGroupManager,
 	*kafkatesting.MockConsumerGroup,
-	*managedGroup,
+	managedGroup,
 	*controltesting.MockServerHandler) {
 
 	serverHandler := getMockServerHandler()
@@ -559,15 +474,26 @@ func getManagerWithMockGroup(t *testing.T, groupId string, factoryErr bool) (Kaf
 		if factoryErr {
 			return nil, fmt.Errorf("factory error")
 		}
-		return kafkatesting.NewMockConsumerGroup(), nil
+		mockGroup := kafkatesting.NewMockConsumerGroup()
+		mockGroup.On("Errors").Return(make(chan error))
+		return mockGroup, nil
 	}
 	manager := NewConsumerGroupManager(logtesting.TestLogger(t).Desugar(), serverHandler, []string{}, &sarama.Config{})
 	if groupId != "" {
-		mockGrp, managedGrp := createTestGroup(t)
+		mockGroup, managedGrp := createMockAndManagedGroups(t)
 		manager.(*kafkaConsumerGroupManagerImpl).groups[groupId] = managedGrp
-		return manager, mockGrp, managedGrp, serverHandler
+		return manager, mockGroup, managedGrp, serverHandler
 	}
 	return manager, nil, nil, serverHandler
+}
+
+func createMockAndManagedGroups(t *testing.T) (*kafkatesting.MockConsumerGroup, *managedGroupImpl) {
+	mockGroup := kafkatesting.NewMockConsumerGroup()
+	mockGroup.On("Errors").Return(make(chan error))
+	managedGrp := createManagedGroup(context.Background(), logtesting.TestLogger(t).Desugar(), mockGroup, func() {}, func() {})
+	// let the transferErrors function start (otherwise AssertExpectations will randomly fail because Errors() isn't called)
+	time.Sleep(5 * time.Millisecond)
+	return mockGroup, managedGrp.(*managedGroupImpl)
 }
 
 func getMockServerHandler() *controltesting.MockServerHandler {
@@ -579,11 +505,6 @@ func getMockServerHandler() *controltesting.MockServerHandler {
 	server.Service.On("SendAndWaitForAck", commands.StopConsumerGroupResultOpCode, mock.Anything).Return(nil)
 	server.Service.On("SendAndWaitForAck", commands.StartConsumerGroupResultOpCode, mock.Anything).Return(nil)
 	return server
-}
-
-func createTestGroup(t *testing.T) (*kafkatesting.MockConsumerGroup, *managedGroup) {
-	mockGroup := kafkatesting.NewMockConsumerGroup()
-	return mockGroup, createManagedGroup(logtesting.TestLogger(t).Desugar(), mockGroup, func() {})
 }
 
 // restoreNewConsumerGroup allows a single defer call to be used for saving and restoring the newConsumerGroup wrapper

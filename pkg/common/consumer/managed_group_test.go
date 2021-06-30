@@ -23,6 +23,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Shopify/sarama"
+	"github.com/stretchr/testify/mock"
+	"knative.dev/eventing-kafka/pkg/common/controlprotocol/commands"
+
 	"github.com/stretchr/testify/assert"
 	logtesting "knative.dev/pkg/logging/testing"
 
@@ -55,7 +59,10 @@ func TestManagedGroup(t *testing.T) {
 			// Test stop/start of a managedGroup
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			group := createManagedGroup(logtesting.TestLogger(t).Desugar(), nil, cancel)
+
+			mockGroup := kafkatesting.NewMockConsumerGroup()
+			mockGroup.On("Errors").Return(make(chan error))
+			group := createManagedGroup(ctx, logtesting.TestLogger(t).Desugar(), mockGroup, cancel, func() {}).(*managedGroupImpl)
 			waitGroup := sync.WaitGroup{}
 			assert.False(t, group.isStopped())
 
@@ -80,6 +87,110 @@ func TestManagedGroup(t *testing.T) {
 		})
 	}
 
+}
+
+func TestProcessLock(t *testing.T) {
+	defer restoreNewConsumerGroup(newConsumerGroup) // must use if calling getManagerWithMockGroup in the test
+	const newToken = "new-token"
+	const shortTimeout = 60 * time.Millisecond
+
+	for _, testCase := range []struct {
+		name            string
+		lock            *commands.CommandLock
+		existingToken   string
+		expectLock      string
+		expectUnlock    string
+		expectErrBefore error
+		expectErrAfter  error
+		expectTimerStop bool
+	}{
+		{
+			name: "Nil LockCommand",
+		},
+		{
+			name:            "Different Lock Token",
+			existingToken:   "existing-token",
+			expectLock:      "existing-token",
+			expectUnlock:    "existing-token",
+			lock:            &commands.CommandLock{LockBefore: true, UnlockAfter: true, Token: newToken},
+			expectErrBefore: GroupLockedError,
+			expectErrAfter:  GroupLockedError,
+		},
+		{
+			name:            "No Lock Provided, ManagedGroup Locked",
+			existingToken:   "existing-token",
+			expectLock:      "existing-token",
+			expectUnlock:    "existing-token",
+			expectErrBefore: GroupLockedError,
+			expectErrAfter:  GroupLockedError,
+		},
+		{
+			name:            "Empty Token, ManagedGroup Locked",
+			existingToken:   "existing-token",
+			expectLock:      "existing-token",
+			expectUnlock:    "existing-token",
+			lock:            &commands.CommandLock{LockBefore: true, UnlockAfter: true, Token: ""},
+			expectErrBefore: GroupLockedError,
+			expectErrAfter:  GroupLockedError,
+		},
+		{
+			name:            "Different Lock Token, No LockBefore Or UnlockAfter Specified",
+			existingToken:   "existing-token",
+			expectLock:      "existing-token",
+			expectUnlock:    "existing-token",
+			lock:            &commands.CommandLock{Token: newToken},
+			expectErrBefore: GroupLockedError,
+			expectErrAfter:  GroupLockedError,
+		},
+		{
+			name:          "Same Lock Token",
+			existingToken: newToken,
+			expectLock:    newToken,
+			lock:          &commands.CommandLock{LockBefore: true, UnlockAfter: true, Token: newToken},
+		},
+		{
+			name:       "Zero Timeout",
+			lock:       &commands.CommandLock{LockBefore: true, UnlockAfter: true, Token: newToken},
+			expectLock: newToken,
+		},
+		{
+			name:            "Explicit Timeout",
+			lock:            &commands.CommandLock{LockBefore: true, UnlockAfter: true, Token: newToken, Timeout: shortTimeout},
+			expectLock:      newToken,
+			expectTimerStop: true,
+		},
+		{
+			name:         "LockBefore Only",
+			lock:         &commands.CommandLock{LockBefore: true, Token: newToken},
+			expectLock:   newToken,
+			expectUnlock: newToken,
+		},
+		{
+			name: "UnlockAfter Only",
+			lock: &commands.CommandLock{UnlockAfter: true, Token: newToken},
+		},
+		{
+			name: "No Lock Or Unlock",
+			lock: &commands.CommandLock{Token: newToken},
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			_, managedGrp := createMockAndManagedGroups(t)
+			if testCase.existingToken != "" {
+				managedGrp.lockedBy.Store(testCase.existingToken)
+			}
+			errBefore := managedGrp.processLock(testCase.lock, true)
+			assert.Equal(t, testCase.expectLock, managedGrp.lockedBy.Load())
+			if testCase.expectTimerStop {
+				time.Sleep(2 * shortTimeout)
+				assert.Equal(t, "", managedGrp.lockedBy.Load())
+			}
+			errAfter := managedGrp.processLock(testCase.lock, false)
+			assert.Equal(t, testCase.expectUnlock, managedGrp.lockedBy.Load())
+			assert.Equal(t, testCase.expectErrBefore, errBefore)
+			assert.Equal(t, testCase.expectErrAfter, errAfter)
+		})
+	}
 }
 
 func TestResetLockTimer(t *testing.T) {
@@ -144,7 +255,7 @@ func TestResetLockTimer(t *testing.T) {
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			time.Sleep(time.Millisecond)
-			_, managedGrp := createTestGroup(t)
+			_, managedGrp := createMockAndManagedGroups(t)
 			if testCase.cancelTimer != nil {
 				managedGrp.cancelLockTimeout = testCase.cancelTimer
 			}
@@ -171,6 +282,152 @@ func TestResetLockTimer(t *testing.T) {
 				time.Sleep(2 * testCase.timeout)
 				assert.Equal(t, "", managedGrp.lockedBy.Load())
 			}
+		})
+	}
+}
+
+func TestManagedGroupConsume(t *testing.T) {
+
+	for _, testCase := range []struct {
+		name      string
+		stopped   bool
+		cancel    bool
+		expectErr string
+	}{
+		{
+			name:      "Started",
+			expectErr: "kafka: tried to use a consumer group that was closed",
+		},
+		{
+			name:      "Stopped",
+			stopped:   true,
+			expectErr: "kafka: tried to use a consumer group that was closed",
+		},
+		{
+			name:      "Canceled",
+			stopped:   true,
+			cancel:    true,
+			expectErr: "context was canceled waiting for group to start",
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			mockGroup, mgdGroup := createMockAndManagedGroups(t)
+			mockGroup.On("Consume", ctx, []string{"topic"}, nil).Return(sarama.ErrClosedConsumerGroup)
+			mockGroup.On("Close").Return(nil)
+
+			if testCase.stopped {
+				mgdGroup.createRestartChannel()
+			}
+			waitGroup := sync.WaitGroup{}
+			waitGroup.Add(1)
+			go func() {
+				err := mgdGroup.consume(ctx, []string{"topic"}, nil)
+				if testCase.expectErr != "" {
+					assert.NotNil(t, err)
+					assert.Equal(t, testCase.expectErr, err.Error())
+				} else {
+					assert.Nil(t, err)
+				}
+				waitGroup.Done()
+			}()
+			time.Sleep(5 * time.Millisecond) // Give Consume() a chance to call waitForStart()
+			if mgdGroup != nil {
+				if testCase.cancel {
+					cancel()
+				} else {
+					mgdGroup.closeRestartChannel()
+				}
+				assert.Nil(t, mgdGroup.group.Close()) // Stops the MockConsumerGroup's Consume() call
+			}
+			waitGroup.Wait() // Allows the goroutine with the consume call to finish
+		})
+	}
+}
+
+func TestStopStart(t *testing.T) {
+
+	for _, testCase := range []struct {
+		name        string
+		errStopping bool
+		stopped     bool
+	}{
+		{
+			name: "Initially Started",
+		},
+		{
+			name:        "Initially Started, Error Stopping",
+			errStopping: true,
+		},
+		{
+			name:    "Initially Stopped",
+			stopped: true,
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			mockGroup, mgdGroup := createMockAndManagedGroups(t)
+			errStopped := fmt.Errorf("error stopping")
+			if !testCase.errStopping {
+				errStopped = nil
+			}
+			mockGroup.On("Close").Return(errStopped)
+
+			if testCase.stopped {
+				// Simulate a stopped group
+				mgdGroup.createRestartChannel()
+			} else {
+				mgdGroup.stopped.Store(testCase.stopped)
+			}
+
+			mgdGroup.start(mockGroup)
+
+			// Verify that the group is not stopped, regardless of initial state
+			assert.False(t, mgdGroup.stopped.Load().(bool))
+
+			err := mgdGroup.stop()
+
+			assert.Equal(t, !testCase.errStopping || testCase.stopped, mgdGroup.stopped.Load().(bool))
+			assert.Equal(t, testCase.errStopping, err != nil)
+
+			mockGroup.AssertExpectations(t)
+
+		})
+	}
+}
+
+func TestClose(t *testing.T) {
+
+	for _, testCase := range []struct {
+		name   string
+		cancel bool
+	}{
+		{
+			name:   "With Cancel Functions",
+			cancel: true,
+		},
+		{
+			name: "Without Cancel Functions",
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			mockGroup, mgdGroup := createMockAndManagedGroups(t)
+			mockGroup.On("Close").Return(nil)
+
+			cancelConsumeCalled := false
+			cancelErrorsCalled := false
+			if testCase.cancel {
+				mgdGroup.cancelConsume = func() { cancelConsumeCalled = true }
+				mgdGroup.cancelErrors = func() { cancelErrorsCalled = true }
+			} else {
+				mgdGroup.cancelConsume = nil
+				mgdGroup.cancelErrors = nil
+			}
+
+			err := mgdGroup.close()
+			assert.Nil(t, err)
+			assert.Equal(t, testCase.cancel, cancelConsumeCalled)
+			assert.Equal(t, testCase.cancel, cancelErrorsCalled)
 		})
 	}
 }
@@ -204,14 +461,23 @@ func TestTransferErrors(t *testing.T) {
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			time.Sleep(time.Millisecond)
-			mockGrp, managedGrp := createTestGroup(t)
+
+			mockGrp := kafkatesting.NewMockConsumerGroup()
+			managedGrp := managedGroupImpl{
+				logger:      logtesting.TestLogger(t).Desugar(),
+				group:       mockGrp,
+				groupErrors: make(chan error),
+			}
+			managedGrp.lockedBy.Store("")
+			managedGrp.stopped.Store(false)
+
 			mockGrp.On("Errors").Return(mockGrp.ErrorChan)
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			managedGrp.transferErrors(ctx)
 
 			mockGrp.ErrorChan <- fmt.Errorf("test-error")
-			err := <-managedGrp.errors
+			err := <-managedGrp.errors()
 			assert.NotNil(t, err)
 			assert.Equal(t, "test-error", err.Error())
 			if testCase.stopGroup {
@@ -234,7 +500,7 @@ func TestTransferErrors(t *testing.T) {
 				time.Sleep(shortTimeout) // Let the waitForStart function finish
 				// Verify that errors work again after restart
 				mockGrp.ErrorChan <- fmt.Errorf("test-error-2")
-				err = <-managedGrp.errors
+				err = <-managedGrp.errors()
 				assert.NotNil(t, err)
 				assert.Equal(t, "test-error-2", err.Error())
 				close(mockGrp.ErrorChan)
@@ -242,4 +508,37 @@ func TestTransferErrors(t *testing.T) {
 			}
 		})
 	}
+}
+
+//
+// Mock managedGroup
+//
+
+// MockManagedGroup implements the managedGroup interface
+type mockManagedGroup struct {
+	mock.Mock
+}
+
+func (m *mockManagedGroup) consume(ctx context.Context, topics []string, handler sarama.ConsumerGroupHandler) error {
+	return m.Called(ctx, topics, handler).Error(0)
+}
+
+func (m *mockManagedGroup) start(group sarama.ConsumerGroup) {
+	_ = m.Called(group)
+}
+
+func (m *mockManagedGroup) stop() error {
+	return m.Called().Error(0)
+}
+
+func (m *mockManagedGroup) close() error {
+	return m.Called().Error(0)
+}
+
+func (m *mockManagedGroup) errors() chan error {
+	return m.Called().Get(0).(chan error)
+}
+
+func (m *mockManagedGroup) processLock(cmdLock *commands.CommandLock, lock bool) error {
+	return m.Called(cmdLock, lock).Error(0)
 }
