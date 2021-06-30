@@ -1,7 +1,7 @@
 # ResetOffset Command CRD
 
 The ResetOffset "command" provides the ability to reposition the Kafka
-ConsumerGroup Offsets of a particular Knative resources (Subscription, Trigger,
+ConsumerGroup Offsets of a particular Knative resource (Subscription, Trigger,
 etc.) in any implementation that supports its use. See the documentation of the
 individual Kafka Channels to determine support.
 
@@ -62,10 +62,10 @@ reposition the Offsets. If no `spec.ref.namespace` value is provided it will
 default to the ResetOffset namespace.
 
 The `spec.offset.time` is a string that can be one of **"earliest"**,
-**"latest"** or a valid RFC3339 format timestamp. As you might expect, the
-**"earliest"** and **"latest"** keywords refer to the boundaries of the Kafka
-retention window, while the timestamp is expected to be a valid time in that
-window. Specifying times outside the retention window will result in a failure.
+**"latest"**, or a valid RFC3339 format timestamp. The **"earliest"** and
+**"latest"** keywords refer to the boundaries of the Kafka retention window,
+while the timestamp is expected to be a valid time in that window. Specifying
+times outside the retention window will result in a failure.
 
 The `spec.ref` is a standard Knative Reference which indicates the Subscription
 whose ConsumerGroup's Offsets will be repositioned. In the future, other

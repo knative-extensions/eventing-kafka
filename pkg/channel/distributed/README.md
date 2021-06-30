@@ -16,7 +16,7 @@ it deploys a single/separate Receiver, and one Dispatcher per KafkaChannel.
 
 ## Rationale
 
-The Knative "consolidated" KafkaChannel implementation already provides an
+The Knative "consolidated" KafkaChannel already provides a Kafka backed Channel
 implementation, so why invest the time in building another one? At the time this
 project was begun, and still today, the reference Kafka implementation does not
 provide the scaling characteristics required by a large and varied use case with
@@ -32,7 +32,7 @@ aspects of the Kafka Topics / Producers / Consumers.
 ## Status
 
 Significant work has recently gone into aligning the two implementations from a
-CRD, configuration, authorization, and code- sharing perspective, in order to
+CRD, configuration, authorization, and code-sharing perspective, in order to
 standardize the user experience as well as maximize code reuse. While the
 runtime architectures will always be different
 (the "raison d'etre" for having multiple implementations), the goal is to

@@ -72,7 +72,7 @@ The general algorithm for reconciling ResetOffset instances is as follows...
 
 The reconciler will continue to process a ResetOffset until is has `Succeeded`.
 It is careful to only ever reposition the ConsumerGroup Offsets a single time to
-prevent the back/forth repositioning in certain failure scenarios.
+prevent any back/forth repositioning in overlapping failure scenarios.
 
 ## RefMappers
 
@@ -110,9 +110,3 @@ Data-Plane implementation, the intent is that the common
 [ConsumerManager](../../consumer/consumer_manager.go) will be used. This
 implementation already provides the expected ConsumerGroup lifecycle management
 and locking control.
-
-
-
-
-
-
