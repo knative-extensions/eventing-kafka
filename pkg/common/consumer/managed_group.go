@@ -109,6 +109,9 @@ func (m *managedGroupImpl) start(group sarama.ConsumerGroup) {
 	m.closeRestartChannel() // Closing this allows the waitForStart function to finish
 }
 
+// close shuts down the internal sarama ConsumerGroup, canceling the consume and/or error transfer
+// loops first.  This is distinct from "stop" which expects the consume/error loops to continue while
+// waiting for a restart.
 func (m *managedGroupImpl) close() error {
 	// Make sure a managed group is "started" before closing the inner ConsumerGroup; otherwise anything
 	// waiting for the manager to restart the group will never return.
