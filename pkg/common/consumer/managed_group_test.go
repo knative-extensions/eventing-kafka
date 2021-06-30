@@ -24,12 +24,11 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
-	"github.com/stretchr/testify/mock"
-	"knative.dev/eventing-kafka/pkg/common/controlprotocol/commands"
-
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	logtesting "knative.dev/pkg/logging/testing"
 
+	"knative.dev/eventing-kafka/pkg/common/controlprotocol/commands"
 	kafkatesting "knative.dev/eventing-kafka/pkg/common/kafka/testing"
 )
 
