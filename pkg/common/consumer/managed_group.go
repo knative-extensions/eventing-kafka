@@ -61,7 +61,7 @@ type managedGroupImpl struct {
 // empty string (i.e. "unlocked") after that time has passed.
 func createManagedGroup(ctx context.Context, logger *zap.Logger, group sarama.ConsumerGroup, cancelErrors func(), cancelConsume func()) managedGroup {
 
-	managedGrp := managedGroupImpl{
+	managedGrp := &managedGroupImpl{
 		logger:        logger,
 		group:         group,
 		groupErrors:   make(chan error),
@@ -78,7 +78,7 @@ func createManagedGroup(ctx context.Context, logger *zap.Logger, group sarama.Co
 	// Begin listening on the group's Errors() channel and write them to the managedGroup's errors channel
 	managedGrp.transferErrors(ctx)
 
-	return &managedGrp
+	return managedGrp
 }
 
 // stop stops the managed group (which means closing the internal ConsumerGroup and marking the managed group as stopped)
