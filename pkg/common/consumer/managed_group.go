@@ -19,6 +19,7 @@ package consumer
 import (
 	"context"
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -52,6 +53,7 @@ type managedGroupImpl struct {
 	cancelConsume      func()               // Called by the manager during CloseConsumerGroup
 	lockedBy           atomic.Value         // The LockToken of the ConsumerGroupAsyncCommand that requested the lock
 	cancelLockTimeout  func()               // Called internally to stop the lock timeout when a lock is removed
+	groupMutex         sync.Mutex           // Used to synchronize access to the internal sarama ConsumerGroup
 }
 
 // createManagedGroup associates a Sarama ConsumerGroup and cancel function (usually from the factory)
@@ -65,6 +67,7 @@ func createManagedGroup(ctx context.Context, logger *zap.Logger, group sarama.Co
 		groupErrors:   make(chan error),
 		cancelErrors:  cancelErrors,
 		cancelConsume: cancelConsume,
+		groupMutex:    sync.Mutex{},
 	}
 
 	// Atomic values must be initialized with their desired type before being accessed, or a nil
@@ -86,7 +89,11 @@ func (m *managedGroupImpl) stop() error {
 	m.createRestartChannel()
 	// Close the inner sarama ConsumerGroup, which will cause our consume() function to stop
 	// and wait for the managedGroup to start again.
-	if err := m.group.Close(); err != nil {
+	m.groupMutex.Lock()
+	group := m.group
+	m.groupMutex.Unlock()
+
+	if err := group.Close(); err != nil {
 		// Don't leave the start channel open if the group.Close() call failed; that would be misleading
 		m.closeRestartChannel()
 		return err
@@ -96,7 +103,9 @@ func (m *managedGroupImpl) stop() error {
 
 // start starts the managed group, using the provided group as the "restarted" internal group
 func (m *managedGroupImpl) start(group sarama.ConsumerGroup) {
+	m.groupMutex.Lock()
 	m.group = group
+	m.groupMutex.Unlock()
 	m.closeRestartChannel() // Closing this allows the waitForStart function to finish
 }
 
@@ -116,6 +125,8 @@ func (m *managedGroupImpl) close() error {
 	} else {
 		m.cancelConsume() // This will stop the factory's consume loop after the ConsumerGroup is closed
 	}
+	m.groupMutex.Lock()
+	defer m.groupMutex.Unlock()
 	return m.group.Close()
 }
 
@@ -123,7 +134,11 @@ func (m *managedGroupImpl) close() error {
 func (m *managedGroupImpl) consume(ctx context.Context, topics []string, handler sarama.ConsumerGroupHandler) error {
 	for {
 		// Call the internal sarama ConsumerGroup's Consume function directly
-		err := m.group.Consume(ctx, topics, handler)
+		m.groupMutex.Lock()
+		group := m.group
+		m.groupMutex.Unlock()
+
+		err := group.Consume(ctx, topics, handler)
 		if !m.isStopped() {
 			m.logger.Debug("Managed Consume Finished Without Stop", zap.Error(err))
 			// This ConsumerGroup wasn't stopped by the manager, so pass the error along to the caller
@@ -290,7 +305,10 @@ func (m *managedGroupImpl) transferErrors(ctx context.Context) {
 	go func() {
 		for {
 			m.logger.Debug("Starting managed group error transfer")
-			for groupErr := range m.group.Errors() {
+			m.groupMutex.Lock()
+			group := m.group
+			m.groupMutex.Unlock()
+			for groupErr := range group.Errors() {
 				m.groupErrors <- groupErr
 			}
 			if !m.isStopped() {

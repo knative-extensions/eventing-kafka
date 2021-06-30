@@ -466,6 +466,7 @@ func TestTransferErrors(t *testing.T) {
 				logger:      logtesting.TestLogger(t).Desugar(),
 				group:       mockGrp,
 				groupErrors: make(chan error),
+				groupMutex:  sync.Mutex{},
 			}
 			managedGrp.lockedBy.Store("")
 			managedGrp.stopped.Store(false)
