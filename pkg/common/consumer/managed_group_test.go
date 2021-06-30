@@ -357,16 +357,16 @@ func TestStopStart(t *testing.T) {
 			name: "Initially Started",
 		},
 		{
-			name: "Initially Started, Error Stopping",
+			name:        "Initially Started, Error Stopping",
 			errStopping: true,
 		},
 		{
-			name: "Initially Stopped",
+			name:    "Initially Stopped",
 			stopped: true,
 		},
 		{
-			name: "Initially Stopped, Error Starting",
-			stopped: true,
+			name:        "Initially Stopped, Error Starting",
+			stopped:     true,
 			errStarting: true,
 		},
 	} {
@@ -390,7 +390,8 @@ func TestStopStart(t *testing.T) {
 				if !testCase.errStarting {
 					startErr = nil
 				}
-				return mockGroup, startErr })
+				return mockGroup, startErr
+			})
 			assert.Equal(t, testCase.errStarting, err != nil)
 
 			// Verify that the group is not stopped (unless there was an error)

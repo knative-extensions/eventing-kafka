@@ -49,7 +49,7 @@ import (
 
 const (
 	defaultLockTimeout = 5 * time.Minute
-	internalToken = "internal-token"
+	internalToken      = "internal-token"
 )
 
 // KafkaConsumerGroupManager keeps track of Sarama consumer groups and handles messages from control-protocol clients
