@@ -315,6 +315,7 @@ func (m *kafkaConsumerGroupManagerImpl) removeGroup(groupId string) {
 func (m *kafkaConsumerGroupManagerImpl) lockBefore(lock *commands.CommandLock, groupId string) error {
 	group := m.getGroup(groupId)
 	if group == nil {
+		m.logger.Warn("Attempted to lock a nonexistent group ID", zap.String("GroupId", groupId))
 		return nil // Can't lock a nonexistent group
 	}
 	return group.processLock(lock, true)
@@ -324,6 +325,7 @@ func (m *kafkaConsumerGroupManagerImpl) lockBefore(lock *commands.CommandLock, g
 func (m *kafkaConsumerGroupManagerImpl) unlockAfter(lock *commands.CommandLock, groupId string) error {
 	group := m.getGroup(groupId)
 	if group == nil {
+		m.logger.Warn("Attempted to unlock a nonexistent group ID", zap.String("GroupId", groupId))
 		return nil // Can't unlock a nonexistent group
 	}
 	return group.processLock(lock, false)
