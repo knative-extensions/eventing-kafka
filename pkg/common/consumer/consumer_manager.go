@@ -49,6 +49,7 @@ import (
 
 const (
 	defaultLockTimeout = 5 * time.Minute
+	internalToken = "internal-token"
 )
 
 // KafkaConsumerGroupManager keeps track of Sarama consumer groups and handles messages from control-protocol clients
@@ -118,7 +119,7 @@ func (m *kafkaConsumerGroupManagerImpl) Reconfigure(brokers []string, config *sa
 	var multiErr error
 	groupsToRestart := make([]string, 0, len(m.groups))
 	for groupId := range m.groups {
-		err := m.stopConsumerGroup(&commands.CommandLock{Token: "internal-token", LockBefore: true}, groupId)
+		err := m.stopConsumerGroup(&commands.CommandLock{Token: internalToken, LockBefore: true}, groupId)
 		if err != nil {
 			// If we couldn't stop a group, or failed to obtain a lock, note it as an error.  However,
 			// in a practical sense, the new brokers/config will be used when whatever locked the group
@@ -135,7 +136,7 @@ func (m *kafkaConsumerGroupManagerImpl) Reconfigure(brokers []string, config *sa
 	// Restart any groups this function stopped
 	m.logger.Info("Reconfigure Consumer Group Manager - Starting All Managed Consumer Groups")
 	for _, groupId := range groupsToRestart {
-		err := m.startConsumerGroup(&commands.CommandLock{Token: "internal-token", UnlockAfter: true}, groupId)
+		err := m.startConsumerGroup(&commands.CommandLock{Token: internalToken, UnlockAfter: true}, groupId)
 		if err != nil {
 			multierr.AppendInto(&multiErr, err)
 		}
