@@ -19,96 +19,104 @@ metadata:
   labels:
     kafka.eventing.knative.dev/release: devel
 rules:
-  # For watching logging configuration and getting certs.
-  - apiGroups:
-      - ""
-    resources:
-      - "configmaps"
-    verbs:
-      - "get"
-      - "list"
-      - "watch"
+# For watching logging configuration and getting certs.
+- apiGroups:
+  - ""
+  resources:
+  - "configmaps"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
 
-  # For manipulating certs into secrets.
-  - apiGroups:
-      - ""
-    resources:
-      - "secrets"
-    verbs:
-      - "get"
-      - "create"
-      - "list"
-      - "watch"
-      - "update"
+# For manipulating certs into secrets.
+- apiGroups:
+  - ""
+  resources:
+  - "secrets"
+  verbs:
+  - "get"
+  - "create"
+  - "list"
+  - "watch"
+  - "update"
 
-  # For getting our Deployment so we can decorate with ownerref.
-  - apiGroups:
-      - "apps"
-    resources:
-      - "deployments"
-    verbs:
-      - "get"
+# For getting our Deployment so we can decorate with ownerref.
+- apiGroups:
+  - "apps"
+  resources:
+  - "deployments"
+  verbs:
+  - "get"
 
-  # finalizers are needed for the owner reference of the webhook
-  - apiGroups:
-      - ""
-    resources:
-      - "namespaces/finalizers"
-    verbs:
-      - "update"
+# For acquiring namespace for the owner reference of the webhook
+- apiGroups:
+  - ""
+  resources:
+  - "namespaces"
+  verbs:
+  - "get"
 
-  - apiGroups:
-      - "apps"
-    resources:
-      - "deployments/finalizers"
-    verbs:
-      - update
+# finalizers are needed for the owner reference of the webhook
+- apiGroups:
+  - ""
+  resources:
+  - "namespaces/finalizers"
+  verbs:
+  - "update"
 
-  # For actually registering our webhook.
-  - apiGroups:
-      - "admissionregistration.k8s.io"
-    resources:
-      - "mutatingwebhookconfigurations"
-      - "validatingwebhookconfigurations"
-    verbs: &everything
-      - "get"
-      - "list"
-      - "create"
-      - "update"
-      - "delete"
-      - "patch"
-      - "watch"
+- apiGroups:
+  - "apps"
+  resources:
+  - "deployments/finalizers"
+  verbs:
+  - update
 
-  # Our own resources and statuses we care about.
-  - apiGroups:
-      - "messaging.knative.dev"
-    resources:
-      - "kafkachannels"
-      - "kafkachannels/status"
-    verbs:
-      - "get"
-      - "list"
-      - "watch"
+# For actually registering our webhook.
+- apiGroups:
+  - "admissionregistration.k8s.io"
+  resources:
+  - "mutatingwebhookconfigurations"
+  - "validatingwebhookconfigurations"
+  verbs: &everything
+  - "get"
+  - "list"
+  - "create"
+  - "update"
+  - "delete"
+  - "patch"
+  - "watch"
 
-  # For leader election
-  - apiGroups:
-      - "coordination.k8s.io"
-    resources:
-      - "leases"
-    verbs: *everything
+# Our own resources and statuses we care about.
+- apiGroups:
+  - "messaging.knative.dev"
+  resources:
+  - "kafkachannels"
+  - "kafkachannels/status"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
 
-  # Necessary for conversion webhook. These are copied from the serving
-  # TODO: Do we really need all these permissions?
-  - apiGroups:
-      - "apiextensions.k8s.io"
-    resources:
-      - "customresourcedefinitions"
-    verbs:
-      - "get"
-      - "list"
-      - "create"
-      - "update"
-      - "delete"
-      - "patch"
-      - "watch"
+# For leader election
+- apiGroups:
+  - "coordination.k8s.io"
+  resources:
+  - "leases"
+  verbs: *everything
+
+# Necessary for conversion webhook. These are copied from the serving
+# TODO: Do we really need all these permissions?
+- apiGroups:
+  - "apiextensions.k8s.io"
+  resources:
+  - "customresourcedefinitions"
+  verbs:
+  - "get"
+  - "list"
+  - "create"
+  - "update"
+  - "delete"
+  - "patch"
+  - "watch"
 
