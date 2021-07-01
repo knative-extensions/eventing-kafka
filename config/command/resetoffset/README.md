@@ -1,4 +1,4 @@
-# ResetOffset Command CRD
+# ResetOffset Command
 
 The ResetOffset "command" provides the ability to reposition the Kafka
 ConsumerGroup Offsets of a particular Knative resource (Subscription, Trigger,
