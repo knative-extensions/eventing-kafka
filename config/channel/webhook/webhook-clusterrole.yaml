@@ -52,9 +52,9 @@ rules:
   # For acquiring namespace for the owner reference of the webhook
   - apiGroups:
       - ""
-  resources:
+    resources:
       - "namespaces"
-  verbs:
+    verbs:
       - "get"
 
   # finalizers are needed for the owner reference of the webhook
