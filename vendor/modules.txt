@@ -1110,7 +1110,7 @@ k8s.io/utils/buffer
 k8s.io/utils/integer
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# knative.dev/control-protocol v0.0.0-20210622195244-f6f46782b93d
+# knative.dev/control-protocol v0.0.0-20210701061703-8ddeca27693a
 ## explicit
 knative.dev/control-protocol/pkg
 knative.dev/control-protocol/pkg/certificates
@@ -1241,10 +1241,10 @@ knative.dev/eventing/test/upgrade/prober/wathola/sender
 ## explicit
 knative.dev/hack
 knative.dev/hack/shell
-# knative.dev/networking v0.0.0-20210622182128-53f45d6d2cfa
+# knative.dev/networking v0.0.0-20210701025203-b983b728ca42
 ## explicit
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20210622173328-dd0db4b05c80
+# knative.dev/pkg v0.0.0-20210701025203-30f9568e894e
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
@@ -1351,7 +1351,7 @@ knative.dev/pkg/webhook/resourcesemantics
 knative.dev/pkg/webhook/resourcesemantics/conversion
 knative.dev/pkg/webhook/resourcesemantics/defaulting
 knative.dev/pkg/webhook/resourcesemantics/validation
-# knative.dev/reconciler-test v0.0.0-20210623134345-88c84739abd9
+# knative.dev/reconciler-test v0.0.0-20210630182710-2a6d91dfee1e
 ## explicit
 knative.dev/reconciler-test/cmd/eventshub
 knative.dev/reconciler-test/pkg/environment
