@@ -20,14 +20,16 @@ import (
 	"context"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"knative.dev/eventing-kafka/pkg/apis/messaging"
-	messagingv1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/webhook/resourcesemantics"
 	"knative.dev/pkg/webhook/resourcesemantics/conversion"
 	"knative.dev/pkg/webhook/resourcesemantics/defaulting"
 	"knative.dev/pkg/webhook/resourcesemantics/validation"
+
+	kafkav1alpha1 "knative.dev/eventing-kafka/pkg/apis/kafka/v1alpha1"
+	"knative.dev/eventing-kafka/pkg/apis/messaging"
+	messagingv1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 )
 
 var types = map[schema.GroupVersionKind]resourcesemantics.GenericCRD{
@@ -36,6 +38,14 @@ var types = map[schema.GroupVersionKind]resourcesemantics.GenericCRD{
 }
 
 var callbacks = map[schema.GroupVersionKind]validation.Callback{}
+
+// IncludeResetOffset adds the ResetOffset GVK entry to the Types map so that the WebHook will
+// support both CRDs for Defaulting and Validation Admission (but not Conversion).  This needs
+// to be called prior to calling the "NewXXXAdmissionController()" functions to have any effect.
+func IncludeResetOffset() {
+	gvkKey := kafkav1alpha1.SchemeGroupVersion.WithKind("ResetOffset")
+	types[gvkKey] = &kafkav1alpha1.ResetOffset{}
+}
 
 func NewDefaultingAdmissionController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	return defaulting.NewAdmissionController(ctx,
