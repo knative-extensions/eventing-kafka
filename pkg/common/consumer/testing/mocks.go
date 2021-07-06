@@ -57,31 +57,38 @@ func NewMockConsumerGroupManager() *MockConsumerGroupManager {
 var _ consumer.KafkaConsumerGroupManager = (*MockConsumerGroupManager)(nil)
 
 func (m *MockConsumerGroupManager) Reconfigure(brokers []string, config *sarama.Config) error {
-	args := m.Called(brokers, config)
-	return args.Error(0)
+	return m.Called(brokers, config).Error(0)
 }
 
 func (m *MockConsumerGroupManager) StartConsumerGroup(groupId string, topics []string, logger *zap.SugaredLogger,
 	handler consumer.KafkaConsumerHandler, options ...consumer.SaramaConsumerHandlerOption) error {
-	args := m.Called(groupId, topics, logger, handler, options)
-	return args.Error(0)
+	return m.Called(groupId, topics, logger, handler, options).Error(0)
 }
 
 func (m *MockConsumerGroupManager) CloseConsumerGroup(groupId string) error {
-	args := m.Called(groupId)
 	if group, ok := m.Groups[groupId]; ok {
 		_ = group.Close()
 		delete(m.Groups, groupId)
 	}
-	return args.Error(0)
+	return m.Called(groupId).Error(0)
 }
 
 func (m *MockConsumerGroupManager) IsManaged(groupId string) bool {
-	args := m.Called(groupId)
-	return args.Bool(0)
+	return m.Called(groupId).Bool(0)
+}
+
+func (m *MockConsumerGroupManager) IsStopped(groupId string) bool {
+	return m.Called(groupId).Bool(0)
 }
 
 func (m *MockConsumerGroupManager) Errors(groupId string) <-chan error {
-	args := m.Called(groupId)
-	return args.Get(0).(<-chan error)
+	return m.Called(groupId).Get(0).(<-chan error)
+}
+
+func (m *MockConsumerGroupManager) AddNotification() <-chan consumer.ManagerEvent {
+	return m.Called().Get(0).(<-chan consumer.ManagerEvent)
+}
+
+func (m *MockConsumerGroupManager) ClearNotifications() {
+	_ = m.Called()
 }

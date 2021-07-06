@@ -30,15 +30,18 @@ import (
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
+
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/dispatcher"
 	"knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	"knative.dev/eventing-kafka/pkg/client/clientset/versioned/scheme"
 	informers "knative.dev/eventing-kafka/pkg/client/informers/externalversions/messaging/v1beta1"
 	listers "knative.dev/eventing-kafka/pkg/client/listers/messaging/v1beta1"
-	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
+	commonconsumer "knative.dev/eventing-kafka/pkg/common/consumer"
 )
 
 const (
@@ -75,6 +78,7 @@ func NewController(
 	kubeClient kubernetes.Interface,
 	kafkaClientSet versioned.Interface,
 	stopChannel <-chan struct{},
+	managerEvents <-chan commonconsumer.ManagerEvent,
 ) *controller.Impl {
 
 	reconciler := &Reconciler{
@@ -105,6 +109,25 @@ func NewController(
 		for _, w := range watches {
 			w.Stop()
 		}
+	}()
+
+	// Process events from the Consumer Group Manager
+	go func() {
+		for event := range managerEvents {
+			// Stopping or Starting a consumer group requires a reconciliation in order to adjust the status block
+			// of the KafkaChannel - calling GlobalResync will force that re-reconciliation
+			// TODO: Is it okay to just resync everything?  We could possibly update a date-style annotation
+			// on the kafkachannel instead to cause a reconciliation, or something similar
+			switch event.Event {
+			case commonconsumer.GroupStopped:
+				logger.Debug("Processing GroupStopped Event From Consumer Group Manager")
+				reconciler.impl.GlobalResync(reconciler.kafkachannelInformer)
+			case commonconsumer.GroupStarted:
+				logger.Debug("Processing GroupStarted Event From Consumer Group Manager")
+				reconciler.impl.GlobalResync(reconciler.kafkachannelInformer)
+			}
+		}
+		logger.Debug("Manager event channel closed")
 	}()
 
 	return reconciler.impl
@@ -180,10 +203,10 @@ func (r Reconciler) reconcile(channel *kafkav1beta1.KafkaChannel) error {
 	}
 
 	// Update The ConsumerGroups To Align With Current KafkaChannel Subscribers
-	failedSubscriptions := r.dispatcher.UpdateSubscriptions(subscribers)
+	failedSubscriptions, stoppedSubscriptions := r.dispatcher.UpdateSubscriptions(subscribers)
 
 	// Update The KafkaChannel Subscribable Status Based On ConsumerGroup Creation Status
-	channel.Status.SubscribableStatus = r.createSubscribableStatus(channel.Spec.Subscribers, failedSubscriptions)
+	channel.Status.SubscribableStatus = r.createSubscribableStatus(channel.Spec.Subscribers, failedSubscriptions, stoppedSubscriptions)
 
 	// Log Failed Subscriptions & Return Error
 	if len(failedSubscriptions) > 0 {
@@ -196,7 +219,10 @@ func (r Reconciler) reconcile(channel *kafkav1beta1.KafkaChannel) error {
 }
 
 // Create The SubscribableStatus Block Based On The Updated Subscriptions
-func (r *Reconciler) createSubscribableStatus(subscribers []eventingduck.SubscriberSpec, failedSubscriptions map[eventingduck.SubscriberSpec]error) eventingduck.SubscribableStatus {
+func (r *Reconciler) createSubscribableStatus(
+	subscribers []eventingduck.SubscriberSpec,
+	failedSubscriptions map[eventingduck.SubscriberSpec]error,
+	stoppedSubscriptions map[eventingduck.SubscriberSpec]struct{}) eventingduck.SubscribableStatus {
 
 	subscriberStatus := make([]eventingduck.SubscriberStatus, 0)
 
@@ -209,7 +235,11 @@ func (r *Reconciler) createSubscribableStatus(subscribers []eventingduck.Subscri
 		if err, ok := failedSubscriptions[subscriber]; ok {
 			status.Ready = corev1.ConditionFalse
 			status.Message = err.Error()
+		} else if _, ok = stoppedSubscriptions[subscriber]; ok {
+			status.Ready = corev1.ConditionFalse
+			status.Message = constants.GroupStoppedMessage
 		}
+
 		subscriberStatus = append(subscriberStatus, status)
 	}
 

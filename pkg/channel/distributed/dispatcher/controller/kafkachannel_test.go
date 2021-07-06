@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	"knative.dev/eventing-kafka/pkg/common/consumer"
+
 	commonenv "knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
 
 	"github.com/stretchr/testify/assert"
@@ -68,9 +70,10 @@ func TestNewController(t *testing.T) {
 	kafkaInformerFactory := externalversions.NewSharedInformerFactory(fakeKafkaChannelClientSet, kncontroller.DefaultResyncPeriod)
 	kafkaChannelInformer := kafkaInformerFactory.Messaging().V1beta1().KafkaChannels()
 	stopChan := make(chan struct{})
+	eventsChan := make(chan consumer.ManagerEvent)
 
 	// Perform The Test
-	c := NewController(logger, channelKey, mockDispatcher, kafkaChannelInformer, fakeK8sClientSet, fakeKafkaChannelClientSet, stopChan)
+	c := NewController(logger, channelKey, mockDispatcher, kafkaChannelInformer, fakeK8sClientSet, fakeKafkaChannelClientSet, stopChan, eventsChan)
 
 	// Verify Results
 	assert.NotNil(t, c)
@@ -214,8 +217,8 @@ func NewMockDispatcher(t *testing.T) MockDispatcher {
 func (m MockDispatcher) Shutdown() {
 }
 
-func (m MockDispatcher) UpdateSubscriptions(_ []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error {
-	return nil
+func (m MockDispatcher) UpdateSubscriptions(_ []eventingduck.SubscriberSpec) (map[eventingduck.SubscriberSpec]error, map[eventingduck.SubscriberSpec]struct{}) {
+	return nil, nil
 }
 
 func (m MockDispatcher) SecretChanged(_ context.Context, _ *corev1.Secret) {}

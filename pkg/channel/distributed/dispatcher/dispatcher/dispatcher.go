@@ -66,7 +66,7 @@ func NewSubscriberWrapper(subscriberSpec eventingduck.SubscriberSpec, groupId st
 type Dispatcher interface {
 	SecretChanged(ctx context.Context, secret *corev1.Secret)
 	Shutdown()
-	UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error
+	UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) (map[eventingduck.SubscriberSpec]error, map[eventingduck.SubscriberSpec]struct{})
 }
 
 // DispatcherImpl Is A Struct With Configuration & ConsumerGroup State
@@ -84,7 +84,7 @@ type DispatcherImpl struct {
 var _ Dispatcher = &DispatcherImpl{}
 
 // NewDispatcher Is The Dispatcher Constructor
-func NewDispatcher(dispatcherConfig DispatcherConfig, controlServer controlprotocol.ServerHandler) Dispatcher {
+func NewDispatcher(dispatcherConfig DispatcherConfig, controlServer controlprotocol.ServerHandler) (Dispatcher, <-chan commonconsumer.ManagerEvent) {
 
 	consumerGroupManager := commonconsumer.NewConsumerGroupManager(dispatcherConfig.Logger, controlServer, dispatcherConfig.Brokers, dispatcherConfig.SaramaConfig)
 
@@ -102,7 +102,7 @@ func NewDispatcher(dispatcherConfig DispatcherConfig, controlServer controlproto
 	dispatcher.ObserveMetrics(dispatcherconstants.MetricsInterval)
 
 	// Return The DispatcherImpl
-	return dispatcher
+	return dispatcher, consumerGroupManager.AddNotification()
 }
 
 // Shutdown The Dispatcher
@@ -121,16 +121,17 @@ func (d *DispatcherImpl) Shutdown() {
 }
 
 // UpdateSubscriptions manages the Dispatcher's Subscriptions to align with new state
-func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error {
+func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) (map[eventingduck.SubscriberSpec]error, map[eventingduck.SubscriberSpec]struct{}) {
 
 	if d.SaramaConfig == nil {
 		d.Logger.Error("Dispatcher has no config!")
-		return nil
+		return nil, nil
 	}
 
 	// Maps For Tracking Subscriber State
 	activeSubscriptions := make(map[types.UID]bool)
 	failedSubscriptions := make(map[eventingduck.SubscriberSpec]error)
+	stoppedSubscriptions := make(map[eventingduck.SubscriberSpec]struct{})
 
 	// Thread Safe ;)
 	d.consumerUpdateLock.Lock()
@@ -139,11 +140,11 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 	// Loop Over All All The Specified Subscribers
 	for _, subscriberSpec := range subscriberSpecs {
 
+		// Format The GroupId For The Specified Subscriber
+		groupId := commonkafkautil.GroupId(string(subscriberSpec.UID))
+
 		// If The Subscriber Wrapper For The SubscriberSpec Does Not Exist Then Create One
 		if _, ok := d.subscribers[subscriberSpec.UID]; !ok {
-
-			// Format The GroupId For The Specified Subscriber
-			groupId := commonkafkautil.GroupId(string(subscriberSpec.UID))
 
 			// Create A ConsumerGroup Logger
 			logger := d.Logger.With(zap.String("GroupId", groupId))
@@ -165,8 +166,8 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 				// Asynchronously Process ConsumerGroup's Error Channel
 				go func() {
 					logger.Info("ConsumerGroup Error Processing Initiated")
-					for err := range d.consumerMgr.Errors(subscriber.GroupId) { // Closing ConsumerGroup Will Break Out Of This
-						logger.Error("ConsumerGroup Error", zap.Error(err))
+					for groupErr := range d.consumerMgr.Errors(subscriber.GroupId) { // Closing ConsumerGroup Will Break Out Of This
+						logger.Error("ConsumerGroup Error", zap.Error(groupErr))
 					}
 					logger.Info("ConsumerGroup Error Processing Terminated")
 				}()
@@ -177,9 +178,16 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 			}
 
 		} else {
-
 			// Otherwise Just Add To List Of Active Subscribers
 			activeSubscriptions[subscriberSpec.UID] = true
+
+			// If the group is stopped, it's still active but the reconciler needs to know about it in order
+			// to not treat it as a failure (which would re-create the group, effectively un-stopping it)
+			// TODO:  The active/stopped/failed subscription map might be better as a single map with a custom struct?
+			if d.consumerMgr.IsStopped(groupId) {
+				d.Logger.Debug("Adding Stopped ConsumerGroup To Stopped Map", zap.String("GroupId", groupId))
+				stoppedSubscriptions[subscriberSpec] = struct{}{}
+			}
 		}
 	}
 
@@ -197,7 +205,7 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 	}
 
 	// Return Any Failed Subscriber Errors
-	return failedSubscriptions
+	return failedSubscriptions, stoppedSubscriptions
 }
 
 // closeConsumerGroup closes the ConsumerGroup associated with a single Subscriber
