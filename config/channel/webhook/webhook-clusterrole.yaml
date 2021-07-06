@@ -98,6 +98,17 @@ rules:
       - "list"
       - "watch"
 
+  # Support ResetOffset If Enabled
+  - apiGroups:
+      - "kafka.eventing.knative.dev"
+    resources:
+      - "resetoffsets"
+      - "resetoffsets/status"
+    verbs:
+      - "get"
+      - "list"
+      - "watch"
+
   # For leader election
   - apiGroups:
       - "coordination.k8s.io"
