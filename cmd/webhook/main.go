@@ -16,11 +16,15 @@ limitations under the License.
 package main
 
 import (
-	channelwebhook "knative.dev/eventing-kafka/pkg/channel/webhook"
+	"os"
+	"strings"
+
 	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/webhook"
 	"knative.dev/pkg/webhook/certificates"
+
+	channelwebhook "knative.dev/eventing-kafka/pkg/channel/webhook"
 )
 
 const (
@@ -29,6 +33,11 @@ const (
 )
 
 func main() {
+
+	// Optionally Enable Support For ResetOffset
+	if strings.ToLower(os.Getenv("RESETOFFSET_SUPPORT")) == "true" {
+		channelwebhook.IncludeResetOffset()
+	}
 
 	// Define Webhook Options
 	options := webhook.Options{
