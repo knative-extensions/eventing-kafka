@@ -23,33 +23,31 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/mock"
-	"k8s.io/apimachinery/pkg/types"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/constants"
-
-	"knative.dev/eventing-kafka/pkg/common/consumer"
-
-	commonenv "knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
-
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
 	clientgotesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/record"
-	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/dispatcher"
-	reconciletesting "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/testing"
-	"knative.dev/eventing-kafka/pkg/client/clientset/versioned"
-	fakeclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned/fake"
-	"knative.dev/eventing-kafka/pkg/client/informers/externalversions"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/pkg/controller"
 	kncontroller "knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
 	. "knative.dev/pkg/reconciler/testing"
 	reconcilertesting "knative.dev/pkg/reconciler/testing"
+
+	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
+	commonenv "knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/constants"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/dispatcher"
+	reconciletesting "knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/testing"
+	"knative.dev/eventing-kafka/pkg/client/clientset/versioned"
+	fakeclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned/fake"
+	"knative.dev/eventing-kafka/pkg/client/informers/externalversions"
+	"knative.dev/eventing-kafka/pkg/common/consumer"
 )
 
 const (
@@ -65,34 +63,89 @@ func init() {
 // Test The NewController() Functionality
 func TestNewController(t *testing.T) {
 
-	// Test Data
-	logger := logtesting.TestLogger(t).Desugar()
-	channelKey := "TestChannelKey"
+	for _, testCase := range []struct {
+		name          string
+		managerEvents chan consumer.ManagerEvent
+	}{
+		{
+			name:          "With manager events channel",
+			managerEvents: make(chan consumer.ManagerEvent),
+		},
+		{
+			name: "Nil manager events channel",
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			// Test Data
+			logger := logtesting.TestLogger(t).Desugar()
+			channelKey := "TestChannelKey"
+			mockDispatcher := &MockDispatcher{}
+			fakeKafkaChannelClientSet := fakeclientset.NewSimpleClientset()
+			fakeK8sClientSet := fake.NewSimpleClientset()
+			populateEnvironmentVariables(t)
+			kafkaInformerFactory := externalversions.NewSharedInformerFactory(fakeKafkaChannelClientSet, kncontroller.DefaultResyncPeriod)
+			kafkaChannelInformer := kafkaInformerFactory.Messaging().V1beta1().KafkaChannels()
+			stopChan := make(chan struct{})
+
+			// Perform The Test
+			c := NewController(logger, channelKey, mockDispatcher, kafkaChannelInformer, fakeK8sClientSet, fakeKafkaChannelClientSet, stopChan, testCase.managerEvents)
+
+			// Verify Results
+			assert.NotNil(t, c)
+
+			// Close The Channels
+			close(stopChan)
+			if testCase.managerEvents != nil {
+				close(testCase.managerEvents)
+			}
+
+			// Let the channel loops finish
+			time.Sleep(50 * time.Millisecond)
+
+			mockDispatcher.AssertExpectations(t)
+		})
+	}
+}
+
+// Test the processManagerEvents function
+func TestProcessManagerEvents(t *testing.T) {
 	mockDispatcher := &MockDispatcher{}
+	mockReconciler := &MockReconciler{}
+	logger := logtesting.TestLogger(t).Desugar()
 	fakeKafkaChannelClientSet := fakeclientset.NewSimpleClientset()
-	fakeK8sClientSet := fake.NewSimpleClientset()
 	populateEnvironmentVariables(t)
 	kafkaInformerFactory := externalversions.NewSharedInformerFactory(fakeKafkaChannelClientSet, kncontroller.DefaultResyncPeriod)
 	kafkaChannelInformer := kafkaInformerFactory.Messaging().V1beta1().KafkaChannels()
-	stopChan := make(chan struct{})
-	eventsChan := make(chan consumer.ManagerEvent)
+	reconciler := &Reconciler{
+		logger:               logger,
+		dispatcher:           mockDispatcher,
+		kafkachannelInformer: kafkaChannelInformer.Informer(),
+		kafkachannelLister:   kafkaChannelInformer.Lister(),
+		kafkaClientSet:       fakeKafkaChannelClientSet,
+		impl:                 controller.NewImplFull(mockReconciler, controller.ControllerOptions{Logger: logger.Sugar()}),
+	}
+	events := make(chan consumer.ManagerEvent)
 
-	// Perform The Test
-	c := NewController(logger, channelKey, mockDispatcher, kafkaChannelInformer, fakeK8sClientSet, fakeKafkaChannelClientSet, stopChan, eventsChan)
+	assert.NotNil(t, reconciler.processManagerEvents(nil))
+	reconciler.channelKey = "invalid/channel/key"
+	assert.NotNil(t, reconciler.processManagerEvents(events))
+	reconciler.channelKey = "test-namespace/test-name"
+	assert.Nil(t, reconciler.processManagerEvents(events))
 
-	// Verify Results
-	assert.NotNil(t, c)
-
-	// Verify that sending events to the channel doesn't block
-	eventsChan <- consumer.ManagerEvent{Event: consumer.GroupStopped}
-	eventsChan <- consumer.ManagerEvent{Event: consumer.GroupStarted}
+	// Send all of the event types to the events channel
+	events <- consumer.ManagerEvent{Event: consumer.GroupCreated}
+	events <- consumer.ManagerEvent{Event: consumer.GroupStopped}
+	events <- consumer.ManagerEvent{Event: consumer.GroupStarted}
+	events <- consumer.ManagerEvent{Event: consumer.GroupClosed}
 
 	// Close The Channels
-	close(stopChan)
-	close(eventsChan)
+	close(events)
 
 	// Let the channel loops finish
 	time.Sleep(50 * time.Millisecond)
+
+	mockDispatcher.AssertExpectations(t)
+	mockReconciler.AssertExpectations(t)
 }
 
 // Test KafkaChannel Controller Reconciliation
@@ -149,6 +202,21 @@ func TestAllCases(t *testing.T) {
 			},
 		},
 		{
+			Name: "channel ready, no change",
+			Objects: []runtime.Object{
+				reconciletesting.NewKafkaChannel(kcName, testNS,
+					reconciletesting.WithInitKafkaChannelConditions,
+					reconciletesting.WithKafkaChannelAddress("http://foobar"),
+					reconciletesting.WithKafkaChannelReady,
+					reconciletesting.WithSubscriber("1", "http://foobar"),
+					reconciletesting.WithSubscriberReady("1")),
+			},
+			Key:     kcKey,
+			WantErr: false,
+			WantEvents: []string{
+				Eventf(corev1.EventTypeNormal, channelReconciled, "KafkaChannel Reconciled"),
+			},
+		}, {
 			Name: "channel ready, 1 subscriber ready, add a 2nd one",
 			Objects: []runtime.Object{
 				reconciletesting.NewKafkaChannel(kcName, testNS,
@@ -302,4 +370,20 @@ func (m *MockDispatcher) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 
 func (m *MockDispatcher) SecretChanged(ctx context.Context, secret *corev1.Secret) {
 	m.Called(ctx, secret)
+}
+
+//
+// Mock Reconciler Implementation
+//
+
+// Verify The Mock Reconciler Implements The Interface
+var _ controller.Reconciler = &MockReconciler{}
+
+// Define The Mock Dispatcher
+type MockReconciler struct {
+	mock.Mock
+}
+
+func (m *MockReconciler) Reconcile(ctx context.Context, key string) error {
+	return m.Called(ctx, key).Error(0)
 }

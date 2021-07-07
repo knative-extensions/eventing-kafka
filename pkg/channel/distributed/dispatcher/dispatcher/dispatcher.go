@@ -183,7 +183,6 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 
 			// If the group is stopped, it's still active but the reconciler needs to know about it in order
 			// to not treat it as a failure (which would re-create the group, effectively un-stopping it)
-			// TODO:  The active/stopped/failed subscription map might be better as a single map with a custom struct?
 			if d.consumerMgr.IsStopped(groupId) {
 				d.Logger.Debug("Adding Stopped ConsumerGroup To Stopped Map", zap.String("GroupId", groupId))
 				stoppedSubscriptions[subscriberSpec.UID] = struct{}{}

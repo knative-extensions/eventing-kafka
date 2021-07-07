@@ -111,27 +111,42 @@ func NewController(
 			w.Stop()
 		}
 	}()
+	if err := reconciler.processManagerEvents(managerEvents); err != nil {
+		logger.Warn("Could not begin processing events from the Consumer Group Manager", zap.Error(err))
+	}
+	return reconciler.impl
+}
 
-	// Process events from the Consumer Group Manager
+// processManagerEvents will listen on the channel provided by the KafkaConsumerGroupManager for events
+// related to changes in the status of a managed ConsumerGroup.  This function is non-blocking, and the
+// internal goroutine will exit when the channel is closed.
+func (r Reconciler) processManagerEvents(events <-chan commonconsumer.ManagerEvent) error {
+	// If the events channel is nil, there's no point listening to it; it will just block forever
+	if events == nil {
+		return fmt.Errorf("no event channel provided")
+	}
+	// Find the namespace and name of the KafkaChannel this dispatcher is monitoring
+	namespace, name, err := cache.SplitMetaNamespaceKey(r.channelKey)
+	if err != nil {
+		return fmt.Errorf("invalid resource key")
+	}
+	key := types.NamespacedName{Namespace: namespace, Name: name}
 	go func() {
-		for event := range managerEvents {
+		for event := range events {
 			// Stopping or Starting a consumer group requires a reconciliation in order to adjust the status block
-			// of the KafkaChannel - calling GlobalResync will force that re-reconciliation
-			// TODO: Is it okay to just resync everything?  We could possibly update a date-style annotation
-			// on the kafkachannel instead to cause a reconciliation, or something similar
+			// of the KafkaChannel - EnqueueKey will do that
 			switch event.Event {
 			case commonconsumer.GroupStopped:
-				logger.Debug("Processing GroupStopped Event From Consumer Group Manager")
-				reconciler.impl.GlobalResync(reconciler.kafkachannelInformer)
+				r.logger.Debug("Processing GroupStopped Event From Consumer Group Manager")
+				r.impl.EnqueueKey(key)
 			case commonconsumer.GroupStarted:
-				logger.Debug("Processing GroupStarted Event From Consumer Group Manager")
-				reconciler.impl.GlobalResync(reconciler.kafkachannelInformer)
+				r.logger.Debug("Processing GroupStarted Event From Consumer Group Manager")
+				r.impl.EnqueueKey(key)
 			}
 		}
-		logger.Debug("Manager event channel closed")
+		r.logger.Debug("Manager event channel closed")
 	}()
-
-	return reconciler.impl
+	return nil
 }
 
 func (r Reconciler) Reconcile(ctx context.Context, key string) error {
