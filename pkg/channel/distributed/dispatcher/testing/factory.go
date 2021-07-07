@@ -46,10 +46,7 @@ type Ctor func(
 
 // MakeFactory creates a reconciler factory with fake clients and controller created by `ctor`.
 func MakeFactory(ctor Ctor) Factory {
-	return func(t *testing.T, r *TableRow) (
-		controller.Reconciler,
-		ActionRecorderList,
-		EventList) {
+	return func(t *testing.T, r *TableRow) (controller.Reconciler, ActionRecorderList, EventList) {
 		ls := NewListers(r.Objects)
 
 		client := fakeclientset.NewSimpleClientset(ls.GetMessagingObjects()...)
