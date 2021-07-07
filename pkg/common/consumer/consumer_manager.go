@@ -52,7 +52,7 @@ const (
 	internalToken      = "internal-token"
 )
 
-// EventIndex is the type used when sending ManagerEvent structs via the notifyChannls list
+// EventIndex is the type of Event used when sending ManagerEvent structs via the notifyChannels list
 type EventIndex int
 
 // Events
@@ -63,6 +63,7 @@ const (
 	GroupClosed
 )
 
+// ManagerEvent is the struct used by the notification channel
 type ManagerEvent struct {
 	Event   EventIndex
 	GroupId string
