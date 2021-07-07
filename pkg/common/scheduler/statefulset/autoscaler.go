@@ -27,6 +27,7 @@ import (
 	clientappsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 
 	"knative.dev/eventing-kafka/pkg/common/scheduler"
+	"knative.dev/eventing-kafka/pkg/common/scheduler/state"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
 )
@@ -45,7 +46,7 @@ type autoscaler struct {
 	statefulSetName   string
 	vpodLister        scheduler.VPodLister
 	logger            *zap.SugaredLogger
-	stateAccessor     stateAccessor
+	stateAccessor     state.StateAccessor
 	trigger           chan int32
 	evictor           scheduler.Evictor
 
@@ -59,7 +60,7 @@ type autoscaler struct {
 func NewAutoscaler(ctx context.Context,
 	namespace, name string,
 	lister scheduler.VPodLister,
-	stateAccessor stateAccessor,
+	stateAccessor state.StateAccessor,
 	evictor scheduler.Evictor,
 	refreshPeriod time.Duration,
 	capacity int32) Autoscaler {
@@ -122,9 +123,14 @@ func (a *autoscaler) doautoscale(ctx context.Context, attemptScaleDown bool, pen
 	a.logger.Infow("checking adapter capacity",
 		zap.Int32("pending", pending),
 		zap.Int32("replicas", scale.Spec.Replicas),
-		zap.Int32("last ordinal", state.lastOrdinal))
+		zap.Int32("last ordinal", state.LastOrdinal))
 
-	newreplicas := state.lastOrdinal + 1 // Ideal number
+	var newreplicas int32
+	if state.LastOrdinal > 0 {
+		newreplicas = int32(math.Ceil(float64(state.LastOrdinal)/3.0) * 3) // Ideal number is multiple of 3 (temporary)
+	} else {
+		newreplicas = 3
+	}
 
 	// Take into account pending replicas
 	if pending > 0 {
@@ -133,8 +139,12 @@ func (a *autoscaler) doautoscale(ctx context.Context, attemptScaleDown bool, pen
 	}
 
 	// Make sure to never scale down past the last ordinal
-	if newreplicas <= state.lastOrdinal {
-		newreplicas = state.lastOrdinal + 1
+	if newreplicas <= state.LastOrdinal {
+		if state.LastOrdinal > 0 {
+			newreplicas = int32(math.Ceil(float64(state.LastOrdinal)/3.0) * 3) // Ideal number is multiple of 3 (temporary)
+		} else {
+			newreplicas = 3
+		}
 	}
 
 	// Only scale down if permitted
@@ -160,17 +170,17 @@ func (a *autoscaler) doautoscale(ctx context.Context, attemptScaleDown bool, pen
 	return nil
 }
 
-func (a *autoscaler) mayCompact(s *state) {
+func (a *autoscaler) mayCompact(s *state.State) {
 	// when there is only one pod there is nothing to move!
-	if s.lastOrdinal < 1 {
+	if s.LastOrdinal < 1 {
 		return
 	}
 
-	if s.schedulerPolicy == MAXFILLUP {
+	if s.SchedulerPolicy == scheduler.MAXFILLUP {
 		// Determine if there is enough free capacity to
 		// move all vreplicas placed in the last pod to pods with a lower ordinal
-		freeCapacity := s.freeCapacity() - s.Free(s.lastOrdinal)
-		usedInLastPod := s.capacity - s.Free(s.lastOrdinal)
+		freeCapacity := s.FreeCapacity() - s.Free(s.LastOrdinal)
+		usedInLastPod := s.Capacity - s.Free(s.LastOrdinal)
 
 		if freeCapacity >= usedInLastPod {
 			err := a.compact(s)
@@ -184,7 +194,7 @@ func (a *autoscaler) mayCompact(s *state) {
 	}
 }
 
-func (a *autoscaler) compact(s *state) error {
+func (a *autoscaler) compact(s *state.State) error {
 	a.logger.Info("compacting vreplicas")
 	vpods, err := a.vpodLister()
 	if err != nil {
@@ -194,9 +204,9 @@ func (a *autoscaler) compact(s *state) error {
 	for _, vpod := range vpods {
 		placements := vpod.GetPlacements()
 		for _, placement := range placements {
-			ordinal := ordinalFromPodName(placement.PodName)
+			ordinal := state.OrdinalFromPodName(placement.PodName)
 
-			if ordinal == s.lastOrdinal {
+			if ordinal == s.LastOrdinal {
 				a.logger.Infow("evicting vreplica(s)",
 					zap.String("name", vpod.GetKey().Name),
 					zap.String("namespace", vpod.GetKey().Namespace),

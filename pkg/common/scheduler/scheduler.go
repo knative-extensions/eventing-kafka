@@ -28,6 +28,21 @@ var (
 	ErrNotEnoughReplicas = errors.New("scheduling failed (not enough pod replicas)")
 )
 
+type SchedulerPolicyType string
+
+const (
+	// MAXFILLUP policy type adds vreplicas to existing pods to fill them up before adding to new pods
+	MAXFILLUP SchedulerPolicyType = "MAXFILLUP"
+	// EVENSPREAD policy type spreads vreplicas uniformly across zones to reduce impact of failure
+	EVENSPREAD = "EVENSPREAD"
+	// EVENSPREAD_BYNODE policy type spreads vreplicas uniformly across nodes to reduce impact of failure
+	EVENSPREAD_BYNODE = "EVENSPREAD_BYNODE"
+)
+
+const (
+	ZoneLabel = "topology.kubernetes.io/zone"
+)
+
 // VPodLister is the function signature for returning a list of VPods
 type VPodLister func() ([]VPod, error)
 

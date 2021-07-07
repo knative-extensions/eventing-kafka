@@ -60,7 +60,10 @@ spec:
           value: '250'
         # The scheduling policy type for placing vreplicas on pods (see type SchedulerPolicyType for enum list)
         - name: SCHEDULER_POLICY_TYPE
-          value: 'EVENSPREAD_BYNODE'
+          value: ''
+
+        - name: CONFIG_SCHEDULER
+          value: config-scheduler
 
         resources:
           requests:

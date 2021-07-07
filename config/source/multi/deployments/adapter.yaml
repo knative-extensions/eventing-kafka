@@ -20,7 +20,7 @@ metadata:
   labels:
     kafka.eventing.knative.dev/release: devel
 spec:
-  replicas: 1
+  replicas: 3 #Ideal number is multiple of 3 (temporary)
   selector:
     matchLabels: &labels
       control-plane: kafkasource-mt-adapter

@@ -14,10 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package statefulset
+package state
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"go.uber.org/zap"
@@ -28,61 +29,85 @@ import (
 	"knative.dev/pkg/logging"
 )
 
-type stateAccessor interface {
+type StateAccessor interface {
 	// State returns the current state (snapshot) about placed vpods
 	// Take into account reserved vreplicas and update `reserved` to reflect
 	// the current state.
-	State(reserved map[types.NamespacedName]map[string]int32) (*state, error)
+	State(reserved map[types.NamespacedName]map[string]int32) (*State, error)
 }
 
 // state provides information about the current scheduling of all vpods
 // It is used by for the scheduler and the autoscaler
-type state struct {
+type State struct {
 	// free tracks the free capacity of each pod.
-	free []int32
+	FreeCap []int32
 
-	// lastOrdinal is the ordinal index corresponding to the last statefulset replica
+	// LastOrdinal is the ordinal index corresponding to the last statefulset replica
 	// with placed vpods.
-	lastOrdinal int32
+	LastOrdinal int32
 
 	// Pod capacity.
-	capacity int32
+	Capacity int32
 
 	// Number of zones in cluster
-	numZones int32
+	NumZones int32
 
 	// Number of available nodes in cluster
-	numNodes int32
+	NumNodes int32
 
 	// Scheduling policy type for placing vreplicas on pods
-	schedulerPolicy SchedulerPolicyType
+	SchedulerPolicy scheduler.SchedulerPolicyType
 
 	// Mapping node names of nodes currently in cluster to their zone info
-	nodeToZoneMap map[string]string
+	NodeToZoneMap map[string]string
+
+	StatefulSetName string
+
+	PodLister corev1.PodNamespaceLister
+
+	PodSpread map[types.NamespacedName]map[string]int32
+
+	NodeSpread map[types.NamespacedName]map[string]int32
+
+	ZoneSpread map[types.NamespacedName]map[string]int32
 }
 
 // Free safely returns the free capacity at the given ordinal
-func (s *state) Free(ordinal int32) int32 {
-	if int32(len(s.free)) <= ordinal {
-		return s.capacity
+func (s *State) Free(ordinal int32) int32 {
+	if int32(len(s.FreeCap)) <= ordinal {
+		return s.Capacity
 	}
-	return s.free[ordinal]
+	return s.FreeCap[ordinal]
 }
 
 // SetFree safely sets the free capacity at the given ordinal
-func (s *state) SetFree(ordinal int32, value int32) {
-	s.free = grow(s.free, ordinal, s.capacity)
-	s.free[int(ordinal)] = value
+func (s *State) SetFree(ordinal int32, value int32) {
+	s.FreeCap = grow(s.FreeCap, ordinal, s.Capacity)
+	s.FreeCap[int(ordinal)] = value
 }
 
 // freeCapacity returns the number of vreplicas that can be used,
 // up to the last ordinal
-func (s *state) freeCapacity() int32 {
+func (s *State) FreeCapacity() int32 {
 	t := int32(0)
-	for i := int32(0); i <= s.lastOrdinal; i++ {
-		t += s.free[i]
+	for i := int32(0); i <= s.LastOrdinal; i++ {
+		t += s.FreeCap[i]
 	}
 	return t
+}
+
+func (s *State) GetPodInfo(podName string) (zoneName string, nodeName string, err error) {
+	pod, err := s.PodLister.Get(podName)
+	if err != nil {
+		return zoneName, nodeName, err
+	}
+
+	nodeName = pod.Spec.NodeName
+	zoneName, ok := s.NodeToZoneMap[nodeName]
+	if !ok {
+		return zoneName, nodeName, errors.New("could not find zone")
+	}
+	return zoneName, nodeName, nil
 }
 
 // stateBuilder reconstruct the state from scratch, by listing vpods
@@ -91,12 +116,15 @@ type stateBuilder struct {
 	logger          *zap.SugaredLogger
 	vpodLister      scheduler.VPodLister
 	capacity        int32
-	schedulerPolicy SchedulerPolicyType
+	schedulerPolicy scheduler.SchedulerPolicyType
 	nodeLister      corev1.NodeLister
+	statefulSetName string
+	podLister       corev1.PodNamespaceLister
 }
 
-// newStateBuilder returns a StateAccessor recreating the state from scratch each time it is requested
-func newStateBuilder(ctx context.Context, lister scheduler.VPodLister, podCapacity int32, schedulerPolicy SchedulerPolicyType, nodeLister corev1.NodeLister) stateAccessor {
+// NewStateBuilder returns a StateAccessor recreating the state from scratch each time it is requested
+func NewStateBuilder(ctx context.Context, sfsname string, lister scheduler.VPodLister, podCapacity int32, schedulerPolicy scheduler.SchedulerPolicyType, podlister corev1.PodNamespaceLister, nodeLister corev1.NodeLister) StateAccessor {
+
 	return &stateBuilder{
 		ctx:             ctx,
 		logger:          logging.FromContext(ctx),
@@ -104,10 +132,12 @@ func newStateBuilder(ctx context.Context, lister scheduler.VPodLister, podCapaci
 		capacity:        podCapacity,
 		schedulerPolicy: schedulerPolicy,
 		nodeLister:      nodeLister,
+		statefulSetName: sfsname,
+		podLister:       podlister,
 	}
 }
 
-func (s *stateBuilder) State(reserved map[types.NamespacedName]map[string]int32) (*state, error) {
+func (s *stateBuilder) State(reserved map[types.NamespacedName]map[string]int32) (*State, error) {
 	vpods, err := s.vpodLister()
 	if err != nil {
 		return nil, err
@@ -119,13 +149,46 @@ func (s *stateBuilder) State(reserved map[types.NamespacedName]map[string]int32)
 	// keep track of (vpod key, podname) pairs with existing placements
 	withPlacement := make(map[types.NamespacedName]map[string]bool)
 
+	podSpread := make(map[types.NamespacedName]map[string]int32)
+	nodeSpread := make(map[types.NamespacedName]map[string]int32)
+	zoneSpread := make(map[types.NamespacedName]map[string]int32)
+
+	//Build the node to zone map
+	nodes, err := s.nodeLister.List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	nodeToZoneMap := make(map[string]string)
+	zoneMap := make(map[string]struct{})
+	for i := 0; i < len(nodes); i++ {
+		node := nodes[i]
+		if node.Spec.Unschedulable {
+			continue //ignore node that is currently unschedulable
+		}
+		zoneName, ok := node.GetLabels()[scheduler.ZoneLabel]
+		if !ok {
+			continue //ignore node that doesn't have zone info (maybe a test setup or control node)
+		}
+
+		nodeToZoneMap[node.Name] = zoneName
+		zoneMap[zoneName] = struct{}{}
+	}
+
+	// Getting current state from existing placements for all vpods
 	for _, vpod := range vpods {
 		ps := vpod.GetPlacements()
 
 		withPlacement[vpod.GetKey()] = make(map[string]bool)
+		podSpread[vpod.GetKey()] = make(map[string]int32)
+		nodeSpread[vpod.GetKey()] = make(map[string]int32)
+		zoneSpread[vpod.GetKey()] = make(map[string]int32)
 
 		for i := 0; i < len(ps); i++ {
 			podName := ps[i].PodName
+			pod, _ := s.podLister.Get(podName)
+			nodeName := pod.Spec.NodeName       //node name for this pod
+			zoneName := nodeToZoneMap[nodeName] //zone name for this pod
 			vreplicas := ps[i].VReplicas
 
 			// Account for reserved vreplicas
@@ -134,6 +197,9 @@ func (s *stateBuilder) State(reserved map[types.NamespacedName]map[string]int32)
 			free, last = s.updateFreeCapacity(free, last, podName, vreplicas)
 
 			withPlacement[vpod.GetKey()][podName] = true
+			podSpread[vpod.GetKey()][podName] = podSpread[vpod.GetKey()][podName] + vreplicas
+			nodeSpread[vpod.GetKey()][nodeName] = nodeSpread[vpod.GetKey()][nodeName] + vreplicas
+			zoneSpread[vpod.GetKey()][zoneName] = zoneSpread[vpod.GetKey()][zoneName] + vreplicas
 		}
 	}
 
@@ -145,44 +211,26 @@ func (s *stateBuilder) State(reserved map[types.NamespacedName]map[string]int32)
 					// already accounted for
 					break
 				}
+				pod, _ := s.podLister.Get(podName)
+				nodeName := pod.Spec.NodeName       //node name for this pod
+				zoneName := nodeToZoneMap[nodeName] //zone name for this pod
+				podSpread[key][podName] = podSpread[key][podName] + rvreplicas
+				nodeSpread[key][nodeName] = nodeSpread[key][nodeName] + rvreplicas
+				zoneSpread[key][zoneName] = zoneSpread[key][zoneName] + rvreplicas
 			}
 
 			free, last = s.updateFreeCapacity(free, last, podName, rvreplicas)
 		}
 	}
 
-	if s.schedulerPolicy == EVENSPREAD || s.schedulerPolicy == EVENSPREAD_BYNODE {
-		//TODO: need a node watch to see if # nodes/ # zones have gone up or down
-		nodes, err := s.nodeLister.List(labels.Everything())
-		if err != nil {
-			return nil, err
-		}
-
-		nodeToZoneMap := make(map[string]string)
-		zoneMap := make(map[string]struct{})
-		for i := 0; i < len(nodes); i++ {
-			node := nodes[i]
-			if node.Spec.Unschedulable {
-				continue //ignore node that is currently unschedulable
-			}
-			zoneName, ok := node.GetLabels()[ZoneLabel]
-			if !ok {
-				continue //ignore node that doesn't have zone info (maybe a test setup or control node)
-			}
-
-			nodeToZoneMap[node.Name] = zoneName
-			zoneMap[zoneName] = struct{}{}
-		}
-
-		s.logger.Infow("cluster state info", zap.String("numZones", fmt.Sprint(len(zoneMap))), zap.String("numNodes", fmt.Sprint(len(nodeToZoneMap))))
-		return &state{free: free, lastOrdinal: last, capacity: s.capacity, numZones: int32(len(zoneMap)), numNodes: int32(len(nodeToZoneMap)), schedulerPolicy: s.schedulerPolicy, nodeToZoneMap: nodeToZoneMap}, nil
-
-	}
-	return &state{free: free, lastOrdinal: last, capacity: s.capacity, schedulerPolicy: s.schedulerPolicy}, nil
+	s.logger.Infow("cluster state info", zap.String("NumZones", fmt.Sprint(len(zoneMap))), zap.String("NumNodes", fmt.Sprint(len(nodeToZoneMap))))
+	return &State{FreeCap: free, LastOrdinal: last, Capacity: s.capacity, NumZones: int32(len(zoneMap)), NumNodes: int32(len(nodeToZoneMap)),
+		SchedulerPolicy: s.schedulerPolicy, NodeToZoneMap: nodeToZoneMap, StatefulSetName: s.statefulSetName, PodLister: s.podLister,
+		PodSpread: podSpread, NodeSpread: nodeSpread, ZoneSpread: zoneSpread}, nil
 }
 
 func (s *stateBuilder) updateFreeCapacity(free []int32, last int32, podName string, vreplicas int32) ([]int32, int32) {
-	ordinal := ordinalFromPodName(podName)
+	ordinal := OrdinalFromPodName(podName)
 	free = grow(free, ordinal, s.capacity)
 
 	free[ordinal] -= vreplicas

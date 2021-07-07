@@ -17,27 +17,20 @@ limitations under the License.
 package statefulset
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 	"testing"
 	"time"
 
-	appsv1 "k8s.io/api/apps/v1"
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	gtesting "k8s.io/client-go/testing"
 
 	kubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/apps/v1/statefulset/fake"
-	"knative.dev/pkg/controller"
-	rectesting "knative.dev/pkg/reconciler/testing"
 
 	duckv1alpha1 "knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
 	"knative.dev/eventing-kafka/pkg/common/scheduler"
+	"knative.dev/eventing-kafka/pkg/common/scheduler/state"
 	tscheduler "knative.dev/eventing-kafka/pkg/common/scheduler/testing"
 	listers "knative.dev/eventing/pkg/reconciler/testing/v1"
 )
@@ -52,45 +45,51 @@ const (
 
 func TestStatefulsetScheduler(t *testing.T) {
 	testCases := []struct {
-		name            string
-		vreplicas       int32
-		replicas        int32
-		placements      []duckv1alpha1.Placement
-		expected        []duckv1alpha1.Placement
-		err             error
-		schedulerPolicy SchedulerPolicyType
+		name                string
+		vreplicas           int32
+		replicas            int32
+		placements          []duckv1alpha1.Placement
+		expected            []duckv1alpha1.Placement
+		err                 error
+		schedulerPolicyType scheduler.SchedulerPolicyType
+		schedulerPolicy     *SchedulerPolicy
 	}{
 		{
-			name:      "no replicas, no vreplicas",
-			vreplicas: 0,
-			replicas:  int32(0),
-			expected:  nil,
+			name:                "no replicas, no vreplicas",
+			vreplicas:           0,
+			replicas:            int32(0),
+			expected:            nil,
+			schedulerPolicyType: scheduler.MAXFILLUP,
 		},
 		{
-			name:      "no replicas, 1 vreplicas, fail.",
-			vreplicas: 1,
-			replicas:  int32(0),
-			err:       scheduler.ErrNotEnoughReplicas,
-			expected:  []duckv1alpha1.Placement{},
+			name:                "no replicas, 1 vreplicas, fail.",
+			vreplicas:           1,
+			replicas:            int32(0),
+			err:                 scheduler.ErrNotEnoughReplicas,
+			expected:            []duckv1alpha1.Placement{},
+			schedulerPolicyType: scheduler.MAXFILLUP,
 		},
 		{
-			name:      "one replica, one vreplicas",
-			vreplicas: 1,
-			replicas:  int32(1),
-			expected:  []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 1}},
+			name:                "one replica, one vreplicas",
+			vreplicas:           1,
+			replicas:            int32(1),
+			expected:            []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 1}},
+			schedulerPolicyType: scheduler.MAXFILLUP,
 		},
 		{
-			name:      "one replica, 3 vreplicas",
-			vreplicas: 3,
-			replicas:  int32(1),
-			expected:  []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 3}},
+			name:                "one replica, 3 vreplicas",
+			vreplicas:           3,
+			replicas:            int32(1),
+			expected:            []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 3}},
+			schedulerPolicyType: scheduler.MAXFILLUP,
 		},
 		{
-			name:      "one replica, 15 vreplicas, unschedulable",
-			vreplicas: 15,
-			replicas:  int32(1),
-			err:       scheduler.ErrNotEnoughReplicas,
-			expected:  []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 10}},
+			name:                "one replica, 15 vreplicas, unschedulable",
+			vreplicas:           15,
+			replicas:            int32(1),
+			err:                 scheduler.ErrNotEnoughReplicas,
+			expected:            []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 10}},
+			schedulerPolicyType: scheduler.MAXFILLUP,
 		},
 		{
 			name:      "two replicas, 15 vreplicas, scheduled",
@@ -100,6 +99,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-0", VReplicas: 10},
 				{PodName: "statefulset-name-1", VReplicas: 5},
 			},
+			schedulerPolicyType: scheduler.MAXFILLUP,
 		},
 		{
 			name:      "two replicas, 15 vreplicas, already scheduled",
@@ -113,6 +113,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-0", VReplicas: 10},
 				{PodName: "statefulset-name-1", VReplicas: 5},
 			},
+			schedulerPolicyType: scheduler.MAXFILLUP,
 		},
 		{
 			name:      "two replicas, 20 vreplicas, scheduling",
@@ -126,6 +127,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-0", VReplicas: 10},
 				{PodName: "statefulset-name-1", VReplicas: 10},
 			},
+			schedulerPolicyType: scheduler.MAXFILLUP,
 		},
 		{
 			name:      "two replicas, 15 vreplicas, too much scheduled (scale down)",
@@ -139,44 +141,45 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-0", VReplicas: 10},
 				{PodName: "statefulset-name-1", VReplicas: 5},
 			},
+			schedulerPolicyType: scheduler.MAXFILLUP,
 		},
 		{
-			name:            "no replicas, no vreplicas, HA scheduling",
-			vreplicas:       0,
-			replicas:        int32(0),
-			expected:        nil,
-			schedulerPolicy: EVENSPREAD,
+			name:                "no replicas, no vreplicas, HA scheduling",
+			vreplicas:           0,
+			replicas:            int32(0),
+			expected:            nil,
+			schedulerPolicyType: scheduler.EVENSPREAD,
 		},
 		{
-			name:            "no replicas, 1 vreplicas, fail, HA scheduling",
-			vreplicas:       1,
-			replicas:        int32(0),
-			err:             scheduler.ErrNotEnoughReplicas,
-			expected:        []duckv1alpha1.Placement{},
-			schedulerPolicy: EVENSPREAD,
+			name:                "no replicas, 1 vreplicas, fail, HA scheduling",
+			vreplicas:           1,
+			replicas:            int32(0),
+			err:                 scheduler.ErrNotEnoughReplicas,
+			expected:            []duckv1alpha1.Placement{},
+			schedulerPolicyType: scheduler.EVENSPREAD,
 		},
 		{
-			name:            "one replica, one vreplicas, HA scheduling",
-			vreplicas:       1,
-			replicas:        int32(1),
-			expected:        []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 1}},
-			schedulerPolicy: EVENSPREAD,
+			name:                "one replica, one vreplicas, HA scheduling",
+			vreplicas:           1,
+			replicas:            int32(1),
+			expected:            []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 1}},
+			schedulerPolicyType: scheduler.EVENSPREAD,
 		},
 		{
-			name:            "one replica, 3 vreplicas, HA scheduling",
-			vreplicas:       3,
-			replicas:        int32(1),
-			err:             scheduler.ErrNotEnoughReplicas,
-			expected:        []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 1}},
-			schedulerPolicy: EVENSPREAD,
+			name:                "one replica, 3 vreplicas, HA scheduling",
+			vreplicas:           3,
+			replicas:            int32(1),
+			err:                 scheduler.ErrNotEnoughReplicas,
+			expected:            []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 1}},
+			schedulerPolicyType: scheduler.EVENSPREAD,
 		},
 		{
-			name:            "one replica, 15 vreplicas, unschedulable, HA scheduling",
-			vreplicas:       15,
-			replicas:        int32(1),
-			err:             scheduler.ErrNotEnoughReplicas,
-			expected:        []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 5}},
-			schedulerPolicy: EVENSPREAD,
+			name:                "one replica, 15 vreplicas, unschedulable, HA scheduling",
+			vreplicas:           15,
+			replicas:            int32(1),
+			err:                 scheduler.ErrNotEnoughReplicas,
+			expected:            []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 5}},
+			schedulerPolicyType: scheduler.EVENSPREAD,
 		},
 		{
 			name:      "two replicas, 15 vreplicas, scheduled, HA scheduling",
@@ -187,7 +190,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-0", VReplicas: 5},
 				{PodName: "statefulset-name-1", VReplicas: 5},
 			},
-			schedulerPolicy: EVENSPREAD,
+			schedulerPolicyType: scheduler.EVENSPREAD,
 		},
 		{
 			name:      "two replicas, 15 vreplicas, already scheduled, HA scheduling",
@@ -201,7 +204,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-0", VReplicas: 10},
 				{PodName: "statefulset-name-1", VReplicas: 5},
 			},
-			schedulerPolicy: EVENSPREAD,
+			schedulerPolicyType: scheduler.EVENSPREAD,
 		},
 		{
 			name:      "three replicas, 30 vreplicas, HA scheduling",
@@ -217,7 +220,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-1", VReplicas: 10},
 				{PodName: "statefulset-name-2", VReplicas: 10},
 			},
-			schedulerPolicy: EVENSPREAD,
+			schedulerPolicyType: scheduler.EVENSPREAD,
 		},
 		{
 			name:      "three replicas, 15 vreplicas, too much scheduled (scale down), HA scheduling",
@@ -233,7 +236,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-1", VReplicas: 5},
 				{PodName: "statefulset-name-2", VReplicas: 5},
 			},
-			schedulerPolicy: EVENSPREAD,
+			schedulerPolicyType: scheduler.EVENSPREAD,
 		},
 		{
 			name:      "three replicas, 15 vreplicas, HA scheduling",
@@ -244,7 +247,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-1", VReplicas: 5},
 				{PodName: "statefulset-name-2", VReplicas: 5},
 			},
-			schedulerPolicy: EVENSPREAD,
+			schedulerPolicyType: scheduler.EVENSPREAD,
 		},
 		{
 			name:      "three replicas, 20 vreplicas, HA scheduling",
@@ -255,7 +258,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-1", VReplicas: 7},
 				{PodName: "statefulset-name-2", VReplicas: 6},
 			},
-			schedulerPolicy: EVENSPREAD,
+			schedulerPolicyType: scheduler.EVENSPREAD,
 		},
 		{
 			name:      "three replicas, 2 vreplicas, too much scheduled (scale down), HA scheduling",
@@ -270,7 +273,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-1", VReplicas: 1},
 				{PodName: "statefulset-name-2", VReplicas: 1},
 			},
-			schedulerPolicy: EVENSPREAD,
+			schedulerPolicyType: scheduler.EVENSPREAD,
 		},
 		{
 			name:      "three replicas, 3 vreplicas, too much scheduled (scale down), HA scheduling",
@@ -286,7 +289,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-1", VReplicas: 1},
 				{PodName: "statefulset-name-2", VReplicas: 1},
 			},
-			schedulerPolicy: EVENSPREAD,
+			schedulerPolicyType: scheduler.EVENSPREAD,
 		},
 		{
 			name:      "four replicas, 7 vreplicas, too much scheduled (scale down), HA scheduling",
@@ -303,45 +306,45 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-1", VReplicas: 2},
 				{PodName: "statefulset-name-2", VReplicas: 3},
 			},
-			schedulerPolicy: EVENSPREAD,
+			schedulerPolicyType: scheduler.EVENSPREAD,
 		},
 		{
-			name:            "no replicas, no vreplicas, HA scheduling by node",
-			vreplicas:       0,
-			replicas:        int32(0),
-			expected:        nil,
-			schedulerPolicy: EVENSPREAD_BYNODE,
+			name:                "no replicas, no vreplicas, HA scheduling by node",
+			vreplicas:           0,
+			replicas:            int32(0),
+			expected:            nil,
+			schedulerPolicyType: scheduler.EVENSPREAD_BYNODE,
 		},
 		{
-			name:            "no replicas, 1 vreplicas, fail, HA scheduling by node",
-			vreplicas:       1,
-			replicas:        int32(0),
-			err:             scheduler.ErrNotEnoughReplicas,
-			expected:        []duckv1alpha1.Placement{},
-			schedulerPolicy: EVENSPREAD_BYNODE,
+			name:                "no replicas, 1 vreplicas, fail, HA scheduling by node",
+			vreplicas:           1,
+			replicas:            int32(0),
+			err:                 scheduler.ErrNotEnoughReplicas,
+			expected:            []duckv1alpha1.Placement{},
+			schedulerPolicyType: scheduler.EVENSPREAD_BYNODE,
 		},
 		{
-			name:            "one replica, one vreplicas, HA scheduling by node",
-			vreplicas:       1,
-			replicas:        int32(1),
-			expected:        []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 1}},
-			schedulerPolicy: EVENSPREAD_BYNODE,
+			name:                "one replica, one vreplicas, HA scheduling by node",
+			vreplicas:           1,
+			replicas:            int32(1),
+			expected:            []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 1}},
+			schedulerPolicyType: scheduler.EVENSPREAD_BYNODE,
 		},
 		{
-			name:            "one replica, 3 vreplicas, HA scheduling by node",
-			vreplicas:       3,
-			replicas:        int32(1),
-			err:             scheduler.ErrNotEnoughReplicas,
-			expected:        []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 1}},
-			schedulerPolicy: EVENSPREAD_BYNODE,
+			name:                "one replica, 3 vreplicas, HA scheduling by node",
+			vreplicas:           3,
+			replicas:            int32(1),
+			err:                 scheduler.ErrNotEnoughReplicas,
+			expected:            []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 1}},
+			schedulerPolicyType: scheduler.EVENSPREAD_BYNODE,
 		},
 		{
-			name:            "one replica, 15 vreplicas, unschedulable, HA scheduling by node",
-			vreplicas:       15,
-			replicas:        int32(1),
-			err:             scheduler.ErrNotEnoughReplicas,
-			expected:        []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 3}},
-			schedulerPolicy: EVENSPREAD_BYNODE,
+			name:                "one replica, 15 vreplicas, unschedulable, HA scheduling by node",
+			vreplicas:           15,
+			replicas:            int32(1),
+			err:                 scheduler.ErrNotEnoughReplicas,
+			expected:            []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 3}},
+			schedulerPolicyType: scheduler.EVENSPREAD_BYNODE,
 		},
 		{
 			name:      "five replicas, 15 vreplicas, scheduled, HA scheduling by node",
@@ -354,7 +357,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-3", VReplicas: 3},
 				{PodName: "statefulset-name-4", VReplicas: 3},
 			},
-			schedulerPolicy: EVENSPREAD_BYNODE,
+			schedulerPolicyType: scheduler.EVENSPREAD_BYNODE,
 		},
 		{
 			name:      "two replicas, 15 vreplicas, already scheduled, HA scheduling by node",
@@ -368,7 +371,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-0", VReplicas: 10},
 				{PodName: "statefulset-name-1", VReplicas: 5},
 			},
-			schedulerPolicy: EVENSPREAD_BYNODE,
+			schedulerPolicyType: scheduler.EVENSPREAD_BYNODE,
 		},
 		{
 			name:      "three replicas, 30 vreplicas, HA scheduling by node",
@@ -385,7 +388,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-1", VReplicas: 5},
 				{PodName: "statefulset-name-2", VReplicas: 5},
 			},
-			schedulerPolicy: EVENSPREAD_BYNODE,
+			schedulerPolicyType: scheduler.EVENSPREAD_BYNODE,
 		},
 		{
 			name:      "three replicas, 6 vreplicas, too much scheduled (scale down), HA scheduling by node",
@@ -401,7 +404,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-1", VReplicas: 1},
 				{PodName: "statefulset-name-2", VReplicas: 5},
 			},
-			schedulerPolicy: EVENSPREAD_BYNODE,
+			schedulerPolicyType: scheduler.EVENSPREAD_BYNODE,
 		},
 		{
 			name:      "three replicas, 15 vreplicas, HA scheduling by node",
@@ -413,7 +416,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-1", VReplicas: 3},
 				{PodName: "statefulset-name-2", VReplicas: 3},
 			},
-			schedulerPolicy: EVENSPREAD_BYNODE,
+			schedulerPolicyType: scheduler.EVENSPREAD_BYNODE,
 		},
 		{
 			name:      "five replicas, 20 vreplicas, HA scheduling by node",
@@ -426,7 +429,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-3", VReplicas: 4},
 				{PodName: "statefulset-name-4", VReplicas: 4},
 			},
-			schedulerPolicy: EVENSPREAD_BYNODE,
+			schedulerPolicyType: scheduler.EVENSPREAD_BYNODE,
 		},
 		{
 			name:      "three replicas, 2 vreplicas, too much scheduled (scale down), HA scheduling by node",
@@ -441,7 +444,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-1", VReplicas: 1},
 				{PodName: "statefulset-name-2", VReplicas: 1},
 			},
-			schedulerPolicy: EVENSPREAD_BYNODE,
+			schedulerPolicyType: scheduler.EVENSPREAD_BYNODE,
 		},
 		{
 			name:      "four replicas, 6 vreplicas, too much scheduled (scale down), HA scheduling by node",
@@ -459,7 +462,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-2", VReplicas: 2},
 				{PodName: "statefulset-name-3", VReplicas: 2},
 			},
-			schedulerPolicy: EVENSPREAD_BYNODE,
+			schedulerPolicyType: scheduler.EVENSPREAD_BYNODE,
 		},
 		{
 			name:      "three replicas, 7 vreplicas, too much scheduled (scale down), HA scheduling by node",
@@ -475,48 +478,211 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-1", VReplicas: 2},
 				{PodName: "statefulset-name-2", VReplicas: 4},
 			},
-			schedulerPolicy: EVENSPREAD_BYNODE,
+			schedulerPolicyType: scheduler.EVENSPREAD_BYNODE,
+		},
+		{
+			name:      "no replicas, no vreplicas with Predicates and Priorities",
+			vreplicas: 0,
+			replicas:  int32(0),
+			expected:  nil,
+			schedulerPolicy: &SchedulerPolicy{
+				Predicates: []PredicatePolicy{
+					{Name: "PodFitsResources"},
+				},
+				Priorities: []PriorityPolicy{
+					{Name: "LowestOrdinalPriority", Weight: 1},
+				},
+			},
+		},
+		{
+			name:      "no replicas, 1 vreplicas, fail with Predicates and Priorities",
+			vreplicas: 1,
+			replicas:  int32(0),
+			err:       scheduler.ErrNotEnoughReplicas,
+			expected:  nil,
+			schedulerPolicy: &SchedulerPolicy{
+				Predicates: []PredicatePolicy{
+					{Name: "PodFitsResources"},
+				},
+				Priorities: []PriorityPolicy{
+					{Name: "LowestOrdinalPriority", Weight: 1},
+				},
+			},
+		},
+		{
+			name:      "one replica, one vreplicas with Predicates and Priorities",
+			vreplicas: 1,
+			replicas:  int32(1),
+			expected:  []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 1}},
+			schedulerPolicy: &SchedulerPolicy{
+				Predicates: []PredicatePolicy{
+					{Name: "PodFitsResources"},
+				},
+				Priorities: []PriorityPolicy{
+					{Name: "LowestOrdinalPriority", Weight: 1},
+				},
+			},
+		},
+		{
+			name:      "one replica, 3 vreplicas with Predicates and Priorities",
+			vreplicas: 3,
+			replicas:  int32(1),
+			expected:  []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 3}},
+			schedulerPolicy: &SchedulerPolicy{
+				Predicates: []PredicatePolicy{
+					{Name: "PodFitsResources"},
+				},
+				Priorities: []PriorityPolicy{
+					{Name: "LowestOrdinalPriority", Weight: 1},
+				},
+			},
+		},
+		{
+			name:      "one replica, 15 vreplicas, unschedulable with Predicates and Priorities",
+			vreplicas: 15,
+			replicas:  int32(1),
+			err:       scheduler.ErrNotEnoughReplicas,
+			expected:  []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 10}},
+			schedulerPolicy: &SchedulerPolicy{
+				Predicates: []PredicatePolicy{
+					{Name: "PodFitsResources"},
+				},
+				Priorities: []PriorityPolicy{
+					{Name: "LowestOrdinalPriority", Weight: 1},
+				},
+			},
+		},
+		{
+			name:      "two replicas, 15 vreplicas, scheduled with Predicates and Priorities",
+			vreplicas: 15,
+			replicas:  int32(2),
+			expected: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 10},
+				{PodName: "statefulset-name-1", VReplicas: 5},
+			},
+			schedulerPolicy: &SchedulerPolicy{
+				Predicates: []PredicatePolicy{
+					{Name: "PodFitsResources"},
+				},
+				Priorities: []PriorityPolicy{
+					{Name: "LowestOrdinalPriority", Weight: 1},
+				},
+			},
+		},
+		{
+			name:      "two replicas, 15 vreplicas, already scheduled with Predicates and Priorities",
+			vreplicas: 15,
+			replicas:  int32(2),
+			placements: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 10},
+				{PodName: "statefulset-name-1", VReplicas: 5},
+			},
+			expected: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 10},
+				{PodName: "statefulset-name-1", VReplicas: 5},
+			},
+			schedulerPolicy: &SchedulerPolicy{
+				Predicates: []PredicatePolicy{
+					{Name: "PodFitsResources"},
+				},
+				Priorities: []PriorityPolicy{
+					{Name: "LowestOrdinalPriority", Weight: 1},
+				},
+			},
+		},
+		{
+			name:      "two replicas, 20 vreplicas, scheduling with Predicates and Priorities",
+			vreplicas: 20,
+			replicas:  int32(2),
+			placements: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 5},
+				{PodName: "statefulset-name-1", VReplicas: 5},
+			},
+			expected: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 10},
+				{PodName: "statefulset-name-1", VReplicas: 10},
+			},
+			schedulerPolicy: &SchedulerPolicy{
+				Predicates: []PredicatePolicy{
+					{Name: "PodFitsResources"},
+				},
+				Priorities: []PriorityPolicy{
+					{Name: "LowestOrdinalPriority", Weight: 1},
+				},
+			},
+		},
+		{
+			name:      "no replicas, no vreplicas with two Predicates and two Priorities",
+			vreplicas: 0,
+			replicas:  int32(0),
+			expected:  nil,
+			schedulerPolicy: &SchedulerPolicy{
+				Predicates: []PredicatePolicy{
+					{Name: "PodFitsResources"},
+					{Name: "EvenPodSpread",
+						Args: "{\"MaxSkew\": 2}"},
+				},
+				Priorities: []PriorityPolicy{
+					{Name: "LowestOrdinalPriority", Weight: 2},
+					{Name: "AvailabilityZonePriority", Weight: 10, Args: "{\"MaxSkew\": 2}"},
+				},
+			},
+		},
+		{
+			name:      "no replicas, 1 vreplicas, fail with two Predicates and two Priorities",
+			vreplicas: 1,
+			replicas:  int32(0),
+			err:       scheduler.ErrNotEnoughReplicas,
+			expected:  nil,
+			schedulerPolicy: &SchedulerPolicy{
+				Predicates: []PredicatePolicy{
+					{Name: "PodFitsResources"},
+					{Name: "EvenPodSpread", Args: "{\"MaxSkew\": 2}"},
+				},
+				Priorities: []PriorityPolicy{
+					{Name: "LowestOrdinalPriority", Weight: 2},
+					{Name: "AvailabilityZonePriority", Weight: 10, Args: "{\"MaxSkew\": 2}"},
+				},
+			},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx, _ := setupFakeContext(t)
+			ctx, _ := tscheduler.SetupFakeContext(t)
 			nodelist := make([]runtime.Object, 0, numZones)
 			podlist := make([]runtime.Object, 0, tc.replicas)
 			vpodClient := tscheduler.NewVPodClient()
 
-			if tc.schedulerPolicy == EVENSPREAD || tc.schedulerPolicy == EVENSPREAD_BYNODE {
-				for i := int32(0); i < numZones; i++ {
-					for j := int32(0); j < numNodes/numZones; j++ {
-						nodeName := "node" + fmt.Sprint((j*((numNodes/numZones)+1))+i)
-						zoneName := "zone" + fmt.Sprint(i)
-						node, err := kubeclient.Get(ctx).CoreV1().Nodes().Create(ctx, makeNode(nodeName, zoneName), metav1.CreateOptions{})
-						if err != nil {
-							t.Fatal("unexpected error", err)
-						}
-						nodelist = append(nodelist, node)
-					}
-				}
-				for i := int32(0); i < tc.replicas; i++ {
-					nodeName := "node" + fmt.Sprint(i)
-					podName := sfsName + "-" + fmt.Sprint(i)
-					pod, err := kubeclient.Get(ctx).CoreV1().Pods(testNs).Create(ctx, makePod(testNs, podName, nodeName), metav1.CreateOptions{})
+			for i := int32(0); i < numZones; i++ {
+				for j := int32(0); j < numNodes/numZones; j++ {
+					nodeName := "node" + fmt.Sprint((j*((numNodes/numZones)+1))+i)
+					zoneName := "zone" + fmt.Sprint(i)
+					node, err := kubeclient.Get(ctx).CoreV1().Nodes().Create(ctx, tscheduler.MakeNode(nodeName, zoneName), metav1.CreateOptions{})
 					if err != nil {
 						t.Fatal("unexpected error", err)
 					}
-					podlist = append(podlist, pod)
+					nodelist = append(nodelist, node)
 				}
 			}
+			for i := int32(0); i < tc.replicas; i++ {
+				nodeName := "node" + fmt.Sprint(i)
+				podName := sfsName + "-" + fmt.Sprint(i)
+				pod, err := kubeclient.Get(ctx).CoreV1().Pods(testNs).Create(ctx, tscheduler.MakePod(testNs, podName, nodeName), metav1.CreateOptions{})
+				if err != nil {
+					t.Fatal("unexpected error", err)
+				}
+				podlist = append(podlist, pod)
+			}
 
-			_, err := kubeclient.Get(ctx).AppsV1().StatefulSets(testNs).Create(ctx, makeStatefulset(testNs, sfsName, tc.replicas), metav1.CreateOptions{})
+			_, err := kubeclient.Get(ctx).AppsV1().StatefulSets(testNs).Create(ctx, tscheduler.MakeStatefulset(testNs, sfsName, tc.replicas), metav1.CreateOptions{})
 			if err != nil {
 				t.Fatal("unexpected error", err)
 			}
-			lsn := listers.NewListers(nodelist)
-			sa := newStateBuilder(ctx, vpodClient.List, 10, tc.schedulerPolicy, lsn.GetNodeLister())
 			lsp := listers.NewListers(podlist)
-			s := NewStatefulSetScheduler(ctx, testNs, sfsName, vpodClient.List, sa, nil, lsp.GetPodLister().Pods(testNs)).(*StatefulSetScheduler)
+			lsn := listers.NewListers(nodelist)
+			sa := state.NewStateBuilder(ctx, sfsName, vpodClient.List, 10, tc.schedulerPolicyType, lsp.GetPodLister().Pods(testNs), lsn.GetNodeLister())
+			s := NewStatefulSetScheduler(ctx, testNs, sfsName, vpodClient.List, sa, nil, lsp.GetPodLister().Pods(testNs), tc.schedulerPolicy).(*StatefulSetScheduler)
 
 			// Give some time for the informer to notify the scheduler and set the number of replicas
 			time.Sleep(200 * time.Millisecond)
@@ -546,131 +712,4 @@ func TestStatefulsetScheduler(t *testing.T) {
 
 		})
 	}
-}
-
-func makeStatefulset(ns, name string, replicas int32) *appsv1.StatefulSet {
-	obj := &appsv1.StatefulSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: ns,
-		},
-		Spec: appsv1.StatefulSetSpec{
-			Replicas: &replicas,
-		},
-		Status: appsv1.StatefulSetStatus{
-			Replicas: replicas,
-		},
-	}
-
-	return obj
-}
-
-func makeNode(name, zonename string) *corev1.Node {
-	obj := &corev1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-			Labels: map[string]string{
-				ZoneLabel: zonename,
-			},
-		},
-	}
-	return obj
-}
-
-func makeNodeNoLabel(name string) *corev1.Node {
-	obj := &corev1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
-	}
-	return obj
-}
-
-func makePod(ns, name, nodename string) *corev1.Pod {
-	obj := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: ns,
-		},
-		Spec: corev1.PodSpec{
-			NodeName: nodename,
-		},
-	}
-	return obj
-}
-
-func setupFakeContext(t *testing.T) (context.Context, context.CancelFunc) {
-	ctx, cancel, informers := rectesting.SetupFakeContextWithCancel(t)
-	err := controller.StartInformers(ctx.Done(), informers...)
-	if err != nil {
-		t.Fatal("unexpected error", err)
-	}
-
-	kc := kubeclient.Get(ctx)
-	kc.PrependReactor("create", "statefulsets", func(action gtesting.Action) (handled bool, ret runtime.Object, err error) {
-		createAction := action.(gtesting.CreateActionImpl)
-		sfs := createAction.GetObject().(*appsv1.StatefulSet)
-		scale := &autoscalingv1.Scale{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      sfs.Name,
-				Namespace: sfs.Namespace,
-			},
-			Spec: autoscalingv1.ScaleSpec{
-				Replicas: func() int32 {
-					if sfs.Spec.Replicas == nil {
-						return 1
-					}
-					return *sfs.Spec.Replicas
-				}(),
-			},
-		}
-		kc.Tracker().Add(scale)
-		return false, nil, nil
-	})
-
-	kc.PrependReactor("get", "statefulsets", func(action gtesting.Action) (handled bool, ret runtime.Object, err error) {
-		getAction := action.(gtesting.GetAction)
-		if action.GetSubresource() == "scale" {
-			scale, err := kc.Tracker().Get(autoscalingv1.SchemeGroupVersion.WithResource("scales"), getAction.GetNamespace(), getAction.GetName())
-			return true, scale, err
-
-		}
-		return false, nil, nil
-	})
-
-	kc.PrependReactor("update", "statefulsets", func(action gtesting.Action) (handled bool, ret runtime.Object, err error) {
-		updateAction := action.(gtesting.UpdateActionImpl)
-		if action.GetSubresource() == "scale" {
-			scale := updateAction.GetObject().(*autoscalingv1.Scale)
-
-			err := kc.Tracker().Update(autoscalingv1.SchemeGroupVersion.WithResource("scales"), scale, scale.GetNamespace())
-			if err != nil {
-				return true, nil, err
-			}
-
-			meta, err := meta.Accessor(updateAction.GetObject())
-			if err != nil {
-				return true, nil, err
-			}
-
-			obj, err := kc.Tracker().Get(appsv1.SchemeGroupVersion.WithResource("statefulsets"), meta.GetNamespace(), meta.GetName())
-			if err != nil {
-				return true, nil, err
-			}
-
-			sfs := obj.(*appsv1.StatefulSet)
-			sfs.Spec.Replicas = &scale.Spec.Replicas
-
-			err = kc.Tracker().Update(appsv1.SchemeGroupVersion.WithResource("statefulsets"), sfs, sfs.GetNamespace())
-			if err != nil {
-				return true, nil, err
-			}
-
-			return true, scale, nil
-
-		}
-		return false, nil, nil
-	})
-
-	return ctx, cancel
 }
