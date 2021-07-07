@@ -14,11 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package statefulset
+package core
 
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"sort"
 	"sync"
@@ -26,7 +27,9 @@ import (
 
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	clientappsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -65,7 +68,8 @@ func NewScheduler(ctx context.Context,
 	capacity int32,
 	schedulerPolicy SchedulerPolicyType,
 	nodeLister corev1listers.NodeLister,
-	evictor scheduler.Evictor) scheduler.Scheduler {
+	evictor scheduler.Evictor,
+	policy *SchedulerPolicy) scheduler.Scheduler {
 
 	stateAccessor := newStateBuilder(ctx, lister, capacity, schedulerPolicy, nodeLister)
 	autoscaler := NewAutoscaler(ctx, namespace, name, lister, stateAccessor, evictor, refreshPeriod, capacity)
@@ -74,7 +78,7 @@ func NewScheduler(ctx context.Context,
 
 	go autoscaler.Start(ctx)
 
-	return NewStatefulSetScheduler(ctx, namespace, name, lister, stateAccessor, autoscaler, podLister)
+	return NewStatefulSetScheduler(ctx, namespace, name, lister, stateAccessor, autoscaler, podLister, policy)
 }
 
 // StatefulSetScheduler is a scheduler placing VPod into statefulset-managed set of pods
@@ -85,7 +89,7 @@ type StatefulSetScheduler struct {
 	podLister         corev1listers.PodNamespaceLister
 	vpodLister        scheduler.VPodLister
 	lock              sync.Locker
-	stateAccessor     stateAccessor
+	stateAccessor     StateAccessor
 	autoscaler        Autoscaler
 
 	// replicas is the (cached) number of statefulset replicas.
@@ -99,13 +103,133 @@ type StatefulSetScheduler struct {
 	// reserved tracks vreplicas that have been placed (ie. scheduled) but haven't been
 	// committed yet (ie. not appearing in vpodLister)
 	reserved map[types.NamespacedName]map[string]int32
+
+	//Scheduler responsible for initializing and running scheduler plugins
+	policy *SchedulerPolicy
+
+	// predicates that will always be configured.
+	mandatoryPredicates sets.String
+
+	// predicates and priorities that will be used if either was set to nil in a
+	// given v1.Policy configuration.
+	defaultPredicates sets.String
+	defaultPriorities map[string]int64
+}
+
+func ValidatePolicy(policy *SchedulerPolicy) []error {
+	var validationErrors []error
+
+	for _, priority := range policy.Priorities {
+		if priority.Weight <= 0 || priority.Weight >= MaxTotalScore {
+			validationErrors = append(validationErrors, fmt.Errorf("priority %s should have a positive weight applied to it or it has overflown", priority.Name))
+		}
+	}
+	return validationErrors
+}
+
+// AppendPredicateConfigs returns predicates configuration that will run as framework plugins.
+func (s *StatefulSetScheduler) AppendPredicateConfigs(keys sets.String, plugins SchedulerPlugins) (SchedulerPlugins, error) {
+	/* allPredicates := keys.Union(s.mandatoryPredicates)
+
+	// Create the framework plugin configurations, and place them in the order
+	// that the corresponding predicates were supposed to run.
+	for _, predicateKey := range predicateOrdering {
+		if allPredicates.Has(predicateKey) {
+			producer, exist := lr.predicateToConfigProducer[predicateKey]
+			if !exist {
+				return config.Plugins{}, nil, fmt.Errorf("no framework config producer registered for %q", predicateKey)
+			}
+			producer(*args, &plugins, &pluginConfig)
+			allPredicates.Delete(predicateKey)
+		}
+	}
+
+	// Sort the keys so that it is easier for unit tests to do compare.
+	sortedKeys := make([]string, 0, len(allPredicates))
+	for k := range allPredicates {
+		sortedKeys = append(sortedKeys, k)
+	}
+	sort.Strings(sortedKeys)
+
+	for _, predicateKey := range sortedKeys {
+		producer, exist := predicateToConfigProducer[predicateKey]
+		if !exist {
+			return config.Plugins{}, nil, fmt.Errorf("no framework config producer registered for %q", predicateKey)
+		}
+		producer(*args, &plugins)
+	} */
+
+	return plugins, nil
+}
+
+// AppendPriorityConfigs returns priorities configuration that will run as framework plugins.
+func (s *StatefulSetScheduler) AppendPriorityConfigs(keys map[string]int64, plugins SchedulerPlugins) (SchedulerPlugins, error) {
+	// Sort the keys so that it is easier for unit tests to do compare.
+	/* sortedKeys := make([]string, 0, len(keys))
+	for k := range keys {
+		sortedKeys = append(sortedKeys, k)
+	}
+	sort.Strings(sortedKeys)
+
+	for _, priority := range sortedKeys {
+		weight := keys[priority]
+		producer, exist := priorityToConfigProducer[priority]
+		if !exist {
+			return nil, fmt.Errorf("no config producer registered for %q", priority)
+		}
+		a := *args
+		a.Weight = int32(weight)
+		producer(a, &plugins, &pluginConfig)
+	} */
+	return plugins, nil
+}
+
+// RunFilterPlugins runs the set of configured Filter plugins for pod on
+// the given node. If any of these plugins doesn't return "Success", the
+// given node is not suitable for running pod.
+// Meanwhile, the failure message and status are set for the given node.
+func (s *StatefulSetScheduler) RunFilterPlugins(ctx context.Context, pod *v1.Pod) PluginToStatus {
+	statuses := make(PluginToStatus)
+	/* 	for _, pl := range f.filterPlugins {
+		pluginStatus := f.runFilterPlugin(ctx, pl, state, pod)
+		if !pluginStatus.IsSuccess() {
+			if !pluginStatus.IsUnschedulable() {
+				// Filter plugins are not supposed to return any status other than
+				// Success or Unschedulable.
+				errStatus := NewStatus(Error, fmt.Sprintf("running %q filter plugin for pod %q: %v", pl.Name(), pod.Name, pluginStatus.Message()))
+				return map[string]*Status{pl.Name(): errStatus}
+			}
+			statuses[pl.Name()] = pluginStatus
+			if !f.runAllFilters {
+				// Exit early if we don't need to run all filters.
+				return statuses
+			}
+		}
+	} */
+
+	return statuses
+}
+
+func (s *StatefulSetScheduler) runFilterPlugin(ctx context.Context, pl FilterPlugin, state StateAccessor, pod *v1.Pod) *Status {
+	status := pl.Filter(ctx, state, pod)
+	return status
+}
+
+// HasFilterPlugins returns true if at least one filter plugin is defined.
+func (s *StatefulSetScheduler) HasFilterPlugins() bool {
+	return len(s.policy.Priorities) > 0
+}
+
+// HasScorePlugins returns true if at least one score plugin is defined.
+func (s *StatefulSetScheduler) HasScorePlugins() bool {
+	return len(s.policy.Priorities) > 0
 }
 
 func NewStatefulSetScheduler(ctx context.Context,
 	namespace, name string,
 	lister scheduler.VPodLister,
-	stateAccessor stateAccessor,
-	autoscaler Autoscaler, podlister corev1listers.PodNamespaceLister) scheduler.Scheduler {
+	stateAccessor StateAccessor,
+	autoscaler Autoscaler, podlister corev1listers.PodNamespaceLister, policy *SchedulerPolicy) scheduler.Scheduler {
 
 	scheduler := &StatefulSetScheduler{
 		logger:            logging.FromContext(ctx),
@@ -118,6 +242,20 @@ func NewStatefulSetScheduler(ctx context.Context,
 		stateAccessor:     stateAccessor,
 		reserved:          make(map[types.NamespacedName]map[string]int32),
 		autoscaler:        autoscaler,
+		policy:            policy,
+		mandatoryPredicates: sets.NewString(
+			PodFitsResources,
+		),
+		defaultPredicates: sets.NewString(
+			PodFitsResources,
+			NoMaxResourceCount,
+		),
+		defaultPriorities: map[string]int64{
+			EvenPodSpreadPriority:    1,
+			AvailabilityNodePriority: 0,
+			AvailabilityZonePriority: 1,
+			LowestOrdinalPriority:    1,
+		},
 	}
 
 	// Monitor our statefulset
@@ -134,13 +272,44 @@ func (s *StatefulSetScheduler) Schedule(vpod scheduler.VPod) ([]duckv1alpha1.Pla
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
+	/* 	if errs := ValidatePolicy(s.policy); errs != nil {
+		return nil, errs
+	} */
+
+	predicateKeys := sets.NewString()
+	if s.policy.Predicates == nil {
+		//predicateKeys =  //Default
+	} else {
+		for _, predicate := range s.policy.Predicates {
+			predicateKeys.Insert(predicate.Name)
+		}
+	}
+
+	priorityKeys := make(map[string]int64)
+	if s.policy.Priorities == nil {
+		//priorityKeys = //DefaultPriorities
+	} else {
+		for _, priority := range s.policy.Priorities {
+			priorityKeys[priority.Name] = priority.Weight
+		}
+	}
+
+	var err error
+	plugins := SchedulerPlugins{}
+	if plugins, err = s.AppendPredicateConfigs(predicateKeys, plugins); err != nil {
+		return nil, err
+	}
+	if plugins, err = s.AppendPriorityConfigs(priorityKeys, plugins); err != nil {
+		return nil, err
+	}
+
 	placements, err := s.scheduleVPod(vpod)
 	if placements == nil {
 		return placements, err
 	}
 
 	sort.SliceStable(placements, func(i int, j int) bool {
-		return ordinalFromPodName(placements[i].PodName) < ordinalFromPodName(placements[j].PodName)
+		return OrdinalFromPodName(placements[i].PodName) < OrdinalFromPodName(placements[j].PodName)
 	})
 
 	// Reserve new placements until they are committed to the vpod.
@@ -190,12 +359,12 @@ func (s *StatefulSetScheduler) scheduleVPod(vpod scheduler.VPod) ([]duckv1alpha1
 	// Need less => scale down
 	if tr > vpod.GetVReplicas() {
 		logger.Infow("scaling down", zap.Int32("vreplicas", tr), zap.Int32("new vreplicas", vpod.GetVReplicas()))
-		if state.schedulerPolicy == EVENSPREAD || state.schedulerPolicy == EVENSPREAD_BYNODE {
+		if state.SchedulerPolicy == EVENSPREAD || state.SchedulerPolicy == EVENSPREAD_BYNODE {
 			//spreadVal is the minimum number of replicas to be left behind in each failure domain for high availability
-			if state.schedulerPolicy == EVENSPREAD {
-				spreadVal = int32(math.Floor(float64(vpod.GetVReplicas()) / float64(state.numZones)))
-			} else if state.schedulerPolicy == EVENSPREAD_BYNODE {
-				spreadVal = int32(math.Floor(float64(vpod.GetVReplicas()) / float64(state.numNodes)))
+			if state.SchedulerPolicy == EVENSPREAD {
+				spreadVal = int32(math.Floor(float64(vpod.GetVReplicas()) / float64(state.NumZones)))
+			} else if state.SchedulerPolicy == EVENSPREAD_BYNODE {
+				spreadVal = int32(math.Floor(float64(vpod.GetVReplicas()) / float64(state.NumNodes)))
 			}
 			logger.Infow("number of replicas per domain", zap.Int32("spreadVal", spreadVal))
 			placements = s.removeReplicasEvenSpread(state, tr-vpod.GetVReplicas(), placements, spreadVal)
@@ -210,12 +379,12 @@ func (s *StatefulSetScheduler) scheduleVPod(vpod scheduler.VPod) ([]duckv1alpha1
 
 	// Need more => scale up
 	logger.Infow("scaling up", zap.Int32("vreplicas", tr), zap.Int32("new vreplicas", vpod.GetVReplicas()))
-	if state.schedulerPolicy == EVENSPREAD || state.schedulerPolicy == EVENSPREAD_BYNODE {
+	if state.SchedulerPolicy == EVENSPREAD || state.SchedulerPolicy == EVENSPREAD_BYNODE {
 		//spreadVal is the maximum number of replicas to be placed in each failure domain for high availability
-		if state.schedulerPolicy == EVENSPREAD {
-			spreadVal = int32(math.Ceil(float64(vpod.GetVReplicas()) / float64(state.numZones)))
-		} else if state.schedulerPolicy == EVENSPREAD_BYNODE {
-			spreadVal = int32(math.Ceil(float64(vpod.GetVReplicas()) / float64(state.numNodes)))
+		if state.SchedulerPolicy == EVENSPREAD {
+			spreadVal = int32(math.Ceil(float64(vpod.GetVReplicas()) / float64(state.NumZones)))
+		} else if state.SchedulerPolicy == EVENSPREAD_BYNODE {
+			spreadVal = int32(math.Ceil(float64(vpod.GetVReplicas()) / float64(state.NumNodes)))
 		}
 		logger.Infow("number of replicas per domain", zap.Int32("spreadVal", spreadVal))
 		placements, left = s.addReplicasEvenSpread(state, vpod.GetVReplicas()-tr, placements, spreadVal)
@@ -271,7 +440,7 @@ func (s *StatefulSetScheduler) removeFromExistingReplicas(state *state, logger *
 	var placementsByDomain map[string][]int32
 	newPlacements := make([]duckv1alpha1.Placement, 0, len(placements))
 
-	if state.schedulerPolicy == EVENSPREAD_BYNODE {
+	if state.SchedulerPolicy == EVENSPREAD_BYNODE {
 		placementsByDomain = s.getPlacementsByNodeKey(state, placements)
 	} else {
 		placementsByDomain = s.getPlacementsByZoneKey(state, placements)
@@ -283,7 +452,7 @@ func (s *StatefulSetScheduler) removeFromExistingReplicas(state *state, logger *
 
 	for i := 0; i < len(domainNames); i++ { //iterate through each domain
 		var totalInDomain int32
-		if state.schedulerPolicy == EVENSPREAD_BYNODE {
+		if state.SchedulerPolicy == EVENSPREAD_BYNODE {
 			totalInDomain = s.getTotalVReplicasInNode(state, placements, domainNames[i])
 		} else {
 			totalInDomain = s.getTotalVReplicasInZone(state, placements, domainNames[i])
@@ -334,7 +503,7 @@ func (s *StatefulSetScheduler) addReplicas(state *state, diff int32, placements 
 	// Add to existing
 	for i := 0; i < len(placements); i++ {
 		podName := placements[i].PodName
-		ordinal := ordinalFromPodName(podName)
+		ordinal := OrdinalFromPodName(podName)
 
 		// Is there space in PodName?
 		f := state.Free(ordinal)
@@ -359,7 +528,7 @@ func (s *StatefulSetScheduler) addReplicas(state *state, diff int32, placements 
 			if f > 0 {
 				allocation := integer.Int32Min(f, diff)
 				newPlacements = append(newPlacements, duckv1alpha1.Placement{
-					PodName:   podNameFromOrdinal(s.statefulSetName, ordinal),
+					PodName:   PodNameFromOrdinal(s.statefulSetName, ordinal),
 					VReplicas: allocation,
 				})
 
@@ -394,7 +563,7 @@ func (s *StatefulSetScheduler) addToExistingReplicas(state *state, logger *zap.S
 	var placementsByDomain map[string][]int32
 	newPlacements := make([]duckv1alpha1.Placement, 0, len(placements))
 
-	if state.schedulerPolicy == EVENSPREAD_BYNODE {
+	if state.SchedulerPolicy == EVENSPREAD_BYNODE {
 		placementsByDomain = s.getPlacementsByNodeKey(state, placements)
 	} else {
 		placementsByDomain = s.getPlacementsByZoneKey(state, placements)
@@ -406,7 +575,7 @@ func (s *StatefulSetScheduler) addToExistingReplicas(state *state, logger *zap.S
 
 	for i := 0; i < len(domainNames); i++ { //iterate through each domain
 		var totalInDomain int32
-		if state.schedulerPolicy == EVENSPREAD_BYNODE {
+		if state.SchedulerPolicy == EVENSPREAD_BYNODE {
 			totalInDomain = s.getTotalVReplicasInNode(state, placements, domainNames[i])
 		} else {
 			totalInDomain = s.getTotalVReplicasInZone(state, placements, domainNames[i])
@@ -444,7 +613,7 @@ func (s *StatefulSetScheduler) addToNewReplicas(state *state, logger *zap.Sugare
 	for ordinal := int32(0); ordinal < s.replicas; ordinal++ {
 		f := state.Free(ordinal)
 		if f > 0 { //here it is possible to hit pods that are in existing placements
-			podName := podNameFromOrdinal(s.statefulSetName, ordinal)
+			podName := PodNameFromOrdinal(s.statefulSetName, ordinal)
 			zoneName, nodeName, err := s.getPodInfo(state, podName)
 			if err != nil {
 				logger.Errorw("Error getting zone and node info from pod", zap.Error(err))
@@ -452,7 +621,7 @@ func (s *StatefulSetScheduler) addToNewReplicas(state *state, logger *zap.Sugare
 			}
 
 			var totalInDomain int32
-			if state.schedulerPolicy == EVENSPREAD_BYNODE {
+			if state.SchedulerPolicy == EVENSPREAD_BYNODE {
 				totalInDomain = s.getTotalVReplicasInNode(state, newPlacements, nodeName)
 			} else {
 				totalInDomain = s.getTotalVReplicasInZone(state, newPlacements, zoneName)
@@ -487,7 +656,7 @@ func (s *StatefulSetScheduler) getPodInfo(state *state, podName string) (zoneNam
 	}
 
 	nodeName = pod.Spec.NodeName
-	zoneName, ok := state.nodeToZoneMap[nodeName]
+	zoneName, ok := state.NodeToZoneMap[nodeName]
 	if !ok {
 		return zoneName, nodeName, errors.New("could not find zone")
 	}
@@ -498,7 +667,7 @@ func (s *StatefulSetScheduler) getPlacementsByZoneKey(state *state, placements [
 	placementsByZone = make(map[string][]int32)
 	for i := 0; i < len(placements); i++ {
 		zoneName, _, _ := s.getPodInfo(state, placements[i].PodName)
-		placementsByZone[zoneName] = append(placementsByZone[zoneName], ordinalFromPodName(placements[i].PodName))
+		placementsByZone[zoneName] = append(placementsByZone[zoneName], OrdinalFromPodName(placements[i].PodName))
 	}
 	return placementsByZone
 }
@@ -507,7 +676,7 @@ func (s *StatefulSetScheduler) getPlacementsByNodeKey(state *state, placements [
 	placementsByNode = make(map[string][]int32)
 	for i := 0; i < len(placements); i++ {
 		_, nodeName, _ := s.getPodInfo(state, placements[i].PodName)
-		placementsByNode[nodeName] = append(placementsByNode[nodeName], ordinalFromPodName(placements[i].PodName))
+		placementsByNode[nodeName] = append(placementsByNode[nodeName], OrdinalFromPodName(placements[i].PodName))
 	}
 	return placementsByNode
 }
@@ -536,7 +705,7 @@ func (s *StatefulSetScheduler) getTotalVReplicasInNode(state *state, placements 
 
 func (s *StatefulSetScheduler) getPlacementFromPodOrdinal(placements []duckv1alpha1.Placement, ordinal int32) (placement duckv1alpha1.Placement) {
 	for i := 0; i < len(placements); i++ {
-		if placements[i].PodName == podNameFromOrdinal(s.statefulSetName, ordinal) {
+		if placements[i].PodName == PodNameFromOrdinal(s.statefulSetName, ordinal) {
 			return placements[i]
 		}
 	}

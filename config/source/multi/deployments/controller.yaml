@@ -57,6 +57,9 @@ spec:
         - name: SCHEDULER_POLICY_TYPE
           value: 'EVENSPREAD_BYNODE'
 
+        - name: CONFIG_SCHEDULER
+          value: config-scheduler
+
         resources:
           requests:
             cpu: 20m

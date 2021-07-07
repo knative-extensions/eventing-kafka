@@ -24,19 +24,25 @@ import (
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"knative.dev/eventing/pkg/reconciler/source"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/resolver"
+	"knative.dev/pkg/system"
 
 	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 	"knative.dev/eventing-kafka/pkg/client/clientset/versioned"
+	"knative.dev/eventing-kafka/pkg/client/clientset/versioned/scheme"
 	reconcilerkafkasource "knative.dev/eventing-kafka/pkg/client/injection/reconciler/sources/v1beta1/kafkasource"
 	listers "knative.dev/eventing-kafka/pkg/client/listers/sources/v1beta1"
 	"knative.dev/eventing-kafka/pkg/common/scheduler"
+	"knative.dev/eventing-kafka/pkg/common/scheduler/core"
 	"knative.dev/eventing-kafka/pkg/source/client"
 )
 
@@ -139,6 +145,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 }
 
 func (r *Reconciler) reconcileMTReceiveAdapter(src *v1beta1.KafkaSource) error {
+	//TODO: Call registered plugins to filter and score
 	placements, err := r.scheduler.Schedule(src)
 
 	// Update placements, even partial ones.
@@ -182,4 +189,38 @@ func (r *Reconciler) createCloudEventAttributes(src *v1beta1.KafkaSource) []duck
 		}
 	}
 	return ceAttributes
+}
+
+func (r *Reconciler) getExtensionPoints(plugins *core.SchedulerPlugins) []core.ExtensionPoint {
+	return []core.ExtensionPoint{
+		{plugins.Filter, r.filterPlugins},
+		{plugins.Score, r.scorePlugins},
+	}
+}
+
+// initPolicyFromConfigMap reads predicated and priorities data from configMap
+func initPolicyFromConfigMap(ctx context.Context, configMapName string, policy *core.SchedulerPolicy) error {
+	// Use a policy serialized in a config map value.
+	policyConfigMap, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(context.TODO(), configMapName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("couldn't get scheduler policy config map %s/%s: %v", system.Namespace(), configMapName, err)
+	}
+	preds, found := policyConfigMap.Data["predicates"]
+	if !found {
+		return fmt.Errorf("missing policy config map value at key predicates")
+	}
+
+	err = runtime.DecodeInto(scheme.Codecs.UniversalDecoder(), []byte(preds), policy)
+	if err != nil {
+		return fmt.Errorf("invalid policy: %v", err)
+	}
+	priors, found := policyConfigMap.Data["priorities"]
+	if !found {
+		return fmt.Errorf("missing policy config map value at key priorities")
+	}
+	err = runtime.DecodeInto(scheme.Codecs.UniversalDecoder(), []byte(priors), policy)
+	if err != nil {
+		return fmt.Errorf("invalid policy: %v", err)
+	}
+	return nil
 }

@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package statefulset
+package core
 
 import (
 	"math"
@@ -21,11 +21,11 @@ import (
 	"strings"
 )
 
-func podNameFromOrdinal(name string, ordinal int32) string {
+func PodNameFromOrdinal(name string, ordinal int32) string {
 	return name + "-" + strconv.Itoa(int(ordinal))
 }
 
-func ordinalFromPodName(podName string) int32 {
+func OrdinalFromPodName(podName string) int32 {
 	ordinal, err := strconv.ParseInt(podName[strings.LastIndex(podName, "-")+1:], 10, 32)
 	if err != nil {
 		return math.MaxInt32

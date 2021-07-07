@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package statefulset
+package core
 
 import (
 	"context"
@@ -45,7 +45,7 @@ type autoscaler struct {
 	statefulSetName   string
 	vpodLister        scheduler.VPodLister
 	logger            *zap.SugaredLogger
-	stateAccessor     stateAccessor
+	stateAccessor     StateAccessor
 	trigger           chan int32
 	evictor           scheduler.Evictor
 
@@ -59,7 +59,7 @@ type autoscaler struct {
 func NewAutoscaler(ctx context.Context,
 	namespace, name string,
 	lister scheduler.VPodLister,
-	stateAccessor stateAccessor,
+	stateAccessor StateAccessor,
 	evictor scheduler.Evictor,
 	refreshPeriod time.Duration,
 	capacity int32) Autoscaler {
@@ -122,9 +122,9 @@ func (a *autoscaler) doautoscale(ctx context.Context, attemptScaleDown bool, pen
 	a.logger.Infow("checking adapter capacity",
 		zap.Int32("pending", pending),
 		zap.Int32("replicas", scale.Spec.Replicas),
-		zap.Int32("last ordinal", state.lastOrdinal))
+		zap.Int32("last ordinal", state.LastOrdinal))
 
-	newreplicas := state.lastOrdinal + 1 // Ideal number
+	newreplicas := state.LastOrdinal + 1 // Ideal number
 
 	// Take into account pending replicas
 	if pending > 0 {
@@ -133,8 +133,8 @@ func (a *autoscaler) doautoscale(ctx context.Context, attemptScaleDown bool, pen
 	}
 
 	// Make sure to never scale down past the last ordinal
-	if newreplicas <= state.lastOrdinal {
-		newreplicas = state.lastOrdinal + 1
+	if newreplicas <= state.LastOrdinal {
+		newreplicas = state.LastOrdinal + 1
 	}
 
 	// Only scale down if permitted
@@ -162,15 +162,15 @@ func (a *autoscaler) doautoscale(ctx context.Context, attemptScaleDown bool, pen
 
 func (a *autoscaler) mayCompact(s *state) {
 	// when there is only one pod there is nothing to move!
-	if s.lastOrdinal < 1 {
+	if s.LastOrdinal < 1 {
 		return
 	}
 
-	if s.schedulerPolicy == MAXFILLUP {
+	if s.SchedulerPolicy == MAXFILLUP {
 		// Determine if there is enough free capacity to
 		// move all vreplicas placed in the last pod to pods with a lower ordinal
-		freeCapacity := s.freeCapacity() - s.Free(s.lastOrdinal)
-		usedInLastPod := s.capacity - s.Free(s.lastOrdinal)
+		freeCapacity := s.freeCapacity() - s.Free(s.LastOrdinal)
+		usedInLastPod := s.Capacity - s.Free(s.LastOrdinal)
 
 		if freeCapacity >= usedInLastPod {
 			err := a.compact(s)
@@ -194,9 +194,9 @@ func (a *autoscaler) compact(s *state) error {
 	for _, vpod := range vpods {
 		placements := vpod.GetPlacements()
 		for _, placement := range placements {
-			ordinal := ordinalFromPodName(placement.PodName)
+			ordinal := OrdinalFromPodName(placement.PodName)
 
-			if ordinal == s.lastOrdinal {
+			if ordinal == s.LastOrdinal {
 				a.logger.Infow("evicting vreplica(s)",
 					zap.String("name", vpod.GetKey().Name),
 					zap.String("namespace", vpod.GetKey().Namespace),

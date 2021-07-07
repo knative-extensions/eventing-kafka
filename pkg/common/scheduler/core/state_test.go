@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package statefulset
+package core
 
 import (
 	"fmt"
@@ -37,7 +37,7 @@ func TestStateBuilder(t *testing.T) {
 		vpods           [][]duckv1alpha1.Placement
 		expected        state
 		freec           int32
-		schedulerPolicy SchedulerPolicyType
+		SchedulerPolicy SchedulerPolicyType
 		reserved        map[types.NamespacedName]map[string]int32
 		nodes           []*v1.Node
 		err             error
@@ -45,16 +45,16 @@ func TestStateBuilder(t *testing.T) {
 		{
 			name:            "no vpods",
 			vpods:           [][]duckv1alpha1.Placement{},
-			expected:        state{capacity: 10, free: []int32{}, lastOrdinal: -1, schedulerPolicy: MAXFILLUP},
+			expected:        state{Capacity: 10, FreeCap: []int32{}, LastOrdinal: -1, SchedulerPolicy: MAXFILLUP},
 			freec:           int32(0),
-			schedulerPolicy: MAXFILLUP,
+			SchedulerPolicy: MAXFILLUP,
 		},
 		{
 			name:            "one vpods",
 			vpods:           [][]duckv1alpha1.Placement{{{PodName: "statefulset-name-0", VReplicas: 1}}},
-			expected:        state{capacity: 10, free: []int32{int32(9)}, lastOrdinal: 0, schedulerPolicy: MAXFILLUP},
+			expected:        state{Capacity: 10, FreeCap: []int32{int32(9)}, LastOrdinal: 0, SchedulerPolicy: MAXFILLUP},
 			freec:           int32(9),
-			schedulerPolicy: MAXFILLUP,
+			SchedulerPolicy: MAXFILLUP,
 		},
 		{
 			name: "many vpods, no gaps",
@@ -63,9 +63,9 @@ func TestStateBuilder(t *testing.T) {
 				{{PodName: "statefulset-name-1", VReplicas: 2}},
 				{{PodName: "statefulset-name-1", VReplicas: 3}, {PodName: "statefulset-name-0", VReplicas: 1}},
 			},
-			expected:        state{capacity: 10, free: []int32{int32(8), int32(5), int32(5)}, lastOrdinal: 2, schedulerPolicy: MAXFILLUP},
+			expected:        state{Capacity: 10, FreeCap: []int32{int32(8), int32(5), int32(5)}, LastOrdinal: 2, SchedulerPolicy: MAXFILLUP},
 			freec:           int32(18),
-			schedulerPolicy: MAXFILLUP,
+			SchedulerPolicy: MAXFILLUP,
 		},
 		{
 			name: "many vpods, with gaps",
@@ -74,9 +74,9 @@ func TestStateBuilder(t *testing.T) {
 				{{PodName: "statefulset-name-1", VReplicas: 0}},
 				{{PodName: "statefulset-name-1", VReplicas: 0}, {PodName: "statefulset-name-3", VReplicas: 0}},
 			},
-			expected:        state{capacity: 10, free: []int32{int32(9), int32(10), int32(5), int32(10)}, lastOrdinal: 2, schedulerPolicy: MAXFILLUP},
+			expected:        state{Capacity: 10, FreeCap: []int32{int32(9), int32(10), int32(5), int32(10)}, LastOrdinal: 2, SchedulerPolicy: MAXFILLUP},
 			freec:           int32(24),
-			schedulerPolicy: MAXFILLUP,
+			SchedulerPolicy: MAXFILLUP,
 		},
 		{
 			name: "many vpods, with gaps and reserved vreplicas",
@@ -85,14 +85,14 @@ func TestStateBuilder(t *testing.T) {
 				{{PodName: "statefulset-name-1", VReplicas: 0}},
 				{{PodName: "statefulset-name-1", VReplicas: 0}, {PodName: "statefulset-name-3", VReplicas: 0}},
 			},
-			expected: state{capacity: 10, free: []int32{int32(4), int32(10), int32(5), int32(10)}, lastOrdinal: 2, schedulerPolicy: MAXFILLUP},
+			expected: state{Capacity: 10, FreeCap: []int32{int32(4), int32(10), int32(5), int32(10)}, LastOrdinal: 2, SchedulerPolicy: MAXFILLUP},
 			freec:    int32(19),
 			reserved: map[types.NamespacedName]map[string]int32{
 				{Name: "vpod-name-3", Namespace: testNs}: {
 					"statefulset-name-0": 5,
 				},
 			},
-			schedulerPolicy: MAXFILLUP,
+			SchedulerPolicy: MAXFILLUP,
 		},
 		{
 			name: "many vpods, with gaps and reserved vreplicas on existing and new placements, fully committed",
@@ -101,7 +101,7 @@ func TestStateBuilder(t *testing.T) {
 				{{PodName: "statefulset-name-1", VReplicas: 0}},
 				{{PodName: "statefulset-name-1", VReplicas: 0}, {PodName: "statefulset-name-3", VReplicas: 0}},
 			},
-			expected: state{capacity: 10, free: []int32{int32(4), int32(7), int32(5), int32(10), int32(5)}, lastOrdinal: 4, schedulerPolicy: MAXFILLUP},
+			expected: state{Capacity: 10, FreeCap: []int32{int32(4), int32(7), int32(5), int32(10), int32(5)}, LastOrdinal: 4, SchedulerPolicy: MAXFILLUP},
 			freec:    int32(31),
 			reserved: map[types.NamespacedName]map[string]int32{
 				{Name: "vpod-name-3", Namespace: "vpod-ns-3"}: {
@@ -112,7 +112,7 @@ func TestStateBuilder(t *testing.T) {
 					"statefulset-name-1": 3,
 				},
 			},
-			schedulerPolicy: MAXFILLUP,
+			SchedulerPolicy: MAXFILLUP,
 		},
 		{
 			name: "many vpods, with gaps and reserved vreplicas on existing and new placements, partially committed",
@@ -121,7 +121,7 @@ func TestStateBuilder(t *testing.T) {
 				{{PodName: "statefulset-name-1", VReplicas: 0}},
 				{{PodName: "statefulset-name-1", VReplicas: 0}, {PodName: "statefulset-name-3", VReplicas: 0}},
 			},
-			expected: state{capacity: 10, free: []int32{int32(4), int32(7), int32(2), int32(10)}, lastOrdinal: 2, schedulerPolicy: MAXFILLUP},
+			expected: state{Capacity: 10, FreeCap: []int32{int32(4), int32(7), int32(2), int32(10)}, LastOrdinal: 2, SchedulerPolicy: MAXFILLUP},
 			freec:    int32(13),
 			reserved: map[types.NamespacedName]map[string]int32{
 				{Name: "vpod-name-0", Namespace: "vpod-ns-0"}: {
@@ -132,38 +132,38 @@ func TestStateBuilder(t *testing.T) {
 					"statefulset-name-1": 3,
 				},
 			},
-			schedulerPolicy: MAXFILLUP,
+			SchedulerPolicy: MAXFILLUP,
 		},
 		{
 			name:            "no vpods, all nodes with zone labels",
 			vpods:           [][]duckv1alpha1.Placement{},
-			expected:        state{capacity: 10, free: []int32{}, lastOrdinal: -1, numZones: 3, numNodes: 4, schedulerPolicy: EVENSPREAD, nodeToZoneMap: map[string]string{"node-0": "zone-0", "node-1": "zone-1", "node-2": "zone-2", "node-3": "zone-2"}},
+			expected:        state{Capacity: 10, FreeCap: []int32{}, LastOrdinal: -1, NumZones: 3, NumNodes: 4, SchedulerPolicy: EVENSPREAD, NodeToZoneMap: map[string]string{"node-0": "zone-0", "node-1": "zone-1", "node-2": "zone-2", "node-3": "zone-2"}},
 			freec:           int32(0),
-			schedulerPolicy: EVENSPREAD,
+			SchedulerPolicy: EVENSPREAD,
 			nodes:           []*v1.Node{makeNode("node-0", "zone-0"), makeNode("node-1", "zone-1"), makeNode("node-2", "zone-2"), makeNode("node-3", "zone-2")},
 		},
 		{
 			name:            "no vpods, one node with no label",
 			vpods:           [][]duckv1alpha1.Placement{},
-			expected:        state{capacity: 10, free: []int32{}, lastOrdinal: -1, numZones: 2, numNodes: 3, schedulerPolicy: EVENSPREAD, nodeToZoneMap: map[string]string{"node-0": "zone-0", "node-2": "zone-2", "node-3": "zone-2"}},
+			expected:        state{Capacity: 10, FreeCap: []int32{}, LastOrdinal: -1, NumZones: 2, NumNodes: 3, SchedulerPolicy: EVENSPREAD, NodeToZoneMap: map[string]string{"node-0": "zone-0", "node-2": "zone-2", "node-3": "zone-2"}},
 			freec:           int32(0),
-			schedulerPolicy: EVENSPREAD,
+			SchedulerPolicy: EVENSPREAD,
 			nodes:           []*v1.Node{makeNode("node-0", "zone-0"), makeNodeNoLabel("node-1"), makeNode("node-2", "zone-2"), makeNode("node-3", "zone-2")},
 		},
 		{
 			name:            "no vpods, all nodes with zone labels",
 			vpods:           [][]duckv1alpha1.Placement{},
-			expected:        state{capacity: 10, free: []int32{}, lastOrdinal: -1, numZones: 3, numNodes: 4, schedulerPolicy: EVENSPREAD_BYNODE, nodeToZoneMap: map[string]string{"node-0": "zone-0", "node-1": "zone-1", "node-2": "zone-2", "node-3": "zone-2"}},
+			expected:        state{Capacity: 10, FreeCap: []int32{}, LastOrdinal: -1, NumZones: 3, NumNodes: 4, SchedulerPolicy: EVENSPREAD_BYNODE, NodeToZoneMap: map[string]string{"node-0": "zone-0", "node-1": "zone-1", "node-2": "zone-2", "node-3": "zone-2"}},
 			freec:           int32(0),
-			schedulerPolicy: EVENSPREAD_BYNODE,
+			SchedulerPolicy: EVENSPREAD_BYNODE,
 			nodes:           []*v1.Node{makeNode("node-0", "zone-0"), makeNode("node-1", "zone-1"), makeNode("node-2", "zone-2"), makeNode("node-3", "zone-2")},
 		},
 		{
 			name:            "no vpods, one node with no label",
 			vpods:           [][]duckv1alpha1.Placement{},
-			expected:        state{capacity: 10, free: []int32{}, lastOrdinal: -1, numZones: 2, numNodes: 3, schedulerPolicy: EVENSPREAD_BYNODE, nodeToZoneMap: map[string]string{"node-0": "zone-0", "node-2": "zone-2", "node-3": "zone-2"}},
+			expected:        state{Capacity: 10, FreeCap: []int32{}, LastOrdinal: -1, NumZones: 2, NumNodes: 3, SchedulerPolicy: EVENSPREAD_BYNODE, NodeToZoneMap: map[string]string{"node-0": "zone-0", "node-2": "zone-2", "node-3": "zone-2"}},
 			freec:           int32(0),
-			schedulerPolicy: EVENSPREAD_BYNODE,
+			SchedulerPolicy: EVENSPREAD_BYNODE,
 			nodes:           []*v1.Node{makeNode("node-0", "zone-0"), makeNodeNoLabel("node-1"), makeNode("node-2", "zone-2"), makeNode("node-3", "zone-2")},
 		},
 	}
@@ -181,7 +181,7 @@ func TestStateBuilder(t *testing.T) {
 				vpodClient.Create(vpodNamespace, vpodName, 1, placements)
 			}
 
-			if tc.schedulerPolicy == EVENSPREAD || tc.schedulerPolicy == EVENSPREAD_BYNODE {
+			if tc.SchedulerPolicy == EVENSPREAD || tc.SchedulerPolicy == EVENSPREAD_BYNODE {
 				for i := 0; i < len(tc.nodes); i++ {
 					node, err := kubeclient.Get(ctx).CoreV1().Nodes().Create(ctx, tc.nodes[i], metav1.CreateOptions{})
 					if err != nil {
@@ -192,7 +192,7 @@ func TestStateBuilder(t *testing.T) {
 			}
 
 			ls := listers.NewListers(nodelist)
-			stateBuilder := newStateBuilder(ctx, vpodClient.List, int32(10), tc.schedulerPolicy, ls.GetNodeLister())
+			stateBuilder := newStateBuilder(ctx, vpodClient.List, int32(10), tc.SchedulerPolicy, ls.GetNodeLister())
 			state, err := stateBuilder.State(tc.reserved)
 			if err != nil {
 				t.Fatal("unexpected error", err)
@@ -203,7 +203,7 @@ func TestStateBuilder(t *testing.T) {
 			}
 
 			if state.freeCapacity() != tc.freec {
-				t.Errorf("unexpected free capacity, got %d, want %d", state.freeCapacity(), tc.freec)
+				t.Errorf("unexpected FreeCap Capacity, got %d, want %d", state.freeCapacity(), tc.freec)
 			}
 		})
 	}
