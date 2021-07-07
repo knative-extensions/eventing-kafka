@@ -19,6 +19,8 @@ package testing
 import (
 	"testing"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	"knative.dev/eventing-kafka/pkg/client/clientset/versioned"
@@ -34,11 +36,20 @@ const (
 )
 
 // Ctor functions create a k8s controller with given params.
-type Ctor func(listers *Listers, kafkaClient versioned.Interface, eventRecorder record.EventRecorder) controller.Reconciler
+type Ctor func(
+	listers *Listers,
+	kafkaClient versioned.Interface,
+	eventRecorder record.EventRecorder,
+	failed map[types.UID]error,
+	stopped map[types.UID]struct{},
+) controller.Reconciler
 
 // MakeFactory creates a reconciler factory with fake clients and controller created by `ctor`.
 func MakeFactory(ctor Ctor) Factory {
-	return func(t *testing.T, r *TableRow) (controller.Reconciler, ActionRecorderList, EventList) {
+	return func(t *testing.T, r *TableRow) (
+		controller.Reconciler,
+		ActionRecorderList,
+		EventList) {
 		ls := NewListers(r.Objects)
 
 		client := fakeclientset.NewSimpleClientset(ls.GetMessagingObjects()...)
@@ -48,10 +59,23 @@ func MakeFactory(ctor Ctor) Factory {
 			_ = addTo(dynamicScheme)
 		}
 
+		var failed map[types.UID]error
+		var stopped map[types.UID]struct{}
+
+		failedInt, ok := r.OtherTestData["failed"]
+		if ok {
+			failed = failedInt.(map[types.UID]error)
+		}
+
+		stoppedInt, ok := r.OtherTestData["stopped"]
+		if ok {
+			stopped = stoppedInt.(map[types.UID]struct{})
+		}
+
 		eventRecorder := record.NewFakeRecorder(maxEventBufferSize)
 
 		// Set up our Controller from the fakes.
-		c := ctor(&ls, client, eventRecorder)
+		c := ctor(&ls, client, eventRecorder, failed, stopped)
 
 		actionRecorderList := ActionRecorderList{client}
 		eventList := EventList{Recorder: eventRecorder}

@@ -18,9 +18,14 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/mock"
+	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/constants"
 
 	"knative.dev/eventing-kafka/pkg/common/consumer"
 
@@ -63,7 +68,7 @@ func TestNewController(t *testing.T) {
 	// Test Data
 	logger := logtesting.TestLogger(t).Desugar()
 	channelKey := "TestChannelKey"
-	mockDispatcher := NewMockDispatcher(t)
+	mockDispatcher := &MockDispatcher{}
 	fakeKafkaChannelClientSet := fakeclientset.NewSimpleClientset()
 	fakeK8sClientSet := fake.NewSimpleClientset()
 	populateEnvironmentVariables(t)
@@ -78,8 +83,16 @@ func TestNewController(t *testing.T) {
 	// Verify Results
 	assert.NotNil(t, c)
 
-	// Close The
+	// Verify that sending events to the channel doesn't block
+	eventsChan <- consumer.ManagerEvent{Event: consumer.GroupStopped}
+	eventsChan <- consumer.ManagerEvent{Event: consumer.GroupStarted}
+
+	// Close The Channels
 	close(stopChan)
+	close(eventsChan)
+
+	// Let the channel loops finish
+	time.Sleep(50 * time.Millisecond)
 }
 
 // Test KafkaChannel Controller Reconciliation
@@ -163,15 +176,84 @@ func TestAllCases(t *testing.T) {
 				Eventf(corev1.EventTypeNormal, channelReconciled, "KafkaChannel Reconciled"),
 			},
 		},
+		{
+			Name: "channel ready, 1 subscriber ready, stopped, add 2nd one",
+			Objects: []runtime.Object{
+				reconciletesting.NewKafkaChannel(kcName, testNS,
+					reconciletesting.WithInitKafkaChannelConditions,
+					reconciletesting.WithKafkaChannelAddress("http://channel"),
+					reconciletesting.WithKafkaChannelReady,
+					reconciletesting.WithSubscriber("1", "http://foobar"),
+					reconciletesting.WithSubscriber("2", "http://foobar2"),
+					reconciletesting.WithSubscriberReady("1")),
+			},
+			Key:     kcKey,
+			WantErr: false,
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: reconciletesting.NewKafkaChannel(kcName, testNS,
+					reconciletesting.WithInitKafkaChannelConditions,
+					reconciletesting.WithKafkaChannelReady,
+					reconciletesting.WithKafkaChannelAddress("http://channel"),
+					reconciletesting.WithSubscriber("1", "http://foobar"),
+					reconciletesting.WithSubscriber("2", "http://foobar2"),
+					reconciletesting.WithSubscriberNotReady("1", constants.GroupStoppedMessage),
+					reconciletesting.WithSubscriberReady("2"),
+				),
+			}},
+			WantEvents: []string{
+				Eventf(corev1.EventTypeNormal, channelReconciled, "KafkaChannel Reconciled"),
+			},
+			OtherTestData: map[string]interface{}{
+				"stopped": map[types.UID]struct{}{types.UID("1"): {}},
+			},
+		},
+		{
+			Name: "channel ready, 1 subscriber ready, failed, add 2nd one",
+			Objects: []runtime.Object{
+				reconciletesting.NewKafkaChannel(kcName, testNS,
+					reconciletesting.WithInitKafkaChannelConditions,
+					reconciletesting.WithKafkaChannelAddress("http://channel"),
+					reconciletesting.WithKafkaChannelReady,
+					reconciletesting.WithSubscriber("1", "http://foobar"),
+					reconciletesting.WithSubscriber("2", "http://foobar2"),
+					reconciletesting.WithSubscriberReady("1")),
+			},
+			Key:     kcKey,
+			WantErr: false,
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: reconciletesting.NewKafkaChannel(kcName, testNS,
+					reconciletesting.WithInitKafkaChannelConditions,
+					reconciletesting.WithKafkaChannelReady,
+					reconciletesting.WithKafkaChannelAddress("http://channel"),
+					reconciletesting.WithSubscriber("1", "http://foobar"),
+					reconciletesting.WithSubscriber("2", "http://foobar2"),
+					reconciletesting.WithSubscriberNotReady("1", "test error"),
+					reconciletesting.WithSubscriberReady("2"),
+				),
+			}},
+			WantEvents: []string{
+				Eventf(corev1.EventTypeWarning, channelReconcileFailed, "KafkaChannel Reconciliation Failed: some kafka subscribers failed to subscribe"),
+			},
+			OtherTestData: map[string]interface{}{
+				"failed": map[types.UID]error{types.UID("1"): fmt.Errorf("test error")},
+			},
+		},
 	}
 
-	table.Test(t, reconciletesting.MakeFactory(func(listers *reconciletesting.Listers, kafkaClient versioned.Interface, eventRecorder record.EventRecorder) controller.Reconciler {
+	table.Test(t, reconciletesting.MakeFactory(func(listers *reconciletesting.Listers,
+		kafkaClient versioned.Interface,
+		eventRecorder record.EventRecorder,
+		failed map[types.UID]error,
+		stopped map[types.UID]struct{},
+	) controller.Reconciler {
+		mockDispatcher := &MockDispatcher{}
+		mockDispatcher.On("UpdateSubscriptions", mock.Anything).Return(failed, stopped)
 		return &Reconciler{
 			logger:               logtesting.TestLogger(t).Desugar(),
 			channelKey:           kcKey,
 			kafkachannelInformer: nil,
 			kafkachannelLister:   listers.GetKafkaChannelLister(),
-			dispatcher:           NewMockDispatcher(t),
+			dispatcher:           mockDispatcher,
 			recorder:             eventRecorder,
 			kafkaClientSet:       kafkaClient,
 		}
@@ -206,19 +288,18 @@ var _ dispatcher.Dispatcher = &MockDispatcher{}
 
 // Define The Mock Dispatcher
 type MockDispatcher struct {
-	t *testing.T
+	mock.Mock
 }
 
-// Mock Dispatcher Constructor
-func NewMockDispatcher(t *testing.T) MockDispatcher {
-	return MockDispatcher{t: t}
+func (m *MockDispatcher) Shutdown() {
+	m.Called()
 }
 
-func (m MockDispatcher) Shutdown() {
+func (m *MockDispatcher) UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) (map[types.UID]error, map[types.UID]struct{}) {
+	args := m.Called(subscriberSpecs)
+	return args.Get(0).(map[types.UID]error), args.Get(1).(map[types.UID]struct{})
 }
 
-func (m MockDispatcher) UpdateSubscriptions(_ []eventingduck.SubscriberSpec) (map[eventingduck.SubscriberSpec]error, map[eventingduck.SubscriberSpec]struct{}) {
-	return nil, nil
+func (m *MockDispatcher) SecretChanged(ctx context.Context, secret *corev1.Secret) {
+	m.Called(ctx, secret)
 }
-
-func (m MockDispatcher) SecretChanged(_ context.Context, _ *corev1.Secret) {}

@@ -66,7 +66,7 @@ func NewSubscriberWrapper(subscriberSpec eventingduck.SubscriberSpec, groupId st
 type Dispatcher interface {
 	SecretChanged(ctx context.Context, secret *corev1.Secret)
 	Shutdown()
-	UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) (map[eventingduck.SubscriberSpec]error, map[eventingduck.SubscriberSpec]struct{})
+	UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) (map[types.UID]error, map[types.UID]struct{})
 }
 
 // DispatcherImpl Is A Struct With Configuration & ConsumerGroup State
@@ -121,7 +121,7 @@ func (d *DispatcherImpl) Shutdown() {
 }
 
 // UpdateSubscriptions manages the Dispatcher's Subscriptions to align with new state
-func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) (map[eventingduck.SubscriberSpec]error, map[eventingduck.SubscriberSpec]struct{}) {
+func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) (map[types.UID]error, map[types.UID]struct{}) {
 
 	if d.SaramaConfig == nil {
 		d.Logger.Error("Dispatcher has no config!")
@@ -130,8 +130,8 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 
 	// Maps For Tracking Subscriber State
 	activeSubscriptions := make(map[types.UID]bool)
-	failedSubscriptions := make(map[eventingduck.SubscriberSpec]error)
-	stoppedSubscriptions := make(map[eventingduck.SubscriberSpec]struct{})
+	failedSubscriptions := make(map[types.UID]error)
+	stoppedSubscriptions := make(map[types.UID]struct{})
 
 	// Thread Safe ;)
 	d.consumerUpdateLock.Lock()
@@ -156,7 +156,7 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 
 				// Log & Return Failure
 				logger.Error("Failed To Create ConsumerGroup", zap.Error(err))
-				failedSubscriptions[subscriberSpec] = err
+				failedSubscriptions[subscriberSpec.UID] = err
 
 			} else {
 
@@ -186,7 +186,7 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 			// TODO:  The active/stopped/failed subscription map might be better as a single map with a custom struct?
 			if d.consumerMgr.IsStopped(groupId) {
 				d.Logger.Debug("Adding Stopped ConsumerGroup To Stopped Map", zap.String("GroupId", groupId))
-				stoppedSubscriptions[subscriberSpec] = struct{}{}
+				stoppedSubscriptions[subscriberSpec.UID] = struct{}{}
 			}
 		}
 	}

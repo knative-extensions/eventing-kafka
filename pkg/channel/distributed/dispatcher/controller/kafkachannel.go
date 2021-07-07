@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -221,8 +222,8 @@ func (r Reconciler) reconcile(channel *kafkav1beta1.KafkaChannel) error {
 // Create The SubscribableStatus Block Based On The Updated Subscriptions
 func (r *Reconciler) createSubscribableStatus(
 	subscribers []eventingduck.SubscriberSpec,
-	failedSubscriptions map[eventingduck.SubscriberSpec]error,
-	stoppedSubscriptions map[eventingduck.SubscriberSpec]struct{}) eventingduck.SubscribableStatus {
+	failedSubscriptions map[types.UID]error,
+	stoppedSubscriptions map[types.UID]struct{}) eventingduck.SubscribableStatus {
 
 	subscriberStatus := make([]eventingduck.SubscriberStatus, 0)
 
@@ -232,10 +233,10 @@ func (r *Reconciler) createSubscribableStatus(
 			ObservedGeneration: subscriber.Generation,
 			Ready:              corev1.ConditionTrue,
 		}
-		if err, ok := failedSubscriptions[subscriber]; ok {
+		if err, ok := failedSubscriptions[subscriber.UID]; ok {
 			status.Ready = corev1.ConditionFalse
 			status.Message = err.Error()
-		} else if _, ok = stoppedSubscriptions[subscriber]; ok {
+		} else if _, ok = stoppedSubscriptions[subscriber.UID]; ok {
 			status.Ready = corev1.ConditionFalse
 			status.Message = constants.GroupStoppedMessage
 		}

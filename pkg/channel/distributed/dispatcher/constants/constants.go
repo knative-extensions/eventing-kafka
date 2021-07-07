@@ -25,5 +25,5 @@ const (
 	Component = "eventing-kafka-channel-dispatcher"
 
 	// GroupStoppedMessage is the message that will be in a subscriber's status when a group is stopped ("paused")
-	GroupStoppedMessage = "group is stopped"
+	GroupStoppedMessage = "consumer group is stopped"
 )

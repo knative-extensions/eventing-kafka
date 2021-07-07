@@ -99,3 +99,16 @@ func WithSubscriberReady(uid types.UID) KafkaChannelOption {
 		})
 	}
 }
+
+func WithSubscriberNotReady(uid types.UID, message string) KafkaChannelOption {
+	return func(kafkachannel *v1beta1.KafkaChannel) {
+		if kafkachannel.Status.SubscribableStatus.Subscribers == nil {
+			kafkachannel.Status.SubscribableStatus.Subscribers = []eventingduck.SubscriberStatus{}
+		}
+		kafkachannel.Status.SubscribableStatus.Subscribers = append(kafkachannel.Status.SubscribableStatus.Subscribers, eventingduck.SubscriberStatus{
+			Ready:   corev1.ConditionFalse,
+			UID:     uid,
+			Message: message,
+		})
+	}
+}
