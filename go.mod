@@ -37,7 +37,7 @@ require (
 	knative.dev/control-protocol v0.0.0-20210701061703-8ddeca27693a
 	knative.dev/eventing v0.24.1-0.20210706174220-9ced57400dce
 	knative.dev/hack v0.0.0-20210622141627-e28525d8d260
-	knative.dev/networking v0.0.0-20210707064918-2a685f4fdd5a
+	knative.dev/networking v0.0.0-20210708015022-4e655b7fa1c3
 	knative.dev/pkg v0.0.0-20210706174620-fe90576475ca
-	knative.dev/reconciler-test v0.0.0-20210707095218-5879dd7b78c8
+	knative.dev/reconciler-test v0.0.0-20210707164418-32f0df0c7399
 )
