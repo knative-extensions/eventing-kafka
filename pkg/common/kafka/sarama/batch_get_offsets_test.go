@@ -18,6 +18,7 @@ package sarama
 
 import (
 	"testing"
+	"time"
 
 	"github.com/Shopify/sarama"
 )
@@ -74,8 +75,7 @@ func TestGetOffset(t *testing.T) {
 			}
 
 			broker.SetHandlerByMap(map[string]sarama.MockResponse{
-				"OffsetRequest": offsetResponse,
-
+				"OffsetRequest":   offsetResponse,
 				"MetadataRequest": metadataResponse,
 			})
 
@@ -112,4 +112,7 @@ func TestGetOffset(t *testing.T) {
 
 		})
 	}
+
+	// Seems like there is no way to check the broker has been really closed. So wait few seconds
+	time.Sleep(2 * time.Second)
 }
