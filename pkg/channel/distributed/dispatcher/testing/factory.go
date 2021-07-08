@@ -19,14 +19,14 @@ package testing
 import (
 	"testing"
 
-	"knative.dev/eventing-kafka/pkg/common/consumer"
-
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	"knative.dev/eventing-kafka/pkg/client/clientset/versioned"
-	fakeclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned/fake"
+	"knative.dev/eventing-kafka/pkg/common/consumer"
 	"knative.dev/pkg/controller"
 	. "knative.dev/pkg/reconciler/testing"
+
+	fakeclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned/fake"
 )
 
 const (

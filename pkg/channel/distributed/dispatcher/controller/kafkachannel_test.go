@@ -138,7 +138,7 @@ func TestProcessManagerEvents(t *testing.T) {
 	events <- consumer.ManagerEvent{Event: consumer.GroupStarted, GroupId: "test-group-id"}
 	events <- consumer.ManagerEvent{Event: consumer.GroupClosed, GroupId: "test-group-id"}
 
-	// Send an unexpected event types to the events channel
+	// Send an unexpected event type to the events channel
 	events <- consumer.ManagerEvent{Event: consumer.EventIndex(9999), GroupId: "test-group-id"}
 
 	// Close The Channels
