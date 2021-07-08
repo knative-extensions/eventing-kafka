@@ -85,7 +85,7 @@ func (m *MockConsumerGroupManager) Errors(groupId string) <-chan error {
 	return m.Called(groupId).Get(0).(<-chan error)
 }
 
-func (m *MockConsumerGroupManager) AddNotification() <-chan consumer.ManagerEvent {
+func (m *MockConsumerGroupManager) GetNotificationChannel() <-chan consumer.ManagerEvent {
 	return m.Called().Get(0).(<-chan consumer.ManagerEvent)
 }
 

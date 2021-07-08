@@ -506,7 +506,7 @@ func TestManagerEvents(t *testing.T) {
 
 			var notifyChannels []<-chan ManagerEvent
 			for i := 0; i < testCase.channels; i++ {
-				notifyChannels = append(notifyChannels, manager.AddNotification())
+				notifyChannels = append(notifyChannels, manager.GetNotificationChannel())
 			}
 
 			waitGroup := sync.WaitGroup{}

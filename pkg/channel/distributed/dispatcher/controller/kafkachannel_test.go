@@ -132,11 +132,14 @@ func TestProcessManagerEvents(t *testing.T) {
 	reconciler.channelKey = "test-namespace/test-name"
 	assert.Nil(t, reconciler.processManagerEvents(events))
 
-	// Send all of the event types to the events channel
-	events <- consumer.ManagerEvent{Event: consumer.GroupCreated}
-	events <- consumer.ManagerEvent{Event: consumer.GroupStopped}
-	events <- consumer.ManagerEvent{Event: consumer.GroupStarted}
-	events <- consumer.ManagerEvent{Event: consumer.GroupClosed}
+	// Send all of the supported event types to the events channel
+	events <- consumer.ManagerEvent{Event: consumer.GroupCreated, GroupId: "test-group-id"}
+	events <- consumer.ManagerEvent{Event: consumer.GroupStopped, GroupId: "test-group-id"}
+	events <- consumer.ManagerEvent{Event: consumer.GroupStarted, GroupId: "test-group-id"}
+	events <- consumer.ManagerEvent{Event: consumer.GroupClosed, GroupId: "test-group-id"}
+
+	// Send an unexpected event types to the events channel
+	events <- consumer.ManagerEvent{Event: consumer.EventIndex(9999), GroupId: "test-group-id"}
 
 	// Close The Channels
 	close(events)
@@ -272,7 +275,7 @@ func TestAllCases(t *testing.T) {
 				Eventf(corev1.EventTypeNormal, channelReconciled, "KafkaChannel Reconciled"),
 			},
 			OtherTestData: map[string]interface{}{
-				"stopped": map[types.UID]struct{}{types.UID("1"): {}},
+				"status": consumer.SubscriberStatusMap{types.UID("1"): consumer.SubscriberStatus{Stopped: true}},
 			},
 		},
 		{
@@ -303,7 +306,7 @@ func TestAllCases(t *testing.T) {
 				Eventf(corev1.EventTypeWarning, channelReconcileFailed, "KafkaChannel Reconciliation Failed: some kafka subscribers failed to subscribe"),
 			},
 			OtherTestData: map[string]interface{}{
-				"failed": map[types.UID]error{types.UID("1"): fmt.Errorf("test error")},
+				"status": consumer.SubscriberStatusMap{types.UID("1"): consumer.SubscriberStatus{Error: fmt.Errorf("test error")}},
 			},
 		},
 	}
@@ -311,11 +314,10 @@ func TestAllCases(t *testing.T) {
 	table.Test(t, reconciletesting.MakeFactory(func(listers *reconciletesting.Listers,
 		kafkaClient versioned.Interface,
 		eventRecorder record.EventRecorder,
-		failed map[types.UID]error,
-		stopped map[types.UID]struct{},
+		status consumer.SubscriberStatusMap,
 	) controller.Reconciler {
 		mockDispatcher := &MockDispatcher{}
-		mockDispatcher.On("UpdateSubscriptions", mock.Anything).Return(failed, stopped)
+		mockDispatcher.On("UpdateSubscriptions", mock.Anything).Return(status)
 		return &Reconciler{
 			logger:               logtesting.TestLogger(t).Desugar(),
 			channelKey:           kcKey,
@@ -363,9 +365,9 @@ func (m *MockDispatcher) Shutdown() {
 	m.Called()
 }
 
-func (m *MockDispatcher) UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) (map[types.UID]error, map[types.UID]struct{}) {
+func (m *MockDispatcher) UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) consumer.SubscriberStatusMap {
 	args := m.Called(subscriberSpecs)
-	return args.Get(0).(map[types.UID]error), args.Get(1).(map[types.UID]struct{})
+	return args.Get(0).(consumer.SubscriberStatusMap)
 }
 
 func (m *MockDispatcher) SecretChanged(ctx context.Context, secret *corev1.Secret) {

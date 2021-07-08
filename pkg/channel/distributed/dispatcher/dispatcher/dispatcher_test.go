@@ -119,6 +119,7 @@ func TestShutdown(t *testing.T) {
 	// Note that consumerGroup2 does not have Close called because we are returning false for IsManaged()
 	consumerGroup3.On("Close").Return(nil)
 
+	mockManager.On("ClearNotifications").Return()
 	mockManager.On("IsManaged", groupId1).Return(true)
 	mockManager.On("IsManaged", groupId2).Return(false)
 	mockManager.On("IsManaged", groupId3).Return(true)
@@ -133,7 +134,6 @@ func TestShutdown(t *testing.T) {
 	consumerGroup1.AssertExpectations(t)
 	consumerGroup2.AssertExpectations(t)
 	consumerGroup3.AssertExpectations(t)
-	mockManager.AssertExpectations(t)
 
 	assert.Len(t, dispatcher.subscribers, 1) // One was unmanaged and should be ignored
 
@@ -143,6 +143,7 @@ func TestShutdown(t *testing.T) {
 	dispatcher.MetricsStoppedChan = make(chan struct{})
 	close(dispatcher.MetricsStoppedChan)
 	dispatcher.Shutdown()
+	mockManager.AssertExpectations(t)
 }
 
 // Test The UpdateSubscriptions() Functionality
@@ -359,22 +360,25 @@ func TestUpdateSubscriptions(t *testing.T) {
 				errorSource <- fmt.Errorf("consume error")
 			}
 
-			for _, id := range testCase.expectStarted {
-				mockManager.On("StartConsumerGroup", "kafka."+id, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(testCase.createErr)
-			}
-			for _, id := range testCase.expectErrors {
-				mockManager.On("Errors", "kafka."+id).Return((<-chan error)(errorSource))
-			}
-			for _, id := range testCase.expectIsManaged {
-				mockManager.On("IsManaged", "kafka."+id).Return(true)
-				mockManager.On("CloseConsumerGroup", "kafka."+id).Return(nil)
-			}
-			for _, id := range testCase.expectIsStopped {
-				mockManager.On("IsStopped", "kafka."+id).Return(testCase.wantStop)
+			if !testCase.wantFailure {
+				mockManager.On("ClearNotifications").Return()
+				for _, id := range testCase.expectStarted {
+					mockManager.On("StartConsumerGroup", "kafka."+id, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(testCase.createErr)
+				}
+				for _, id := range testCase.expectErrors {
+					mockManager.On("Errors", "kafka."+id).Return((<-chan error)(errorSource))
+				}
+				for _, id := range testCase.expectIsManaged {
+					mockManager.On("IsManaged", "kafka."+id).Return(true)
+					mockManager.On("CloseConsumerGroup", "kafka."+id).Return(nil)
+				}
+				for _, id := range testCase.expectIsStopped {
+					mockManager.On("IsStopped", "kafka."+id).Return(testCase.wantStop)
+				}
 			}
 
 			// Perform The Test
-			result, stopped := dispatcher.UpdateSubscriptions(testCase.args.subscriberSpecs)
+			result := dispatcher.UpdateSubscriptions(testCase.args.subscriberSpecs)
 
 			close(errorSource)
 
@@ -382,10 +386,15 @@ func TestUpdateSubscriptions(t *testing.T) {
 				assert.Nil(t, result)
 			} else {
 				// Verify Results
-				assert.Equal(t, testCase.wantErrors, len(result))
-				assert.NotNil(t, stopped)
+				stoppedCount := 0
+				for _, status := range result {
+					if status.Stopped {
+						stoppedCount++
+					}
+				}
+				assert.Equal(t, testCase.wantErrors, result.FailedCount())
 				if testCase.wantStop {
-					assert.Equal(t, len(testCase.expectIsStopped), len(stopped))
+					assert.Equal(t, len(testCase.expectIsStopped), stoppedCount)
 				}
 
 				// Verify The Dispatcher's Tracking Of Subscribers Matches Specified State

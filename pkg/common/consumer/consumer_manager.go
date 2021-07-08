@@ -41,6 +41,7 @@ import (
 	"github.com/Shopify/sarama"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/types"
 	ctrlservice "knative.dev/control-protocol/pkg/service"
 
 	"knative.dev/eventing-kafka/pkg/common/controlprotocol"
@@ -51,6 +52,26 @@ const (
 	defaultLockTimeout = 5 * time.Minute
 	internalToken      = "internal-token"
 )
+
+// SubscriberStatus keeps track of the difference between active, failed, and stopped subscribers
+type SubscriberStatus struct {
+	Stopped bool  // A stopped subscriber is active but suspended ("paused") and is not processing events
+	Error   error // A subscriber with a non-nil error has failed
+}
+
+// SubscriberStatusMap defines the map type which holds a collection of Subscribers by UID and their status
+type SubscriberStatusMap map[types.UID]SubscriberStatus
+
+// FailedCount returns the count of subscribers represented by this map which have an errors associated with them
+func (s SubscriberStatusMap) FailedCount() int {
+	failed := 0
+	for _, status := range s {
+		if status.Error != nil {
+			failed++
+		}
+	}
+	return failed
+}
 
 // EventIndex is the type of Event used when sending ManagerEvent structs via the notifyChannels list
 type EventIndex int
@@ -77,7 +98,7 @@ type KafkaConsumerGroupManager interface {
 	Errors(groupId string) <-chan error
 	IsManaged(groupId string) bool
 	IsStopped(groupId string) bool
-	AddNotification() <-chan ManagerEvent
+	GetNotificationChannel() <-chan ManagerEvent
 	ClearNotifications()
 }
 
@@ -134,9 +155,9 @@ func NewConsumerGroupManager(logger *zap.Logger, serverHandler controlprotocol.S
 	return manager
 }
 
-// AddNotification creates a new ManagerEvent channel and returns it.  Manager events will be
+// GetNotificationChannel creates a new ManagerEvent channel and returns it.  Manager events will be
 // broadcast to all channels created this way.
-func (m *kafkaConsumerGroupManagerImpl) AddNotification() <-chan ManagerEvent {
+func (m *kafkaConsumerGroupManagerImpl) GetNotificationChannel() <-chan ManagerEvent {
 	eventChan := make(chan ManagerEvent)
 	m.eventLock.Lock()
 	m.notifyChannels = append(m.notifyChannels, eventChan)
