@@ -100,11 +100,6 @@ func sinkReceiveSteadyEvents(ctx context.Context, t feature.T) {
 	sinkName := state.GetStringOrFail(ctx, t, "sinkName")
 	sourceName := state.GetStringOrFail(ctx, t, "sourceName")
 
-	// See https://github.com/knative-sandbox/eventing-kafka/issues/411
-	if test_mt_source == "1" {
-		time.Sleep(10 * time.Second)
-	}
-
 	url, err := kafkaproxy.Address(ctx, proxyName)
 	if err != nil {
 		t.Fatalf("failed to get the proxy URL: %v", err)

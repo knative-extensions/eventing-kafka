@@ -83,7 +83,7 @@ func TestScaleKafkaSource(t *testing.T) {
 		knative.WithTracingConfig,
 		k8s.WithEventListener,
 		environment.WithPollTimings(2*time.Second, 20*time.Second),
-		//environment.Managed(t),
+		environment.Managed(t),
 	)
 
 	env.Test(ctx, t, kafkasource.Scaling())
