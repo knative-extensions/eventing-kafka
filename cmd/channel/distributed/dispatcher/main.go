@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"knative.dev/eventing/pkg/kncloudevents"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/configmap"
 	kncontroller "knative.dev/pkg/controller"
@@ -45,16 +46,17 @@ import (
 	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	"knative.dev/eventing-kafka/pkg/client/informers/externalversions"
 	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
+	commonconsumer "knative.dev/eventing-kafka/pkg/common/consumer"
 	"knative.dev/eventing-kafka/pkg/common/controlprotocol"
 	"knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
-	"knative.dev/eventing/pkg/kncloudevents"
 )
 
 // Variables
 var (
-	logger     *zap.Logger
-	dispatcher dispatch.Dispatcher
+	logger        *zap.Logger
+	dispatcher    dispatch.Dispatcher
+	managerEvents <-chan commonconsumer.ManagerEvent
 )
 
 // The Main Function (Go Command)
@@ -157,7 +159,7 @@ func main() {
 		MetricsRegistry: ekConfig.Sarama.Config.MetricRegistry,
 		SaramaConfig:    ekConfig.Sarama.Config,
 	}
-	dispatcher = dispatch.NewDispatcher(dispatcherConfig, controlProtocolServer)
+	dispatcher, managerEvents = dispatch.NewDispatcher(dispatcherConfig, controlProtocolServer)
 
 	// Watch The Secret For Changes
 	err = distributedcommonconfig.InitializeSecretWatcher(ctx, environment.KafkaSecretNamespace, environment.KafkaSecretName, environment.ResyncPeriod, secretObserver)
@@ -182,6 +184,7 @@ func main() {
 			k8sClient,
 			kafkaClient,
 			ctx.Done(),
+			managerEvents,
 		),
 	}
 

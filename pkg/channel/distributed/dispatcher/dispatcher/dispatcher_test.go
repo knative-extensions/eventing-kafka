@@ -119,6 +119,7 @@ func TestShutdown(t *testing.T) {
 	// Note that consumerGroup2 does not have Close called because we are returning false for IsManaged()
 	consumerGroup3.On("Close").Return(nil)
 
+	mockManager.On("ClearNotifications").Return()
 	mockManager.On("IsManaged", groupId1).Return(true)
 	mockManager.On("IsManaged", groupId2).Return(false)
 	mockManager.On("IsManaged", groupId3).Return(true)
@@ -133,7 +134,6 @@ func TestShutdown(t *testing.T) {
 	consumerGroup1.AssertExpectations(t)
 	consumerGroup2.AssertExpectations(t)
 	consumerGroup3.AssertExpectations(t)
-	mockManager.AssertExpectations(t)
 
 	assert.Len(t, dispatcher.subscribers, 1) // One was unmanaged and should be ignored
 
@@ -143,6 +143,7 @@ func TestShutdown(t *testing.T) {
 	dispatcher.MetricsStoppedChan = make(chan struct{})
 	close(dispatcher.MetricsStoppedChan)
 	dispatcher.Shutdown()
+	mockManager.AssertExpectations(t)
 }
 
 // Test The UpdateSubscriptions() Functionality
@@ -179,16 +180,18 @@ func TestUpdateSubscriptions(t *testing.T) {
 
 	// Define The TestCase Struct
 	type TestCase struct {
-		name          string
-		fields        fields
-		createErr     error
-		consumeErr    bool
-		args          args
-		wantErrors    int
-		wantFailure   bool
-		expectStarted []string
-		expectErrors  []string
-		expectManaged []string
+		name            string
+		fields          fields
+		createErr       error
+		consumeErr      bool
+		args            args
+		wantErrors      int
+		wantFailure     bool
+		wantStop        bool
+		expectStarted   []string
+		expectErrors    []string
+		expectIsManaged []string
+		expectIsStopped []string
 	}
 
 	// Create The Test Cases
@@ -204,9 +207,9 @@ func TestUpdateSubscriptions(t *testing.T) {
 					{UID: uid123},
 				},
 			},
-			expectStarted: []string{id123},
-			expectErrors:  []string{id123},
-			expectManaged: []string{id123},
+			expectStarted:   []string{id123},
+			expectErrors:    []string{id123},
+			expectIsManaged: []string{id123},
 		},
 		{
 			name: "Create ConsumerGroup Error",
@@ -234,10 +237,10 @@ func TestUpdateSubscriptions(t *testing.T) {
 					{UID: uid123},
 				},
 			},
-			consumeErr:    true,
-			expectStarted: []string{id123},
-			expectErrors:  []string{id123},
-			expectManaged: []string{id123},
+			consumeErr:      true,
+			expectStarted:   []string{id123},
+			expectErrors:    []string{id123},
+			expectIsManaged: []string{id123},
 		},
 		{
 			name: "Invalid Config",
@@ -266,9 +269,10 @@ func TestUpdateSubscriptions(t *testing.T) {
 					{UID: uid456},
 				},
 			},
-			expectStarted: []string{id456},
-			expectErrors:  []string{id456},
-			expectManaged: []string{id123, id456},
+			expectStarted:   []string{id456},
+			expectErrors:    []string{id456},
+			expectIsManaged: []string{id123, id456},
+			expectIsStopped: []string{id123},
 		},
 		{
 			name: "Add And Remove Subscriptions",
@@ -285,9 +289,27 @@ func TestUpdateSubscriptions(t *testing.T) {
 					{UID: uid789},
 				},
 			},
-			expectStarted: []string{id789},
-			expectErrors:  []string{id789},
-			expectManaged: []string{id123, id456, id789},
+			expectStarted:   []string{id789},
+			expectErrors:    []string{id789},
+			expectIsManaged: []string{id123, id456, id789},
+			expectIsStopped: []string{id456},
+		},
+		{
+			name: "No Add Or Remove, Group Stopped",
+			fields: fields{
+				DispatcherConfig: dispatcherConfig,
+				subscribers: map[types.UID]*SubscriberWrapper{
+					uid123: createSubscriberWrapper(uid123),
+				},
+			},
+			args: args{
+				subscriberSpecs: []eventingduck.SubscriberSpec{
+					{UID: uid123},
+				},
+			},
+			expectIsManaged: []string{id123},
+			expectIsStopped: []string{id123},
+			wantStop:        true,
 		},
 		{
 			name: "Remove Penultimate Subscription",
@@ -303,7 +325,8 @@ func TestUpdateSubscriptions(t *testing.T) {
 					{UID: uid123},
 				},
 			},
-			expectManaged: []string{id123, id456},
+			expectIsManaged: []string{id123, id456},
+			expectIsStopped: []string{id123},
 		},
 		{
 			name: "Remove Last Subscription",
@@ -316,7 +339,7 @@ func TestUpdateSubscriptions(t *testing.T) {
 			args: args{
 				subscriberSpecs: []eventingduck.SubscriberSpec{},
 			},
-			expectManaged: []string{id123},
+			expectIsManaged: []string{id123},
 		},
 	}
 
@@ -337,15 +360,21 @@ func TestUpdateSubscriptions(t *testing.T) {
 				errorSource <- fmt.Errorf("consume error")
 			}
 
-			for _, id := range testCase.expectStarted {
-				mockManager.On("StartConsumerGroup", "kafka."+id, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(testCase.createErr)
-			}
-			for _, id := range testCase.expectErrors {
-				mockManager.On("Errors", "kafka."+id).Return((<-chan error)(errorSource))
-			}
-			for _, id := range testCase.expectManaged {
-				mockManager.On("IsManaged", "kafka."+id).Return(true)
-				mockManager.On("CloseConsumerGroup", "kafka."+id).Return(nil)
+			if !testCase.wantFailure {
+				mockManager.On("ClearNotifications").Return()
+				for _, id := range testCase.expectStarted {
+					mockManager.On("StartConsumerGroup", "kafka."+id, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(testCase.createErr)
+				}
+				for _, id := range testCase.expectErrors {
+					mockManager.On("Errors", "kafka."+id).Return((<-chan error)(errorSource))
+				}
+				for _, id := range testCase.expectIsManaged {
+					mockManager.On("IsManaged", "kafka."+id).Return(true)
+					mockManager.On("CloseConsumerGroup", "kafka."+id).Return(nil)
+				}
+				for _, id := range testCase.expectIsStopped {
+					mockManager.On("IsStopped", "kafka."+id).Return(testCase.wantStop)
+				}
 			}
 
 			// Perform The Test
@@ -357,7 +386,16 @@ func TestUpdateSubscriptions(t *testing.T) {
 				assert.Nil(t, result)
 			} else {
 				// Verify Results
-				assert.Equal(t, testCase.wantErrors, len(result))
+				stoppedCount := 0
+				for _, status := range result {
+					if status.Stopped {
+						stoppedCount++
+					}
+				}
+				assert.Equal(t, testCase.wantErrors, result.FailedCount())
+				if testCase.wantStop {
+					assert.Equal(t, len(testCase.expectIsStopped), stoppedCount)
+				}
 
 				// Verify The Dispatcher's Tracking Of Subscribers Matches Specified State
 				assert.Equal(t, len(testCase.args.subscriberSpecs)-testCase.wantErrors, len(dispatcher.subscribers))
@@ -530,7 +568,8 @@ func createTestDispatcher(t *testing.T, brokers []string, config *sarama.Config)
 	serverHandler.Service.On("SendAndWaitForAck", mock.Anything, mock.Anything).Return(nil)
 
 	// Create The Dispatcher
-	dispatcher := NewDispatcher(dispatcherConfig, serverHandler)
+	dispatcher, events := NewDispatcher(dispatcherConfig, serverHandler)
+	assert.NotNil(t, events)
 	serverHandler.AssertExpectations(t)
 
 	// Verify State

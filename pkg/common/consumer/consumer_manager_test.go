@@ -19,6 +19,8 @@ package consumer
 import (
 	"context"
 	"fmt"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -244,9 +246,11 @@ func TestErrors(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			manager, _, _, server := getManagerWithMockGroup(t, testCase.groupId, false)
 			valid := manager.IsManaged(testCase.groupId)
+			stopped := manager.IsStopped(testCase.groupId)
 			mgrErrors := manager.Errors(testCase.groupId)
 			assert.Equal(t, testCase.expectErr, mgrErrors == nil)
 			assert.Equal(t, !testCase.expectErr, valid)
+			assert.False(t, stopped) // Not actually using a stopped group in this test
 			server.AssertExpectations(t)
 		})
 	}
@@ -448,6 +452,97 @@ func TestNotifications(t *testing.T) {
 				group.AssertExpectations(t)
 			}
 			serverHandler.AssertExpectations(t)
+		})
+	}
+}
+
+func TestManagerEvents(t *testing.T) {
+	defer restoreNewConsumerGroup(newConsumerGroup) // must use if calling getManagerWithMockGroup in the test
+	for _, testCase := range []struct {
+		name        string
+		channels    int
+		listen      bool
+		expectEvent int32
+		expectClose int32
+	}{
+		{
+			name: "Notify Zero Channels",
+		},
+		{
+			name:        "Notify One Channel",
+			channels:    1,
+			listen:      true,
+			expectEvent: 1,
+			expectClose: 1,
+		},
+		{
+			name:        "Notify Two Channels",
+			channels:    2,
+			listen:      true,
+			expectEvent: 2,
+			expectClose: 2,
+		},
+		{
+			name:        "Notify Ten Channels",
+			channels:    10,
+			listen:      true,
+			expectEvent: 10,
+			expectClose: 10,
+		},
+		{
+			name:        "Notify Non-Listening Channel",
+			channels:    1,
+			expectClose: 1,
+		},
+		{
+			name:        "Notify Five Non-Listening Channels",
+			channels:    5,
+			expectClose: 5,
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			manager, _, _, _ := getManagerWithMockGroup(t, "", false)
+			impl := manager.(*kafkaConsumerGroupManagerImpl)
+
+			var notifyChannels []<-chan ManagerEvent
+			for i := 0; i < testCase.channels; i++ {
+				notifyChannels = append(notifyChannels, manager.GetNotificationChannel())
+			}
+
+			waitGroup := sync.WaitGroup{}
+			count := int32(0)
+
+			if testCase.listen {
+				waitGroup.Add(len(notifyChannels))
+				for _, notifyChan := range notifyChannels {
+					go func(channel <-chan ManagerEvent) {
+						<-channel
+						atomic.AddInt32(&count, 1)
+						waitGroup.Done()
+					}(notifyChan)
+				}
+			}
+
+			time.Sleep(50 * time.Millisecond)
+			impl.notify(ManagerEvent{Event: GroupCreated, GroupId: "created-group-id"})
+			waitGroup.Wait()
+			assert.Equal(t, testCase.expectEvent, count)
+
+			waitGroup = sync.WaitGroup{}
+			count = int32(0)
+			waitGroup.Add(len(notifyChannels))
+			for _, notifyChan := range notifyChannels {
+				go func(channel <-chan ManagerEvent) {
+					<-channel
+					atomic.AddInt32(&count, 1)
+					waitGroup.Done()
+				}(notifyChan)
+			}
+
+			time.Sleep(50 * time.Millisecond)
+			manager.ClearNotifications()
+			waitGroup.Wait()
+			assert.Equal(t, testCase.expectClose, count)
 		})
 	}
 }

@@ -25,20 +25,24 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
+
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/dispatcher/dispatcher"
 	"knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	"knative.dev/eventing-kafka/pkg/client/clientset/versioned/scheme"
 	informers "knative.dev/eventing-kafka/pkg/client/informers/externalversions/messaging/v1beta1"
 	listers "knative.dev/eventing-kafka/pkg/client/listers/messaging/v1beta1"
-	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
+	commonconsumer "knative.dev/eventing-kafka/pkg/common/consumer"
 )
 
 const (
@@ -75,6 +79,7 @@ func NewController(
 	kubeClient kubernetes.Interface,
 	kafkaClientSet versioned.Interface,
 	stopChannel <-chan struct{},
+	managerEvents <-chan commonconsumer.ManagerEvent,
 ) *controller.Impl {
 
 	reconciler := &Reconciler{
@@ -106,8 +111,49 @@ func NewController(
 			w.Stop()
 		}
 	}()
-
+	if err := reconciler.processManagerEvents(managerEvents); err != nil {
+		logger.Warn("Could not begin processing events from the Consumer Group Manager", zap.Error(err))
+	}
 	return reconciler.impl
+}
+
+// processManagerEvents will listen on the channel provided by the KafkaConsumerGroupManager for events
+// related to changes in the status of a managed ConsumerGroup.  This function is non-blocking, and the
+// internal goroutine will exit when the channel is closed.
+func (r Reconciler) processManagerEvents(events <-chan commonconsumer.ManagerEvent) error {
+	// If the events channel is nil, there's no point listening to it; it will just block forever
+	if events == nil {
+		return fmt.Errorf("no event channel provided")
+	}
+	// Find the namespace and name of the KafkaChannel this dispatcher is monitoring
+	namespace, name, err := cache.SplitMetaNamespaceKey(r.channelKey)
+	if err != nil {
+		return fmt.Errorf("invalid resource key")
+	}
+	key := types.NamespacedName{Namespace: namespace, Name: name}
+	go func() {
+		for event := range events {
+			groupLogger := r.logger.With(zap.String("groupId", event.GroupId))
+			// Stopping or Starting a consumer group requires a reconciliation in order to adjust the status block
+			// of the KafkaChannel - EnqueueKey will do that
+			switch event.Event {
+			case commonconsumer.GroupStopped:
+				groupLogger.Debug("Processing GroupStopped Event From Consumer Group Manager")
+				r.impl.EnqueueKey(key)
+			case commonconsumer.GroupStarted:
+				groupLogger.Debug("Processing GroupStarted Event From Consumer Group Manager")
+				r.impl.EnqueueKey(key)
+			case commonconsumer.GroupCreated:
+				groupLogger.Debug("Processing GroupCreated Event From Consumer Group Manager")
+			case commonconsumer.GroupClosed:
+				groupLogger.Debug("Processing GroupClosed Event From Consumer Group Manager")
+			default:
+				groupLogger.Warn("Received Unexpected Event From Consumer Group Manager", zap.Int("Event", int(event.Event)))
+			}
+		}
+		r.logger.Debug("Manager event channel closed")
+	}()
+	return nil
 }
 
 func (r Reconciler) Reconcile(ctx context.Context, key string) error {
@@ -180,14 +226,14 @@ func (r Reconciler) reconcile(channel *kafkav1beta1.KafkaChannel) error {
 	}
 
 	// Update The ConsumerGroups To Align With Current KafkaChannel Subscribers
-	failedSubscriptions := r.dispatcher.UpdateSubscriptions(subscribers)
+	subscriptions := r.dispatcher.UpdateSubscriptions(subscribers)
 
 	// Update The KafkaChannel Subscribable Status Based On ConsumerGroup Creation Status
-	channel.Status.SubscribableStatus = r.createSubscribableStatus(channel.Spec.Subscribers, failedSubscriptions)
+	channel.Status.SubscribableStatus = r.createSubscribableStatus(channel.Spec.Subscribers, subscriptions)
 
 	// Log Failed Subscriptions & Return Error
-	if len(failedSubscriptions) > 0 {
-		r.logger.Error("Failed To Subscribe Kafka Subscriptions", zap.Int("Count", len(failedSubscriptions)))
+	if failed := subscriptions.FailedCount(); failed > 0 {
+		r.logger.Error("Failed To Subscribe Kafka Subscriptions", zap.Int("Count", failed))
 		return fmt.Errorf("some kafka subscribers failed to subscribe")
 	}
 
@@ -196,7 +242,7 @@ func (r Reconciler) reconcile(channel *kafkav1beta1.KafkaChannel) error {
 }
 
 // Create The SubscribableStatus Block Based On The Updated Subscriptions
-func (r *Reconciler) createSubscribableStatus(subscribers []eventingduck.SubscriberSpec, failedSubscriptions map[eventingduck.SubscriberSpec]error) eventingduck.SubscribableStatus {
+func (r *Reconciler) createSubscribableStatus(subscribers []eventingduck.SubscriberSpec, subscriptions commonconsumer.SubscriberStatusMap) eventingduck.SubscribableStatus {
 
 	subscriberStatus := make([]eventingduck.SubscriberStatus, 0)
 
@@ -206,10 +252,19 @@ func (r *Reconciler) createSubscribableStatus(subscribers []eventingduck.Subscri
 			ObservedGeneration: subscriber.Generation,
 			Ready:              corev1.ConditionTrue,
 		}
-		if err, ok := failedSubscriptions[subscriber]; ok {
+		// If the UID isn't in the subscription map, the zero-value of the subscriptionStatus will have a nil Error
+		// and Stopped will be false.
+		subscriptionStatus := subscriptions[subscriber.UID]
+		if subscriptionStatus.Error != nil {
 			status.Ready = corev1.ConditionFalse
-			status.Message = err.Error()
+			status.Message = subscriptionStatus.Error.Error()
+		} else if subscriptionStatus.Stopped {
+			// A stopped group isn't an "error" but it does represent a group that isn't "Ready" as far
+			// as subscriber status goes.
+			status.Ready = corev1.ConditionFalse
+			status.Message = constants.GroupStoppedMessage
 		}
+
 		subscriberStatus = append(subscriberStatus, status)
 	}
 

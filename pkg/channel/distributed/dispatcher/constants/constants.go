@@ -23,4 +23,7 @@ const (
 	MetricsInterval = 5 * time.Second
 
 	Component = "eventing-kafka-channel-dispatcher"
+
+	// GroupStoppedMessage is the message that will be in a subscriber's status when a group is stopped ("paused")
+	GroupStoppedMessage = "consumer group is stopped"
 )

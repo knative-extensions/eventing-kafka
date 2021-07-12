@@ -32,6 +32,8 @@ import (
 	kafkatesting "knative.dev/eventing-kafka/pkg/common/kafka/testing"
 )
 
+const shortTimeout = 200 * time.Millisecond
+
 func TestManagedGroup(t *testing.T) {
 	for _, testCase := range []struct {
 		name     string
@@ -91,7 +93,6 @@ func TestManagedGroup(t *testing.T) {
 func TestProcessLock(t *testing.T) {
 	defer restoreNewConsumerGroup(newConsumerGroup) // must use if calling getManagerWithMockGroup in the test
 	const newToken = "new-token"
-	const shortTimeout = 60 * time.Millisecond
 
 	for _, testCase := range []struct {
 		name            string
@@ -193,8 +194,6 @@ func TestProcessLock(t *testing.T) {
 }
 
 func TestResetLockTimer(t *testing.T) {
-	const shortTimeout = 60 * time.Millisecond
-
 	for _, testCase := range []struct {
 		name          string
 		cancelTimer   func()
@@ -445,8 +444,6 @@ func TestClose(t *testing.T) {
 }
 
 func TestTransferErrors(t *testing.T) {
-	const shortTimeout = 60 * time.Millisecond
-
 	for _, testCase := range []struct {
 		name       string
 		stopGroup  bool
@@ -554,4 +551,8 @@ func (m *mockManagedGroup) errors() chan error {
 
 func (m *mockManagedGroup) processLock(cmdLock *commands.CommandLock, lock bool) error {
 	return m.Called(cmdLock, lock).Error(0)
+}
+
+func (m *mockManagedGroup) isStopped() bool {
+	return m.Called().Bool(0)
 }

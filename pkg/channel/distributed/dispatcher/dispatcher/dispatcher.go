@@ -66,7 +66,7 @@ func NewSubscriberWrapper(subscriberSpec eventingduck.SubscriberSpec, groupId st
 type Dispatcher interface {
 	SecretChanged(ctx context.Context, secret *corev1.Secret)
 	Shutdown()
-	UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error
+	UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) commonconsumer.SubscriberStatusMap
 }
 
 // DispatcherImpl Is A Struct With Configuration & ConsumerGroup State
@@ -84,7 +84,7 @@ type DispatcherImpl struct {
 var _ Dispatcher = &DispatcherImpl{}
 
 // NewDispatcher Is The Dispatcher Constructor
-func NewDispatcher(dispatcherConfig DispatcherConfig, controlServer controlprotocol.ServerHandler) Dispatcher {
+func NewDispatcher(dispatcherConfig DispatcherConfig, controlServer controlprotocol.ServerHandler) (Dispatcher, <-chan commonconsumer.ManagerEvent) {
 
 	consumerGroupManager := commonconsumer.NewConsumerGroupManager(dispatcherConfig.Logger, controlServer, dispatcherConfig.Brokers, dispatcherConfig.SaramaConfig)
 
@@ -102,7 +102,7 @@ func NewDispatcher(dispatcherConfig DispatcherConfig, controlServer controlproto
 	dispatcher.ObserveMetrics(dispatcherconstants.MetricsInterval)
 
 	// Return The DispatcherImpl
-	return dispatcher
+	return dispatcher, consumerGroupManager.GetNotificationChannel()
 }
 
 // Shutdown The Dispatcher
@@ -118,10 +118,13 @@ func (d *DispatcherImpl) Shutdown() {
 	for _, subscriber := range d.subscribers {
 		d.closeConsumerGroup(subscriber)
 	}
+
+	// Close the Consumer Group Manager notification channels
+	d.consumerMgr.ClearNotifications()
 }
 
 // UpdateSubscriptions manages the Dispatcher's Subscriptions to align with new state
-func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error {
+func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) commonconsumer.SubscriberStatusMap {
 
 	if d.SaramaConfig == nil {
 		d.Logger.Error("Dispatcher has no config!")
@@ -129,8 +132,7 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 	}
 
 	// Maps For Tracking Subscriber State
-	activeSubscriptions := make(map[types.UID]bool)
-	failedSubscriptions := make(map[eventingduck.SubscriberSpec]error)
+	subscriptions := make(commonconsumer.SubscriberStatusMap)
 
 	// Thread Safe ;)
 	d.consumerUpdateLock.Lock()
@@ -139,11 +141,11 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 	// Loop Over All All The Specified Subscribers
 	for _, subscriberSpec := range subscriberSpecs {
 
+		// Format The GroupId For The Specified Subscriber
+		groupId := commonkafkautil.GroupId(string(subscriberSpec.UID))
+
 		// If The Subscriber Wrapper For The SubscriberSpec Does Not Exist Then Create One
 		if _, ok := d.subscribers[subscriberSpec.UID]; !ok {
-
-			// Format The GroupId For The Specified Subscriber
-			groupId := commonkafkautil.GroupId(string(subscriberSpec.UID))
 
 			// Create A ConsumerGroup Logger
 			logger := d.Logger.With(zap.String("GroupId", groupId))
@@ -155,8 +157,7 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 
 				// Log & Return Failure
 				logger.Error("Failed To Create ConsumerGroup", zap.Error(err))
-				failedSubscriptions[subscriberSpec] = err
-
+				subscriptions[subscriberSpec.UID] = commonconsumer.SubscriberStatus{Error: err}
 			} else {
 
 				// Create A New SubscriberWrapper With The ConsumerGroup
@@ -165,21 +166,27 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 				// Asynchronously Process ConsumerGroup's Error Channel
 				go func() {
 					logger.Info("ConsumerGroup Error Processing Initiated")
-					for err := range d.consumerMgr.Errors(subscriber.GroupId) { // Closing ConsumerGroup Will Break Out Of This
-						logger.Error("ConsumerGroup Error", zap.Error(err))
+					for groupErr := range d.consumerMgr.Errors(subscriber.GroupId) { // Closing ConsumerGroup Will Break Out Of This
+						logger.Error("ConsumerGroup Error", zap.Error(groupErr))
 					}
 					logger.Info("ConsumerGroup Error Processing Terminated")
 				}()
 
 				// Track The New SubscriberWrapper For The SubscriberSpec As Active
 				d.subscribers[subscriberSpec.UID] = subscriber
-				activeSubscriptions[subscriberSpec.UID] = true
+				subscriptions[subscriberSpec.UID] = commonconsumer.SubscriberStatus{}
 			}
 
 		} else {
-
 			// Otherwise Just Add To List Of Active Subscribers
-			activeSubscriptions[subscriberSpec.UID] = true
+			subscriptions[subscriberSpec.UID] = commonconsumer.SubscriberStatus{}
+
+			// If the group is stopped, it's still active but the reconciler needs to know about it in order
+			// to not treat it as a failure (which would re-create the group, effectively un-stopping it)
+			if d.consumerMgr.IsStopped(groupId) {
+				d.Logger.Debug("Adding Stopped ConsumerGroup To Stopped Map", zap.String("GroupId", groupId))
+				subscriptions[subscriberSpec.UID] = commonconsumer.SubscriberStatus{Stopped: true}
+			}
 		}
 	}
 
@@ -187,9 +194,10 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 	// if necessary without going through the inactive subscribers again.
 	d.SubscriberSpecs = []eventingduck.SubscriberSpec{}
 
-	// Close ConsumerGroups For Removed Subscriptions (In Map But No Longer Active)
+	// Close ConsumerGroups For Removed/Failed Subscriptions (In Map But No Longer Active)
 	for _, subscriber := range d.subscribers {
-		if !activeSubscriptions[subscriber.UID] {
+		subscription, ok := subscriptions[subscriber.UID]
+		if !ok || subscription.Error != nil {
 			d.closeConsumerGroup(subscriber)
 		} else {
 			d.SubscriberSpecs = append(d.SubscriberSpecs, subscriber.SubscriberSpec)
@@ -197,7 +205,7 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 	}
 
 	// Return Any Failed Subscriber Errors
-	return failedSubscriptions
+	return subscriptions
 }
 
 // closeConsumerGroup closes the ConsumerGroup associated with a single Subscriber

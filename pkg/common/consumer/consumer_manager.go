@@ -41,6 +41,7 @@ import (
 	"github.com/Shopify/sarama"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/types"
 	ctrlservice "knative.dev/control-protocol/pkg/service"
 
 	"knative.dev/eventing-kafka/pkg/common/controlprotocol"
@@ -52,6 +53,43 @@ const (
 	internalToken      = "internal-token"
 )
 
+// SubscriberStatus keeps track of the difference between active, failed, and stopped subscribers
+type SubscriberStatus struct {
+	Stopped bool  // A stopped subscriber is active but suspended ("paused") and is not processing events
+	Error   error // A subscriber with a non-nil error has failed
+}
+
+// SubscriberStatusMap defines the map type which holds a collection of Subscribers by UID and their status
+type SubscriberStatusMap map[types.UID]SubscriberStatus
+
+// FailedCount returns the count of subscribers represented by this map which have an errors associated with them
+func (s SubscriberStatusMap) FailedCount() int {
+	failed := 0
+	for _, status := range s {
+		if status.Error != nil {
+			failed++
+		}
+	}
+	return failed
+}
+
+// EventIndex is the type of Event used when sending ManagerEvent structs via the notifyChannels list
+type EventIndex int
+
+// Events
+const (
+	GroupCreated EventIndex = iota + 1
+	GroupStopped
+	GroupStarted
+	GroupClosed
+)
+
+// ManagerEvent is the struct used by the notification channel
+type ManagerEvent struct {
+	Event   EventIndex
+	GroupId string
+}
+
 // KafkaConsumerGroupManager keeps track of Sarama consumer groups and handles messages from control-protocol clients
 type KafkaConsumerGroupManager interface {
 	Reconfigure(brokers []string, config *sarama.Config) error
@@ -59,6 +97,9 @@ type KafkaConsumerGroupManager interface {
 	CloseConsumerGroup(groupId string) error
 	Errors(groupId string) <-chan error
 	IsManaged(groupId string) bool
+	IsStopped(groupId string) bool
+	GetNotificationChannel() <-chan ManagerEvent
+	ClearNotifications()
 }
 
 // groupMap is a mapping of GroupIDs to managed Consumer Group interfaces
@@ -67,11 +108,13 @@ type groupMap map[string]managedGroup
 // kafkaConsumerGroupManagerImpl is the primary implementation of a KafkaConsumerGroupManager, which
 // handles control protocol messages and stopping/starting ("pausing/resuming") of ConsumerGroups.
 type kafkaConsumerGroupManagerImpl struct {
-	logger    *zap.Logger
-	server    controlprotocol.ServerHandler
-	factory   *kafkaConsumerGroupFactoryImpl
-	groups    groupMap
-	groupLock sync.RWMutex // Synchronizes write access to the groupMap
+	logger         *zap.Logger
+	server         controlprotocol.ServerHandler
+	factory        *kafkaConsumerGroupFactoryImpl
+	groups         groupMap
+	groupLock      sync.RWMutex // Synchronizes write access to the groupMap
+	notifyChannels []chan ManagerEvent
+	eventLock      sync.Mutex
 }
 
 // Verify that the kafkaConsumerGroupManagerImpl satisfies the KafkaConsumerGroupManager interface
@@ -86,6 +129,7 @@ func NewConsumerGroupManager(logger *zap.Logger, serverHandler controlprotocol.S
 		groups:    make(groupMap),
 		factory:   &kafkaConsumerGroupFactoryImpl{addrs: brokers, config: config},
 		groupLock: sync.RWMutex{},
+		eventLock: sync.Mutex{},
 	}
 
 	logger.Info("Registering Consumer Group Manager Control-Protocol Handlers")
@@ -109,6 +153,38 @@ func NewConsumerGroupManager(logger *zap.Logger, serverHandler controlprotocol.S
 		})
 
 	return manager
+}
+
+// GetNotificationChannel creates a new ManagerEvent channel and returns it.  Manager events will be
+// broadcast to all channels created this way.
+func (m *kafkaConsumerGroupManagerImpl) GetNotificationChannel() <-chan ManagerEvent {
+	eventChan := make(chan ManagerEvent)
+	m.eventLock.Lock()
+	m.notifyChannels = append(m.notifyChannels, eventChan)
+	m.eventLock.Unlock()
+	return eventChan
+}
+
+// ClearNotifications closes and removes all channels from the notification list
+func (m *kafkaConsumerGroupManagerImpl) ClearNotifications() {
+	for _, eventChan := range m.notifyChannels {
+		close(eventChan)
+	}
+	m.eventLock.Lock()
+	m.notifyChannels = nil
+	m.eventLock.Unlock()
+}
+
+// notify will send the given ManagerEvent to all channels in the notifyChannels list
+func (m *kafkaConsumerGroupManagerImpl) notify(event ManagerEvent) {
+	m.logger.Debug("Notifying channels", zap.Int("count", len(m.notifyChannels)), zap.Any("event", event))
+	for _, eventChan := range m.notifyChannels {
+		// Don't block if the receiver isn't listening
+		select {
+		case eventChan <- event:
+		default:
+		}
+	}
 }
 
 // Reconfigure will incorporate a new set of brokers and Sarama config settings into the manager
@@ -172,6 +248,7 @@ func (m *kafkaConsumerGroupManagerImpl) StartConsumerGroup(groupId string, topic
 	// Add the Sarama ConsumerGroup we obtained from the factory to the managed group map,
 	// so that it can be stopped and started via control-protocol messages.
 	m.setGroup(groupId, managedGrp)
+	m.notify(ManagerEvent{Event: GroupCreated, GroupId: groupId})
 	return nil
 }
 
@@ -193,6 +270,7 @@ func (m *kafkaConsumerGroupManagerImpl) CloseConsumerGroup(groupId string) error
 
 	// Remove this groupId from the map so that manager functions may not be called on it
 	m.removeGroup(groupId)
+	m.notify(ManagerEvent{Event: GroupClosed, GroupId: groupId})
 
 	return nil
 }
@@ -211,6 +289,16 @@ func (m *kafkaConsumerGroupManagerImpl) Errors(groupId string) <-chan error {
 // IsManaged returns true if the given groupId corresponds to a managed ConsumerGroup
 func (m *kafkaConsumerGroupManagerImpl) IsManaged(groupId string) bool {
 	return m.getGroup(groupId) != nil
+}
+
+// IsStopped returns true if the given groupId corresponds to a stopped ConsumerGroup
+func (m *kafkaConsumerGroupManagerImpl) IsStopped(groupId string) bool {
+	group := m.getGroup(groupId)
+	if group == nil {
+		return false // If it's not a managed group, it can't be stopped
+	}
+
+	return group.isStopped()
 }
 
 // Consume calls the Consume method of a managed consumer group, using a loop to call it again if that
@@ -253,6 +341,7 @@ func (m *kafkaConsumerGroupManagerImpl) stopConsumerGroup(lock *commands.Command
 		groupLogger.Error("Failed to unlock consumer group after stopping", zap.Error(err))
 		return err
 	}
+	m.notify(ManagerEvent{Event: GroupStopped, GroupId: groupId})
 	return nil
 }
 
@@ -289,6 +378,7 @@ func (m *kafkaConsumerGroupManagerImpl) startConsumerGroup(lock *commands.Comman
 		groupLogger.Error("Failed to unlock consumer group after starting", zap.Error(err))
 		return err
 	}
+	m.notify(ManagerEvent{Event: GroupStarted, GroupId: groupId})
 	return nil
 }
 

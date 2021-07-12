@@ -22,9 +22,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	"knative.dev/eventing-kafka/pkg/client/clientset/versioned"
-	fakeclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned/fake"
+	"knative.dev/eventing-kafka/pkg/common/consumer"
 	"knative.dev/pkg/controller"
 	. "knative.dev/pkg/reconciler/testing"
+
+	fakeclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned/fake"
 )
 
 const (
@@ -34,7 +36,12 @@ const (
 )
 
 // Ctor functions create a k8s controller with given params.
-type Ctor func(listers *Listers, kafkaClient versioned.Interface, eventRecorder record.EventRecorder) controller.Reconciler
+type Ctor func(
+	listers *Listers,
+	kafkaClient versioned.Interface,
+	eventRecorder record.EventRecorder,
+	status consumer.SubscriberStatusMap,
+) controller.Reconciler
 
 // MakeFactory creates a reconciler factory with fake clients and controller created by `ctor`.
 func MakeFactory(ctor Ctor) Factory {
@@ -48,10 +55,17 @@ func MakeFactory(ctor Ctor) Factory {
 			_ = addTo(dynamicScheme)
 		}
 
+		var status consumer.SubscriberStatusMap
+
+		statusInt, ok := r.OtherTestData["status"]
+		if ok {
+			status = statusInt.(consumer.SubscriberStatusMap)
+		}
+
 		eventRecorder := record.NewFakeRecorder(maxEventBufferSize)
 
 		// Set up our Controller from the fakes.
-		c := ctor(&ls, client, eventRecorder)
+		c := ctor(&ls, client, eventRecorder, status)
 
 		actionRecorderList := ActionRecorderList{client}
 		eventList := EventList{Recorder: eventRecorder}

@@ -43,6 +43,7 @@ type managedGroup interface {
 	close() error
 	errors() chan error
 	processLock(*commands.CommandLock, bool) error
+	isStopped() bool
 }
 
 // managedGroupImpl implements the managedGroup interface
