@@ -46,7 +46,7 @@ func main() {
 	defer kafkachannel.Shutdown()
 	defer resetoffset.Shutdown()
 
-	// Setup The Context
+	// Setup The Context (Logger, Environment, etc.)
 	ctx := signals.NewContext()
 	logger := logging.FromContext(ctx).Desugar()
 	environment, err := env.GetEnvironment(logger)
