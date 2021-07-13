@@ -23,25 +23,30 @@ import (
 	"context"
 
 	"go.uber.org/zap"
-
-	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/kafkachannel"
-	"knative.dev/eventing-kafka/pkg/common/configmaploader"
+	ctrlreconciler "knative.dev/control-protocol/pkg/reconciler"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/signals"
+
+	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/kafkachannel"
+	controllerutil "knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
+	resetoffset "knative.dev/eventing-kafka/pkg/common/commands/resetoffset/controller"
+	"knative.dev/eventing-kafka/pkg/common/commands/resetoffset/refmappers"
+	"knative.dev/eventing-kafka/pkg/common/configmaploader"
 )
 
-// Eventing-Kafka Controller Main
+// Eventing-Kafka Distributed KafkaChannel Controller Entry Point
 func main() {
 
 	// Shutdown / Cleanup Hook For Controllers
 	defer kafkachannel.Shutdown()
+	defer resetoffset.Shutdown()
 
-	// Create The SharedMain Instance With The Various Controllers
+	// Setup The Context
 	ctx := signals.NewContext()
 	logger := logging.FromContext(ctx).Desugar()
 	environment, err := env.GetEnvironment(logger)
@@ -51,5 +56,23 @@ func main() {
 	ctx = controller.WithResyncPeriod(ctx, environment.ResyncPeriod)
 	ctx = context.WithValue(ctx, env.Key{}, environment)
 	ctx = context.WithValue(ctx, configmaploader.Key{}, configmap.Load)
-	sharedmain.MainWithContext(ctx, constants.ControllerComponentName, kafkachannel.NewController)
+
+	// Create A Subscription RefMapper Factory With Custom Topic/Group Naming
+	subscriptionRefMapperFactory := refmappers.NewSubscriptionRefMapperFactory(
+		controllerutil.TopicNameMapper,
+		controllerutil.GroupIdMapper,
+		controllerutil.ConnectionPoolKeyMapper,
+		controllerutil.DataPlaneNamespaceMapper,
+		controllerutil.DataPlaneLabelsMapper,
+	)
+
+	// Create A control-protocol ControlPlaneConnectionPool
+	connectionPool := ctrlreconciler.NewInsecureControlPlaneConnectionPool()
+	defer connectionPool.Close(ctx)
+
+	// Create A ResetOffset ControllerConstructor Factory With Custom Subscription Ref Mapping
+	resetOffsetControllerConstructor := resetoffset.NewControllerFactory(subscriptionRefMapperFactory, connectionPool)
+
+	// Create The SharedMain Instance With The Various Controllers
+	sharedmain.MainWithContext(ctx, constants.ControllerComponentName, kafkachannel.NewController, resetOffsetControllerConstructor)
 }

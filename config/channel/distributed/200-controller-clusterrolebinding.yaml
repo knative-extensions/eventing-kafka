@@ -27,3 +27,20 @@ roleRef:
   kind: ClusterRole
   name: eventing-kafka-channel-controller
   apiGroup: rbac.authorization.k8s.io
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: eventing-kafka-resetoffset-controller
+  labels:
+    kafka.eventing.knative.dev/release: devel
+subjects:
+- kind: ServiceAccount
+  name: eventing-kafka-channel-controller
+  namespace: knative-eventing
+roleRef:
+  kind: ClusterRole
+  name: eventing-kafka-resetoffset-controller
+  apiGroup: rbac.authorization.k8s.io

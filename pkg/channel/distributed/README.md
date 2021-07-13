@@ -132,6 +132,13 @@ guarantee. If a full cycle of retries for a given subscription fails, the event
 is ignored, or sent to the DLQ according to the Subscription's `DeliverySpec`
 and processing continues with the next event.
 
+## Offset Repositioning
+
+The ConsumerGroup Offsets of a specific Knative Subscription can be
+repositioned (backwards or forwards within the Topic's retention window) via the
+[ResetOffset](../../../config/command/resetoffset/README.md) Custom Resource, to
+allow events to be "replayed" in failure recovery scenarios.
+
 ## Installation
 
 For installation and configuration instructions please see the config files
