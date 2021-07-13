@@ -26,7 +26,7 @@ require (
 	go.opencensus.io v0.23.0
 	go.uber.org/atomic v1.8.0
 	go.uber.org/multierr v1.6.0
-	go.uber.org/zap v1.17.0
+	go.uber.org/zap v1.18.1
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
 	google.golang.org/protobuf v1.26.0
@@ -35,9 +35,9 @@ require (
 	k8s.io/client-go v0.20.7
 	k8s.io/utils v0.0.0-20201110183641-67b214c5f920
 	knative.dev/control-protocol v0.0.0-20210701061703-8ddeca27693a
-	knative.dev/eventing v0.24.1-0.20210706174220-9ced57400dce
+	knative.dev/eventing v0.24.1-0.20210713133049-4a679a4ea30d
 	knative.dev/hack v0.0.0-20210622141627-e28525d8d260
-	knative.dev/networking v0.0.0-20210708015022-4e655b7fa1c3
-	knative.dev/pkg v0.0.0-20210706174620-fe90576475ca
-	knative.dev/reconciler-test v0.0.0-20210707164418-32f0df0c7399
+	knative.dev/networking v0.0.0-20210713052150-e937f69e4529
+	knative.dev/pkg v0.0.0-20210712150822-e8973c6acbf7
+	knative.dev/reconciler-test v0.0.0-20210712152422-2b7893cc2eb4
 )
