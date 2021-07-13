@@ -23,6 +23,8 @@ import (
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
 	"knative.dev/pkg/logging"
+
+	knsarama "knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 )
 
 // We want to make sure that ALL consumer group offsets are set before marking
@@ -54,6 +56,12 @@ func InitOffsets(ctx context.Context, kafkaClient sarama.Client, topics []string
 		topicPartitions[topic] = partitions
 	}
 
+	// Fetch topic offsets
+	topicOffsets, err := knsarama.GetOffsets(kafkaClient, topicPartitions, sarama.OffsetNewest)
+	if err != nil {
+		return fmt.Errorf("failed to get the topic offsets: %w", err)
+	}
+
 	// Look for uninitialized offset (-1)
 	offsets, err := kafkaAdminClient.ListConsumerGroupOffsets(consumerGroup, topicPartitions)
 	if err != nil {
@@ -62,19 +70,25 @@ func InitOffsets(ctx context.Context, kafkaClient sarama.Client, topics []string
 
 	dirty := false
 	for topic, partitions := range offsets.Blocks {
-		for partition, block := range partitions {
+		for partitionID, block := range partitions {
 			if block.Offset == -1 { // not initialized?
-				// Fetch the newest offset in the topic/partition and set it in the consumer group
-				offset, err := kafkaClient.GetOffset(topic, partition, sarama.OffsetNewest)
-				if err != nil {
-					return fmt.Errorf("failed to get the offset for topic %s and partition %d: %w", topic, partition, err)
+				partitionsOffsets, ok := topicOffsets[topic]
+				if !ok {
+					// topic may have been deleted. ignore.
+					continue
 				}
 
-				logging.FromContext(ctx).Infow("initializing offset", zap.String("topic", topic), zap.Int32("partition", partition), zap.Int64("offset", offset))
+				offset, ok := partitionsOffsets[partitionID]
+				if !ok {
+					// partition may have been deleted. ignore.
+					continue
+				}
 
-				pm, err := offsetManager.ManagePartition(topic, partition)
+				logging.FromContext(ctx).Infow("initializing offset", zap.String("topic", topic), zap.Int32("partition", partitionID), zap.Int64("offset", offset))
+
+				pm, err := offsetManager.ManagePartition(topic, partitionID)
 				if err != nil {
-					return fmt.Errorf("failed to create the partition manager for topic %s and partition %d: %w", topic, partition, err)
+					return fmt.Errorf("failed to create the partition manager for topic %s and partition %d: %w", topic, partitionID, err)
 				}
 
 				pm.MarkOffset(offset, "")
