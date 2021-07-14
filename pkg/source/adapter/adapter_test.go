@@ -30,9 +30,8 @@ import (
 	"github.com/cloudevents/sdk-go/v2/types"
 	"go.uber.org/zap"
 	"knative.dev/eventing/pkg/adapter/v2"
-	"knative.dev/pkg/source"
-
 	"knative.dev/eventing/pkg/kncloudevents"
+	"knative.dev/eventing/pkg/metrics/source"
 
 	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 )
