@@ -28,7 +28,7 @@ import (
 
 	"knative.dev/eventing/pkg/adapter/v2"
 	"knative.dev/eventing/pkg/kncloudevents"
-	"knative.dev/pkg/source"
+	"knative.dev/eventing/pkg/metrics/source"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"

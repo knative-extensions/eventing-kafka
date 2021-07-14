@@ -30,9 +30,9 @@ import (
 
 	"knative.dev/eventing/pkg/adapter/v2"
 	"knative.dev/eventing/pkg/kncloudevents"
+	"knative.dev/eventing/pkg/metrics/source"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
-	pkgsource "knative.dev/pkg/source"
 
 	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 	"knative.dev/eventing-kafka/pkg/common/scheduler"
@@ -175,7 +175,7 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) error {
 		config.KeyType = val
 	}
 
-	reporter, err := pkgsource.NewStatsReporter()
+	reporter, err := source.NewStatsReporter()
 	if err != nil {
 		a.logger.Error("error building statsreporter", zap.Error(err))
 		return err
