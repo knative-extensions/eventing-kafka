@@ -1119,7 +1119,7 @@ knative.dev/control-protocol/pkg/message
 knative.dev/control-protocol/pkg/network
 knative.dev/control-protocol/pkg/reconciler
 knative.dev/control-protocol/pkg/service
-# knative.dev/eventing v0.24.1-0.20210713133049-4a679a4ea30d
+# knative.dev/eventing v0.24.1-0.20210713221030-0af15fd14a18
 ## explicit
 knative.dev/eventing/pkg/adapter/v2
 knative.dev/eventing/pkg/adapter/v2/test
@@ -1188,6 +1188,7 @@ knative.dev/eventing/pkg/client/listers/sources/v1beta2
 knative.dev/eventing/pkg/duck
 knative.dev/eventing/pkg/kncloudevents
 knative.dev/eventing/pkg/metrics
+knative.dev/eventing/pkg/metrics/source
 knative.dev/eventing/pkg/reconciler/source
 knative.dev/eventing/pkg/reconciler/sugar
 knative.dev/eventing/pkg/reconciler/testing
@@ -1246,7 +1247,7 @@ knative.dev/hack/shell
 # knative.dev/networking v0.0.0-20210713052150-e937f69e4529
 ## explicit
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20210712150822-e8973c6acbf7
+# knative.dev/pkg v0.0.0-20210713175550-7d1b0f19ef71
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
@@ -1353,7 +1354,7 @@ knative.dev/pkg/webhook/resourcesemantics
 knative.dev/pkg/webhook/resourcesemantics/conversion
 knative.dev/pkg/webhook/resourcesemantics/defaulting
 knative.dev/pkg/webhook/resourcesemantics/validation
-# knative.dev/reconciler-test v0.0.0-20210712152422-2b7893cc2eb4
+# knative.dev/reconciler-test v0.0.0-20210713145651-ebe91f96fea0
 ## explicit
 knative.dev/reconciler-test/cmd/eventshub
 knative.dev/reconciler-test/pkg/environment
