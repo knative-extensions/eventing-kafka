@@ -34,8 +34,8 @@ import (
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
 
+	"knative.dev/eventing/pkg/metrics/source"
 	"knative.dev/pkg/logging"
-	pkgsource "knative.dev/pkg/source"
 
 	"knative.dev/eventing/pkg/adapter/v2"
 	"knative.dev/eventing/pkg/kncloudevents"
@@ -72,7 +72,7 @@ type Adapter struct {
 	saramaConfig  *sarama.Config
 
 	httpMessageSender *kncloudevents.HTTPMessageSender
-	reporter          pkgsource.StatsReporter
+	reporter          source.StatsReporter
 	logger            *zap.SugaredLogger
 	keyTypeMapper     func([]byte) interface{}
 	rateLimiter       *rate.Limiter
@@ -86,7 +86,7 @@ var (
 	retryConfig                                          = defaultRetryConfig()
 )
 
-func NewAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, httpMessageSender *kncloudevents.HTTPMessageSender, reporter pkgsource.StatsReporter) adapter.MessageAdapter {
+func NewAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, httpMessageSender *kncloudevents.HTTPMessageSender, reporter source.StatsReporter) adapter.MessageAdapter {
 	logger := logging.FromContext(ctx)
 	config := processed.(*AdapterConfig)
 
@@ -196,7 +196,7 @@ func (a *Adapter) Handle(ctx context.Context, msg *sarama.ConsumerMessage) (bool
 		return false, fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode))
 	}
 
-	reportArgs := &pkgsource.ReportArgs{
+	reportArgs := &source.ReportArgs{
 		Namespace:     a.config.Namespace,
 		Name:          a.config.Name,
 		ResourceGroup: resourceGroup,
