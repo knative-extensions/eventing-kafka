@@ -84,6 +84,8 @@ func TestMTKafkaSourceStatusGetCondition(t *testing.T) {
 			s.InitializeConditions()
 			s.MarkSink(apis.HTTP("uri://example"))
 			s.MarkScheduled()
+			s.MarkConnectionEstablished()
+			s.MarkInitialOffsetCommitted()
 			return s
 		}(),
 		condQuery: v1beta1.KafkaConditionReady,
@@ -131,6 +133,8 @@ func TestMTKafkaSourceStatusGetCondition(t *testing.T) {
 			s.InitializeConditions()
 			s.MarkSink(nil)
 			s.MarkScheduled()
+			s.MarkInitialOffsetCommitted()
+			s.MarkConnectionEstablished()
 			s.MarkSink(apis.HTTP("example"))
 			return s
 		}(),
