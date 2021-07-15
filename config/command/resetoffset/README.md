@@ -64,8 +64,10 @@ default to the ResetOffset namespace.
 The `spec.offset.time` is a string that can be one of **"earliest"**,
 **"latest"**, or a valid RFC3339 format timestamp. The **"earliest"** and
 **"latest"** keywords refer to the boundaries of the Kafka retention window,
-while the timestamp is expected to be a valid time in that window. Specifying
-times outside the retention window will result in a failure.
+while the timestamp is expected to be a valid time in that window. Specifying a
+time prior to the retention window is the same as "earliest", whereas a
+timestamp in the future is not permitted and will fail the Validating
+AdmissionWebhook.
 
 The `spec.ref` is a standard Knative Reference which indicates the Subscription
 whose ConsumerGroup's Offsets will be repositioned. In the future, other
