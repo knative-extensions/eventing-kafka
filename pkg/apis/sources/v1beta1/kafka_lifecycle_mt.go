@@ -27,7 +27,7 @@ const (
 )
 
 var (
-	KafkaMTSourceCondSet = apis.NewLivingConditionSet(KafkaConditionSinkProvided, KafkaConditionScheduled)
+	KafkaMTSourceCondSet = apis.NewLivingConditionSet(KafkaConditionSinkProvided, KafkaConditionScheduled, KafkaConditionInitialOffsetsCommitted, KafkaConditionConnectionEstablished)
 )
 
 func (s *KafkaSourceStatus) MarkScheduled() {
