@@ -1174,7 +1174,7 @@ knative.dev/hack/shell
 # knative.dev/networking v0.0.0-20210715062632-8925a5091ec7
 ## explicit
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20210715133532-dbcf4cf637bd
+# knative.dev/pkg v0.0.0-20210715175632-d9b7180af6f2
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
