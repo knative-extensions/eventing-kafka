@@ -74,14 +74,14 @@ func WithPartitions(partitions string) CfgFn {
 	}
 }
 
-// WithClusterName overrides the Kakfa cluster names where to create the topic (default: my-cluster)
+// WithClusterName overrides the Kafka cluster names where to create the topic (default: my-cluster)
 func WithClusterName(name string) CfgFn {
 	return func(cfg map[string]interface{}) {
 		cfg["clusterName"] = name
 	}
 }
 
-// WithClusterName overrides the Kakfa cluster namespace where to create the topic (default: kafka)
+// WithClusterNamespace overrides the Kafka cluster namespace where to create the topic (default: kafka)
 func WithClusterNamespace(namespace string) CfgFn {
 	return func(cfg map[string]interface{}) {
 		cfg["clusterNamespace"] = namespace

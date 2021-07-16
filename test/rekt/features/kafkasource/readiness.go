@@ -25,7 +25,7 @@ import (
 	"knative.dev/eventing-kafka/test/rekt/resources/kafkatopic"
 )
 
-// KafkaSourceGoesReady returns a feature testing if a KafkaSourceGoesReady becomes ready.
+// KafkaSourceGoesReady returns a feature testing if a KafkaSource becomes ready.
 func KafkaSourceGoesReady(name string, cfg ...kafkasource.CfgFn) *feature.Feature {
 	f := feature.NewFeatureNamed("KafkaSource goes ready.")
 
