@@ -19,6 +19,7 @@ limitations under the License.
 package rekt
 
 import (
+	"github.com/google/uuid"
 	"testing"
 	"time"
 
@@ -31,6 +32,8 @@ import (
 	kafkachannelfeatures "knative.dev/eventing-kafka/test/rekt/features/kafkachannel"
 	kafkachannelresources "knative.dev/eventing-kafka/test/rekt/resources/kafkachannel"
 )
+
+const KafkaChannelNamePrefix = "kc-rekt-test-"
 
 func TestKafkaChannelDistributed(t *testing.T) {
 
@@ -49,7 +52,11 @@ func TestKafkaChannelDistributed(t *testing.T) {
 
 	// Define The Features To Test
 	testFeatures := []*feature.Feature{
-		kafkachannelfeatures.KafkaChannelGoesReady("rekt-test-kafkachannel",
+		kafkachannelfeatures.UnsubscribedKafkaChannelReadiness(uniqueKafkaChannelName(),
+			kafkachannelresources.WithNumPartitions("3"),
+			kafkachannelresources.WithReplicationFactor("1"),
+		),
+		kafkachannelfeatures.SubscribedKafkaChannelReadiness(uniqueKafkaChannelName(),
 			kafkachannelresources.WithNumPartitions("3"),
 			kafkachannelresources.WithReplicationFactor("1"),
 		),
@@ -59,4 +66,8 @@ func TestKafkaChannelDistributed(t *testing.T) {
 	for _, f := range testFeatures {
 		env.Test(ctx, t, f)
 	}
+}
+
+func uniqueKafkaChannelName() string {
+	return KafkaChannelNamePrefix + uuid.NewString()
 }

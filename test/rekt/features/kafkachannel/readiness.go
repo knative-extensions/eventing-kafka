@@ -17,15 +17,33 @@ limitations under the License.
 package kafkachannel
 
 import (
+	"knative.dev/eventing/test/rekt/resources/subscription"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/reconciler-test/pkg/feature"
 
-	"knative.dev/eventing-kafka/test/rekt/resources/kafkachannel"
+	kafkachannelresources "knative.dev/eventing-kafka/test/rekt/resources/kafkachannel"
 )
 
-// KafkaChannelGoesReady returns a feature testing if a KafkaChannel becomes ready.
-func KafkaChannelGoesReady(name string, cfg ...kafkachannel.CfgFn) *feature.Feature {
-	f := feature.NewFeatureNamed("KafkaChannel goes ready")
-	f.Setup("Install a KafkaChannel", kafkachannel.Install(name, cfg...))
-	f.Requirement("KafkaChannel is ready", kafkachannel.IsReady(name))
+// UnsubscribedKafkaChannelReadiness returns a feature testing if an unsubscribed KafkaChannel becomes ready.
+func UnsubscribedKafkaChannelReadiness(name string, cfg ...kafkachannelresources.CfgFn) *feature.Feature {
+	f := feature.NewFeatureNamed("Unsubscribed KafkaChannel goes ready")
+	f.Setup("Install a KafkaChannel", kafkachannelresources.Install(name, cfg...))
+	f.Assert("KafkaChannel is ready", kafkachannelresources.IsReady(name))
+	return f
+}
+
+// SubscribedKafkaChannelReadiness returns a feature testing if a subscribed KafkaChannel becomes ready.
+func SubscribedKafkaChannelReadiness(name string, cfg ...kafkachannelresources.CfgFn) *feature.Feature {
+	f := feature.NewFeatureNamed("Subscribed KafkaChannel goes ready")
+	f.Setup("Install a KafkaChannel", kafkachannelresources.Install(name, cfg...))
+	f.Setup("Install a Subscription", subscription.Install(name,
+		subscription.WithChannel(&duckv1.KReference{
+			Kind:       "KafkaChannel",
+			Name:       name,
+			APIVersion: kafkachannelresources.GVR().GroupVersion().String(),
+		}),
+		subscription.WithSubscriber(nil, "http://some-service.some-namespace/some-path"),
+	))
+	f.Assert("KafkaChannel is ready", kafkachannelresources.IsReady(name))
 	return f
 }

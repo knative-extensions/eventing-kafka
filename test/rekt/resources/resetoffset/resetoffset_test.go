@@ -14,11 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package kafkachannel
+package resetoffset
 
 import (
 	"os"
-
+	
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/reconciler-test/pkg/manifest"
 )
 
@@ -29,10 +30,15 @@ func Example() {
 	cfg := map[string]interface{}{
 		"name":      "foo",
 		"namespace": "bar",
-		"version":   "v1beta1",
+		"version":   "v1alpha1",
 	}
-	WithNumPartitions("10")(cfg)
-	WithReplicationFactor("3")(cfg)
+	WithOffsetTime("earliest")(cfg)
+	WithRef(&duckv1.KReference{
+		APIVersion: "messaging.knative.dev/v1",
+		Kind:       "Subscription",
+		Namespace:  "bar",
+		Name:       "baz",
+	})(cfg)
 
 	directory, err := os.Getwd()
 	if err != nil {
@@ -49,12 +55,17 @@ func Example() {
 	manifest.OutputYAML(os.Stdout, files)
 
 	// Output:
-	// apiVersion: messaging.knative.dev/v1beta1
-	// kind: KafkaChannel
+	// apiVersion: kafka.eventing.knative.dev/v1alpha1
+	// kind: ResetOffset
 	// metadata:
 	//   name: foo
 	//   namespace: bar
 	// spec:
-	//   numPartitions: 10
-	//   replicationFactor: 3
+	//   offset:
+	//     time: earliest
+	//   ref:
+	//     apiVersion: messaging.knative.dev/v1
+	//     kind: Subscription
+	//     namespace: bar
+	//     name: baz
 }
