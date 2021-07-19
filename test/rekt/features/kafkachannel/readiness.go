@@ -17,33 +17,28 @@ limitations under the License.
 package kafkachannel
 
 import (
-	"knative.dev/eventing/test/rekt/resources/subscription"
-	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/reconciler-test/pkg/feature"
-
-	kafkachannelresources "knative.dev/eventing-kafka/test/rekt/resources/kafkachannel"
 )
 
-// UnsubscribedKafkaChannelReadiness returns a feature testing if an unsubscribed KafkaChannel becomes ready.
-func UnsubscribedKafkaChannelReadiness(name string, cfg ...kafkachannelresources.CfgFn) *feature.Feature {
+const kafkaChannelNamePrefix = "kc-rekt-readiness-test-"
+
+// UnsubscribedKafkaChannelReadiness returns a Feature testing if an unsubscribed KafkaChannel becomes ready.
+func UnsubscribedKafkaChannelReadiness() *feature.Feature {
+	kafkaChannelName := feature.MakeRandomK8sName(kafkaChannelNamePrefix)
 	f := feature.NewFeatureNamed("Unsubscribed KafkaChannel goes ready")
-	f.Setup("Install a KafkaChannel", kafkachannelresources.Install(name, cfg...))
-	f.Assert("KafkaChannel is ready", kafkachannelresources.IsReady(name))
+	setupKafkaChannel(f, kafkaChannelName)
+	assertKafkaChannelReady(f, kafkaChannelName)
 	return f
 }
 
-// SubscribedKafkaChannelReadiness returns a feature testing if a subscribed KafkaChannel becomes ready.
-func SubscribedKafkaChannelReadiness(name string, cfg ...kafkachannelresources.CfgFn) *feature.Feature {
+// SubscribedKafkaChannelReadiness returns a Feature testing if a subscribed KafkaChannel becomes ready.
+func SubscribedKafkaChannelReadiness() *feature.Feature {
+	kafkaChannelName := feature.MakeRandomK8sName(kafkaChannelNamePrefix)
+	subscriberURI := "http://some-service.some-namespace/some-path"
 	f := feature.NewFeatureNamed("Subscribed KafkaChannel goes ready")
-	f.Setup("Install a KafkaChannel", kafkachannelresources.Install(name, cfg...))
-	f.Setup("Install a Subscription", subscription.Install(name,
-		subscription.WithChannel(&duckv1.KReference{
-			Kind:       "KafkaChannel",
-			Name:       name,
-			APIVersion: kafkachannelresources.GVR().GroupVersion().String(),
-		}),
-		subscription.WithSubscriber(nil, "http://some-service.some-namespace/some-path"),
-	))
-	f.Assert("KafkaChannel is ready", kafkachannelresources.IsReady(name))
+	setupKafkaChannel(f, kafkaChannelName)
+	setupSubscription(f, kafkaChannelName, subscriberURI)
+	assertKafkaChannelReady(f, kafkaChannelName)
+	assertSubscriptionReady(f, kafkaChannelName)
 	return f
 }
