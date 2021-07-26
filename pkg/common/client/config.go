@@ -118,6 +118,10 @@ type ConfigBuilder interface {
 	// (if provided) or in the YAML-string
 	WithClientId(clientId string) ConfigBuilder
 
+	// WithInitialOffset sets the initial offset to use
+	// if no offset was previously committed
+	WithInitialOffset(offset int64) ConfigBuilder
+
 	// Build builds the Sarama config with the given context.
 	// Context is used for getting the config at the moment.
 	Build(ctx context.Context) (*sarama.Config, error)
@@ -128,12 +132,13 @@ func NewConfigBuilder() ConfigBuilder {
 }
 
 type configBuilder struct {
-	existing *sarama.Config
-	defaults bool
-	version  *sarama.KafkaVersion
-	clientId string
-	yaml     string
-	auth     *KafkaAuthConfig
+	existing      *sarama.Config
+	defaults      bool
+	version       *sarama.KafkaVersion
+	clientId      string
+	yaml          string
+	auth          *KafkaAuthConfig
+	initialOffset int64
 }
 
 func (b *configBuilder) WithExisting(existing *sarama.Config) ConfigBuilder {
@@ -163,6 +168,11 @@ func (b *configBuilder) FromYaml(saramaSettingsYamlString string) ConfigBuilder 
 
 func (b *configBuilder) WithAuth(kafkaAuthCfg *KafkaAuthConfig) ConfigBuilder {
 	b.auth = kafkaAuthCfg
+	return b
+}
+
+func (b *configBuilder) WithInitialOffset(offset int64) ConfigBuilder {
+	b.initialOffset = offset
 	return b
 }
 
@@ -263,6 +273,8 @@ func (b *configBuilder) Build(ctx context.Context) (*sarama.Config, error) {
 	if b.clientId != "" {
 		config.ClientID = b.clientId
 	}
+
+	config.Consumer.Offsets.Initial = b.initialOffset
 
 	logger := logging.FromContext(ctx)
 	logger.Infof("Built Sarama config: %+v", config)

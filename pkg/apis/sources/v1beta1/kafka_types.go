@@ -72,6 +72,10 @@ type KafkaSourceSpec struct {
 	// +optional
 	ConsumerGroup string `json:"consumerGroup,omitempty"`
 
+	// InitialOffset is the Initial Offset for the consumer group.
+	// +optional
+	InitialOffset *int64 `json:"initialOffset,omitempty"`
+
 	// inherits duck/v1 SourceSpec, which currently provides:
 	// * Sink - a reference to an object that will resolve to a domain name or
 	//   a URI directly to use as the sink.

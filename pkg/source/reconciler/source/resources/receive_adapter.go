@@ -70,6 +70,13 @@ func MakeReceiveAdapter(args *ReceiveAdapterArgs) *v1.Deployment {
 		})
 	}
 
+	if args.Source.Spec.InitialOffset != nil {
+		env = append(env, corev1.EnvVar{
+			Name:  "INITIAL_OFFSET",
+			Value: strconv.FormatInt(*args.Source.Spec.InitialOffset, 10),
+		})
+	}
+
 	env = appendEnvFromSecretKeyRef(env, "KAFKA_NET_SASL_USER", args.Source.Spec.Net.SASL.User.SecretKeyRef)
 	env = appendEnvFromSecretKeyRef(env, "KAFKA_NET_SASL_PASSWORD", args.Source.Spec.Net.SASL.Password.SecretKeyRef)
 	env = appendEnvFromSecretKeyRef(env, "KAFKA_NET_SASL_TYPE", args.Source.Spec.Net.SASL.Type.SecretKeyRef)

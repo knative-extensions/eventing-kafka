@@ -53,6 +53,7 @@ Metadata:
   RefreshFrequency: 300000000000
 Consumer:
   Offsets:
+    Initial: -1
     AutoCommit:
         Interval: 5000000000
     Retention: 604800000000000
@@ -73,6 +74,7 @@ Metadata:
   RefreshFrequency: 300000000000
 Consumer:
   Offsets:
+    Initial: -1
     AutoCommit:
         Interval: 5000000000
     Retention: 604800000000000
@@ -129,6 +131,7 @@ Metadata:
   RefreshFrequency: 300000000000
 Consumer:
   Offsets:
+    Initial: -1
     AutoCommit:
         Interval: 5000000000
     Retention: 604800000000000
@@ -220,6 +223,7 @@ Metadata:
   RefreshFrequency: 300000000000
 Consumer:
   Offsets:
+    Initial: -1
     AutoCommit:
         Interval: 5000000000
     Retention: 604800000000000
@@ -308,11 +312,13 @@ func TestBuildSaramaConfig(t *testing.T) {
 			},
 		}).
 		WithVersion(&sarama.V2_0_0_0).
+		WithInitialOffset(-2).
 		WithClientId("newClientId").
 		Build(ctx)
 	assert.Nil(t, err)
 	assert.Equal(t, "foo", config.Net.SASL.User)
 	assert.Equal(t, "newClientId", config.ClientID)
+	assert.Equal(t, int64(-2), config.Consumer.Offsets.Initial)
 	assert.Equal(t, sarama.V2_0_0_0, config.Version)
 }
 

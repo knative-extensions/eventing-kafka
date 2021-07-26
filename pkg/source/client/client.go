@@ -60,6 +60,7 @@ type KafkaEnvConfig struct {
 	// It contains configuration from the Kafka configmap.
 	KafkaConfigJson  string   `envconfig:"K_KAFKA_CONFIG"`
 	BootstrapServers []string `envconfig:"KAFKA_BOOTSTRAP_SERVERS" required:"true"`
+	InitialOffset    int64    `envconfig:"INITIAL_OFFSET" default:"-1"`
 	Net              AdapterNet
 }
 
@@ -95,7 +96,8 @@ func NewConfigWithEnv(ctx context.Context, env *KafkaEnvConfig) ([]string, *sara
 
 	configBuilder := client.NewConfigBuilder().
 		WithDefaults().
-		WithAuth(kafkaAuthConfig)
+		WithAuth(kafkaAuthConfig).
+		WithInitialOffset(env.InitialOffset)
 
 	if env.KafkaConfigJson != "" {
 		kafkaCfg := &KafkaConfig{}
@@ -156,8 +158,14 @@ func NewEnvConfigFromSpec(ctx context.Context, kc kubernetes.Interface, obj *sou
 		return KafkaEnvConfig{}, err
 	}
 
+	initialOffset := int64(-1)
+	if obj.Spec.InitialOffset != nil {
+		initialOffset = *obj.Spec.InitialOffset
+	}
+
 	config := KafkaEnvConfig{
 		BootstrapServers: obj.Spec.BootstrapServers,
+		InitialOffset:    initialOffset,
 		Net: AdapterNet{
 			SASL: AdapterSASL{
 				Enable:   obj.Spec.Net.SASL.Enable,

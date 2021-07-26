@@ -204,6 +204,7 @@ func TestAdminClient(t *testing.T) {
 		WithDefaults().
 		WithAuth(nil).
 		WithClientId("test-client").
+		WithInitialOffset(-1).
 		FromYaml("").
 		Build(ctx)
 	if err != nil {

@@ -27,6 +27,7 @@ import (
 	bindingsv1beta1 "knative.dev/eventing-kafka/pkg/apis/bindings/v1beta1"
 	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 	"knative.dev/pkg/kmp"
+	"knative.dev/pkg/ptr"
 )
 
 func TestMakeReceiveAdapter(t *testing.T) {
@@ -38,6 +39,7 @@ func TestMakeReceiveAdapter(t *testing.T) {
 		Spec: v1beta1.KafkaSourceSpec{
 			Topics:        []string{"topic1,topic2"},
 			ConsumerGroup: "group",
+			InitialOffset: ptr.Int64(-2),
 			KafkaAuthSpec: bindingsv1beta1.KafkaAuthSpec{
 				BootstrapServers: []string{"server1,server2"},
 				Net: bindingsv1beta1.KafkaNetSpec{
@@ -110,7 +112,6 @@ func TestMakeReceiveAdapter(t *testing.T) {
 		SinkURI: "sink-uri",
 	})
 
-	one := int32(1)
 	want := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:    "source-namespace",
@@ -127,7 +128,7 @@ func TestMakeReceiveAdapter(t *testing.T) {
 					"test-key2": "test-value2",
 				},
 			},
-			Replicas: &one,
+			Replicas: ptr.Int32(1),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
@@ -173,6 +174,10 @@ func TestMakeReceiveAdapter(t *testing.T) {
 								{
 									Name:  "NAMESPACE",
 									Value: "source-namespace",
+								},
+								{
+									Name:  "INITIAL_OFFSET",
+									Value: "-2",
 								},
 								{
 									Name: "KAFKA_NET_SASL_USER",
@@ -502,6 +507,7 @@ func TestMakeReceiveAdapterKeyType(t *testing.T) {
 				BootstrapServers: []string{"server1,server2"},
 			},
 			ConsumerGroup: "group",
+			InitialOffset: ptr.Int64(100),
 		},
 	}
 
@@ -582,6 +588,10 @@ func TestMakeReceiveAdapterKeyType(t *testing.T) {
 								{
 									Name:  "KEY_TYPE",
 									Value: "int",
+								},
+								{
+									Name:  "INITIAL_OFFSET",
+									Value: "100",
 								},
 							},
 							Resources: corev1.ResourceRequirements{
