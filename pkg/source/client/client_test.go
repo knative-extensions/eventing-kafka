@@ -25,6 +25,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/common/client"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/ptr"
 
 	"github.com/stretchr/testify/require"
 )
@@ -204,7 +205,7 @@ func TestAdminClient(t *testing.T) {
 		WithDefaults().
 		WithAuth(nil).
 		WithClientId("test-client").
-		WithInitialOffset(-1).
+		WithInitialOffset(ptr.Int64(-1)).
 		FromYaml("").
 		Build(ctx)
 	if err != nil {

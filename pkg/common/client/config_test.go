@@ -37,6 +37,7 @@ import (
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/ptr"
 )
 
 const (
@@ -53,7 +54,6 @@ Metadata:
   RefreshFrequency: 300000000000
 Consumer:
   Offsets:
-    Initial: -1
     AutoCommit:
         Interval: 5000000000
     Retention: 604800000000000
@@ -74,7 +74,6 @@ Metadata:
   RefreshFrequency: 300000000000
 Consumer:
   Offsets:
-    Initial: -1
     AutoCommit:
         Interval: 5000000000
     Retention: 604800000000000
@@ -131,7 +130,6 @@ Metadata:
   RefreshFrequency: 300000000000
 Consumer:
   Offsets:
-    Initial: -1
     AutoCommit:
         Interval: 5000000000
     Retention: 604800000000000
@@ -223,7 +221,6 @@ Metadata:
   RefreshFrequency: 300000000000
 Consumer:
   Offsets:
-    Initial: -1
     AutoCommit:
         Interval: 5000000000
     Retention: 604800000000000
@@ -312,7 +309,7 @@ func TestBuildSaramaConfig(t *testing.T) {
 			},
 		}).
 		WithVersion(&sarama.V2_0_0_0).
-		WithInitialOffset(-2).
+		WithInitialOffset(ptr.Int64(-2)).
 		WithClientId("newClientId").
 		Build(ctx)
 	assert.Nil(t, err)

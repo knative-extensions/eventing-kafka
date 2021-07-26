@@ -451,7 +451,6 @@ func TestReconciler_updateKafkaConfig(t *testing.T) {
 	oldSaramaConfig.Producer.Return.Successes = true
 	oldSaramaConfig.Consumer.Return.Errors = true
 	oldSaramaConfig.Consumer.Offsets.AutoCommit.Enable = false
-	oldSaramaConfig.Consumer.Offsets.Initial = 0
 	oldSaramaConfig.Metadata.RefreshFrequency = 300000000000
 
 	// Define The Test Cases

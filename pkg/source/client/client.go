@@ -97,7 +97,7 @@ func NewConfigWithEnv(ctx context.Context, env *KafkaEnvConfig) ([]string, *sara
 	configBuilder := client.NewConfigBuilder().
 		WithDefaults().
 		WithAuth(kafkaAuthConfig).
-		WithInitialOffset(env.InitialOffset)
+		WithInitialOffset(&env.InitialOffset)
 
 	if env.KafkaConfigJson != "" {
 		kafkaCfg := &KafkaConfig{}
