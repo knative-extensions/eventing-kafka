@@ -293,7 +293,6 @@ func TestMakeReceiveAdapterNoNet(t *testing.T) {
 		SinkURI: "sink-uri",
 	})
 
-	one := int32(1)
 	want := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:    "source-namespace",
@@ -310,7 +309,7 @@ func TestMakeReceiveAdapterNoNet(t *testing.T) {
 					"test-key2": "test-value2",
 				},
 			},
-			Replicas: &one,
+			Replicas: ptr.Int32(1),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
@@ -521,7 +520,6 @@ func TestMakeReceiveAdapterKeyType(t *testing.T) {
 		SinkURI: "sink-uri",
 	})
 
-	one := int32(1)
 	want := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:    "source-namespace",
@@ -538,7 +536,7 @@ func TestMakeReceiveAdapterKeyType(t *testing.T) {
 					"test-key2": "test-value2",
 				},
 			},
-			Replicas: &one,
+			Replicas: ptr.Int32(1),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
