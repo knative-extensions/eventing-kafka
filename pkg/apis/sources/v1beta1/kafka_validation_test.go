@@ -40,6 +40,7 @@ var (
 		},
 		Topics:        []string{"topics"},
 		ConsumerGroup: "group",
+		InitialOffset: OffsetEarliest,
 		SourceSpec: duckv1.SourceSpec{
 			Sink: duckv1.Destination{
 				Ref: &duckv1.KReference{
@@ -288,6 +289,44 @@ func TestKafkaSourceCheckImmutableFields(t *testing.T) {
 			err := updated.Validate(ctx)
 			if tc.allowed != (err == nil) {
 				t.Fatalf("Unexpected immutable field check. Expected %v. Actual %v", tc.allowed, err)
+			}
+		})
+	}
+}
+
+func TestKafkaSourceOffset(t *testing.T) {
+	testCases := map[string]struct {
+		offset  string
+		allowed bool
+	}{
+		"empty offset": {
+			allowed: true,
+			offset:  "",
+		},
+		"earliest offset": {
+			allowed: true,
+			offset:  OffsetEarliest,
+		},
+		"latest offset": {
+			allowed: true,
+			offset:  OffsetLatest,
+		},
+		"invalid offset": {
+			allowed: false,
+			offset:  "invalid",
+		},
+	}
+	for n, tc := range testCases {
+		t.Run(n, func(t *testing.T) {
+			ctx := context.TODO()
+			orig := &KafkaSource{
+				Spec: fullSpec,
+			}
+			orig.Spec.InitialOffset = tc.offset
+			ctx = apis.WithinCreate(ctx)
+			err := orig.Validate(ctx)
+			if tc.allowed != (err == nil) {
+				t.Fatalf("valid value not matching: %v", err)
 			}
 		})
 	}

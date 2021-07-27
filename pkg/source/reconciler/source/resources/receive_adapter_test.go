@@ -39,7 +39,7 @@ func TestMakeReceiveAdapter(t *testing.T) {
 		Spec: v1beta1.KafkaSourceSpec{
 			Topics:        []string{"topic1,topic2"},
 			ConsumerGroup: "group",
-			InitialOffset: ptr.Int64(-2),
+			InitialOffset: v1beta1.OffsetEarliest,
 			KafkaAuthSpec: bindingsv1beta1.KafkaAuthSpec{
 				BootstrapServers: []string{"server1,server2"},
 				Net: bindingsv1beta1.KafkaNetSpec{
@@ -177,7 +177,7 @@ func TestMakeReceiveAdapter(t *testing.T) {
 								},
 								{
 									Name:  "INITIAL_OFFSET",
-									Value: "-2",
+									Value: v1beta1.OffsetEarliest,
 								},
 								{
 									Name: "KAFKA_NET_SASL_USER",
@@ -506,7 +506,7 @@ func TestMakeReceiveAdapterKeyType(t *testing.T) {
 				BootstrapServers: []string{"server1,server2"},
 			},
 			ConsumerGroup: "group",
-			InitialOffset: ptr.Int64(100),
+			InitialOffset: v1beta1.OffsetLatest,
 		},
 	}
 
@@ -589,7 +589,7 @@ func TestMakeReceiveAdapterKeyType(t *testing.T) {
 								},
 								{
 									Name:  "INITIAL_OFFSET",
-									Value: "100",
+									Value: v1beta1.OffsetLatest,
 								},
 							},
 							Resources: corev1.ResourceRequirements{

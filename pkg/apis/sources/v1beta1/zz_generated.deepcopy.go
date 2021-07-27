@@ -99,11 +99,6 @@ func (in *KafkaSourceSpec) DeepCopyInto(out *KafkaSourceSpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
-	if in.InitialOffset != nil {
-		in, out := &in.InitialOffset, &out.InitialOffset
-		*out = new(int64)
-		**out = **in
-	}
 	in.SourceSpec.DeepCopyInto(&out.SourceSpec)
 	return
 }

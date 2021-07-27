@@ -31,7 +31,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/common/client"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
-	"knative.dev/pkg/ptr"
 
 	"github.com/stretchr/testify/require"
 )
@@ -48,7 +47,7 @@ func TestNewConfig(t *testing.T) {
 		wantErr         bool
 		saslMechanism   string
 		bootstrapServer string
-		initialOffset   int64
+		initialOffset   string
 		saslUser        string
 		saslPassword    string
 	}{
@@ -76,22 +75,22 @@ func TestNewConfig(t *testing.T) {
 		"No Auth": {
 			env: map[string]string{
 				"KAFKA_BOOTSTRAP_SERVERS": defaultBootstrapServer,
-				"INITIAL_OFFSET":          "-1",
+				"INITIAL_OFFSET":          v1beta1.OffsetLatest,
 			},
 			enabledTLS:      false,
 			enabledSASL:     false,
 			bootstrapServer: defaultBootstrapServer,
-			initialOffset:   -1,
+			initialOffset:   v1beta1.OffsetLatest,
 		},
 		"Custom offset": {
 			env: map[string]string{
 				"KAFKA_BOOTSTRAP_SERVERS": defaultBootstrapServer,
-				"INITIAL_OFFSET":          "100",
+				"INITIAL_OFFSET":          v1beta1.OffsetEarliest,
 			},
 			enabledTLS:      false,
 			enabledSASL:     false,
 			bootstrapServer: defaultBootstrapServer,
-			initialOffset:   100,
+			initialOffset:   v1beta1.OffsetEarliest,
 		},
 		"Defaulting to SASL-Plain Auth (none specified)": {
 			env: map[string]string{
@@ -224,7 +223,7 @@ func TestAdminClient(t *testing.T) {
 		WithDefaults().
 		WithAuth(nil).
 		WithClientId("test-client").
-		WithInitialOffset(ptr.Int64(-1)).
+		WithInitialOffset(v1beta1.OffsetLatest).
 		FromYaml("").
 		Build(ctx)
 	if err != nil {
@@ -328,7 +327,7 @@ sny569QyyWHk2+FZoWDfjxFZ7CvIdgLJBHc3qUXLsg==
 				Spec: v1beta1.KafkaSourceSpec{
 					Topics:        []string{"topic1,topic2"},
 					ConsumerGroup: "group",
-					InitialOffset: ptr.Int64(-2),
+					InitialOffset: v1beta1.OffsetEarliest,
 					KafkaAuthSpec: bindingsv1beta1.KafkaAuthSpec{
 						BootstrapServers: []string{"server1,server2"},
 						Net: bindingsv1beta1.KafkaNetSpec{
@@ -401,12 +400,17 @@ sny569QyyWHk2+FZoWDfjxFZ7CvIdgLJBHc3qUXLsg==
 			if servers[0] != tc.src.Spec.KafkaAuthSpec.BootstrapServers[0] {
 				t.Fatalf("Incorrect bootstrapServers, got: %s vs want: %s", servers[0], tc.src.Spec.KafkaAuthSpec.BootstrapServers[0])
 			}
-			initialOffset := int64(-1)
-			if tc.src.Spec.InitialOffset != nil {
-				initialOffset = *tc.src.Spec.InitialOffset
-			}
-			if config.Consumer.Offsets.Initial != initialOffset {
-				t.Fatalf("Incorrect initial offset, got: %d vs want: %d", config.Consumer.Offsets.Initial, tc.src.Spec.InitialOffset)
+			if tc.src.Spec.InitialOffset != "" {
+				offset := sarama.OffsetNewest
+				switch tc.src.Spec.InitialOffset {
+				case v1beta1.OffsetEarliest:
+					offset = sarama.OffsetOldest
+				case v1beta1.OffsetLatest:
+					offset = sarama.OffsetNewest
+				}
+				if config.Consumer.Offsets.Initial != offset {
+					t.Fatalf("Incorrect initial offset, got: %d vs want: %d", config.Consumer.Offsets.Initial, offset)
+				}
 			}
 			if tc.src.Spec.KafkaAuthSpec.Net.SASL.Enable {
 				if config.Net.SASL.User != defaultSASLUser {
