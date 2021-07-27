@@ -177,7 +177,7 @@ func TestMakeReceiveAdapter(t *testing.T) {
 								},
 								{
 									Name:  "INITIAL_OFFSET",
-									Value: v1beta1.OffsetEarliest,
+									Value: string(v1beta1.OffsetEarliest),
 								},
 								{
 									Name: "KAFKA_NET_SASL_USER",
@@ -589,7 +589,7 @@ func TestMakeReceiveAdapterKeyType(t *testing.T) {
 								},
 								{
 									Name:  "INITIAL_OFFSET",
-									Value: v1beta1.OffsetLatest,
+									Value: string(v1beta1.OffsetLatest),
 								},
 							},
 							Resources: corev1.ResourceRequirements{

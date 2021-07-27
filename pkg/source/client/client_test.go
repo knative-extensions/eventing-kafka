@@ -47,7 +47,7 @@ func TestNewConfig(t *testing.T) {
 		wantErr         bool
 		saslMechanism   string
 		bootstrapServer string
-		initialOffset   string
+		initialOffset   v1beta1.Offset
 		saslUser        string
 		saslPassword    string
 	}{
@@ -75,7 +75,7 @@ func TestNewConfig(t *testing.T) {
 		"No Auth": {
 			env: map[string]string{
 				"KAFKA_BOOTSTRAP_SERVERS": defaultBootstrapServer,
-				"INITIAL_OFFSET":          v1beta1.OffsetLatest,
+				"INITIAL_OFFSET":          string(v1beta1.OffsetLatest),
 			},
 			enabledTLS:      false,
 			enabledSASL:     false,
@@ -85,7 +85,7 @@ func TestNewConfig(t *testing.T) {
 		"Custom offset": {
 			env: map[string]string{
 				"KAFKA_BOOTSTRAP_SERVERS": defaultBootstrapServer,
-				"INITIAL_OFFSET":          v1beta1.OffsetEarliest,
+				"INITIAL_OFFSET":          string(v1beta1.OffsetEarliest),
 			},
 			enabledTLS:      false,
 			enabledSASL:     false,

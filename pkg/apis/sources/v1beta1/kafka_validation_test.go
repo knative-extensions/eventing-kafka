@@ -296,7 +296,7 @@ func TestKafkaSourceCheckImmutableFields(t *testing.T) {
 
 func TestKafkaSourceOffset(t *testing.T) {
 	testCases := map[string]struct {
-		offset  string
+		offset  Offset
 		allowed bool
 	}{
 		"empty offset": {

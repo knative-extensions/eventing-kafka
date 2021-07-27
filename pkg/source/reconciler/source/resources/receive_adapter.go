@@ -73,7 +73,7 @@ func MakeReceiveAdapter(args *ReceiveAdapterArgs) *v1.Deployment {
 	if args.Source.Spec.InitialOffset != "" {
 		env = append(env, corev1.EnvVar{
 			Name:  "INITIAL_OFFSET",
-			Value: args.Source.Spec.InitialOffset,
+			Value: string(args.Source.Spec.InitialOffset),
 		})
 	}
 

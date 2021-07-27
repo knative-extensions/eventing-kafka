@@ -121,7 +121,7 @@ type ConfigBuilder interface {
 
 	// WithInitialOffset sets the initial offset to use
 	// if no offset was previously committed
-	WithInitialOffset(offset string) ConfigBuilder
+	WithInitialOffset(offset v1beta1.Offset) ConfigBuilder
 
 	// Build builds the Sarama config with the given context.
 	// Context is used for getting the config at the moment.
@@ -139,7 +139,7 @@ type configBuilder struct {
 	clientId      string
 	yaml          string
 	auth          *KafkaAuthConfig
-	initialOffset string
+	initialOffset v1beta1.Offset
 }
 
 func (b *configBuilder) WithExisting(existing *sarama.Config) ConfigBuilder {
@@ -172,7 +172,7 @@ func (b *configBuilder) WithAuth(kafkaAuthCfg *KafkaAuthConfig) ConfigBuilder {
 	return b
 }
 
-func (b *configBuilder) WithInitialOffset(offset string) ConfigBuilder {
+func (b *configBuilder) WithInitialOffset(offset v1beta1.Offset) ConfigBuilder {
 	b.initialOffset = offset
 	return b
 }

@@ -58,9 +58,9 @@ type KafkaConfig struct {
 type KafkaEnvConfig struct {
 	// KafkaConfigJson is the environment variable that's passed to adapter by the controller.
 	// It contains configuration from the Kafka configmap.
-	KafkaConfigJson  string   `envconfig:"K_KAFKA_CONFIG"`
-	BootstrapServers []string `envconfig:"KAFKA_BOOTSTRAP_SERVERS" required:"true"`
-	InitialOffset    string   `envconfig:"INITIAL_OFFSET" `
+	KafkaConfigJson  string                `envconfig:"K_KAFKA_CONFIG"`
+	BootstrapServers []string              `envconfig:"KAFKA_BOOTSTRAP_SERVERS" required:"true"`
+	InitialOffset    sourcesv1beta1.Offset `envconfig:"INITIAL_OFFSET" `
 	Net              AdapterNet
 }
 
