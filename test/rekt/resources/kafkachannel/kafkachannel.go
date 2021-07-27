@@ -18,11 +18,11 @@ package kafkachannel
 
 import (
 	"context"
-	"knative.dev/reconciler-test/pkg/k8s"
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/reconciler-test/pkg/feature"
+	"knative.dev/reconciler-test/pkg/k8s"
 	"knative.dev/reconciler-test/pkg/manifest"
 )
 

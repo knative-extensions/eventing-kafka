@@ -17,28 +17,30 @@ limitations under the License.
 package kafkachannel
 
 import (
+	"context"
+	"testing"
+
 	"knative.dev/reconciler-test/pkg/feature"
 )
 
-const kafkaChannelNamePrefix = "kc-rekt-readiness-test-"
-
 // UnsubscribedKafkaChannelReadiness returns a Feature testing if an unsubscribed KafkaChannel becomes ready.
-func UnsubscribedKafkaChannelReadiness() *feature.Feature {
-	kafkaChannelName := feature.MakeRandomK8sName(kafkaChannelNamePrefix)
+func UnsubscribedKafkaChannelReadiness(ctx context.Context, t *testing.T) *feature.Feature {
+	testName := TestName(ctx, t)
 	f := feature.NewFeatureNamed("Unsubscribed KafkaChannel goes ready")
-	setupKafkaChannel(f, kafkaChannelName)
-	assertKafkaChannelReady(f, kafkaChannelName)
+	setupKafkaChannel(f, testName)
+	assertKafkaChannelReady(f, testName)
 	return f
 }
 
 // SubscribedKafkaChannelReadiness returns a Feature testing if a subscribed KafkaChannel becomes ready.
-func SubscribedKafkaChannelReadiness() *feature.Feature {
-	kafkaChannelName := feature.MakeRandomK8sName(kafkaChannelNamePrefix)
-	subscriberURI := "http://some-service.some-namespace/some-path"
+func SubscribedKafkaChannelReadiness(ctx context.Context, t *testing.T) *feature.Feature {
+	testName := TestName(ctx, t)
+	receiverName := ReceiverName(ctx, t)
 	f := feature.NewFeatureNamed("Subscribed KafkaChannel goes ready")
-	setupKafkaChannel(f, kafkaChannelName)
-	setupSubscription(f, kafkaChannelName, subscriberURI)
-	assertKafkaChannelReady(f, kafkaChannelName)
-	assertSubscriptionReady(f, kafkaChannelName)
+	setupEventsHubReceiver(f, receiverName) // Won't receive anything but required for validated KReference check ; )
+	setupKafkaChannel(f, testName)
+	setupSubscription(f, testName, receiverName)
+	assertKafkaChannelReady(f, testName)
+	assertSubscriptionReady(f, testName)
 	return f
 }

@@ -18,10 +18,13 @@ package resetoffset
 
 import (
 	"context"
-	duckv1 "knative.dev/pkg/apis/duck/v1"
+	"time"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
+	"knative.dev/reconciler-test/pkg/environment"
 	"knative.dev/reconciler-test/pkg/feature"
+	"knative.dev/reconciler-test/pkg/k8s"
 	"knative.dev/reconciler-test/pkg/manifest"
 )
 
@@ -43,6 +46,17 @@ func Install(name string, opts ...CfgFn) feature.StepFn {
 	return func(ctx context.Context, t feature.T) {
 		if _, err := manifest.InstallLocalYaml(ctx, cfg); err != nil {
 			t.Fatal(err, cfg)
+		}
+	}
+}
+
+// IsSucceeded tests to see if a ResetOffset becomes succeeded within the time given.
+func IsSucceeded(name string, timings ...time.Duration) feature.StepFn {
+	return func(ctx context.Context, t feature.T) {
+		interval, timeout := k8s.PollTimings(ctx, timings)
+		env := environment.FromContext(ctx)
+		if err := k8s.WaitForResourceReady(ctx, env.Namespace(), name, GVR(), interval, timeout); err != nil {
+			t.Error(GVR(), "did not become succeeded", err)
 		}
 	}
 }
