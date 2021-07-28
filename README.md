@@ -17,6 +17,7 @@ implementations ([Consolidated](pkg/channel/consolidated/README.md) &
 [event-delivery working group](https://github.com/knative/community/blob/master/working-groups/WORKING-GROUPS.md#event-delivery).
 
 ## Nightly Artifacts
+**Note**: Replace REPLACE_WITH_CLUSTER_URL in the yaml with the URI to the Kafka Cluster (eg. `my-cluster-kafka-bootstrap.kafka:9092/`)
 
 ```shell script
 # Install the Kafka Source
