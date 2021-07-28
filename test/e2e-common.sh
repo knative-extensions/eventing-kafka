@@ -506,6 +506,10 @@ function test_consolidated_channel_plain() {
   install_consolidated_channel_crds || return 1
   install_consolidated_sources_crds || return 1
 
+  echo "Run rekt tests"
+  go_test_e2e -tags=e2e -timeout=20m -test.parallel=${TEST_PARALLEL} -run "^TestKafkaChannelReadiness$" ./test/rekt/... || fail_test
+
+  echo "Run classic tests"
   go_test_e2e -tags=e2e,consolidated,source -timeout=40m -test.parallel=${TEST_PARALLEL} ./test/e2e -channels=messaging.knative.dev/v1beta1:KafkaChannel  || fail_test
   go_test_e2e -tags=e2e,consolidated,source -timeout=5m -test.parallel=${TEST_PARALLEL} ./test/conformance -channels=messaging.knative.dev/v1beta1:KafkaChannel -sources=sources.knative.dev/v1beta1:KafkaSource || fail_test
 
@@ -549,7 +553,10 @@ function test_distributed_channel() {
   echo "Testing the distributed channel"
   install_distributed_channel_crds || return 1
 
-  # TODO: Enable v1alpha1 testing once we have the auto-converting webhook in our config/yaml
+  echo "Run rekt tests"
+  go_test_e2e -tags=e2e -timeout=20m -test.parallel=${TEST_PARALLEL} -run "^TestKafkaChannel*" ./test/rekt/... || fail_test
+
+  echo "Run classic tests"
   go_test_e2e -tags=e2e -timeout=40m -test.parallel=${TEST_PARALLEL} ./test/e2e -channels=messaging.knative.dev/v1beta1:KafkaChannel  || fail_test
   go_test_e2e -tags=e2e -timeout=5m -test.parallel=${TEST_PARALLEL} ./test/conformance -channels=messaging.knative.dev/v1beta1:KafkaChannel || fail_test
 
@@ -564,7 +571,7 @@ function test_mt_source() {
   export TEST_MT_SOURCE
 
   echo "Run rekt tests"
-  go_test_e2e -tags=e2e -timeout=20m -test.parallel=${TEST_PARALLEL} ./test/rekt/... || fail_test
+  go_test_e2e -tags=e2e -timeout=20m -test.parallel=${TEST_PARALLEL} -run "^TestKafkaSource*" ./test/rekt/... || fail_test
 
   # still run those since some test cases are still missing
   echo "Run classic tests"
