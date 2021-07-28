@@ -18,7 +18,7 @@ package resetoffset
 
 import (
 	"os"
-	
+
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/reconciler-test/pkg/manifest"
 )
