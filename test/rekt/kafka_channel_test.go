@@ -78,7 +78,7 @@ func TestKafkaChannelEvents(t *testing.T) {
 		knative.WithTracingConfig,
 		k8s.WithEventListener,
 		environment.WithPollTimings(4*time.Second, 120*time.Second),
-		//environment.Managed(t), // TODO - without this all the events are sent through to the dispatcher and processed!    With this it fails after a few events. namespace is being torn-down
+		environment.Managed(t),
 	)
 
 	// Generate Unique Test Names And Add To Context Store
@@ -97,7 +97,4 @@ func TestKafkaChannelEvents(t *testing.T) {
 	env.Test(ctx, t, kafkachannel.ConfigureDataPlane(ctx, t))
 	env.Test(ctx, t, kafkachannel.SendEvents(ctx, t, 10, 1, 10))               // 10 Events with IDs 1-10
 	env.Test(ctx, t, kafkachannel.ReplayEvents(ctx, t, offsetTime, 20, 1, 10)) // 20 Events with IDs 1-10
-
-	// Cleanup The Test Namespace And All Resources
-	env.Finish()
 }
