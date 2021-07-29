@@ -22,26 +22,25 @@ import (
 	"strconv"
 	"time"
 
-	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
-
-	"k8s.io/apimachinery/pkg/types"
-
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/system"
+
+	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	commonenv "knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/health"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
 	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/system"
 )
 
 // reconcileReceiver Reconciles The Receiver (Kafka Producer) For The Specified KafkaChannel
@@ -382,7 +381,7 @@ func (r *Reconciler) newReceiverDeployment(secret *corev1.Secret) *appsv1.Deploy
 			Namespace: r.environment.SystemNamespace,
 			Labels: map[string]string{
 				constants.AppLabel:                  deploymentName, // Matches Service Selector Key/Value Below
-				constants.KafkaChannelReceiverLabel: "true",         // Allows for identification of Receivers
+				constants.KafkaChannelReceiverLabel: "true",         // Allows for identification of Receiver Deployments
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -395,7 +394,8 @@ func (r *Reconciler) newReceiverDeployment(secret *corev1.Secret) *appsv1.Deploy
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						constants.AppLabel: deploymentName, // Matched By Deployment Selector Above
+						constants.AppLabel:                  deploymentName, // Matched By Deployment Selector Above
+						constants.KafkaChannelReceiverLabel: "true",         // Allows for identification of Receiver Pods
 					},
 					Annotations: map[string]string{
 						commonconstants.ConfigMapHashAnnotationKey: r.kafkaConfigMapHash,

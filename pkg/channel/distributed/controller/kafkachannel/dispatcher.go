@@ -22,14 +22,13 @@ import (
 	"strconv"
 	"time"
 
-	"k8s.io/apimachinery/pkg/types"
-
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -485,7 +484,10 @@ func (r *Reconciler) newDispatcherDeployment(logger *zap.Logger, channel *kafkav
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						constants.AppLabel: deploymentName, // Matched By Deployment Selector Above
+						constants.AppLabel:                    deploymentName,    // Matched By Deployment Selector Above
+						constants.KafkaChannelDispatcherLabel: "true",            // Identifies the Pod as being a KafkaChannel "Dispatcher"
+						constants.KafkaChannelNameLabel:       channel.Name,      // Identifies the Pod's Owning KafkaChannel's Name
+						constants.KafkaChannelNamespaceLabel:  channel.Namespace, // Identifies the Pod's Owning KafkaChannel's Namespace
 					},
 					Annotations: map[string]string{
 						commonconstants.ConfigMapHashAnnotationKey: r.kafkaConfigMapHash,
