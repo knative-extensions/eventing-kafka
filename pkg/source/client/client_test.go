@@ -75,7 +75,7 @@ func TestNewConfig(t *testing.T) {
 		"No Auth": {
 			env: map[string]string{
 				"KAFKA_BOOTSTRAP_SERVERS": defaultBootstrapServer,
-				"INITIAL_OFFSET":          string(v1beta1.OffsetLatest),
+				"KAFKA_INITIAL_OFFSET":    string(v1beta1.OffsetLatest),
 			},
 			enabledTLS:      false,
 			enabledSASL:     false,
@@ -85,7 +85,7 @@ func TestNewConfig(t *testing.T) {
 		"Custom offset": {
 			env: map[string]string{
 				"KAFKA_BOOTSTRAP_SERVERS": defaultBootstrapServer,
-				"INITIAL_OFFSET":          string(v1beta1.OffsetEarliest),
+				"KAFKA_INITIAL_OFFSET":    string(v1beta1.OffsetEarliest),
 			},
 			enabledTLS:      false,
 			enabledSASL:     false,

@@ -176,7 +176,7 @@ func TestMakeReceiveAdapter(t *testing.T) {
 									Value: "source-namespace",
 								},
 								{
-									Name:  "INITIAL_OFFSET",
+									Name:  "KAFKA_INITIAL_OFFSET",
 									Value: string(v1beta1.OffsetEarliest),
 								},
 								{
@@ -588,7 +588,7 @@ func TestMakeReceiveAdapterKeyType(t *testing.T) {
 									Value: "int",
 								},
 								{
-									Name:  "INITIAL_OFFSET",
+									Name:  "KAFKA_INITIAL_OFFSET",
 									Value: string(v1beta1.OffsetLatest),
 								},
 							},

@@ -60,7 +60,7 @@ type KafkaEnvConfig struct {
 	// It contains configuration from the Kafka configmap.
 	KafkaConfigJson  string                `envconfig:"K_KAFKA_CONFIG"`
 	BootstrapServers []string              `envconfig:"KAFKA_BOOTSTRAP_SERVERS" required:"true"`
-	InitialOffset    sourcesv1beta1.Offset `envconfig:"INITIAL_OFFSET" `
+	InitialOffset    sourcesv1beta1.Offset `envconfig:"KAFKA_INITIAL_OFFSET" `
 	Net              AdapterNet
 }
 

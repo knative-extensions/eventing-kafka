@@ -72,7 +72,7 @@ func MakeReceiveAdapter(args *ReceiveAdapterArgs) *v1.Deployment {
 
 	if args.Source.Spec.InitialOffset != "" {
 		env = append(env, corev1.EnvVar{
-			Name:  "INITIAL_OFFSET",
+			Name:  "KAFKA_INITIAL_OFFSET",
 			Value: string(args.Source.Spec.InitialOffset),
 		})
 	}
