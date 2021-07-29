@@ -20,6 +20,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"knative.dev/reconciler-test/pkg/feature"
 )
 
@@ -56,7 +57,8 @@ func SendEvents(ctx context.Context, t *testing.T, eventCount int, startId int, 
 	receiverName := ReceiverName(ctx, t)
 
 	// Create The Base CloudEvent To Send (ID will be set by the EventsHub Sender)
-	event := newEvent(testName, senderName)
+	event, err := newEvent(testName, senderName)
+	assert.Nil(t, err)
 
 	// Create A New Feature To Send Events And Verify Receipt
 	f := feature.NewFeatureNamed("Send Events")
@@ -79,7 +81,8 @@ func ReplayEvents(ctx context.Context, t *testing.T, offsetTime string, eventCou
 	receiverName := ReceiverName(ctx, t)
 
 	// Create The Base CloudEvent To Send (ID will be set by the EventsHub Sender)
-	event := newEvent(testName, senderName)
+	event, err := newEvent(testName, senderName)
+	assert.Nil(t, err)
 
 	// Create A New Feature To Replay Events And Verify Receipt
 	f := feature.NewFeatureNamed("Replay Events")

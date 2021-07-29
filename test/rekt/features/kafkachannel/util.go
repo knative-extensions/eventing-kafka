@@ -156,13 +156,13 @@ func assertEventsReceived(f *feature.Feature, receiverName string, event cloudev
 //
 
 // newEvent returns a new CloudEvent suitable for testing.
-func newEvent(name string, senderName string) cloudevents.Event {
+func newEvent(name string, senderName string) (cloudevents.Event, error) {
 	event := cloudevents.NewEvent()
 	event.SetSource(senderName)
 	event.SetType(name + "-type")
 	event.SetSubject(name + "-subject")
-	_ = event.SetData(cloudevents.ApplicationJSON, map[string]string{"name": name})
-	return event
+	err := event.SetData(cloudevents.ApplicationJSON, map[string]string{"name": name})
+	return event, err
 }
 
 // newEventMatcher returns a new CloudEvents Matcher based on the specified CloudEvent.
