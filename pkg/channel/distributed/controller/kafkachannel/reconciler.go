@@ -81,7 +81,7 @@ var (
 // not have to support both use cases.
 //
 func (r *Reconciler) SetKafkaAdminClient(ctx context.Context) error {
-	_ = r.ClearKafkaAdminClient(ctx)
+	_ = r.ClearKafkaAdminClient(ctx) // Attempt to close any lingering connections, ignore errors and continue
 	var err error
 	brokers := strings.Split(r.config.Kafka.Brokers, ",")
 	r.adminClient, err = admin.CreateAdminClient(ctx, brokers, r.config.Sarama.Config, r.adminClientType)
@@ -134,7 +134,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, channel *kafkav1beta1.Ka
 	if err != nil {
 		return err
 	}
-	defer func() { _ = r.ClearKafkaAdminClient(ctx) }()
+	defer func() { _ = r.ClearKafkaAdminClient(ctx) }() // Ignore errors as nothing else can be done
 
 	// Reset The Channel's Status Conditions To Unknown (Addressable, Topic, Service, Deployment, etc...)
 	channel.Status.InitializeConditions()
@@ -174,7 +174,7 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, channel *kafkav1beta1.Kaf
 	if err != nil {
 		return err
 	}
-	defer func() { _ = r.ClearKafkaAdminClient(ctx) }()
+	defer func() { _ = r.ClearKafkaAdminClient(ctx) }() // Ignore errors as nothing else can be done
 
 	// Finalize The Dispatcher (Manual Finalization Due To Cross-Namespace Ownership)
 	err = r.finalizeDispatcher(ctx, channel)

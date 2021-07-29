@@ -424,7 +424,7 @@ func TestReconcile(t *testing.T) {
 	// Run The TableTest Using The KafkaChannel Reconciler Provided By The Factory
 	logger := logtesting.TestLogger(t)
 	tableTest.Test(t, controllertesting.MakeFactory(func(ctx context.Context, listers *controllertesting.Listers, cmw configmap.Watcher, options map[string]interface{}) controller.Reconciler {
-		
+
 		// Use Table Row AdminClient If Specified, Otherwise Use Valid Success Mock AdminClient
 		newAdminClientFnInterface, ok := options["newAdminClientFn"]
 		if !ok || newAdminClientFnInterface == nil {
