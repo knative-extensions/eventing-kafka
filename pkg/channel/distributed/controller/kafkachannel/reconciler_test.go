@@ -24,6 +24,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -45,6 +46,7 @@ import (
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	kafkaadmintesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/testing"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/types"
+	kafkaadminwrapper "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/wrapper"
 	kafkautil "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/util"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
 	controllertesting "knative.dev/eventing-kafka/pkg/channel/distributed/controller/testing"
@@ -77,9 +79,10 @@ func TestSetKafkaAdminClient(t *testing.T) {
 	reconciler := &Reconciler{config: &commonconfig.EventingKafkaConfig{}, adminClient: mockAdminClient1}
 
 	// Perform The Test
-	reconciler.SetKafkaAdminClient(context.TODO())
+	resultErr := reconciler.SetKafkaAdminClient(context.TODO())
 
 	// Verify Results
+	assert.Nil(t, resultErr)
 	assert.True(t, mockAdminClient1.CloseCalled())
 	assert.NotNil(t, reconciler.adminClient)
 	assert.Equal(t, mockAdminClient2, reconciler.adminClient)
@@ -102,9 +105,10 @@ func TestSetKafkaAdminClientError(t *testing.T) {
 	reconciler := &Reconciler{config: &commonconfig.EventingKafkaConfig{}, adminClient: mockAdminClient1}
 
 	// Perform The Test
-	reconciler.SetKafkaAdminClient(context.TODO())
+	resultErr := reconciler.SetKafkaAdminClient(context.TODO())
 
 	// Verify Results
+	assert.NotNil(t, resultErr)
 	assert.Nil(t, reconciler.adminClient)
 }
 
@@ -118,9 +122,10 @@ func TestClearKafkaAdminClient(t *testing.T) {
 	reconciler := &Reconciler{config: &commonconfig.EventingKafkaConfig{}, adminClient: mockAdminClient}
 
 	// Perform The Test
-	reconciler.ClearKafkaAdminClient(context.TODO())
+	resultErr := reconciler.ClearKafkaAdminClient(context.TODO())
 
 	// Verify Results
+	assert.Nil(t, resultErr)
 	assert.True(t, mockAdminClient.CloseCalled())
 	assert.Nil(t, reconciler.adminClient)
 }
@@ -139,9 +144,10 @@ func TestClearKafkaAdminClientError(t *testing.T) {
 	reconciler := &Reconciler{config: &commonconfig.EventingKafkaConfig{}, adminClient: mockAdminClient}
 
 	// Perform The Test
-	reconciler.ClearKafkaAdminClient(context.TODO())
+	resultErr := reconciler.ClearKafkaAdminClient(context.TODO())
 
 	// Verify Results
+	assert.NotNil(t, resultErr)
 	assert.True(t, mockAdminClient.CloseCalled())
 	assert.Nil(t, reconciler.adminClient)
 }
@@ -313,6 +319,30 @@ func TestReconcile(t *testing.T) {
 				"Failed To Reconcile Receiver Deployment: encountered Receiver Deployment with DeletionTimestamp eventing-test-ns/kafkasecret-name-b9176d5f-receiver - potential race condition")),
 
 		//
+		// AdminClient Errors
+		//
+
+		newStableSystemTest("Reconciliation AdminClient Error",
+			withNewAdminClientFn(
+				func(ctx context.Context, brokers []string, config *sarama.Config, adminClientType types.AdminClientType) (types.AdminClientInterface, error) {
+					return nil, fmt.Errorf("test-adminclient-error")
+				},
+			),
+			withSingleErrorEvent("InternalError", "test-adminclient-error"),
+		),
+
+		newDeletedKafkaChannelTest("Finalization AdminClient Error",
+			withoutUpdates,
+			withoutDeletes,
+			withNewAdminClientFn(
+				func(ctx context.Context, brokers []string, config *sarama.Config, adminClientType types.AdminClientType) (types.AdminClientInterface, error) {
+					return nil, fmt.Errorf("test-adminclient-error")
+				},
+			),
+			withSingleErrorEvent("InternalError", "test-adminclient-error"),
+		),
+
+		//
 		// Miscellaneous
 		//
 
@@ -388,22 +418,28 @@ func TestReconcile(t *testing.T) {
 		newServicePatchFailureTest("Missing Labels", controllertesting.WithoutServiceLabels),
 	}
 
-	// Create A Mock AdminClient
-	mockAdminClient := &controllertesting.MockAdminClient{}
-
-	// Stub The Creation Of AdminClient
-	kafkaadmintesting.StubNewAdminClientFn(kafkaadmintesting.NonValidatingNewAdminClientFn(mockAdminClient))
+	// Restore The NewAdminClient Wrapper On Completion
 	defer kafkaadmintesting.RestoreNewAdminClientFn()
 
 	// Run The TableTest Using The KafkaChannel Reconciler Provided By The Factory
 	logger := logtesting.TestLogger(t)
 	tableTest.Test(t, controllertesting.MakeFactory(func(ctx context.Context, listers *controllertesting.Listers, cmw configmap.Watcher, options map[string]interface{}) controller.Reconciler {
 
-		configOptionsInt, ok := options["configOptions"]
-		if !ok || configOptionsInt == nil {
-			configOptionsInt = []controllertesting.KafkaConfigOption{}
+		// TODO - NEW
+		// Use Table Row AdminClient If Specified, Otherwise Use Valid Success Mock AdminClient
+		newAdminClientFnInterface, ok := options["newAdminClientFn"]
+		if !ok || newAdminClientFnInterface == nil {
+			newAdminClientFnInterface = kafkaadmintesting.NonValidatingNewAdminClientFn(&controllertesting.MockAdminClient{})
 		}
-		configOptions := configOptionsInt.([]controllertesting.KafkaConfigOption)
+		newAdminClientFn := newAdminClientFnInterface.(kafkaadminwrapper.NewAdminClientFnType)
+		kafkaadmintesting.StubNewAdminClientFn(newAdminClientFn)
+
+		// Use Table Row ConfigOptions If Specified, Otherwise Empty
+		configOptionsInterface, ok := options["configOptions"]
+		if !ok || configOptionsInterface == nil {
+			configOptionsInterface = []controllertesting.KafkaConfigOption{}
+		}
+		configOptions := configOptionsInterface.([]controllertesting.KafkaConfigOption)
 
 		r := &Reconciler{
 			kubeClientset:        kubeclient.Get(ctx),
@@ -665,6 +701,16 @@ func withErrorEvent(finalEvent string, errorEvent string, errorDescription strin
 	}
 }
 
+// withSingleErrorEvent returns a function that replaces the WantEvents field with the specified error event.
+func withSingleErrorEvent(errorEvent string, errorDescription string) testOption {
+	return func(test *TableRow) {
+		test.WantEvents = []string{
+			Eventf(corev1.EventTypeWarning, errorEvent, errorDescription),
+		}
+		test.WantErr = true
+	}
+}
+
 // withFirstEvent returns a function that inserts the given event into the WantEvents slice
 func withFirstEvent(event string) testOption {
 	return func(test *TableRow) {
@@ -708,6 +754,16 @@ func withKafkaChannel(kafkachannel *kafkav1beta1.KafkaChannel) testOption {
 		}
 		// Otherwise add a new one
 		test.Objects = append(test.Objects, kafkachannel)
+	}
+}
+
+// withNewAdminClientFn returns a function that sets the "adminClient" in the TableRow.OtherTestData
+func withNewAdminClientFn(newAdminClientFn kafkaadminwrapper.NewAdminClientFnType) testOption {
+	return func(test *TableRow) {
+		if test.OtherTestData == nil {
+			test.OtherTestData = make(map[string]interface{})
+		}
+		test.OtherTestData["newAdminClientFn"] = newAdminClientFn
 	}
 }
 
@@ -927,7 +983,7 @@ func newDeletedKafkaChannelTest(name string, options ...testOption) TableRow {
 	service := controllertesting.NewKafkaChannelDispatcherService(controllertesting.WithoutFinalizersService)
 	deployment := controllertesting.NewKafkaChannelDispatcherDeployment(controllertesting.WithoutFinalizersDeployment)
 
-	test := newStableSystemTest("Finalize Deleted KafkaChannel, "+name,
+	test := newStableSystemTest("Finalize Deleted KafkaChannel "+name,
 		withKafkaChannel(controllertesting.NewKafkaChannel(
 			controllertesting.WithInitializedConditions,
 			controllertesting.WithLabels,

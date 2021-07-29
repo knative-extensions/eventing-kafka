@@ -28,6 +28,10 @@ import (
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/reconciler"
+
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/types"
@@ -40,9 +44,6 @@ import (
 	kafkalisters "knative.dev/eventing-kafka/pkg/client/listers/messaging/v1beta1"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	kafkasarama "knative.dev/eventing-kafka/pkg/common/kafka/sarama"
-	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/reconciler"
 )
 
 // Reconciler Implements controller.Reconciler for KafkaChannel Resources
@@ -79,8 +80,8 @@ var (
 // lightweight REST clients so recreating them isn't a big deal and it simplifies the code significantly to
 // not have to support both use cases.
 //
-func (r *Reconciler) SetKafkaAdminClient(ctx context.Context) {
-	r.ClearKafkaAdminClient(ctx)
+func (r *Reconciler) SetKafkaAdminClient(ctx context.Context) error {
+	_ = r.ClearKafkaAdminClient(ctx)
 	var err error
 	brokers := strings.Split(r.config.Kafka.Brokers, ",")
 	r.adminClient, err = admin.CreateAdminClient(ctx, brokers, r.config.Sarama.Config, r.adminClientType)
@@ -88,18 +89,21 @@ func (r *Reconciler) SetKafkaAdminClient(ctx context.Context) {
 		logger := logging.FromContext(ctx)
 		logger.Error("Failed To Create Kafka AdminClient", zap.Error(err))
 	}
+	return err
 }
 
 // ClearKafkaAdminClient Clears (Closes) The Reconciler's Kafka AdminClient
-func (r *Reconciler) ClearKafkaAdminClient(ctx context.Context) {
+func (r *Reconciler) ClearKafkaAdminClient(ctx context.Context) error {
+	var err error
 	if r.adminClient != nil {
-		err := r.adminClient.Close()
+		err = r.adminClient.Close()
 		if err != nil {
 			logger := logging.FromContext(ctx)
 			logger.Error("Failed To Close Kafka AdminClient", zap.Error(err))
 		}
 		r.adminClient = nil
 	}
+	return err
 }
 
 // ReconcileKind Implements The Reconciler Interface & Is Responsible For Performing The Reconciliation (Creation)
@@ -126,15 +130,18 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, channel *kafkav1beta1.Ka
 	defer r.adminMutex.Unlock()
 
 	// Create A New Kafka AdminClient For Each Reconciliation Attempt
-	r.SetKafkaAdminClient(ctx)
-	defer r.ClearKafkaAdminClient(ctx)
+	err := r.SetKafkaAdminClient(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = r.ClearKafkaAdminClient(ctx) }()
 
 	// Reset The Channel's Status Conditions To Unknown (Addressable, Topic, Service, Deployment, etc...)
 	channel.Status.InitializeConditions()
 
 	// Perform The KafkaChannel Reconciliation & Handle Error Response
 	logger.Info("Channel Owned By Controller - Reconciling", zap.Any("Channel.Spec", channel.Spec))
-	err := r.reconcile(ctx, channel)
+	err = r.reconcile(ctx, channel)
 	if err != nil {
 		logger.Error("Failed To Reconcile KafkaChannel", zap.Any("Channel", channel), zap.Error(err))
 		return err
@@ -163,11 +170,14 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, channel *kafkav1beta1.Kaf
 	defer r.adminMutex.Unlock()
 
 	// Create A New Kafka AdminClient For Each Reconciliation Attempt
-	r.SetKafkaAdminClient(ctx)
-	defer r.ClearKafkaAdminClient(ctx)
+	err := r.SetKafkaAdminClient(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = r.ClearKafkaAdminClient(ctx) }()
 
 	// Finalize The Dispatcher (Manual Finalization Due To Cross-Namespace Ownership)
-	err := r.finalizeDispatcher(ctx, channel)
+	err = r.finalizeDispatcher(ctx, channel)
 	if err != nil {
 		logger.Info("Failed To Finalize KafkaChannel", zap.Error(err))
 		return fmt.Errorf(constants.FinalizationFailedError)
