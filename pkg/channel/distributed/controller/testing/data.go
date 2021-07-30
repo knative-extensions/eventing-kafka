@@ -30,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgotesting "k8s.io/client-go/testing"
 	"k8s.io/utils/pointer"
-	"knative.dev/eventing-kafka/pkg/common/client"
 	"knative.dev/eventing/pkg/apis/messaging"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/logging"
@@ -46,6 +45,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
+	"knative.dev/eventing-kafka/pkg/common/client"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
@@ -769,21 +769,22 @@ func NewKafkaChannelReceiverDeployment(options ...DeploymentOption) *appsv1.Depl
 			Name:      ReceiverDeploymentName,
 			Namespace: systemNamespace,
 			Labels: map[string]string{
-				"app":                   ReceiverDeploymentName,
-				"kafkachannel-receiver": "true",
+				constants.AppLabel:                  ReceiverDeploymentName,
+				constants.KafkaChannelReceiverLabel: "true",
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app": ReceiverDeploymentName,
+					constants.AppLabel: ReceiverDeploymentName,
 				},
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app": ReceiverDeploymentName,
+						constants.AppLabel:                  ReceiverDeploymentName,
+						constants.KafkaChannelReceiverLabel: "true",
 					},
 					Annotations: map[string]string{
 						commonconstants.ConfigMapHashAnnotationKey: ConfigMapHash,
@@ -1002,13 +1003,16 @@ func NewKafkaChannelDispatcherDeployment(options ...DeploymentOption) *appsv1.De
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app": dispatcherName,
+					constants.AppLabel: dispatcherName,
 				},
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app": dispatcherName,
+						constants.AppLabel:                    dispatcherName,
+						constants.KafkaChannelNameLabel:       KafkaChannelName,
+						constants.KafkaChannelNamespaceLabel:  KafkaChannelNamespace,
+						constants.KafkaChannelDispatcherLabel: "true",
 					},
 					Annotations: map[string]string{
 						commonconstants.ConfigMapHashAnnotationKey: ConfigMapHash,
