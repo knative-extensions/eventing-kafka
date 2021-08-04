@@ -14,42 +14,33 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package kafkatopic
+package kafkachannel
 
 import (
 	"context"
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
 	"knative.dev/reconciler-test/pkg/feature"
 	"knative.dev/reconciler-test/pkg/k8s"
 	"knative.dev/reconciler-test/pkg/manifest"
 )
 
-const (
-	// kafkaNamespace is the namespace where kafka is installed
-	kafkaNamespace = "kafka"
-)
-
 type CfgFn func(map[string]interface{})
 
 func GVR() schema.GroupVersionResource {
-	return schema.GroupVersionResource{Group: "kafka.strimzi.io", Version: "v1beta2", Resource: "kafkatopics"}
+	return schema.GroupVersionResource{Group: "messaging.knative.dev", Version: "v1beta1", Resource: "kafkachannels"}
 }
 
-// Install will create a Kafka Topic via the Strimzi topic CRD,, augmented with the config fn options.
+// Install will create a KafkaChannel resource, using the latest version, augmented with the config fn options.
 func Install(name string, opts ...CfgFn) feature.StepFn {
 	cfg := map[string]interface{}{
-		"name":             name,
-		"clusterNamespace": "kafka",
-		"partitions":       10,
-		"clusterName":      "my-cluster",
+		"name":    name,
+		"version": GVR().Version,
 	}
 	for _, fn := range opts {
 		fn(cfg)
 	}
-
 	return func(ctx context.Context, t feature.T) {
 		if _, err := manifest.InstallLocalYaml(ctx, cfg); err != nil {
 			t.Fatal(err, cfg)
@@ -57,33 +48,30 @@ func Install(name string, opts ...CfgFn) feature.StepFn {
 	}
 }
 
-// IsReady tests to see if a KafkaTopic becomes ready within the time given.
+// IsReady tests to see if a KafkaChannel becomes ready within the time given.
 func IsReady(name string, timings ...time.Duration) feature.StepFn {
-	return func(ctx context.Context, t feature.T) {
-		interval, timeout := k8s.PollTimings(ctx, timings)
-		if err := k8s.WaitForResourceReady(ctx, kafkaNamespace, name, GVR(), interval, timeout); err != nil {
-			t.Error(GVR(), "did not become ready,", err)
+	return k8s.IsReady(GVR(), name, timings...)
+}
+
+// WithVersion overrides the default API version
+func WithVersion(version string) CfgFn {
+	return func(cfg map[string]interface{}) {
+		if version != "" {
+			cfg["version"] = version
 		}
 	}
 }
 
-// WithPartitions overrides the number of partitions (default: 10).
-func WithPartitions(partitions string) CfgFn {
+// WithNumPartitions adds the numPartitions config to a KafkaChannel spec.
+func WithNumPartitions(numPartitions string) CfgFn {
 	return func(cfg map[string]interface{}) {
-		cfg["partitions"] = partitions
+		cfg["numPartitions"] = numPartitions
 	}
 }
 
-// WithClusterName overrides the Kafka cluster names where to create the topic (default: my-cluster)
-func WithClusterName(name string) CfgFn {
+// WithReplicationFactor adds the replicationFactor config to a KafkaChannel spec.
+func WithReplicationFactor(replicationFactor string) CfgFn {
 	return func(cfg map[string]interface{}) {
-		cfg["clusterName"] = name
-	}
-}
-
-// WithClusterNamespace overrides the Kafka cluster namespace where to create the topic (default: kafka)
-func WithClusterNamespace(namespace string) CfgFn {
-	return func(cfg map[string]interface{}) {
-		cfg["clusterNamespace"] = namespace
+		cfg["replicationFactor"] = replicationFactor
 	}
 }

@@ -14,42 +14,35 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package kafkatopic
+package resetoffset
 
 import (
 	"context"
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
+	duckv1 "knative.dev/pkg/apis/duck/v1"
+	"knative.dev/reconciler-test/pkg/environment"
 	"knative.dev/reconciler-test/pkg/feature"
 	"knative.dev/reconciler-test/pkg/k8s"
 	"knative.dev/reconciler-test/pkg/manifest"
 )
 
-const (
-	// kafkaNamespace is the namespace where kafka is installed
-	kafkaNamespace = "kafka"
-)
-
 type CfgFn func(map[string]interface{})
 
 func GVR() schema.GroupVersionResource {
-	return schema.GroupVersionResource{Group: "kafka.strimzi.io", Version: "v1beta2", Resource: "kafkatopics"}
+	return schema.GroupVersionResource{Group: "kafka.eventing.knative.dev", Version: "v1alpha1", Resource: "resetoffsets"}
 }
 
-// Install will create a Kafka Topic via the Strimzi topic CRD,, augmented with the config fn options.
+// Install will create a ResetOffset resource, using the latest version, augmented with the config fn options.
 func Install(name string, opts ...CfgFn) feature.StepFn {
 	cfg := map[string]interface{}{
-		"name":             name,
-		"clusterNamespace": "kafka",
-		"partitions":       10,
-		"clusterName":      "my-cluster",
+		"name":    name,
+		"version": GVR().Version,
 	}
 	for _, fn := range opts {
 		fn(cfg)
 	}
-
 	return func(ctx context.Context, t feature.T) {
 		if _, err := manifest.InstallLocalYaml(ctx, cfg); err != nil {
 			t.Fatal(err, cfg)
@@ -57,33 +50,43 @@ func Install(name string, opts ...CfgFn) feature.StepFn {
 	}
 }
 
-// IsReady tests to see if a KafkaTopic becomes ready within the time given.
-func IsReady(name string, timings ...time.Duration) feature.StepFn {
+// IsSucceeded tests to see if a ResetOffset becomes succeeded within the time given.
+func IsSucceeded(name string, timings ...time.Duration) feature.StepFn {
 	return func(ctx context.Context, t feature.T) {
 		interval, timeout := k8s.PollTimings(ctx, timings)
-		if err := k8s.WaitForResourceReady(ctx, kafkaNamespace, name, GVR(), interval, timeout); err != nil {
-			t.Error(GVR(), "did not become ready,", err)
+		env := environment.FromContext(ctx)
+		if err := k8s.WaitForResourceReady(ctx, env.Namespace(), name, GVR(), interval, timeout); err != nil {
+			t.Error(GVR(), "did not become succeeded", err)
 		}
 	}
 }
 
-// WithPartitions overrides the number of partitions (default: 10).
-func WithPartitions(partitions string) CfgFn {
+// WithVersion overrides the default API version
+func WithVersion(version string) CfgFn {
 	return func(cfg map[string]interface{}) {
-		cfg["partitions"] = partitions
+		if version != "" {
+			cfg["version"] = version
+		}
 	}
 }
 
-// WithClusterName overrides the Kafka cluster names where to create the topic (default: my-cluster)
-func WithClusterName(name string) CfgFn {
+// WithOffsetTime adds the offsetTime config to a ResetOffset spec.
+func WithOffsetTime(offsetTime string) CfgFn {
 	return func(cfg map[string]interface{}) {
-		cfg["clusterName"] = name
+		offsetCfg := map[string]interface{}{}
+		offsetCfg["time"] = offsetTime
+		cfg["offset"] = offsetCfg
 	}
 }
 
-// WithClusterNamespace overrides the Kafka cluster namespace where to create the topic (default: kafka)
-func WithClusterNamespace(namespace string) CfgFn {
+// WithRef adds the ref config to a ResetOffset spec.
+func WithRef(ref *duckv1.KReference) CfgFn {
 	return func(cfg map[string]interface{}) {
-		cfg["clusterNamespace"] = namespace
+		refCfg := map[string]interface{}{}
+		refCfg["name"] = ref.Name
+		refCfg["namespace"] = ref.Namespace
+		refCfg["kind"] = ref.Kind
+		refCfg["apiVersion"] = ref.APIVersion
+		cfg["ref"] = refCfg
 	}
 }
