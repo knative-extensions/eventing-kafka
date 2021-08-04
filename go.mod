@@ -15,7 +15,7 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/google/go-cmp v0.5.6
 	github.com/google/gofuzz v1.2.0
-	github.com/google/uuid v1.2.0
+	github.com/google/uuid v1.3.0
 	github.com/influxdata/tdigest v0.0.1 // indirect
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/mitchellh/mapstructure v1.3.3 // indirect
@@ -24,20 +24,20 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/xdg/scram v1.0.3
 	go.opencensus.io v0.23.0
-	go.uber.org/atomic v1.8.0
+	go.uber.org/atomic v1.9.0
 	go.uber.org/multierr v1.6.0
 	go.uber.org/zap v1.18.1
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
-	google.golang.org/protobuf v1.26.0
+	google.golang.org/protobuf v1.27.1
 	k8s.io/api v0.20.7
 	k8s.io/apimachinery v0.20.7
 	k8s.io/client-go v0.20.7
 	k8s.io/utils v0.0.0-20201110183641-67b214c5f920
-	knative.dev/control-protocol v0.0.0-20210701061703-8ddeca27693a
-	knative.dev/eventing v0.24.1-0.20210802063843-a8a30634681b
+	knative.dev/control-protocol v0.0.0-20210803191615-72cde96b9f5a
+	knative.dev/eventing v0.24.1-0.20210803173815-5c7b55336efd
 	knative.dev/hack v0.0.0-20210622141627-e28525d8d260
-	knative.dev/networking v0.0.0-20210802043343-0f2f50944c03
-	knative.dev/pkg v0.0.0-20210731072840-64ab22bbaab9
-	knative.dev/reconciler-test v0.0.0-20210714231231-91e5b206e1d5
+	knative.dev/networking v0.0.0-20210803181815-acdfd41c575c
+	knative.dev/pkg v0.0.0-20210803160015-21eb4c167cc5
+	knative.dev/reconciler-test v0.0.0-20210803183715-b61cc77c06f6
 )
