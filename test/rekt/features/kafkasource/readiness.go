@@ -20,13 +20,14 @@ import (
 	"knative.dev/eventing/test/rekt/resources/svc"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/reconciler-test/pkg/feature"
+	"knative.dev/reconciler-test/pkg/manifest"
 
 	"knative.dev/eventing-kafka/test/rekt/resources/kafkasource"
 	"knative.dev/eventing-kafka/test/rekt/resources/kafkatopic"
 )
 
 // KafkaSourceGoesReady returns a feature testing if a KafkaSource becomes ready.
-func KafkaSourceGoesReady(name string, cfg ...kafkasource.CfgFn) *feature.Feature {
+func KafkaSourceGoesReady(name string, cfg ...manifest.CfgFn) *feature.Feature {
 	f := feature.NewFeatureNamed("KafkaSource goes ready.")
 
 	topicName := feature.MakeRandomK8sName("topic") // A k8s name is also a valid topic name.

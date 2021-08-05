@@ -18,16 +18,18 @@ package kafkacat
 
 import (
 	"context"
+	"embed"
 
 	"knative.dev/reconciler-test/pkg/feature"
 	"knative.dev/reconciler-test/pkg/k8s"
 	"knative.dev/reconciler-test/pkg/manifest"
 )
 
-type CfgFn func(map[string]interface{})
+//go:embed *.yaml
+var yaml embed.FS
 
 // Install will create a pod running kafkacat, augmented with the config fn options.
-func Install(name string, opts ...CfgFn) feature.StepFn {
+func Install(name string, opts ...manifest.CfgFn) feature.StepFn {
 	cfg := map[string]interface{}{
 		"name": name,
 	}
@@ -36,8 +38,8 @@ func Install(name string, opts ...CfgFn) feature.StepFn {
 	}
 
 	return func(ctx context.Context, t feature.T) {
-		if _, err := manifest.InstallLocalYaml(ctx, cfg); err != nil {
-			t.Fatal(err, cfg)
+		if _, err := manifest.InstallYamlFS(ctx, yaml, cfg); err != nil {
+			t.Fatal(err)
 		}
 
 		k8s.WaitForPodRunningOrFail(ctx, t, name)
@@ -45,28 +47,28 @@ func Install(name string, opts ...CfgFn) feature.StepFn {
 }
 
 // WithPayload adds payload to the kafkacat configmap.
-func WithPayload(payload string) CfgFn {
+func WithPayload(payload string) manifest.CfgFn {
 	return func(cfg map[string]interface{}) {
 		cfg["payload"] = payload
 	}
 }
 
 // WithBootstrapServer adds bootstrapServer to the kafkacat argument list.
-func WithBootstrapServer(bootstrapServer string) CfgFn {
+func WithBootstrapServer(bootstrapServer string) manifest.CfgFn {
 	return func(cfg map[string]interface{}) {
 		cfg["bootstrapServer"] = bootstrapServer
 	}
 }
 
 // WithTopic adds the topic to the kafkacat argument list.
-func WithTopic(topic string) CfgFn {
+func WithTopic(topic string) manifest.CfgFn {
 	return func(cfg map[string]interface{}) {
 		cfg["topic"] = topic
 	}
 }
 
 // WithKey adds the key to the kafkacat argument list.
-func WithKey(key string) CfgFn {
+func WithKey(key string) manifest.CfgFn {
 	return func(cfg map[string]interface{}) {
 		if key != "" {
 			cfg["key"] = key
@@ -75,7 +77,7 @@ func WithKey(key string) CfgFn {
 }
 
 // WithHeaders adds the headers to the kafkacat argument list.
-func WithHeaders(headers map[string]string) CfgFn {
+func WithHeaders(headers map[string]string) manifest.CfgFn {
 	return func(cfg map[string]interface{}) {
 		if len(headers) > 0 {
 			cfg["headers"] = headers
