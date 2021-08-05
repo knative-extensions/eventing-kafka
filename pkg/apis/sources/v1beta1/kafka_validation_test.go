@@ -40,7 +40,7 @@ var (
 		},
 		Topics:        []string{"topics"},
 		ConsumerGroup: "group",
-		InitialOffset: OffsetEarliest,
+		InitialOffset: OffsetLatest,
 		SourceSpec: duckv1.SourceSpec{
 			Sink: duckv1.Destination{
 				Ref: &duckv1.KReference{
@@ -88,6 +88,7 @@ func TestKafkaSourceCheckRequiredFields(t *testing.T) {
 				KafkaAuthSpec: fullSpec.KafkaAuthSpec,
 				Topics:        fullSpec.Topics,
 				SourceSpec:    fullSpec.SourceSpec,
+				InitialOffset: OffsetLatest,
 			},
 			allowed: true,
 		},
@@ -127,6 +128,7 @@ func TestKafkaSourceCheckImmutableFields(t *testing.T) {
 				KafkaAuthSpec: fullSpec.KafkaAuthSpec,
 				Topics:        []string{"some-other-topic"},
 				ConsumerGroup: fullSpec.ConsumerGroup,
+				InitialOffset: OffsetLatest,
 				SourceSpec:    fullSpec.SourceSpec,
 			},
 			allowed: true,
@@ -141,6 +143,7 @@ func TestKafkaSourceCheckImmutableFields(t *testing.T) {
 				Topics:        []string{"some-other-topic"},
 				ConsumerGroup: fullSpec.ConsumerGroup,
 				SourceSpec:    fullSpec.SourceSpec,
+				InitialOffset: OffsetLatest,
 			},
 			allowed: true,
 		},
@@ -150,6 +153,7 @@ func TestKafkaSourceCheckImmutableFields(t *testing.T) {
 				KafkaAuthSpec: fullSpec.KafkaAuthSpec,
 				Topics:        fullSpec.Topics,
 				ConsumerGroup: fullSpec.ConsumerGroup,
+				InitialOffset: OffsetLatest,
 				SourceSpec: duckv1.SourceSpec{
 					Sink: duckv1.Destination{
 						Ref: &duckv1.KReference{
@@ -169,6 +173,7 @@ func TestKafkaSourceCheckImmutableFields(t *testing.T) {
 				KafkaAuthSpec: fullSpec.KafkaAuthSpec,
 				Topics:        fullSpec.Topics,
 				ConsumerGroup: fullSpec.ConsumerGroup,
+				InitialOffset: OffsetLatest,
 				SourceSpec: duckv1.SourceSpec{
 					Sink: duckv1.Destination{
 						Ref: &duckv1.KReference{
@@ -189,6 +194,7 @@ func TestKafkaSourceCheckImmutableFields(t *testing.T) {
 				KafkaAuthSpec: fullSpec.KafkaAuthSpec,
 				Topics:        fullSpec.Topics,
 				ConsumerGroup: fullSpec.ConsumerGroup,
+				InitialOffset: OffsetLatest,
 				SourceSpec: duckv1.SourceSpec{
 					Sink: duckv1.Destination{
 						Ref: &duckv1.KReference{
@@ -209,6 +215,7 @@ func TestKafkaSourceCheckImmutableFields(t *testing.T) {
 				KafkaAuthSpec: fullSpec.KafkaAuthSpec,
 				Topics:        fullSpec.Topics,
 				ConsumerGroup: fullSpec.ConsumerGroup,
+				InitialOffset: OffsetLatest,
 				SourceSpec: duckv1.SourceSpec{
 					Sink: duckv1.Destination{
 						Ref: &duckv1.KReference{
@@ -233,6 +240,7 @@ func TestKafkaSourceCheckImmutableFields(t *testing.T) {
 				KafkaAuthSpec: fullSpec.KafkaAuthSpec,
 				Topics:        fullSpec.Topics,
 				ConsumerGroup: "no-way",
+				InitialOffset: OffsetLatest,
 				SourceSpec:    fullSpec.SourceSpec,
 			},
 			allowed: false,
@@ -241,6 +249,7 @@ func TestKafkaSourceCheckImmutableFields(t *testing.T) {
 			orig: &fullSpec,
 			updated: KafkaSourceSpec{
 				ConsumerGroup: fullSpec.ConsumerGroup,
+				InitialOffset: OffsetLatest,
 				SourceSpec:    fullSpec.SourceSpec,
 				Topics:        fullSpec.Topics,
 				KafkaAuthSpec: bindingsv1beta1.KafkaAuthSpec{
@@ -258,6 +267,7 @@ func TestKafkaSourceCheckImmutableFields(t *testing.T) {
 			orig: &fullSpec,
 			updated: KafkaSourceSpec{
 				ConsumerGroup: fullSpec.ConsumerGroup,
+				InitialOffset: OffsetLatest,
 				SourceSpec:    fullSpec.SourceSpec,
 				Topics:        fullSpec.Topics,
 				KafkaAuthSpec: bindingsv1beta1.KafkaAuthSpec{
@@ -300,7 +310,7 @@ func TestKafkaSourceOffset(t *testing.T) {
 		allowed bool
 	}{
 		"empty offset": {
-			allowed: true,
+			allowed: false,
 			offset:  "",
 		},
 		"earliest offset": {
