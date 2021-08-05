@@ -221,7 +221,7 @@ func (m *kafkaConsumerGroupManagerImpl) Reconfigure(brokers []string, config *sa
 				// in a practical sense, the new brokers/config will be used when whatever locked the group
 				// restarts it anyway.
 				multierr.AppendInto(&multiErr, err)
-				
+
 				// Remove The Group From The Manager So That It Will Be Restarted On Next Reconciliation
 				m.removeGroup(groupId)
 				failedGroups = append(failedGroups, groupId)
