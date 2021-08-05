@@ -90,7 +90,10 @@ func NewController(
 		kafkachannelLister:   kafkachannelInformer.Lister(),
 		kafkaClientSet:       kafkaClientSet,
 	}
-	reconciler.impl = controller.NewImpl(reconciler, reconciler.logger.Sugar(), ReconcilerName)
+	reconciler.impl = controller.NewImplFull(reconciler, controller.ControllerOptions{
+		WorkQueueName: ReconcilerName,
+		Logger:        logger.Sugar(),
+	})
 
 	reconciler.logger.Info("Setting Up Event Handlers")
 
@@ -118,7 +121,7 @@ func NewController(
 }
 
 // processManagerEvents will listen on the channel provided by the KafkaConsumerGroupManager for events
-// related to changes in the status of a managed ConsumerGroup.  This function is non-blocking, and the
+// related to a change in the status of a managed ConsumerGroup.  This function is non-blocking, and the
 // internal goroutine will exit when the channel is closed.
 func (r Reconciler) processManagerEvents(events <-chan commonconsumer.ManagerEvent) error {
 	// If the events channel is nil, there's no point listening to it; it will just block forever
@@ -168,7 +171,7 @@ func (r Reconciler) Reconcile(ctx context.Context, key string) error {
 	// Convert the namespace/name string into a distinct namespace and name.
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		logging.FromContext(ctx).Error("invalid resource key")
+		logging.FromContext(ctx).Error("invalid resource key", zap.String("Key", key), zap.Error(err))
 		return nil
 	}
 
@@ -190,6 +193,7 @@ func (r Reconciler) Reconcile(ctx context.Context, key string) error {
 	// Don't modify the informers copy
 	channel := original.DeepCopy()
 
+	// Perform the reconciliation (will update KafkaChannel.Status)
 	reconcileError := r.reconcile(channel)
 	if reconcileError != nil {
 		r.logger.Error("Error Reconciling KafkaChannel", zap.Error(reconcileError))
@@ -199,6 +203,7 @@ func (r Reconciler) Reconcile(ctx context.Context, key string) error {
 		r.recorder.Event(channel, corev1.EventTypeNormal, channelReconciled, "KafkaChannel Reconciled")
 	}
 
+	// Push KafkaChannel Status Changes To K8S
 	_, updateStatusErr := r.updateStatus(ctx, channel)
 	if updateStatusErr != nil {
 		r.logger.Error("Failed To Update KafkaChannel Status", zap.Error(updateStatusErr))
@@ -208,8 +213,8 @@ func (r Reconciler) Reconcile(ctx context.Context, key string) error {
 		r.logger.Info("Successfully Verified / Updated KafkaChannel Status")
 	}
 
-	// Return Success
-	return nil
+	// Return Reconciliation Errors To Requeue
+	return reconcileError
 }
 
 // Reconcile The Specified KafkaChannel

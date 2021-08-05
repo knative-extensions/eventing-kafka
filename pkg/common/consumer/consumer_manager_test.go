@@ -86,6 +86,8 @@ func TestReconfigure(t *testing.T) {
 			} else {
 				assert.NotNil(t, err)
 				assert.Equal(t, testCase.expectErr, err.Error())
+				assert.Len(t, err.GroupIds, 1)
+				assert.Equal(t, testCase.groupId, err.GroupIds[0])
 			}
 			server.AssertExpectations(t)
 		})

@@ -20,8 +20,12 @@ import (
 	"fmt"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 )
+
+const GroupIdPrefix = "kafka"
 
 // TopicName returns a formatted string representing the Kafka Topic name.
 func TopicName(namespace string, name string) string {
@@ -30,7 +34,12 @@ func TopicName(namespace string, name string) string {
 
 // GroupId returns a formatted string representing the Kafka ConsumerGroup ID.
 func GroupId(uid string) string {
-	return fmt.Sprintf("kafka.%s", uid)
+	return fmt.Sprintf("%s.%s", GroupIdPrefix, uid)
+}
+
+// Uid returns a UID from the specified GroupId, which is the inverse of GroupId().
+func Uid(groupId string) types.UID {
+	return types.UID(strings.TrimPrefix(groupId, GroupIdPrefix+"."))
 }
 
 // AppendKafkaChannelServiceNameSuffix appends the KafkaChannel Service name suffix to the specified string.

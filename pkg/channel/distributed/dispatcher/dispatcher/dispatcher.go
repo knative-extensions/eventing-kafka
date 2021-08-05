@@ -48,7 +48,6 @@ type DispatcherConfig struct {
 	StatsReporter   metrics.StatsReporter
 	MetricsRegistry gometrics.Registry
 	SaramaConfig    *sarama.Config
-	SubscriberSpecs []eventingduck.SubscriberSpec
 }
 
 // SubscriberWrapper Defines A Knative Eventing SubscriberSpec Wrapper Enhanced With Sarama ConsumerGroup ID
@@ -138,7 +137,7 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 	d.consumerUpdateLock.Lock()
 	defer d.consumerUpdateLock.Unlock()
 
-	// Loop Over All All The Specified Subscribers
+	// Loop Over All The Specified Subscribers
 	for _, subscriberSpec := range subscriberSpecs {
 
 		// Format The GroupId For The Specified Subscriber
@@ -158,6 +157,7 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 				// Log & Return Failure
 				logger.Error("Failed To Create ConsumerGroup", zap.Error(err))
 				subscriptions[subscriberSpec.UID] = commonconsumer.SubscriberStatus{Error: err}
+
 			} else {
 
 				// Create A New SubscriberWrapper With The ConsumerGroup
@@ -178,7 +178,8 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 			}
 
 		} else {
-			// Otherwise Just Add To List Of Active Subscribers
+
+			// Otherwise, Just Add To List Of Active Subscribers
 			subscriptions[subscriberSpec.UID] = commonconsumer.SubscriberStatus{}
 
 			// If the group is stopped, it's still active but the reconciler needs to know about it in order
@@ -190,17 +191,11 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 		}
 	}
 
-	// Save the current (active) subscriber specs so that SecretChanged() can use them to recreate the Dispatcher
-	// if necessary without going through the inactive subscribers again.
-	d.SubscriberSpecs = []eventingduck.SubscriberSpec{}
-
 	// Close ConsumerGroups For Removed/Failed Subscriptions (In Map But No Longer Active)
 	for _, subscriber := range d.subscribers {
 		subscription, ok := subscriptions[subscriber.UID]
 		if !ok || subscription.Error != nil {
 			d.closeConsumerGroup(subscriber)
-		} else {
-			d.SubscriberSpecs = append(d.SubscriberSpecs, subscriber.SubscriberSpec)
 		}
 	}
 
@@ -273,10 +268,16 @@ func (d *DispatcherImpl) SecretChanged(ctx context.Context, secret *corev1.Secre
 	d.DispatcherConfig.SaramaConfig = newConfig
 
 	// Replace The Dispatcher's ConsumerGroupFactory With Updated Version Using New Config
-	// Note:  This will close and recreate all of the managed consumer groups
-	err = d.consumerMgr.Reconfigure(d.DispatcherConfig.Brokers, d.DispatcherConfig.SaramaConfig)
-	if err != nil {
-		d.Logger.Error("Failed To Reconfigure Consumer Group Manager Using Updated Secret", zap.Error(err))
+	// Note:  This will close and recreate all managed ConsumerGroups
+	reconfigureErr := d.consumerMgr.Reconfigure(d.DispatcherConfig.Brokers, d.DispatcherConfig.SaramaConfig)
+	if reconfigureErr != nil {
+
+		// Remove All Failed Subscribers From List To Allow Recreation Next Reconcile Loop (Expects Caller To Requeue KafkaChannel!)
+		d.Logger.Error("Failed To Reconfigure Consumer Group Manager Using Updated Secret", zap.Error(reconfigureErr))
+		for _, groupId := range reconfigureErr.GroupIds {
+			subscriberUID := commonkafkautil.Uid(groupId)
+			delete(d.subscribers, subscriberUID)
+		}
 	}
 }
 

@@ -92,7 +92,7 @@ type ManagerEvent struct {
 
 // KafkaConsumerGroupManager keeps track of Sarama consumer groups and handles messages from control-protocol clients
 type KafkaConsumerGroupManager interface {
-	Reconfigure(brokers []string, config *sarama.Config) error
+	Reconfigure(brokers []string, config *sarama.Config) *ReconfigureError
 	StartConsumerGroup(groupId string, topics []string, logger *zap.SugaredLogger, handler KafkaConsumerHandler, options ...SaramaConsumerHandlerOption) error
 	CloseConsumerGroup(groupId string) error
 	Errors(groupId string) <-chan error
@@ -119,6 +119,20 @@ type kafkaConsumerGroupManagerImpl struct {
 
 // Verify that the kafkaConsumerGroupManagerImpl satisfies the KafkaConsumerGroupManager interface
 var _ KafkaConsumerGroupManager = (*kafkaConsumerGroupManagerImpl)(nil)
+
+// ReconfigureError is a custom error type returned by the Reconfigure() function.
+type ReconfigureError struct {
+	MultiError error    // A MultiError with all ConsumerGroup failures.
+	GroupIds   []string // The ConsumerGroup IDs which failed to stop/start.
+}
+
+// Error implements the golang error interface.
+func (r *ReconfigureError) Error() string {
+	return r.MultiError.Error()
+}
+
+// Ensure ReconfigureError Is A Valid Error
+var _ error = (*ReconfigureError)(nil)
 
 // NewConsumerGroupManager returns a new kafkaConsumerGroupManagerImpl as a KafkaConsumerGroupManager interface
 func NewConsumerGroupManager(logger *zap.Logger, serverHandler controlprotocol.ServerHandler, brokers []string, config *sarama.Config) KafkaConsumerGroupManager {
@@ -189,21 +203,32 @@ func (m *kafkaConsumerGroupManagerImpl) notify(event ManagerEvent) {
 
 // Reconfigure will incorporate a new set of brokers and Sarama config settings into the manager
 // without requiring a new control-protocol server or losing the current map of managed groups.
-// It will stop and start all of the managed groups in the group map.
-func (m *kafkaConsumerGroupManagerImpl) Reconfigure(brokers []string, config *sarama.Config) error {
+// It will stop and start all the managed groups in the group map.
+func (m *kafkaConsumerGroupManagerImpl) Reconfigure(brokers []string, config *sarama.Config) *ReconfigureError {
+
 	m.logger.Info("Reconfigure Consumer Group Manager - Stopping All Managed Consumer Groups")
+
 	var multiErr error
+	var failedGroups []string
 	groupsToRestart := make([]string, 0, len(m.groups))
 	for groupId := range m.groups {
-		err := m.stopConsumerGroup(&commands.CommandLock{Token: internalToken, LockBefore: true}, groupId)
-		if err != nil {
-			// If we couldn't stop a group, or failed to obtain a lock, note it as an error.  However,
-			// in a practical sense, the new brokers/config will be used when whatever locked the group
-			// restarts it anyway.
-			multierr.AppendInto(&multiErr, err)
-		} else {
-			// Only attempt to restart groups that this function stopped
-			groupsToRestart = append(groupsToRestart, groupId)
+
+		// Do NOT Attempt To Reconfigure Stopped ConsumerGroups! (Would unintentionally start previously stopped ConsumerGroups)
+		if !m.IsStopped(groupId) {
+			err := m.stopConsumerGroup(&commands.CommandLock{Token: internalToken, LockBefore: true}, groupId)
+			if err != nil {
+				// If we couldn't stop a group, or failed to obtain a lock, note it as an error.  However,
+				// in a practical sense, the new brokers/config will be used when whatever locked the group
+				// restarts it anyway.
+				multierr.AppendInto(&multiErr, err)
+				
+				// Remove The Group From The Manager So That It Will Be Restarted On Next Reconciliation
+				m.removeGroup(groupId)
+				failedGroups = append(failedGroups, groupId)
+			} else {
+				// Only attempt to restart groups that this function stopped
+				groupsToRestart = append(groupsToRestart, groupId)
+			}
 		}
 	}
 
@@ -215,9 +240,19 @@ func (m *kafkaConsumerGroupManagerImpl) Reconfigure(brokers []string, config *sa
 		err := m.startConsumerGroup(&commands.CommandLock{Token: internalToken, UnlockAfter: true}, groupId)
 		if err != nil {
 			multierr.AppendInto(&multiErr, err)
+
+			// Remove The Group From The Manager So That It Will Be Restarted On Next Reconciliation
+			m.removeGroup(groupId)
+			failedGroups = append(failedGroups, groupId)
 		}
 	}
-	return multiErr
+
+	// Create & Return ReconfigureError If Necessary
+	if multiErr != nil {
+		return &ReconfigureError{MultiError: multiErr, GroupIds: failedGroups}
+	} else {
+		return nil
+	}
 }
 
 // StartConsumerGroup uses the consumer factory to create a new ConsumerGroup, add it to the list
