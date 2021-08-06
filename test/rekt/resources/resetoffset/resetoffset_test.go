@@ -40,14 +40,7 @@ func Example() {
 		Name:       "baz",
 	})(cfg)
 
-	directory, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-
-	dirFS := os.DirFS(directory)
-
-	files, err := manifest.ExecuteYAML(dirFS, images, cfg)
+	files, err := manifest.ExecuteYAML(yaml, images, cfg)
 	if err != nil {
 		panic(err)
 	}

@@ -34,7 +34,7 @@ func Example_min() {
 		"version":   "v1beta1",
 	}
 
-	files, err := manifest.ExecuteLocalYAML(images, cfg)
+	files, err := manifest.ExecuteYAML(yaml, images, cfg)
 	if err != nil {
 		panic(err)
 	}

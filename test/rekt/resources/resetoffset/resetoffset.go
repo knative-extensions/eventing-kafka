@@ -18,6 +18,7 @@ package resetoffset
 
 import (
 	"context"
+	"embed"
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -28,14 +29,15 @@ import (
 	"knative.dev/reconciler-test/pkg/manifest"
 )
 
-type CfgFn func(map[string]interface{})
+//go:embed *.yaml
+var yaml embed.FS
 
 func GVR() schema.GroupVersionResource {
 	return schema.GroupVersionResource{Group: "kafka.eventing.knative.dev", Version: "v1alpha1", Resource: "resetoffsets"}
 }
 
 // Install will create a ResetOffset resource, using the latest version, augmented with the config fn options.
-func Install(name string, opts ...CfgFn) feature.StepFn {
+func Install(name string, opts ...manifest.CfgFn) feature.StepFn {
 	cfg := map[string]interface{}{
 		"name":    name,
 		"version": GVR().Version,
@@ -62,7 +64,7 @@ func IsSucceeded(name string, timings ...time.Duration) feature.StepFn {
 }
 
 // WithVersion overrides the default API version
-func WithVersion(version string) CfgFn {
+func WithVersion(version string) manifest.CfgFn {
 	return func(cfg map[string]interface{}) {
 		if version != "" {
 			cfg["version"] = version
@@ -71,7 +73,7 @@ func WithVersion(version string) CfgFn {
 }
 
 // WithOffsetTime adds the offsetTime config to a ResetOffset spec.
-func WithOffsetTime(offsetTime string) CfgFn {
+func WithOffsetTime(offsetTime string) manifest.CfgFn {
 	return func(cfg map[string]interface{}) {
 		offsetCfg := map[string]interface{}{}
 		offsetCfg["time"] = offsetTime
@@ -80,7 +82,7 @@ func WithOffsetTime(offsetTime string) CfgFn {
 }
 
 // WithRef adds the ref config to a ResetOffset spec.
-func WithRef(ref *duckv1.KReference) CfgFn {
+func WithRef(ref *duckv1.KReference) manifest.CfgFn {
 	return func(cfg map[string]interface{}) {
 		refCfg := map[string]interface{}{}
 		refCfg["name"] = ref.Name

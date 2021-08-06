@@ -28,6 +28,7 @@ import (
 	"knative.dev/reconciler-test/pkg/eventshub"
 	"knative.dev/reconciler-test/pkg/eventshub/assert"
 	"knative.dev/reconciler-test/pkg/feature"
+	"knative.dev/reconciler-test/pkg/manifest"
 	"knative.dev/reconciler-test/pkg/state"
 
 	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
@@ -259,7 +260,7 @@ func dataPlaneDelivery(name string, data delivery) *feature.Feature {
 	// Setup source
 
 	// options
-	ksopts := []kafkasource.CfgFn{
+	ksopts := []manifest.CfgFn{
 		kafkasource.WithBootstrapServers([]string{data.bootstrapServer}),
 		kafkasource.WithTopics([]string{topicName}),
 		kafkasource.WithSink(&duckv1.KReference{
@@ -306,7 +307,7 @@ func sinkReceiveEvent(name string, matchers EventMatcher) func(ctx context.Conte
 		sinkName := state.GetStringOrFail(ctx, t, "sinkName")
 
 		// Install kafkacat
-		kcopts := []kafkacat.CfgFn{
+		kcopts := []manifest.CfgFn{
 			kafkacat.WithBootstrapServer(kafkaBootstrapUrlPlain),
 			kafkacat.WithTopic(topicName),
 			kafkacat.WithKey(message.Key),

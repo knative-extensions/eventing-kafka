@@ -18,6 +18,7 @@ package kafkachannel
 
 import (
 	"context"
+	"embed"
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -26,14 +27,15 @@ import (
 	"knative.dev/reconciler-test/pkg/manifest"
 )
 
-type CfgFn func(map[string]interface{})
+//go:embed *.yaml
+var yaml embed.FS
 
 func GVR() schema.GroupVersionResource {
 	return schema.GroupVersionResource{Group: "messaging.knative.dev", Version: "v1beta1", Resource: "kafkachannels"}
 }
 
 // Install will create a KafkaChannel resource, using the latest version, augmented with the config fn options.
-func Install(name string, opts ...CfgFn) feature.StepFn {
+func Install(name string, opts ...manifest.CfgFn) feature.StepFn {
 	cfg := map[string]interface{}{
 		"name":    name,
 		"version": GVR().Version,
@@ -42,8 +44,8 @@ func Install(name string, opts ...CfgFn) feature.StepFn {
 		fn(cfg)
 	}
 	return func(ctx context.Context, t feature.T) {
-		if _, err := manifest.InstallLocalYaml(ctx, cfg); err != nil {
-			t.Fatal(err, cfg)
+		if _, err := manifest.InstallYamlFS(ctx, yaml, cfg); err != nil {
+			t.Fatal(err)
 		}
 	}
 }
@@ -54,7 +56,7 @@ func IsReady(name string, timings ...time.Duration) feature.StepFn {
 }
 
 // WithVersion overrides the default API version
-func WithVersion(version string) CfgFn {
+func WithVersion(version string) manifest.CfgFn {
 	return func(cfg map[string]interface{}) {
 		if version != "" {
 			cfg["version"] = version
@@ -63,14 +65,14 @@ func WithVersion(version string) CfgFn {
 }
 
 // WithNumPartitions adds the numPartitions config to a KafkaChannel spec.
-func WithNumPartitions(numPartitions string) CfgFn {
+func WithNumPartitions(numPartitions string) manifest.CfgFn {
 	return func(cfg map[string]interface{}) {
 		cfg["numPartitions"] = numPartitions
 	}
 }
 
 // WithReplicationFactor adds the replicationFactor config to a KafkaChannel spec.
-func WithReplicationFactor(replicationFactor string) CfgFn {
+func WithReplicationFactor(replicationFactor string) manifest.CfgFn {
 	return func(cfg map[string]interface{}) {
 		cfg["replicationFactor"] = replicationFactor
 	}

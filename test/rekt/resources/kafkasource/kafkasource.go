@@ -18,6 +18,7 @@ package kafkasource
 
 import (
 	"context"
+	"embed"
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -27,14 +28,15 @@ import (
 	"knative.dev/reconciler-test/pkg/manifest"
 )
 
-type CfgFn func(map[string]interface{})
+//go:embed *.yaml
+var yaml embed.FS
 
 func GVR() schema.GroupVersionResource {
 	return schema.GroupVersionResource{Group: "sources.knative.dev", Version: "v1beta1", Resource: "kafkasources"}
 }
 
 // Install will create a KafkaSource resource, using the latest version, augmented with the config fn options.
-func Install(name string, opts ...CfgFn) feature.StepFn {
+func Install(name string, opts ...manifest.CfgFn) feature.StepFn {
 	cfg := map[string]interface{}{
 		"name":    name,
 		"version": GVR().Version,
@@ -55,7 +57,7 @@ func IsReady(name string, timings ...time.Duration) feature.StepFn {
 }
 
 // WithVersion overrides the default API version
-func WithVersion(version string) CfgFn {
+func WithVersion(version string) manifest.CfgFn {
 	return func(cfg map[string]interface{}) {
 		if version != "" {
 			cfg["version"] = version
@@ -64,7 +66,7 @@ func WithVersion(version string) CfgFn {
 }
 
 // WithAnnotations adds annotation to a KafkaSource metadata.
-func WithAnnotations(annotations map[string]string) CfgFn {
+func WithAnnotations(annotations map[string]string) manifest.CfgFn {
 	return func(cfg map[string]interface{}) {
 		if annotations != nil {
 			cfg["annotations"] = annotations
@@ -73,7 +75,7 @@ func WithAnnotations(annotations map[string]string) CfgFn {
 }
 
 // WithBootstrapServers adds the bootstrapServers config to a KafkaSource spec.
-func WithBootstrapServers(bootstrapServers []string) CfgFn {
+func WithBootstrapServers(bootstrapServers []string) manifest.CfgFn {
 	return func(cfg map[string]interface{}) {
 		if bootstrapServers != nil {
 			cfg["bootstrapServers"] = bootstrapServers
@@ -82,7 +84,7 @@ func WithBootstrapServers(bootstrapServers []string) CfgFn {
 }
 
 // WithTopics adds the topics config to a KafkaSource spec.
-func WithTopics(topics []string) CfgFn {
+func WithTopics(topics []string) manifest.CfgFn {
 	return func(cfg map[string]interface{}) {
 		if topics != nil {
 			cfg["topics"] = topics
@@ -91,7 +93,7 @@ func WithTopics(topics []string) CfgFn {
 }
 
 // WithTLSEnabled enables TLS to a KafkaSource spec.
-func WithTLSEnabled() CfgFn {
+func WithTLSEnabled() manifest.CfgFn {
 	return func(cfg map[string]interface{}) {
 		if _, ok := cfg["tls"]; !ok {
 			cfg["tls"] = map[string]interface{}{}
@@ -100,7 +102,7 @@ func WithTLSEnabled() CfgFn {
 }
 
 // WithTLSCert adds the TLS cert config to a KafkaSource spec.
-func WithTLSCert(name, key string) CfgFn {
+func WithTLSCert(name, key string) manifest.CfgFn {
 	return func(cfg map[string]interface{}) {
 		if _, ok := cfg["tls"]; !ok {
 			cfg["tls"] = map[string]interface{}{}
@@ -116,7 +118,7 @@ func WithTLSCert(name, key string) CfgFn {
 }
 
 // WithTLSKey adds the TLS key config to a KafkaSource spec.
-func WithTLSKey(name, key string) CfgFn {
+func WithTLSKey(name, key string) manifest.CfgFn {
 	return func(cfg map[string]interface{}) {
 		if _, ok := cfg["tls"]; !ok {
 			cfg["tls"] = map[string]interface{}{}
@@ -132,7 +134,7 @@ func WithTLSKey(name, key string) CfgFn {
 }
 
 // WithTLSCACert adds the TLS caCert config to a KafkaSource spec.
-func WithTLSCACert(name, key string) CfgFn {
+func WithTLSCACert(name, key string) manifest.CfgFn {
 	return func(cfg map[string]interface{}) {
 		if _, ok := cfg["tls"]; !ok {
 			cfg["tls"] = map[string]interface{}{}
@@ -148,7 +150,7 @@ func WithTLSCACert(name, key string) CfgFn {
 }
 
 // WithSASLEnabled enables SASL to a KafkaSource spec.
-func WithSASLEnabled() CfgFn {
+func WithSASLEnabled() manifest.CfgFn {
 	return func(cfg map[string]interface{}) {
 		if _, ok := cfg["sasl"]; !ok {
 			cfg["sasl"] = map[string]interface{}{}
@@ -157,7 +159,7 @@ func WithSASLEnabled() CfgFn {
 }
 
 // WithSASLUser adds the SASL user config to a KafkaSource spec.
-func WithSASLUser(name, key string) CfgFn {
+func WithSASLUser(name, key string) manifest.CfgFn {
 	return func(cfg map[string]interface{}) {
 		if _, ok := cfg["sasl"]; !ok {
 			cfg["sasl"] = map[string]interface{}{}
@@ -173,7 +175,7 @@ func WithSASLUser(name, key string) CfgFn {
 }
 
 // WithSASLPassword adds the SASL password config to a KafkaSource spec.
-func WithSASLPassword(name, key string) CfgFn {
+func WithSASLPassword(name, key string) manifest.CfgFn {
 	return func(cfg map[string]interface{}) {
 		if _, ok := cfg["sasl"]; !ok {
 			cfg["sasl"] = map[string]interface{}{}
@@ -189,7 +191,7 @@ func WithSASLPassword(name, key string) CfgFn {
 }
 
 // WithSASLType adds the SASL type config to a KafkaSource spec.
-func WithSASLType(name, key string) CfgFn {
+func WithSASLType(name, key string) manifest.CfgFn {
 	return func(cfg map[string]interface{}) {
 		if _, ok := cfg["sasl"]; !ok {
 			cfg["sasl"] = map[string]interface{}{}
@@ -205,7 +207,7 @@ func WithSASLType(name, key string) CfgFn {
 }
 
 // WithSink adds the sink related config to a PingSource spec.
-func WithSink(ref *duckv1.KReference, uri string) CfgFn {
+func WithSink(ref *duckv1.KReference, uri string) manifest.CfgFn {
 	return func(cfg map[string]interface{}) {
 		if _, set := cfg["sink"]; !set {
 			cfg["sink"] = map[string]interface{}{}

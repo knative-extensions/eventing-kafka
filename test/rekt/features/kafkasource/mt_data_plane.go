@@ -30,6 +30,7 @@ import (
 	"knative.dev/reconciler-test/pkg/eventshub"
 	"knative.dev/reconciler-test/pkg/eventshub/assert"
 	"knative.dev/reconciler-test/pkg/feature"
+	"knative.dev/reconciler-test/pkg/manifest"
 	"knative.dev/reconciler-test/pkg/state"
 
 	kafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client"
@@ -79,7 +80,7 @@ func MtDataPlaneDelivery() *feature.Feature {
 
 	f.Setup("install sink", eventshub.Install(sinkName, eventshub.StartReceiver))
 
-	ksopts := []kafkasource.CfgFn{
+	ksopts := []manifest.CfgFn{
 		kafkasource.WithBootstrapServers([]string{delivery.bootstrapServer}),
 		kafkasource.WithTopics([]string{topicName}),
 		kafkasource.WithSink(&duckv1.KReference{
@@ -109,7 +110,7 @@ func sourcesPlaced(name string, matchers EventMatcher) func(ctx context.Context,
 			time.Sleep(10 * time.Second)
 		}
 
-		kcopts := []kafkacat.CfgFn{
+		kcopts := []manifest.CfgFn{
 			kafkacat.WithBootstrapServer(kafkaBootstrapUrlPlain),
 			kafkacat.WithTopic(topicName),
 			kafkacat.WithKey(message.Key),

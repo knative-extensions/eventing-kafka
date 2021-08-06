@@ -18,12 +18,13 @@ package kafkatopic
 
 import (
 	"knative.dev/reconciler-test/pkg/feature"
+	"knative.dev/reconciler-test/pkg/manifest"
 
 	"knative.dev/eventing-kafka/test/rekt/resources/kafkatopic"
 )
 
 // KafkaTopicGoesReady returns a feature testing if a Kafka topic becomes ready.
-func KafkaTopicGoesReady(name string, cfg ...kafkatopic.CfgFn) *feature.Feature {
+func KafkaTopicGoesReady(name string, cfg ...manifest.CfgFn) *feature.Feature {
 	f := feature.NewFeatureNamed("KafkaTopic goes ready.")
 
 	f.Setup("install a Kafka topic", kafkatopic.Install(name, cfg...))
