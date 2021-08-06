@@ -52,10 +52,7 @@ import (
 )
 
 // Variables
-var (
-	logger        *zap.Logger
-	kafkaProducer *producer.Producer
-)
+var kafkaProducer *producer.Producer
 
 // The Main Function (Go Command)
 func main() {
@@ -78,7 +75,7 @@ func main() {
 	ctx = commonk8s.LoggingContext(ctx, constants.Component, k8sClient)
 
 	// Get The Logger From The Context & Defer Flushing Any Buffered Log Entries On Exit
-	logger = logging.FromContext(ctx).Desugar()
+	logger := logging.FromContext(ctx).Desugar()
 	defer flush(logger)
 
 	// Load Environment Variables
@@ -155,7 +152,7 @@ func main() {
 	if err != nil {
 		logger.Fatal("Failed To Initialize Kafka Producer", zap.Error(err))
 	}
-	defer kafkaProducer.Close()
+	defer closeProducer()
 
 	channelReporter := eventingchannel.NewStatsReporter(environment.ContainerName, kmeta.ChildName(environment.PodName, uuid.New().String()))
 
@@ -187,6 +184,9 @@ func flush(logger *zap.Logger) {
 // CloudEvent Message Handler - Converts To KafkaMessage And Produces To Channel's Kafka Topic
 func handleMessage(ctx context.Context, channelReference eventingchannel.ChannelReference, message binding.Message, transformers []binding.Transformer, _ http.Header) error {
 
+	// Get The Logger From The Context
+	logger := logging.FromContext(ctx).Desugar()
+
 	// Note - The context provided here is a different context from the one created in main() and does not have our logger instance.
 	if logger.Core().Enabled(zap.DebugLevel) {
 		// Checked Logging Level First To Avoid Calling zap.Any In Production
@@ -215,17 +215,27 @@ func handleMessage(ctx context.Context, channelReference eventingchannel.Channel
 	return nil
 }
 
+// closeProducer performs a safe close on the current "global" kafkaProducer instance.
+func closeProducer() {
+	if kafkaProducer != nil {
+		kafkaProducer.Close()
+	}
+}
+
 // secretObserver is the callback function that handles changes to our Secret
 func secretObserver(ctx context.Context, secret *corev1.Secret) {
+
+	// Get The Logger From The Context
 	logger := logging.FromContext(ctx)
 
+	// Validate The Secret (Ignore Invalid)
 	if secret == nil {
 		logger.Warn("Nil Secret passed to secretObserver; ignoring")
 		return
 	}
 
+	// Ignore Startup Scenario Where Producer Reference Might Be Nil
 	if kafkaProducer == nil {
-		// This typically happens during startup
 		logger.Debug("Producer is nil during call to secretObserver; ignoring changes")
 		return
 	}

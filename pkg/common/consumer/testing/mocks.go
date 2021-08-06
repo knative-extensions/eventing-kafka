@@ -56,8 +56,8 @@ func NewMockConsumerGroupManager() *MockConsumerGroupManager {
 
 var _ consumer.KafkaConsumerGroupManager = (*MockConsumerGroupManager)(nil)
 
-func (m *MockConsumerGroupManager) Reconfigure(brokers []string, config *sarama.Config) error {
-	return m.Called(brokers, config).Error(0)
+func (m *MockConsumerGroupManager) Reconfigure(brokers []string, config *sarama.Config) *consumer.ReconfigureError {
+	return m.Called(brokers, config).Get(0).(*consumer.ReconfigureError)
 }
 
 func (m *MockConsumerGroupManager) StartConsumerGroup(groupId string, topics []string, logger *zap.SugaredLogger,

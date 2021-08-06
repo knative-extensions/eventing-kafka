@@ -66,13 +66,13 @@ func TestReconfigure(t *testing.T) {
 			name:      "Error stopping groups",
 			groupId:   "test-id1",
 			closeErr:  fmt.Errorf("error closing consumer group"),
-			expectErr: "error closing consumer group",
+			expectErr: "Reconfigure Failed: MultiErr='error closing consumer group', GroupIds='[test-id1]'",
 		},
 		{
 			name:       "Error starting groups",
 			groupId:    "test-id1",
 			factoryErr: true,
-			expectErr:  "factory error",
+			expectErr:  "Reconfigure Failed: MultiErr='factory error', GroupIds='[test-id1]'",
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -86,8 +86,55 @@ func TestReconfigure(t *testing.T) {
 			} else {
 				assert.NotNil(t, err)
 				assert.Equal(t, testCase.expectErr, err.Error())
+				assert.Len(t, err.GroupIds, 1)
+				assert.Equal(t, testCase.groupId, err.GroupIds[0])
 			}
 			server.AssertExpectations(t)
+		})
+	}
+}
+
+func TestReconfigureError(t *testing.T) {
+	for _, testCase := range []struct {
+		name   string
+		err    ReconfigureError
+		result string
+	}{
+		{
+			name: "Empty",
+			err: ReconfigureError{
+				MultiError: nil,
+				GroupIds:   nil,
+			},
+			result: "Reconfigure Failed: MultiErr='', GroupIds='[]'",
+		},
+		{
+			name: "MultiErr Only",
+			err: ReconfigureError{
+				MultiError: fmt.Errorf("test-error"),
+				GroupIds:   nil,
+			},
+			result: "Reconfigure Failed: MultiErr='test-error', GroupIds='[]'",
+		},
+		{
+			name: "GroupIds Only",
+			err: ReconfigureError{
+				MultiError: nil,
+				GroupIds:   []string{"one", "two", "three"},
+			},
+			result: "Reconfigure Failed: MultiErr='', GroupIds='[one two three]'",
+		},
+		{
+			name: "Complete",
+			err: ReconfigureError{
+				MultiError: fmt.Errorf("test-error"),
+				GroupIds:   []string{"one", "two", "three"},
+			},
+			result: "Reconfigure Failed: MultiErr='test-error', GroupIds='[one two three]'",
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			assert.Equal(t, testCase.result, testCase.err.Error())
 		})
 	}
 }

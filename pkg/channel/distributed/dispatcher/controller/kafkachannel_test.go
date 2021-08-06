@@ -290,7 +290,7 @@ func TestAllCases(t *testing.T) {
 					reconciletesting.WithSubscriberReady("1")),
 			},
 			Key:     kcKey,
-			WantErr: false,
+			WantErr: true,
 			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 				Object: reconciletesting.NewKafkaChannel(kcName, testNS,
 					reconciletesting.WithInitKafkaChannelConditions,

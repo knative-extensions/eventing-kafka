@@ -24,8 +24,10 @@ import (
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"knative.dev/eventing/pkg/kncloudevents"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/configmap"
@@ -46,17 +48,9 @@ import (
 	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	"knative.dev/eventing-kafka/pkg/client/informers/externalversions"
 	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
-	commonconsumer "knative.dev/eventing-kafka/pkg/common/consumer"
 	"knative.dev/eventing-kafka/pkg/common/controlprotocol"
 	"knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
-)
-
-// Variables
-var (
-	logger        *zap.Logger
-	dispatcher    dispatch.Dispatcher
-	managerEvents <-chan commonconsumer.ManagerEvent
 )
 
 // The Main Function (Go Command)
@@ -85,7 +79,7 @@ func main() {
 	ctx = commonk8s.LoggingContext(ctx, constants.Component, k8sClient)
 
 	// Get The Logger From The Context & Defer Flushing Any Buffered Log Entries On Exit
-	logger = logging.FromContext(ctx).Desugar()
+	logger := logging.FromContext(ctx).Desugar()
 	defer flush(logger)
 
 	// Load Environment Variables
@@ -159,37 +153,34 @@ func main() {
 		MetricsRegistry: ekConfig.Sarama.Config.MetricRegistry,
 		SaramaConfig:    ekConfig.Sarama.Config,
 	}
-	dispatcher, managerEvents = dispatch.NewDispatcher(dispatcherConfig, controlProtocolServer)
+	dispatcher, managerEvents := dispatch.NewDispatcher(dispatcherConfig, controlProtocolServer)
+
+	// Create KafkaChannel Informer
+	kafkaClient := kafkaclientset.NewForConfigOrDie(k8sConfig)
+	kafkaInformerFactory := externalversions.NewSharedInformerFactory(kafkaClient, environment.ResyncPeriod)
+	kafkaChannelInformer := kafkaInformerFactory.Messaging().V1beta1().KafkaChannels()
+
+	// Construct The KafkaChannel Controller
+	kcController := controller.NewController(
+		logger,
+		environment.ChannelKey,
+		dispatcher,
+		kafkaChannelInformer,
+		k8sClient,
+		kafkaClient,
+		ctx.Done(),
+		managerEvents,
+	)
 
 	// Watch The Secret For Changes
+	secretObserver := NewSecretObserver(kcController, environment.ChannelKey, dispatcher)
 	err = distributedcommonconfig.InitializeSecretWatcher(ctx, environment.KafkaSecretNamespace, environment.KafkaSecretName, environment.ResyncPeriod, secretObserver)
 	if err != nil {
 		logger.Fatal("Failed To Start Secret Watcher", zap.Error(err))
 	}
 
-	kafkaClient := kafkaclientset.NewForConfigOrDie(k8sConfig)
-
-	kafkaInformerFactory := externalversions.NewSharedInformerFactory(kafkaClient, environment.ResyncPeriod)
-
-	// Create KafkaChannel Informer
-	kafkaChannelInformer := kafkaInformerFactory.Messaging().V1beta1().KafkaChannels()
-
-	// Construct Array Of Controllers, In Our Case Just The One
-	controllers := [...]*kncontroller.Impl{
-		controller.NewController(
-			logger,
-			environment.ChannelKey,
-			dispatcher,
-			kafkaChannelInformer,
-			k8sClient,
-			kafkaClient,
-			ctx.Done(),
-			managerEvents,
-		),
-	}
-
 	// Start The Informers
-	logger.Info("Starting informers.")
+	logger.Info("Starting Informers")
 	if err := kncontroller.StartInformers(ctx.Done(), kafkaChannelInformer.Informer()); err != nil {
 		logger.Error("Failed to start informers", zap.Error(err))
 		return
@@ -201,8 +192,8 @@ func main() {
 	healthServer.SetDispatcherReady(true)
 
 	// Start The Controllers (Blocking WaitGroup.Wait Call)
-	logger.Info("Starting controllers.")
-	kncontroller.StartAll(ctx, controllers[:]...)
+	logger.Info("Starting KafkaChannel Controller")
+	kncontroller.StartAll(ctx, kcController)
 
 	// Reset The Liveness and Readiness Flags In Preparation For Shutdown
 	healthServer.Shutdown()
@@ -219,21 +210,35 @@ func flush(logger *zap.Logger) {
 	eventingmetrics.FlushExporter()
 }
 
-// secretObserver is the callback function that handles changes to our Secret
-func secretObserver(ctx context.Context, secret *corev1.Secret) {
-	secretLogger := logging.FromContext(ctx)
+// NewSecretObserver is a factory for creating the callback function that handles changes to the Kafka Secret.
+func NewSecretObserver(kcController *kncontroller.Impl, channelKey string, dispatcher dispatch.Dispatcher) func(ctx context.Context, secret *corev1.Secret) {
+	return func(ctx context.Context, secret *corev1.Secret) {
 
-	if secret == nil {
-		secretLogger.Warn("Nil Secret passed to secretObserver; ignoring")
-		return
+		// Get The Logger From The Context
+		logger := logging.FromContext(ctx)
+
+		// Validate The Secret (Ignore Invalid)
+		if secret == nil {
+			logger.Warn("Nil Secret passed to secretObserver; ignoring")
+			return
+		}
+
+		// Ignore Startup Scenario Where Dispatcher Reference Might Be Nil
+		if dispatcher == nil {
+			logger.Debug("Dispatcher is nil during call to secretObserver; ignoring changes")
+			return
+		}
+
+		// Signal The Dispatcher To Recreate Kafka Config And Reconnect All Current ConsumerGroups
+		dispatcher.SecretChanged(ctx, secret)
+
+		// Requeue The KafkaChannel To Fix Any Not-Ready Subscriptions
+		channelNamespace, channelName, err := cache.SplitMetaNamespaceKey(channelKey)
+		if err != nil {
+			logger.Error("Invalid KafkaChannel Key", zap.String("ChannelKey", channelKey), zap.Error(err))
+		} else {
+			logger.Debug("Requeue-ing KafkaChannel due to Kafka Secret change", zap.String("ChannelKey", channelKey))
+			kcController.EnqueueKey(types.NamespacedName{Namespace: channelNamespace, Name: channelName})
+		}
 	}
-
-	if dispatcher == nil {
-		// This typically happens during startup
-		secretLogger.Debug("Dispatcher is nil during call to secretObserver; ignoring changes")
-		return
-	}
-
-	// Toss the new secret to the dispatcher for inspection and action
-	dispatcher.SecretChanged(ctx, secret)
 }

@@ -32,9 +32,11 @@ import (
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
 
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/util"
 	commonclient "knative.dev/eventing-kafka/pkg/common/client"
 	clienttesting "knative.dev/eventing-kafka/pkg/common/client/testing"
 	configtesting "knative.dev/eventing-kafka/pkg/common/config/testing"
+	"knative.dev/eventing-kafka/pkg/common/consumer"
 	consumertesting "knative.dev/eventing-kafka/pkg/common/consumer/testing"
 	controltesting "knative.dev/eventing-kafka/pkg/common/controlprotocol/testing"
 	kafkatesting "knative.dev/eventing-kafka/pkg/common/kafka/testing"
@@ -508,7 +510,10 @@ func TestSecretChanged(t *testing.T) {
 			impl := dispatcher.(*DispatcherImpl)
 			impl.subscribers = map[types.UID]*SubscriberWrapper{uid123: createSubscriberWrapper(uid123)}
 			if testCase.reconfigureErr {
-				mockManager.On("Reconfigure", mock.Anything, mock.Anything).Return(fmt.Errorf("reconfigure error"))
+				mockManager.On("Reconfigure", mock.Anything, mock.Anything).Return(&consumer.ReconfigureError{
+					MultiError: fmt.Errorf("reconfigure error"),
+					GroupIds:   []string{util.GroupId(string(uid123))},
+				})
 				impl.consumerMgr = mockManager
 			}
 
@@ -530,6 +535,9 @@ func TestSecretChanged(t *testing.T) {
 			if testCase.expectNewSaslType != "" {
 				assert.Equal(t, testCase.expectNewSaslType, string(impl.SaramaConfig.Net.SASL.Mechanism))
 			}
+			if testCase.reconfigureErr {
+				assert.Nil(t, impl.subscribers[uid123])
+			}
 
 			mockManager.AssertExpectations(t)
 		})
@@ -550,9 +558,6 @@ func createTestDispatcher(t *testing.T, brokers []string, config *sarama.Config)
 	// Create StatsReporter
 	statsReporter := metrics.NewStatsReporter(logger)
 
-	// Create An Empty Set Of SubscriberSpecs
-	subscriberSpecs := make([]eventingduck.SubscriberSpec, 0)
-
 	// Create The DispatcherConfig
 	dispatcherConfig := DispatcherConfig{
 		Logger:          logger,
@@ -560,7 +565,6 @@ func createTestDispatcher(t *testing.T, brokers []string, config *sarama.Config)
 		StatsReporter:   statsReporter,
 		MetricsRegistry: config.MetricRegistry,
 		SaramaConfig:    config,
-		SubscriberSpecs: subscriberSpecs,
 	}
 
 	serverHandler := controltesting.GetMockServerHandler()

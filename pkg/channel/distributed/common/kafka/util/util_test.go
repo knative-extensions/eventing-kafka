@@ -21,6 +21,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/types"
+
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 )
 
@@ -51,6 +53,21 @@ func TestGroupId(t *testing.T) {
 	// Verify The Results
 	expectedGroupId := "kafka." + uid
 	assert.Equal(t, expectedGroupId, actualGroupId)
+}
+
+// Test The Uid() Functionality
+func TestUid(t *testing.T) {
+
+	// Test Data
+	uidString := "TestUID"
+	groupId := GroupIdPrefix + "." + uidString
+
+	// Perform The Test
+	actualUid := Uid(groupId)
+
+	// Verify The Results
+	expectedUid := types.UID(uidString)
+	assert.Equal(t, expectedUid, actualUid)
 }
 
 // Test The AppendChannelServiceNameSuffix() Functionality
