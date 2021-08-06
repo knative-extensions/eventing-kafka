@@ -66,13 +66,13 @@ func TestReconfigure(t *testing.T) {
 			name:      "Error stopping groups",
 			groupId:   "test-id1",
 			closeErr:  fmt.Errorf("error closing consumer group"),
-			expectErr: "error closing consumer group",
+			expectErr: "Reconfigure Failed: MultiErr='error closing consumer group', GroupIds='[test-id1]'",
 		},
 		{
 			name:       "Error starting groups",
 			groupId:    "test-id1",
 			factoryErr: true,
-			expectErr:  "factory error",
+			expectErr:  "Reconfigure Failed: MultiErr='factory error', GroupIds='[test-id1]'",
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
