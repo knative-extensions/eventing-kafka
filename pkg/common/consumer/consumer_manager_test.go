@@ -94,6 +94,51 @@ func TestReconfigure(t *testing.T) {
 	}
 }
 
+func TestReconfigureError(t *testing.T) {
+	for _, testCase := range []struct {
+		name   string
+		err    ReconfigureError
+		result string
+	}{
+		{
+			name: "Empty",
+			err: ReconfigureError{
+				MultiError: nil,
+				GroupIds:   nil,
+			},
+			result: "Reconfigure Failed: MultiErr='', GroupIds='[]'",
+		},
+		{
+			name: "MultiErr Only",
+			err: ReconfigureError{
+				MultiError: fmt.Errorf("test-error"),
+				GroupIds:   nil,
+			},
+			result: "Reconfigure Failed: MultiErr='test-error', GroupIds='[]'",
+		},
+		{
+			name: "GroupIds Only",
+			err: ReconfigureError{
+				MultiError: nil,
+				GroupIds:   []string{"one", "two", "three"},
+			},
+			result: "Reconfigure Failed: MultiErr='', GroupIds='[one two three]'",
+		},
+		{
+			name: "Complete",
+			err: ReconfigureError{
+				MultiError: fmt.Errorf("test-error"),
+				GroupIds:   []string{"one", "two", "three"},
+			},
+			result: "Reconfigure Failed: MultiErr='test-error', GroupIds='[one two three]'",
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			assert.Equal(t, testCase.result, testCase.err.Error())
+		})
+	}
+}
+
 func TestStartConsumerGroup(t *testing.T) {
 	defer restoreNewConsumerGroup(newConsumerGroup)
 

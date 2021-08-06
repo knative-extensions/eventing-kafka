@@ -232,7 +232,7 @@ func NewSecretObserver(kcController *kncontroller.Impl, channelKey string, dispa
 		// Signal The Dispatcher To Recreate Kafka Config And Reconnect All Current ConsumerGroups
 		dispatcher.SecretChanged(ctx, secret)
 
-		// Requeue The KafkaChannel To Fix Any "Stuck" Subscriptions From A Prior Bad Kafka Secret
+		// Requeue The KafkaChannel To Fix Any Not-Ready Subscriptions
 		channelNamespace, channelName, err := cache.SplitMetaNamespaceKey(channelKey)
 		if err != nil {
 			logger.Error("Invalid KafkaChannel Key", zap.String("ChannelKey", channelKey), zap.Error(err))

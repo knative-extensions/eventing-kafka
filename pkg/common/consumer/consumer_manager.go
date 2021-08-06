@@ -127,8 +127,12 @@ type ReconfigureError struct {
 }
 
 // Error implements the golang error interface.
-func (r *ReconfigureError) Error() string {
-	return r.MultiError.Error()
+func (r ReconfigureError) Error() string {
+	var multiErrString string
+	if r.MultiError != nil {
+		multiErrString = r.MultiError.Error()
+	}
+	return fmt.Sprintf("Reconfigure Failed: MultiErr='%s', GroupIds='%+v'", multiErrString, r.GroupIds)
 }
 
 // Ensure ReconfigureError Is A Valid Error
