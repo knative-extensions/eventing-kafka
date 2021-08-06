@@ -48,16 +48,9 @@ import (
 	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	"knative.dev/eventing-kafka/pkg/client/informers/externalversions"
 	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
-	commonconsumer "knative.dev/eventing-kafka/pkg/common/consumer"
 	"knative.dev/eventing-kafka/pkg/common/controlprotocol"
 	"knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
-)
-
-// Variables
-var (
-	dispatcher    dispatch.Dispatcher
-	managerEvents <-chan commonconsumer.ManagerEvent
 )
 
 // The Main Function (Go Command)
@@ -160,7 +153,7 @@ func main() {
 		MetricsRegistry: ekConfig.Sarama.Config.MetricRegistry,
 		SaramaConfig:    ekConfig.Sarama.Config,
 	}
-	dispatcher, managerEvents = dispatch.NewDispatcher(dispatcherConfig, controlProtocolServer)
+	dispatcher, managerEvents := dispatch.NewDispatcher(dispatcherConfig, controlProtocolServer)
 
 	// Create KafkaChannel Informer
 	kafkaClient := kafkaclientset.NewForConfigOrDie(k8sConfig)
@@ -180,7 +173,7 @@ func main() {
 	)
 
 	// Watch The Secret For Changes
-	secretObserver := NewSecretObserver(kcController, environment.ChannelKey)
+	secretObserver := NewSecretObserver(kcController, environment.ChannelKey, dispatcher)
 	err = distributedcommonconfig.InitializeSecretWatcher(ctx, environment.KafkaSecretNamespace, environment.KafkaSecretName, environment.ResyncPeriod, secretObserver)
 	if err != nil {
 		logger.Fatal("Failed To Start Secret Watcher", zap.Error(err))
@@ -218,7 +211,7 @@ func flush(logger *zap.Logger) {
 }
 
 // NewSecretObserver is a factory for creating the callback function that handles changes to the Kafka Secret.
-func NewSecretObserver(kcController *kncontroller.Impl, channelKey string) func(ctx context.Context, secret *corev1.Secret) {
+func NewSecretObserver(kcController *kncontroller.Impl, channelKey string, dispatcher dispatch.Dispatcher) func(ctx context.Context, secret *corev1.Secret) {
 	return func(ctx context.Context, secret *corev1.Secret) {
 
 		// Get The Logger From The Context
