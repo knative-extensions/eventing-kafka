@@ -1046,7 +1046,7 @@ knative.dev/control-protocol/pkg/message
 knative.dev/control-protocol/pkg/network
 knative.dev/control-protocol/pkg/reconciler
 knative.dev/control-protocol/pkg/service
-# knative.dev/eventing v0.24.1-0.20210805140952-ca9e469d46db
+# knative.dev/eventing v0.24.1-0.20210806092320-e7445c5583e7
 ## explicit
 knative.dev/eventing/pkg/adapter/v2
 knative.dev/eventing/pkg/adapter/v2/test
