@@ -20,9 +20,10 @@ import (
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/system"
+
 	"knative.dev/eventing-kafka/pkg/common/constants"
 	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
-	"knative.dev/pkg/system"
 )
 
 const (
@@ -44,6 +45,7 @@ type DispatcherArgs struct {
 	Replicas            int32
 	ServiceAccount      string
 	ConfigMapHash       string
+	OwnerRef            metav1.OwnerReference
 }
 
 // MakeDispatcher generates the dispatcher deployment for the KafKa channel
@@ -56,8 +58,9 @@ func MakeDispatcher(args DispatcherArgs) *v1.Deployment {
 			Kind:       "Deployments",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      dispatcherName,
-			Namespace: args.DispatcherNamespace,
+			Name:            dispatcherName,
+			Namespace:       args.DispatcherNamespace,
+			OwnerReferences: []metav1.OwnerReference{args.OwnerRef},
 		},
 		Spec: v1.DeploymentSpec{
 			Replicas: &replicas,
