@@ -38,6 +38,7 @@ import (
 	"k8s.io/utils/pointer"
 	v1 "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/apis/eventing"
+	eventingclientset "knative.dev/eventing/pkg/client/clientset/versioned"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/controller"
@@ -58,7 +59,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/common/constants"
 	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	kafkasarama "knative.dev/eventing-kafka/pkg/common/kafka/sarama"
-	eventingclientset "knative.dev/eventing/pkg/client/clientset/versioned"
 )
 
 const (
@@ -135,6 +135,7 @@ type Reconciler struct {
 	serviceAccountLister corev1listers.ServiceAccountLister
 	roleBindingLister    rbacv1listers.RoleBindingLister
 	statusManager        status.Manager
+	controllerRef        metav1.OwnerReference
 }
 
 type envConfig struct {
@@ -315,6 +316,7 @@ func (r *Reconciler) reconcileDispatcher(ctx context.Context, scope string, disp
 		Replicas:            1,
 		ServiceAccount:      r.dispatcherServiceAccount,
 		ConfigMapHash:       r.kafkaConfigMapHash,
+		OwnerRef:            r.controllerRef,
 	}
 
 	expected := resources.MakeDispatcher(args)
