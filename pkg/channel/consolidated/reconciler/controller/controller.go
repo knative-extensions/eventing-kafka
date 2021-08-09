@@ -18,19 +18,24 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"math"
+	"time"
 
 	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/utils/pointer"
 	eventingduckv1 "knative.dev/eventing/pkg/apis/duck/v1"
 	eventingClient "knative.dev/eventing/pkg/client/injection/client"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	"knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
+	deploymentinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
 	"knative.dev/pkg/client/injection/kube/informers/core/v1/service"
@@ -59,8 +64,6 @@ const (
 	controllerRoleLabelValue = "controller"
 )
 
-var trueConst = true
-
 // NewController initializes the controller and is called by the generated code.
 // Registers event handlers to enqueue events.
 func NewController(
@@ -69,7 +72,7 @@ func NewController(
 ) *controller.Impl {
 	logger := logging.FromContext(ctx)
 	kafkaChannelInformer := kafkachannel.Get(ctx)
-	deploymentInformer := deployment.Get(ctx)
+	deploymentInformer := deploymentinformer.Get(ctx)
 	endpointsInformer := endpointsinformer.Get(ctx)
 	serviceAccountInformer := serviceaccount.Get(ctx)
 	roleBindingInformer := rolebinding.Get(ctx)
@@ -103,22 +106,19 @@ func NewController(
 		channelLabelKey: channelLabelValue,
 		roleLabelKey:    controllerRoleLabelValue,
 	}
-	deploymentList, err := deploymentInformer.Lister().Deployments(system.Namespace()).List(ctrlDeploymentLabels.AsSelector())
+
+	ctrlDeployment, err := getCtrlDeployment(ctx, system.Namespace(), ctrlDeploymentLabels)
 
 	if err != nil {
-		logger.Fatalw("failed to list our KafkaChannel controller deployment using deployment labels", zap.Error(err),
-			zap.Any("labels", ctrlDeploymentLabels))
-	} else if len(deploymentList) != 1 {
-		logger.Fatalw(fmt.Sprintf("found an unexpected number of KafkaChannel controller deployment matching labels. Got: %d, Want: 1", len(deploymentList)), zap.Any("labels", ctrlDeploymentLabels))
+		logger.Fatalw("failed to determine the deployment of the KafkaChannel controller based on labels.", zap.Error(err), zap.String("namespace", system.Namespace()), zap.Any("labels", ctrlDeploymentLabels))
 	}
-	ctrlDeployment := deploymentList[0]
 
 	r.controllerRef = metav1.OwnerReference{
 		APIVersion: "apps/v1",
 		Kind:       "Deployment",
 		Name:       ctrlDeployment.Name,
 		UID:        ctrlDeployment.UID,
-		Controller: &trueConst,
+		Controller: pointer.BoolPtr(true),
 	}
 
 	impl := kafkaChannelReconciler.NewImpl(ctx, r)
@@ -206,4 +206,35 @@ func getPodInformerEventHandler(ctx context.Context, logger *zap.SugaredLogger, 
 			impl.GlobalResync(kafkaChannelInformer.Informer())
 		}
 	}
+}
+
+func getCtrlDeployment(ctx context.Context, ns string, labels labels.Set) (*appsv1.Deployment, error) {
+	logger := logging.FromContext(ctx)
+	k8sClient := kubeclient.Get(ctx)
+	var d appsv1.Deployment
+	for i := 0; i <= 10; i++ {
+		deploymentList, err := k8sClient.AppsV1().Deployments(ns).List(ctx,
+			metav1.ListOptions{LabelSelector: labels.String()})
+		if err != nil {
+			return nil, fmt.Errorf("error listing KafkaChannel controller deployment labels %w", err)
+		}
+		if len(deploymentList.Items) == 1 {
+			d = deploymentList.Items[0]
+			break
+		} else if len(deploymentList.Items) == 0 {
+			// Retry until the deployment creation shows up in k8s API
+			if i == 10 {
+				return nil, errors.New("found zero KafkaChannel controller deployment matching labels")
+			} else {
+				// Simple exponential backoff
+				logger.Debugw(fmt.Sprintf("found zero KafkaChannel controller deployment matching labels. Retrying %d / 10", i), zap.String("namesame", ns), zap.Any("selectors", labels.AsSelector()))
+				duration := 100 * math.Pow(2, float64(i))
+				time.Sleep(time.Duration(duration) * time.Millisecond)
+				continue
+			}
+		} else {
+			return nil, fmt.Errorf("found an unexpected number of KafkaChannel controller deployment matching labels. Got: %d, Want: 1", len(deploymentList.Items))
+		}
+	}
+	return &d, nil
 }

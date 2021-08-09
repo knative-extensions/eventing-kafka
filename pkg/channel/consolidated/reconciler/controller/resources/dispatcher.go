@@ -134,18 +134,19 @@ func makeEnv(args DispatcherArgs) []corev1.EnvVar {
 					FieldPath: "metadata.namespace",
 				},
 			},
-		}, corev1.EnvVar{
-			Name: "POD_NAME",
-			ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{
-					FieldPath: "metadata.name",
-				},
-			},
-		}, corev1.EnvVar{
-			Name:  "CONTAINER_NAME",
-			Value: "dispatcher",
 		})
 	}
 
+	vars = append(vars, corev1.EnvVar{
+		Name: "POD_NAME",
+		ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{
+				FieldPath: "metadata.name",
+			},
+		},
+	}, corev1.EnvVar{
+		Name:  "CONTAINER_NAME",
+		Value: "dispatcher",
+	})
 	return vars
 }
