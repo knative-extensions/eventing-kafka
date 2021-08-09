@@ -26,8 +26,10 @@ declare -A COMPONENTS
 COMPONENTS=(
   ["channel-consolidated.yaml"]="config/channel/consolidated"
   ["channel-distributed.yaml"]="config/channel/distributed"
+  ["channel-crds.yaml"]="config/channel/resources"
   ["source.yaml"]="config/source/single"
   ["mt-source.yaml"]="config/source/multi"
+  ["source-crds.yaml"]="config/source/common/resources"
 )
 readonly COMPONENTS
 
