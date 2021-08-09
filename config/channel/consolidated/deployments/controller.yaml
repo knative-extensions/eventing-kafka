@@ -18,6 +18,10 @@ metadata:
   name: kafka-ch-controller
   namespace: knative-eventing
   labels:
+    messaging.knative.dev/channel: kafka-channel
+    messaging.knative.dev/role: controller
+    app.kubernetes.io/name : eventing-kafka-channel
+    app.kubernetes.io/component: controller
     kafka.eventing.knative.dev/release: devel
 spec:
   replicas: 1
@@ -25,6 +29,8 @@ spec:
     matchLabels: &labels
       messaging.knative.dev/channel: kafka-channel
       messaging.knative.dev/role: controller
+      app.kubernetes.io/name: eventing-kafka-channel
+      app.kubernetes.io/component: controller
   template:
     metadata:
       labels: *labels
