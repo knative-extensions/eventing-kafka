@@ -4,18 +4,17 @@ import (
 	"context"
 	"testing"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/eventing-kafka/pkg/common/constants"
-	"knative.dev/pkg/system"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/system"
 
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
+	"knative.dev/eventing-kafka/pkg/common/constants"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 )
 
@@ -256,4 +255,12 @@ func TestReplicationFactor(t *testing.T) {
 	channel = &kafkav1beta1.KafkaChannel{Spec: kafkav1beta1.KafkaChannelSpec{ReplicationFactor: replicationFactor}}
 	actualReplicationFactor = ReplicationFactor(channel, configuration, logger)
 	assert.Equal(t, replicationFactor, actualReplicationFactor)
+}
+
+// Test The CsvKeyValueStringToMap() Functionality
+func TestCsvKeyValueStringToMap(t *testing.T) {
+	csvKeyValueString := "key1 = value1, key2=value2,key3 =value3"
+	actualMap := CsvKeyValueStringToMap(csvKeyValueString)
+	expectedMap := map[string]string{"key1": "value1", "key2": "value2", "key3": "value3"}
+	assert.Equal(t, expectedMap, actualMap)
 }

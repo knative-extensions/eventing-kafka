@@ -206,8 +206,8 @@ func (r *Reconciler) newReceiverService() *corev1.Service {
 	// Get The (Single) Receiver Deployment Name - Use Same For Service
 	deploymentName := util.ReceiverDnsSafeName(r.config.Kafka.AuthSecretName)
 
-	// Create & Return The Receiver Service Model
-	return &corev1.Service{
+	// Create A New Receiver Service
+	service := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: corev1.SchemeGroupVersion.String(),
 			Kind:       constants.ServiceKind,
@@ -238,6 +238,13 @@ func (r *Reconciler) newReceiverService() *corev1.Service {
 			},
 		},
 	}
+
+	// Update The Receiver Service's Annotations & Labels With Custom Config Values
+	service.Annotations = util.JoinStringMaps(service.Annotations, r.config.Channel.Receiver.ServiceAnnotationsMap())
+	service.Labels = util.JoinStringMaps(service.Labels, r.config.Channel.Receiver.ServiceLabelsMap())
+
+	// Return The Receiver Service
+	return service
 }
 
 //
@@ -467,6 +474,12 @@ func (r *Reconciler) newReceiverDeployment(secret *corev1.Secret) *appsv1.Deploy
 			},
 		},
 	}
+
+	// Update The Receiver Service's Annotations & Labels With Custom Config Values
+	deployment.ObjectMeta.Annotations = util.JoinStringMaps(deployment.ObjectMeta.Annotations, r.config.Channel.Receiver.DeploymentAnnotationsMap())
+	deployment.ObjectMeta.Labels = util.JoinStringMaps(deployment.ObjectMeta.Labels, r.config.Channel.Receiver.DeploymentLabelsMap())
+	deployment.Spec.Template.ObjectMeta.Annotations = util.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Annotations, r.config.Channel.Receiver.PodAnnotationsMap())
+	deployment.Spec.Template.ObjectMeta.Labels = util.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Labels, r.config.Channel.Receiver.PodLabelsMap())
 
 	// Return Receiver Deployment
 	return deployment

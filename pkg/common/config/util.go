@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"hash/crc32"
 	"strconv"
+	"strings"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
@@ -126,4 +127,23 @@ func ReplicationFactor(channel *kafkav1beta1.KafkaChannel, configuration *Eventi
 		value = configuration.Kafka.Topic.DefaultReplicationFactor
 	}
 	return value
+}
+
+// CsvKeyValueStringToMap returns a map[string]string representation of the specified CSV key=value pairs.
+// For example, the string...
+//     "key1=val1,key2=value2"
+// will be returned as...
+//     map[string]string{"key1": "value1", "key2": "value2"}
+func CsvKeyValueStringToMap(csvKeyValueString string) map[string]string {
+	kvMap := make(map[string]string)
+	if len(csvKeyValueString) > 0 {
+		keyValueStrings := strings.Split(csvKeyValueString, ",")
+		for _, keyValueString := range keyValueStrings {
+			keyValueComponentStrings := strings.Split(keyValueString, "=")
+			keyString := strings.TrimSpace(keyValueComponentStrings[0])
+			valueString := strings.TrimSpace(keyValueComponentStrings[1])
+			kvMap[keyString] = valueString
+		}
+	}
+	return kvMap
 }

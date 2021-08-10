@@ -244,8 +244,8 @@ func (r *Reconciler) newDispatcherService(channel *kafkav1beta1.KafkaChannel) *c
 	// Get The Dispatcher Service Name For The Channel
 	serviceName := util.DispatcherDnsSafeName(channel)
 
-	// Create & Return The Service Model
-	return &corev1.Service{
+	// Create A New Dispatcher Service
+	service := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: corev1.SchemeGroupVersion.String(),
 			Kind:       constants.ServiceKind,
@@ -276,6 +276,13 @@ func (r *Reconciler) newDispatcherService(channel *kafkav1beta1.KafkaChannel) *c
 			},
 		},
 	}
+
+	// Update The Dispatcher Service's Annotations & Labels With Custom Config Values
+	service.Annotations = util.JoinStringMaps(service.Annotations, r.config.Channel.Dispatcher.ServiceAnnotationsMap())
+	service.Labels = util.JoinStringMaps(service.Labels, r.config.Channel.Dispatcher.ServiceLabelsMap())
+
+	// Return The Dispatcher Service
+	return service
 }
 
 //
@@ -484,7 +491,7 @@ func (r *Reconciler) newDispatcherDeployment(logger *zap.Logger, channel *kafkav
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						constants.AppLabel:                    deploymentName,    // Matched By Deployment Selector Above
+						constants.AppLabel:                    deploymentName,
 						constants.KafkaChannelDispatcherLabel: "true",            // Identifies the Pod as being a KafkaChannel "Dispatcher"
 						constants.KafkaChannelNameLabel:       channel.Name,      // Identifies the Pod's Owning KafkaChannel's Name
 						constants.KafkaChannelNamespaceLabel:  channel.Namespace, // Identifies the Pod's Owning KafkaChannel's Namespace
@@ -553,6 +560,12 @@ func (r *Reconciler) newDispatcherDeployment(logger *zap.Logger, channel *kafkav
 			},
 		},
 	}
+
+	// Update The Dispatcher Service's Annotations & Labels With Custom Config Values
+	deployment.ObjectMeta.Annotations = util.JoinStringMaps(deployment.ObjectMeta.Annotations, r.config.Channel.Dispatcher.DeploymentAnnotationsMap())
+	deployment.ObjectMeta.Labels = util.JoinStringMaps(deployment.ObjectMeta.Labels, r.config.Channel.Dispatcher.DeploymentLabelsMap())
+	deployment.Spec.Template.ObjectMeta.Annotations = util.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Annotations, r.config.Channel.Dispatcher.PodAnnotationsMap())
+	deployment.Spec.Template.ObjectMeta.Labels = util.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Labels, r.config.Channel.Dispatcher.PodLabelsMap())
 
 	// Return The Dispatcher's Deployment
 	return deployment, nil
