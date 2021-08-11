@@ -50,6 +50,9 @@ import (
 	_ "knative.dev/eventing-kafka/pkg/common/scheduler/plugins/core/evenpodspread"
 	_ "knative.dev/eventing-kafka/pkg/common/scheduler/plugins/core/lowestordinalpriority"
 	_ "knative.dev/eventing-kafka/pkg/common/scheduler/plugins/core/podfitsresources"
+	_ "knative.dev/eventing-kafka/pkg/common/scheduler/plugins/core/removewithavailabilityzonepriority"
+	_ "knative.dev/eventing-kafka/pkg/common/scheduler/plugins/core/removewithevenpodspreadpriority"
+	_ "knative.dev/eventing-kafka/pkg/common/scheduler/plugins/core/removewithhighestordinalpriority"
 	_ "knative.dev/eventing-kafka/pkg/common/scheduler/plugins/kafka/nomaxresourcecount"
 )
 
@@ -62,7 +65,8 @@ func NewScheduler(ctx context.Context,
 	schedulerPolicy scheduler.SchedulerPolicyType,
 	nodeLister corev1listers.NodeLister,
 	evictor scheduler.Evictor,
-	policy *SchedulerPolicy) scheduler.Scheduler {
+	policy *SchedulerPolicy,
+	removalpolicy *SchedulerPolicy) scheduler.Scheduler {
 
 	podInformer := podinformer.Get(ctx)
 	podLister := podInformer.Lister().Pods(namespace)
@@ -72,7 +76,7 @@ func NewScheduler(ctx context.Context,
 
 	go autoscaler.Start(ctx)
 
-	return NewStatefulSetScheduler(ctx, namespace, name, lister, stateAccessor, autoscaler, podLister, policy)
+	return NewStatefulSetScheduler(ctx, namespace, name, lister, stateAccessor, autoscaler, podLister, policy, removalpolicy)
 }
 
 // StatefulSetScheduler is a scheduler placing VPod into statefulset-managed set of pods
@@ -102,6 +106,9 @@ type StatefulSetScheduler struct {
 	//Scheduler responsible for initializing and running scheduler plugins
 	policy *SchedulerPolicy
 
+	//DeScheduler responsible for initializing and running descheduler plugins
+	removalpolicy *SchedulerPolicy
+
 	// predicates that will always be configured.
 	mandatoryPredicates sets.String
 
@@ -114,7 +121,7 @@ func NewStatefulSetScheduler(ctx context.Context,
 	namespace, name string,
 	lister scheduler.VPodLister,
 	stateAccessor state.StateAccessor,
-	autoscaler Autoscaler, podlister corev1listers.PodNamespaceLister, policy *SchedulerPolicy) scheduler.Scheduler {
+	autoscaler Autoscaler, podlister corev1listers.PodNamespaceLister, policy *SchedulerPolicy, removalpolicy *SchedulerPolicy) scheduler.Scheduler {
 
 	scheduler := &StatefulSetScheduler{
 		ctx:               ctx,
@@ -129,6 +136,7 @@ func NewStatefulSetScheduler(ctx context.Context,
 		reserved:          make(map[types.NamespacedName]map[string]int32),
 		autoscaler:        autoscaler,
 		policy:            policy,
+		removalpolicy:     removalpolicy,
 		mandatoryPredicates: sets.NewString(
 			state.PodFitsResources,
 		),
@@ -248,16 +256,22 @@ func (s *StatefulSetScheduler) scheduleVPod(vpod scheduler.VPod) ([]duckv1alpha1
 			placements, left = s.addReplicas(state, vpod.GetVReplicas()-tr, placements)
 		}
 
-	} else if s.policy != nil { //Predicates and priorities must be used for scheduling
+	} else { //Predicates and priorities must be used for scheduling
 		// Need less => scale down
-		if tr > vpod.GetVReplicas() {
+		if tr > vpod.GetVReplicas() && s.removalpolicy != nil {
 			logger.Infow("scaling down", zap.Int32("vreplicas", tr), zap.Int32("new vreplicas", vpod.GetVReplicas()))
 			placements = s.removeReplicasWithPolicy(vpod, state, tr-vpod.GetVReplicas(), placements)
+
+			// Do not trigger the autoscaler to avoid unnecessary churn
+
+			return placements, nil
 		}
 
-		// Need more => scale up
-		logger.Infow("scaling up", zap.Int32("vreplicas", tr), zap.Int32("new vreplicas", vpod.GetVReplicas()))
-		placements, left = s.addReplicasWithPolicy(vpod, state, vpod.GetVReplicas()-tr, placements)
+		if s.policy != nil {
+			// Need more => scale up
+			logger.Infow("scaling up", zap.Int32("vreplicas", tr), zap.Int32("new vreplicas", vpod.GetVReplicas()))
+			placements, left = s.addReplicasWithPolicy(vpod, state, vpod.GetVReplicas()-tr, placements)
+		}
 	}
 
 	if left > 0 {
@@ -291,29 +305,22 @@ func (s *StatefulSetScheduler) removeReplicasWithPolicy(vpod scheduler.VPod, sta
 			return placements
 		}
 
-		feasiblePods, err := s.findFeasiblePods(s.ctx, state, vpod)
+		feasiblePods, err := s.findFeasiblePods(s.ctx, state, vpod, s.removalpolicy)
 		if err != nil {
 			logger.Info("error while filtering pods using predicates", zap.Error(err))
 			s.reservePlacements(vpod, placements)
 			break
 		}
-		logger.Info("Computing predicates for a vreplica is done")
+		logger.Info("Computing predicates for descheduling a vreplica is done")
 
-		if len(feasiblePods) == 0 { //no pods available to schedule this vreplica
-			logger.Info("no feasible pods available to schedule this vreplica")
+		if len(feasiblePods) == 1 { //nothing to score, remove vrep from that pod
+			logger.Infof("Selected pod #%v to remove vreplica #%v from", feasiblePods[0], i)
+			placements = s.removeSelectionFromPlacements(feasiblePods[0], placements)
 			s.reservePlacements(vpod, placements)
-			break
-		}
-
-		if len(feasiblePods) == 1 { //nothing to score, place vrep on that pod
-			logger.Infof("Selected pod #%v for vreplica #%v ", feasiblePods[0], i)
-			placements = s.addSelectionToPlacements(feasiblePods[0], placements)
-			s.reservePlacements(vpod, placements)
-			diff--
 			continue
 		}
 
-		priorityList, err := s.prioritizePods(s.ctx, state, vpod, feasiblePods)
+		priorityList, err := s.prioritizePods(s.ctx, state, vpod, feasiblePods, s.removalpolicy)
 		if err != nil {
 			logger.Info("error while scoring pods using priorities", zap.Error(err))
 			s.reservePlacements(vpod, placements)
@@ -327,7 +334,7 @@ func (s *StatefulSetScheduler) removeReplicasWithPolicy(vpod scheduler.VPod, sta
 			break
 		}
 
-		logger.Infof("Selected pod #%v for vreplica #%v", placementPodID, i)
+		logger.Infof("Selected pod #%v to remove vreplica #%v from", placementPodID, i)
 		placements = s.removeSelectionFromPlacements(placementPodID, placements)
 		s.reservePlacements(vpod, placements)
 	}
@@ -336,15 +343,28 @@ func (s *StatefulSetScheduler) removeReplicasWithPolicy(vpod scheduler.VPod, sta
 
 func (s *StatefulSetScheduler) removeSelectionFromPlacements(placementPodID int32, placements []duckv1alpha1.Placement) []duckv1alpha1.Placement {
 	logger := s.logger.Named("remove selection from placements")
+	newPlacements := make([]duckv1alpha1.Placement, 0, len(placements))
 
 	for i := 0; i < len(placements); i++ {
 		ordinal := state.OrdinalFromPodName(placements[i].PodName)
 		if placementPodID == ordinal {
 			logger.Infof("Decreasing vreplicas for podID #%v by 1", placementPodID)
-			placements[i].VReplicas = placements[i].VReplicas - 1
+			if placements[i].VReplicas == 1 {
+				// remove the entire placement
+			} else {
+				newPlacements = append(newPlacements, duckv1alpha1.Placement{
+					PodName:   placements[i].PodName,
+					VReplicas: placements[i].VReplicas - 1,
+				})
+			}
+		} else {
+			newPlacements = append(newPlacements, duckv1alpha1.Placement{
+				PodName:   placements[i].PodName,
+				VReplicas: placements[i].VReplicas,
+			})
 		}
 	}
-	return placements
+	return newPlacements
 }
 
 func (s *StatefulSetScheduler) addReplicasWithPolicy(vpod scheduler.VPod, states *state.State, diff int32, placements []duckv1alpha1.Placement) ([]duckv1alpha1.Placement, int32) {
@@ -366,19 +386,19 @@ func (s *StatefulSetScheduler) addReplicasWithPolicy(vpod scheduler.VPod, states
 			break               //end the iteration for all vreps since there are not pods
 		}
 
-		feasiblePods, err := s.findFeasiblePods(s.ctx, state, vpod)
+		feasiblePods, err := s.findFeasiblePods(s.ctx, state, vpod, s.policy)
 		if err != nil {
 			logger.Info("error while filtering pods using predicates", zap.Error(err))
 			s.reservePlacements(vpod, placements)
 			diff = numVreps - i //for autoscaling up
 			break
 		}
-		logger.Info("Computing predicates for a vreplica is done")
+		logger.Info("Computing predicates for scheduling a vreplica is done")
 
 		if len(feasiblePods) == 0 { //no pods available to schedule this vreplica
 			logger.Info("no feasible pods available to schedule this vreplica")
 			s.reservePlacements(vpod, placements)
-			diff = numVreps - i //for autoscaling up
+			diff = numVreps - i //for autoscaling up and possible rebalancing
 			break
 		}
 
@@ -390,7 +410,7 @@ func (s *StatefulSetScheduler) addReplicasWithPolicy(vpod scheduler.VPod, states
 			continue
 		}
 
-		priorityList, err := s.prioritizePods(s.ctx, state, vpod, feasiblePods)
+		priorityList, err := s.prioritizePods(s.ctx, state, vpod, feasiblePods, s.policy)
 		if err != nil {
 			logger.Info("error while scoring pods using priorities", zap.Error(err))
 			s.reservePlacements(vpod, placements)
@@ -437,12 +457,12 @@ func (s *StatefulSetScheduler) addSelectionToPlacements(placementPodID int32, pl
 }
 
 // findFeasiblePods finds the pods that fit the filter plugins
-func (s *StatefulSetScheduler) findFeasiblePods(ctx context.Context, state *state.State, vpod scheduler.VPod) ([]int32, error) {
+func (s *StatefulSetScheduler) findFeasiblePods(ctx context.Context, state *state.State, vpod scheduler.VPod, policy *SchedulerPolicy) ([]int32, error) {
 	logger := s.logger.Named("find feasible pods")
 
 	feasiblePods := make([]int32, 0)
 	for podId := int32(0); podId < s.replicas; podId++ {
-		statusMap := s.RunFilterPlugins(ctx, state, vpod, podId)
+		statusMap := s.RunFilterPlugins(ctx, state, vpod, podId, policy)
 		status := statusMap.Merge()
 		if status.IsSuccess() {
 			logger.Infof("SUCCESS! Adding Pod #%v to feasible list", podId)
@@ -457,12 +477,12 @@ func (s *StatefulSetScheduler) findFeasiblePods(ctx context.Context, state *stat
 
 // prioritizePods prioritizes the pods by running the score plugins, which return a score for each pod.
 // The scores from each plugin are added together to make the score for that pod.
-func (s *StatefulSetScheduler) prioritizePods(ctx context.Context, states *state.State, vpod scheduler.VPod, feasiblePods []int32) (state.PodScoreList, error) {
+func (s *StatefulSetScheduler) prioritizePods(ctx context.Context, states *state.State, vpod scheduler.VPod, feasiblePods []int32, policy *SchedulerPolicy) (state.PodScoreList, error) {
 	logger := s.logger.Named("prioritize all feasible pods")
 
 	// If no priority configs are provided, then all pods will have a score of one
 	result := make(state.PodScoreList, 0, len(feasiblePods))
-	if !s.HasScorePlugins(states) {
+	if !s.HasScorePlugins(states, policy) {
 		for _, podID := range feasiblePods {
 			result = append(result, state.PodScore{
 				ID:    podID,
@@ -472,7 +492,7 @@ func (s *StatefulSetScheduler) prioritizePods(ctx context.Context, states *state
 		return result, nil
 	}
 
-	scoresMap, scoreStatus := s.RunScorePlugins(ctx, states, vpod, feasiblePods)
+	scoresMap, scoreStatus := s.RunScorePlugins(ctx, states, vpod, feasiblePods, policy)
 	if !scoreStatus.IsSuccess() {
 		logger.Infof("FAILURE! Cannot score feasible pods due to plugin errors %v", scoreStatus.AsError())
 		return nil, scoreStatus.AsError()
@@ -492,10 +512,7 @@ func (s *StatefulSetScheduler) prioritizePods(ctx context.Context, states *state
 
 // selectPod takes a prioritized list of pods and then picks one
 func (s *StatefulSetScheduler) selectPod(podScoreList state.PodScoreList) (int32, error) {
-	logger := s.logger.Named("select the winning pod for current vrep")
-
 	if len(podScoreList) == 0 {
-		logger.Error("empty priority list")
 		return -1, fmt.Errorf("empty priority list") //no selected pod
 	}
 
@@ -520,11 +537,11 @@ func (s *StatefulSetScheduler) selectPod(podScoreList state.PodScoreList) (int32
 // RunFilterPlugins runs the set of configured Filter plugins for a vrep on the given pod.
 // If any of these plugins doesn't return "Success", the pod is not suitable for placing the vrep.
 // Meanwhile, the failure message and status are set for the given pod.
-func (s *StatefulSetScheduler) RunFilterPlugins(ctx context.Context, states *state.State, vpod scheduler.VPod, podID int32) state.PluginToStatus {
+func (s *StatefulSetScheduler) RunFilterPlugins(ctx context.Context, states *state.State, vpod scheduler.VPod, podID int32, policy *SchedulerPolicy) state.PluginToStatus {
 	logger := s.logger.Named("run all filter plugins")
 
 	statuses := make(state.PluginToStatus)
-	for _, plugin := range s.policy.Predicates {
+	for _, plugin := range policy.Predicates {
 		pl, err := factory.GetFilterPlugin(plugin.Name)
 		if err != nil {
 			logger.Error("Could not find filter plugin in Registry: ", plugin.Name)
@@ -535,7 +552,6 @@ func (s *StatefulSetScheduler) RunFilterPlugins(ctx context.Context, states *sta
 		pluginStatus := s.runFilterPlugin(ctx, pl, plugin.Args, states, vpod, podID)
 		if !pluginStatus.IsSuccess() {
 			if !pluginStatus.IsUnschedulable() {
-				logger.Errorf("filter plugin %q returned a bad status for pod %q: %v", pl.Name(), podID, pluginStatus.Message())
 				errStatus := state.NewStatus(state.Error, fmt.Sprintf("running %q filter plugin for pod %q failed with: %v", pl.Name(), podID, pluginStatus.Message()))
 				return map[string]*state.Status{pl.Name(): errStatus} //TODO: if one plugin fails, then no more plugins are run
 			}
@@ -556,11 +572,11 @@ func (s *StatefulSetScheduler) runFilterPlugin(ctx context.Context, pl state.Fil
 
 // RunScorePlugins runs the set of configured scoring plugins. It returns a list that stores for each scoring plugin name the corresponding PodScoreList(s).
 // It also returns *Status, which is set to non-success if any of the plugins returns a non-success status.
-func (s *StatefulSetScheduler) RunScorePlugins(ctx context.Context, states *state.State, vpod scheduler.VPod, feasiblePods []int32) (state.PluginToPodScores, *state.Status) {
+func (s *StatefulSetScheduler) RunScorePlugins(ctx context.Context, states *state.State, vpod scheduler.VPod, feasiblePods []int32, policy *SchedulerPolicy) (state.PluginToPodScores, *state.Status) {
 	logger := s.logger.Named("run all score plugins")
 
-	pluginToPodScores := make(state.PluginToPodScores, len(s.policy.Priorities))
-	for _, plugin := range s.policy.Priorities {
+	pluginToPodScores := make(state.PluginToPodScores, len(policy.Priorities))
+	for _, plugin := range policy.Priorities {
 		pl, err := factory.GetScorePlugin(plugin.Name)
 		if err != nil {
 			logger.Error("Could not find score plugin in registry: ", plugin.Name)
@@ -572,7 +588,6 @@ func (s *StatefulSetScheduler) RunScorePlugins(ctx context.Context, states *stat
 		for index, podID := range feasiblePods {
 			score, pluginStatus := s.runScorePlugin(ctx, pl, plugin.Args, states, vpod, podID)
 			if !pluginStatus.IsSuccess() {
-				logger.Errorf("scoring plugin %q returned error for pod %q: %v", pl.Name(), podID, pluginStatus.AsError())
 				errStatus := state.NewStatus(state.Error, fmt.Sprintf("running %q scoring plugin for pod %q failed with: %v", pl.Name(), podID, pluginStatus.AsError()))
 				return pluginToPodScores, errStatus //TODO: if one plugin fails, then no more plugins are run
 			}
@@ -601,14 +616,9 @@ func (s *StatefulSetScheduler) runScorePlugin(ctx context.Context, pl state.Scor
 	return score, status
 }
 
-// HasFilterPlugins returns true if at least one filter plugin is defined.
-func (s *StatefulSetScheduler) HasFilterPlugins(state *state.State) bool {
-	return len(s.policy.Predicates) > 0
-}
-
 // HasScorePlugins returns true if at least one score plugin is defined.
-func (s *StatefulSetScheduler) HasScorePlugins(state *state.State) bool {
-	return len(s.policy.Priorities) > 0
+func (s *StatefulSetScheduler) HasScorePlugins(state *state.State, policy *SchedulerPolicy) bool {
+	return len(policy.Priorities) > 0
 }
 
 func (s *StatefulSetScheduler) removeReplicas(diff int32, placements []duckv1alpha1.Placement) []duckv1alpha1.Placement {
@@ -939,15 +949,17 @@ func (s *StatefulSetScheduler) reservePlacements(vpod scheduler.VPod, placements
 
 		// Only record placements exceeding existing ones, since the
 		// goal is to prevent pods to be overcommitted.
-		if p.VReplicas > placed {
+		// When less than existing ones, recording is done to help with
+		// for removal of vreps with descheduling policies
+		// note: track all vreplicas, not only the new ones since
+		// the next time `state()` is called some vreplicas might
+		// have been committed.
+		if placed != p.VReplicas {
 			if _, ok := s.reserved[vpod.GetKey()]; !ok {
 				s.reserved[vpod.GetKey()] = make(map[string]int32)
 			}
-
-			// note: track all vreplicas, not only the new ones since
-			// the next time `state()` is called some vreplicas might
-			// have been committed.
 			s.reserved[vpod.GetKey()][p.PodName] = p.VReplicas
 		}
 	}
+
 }

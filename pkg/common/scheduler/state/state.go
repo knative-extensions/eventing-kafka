@@ -266,20 +266,17 @@ func withReserved(key types.NamespacedName, podName string, committed int32, res
 	if reserved != nil {
 		if rps, ok := reserved[key]; ok {
 			if rvreplicas, ok := rps[podName]; ok {
-				if committed < rvreplicas {
-					// new placement hasn't been committed yet. Adjust locally
-					return rvreplicas
-				} else if committed == rvreplicas {
+				if committed == rvreplicas {
 					// new placement has been committed.
 					delete(rps, podName)
 					if len(rps) == 0 {
 						delete(reserved, key)
 					}
+				} else {
+					// new placement hasn't been committed yet. Adjust locally
+					// needed for descheduling vreps using policies
+					return rvreplicas
 				}
-				// else {
-				// 	// the number of vreplicas has been reduced but not committed yet.
-				// 	// do nothing.
-				// }
 			}
 		}
 	}

@@ -53,6 +53,7 @@ type envConfig struct {
 	MaxEventPerSecondPerPartition int32                         `envconfig:"MAX_MPS_PER_PARTITION" required:"false" default:"-1"`
 	SchedulerPolicyType           scheduler.SchedulerPolicyType `envconfig:"SCHEDULER_POLICY_TYPE" required:"true"`
 	SchedulerPolicyConfigMap      string                        `envconfig:"CONFIG_SCHEDULER" required:"true"`
+	DeSchedulerPolicyConfigMap    string                        `envconfig:"CONFIG_DESCHEDULER" required:"true"`
 }
 
 func NewController(
@@ -135,8 +136,13 @@ func NewController(
 		panic(err)
 	}
 
+	removalpolicy := &stsscheduler.SchedulerPolicy{}
+	if err := initPolicyFromConfigMap(ctx, env.DeSchedulerPolicyConfigMap, removalpolicy); err != nil {
+		panic(err)
+	}
+
 	logging.FromContext(ctx).Debugw("Scheduler Policy Config Map read", zap.Any("policy", policy))
-	c.scheduler = stsscheduler.NewScheduler(ctx, system.Namespace(), mtadapterName, c.vpodLister, rp, env.PodCapacity, env.SchedulerPolicyType, nodeInformer.Lister(), evictor, policy)
+	c.scheduler = stsscheduler.NewScheduler(ctx, system.Namespace(), mtadapterName, c.vpodLister, rp, env.PodCapacity, env.SchedulerPolicyType, nodeInformer.Lister(), evictor, policy, removalpolicy)
 
 	logging.FromContext(ctx).Info("Setting up kafka event handlers")
 	kafkaInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))

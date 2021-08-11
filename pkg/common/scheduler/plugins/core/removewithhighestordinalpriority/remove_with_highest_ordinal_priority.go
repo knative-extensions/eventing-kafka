@@ -14,11 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package lowestordinalpriority
+package removewithhighestordinalpriority
 
 import (
 	"context"
-	"math"
 
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/eventing-kafka/pkg/common/scheduler/factory"
@@ -26,41 +25,41 @@ import (
 	"knative.dev/pkg/logging"
 )
 
-// LowestOrdinalPriority is a score plugin that favors pods that have a lower ordinal
-type LowestOrdinalPriority struct {
+// RemoveWithHighestOrdinalPriority is a score plugin that favors pods that have a higher ordinal
+type RemoveWithHighestOrdinalPriority struct {
 }
 
-// Verify LowestOrdinalPriority Implements ScorePlugin Interface
-var _ state.ScorePlugin = &LowestOrdinalPriority{}
+// Verify RemoveWithHighestOrdinalPriority Implements ScorePlugin Interface
+var _ state.ScorePlugin = &RemoveWithHighestOrdinalPriority{}
 
 // Name of the plugin
-const Name = state.LowestOrdinalPriority
+const Name = state.RemoveWithHighestOrdinalPriority
 
 func init() {
-	factory.RegisterSP(Name, &LowestOrdinalPriority{})
+	factory.RegisterSP(Name, &RemoveWithHighestOrdinalPriority{})
 }
 
 // Name returns name of the plugin
-func (pl *LowestOrdinalPriority) Name() string {
+func (pl *RemoveWithHighestOrdinalPriority) Name() string {
 	return Name
 }
 
 // Score invoked at the score extension point.
-func (pl *LowestOrdinalPriority) Score(ctx context.Context, args interface{}, states *state.State, key types.NamespacedName, podID int32) (uint64, *state.Status) {
+func (pl *RemoveWithHighestOrdinalPriority) Score(ctx context.Context, args interface{}, states *state.State, key types.NamespacedName, podID int32) (uint64, *state.Status) {
 	logger := logging.FromContext(ctx).With("Score", pl.Name())
 
-	score := math.MaxUint64 - uint64(podID) //lower ordinals get higher score
+	score := uint64(podID) //higher ordinals get higher score
 
 	logger.Infof("Pod %v scored by %q priority successfully with score %v", podID, pl.Name(), score)
 	return score, state.NewStatus(state.Success)
 }
 
 // ScoreExtensions of the Score plugin.
-func (pl *LowestOrdinalPriority) ScoreExtensions() state.ScoreExtensions {
+func (pl *RemoveWithHighestOrdinalPriority) ScoreExtensions() state.ScoreExtensions {
 	return pl
 }
 
 // NormalizeScore invoked after scoring all pods.
-func (pl *LowestOrdinalPriority) NormalizeScore(ctx context.Context, states *state.State, scores state.PodScoreList) *state.Status {
+func (pl *RemoveWithHighestOrdinalPriority) NormalizeScore(ctx context.Context, states *state.State, scores state.PodScoreList) *state.Status {
 	return state.NewStatus(state.Success)
 }

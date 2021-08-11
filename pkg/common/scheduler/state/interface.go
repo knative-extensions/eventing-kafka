@@ -25,12 +25,15 @@ import (
 )
 
 const (
-	PodFitsResources         = "PodFitsResources"
-	NoMaxResourceCount       = "NoMaxResourceCount"
-	EvenPodSpread            = "EvenPodSpread"
-	AvailabilityNodePriority = "AvailabilityNodePriority"
-	AvailabilityZonePriority = "AvailabilityZonePriority"
-	LowestOrdinalPriority    = "LowestOrdinalPriority"
+	PodFitsResources                   = "PodFitsResources"
+	NoMaxResourceCount                 = "NoMaxResourceCount"
+	EvenPodSpread                      = "EvenPodSpread"
+	AvailabilityNodePriority           = "AvailabilityNodePriority"
+	AvailabilityZonePriority           = "AvailabilityZonePriority"
+	LowestOrdinalPriority              = "LowestOrdinalPriority"
+	RemoveWithEvenPodSpreadPriority    = "RemoveWithEvenPodSpreadPriority"
+	RemoveWithAvailabilityZonePriority = "RemoveWithAvailabilityZonePriority"
+	RemoveWithHighestOrdinalPriority   = "RemoveWithHighestOrdinalPriority"
 )
 
 // Plugin is the parent type for all the scheduling framework plugins.
@@ -156,6 +159,11 @@ func (s *Status) AsError() error {
 // IsSuccess returns true if and only if "Status" is nil or Code is "Success".
 func (s *Status) IsSuccess() bool {
 	return s.Code() == Success
+}
+
+// IsError returns true if and only if "Status" is "Error".
+func (s *Status) IsError() bool {
+	return s.Code() == Error
 }
 
 // IsUnschedulable returns true if "Status" is Unschedulable

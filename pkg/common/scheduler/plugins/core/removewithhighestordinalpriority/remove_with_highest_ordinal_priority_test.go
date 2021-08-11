@@ -14,10 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package lowestordinalpriority
+package removewithhighestordinalpriority
 
 import (
-	"math"
 	"reflect"
 	"testing"
 
@@ -39,56 +38,56 @@ func TestScore(t *testing.T) {
 			name:     "no vpods",
 			state:    &state.State{LastOrdinal: -1},
 			podID:    0,
-			expScore: math.MaxUint64,
+			expScore: 0,
 			expected: state.NewStatus(state.Success),
 		},
 		{
 			name:     "one vpods free",
 			state:    &state.State{LastOrdinal: 0},
 			podID:    0,
-			expScore: math.MaxUint64,
+			expScore: 0,
 			expected: state.NewStatus(state.Success),
 		},
 		{
 			name:     "two vpods free",
 			state:    &state.State{LastOrdinal: 0},
 			podID:    1,
-			expScore: math.MaxUint64 - 1,
+			expScore: 1,
 			expected: state.NewStatus(state.Success),
 		},
 		{
 			name:     "one vpods not free",
 			state:    &state.State{LastOrdinal: 1},
 			podID:    0,
-			expScore: math.MaxUint64,
+			expScore: 0,
 			expected: state.NewStatus(state.Success),
 		},
 		{
 			name:     "one vpods not free",
 			state:    &state.State{LastOrdinal: 1},
 			podID:    1,
-			expScore: math.MaxUint64 - 1,
+			expScore: 01,
 			expected: state.NewStatus(state.Success),
 		},
 		{
 			name:     "many vpods, no gaps",
 			state:    &state.State{LastOrdinal: 1},
 			podID:    2,
-			expScore: math.MaxUint64 - 2,
+			expScore: 2,
 			expected: state.NewStatus(state.Success),
 		},
 		{
 			name:     "many vpods, with gaps",
 			state:    &state.State{LastOrdinal: 2},
 			podID:    0,
-			expScore: math.MaxUint64,
+			expScore: 0,
 			expected: state.NewStatus(state.Success),
 		},
 		{
 			name:     "many vpods, with gaps",
 			state:    &state.State{LastOrdinal: 2},
 			podID:    1000,
-			expScore: math.MaxUint64 - 1000,
+			expScore: 1000,
 			expected: state.NewStatus(state.Success),
 		},
 	}
@@ -96,11 +95,11 @@ func TestScore(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, _ := tscheduler.SetupFakeContext(t)
-			var plugin = &LowestOrdinalPriority{}
+			var plugin = &RemoveWithHighestOrdinalPriority{}
 			var args interface{}
 
 			name := plugin.Name()
-			assert.Equal(t, name, state.LowestOrdinalPriority)
+			assert.Equal(t, name, state.RemoveWithHighestOrdinalPriority)
 
 			score, status := plugin.Score(ctx, args, tc.state, types.NamespacedName{}, tc.podID)
 			if score != tc.expScore {

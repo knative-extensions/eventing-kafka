@@ -65,6 +65,9 @@ spec:
         - name: CONFIG_SCHEDULER
           value: config-scheduler
 
+        - name: CONFIG_DESCHEDULER
+          value: config-descheduler
+
         resources:
           requests:
             cpu: 20m

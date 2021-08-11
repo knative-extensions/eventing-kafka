@@ -57,7 +57,7 @@ func TestAutoscaler(t *testing.T) {
 				tscheduler.NewVPod(testNs, "vpod-1", 0, nil),
 			},
 			pendings:     int32(0),
-			wantReplicas: int32(0),
+			wantReplicas: int32(3),
 		},
 		{
 			name:     "no replicas, no placements, with pending",
@@ -66,7 +66,7 @@ func TestAutoscaler(t *testing.T) {
 				tscheduler.NewVPod(testNs, "vpod-1", 5, nil),
 			},
 			pendings:     int32(5),
-			wantReplicas: int32(1),
+			wantReplicas: int32(3),
 		},
 		{
 			name:     "no replicas, with placements, no pending",
@@ -77,7 +77,7 @@ func TestAutoscaler(t *testing.T) {
 					{PodName: "statefulset-name-1", VReplicas: int32(7)}}),
 			},
 			pendings:     int32(0),
-			wantReplicas: int32(2),
+			wantReplicas: int32(3),
 		},
 		{
 			name:     "no replicas, with placements, with pending, enough capacity",
@@ -88,7 +88,7 @@ func TestAutoscaler(t *testing.T) {
 					{PodName: "statefulset-name-1", VReplicas: int32(7)}}),
 			},
 			pendings:     int32(3),
-			wantReplicas: int32(3),
+			wantReplicas: int32(6),
 		},
 		{
 			name:     "no replicas, with placements, with pending, not enough capacity",
@@ -99,7 +99,7 @@ func TestAutoscaler(t *testing.T) {
 					{PodName: "statefulset-name-1", VReplicas: int32(7)}}),
 			},
 			pendings:     int32(8),
-			wantReplicas: int32(3),
+			wantReplicas: int32(6),
 		},
 		{
 			name:     "with replicas, no placements, no pending, scale down",
@@ -109,7 +109,7 @@ func TestAutoscaler(t *testing.T) {
 			},
 			pendings:     int32(0),
 			scaleDown:    true,
-			wantReplicas: int32(0),
+			wantReplicas: int32(3),
 		},
 		{
 			name:     "with replicas, no placements, with pending, scale down",
@@ -119,7 +119,7 @@ func TestAutoscaler(t *testing.T) {
 			},
 			pendings:     int32(5),
 			scaleDown:    true,
-			wantReplicas: int32(1),
+			wantReplicas: int32(3),
 		},
 		{
 			name:     "with replicas, no placements, with pending, scale down disabled",
@@ -138,7 +138,7 @@ func TestAutoscaler(t *testing.T) {
 				tscheduler.NewVPod(testNs, "vpod-1", 5, nil),
 			},
 			pendings:     int32(40),
-			wantReplicas: int32(4),
+			wantReplicas: int32(6),
 		},
 		{
 			name:     "with replicas, with placements, no pending, no change",
@@ -149,7 +149,7 @@ func TestAutoscaler(t *testing.T) {
 					{PodName: "statefulset-name-1", VReplicas: int32(7)}}),
 			},
 			pendings:     int32(0),
-			wantReplicas: int32(2),
+			wantReplicas: int32(3),
 		},
 		{
 			name:     "with replicas, with placements, no pending, scale down",
@@ -161,7 +161,7 @@ func TestAutoscaler(t *testing.T) {
 			},
 			pendings:     int32(0),
 			scaleDown:    true,
-			wantReplicas: int32(2),
+			wantReplicas: int32(3),
 		},
 		{
 			name:     "with replicas, with placements, with pending, enough capacity",
@@ -172,7 +172,7 @@ func TestAutoscaler(t *testing.T) {
 					{PodName: "statefulset-name-1", VReplicas: int32(7)}}),
 			},
 			pendings:     int32(3),
-			wantReplicas: int32(3),
+			wantReplicas: int32(6),
 		},
 		{
 			name:     "with replicas, with placements, with pending, not enough capacity",
@@ -183,7 +183,21 @@ func TestAutoscaler(t *testing.T) {
 					{PodName: "statefulset-name-1", VReplicas: int32(7)}}),
 			},
 			pendings:     int32(8),
-			wantReplicas: int32(3),
+			wantReplicas: int32(6),
+		},
+		{
+			name:     "with replicas, with placements, no pending, round up capacity",
+			replicas: int32(5),
+			vpods: []scheduler.VPod{
+				tscheduler.NewVPod(testNs, "vpod-1", 15, []duckv1alpha1.Placement{
+					{PodName: "statefulset-name-0", VReplicas: int32(8)},
+					{PodName: "statefulset-name-1", VReplicas: int32(7)},
+					{PodName: "statefulset-name-2", VReplicas: int32(1)},
+					{PodName: "statefulset-name-3", VReplicas: int32(1)},
+					{PodName: "statefulset-name-4", VReplicas: int32(1)}}),
+			},
+			pendings:     int32(0),
+			wantReplicas: int32(6),
 		},
 		{
 			name:     "no replicas, with placements, with pending, enough capacity",
@@ -194,7 +208,7 @@ func TestAutoscaler(t *testing.T) {
 					{PodName: "statefulset-name-1", VReplicas: int32(7)}}),
 			},
 			pendings:        int32(3),
-			wantReplicas:    int32(3),
+			wantReplicas:    int32(6),
 			schedulerPolicy: scheduler.EVENSPREAD,
 		},
 		{
@@ -206,7 +220,15 @@ func TestAutoscaler(t *testing.T) {
 					{PodName: "statefulset-name-1", VReplicas: int32(7)}}),
 			},
 			pendings:        int32(3),
-			wantReplicas:    int32(3),
+			wantReplicas:    int32(6),
+			schedulerPolicy: scheduler.EVENSPREAD,
+		},
+		{
+			name:            "with replicas, no placements, with pending, enough capacity",
+			replicas:        int32(8),
+			vpods:           nil,
+			pendings:        int32(3),
+			wantReplicas:    int32(8),
 			schedulerPolicy: scheduler.EVENSPREAD,
 		},
 		{
@@ -218,7 +240,7 @@ func TestAutoscaler(t *testing.T) {
 					{PodName: "statefulset-name-1", VReplicas: int32(7)}}),
 			},
 			pendings:        int32(3),
-			wantReplicas:    int32(3),
+			wantReplicas:    int32(6),
 			schedulerPolicy: scheduler.EVENSPREAD_BYNODE,
 		},
 		{
@@ -230,7 +252,7 @@ func TestAutoscaler(t *testing.T) {
 					{PodName: "statefulset-name-1", VReplicas: int32(7)}}),
 			},
 			pendings:        int32(3),
-			wantReplicas:    int32(3),
+			wantReplicas:    int32(6),
 			schedulerPolicy: scheduler.EVENSPREAD_BYNODE,
 		},
 	}
@@ -345,8 +367,8 @@ func TestAutoscalerScaleDownToZero(t *testing.T) {
 	if err != nil {
 		t.Fatal("unexpected error", err)
 	}
-	if *sfs.Spec.Replicas != 0 {
-		t.Errorf("unexpected number of replicas, got %d, want 0", *sfs.Spec.Replicas)
+	if *sfs.Spec.Replicas != 3 { //temporary ideal number for HA
+		t.Errorf("unexpected number of replicas, got %d, want 3", *sfs.Spec.Replicas)
 	}
 
 	cancel()

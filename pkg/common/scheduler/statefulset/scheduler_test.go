@@ -53,6 +53,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 		err                 error
 		schedulerPolicyType scheduler.SchedulerPolicyType
 		schedulerPolicy     *SchedulerPolicy
+		deschedulerPolicy   *SchedulerPolicy
 	}{
 		{
 			name:                "no replicas, no vreplicas",
@@ -553,6 +554,21 @@ func TestStatefulsetScheduler(t *testing.T) {
 			},
 		},
 		{
+			name:      "two replicas, 12 vreplicas, scheduled with Predicates and no Priorities",
+			vreplicas: 12,
+			replicas:  int32(2),
+			expected: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 6},
+				{PodName: "statefulset-name-1", VReplicas: 6},
+			},
+			schedulerPolicy: &SchedulerPolicy{
+				Predicates: []PredicatePolicy{
+					{Name: "PodFitsResources"},
+					{Name: "EvenPodSpread", Args: "{\"MaxSkew\": 1}"},
+				},
+			},
+		},
+		{
 			name:      "two replicas, 15 vreplicas, scheduled with Predicates and Priorities",
 			vreplicas: 15,
 			replicas:  int32(2),
@@ -645,6 +661,307 @@ func TestStatefulsetScheduler(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:      "one replica, one vreplicas, with two Predicates and two Priorities",
+			vreplicas: 1,
+			replicas:  int32(1),
+			expected:  []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 1}},
+			schedulerPolicy: &SchedulerPolicy{
+				Predicates: []PredicatePolicy{
+					{Name: "PodFitsResources"},
+					{Name: "EvenPodSpread", Args: "{\"MaxSkew\": 2}"},
+				},
+				Priorities: []PriorityPolicy{
+					{Name: "LowestOrdinalPriority", Weight: 2},
+					{Name: "AvailabilityZonePriority", Weight: 10, Args: "{\"MaxSkew\": 2}"},
+				},
+			},
+		},
+		{
+			name:      "one replica, 3 vreplicas, with two Predicates and two Priorities",
+			vreplicas: 3,
+			replicas:  int32(1),
+			expected:  []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 3}},
+			schedulerPolicy: &SchedulerPolicy{
+				Predicates: []PredicatePolicy{
+					{Name: "PodFitsResources"},
+					{Name: "EvenPodSpread", Args: "{\"MaxSkew\": 2}"},
+				},
+				Priorities: []PriorityPolicy{
+					{Name: "LowestOrdinalPriority", Weight: 2},
+					{Name: "AvailabilityZonePriority", Weight: 10, Args: "{\"MaxSkew\": 2}"},
+				},
+			},
+		},
+		{
+			name:      "one replica, 15 vreplicas, with two Predicates and two Priorities",
+			vreplicas: 15,
+			replicas:  int32(1),
+			err:       scheduler.ErrNotEnoughReplicas,
+			expected:  []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 10}},
+			schedulerPolicy: &SchedulerPolicy{
+				Predicates: []PredicatePolicy{
+					{Name: "PodFitsResources"},
+					{Name: "EvenPodSpread", Args: "{\"MaxSkew\": 2}"},
+				},
+				Priorities: []PriorityPolicy{
+					{Name: "LowestOrdinalPriority", Weight: 2},
+					{Name: "AvailabilityZonePriority", Weight: 10, Args: "{\"MaxSkew\": 2}"},
+				},
+			},
+		},
+		{
+			name:      "two replicas, 15 vreplicas, scheduled, with two Predicates and two Priorities",
+			vreplicas: 15,
+			replicas:  int32(2),
+			expected: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 8},
+				{PodName: "statefulset-name-1", VReplicas: 7},
+			},
+			schedulerPolicy: &SchedulerPolicy{
+				Predicates: []PredicatePolicy{
+					{Name: "PodFitsResources"},
+					{Name: "EvenPodSpread", Args: "{\"MaxSkew\": 2}"},
+				},
+				Priorities: []PriorityPolicy{
+					{Name: "LowestOrdinalPriority", Weight: 2},
+					{Name: "AvailabilityZonePriority", Weight: 10, Args: "{\"MaxSkew\": 2}"},
+				},
+			},
+		},
+		{
+			name:      "two replicas, 15 vreplicas, already scheduled, with two Predicates and two Priorities",
+			vreplicas: 15,
+			replicas:  int32(2),
+			placements: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 10},
+				{PodName: "statefulset-name-1", VReplicas: 5},
+			},
+			expected: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 10},
+				{PodName: "statefulset-name-1", VReplicas: 5},
+			},
+			schedulerPolicy: &SchedulerPolicy{
+				Predicates: []PredicatePolicy{
+					{Name: "PodFitsResources"},
+					{Name: "EvenPodSpread", Args: "{\"MaxSkew\": 2}"},
+				},
+				Priorities: []PriorityPolicy{
+					{Name: "LowestOrdinalPriority", Weight: 2},
+					{Name: "AvailabilityZonePriority", Weight: 10, Args: "{\"MaxSkew\": 2}"},
+				},
+			},
+		},
+		{
+			name:      "three replicas, 30 vreplicas, with two Predicates and two Priorities",
+			vreplicas: 30,
+			replicas:  int32(3),
+			placements: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 5},
+				{PodName: "statefulset-name-1", VReplicas: 5},
+				{PodName: "statefulset-name-2", VReplicas: 10},
+			},
+			expected: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 10},
+				{PodName: "statefulset-name-1", VReplicas: 10},
+				{PodName: "statefulset-name-2", VReplicas: 10},
+			},
+			schedulerPolicy: &SchedulerPolicy{
+				Predicates: []PredicatePolicy{
+					{Name: "PodFitsResources"},
+					{Name: "EvenPodSpread", Args: "{\"MaxSkew\": 5}"},
+				},
+				Priorities: []PriorityPolicy{
+					{Name: "LowestOrdinalPriority", Weight: 2},
+					{Name: "AvailabilityZonePriority", Weight: 10, Args: "{\"MaxSkew\": 5}"},
+				},
+			},
+		},
+		{
+			name:      "three replicas, 15 vreplicas, with two Predicates and two Priorities",
+			vreplicas: 15,
+			replicas:  int32(3),
+			expected: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 5},
+				{PodName: "statefulset-name-1", VReplicas: 5},
+				{PodName: "statefulset-name-2", VReplicas: 5},
+			},
+			schedulerPolicy: &SchedulerPolicy{
+				Predicates: []PredicatePolicy{
+					{Name: "PodFitsResources"},
+					{Name: "EvenPodSpread", Args: "{\"MaxSkew\": 2}"},
+				},
+				Priorities: []PriorityPolicy{
+					{Name: "LowestOrdinalPriority", Weight: 2},
+					{Name: "AvailabilityZonePriority", Weight: 10, Args: "{\"MaxSkew\": 2}"},
+				},
+			},
+		},
+		{
+			name:      "three replicas, 20 vreplicas, with two Predicates and two Priorities",
+			vreplicas: 20,
+			replicas:  int32(3),
+			expected: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 7},
+				{PodName: "statefulset-name-1", VReplicas: 7},
+				{PodName: "statefulset-name-2", VReplicas: 6},
+			},
+			schedulerPolicy: &SchedulerPolicy{
+				Predicates: []PredicatePolicy{
+					{Name: "PodFitsResources"},
+					{Name: "EvenPodSpread", Args: "{\"MaxSkew\": 2}"},
+				},
+				Priorities: []PriorityPolicy{
+					{Name: "LowestOrdinalPriority", Weight: 2},
+					{Name: "AvailabilityZonePriority", Weight: 10, Args: "{\"MaxSkew\": 2}"},
+				},
+			},
+		},
+		{
+			name:      "two replicas, 15 vreplicas, too much scheduled (scale down), with two desched Priorities",
+			vreplicas: 15,
+			replicas:  int32(2),
+			placements: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 10},
+				{PodName: "statefulset-name-1", VReplicas: 10},
+			},
+			expected: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 8},
+				{PodName: "statefulset-name-1", VReplicas: 7},
+			},
+			deschedulerPolicy: &SchedulerPolicy{
+				Priorities: []PriorityPolicy{
+					{Name: "RemoveWithEvenPodSpreadPriority", Weight: 10, Args: "{\"MaxSkew\": 2}"},
+					{Name: "RemoveWithHighestOrdinalPriority", Weight: 2},
+				},
+			},
+		},
+		{
+			name:      "three replicas, 15 vreplicas, too much scheduled (scale down), with two desched Priorities",
+			vreplicas: 15,
+			replicas:  int32(3),
+			placements: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 10},
+				{PodName: "statefulset-name-1", VReplicas: 10},
+				{PodName: "statefulset-name-2", VReplicas: 5},
+			},
+			expected: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 5},
+				{PodName: "statefulset-name-1", VReplicas: 5},
+				{PodName: "statefulset-name-2", VReplicas: 5},
+			},
+			deschedulerPolicy: &SchedulerPolicy{
+				Priorities: []PriorityPolicy{
+					{Name: "RemoveWithAvailabilityZonePriority", Weight: 10, Args: "{\"MaxSkew\": 2}"},
+					{Name: "RemoveWithHighestOrdinalPriority", Weight: 2},
+				},
+			},
+		},
+		{
+			name:      "three replicas, 2 vreplicas, too much scheduled (scale down), with two desched Priorities",
+			vreplicas: 2,
+			replicas:  int32(3),
+			placements: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 1},
+				{PodName: "statefulset-name-1", VReplicas: 1},
+				{PodName: "statefulset-name-2", VReplicas: 1},
+			},
+			expected: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 1},
+				{PodName: "statefulset-name-1", VReplicas: 1},
+			},
+			deschedulerPolicy: &SchedulerPolicy{
+				Priorities: []PriorityPolicy{
+					{Name: "RemoveWithEvenPodSpreadPriority", Weight: 10, Args: "{\"MaxSkew\": 2}"},
+					{Name: "RemoveWithHighestOrdinalPriority", Weight: 2},
+				},
+			},
+		},
+		{
+			name:      "three replicas, 2 vreplicas, too much scheduled (scale down), with two desched Priorities",
+			vreplicas: 2,
+			replicas:  int32(3),
+			placements: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 1},
+				{PodName: "statefulset-name-1", VReplicas: 1},
+				{PodName: "statefulset-name-2", VReplicas: 1},
+			},
+			expected: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 1},
+				{PodName: "statefulset-name-1", VReplicas: 1},
+			},
+			deschedulerPolicy: &SchedulerPolicy{
+				Priorities: []PriorityPolicy{
+					{Name: "RemoveWithAvailabilityZonePriority", Weight: 10, Args: "{\"MaxSkew\": 2}"},
+					{Name: "RemoveWithHighestOrdinalPriority", Weight: 2},
+				},
+			},
+		},
+		{
+			name:      "three replicas, 3 vreplicas, too much scheduled (scale down), with two desched Priorities",
+			vreplicas: 3,
+			replicas:  int32(3),
+			placements: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 2},
+				{PodName: "statefulset-name-1", VReplicas: 2},
+				{PodName: "statefulset-name-2", VReplicas: 2},
+			},
+			expected: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 1},
+				{PodName: "statefulset-name-1", VReplicas: 1},
+				{PodName: "statefulset-name-2", VReplicas: 1},
+			},
+			deschedulerPolicy: &SchedulerPolicy{
+				Priorities: []PriorityPolicy{
+					{Name: "RemoveWithEvenPodSpreadPriority", Weight: 10, Args: "{\"MaxSkew\": 2}"},
+					{Name: "RemoveWithHighestOrdinalPriority", Weight: 2},
+				},
+			},
+		},
+		{
+			name:      "three replicas, 6 vreplicas, too much scheduled (scale down), with two desched Priorities",
+			vreplicas: 7,
+			replicas:  int32(3),
+			placements: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 10},
+				{PodName: "statefulset-name-1", VReplicas: 10},
+				{PodName: "statefulset-name-2", VReplicas: 5},
+			},
+			expected: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 3},
+				{PodName: "statefulset-name-1", VReplicas: 2},
+				{PodName: "statefulset-name-2", VReplicas: 2},
+			},
+			deschedulerPolicy: &SchedulerPolicy{
+				Priorities: []PriorityPolicy{
+					{Name: "RemoveWithEvenPodSpreadPriority", Weight: 10, Args: "{\"MaxSkew\": 2}"},
+					{Name: "RemoveWithHighestOrdinalPriority", Weight: 2},
+				},
+			},
+		},
+		{
+			name:      "four replicas, 7 vreplicas, too much scheduled (scale down), with two desched Priorities",
+			vreplicas: 7,
+			replicas:  int32(4),
+			placements: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 4},
+				{PodName: "statefulset-name-1", VReplicas: 3},
+				{PodName: "statefulset-name-2", VReplicas: 4},
+				{PodName: "statefulset-name-3", VReplicas: 3},
+			},
+			expected: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 2},
+				{PodName: "statefulset-name-1", VReplicas: 2},
+				{PodName: "statefulset-name-2", VReplicas: 2},
+				{PodName: "statefulset-name-3", VReplicas: 1},
+			},
+			deschedulerPolicy: &SchedulerPolicy{
+				Priorities: []PriorityPolicy{
+					{Name: "RemoveWithEvenPodSpreadPriority", Weight: 10, Args: "{\"MaxSkew\": 2}"},
+					{Name: "RemoveWithHighestOrdinalPriority", Weight: 2},
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -682,7 +999,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 			lsp := listers.NewListers(podlist)
 			lsn := listers.NewListers(nodelist)
 			sa := state.NewStateBuilder(ctx, sfsName, vpodClient.List, 10, tc.schedulerPolicyType, lsp.GetPodLister().Pods(testNs), lsn.GetNodeLister())
-			s := NewStatefulSetScheduler(ctx, testNs, sfsName, vpodClient.List, sa, nil, lsp.GetPodLister().Pods(testNs), tc.schedulerPolicy).(*StatefulSetScheduler)
+			s := NewStatefulSetScheduler(ctx, testNs, sfsName, vpodClient.List, sa, nil, lsp.GetPodLister().Pods(testNs), tc.schedulerPolicy, tc.deschedulerPolicy).(*StatefulSetScheduler)
 
 			// Give some time for the informer to notify the scheduler and set the number of replicas
 			time.Sleep(200 * time.Millisecond)

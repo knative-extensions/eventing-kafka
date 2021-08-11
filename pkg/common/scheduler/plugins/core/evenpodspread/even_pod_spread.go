@@ -70,7 +70,7 @@ func (pl *EvenPodSpread) Filter(ctx context.Context, args interface{}, states *s
 	if states.LastOrdinal >= 0 { //need atleast two pods to compute spread
 		currentReps := states.PodSpread[key][state.PodNameFromOrdinal(states.StatefulSetName, podID)] //get #vreps on this podID
 		var skew int32
-		for otherPodID := int32(0); otherPodID < states.LastOrdinal; otherPodID++ { //compare with #vreps on other pods
+		for otherPodID := int32(0); otherPodID <= states.LastOrdinal; otherPodID++ { //compare with #vreps on other pods
 			if otherPodID != podID {
 				otherReps := states.PodSpread[key][state.PodNameFromOrdinal(states.StatefulSetName, otherPodID)]
 				if skew = (currentReps + 1) - otherReps; skew < 0 {

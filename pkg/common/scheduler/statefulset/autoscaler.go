@@ -126,24 +126,22 @@ func (a *autoscaler) doautoscale(ctx context.Context, attemptScaleDown bool, pen
 		zap.Int32("last ordinal", state.LastOrdinal))
 
 	var newreplicas int32
-	if state.LastOrdinal > 0 {
-		newreplicas = int32(math.Ceil(float64(state.LastOrdinal)/3.0) * 3) // Ideal number is multiple of 3 (temporary)
-	} else {
-		newreplicas = 3
-	}
 
 	// Take into account pending replicas
 	if pending > 0 {
 		// Make sure to allocate enough pods for holding all pending replicas.
-		newreplicas += int32(math.Ceil(float64(pending) / float64(a.capacity)))
+		if state.LastOrdinal > 0 {
+			newreplicas = int32(math.Ceil(float64(state.LastOrdinal)/3.0) * 3) // Ideal number is multiple of 3 (temporary)
+		}
+		newreplicas += int32(math.Ceil(float64(math.Ceil(float64(pending)/float64(a.capacity)))/3.0) * 3)
+	} else {
+		newreplicas = 3 // Ideal number is multiple of 3 (temporary)
 	}
 
 	// Make sure to never scale down past the last ordinal
 	if newreplicas <= state.LastOrdinal {
 		if state.LastOrdinal > 0 {
 			newreplicas = int32(math.Ceil(float64(state.LastOrdinal)/3.0) * 3) // Ideal number is multiple of 3 (temporary)
-		} else {
-			newreplicas = 3
 		}
 	}
 

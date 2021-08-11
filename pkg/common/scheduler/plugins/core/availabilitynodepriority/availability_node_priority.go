@@ -99,7 +99,7 @@ func (pl *AvailabilityNodePriority) Score(ctx context.Context, args interface{},
 		score = math.MaxUint64 - score //lesser skews get higher score
 	}
 
-	logger.Infof("Pod %q scored by %q priority successfully with score %v", podID, pl.Name(), score)
+	logger.Infof("Pod %v scored by %q priority successfully with score %v", podID, pl.Name(), score)
 	return score, state.NewStatus(state.Success)
 }
 

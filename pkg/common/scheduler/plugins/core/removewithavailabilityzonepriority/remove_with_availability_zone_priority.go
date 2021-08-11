@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package availabilityzonepriority
+package removewithavailabilityzonepriority
 
 import (
 	"context"
@@ -28,15 +28,15 @@ import (
 	"knative.dev/pkg/logging"
 )
 
-// AvailabilityZonePriority is a score plugin that favors pods that create an even spread of resources across zones for HA
-type AvailabilityZonePriority struct {
+// RemoveWithAvailabilityZonePriority is a score plugin that favors pods that create an even spread of resources across zones for HA
+type RemoveWithAvailabilityZonePriority struct {
 }
 
-// Verify AvailabilityZonePriority Implements ScorePlugin Interface
-var _ state.ScorePlugin = &AvailabilityZonePriority{}
+// Verify RemoveWithAvailabilityZonePriority Implements ScorePlugin Interface
+var _ state.ScorePlugin = &RemoveWithAvailabilityZonePriority{}
 
 // Name of the plugin
-const Name = state.AvailabilityZonePriority
+const Name = state.RemoveWithAvailabilityZonePriority
 
 const (
 	// When zone information is present, give 2/3 of the weighting to zone spreading, 1/3 to node spreading
@@ -46,17 +46,17 @@ const (
 )
 
 func init() {
-	factory.RegisterSP(Name, &AvailabilityZonePriority{})
+	factory.RegisterSP(Name, &RemoveWithAvailabilityZonePriority{})
 }
 
 // Name returns name of the plugin
-func (pl *AvailabilityZonePriority) Name() string {
+func (pl *RemoveWithAvailabilityZonePriority) Name() string {
 	return Name
 }
 
 // Score invoked at the score extension point. The "score" returned in this function is higher for pods with lower ordinals and higher free capacity
 // It is normalized later with zone info
-func (pl *AvailabilityZonePriority) Score(ctx context.Context, args interface{}, states *state.State, key types.NamespacedName, podID int32) (uint64, *state.Status) {
+func (pl *RemoveWithAvailabilityZonePriority) Score(ctx context.Context, args interface{}, states *state.State, key types.NamespacedName, podID int32) (uint64, *state.Status) {
 	logger := logging.FromContext(ctx).With("Score", pl.Name())
 	var score uint64 = 0
 
@@ -89,7 +89,7 @@ func (pl *AvailabilityZonePriority) Score(ctx context.Context, args interface{},
 		for otherZoneName := range zoneMap {            //compare with #vreps on other pods
 			if otherZoneName != zoneName {
 				otherReps := states.ZoneSpread[key][otherZoneName]
-				if skew = (currentReps + 1) - otherReps; skew < 0 {
+				if skew = (currentReps - 1) - otherReps; skew < 0 {
 					skew = skew * int32(-1)
 				}
 
@@ -110,13 +110,13 @@ func (pl *AvailabilityZonePriority) Score(ctx context.Context, args interface{},
 }
 
 // ScoreExtensions of the Score plugin.
-func (pl *AvailabilityZonePriority) ScoreExtensions() state.ScoreExtensions {
+func (pl *RemoveWithAvailabilityZonePriority) ScoreExtensions() state.ScoreExtensions {
 	return pl
 }
 
 // NormalizeScore invoked after scoring all pods. Calculates the score of each pod
 // based on the number of existing vreplicas on the pods. It favors pods
 // in zones that create an even spread of resources for HA
-func (pl *AvailabilityZonePriority) NormalizeScore(ctx context.Context, states *state.State, scores state.PodScoreList) *state.Status {
+func (pl *RemoveWithAvailabilityZonePriority) NormalizeScore(ctx context.Context, states *state.State, scores state.PodScoreList) *state.Status {
 	return nil
 }
