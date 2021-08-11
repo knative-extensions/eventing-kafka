@@ -214,7 +214,7 @@ func getControllerOwnerRef(ctx context.Context) (*metav1.OwnerReference, error) 
 			return true, fmt.Errorf("error listing KafkaChannel controller deployment labels %w", err)
 		} else if len(deploymentList.Items) == 0 {
 			// Simple exponential backoff
-			logger.Debugw("found zero KafkaChannel controller deployment matching labels. Retrying.", zap.String("namesame", system.Namespace()), zap.Any("selectors", ctrlDeploymentLabels.AsSelector()))
+			logger.Debugw("found zero KafkaChannel controller deployment matching labels. Retrying.", zap.String("namespace", system.Namespace()), zap.Any("selectors", ctrlDeploymentLabels.AsSelector()))
 			return false, nil
 		} else if len(deploymentList.Items) > 1 {
 			return true, fmt.Errorf("found an unexpected number of KafkaChannel controller deployment matching labels. Got: %d, Want: 1", len(deploymentList.Items))
