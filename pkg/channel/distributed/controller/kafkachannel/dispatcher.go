@@ -278,8 +278,8 @@ func (r *Reconciler) newDispatcherService(channel *kafkav1beta1.KafkaChannel) *c
 	}
 
 	// Update The Dispatcher Service's Annotations & Labels With Custom Config Values
-	service.Annotations = util.JoinStringMaps(service.Annotations, r.config.Channel.Dispatcher.ServiceAnnotationsMap())
-	service.Labels = util.JoinStringMaps(service.Labels, r.config.Channel.Dispatcher.ServiceLabelsMap())
+	service.Annotations = util.JoinStringMaps(service.Annotations, r.config.Channel.Dispatcher.ServiceAnnotations)
+	service.Labels = util.JoinStringMaps(service.Labels, r.config.Channel.Dispatcher.ServiceLabels)
 
 	// Return The Dispatcher Service
 	return service
@@ -562,10 +562,10 @@ func (r *Reconciler) newDispatcherDeployment(logger *zap.Logger, channel *kafkav
 	}
 
 	// Update The Dispatcher Service's Annotations & Labels With Custom Config Values
-	deployment.ObjectMeta.Annotations = util.JoinStringMaps(deployment.ObjectMeta.Annotations, r.config.Channel.Dispatcher.DeploymentAnnotationsMap())
-	deployment.ObjectMeta.Labels = util.JoinStringMaps(deployment.ObjectMeta.Labels, r.config.Channel.Dispatcher.DeploymentLabelsMap())
-	deployment.Spec.Template.ObjectMeta.Annotations = util.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Annotations, r.config.Channel.Dispatcher.PodAnnotationsMap())
-	deployment.Spec.Template.ObjectMeta.Labels = util.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Labels, r.config.Channel.Dispatcher.PodLabelsMap())
+	deployment.ObjectMeta.Annotations = util.JoinStringMaps(deployment.ObjectMeta.Annotations, r.config.Channel.Dispatcher.DeploymentAnnotations)
+	deployment.ObjectMeta.Labels = util.JoinStringMaps(deployment.ObjectMeta.Labels, r.config.Channel.Dispatcher.DeploymentLabels)
+	deployment.Spec.Template.ObjectMeta.Annotations = util.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Annotations, r.config.Channel.Dispatcher.PodAnnotations)
+	deployment.Spec.Template.ObjectMeta.Labels = util.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Labels, r.config.Channel.Dispatcher.PodLabels)
 
 	// Return The Dispatcher's Deployment
 	return deployment, nil

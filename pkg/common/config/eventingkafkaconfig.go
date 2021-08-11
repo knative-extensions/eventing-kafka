@@ -29,47 +29,17 @@ import (
 // for providing valid values depending on use case (e.g. respecting Kubernetes label naming
 // conventions) or the reconciliation of the respective resource will fail.
 type EKKubernetesConfig struct {
-	DeploymentAnnotations string            `json:"deploymentAnnotations,omitempty"`
-	DeploymentLabels      string            `json:"deploymentLabels,omitempty"`
-	PodAnnotations        string            `json:"podAnnotations,omitempty"`
-	PodLabels             string            `json:"podLabels,omitempty"`
-	ServiceAnnotations    string            `json:"serviceAnnotations,omitempty"`
-	ServiceLabels         string            `json:"serviceLabels,omitempty"`
+	DeploymentAnnotations map[string]string `json:"deploymentAnnotations,omitempty"`
+	DeploymentLabels      map[string]string `json:"deploymentLabels,omitempty"`
+	PodAnnotations        map[string]string `json:"podAnnotations,omitempty"`
+	PodLabels             map[string]string `json:"podLabels,omitempty"`
+	ServiceAnnotations    map[string]string `json:"serviceAnnotations,omitempty"`
+	ServiceLabels         map[string]string `json:"serviceLabels,omitempty"`
 	CpuLimit              resource.Quantity `json:"cpuLimit,omitempty"`
 	CpuRequest            resource.Quantity `json:"cpuRequest,omitempty"`
 	MemoryLimit           resource.Quantity `json:"memoryLimit,omitempty"`
 	MemoryRequest         resource.Quantity `json:"memoryRequest,omitempty"`
 	Replicas              int               `json:"replicas,omitempty"`
-}
-
-// DeploymentAnnotationsMap returns the raw DeploymentAnnotations CSV Key=Value string as map of key/value strings.
-func (c EKKubernetesConfig) DeploymentAnnotationsMap() map[string]string {
-	return CsvKeyValueStringToMap(c.DeploymentAnnotations)
-}
-
-// DeploymentLabelsMap returns the raw DeploymentLabels CSV Key=Value string as map of key/value strings.
-func (c EKKubernetesConfig) DeploymentLabelsMap() map[string]string {
-	return CsvKeyValueStringToMap(c.DeploymentLabels)
-}
-
-// PodAnnotationsMap returns the raw PodAnnotations CSV Key=Value string as map of key/value strings.
-func (c EKKubernetesConfig) PodAnnotationsMap() map[string]string {
-	return CsvKeyValueStringToMap(c.PodAnnotations)
-}
-
-// PodLabelsMap returns the raw PodLabels CSV Key=Value string as map of key/value strings.
-func (c EKKubernetesConfig) PodLabelsMap() map[string]string {
-	return CsvKeyValueStringToMap(c.PodLabels)
-}
-
-// ServiceAnnotationsMap returns the raw ServiceAnnotations CSV Key=Value string as map of key/value strings.
-func (c EKKubernetesConfig) ServiceAnnotationsMap() map[string]string {
-	return CsvKeyValueStringToMap(c.ServiceAnnotations)
-}
-
-// ServiceLabelsMap returns the raw ServiceLabels CSV Key=Value string as map of key/value strings.
-func (c EKKubernetesConfig) ServiceLabelsMap() map[string]string {
-	return CsvKeyValueStringToMap(c.ServiceLabels)
 }
 
 // EKReceiverConfig has the base Kubernetes fields (Cpu, Memory, Replicas) only

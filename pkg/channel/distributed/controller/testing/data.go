@@ -57,31 +57,19 @@ const (
 	MetricsPortName = "metrics"
 
 	// Environment Test Data
-	ServiceAccount                  = "TestServiceAccount"
-	KafkaAdminType                  = "kafka"
-	MetricsPort                     = 9876
-	MetricsDomain                   = "eventing-kafka"
-	HealthPort                      = 8082
-	ResyncPeriod                    = 3600 * time.Minute
-	ReceiverImage                   = "TestReceiverImage"
-	ReceiverReplicas                = 1
-	ReceiverDeploymentAnnotations   = "RDAKey1=RDAValue1,RDAKey2=RDAValue2,RDAKey3=RDAValue3"
-	ReceiverDeploymentLabels        = "RDLKey1=RDLValue1,RDLKey2=RDLValue2,RDLKey3=RDLValue3"
-	ReceiverPodAnnotations          = "RPAKey1=RPAValue1,RPAKey2=RPAValue2,RPAKey3=RPAValue3"
-	ReceiverPodLabels               = "RPLKey1=RPLValue1,RPLKey2=RPLValue2,RPLKey3=RPLValue3"
-	ReceiverServiceAnnotations      = "RSAKey1=RSAValue1,RSAKey2=RSAValue2,RSAKey3=RSAValue3"
-	ReceiverServiceLabels           = "RSLKey1=RSLValue1,RSLKey2=RSLValue2,RSLKey3=RSLValue3"
-	DispatcherImage                 = "TestDispatcherImage"
-	DispatcherReplicas              = 1
-	DispatcherDeploymentAnnotations = "DDAKey1=DDAValue1,DDAKey2=DDAValue2,DDAKey3=DDAValue3"
-	DispatcherDeploymentLabels      = "DDLKey1=DDLValue1,DDLKey2=DDLValue2,DDLKey3=DDLValue3"
-	DispatcherPodAnnotations        = "DPAKey1=DPAValue1,DPAKey2=DPAValue2,DPAKey3=DPAValue3"
-	DispatcherPodLabels             = "DPLKey1=DPLValue1,DPLKey2=DPLValue2,DPLKey3=DPLValue3"
-	DispatcherServiceAnnotations    = "DSAKey1=DSAValue1,DSAKey2=DSAValue2,DSAKey3=DSAValue3"
-	DispatcherServiceLabels         = "DSLKey1=DSLValue1,DSLKey2=DSLValue2,DSLKey3=DSLValue3"
-	DefaultNumPartitions            = 4
-	DefaultReplicationFactor        = 1
-	DefaultRetentionMillis          = 99999
+	ServiceAccount           = "TestServiceAccount"
+	KafkaAdminType           = "kafka"
+	MetricsPort              = 9876
+	MetricsDomain            = "eventing-kafka"
+	HealthPort               = 8082
+	ResyncPeriod             = 3600 * time.Minute
+	ReceiverImage            = "TestReceiverImage"
+	ReceiverReplicas         = 1
+	DispatcherImage          = "TestDispatcherImage"
+	DispatcherReplicas       = 1
+	DefaultNumPartitions     = 4
+	DefaultReplicationFactor = 1
+	DefaultRetentionMillis   = 99999
 
 	// Channel Test Data
 	KafkaChannelNamespace  = "kafkachannel-namespace"
@@ -128,18 +116,47 @@ const (
 	ConfigMapHash = "deadbeef"
 
 	ControllerConfigYaml = `
-receiver:
-  cpuLimit: 200m
-  cpuRequest: 100m
-  memoryLimit: 100Mi
-  memoryRequest: 50Mi
-  replicas: 1
-dispatcher:
-  cpuLimit: 500m
-  cpuRequest: 300m
-  memoryLimit: 128Mi
-  memoryRequest: 50Mi
-  replicas: 1
+cloudevents:
+  maxIdleConns: 1000
+  maxIdleConnsPerHost: 100
+channel:
+  adminType: kafka
+  receiver:
+    cpuLimit: 200m
+    cpuRequest: 100m
+    memoryLimit: 100Mi
+    memoryRequest: 50Mi
+    replicas: 1
+    deploymentAnnotations:
+      rdak1: rdav1
+    deploymentLabels:
+      rdlk1: rdlv1
+    podAnnotations:
+      rpak1: rpav1
+    podLabels:
+      rplk1: rplv1
+    serviceAnnotations:
+      rsak1: rsav1
+    serviceLabels:
+      rslk1: rslv1
+  dispatcher:
+    cpuLimit: 500m
+    cpuRequest: 300m
+    memoryLimit: 128Mi
+    memoryRequest: 50Mi
+    replicas: 1
+    deploymentAnnotations:
+      ddak1: ddav1
+    deploymentLabels:
+      ddlk1: ddlv1
+    podAnnotations:
+      dpak1: dpav1
+    podLabels:
+      dplk1: dplv1
+    serviceAnnotations:
+      dsak1: dsav1
+    serviceLabels:
+      dslk1: dslv1
 kafka:
   authSecretName: ` + KafkaSecretName + `
   authSecretNamespace: ` + KafkaSecretNamespace + `
@@ -179,6 +196,20 @@ Producer:
 var (
 	DefaultRetentionMillisString = strconv.FormatInt(DefaultRetentionMillis, 10)
 	DeletionTimestamp            = metav1.Now()
+
+	DispatcherDeploymentAnnotations = map[string]string{"DDAKey1": "DDAValue1", "DDAKey2": "DDAValue2", "DDAKey3": "DDAValue3"}
+	DispatcherDeploymentLabels      = map[string]string{"DDLKey1": "DDLValue1", "DDLKey2": "DDLValue2", "DDLKey3": "DDLValue3"}
+	DispatcherPodAnnotations        = map[string]string{"DPAKey1": "DPAValue1", "DPAKey2": "DPAValue2", "DPAKey3": "DPAValue3"}
+	DispatcherPodLabels             = map[string]string{"DPLKey1": "DPLValue1", "DPLKey2": "DPLValue2", "DPLKey3": "DPLValue3"}
+	DispatcherServiceAnnotations    = map[string]string{"DSAKey1": "DSAValue1", "DSAKey2": "DSAValue2", "DSAKey3": "DSAValue3"}
+	DispatcherServiceLabels         = map[string]string{"DSLKey1": "DSLValue1", "DSLKey2": "DSLValue2", "DSLKey3": "DSLValue3"}
+
+	ReceiverDeploymentAnnotations = map[string]string{"RDAKey1": "RDAValue1", "RDAKey2": "RDAValue2", "RDAKey3": "RDAValue3"}
+	ReceiverDeploymentLabels      = map[string]string{"RDLKey1": "RDLValue1", "RDLKey2": "RDLValue2", "RDLKey3": "RDLValue3"}
+	ReceiverPodAnnotations        = map[string]string{"RPAKey1": "RPAValue1", "RPAKey2": "RPAValue2", "RPAKey3": "RPAValue3"}
+	ReceiverPodLabels             = map[string]string{"RPLKey1": "RPLValue1", "RPLKey2": "RPLValue2", "RPLKey3": "RPLValue3"}
+	ReceiverServiceAnnotations    = map[string]string{"RSAKey1": "RSAValue1", "RSAKey2": "RSAValue2", "RSAKey3": "RSAValue3"}
+	ReceiverServiceLabels         = map[string]string{"RSLKey1": "RSLValue1", "RSLKey2": "RSLValue2", "RSLKey3": "RSLValue3"}
 )
 
 //
@@ -768,8 +799,8 @@ func NewKafkaChannelReceiverService(options ...ServiceOption) *corev1.Service {
 	}
 
 	// Append Test Config Annotations & Labels
-	service.Annotations = util.JoinStringMaps(service.Annotations, commonconfig.CsvKeyValueStringToMap(ReceiverServiceAnnotations))
-	service.Labels = util.JoinStringMaps(service.Labels, commonconfig.CsvKeyValueStringToMap(ReceiverServiceLabels))
+	service.Annotations = util.JoinStringMaps(service.Annotations, ReceiverServiceAnnotations)
+	service.Labels = util.JoinStringMaps(service.Labels, ReceiverServiceLabels)
 
 	// Apply The Specified Service Customizations
 	for _, option := range options {
@@ -943,10 +974,10 @@ func NewKafkaChannelReceiverDeployment(options ...DeploymentOption) *appsv1.Depl
 	}
 
 	// Append Test Config Annotations & Labels
-	deployment.ObjectMeta.Annotations = util.JoinStringMaps(deployment.ObjectMeta.Annotations, commonconfig.CsvKeyValueStringToMap(ReceiverDeploymentAnnotations))
-	deployment.ObjectMeta.Labels = util.JoinStringMaps(deployment.ObjectMeta.Labels, commonconfig.CsvKeyValueStringToMap(ReceiverDeploymentLabels))
-	deployment.Spec.Template.ObjectMeta.Annotations = util.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Annotations, commonconfig.CsvKeyValueStringToMap(ReceiverPodAnnotations))
-	deployment.Spec.Template.ObjectMeta.Labels = util.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Labels, commonconfig.CsvKeyValueStringToMap(ReceiverPodLabels))
+	deployment.ObjectMeta.Annotations = util.JoinStringMaps(deployment.ObjectMeta.Annotations, ReceiverDeploymentAnnotations)
+	deployment.ObjectMeta.Labels = util.JoinStringMaps(deployment.ObjectMeta.Labels, ReceiverDeploymentLabels)
+	deployment.Spec.Template.ObjectMeta.Annotations = util.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Annotations, ReceiverPodAnnotations)
+	deployment.Spec.Template.ObjectMeta.Labels = util.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Labels, ReceiverPodLabels)
 
 	// Apply The Specified Deployment Customizations
 	for _, option := range options {
@@ -997,8 +1028,8 @@ func NewKafkaChannelDispatcherService(options ...ServiceOption) *corev1.Service 
 	}
 
 	// Append Test Config Annotations & Labels
-	service.Annotations = util.JoinStringMaps(service.Annotations, commonconfig.CsvKeyValueStringToMap(DispatcherServiceAnnotations))
-	service.Labels = util.JoinStringMaps(service.Labels, commonconfig.CsvKeyValueStringToMap(DispatcherServiceLabels))
+	service.Annotations = util.JoinStringMaps(service.Annotations, DispatcherServiceAnnotations)
+	service.Labels = util.JoinStringMaps(service.Labels, DispatcherServiceLabels)
 
 	// Apply The Specified Service Customizations
 	for _, option := range options {
@@ -1183,10 +1214,10 @@ func NewKafkaChannelDispatcherDeployment(options ...DeploymentOption) *appsv1.De
 	}
 
 	// Append Test Config Annotations & Labels
-	deployment.ObjectMeta.Annotations = util.JoinStringMaps(deployment.ObjectMeta.Annotations, commonconfig.CsvKeyValueStringToMap(DispatcherDeploymentAnnotations))
-	deployment.ObjectMeta.Labels = util.JoinStringMaps(deployment.ObjectMeta.Labels, commonconfig.CsvKeyValueStringToMap(DispatcherDeploymentLabels))
-	deployment.Spec.Template.ObjectMeta.Annotations = util.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Annotations, commonconfig.CsvKeyValueStringToMap(DispatcherPodAnnotations))
-	deployment.Spec.Template.ObjectMeta.Labels = util.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Labels, commonconfig.CsvKeyValueStringToMap(DispatcherPodLabels))
+	deployment.ObjectMeta.Annotations = util.JoinStringMaps(deployment.ObjectMeta.Annotations, DispatcherDeploymentAnnotations)
+	deployment.ObjectMeta.Labels = util.JoinStringMaps(deployment.ObjectMeta.Labels, DispatcherDeploymentLabels)
+	deployment.Spec.Template.ObjectMeta.Annotations = util.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Annotations, DispatcherPodAnnotations)
+	deployment.Spec.Template.ObjectMeta.Labels = util.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Labels, DispatcherPodLabels)
 
 	// Apply The Specified Deployment Customizations
 	for _, option := range options {
