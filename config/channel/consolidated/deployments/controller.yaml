@@ -18,6 +18,8 @@ metadata:
   name: kafka-ch-controller
   namespace: knative-eventing
   labels:
+    messaging.knative.dev/channel: kafka-channel
+    messaging.knative.dev/role: controller
     kafka.eventing.knative.dev/release: devel
 spec:
   replicas: 1
