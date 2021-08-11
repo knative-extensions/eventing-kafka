@@ -339,7 +339,7 @@ func (r *Reconciler) reconcileDispatcher(ctx context.Context, scope string, disp
 		kc.Status.MarkDispatcherUnknown("DispatcherDeploymentFailed", "Failed to get dispatcher deployment: %v", err)
 		return err
 	} else {
-		// keep
+		// scale up the dispatcher to 1, otherwise keep the existing number in case the user has scaled it up.
 		if *d.Spec.Replicas == 0 {
 			logger.Infof("Dispatcher deployment has 0 replica. Scaling up deployment to 1 replica")
 			args.Replicas = 1
