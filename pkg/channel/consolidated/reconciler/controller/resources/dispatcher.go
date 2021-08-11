@@ -20,9 +20,10 @@ import (
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/system"
+
 	"knative.dev/eventing-kafka/pkg/common/constants"
 	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
-	"knative.dev/pkg/system"
 )
 
 const (
@@ -37,6 +38,11 @@ var (
 	}
 )
 
+type DispatcherBuilder struct {
+	deployment *v1.Deployment
+	args       *DispatcherArgs
+}
+
 type DispatcherArgs struct {
 	DispatcherScope     string
 	DispatcherNamespace string
@@ -44,11 +50,53 @@ type DispatcherArgs struct {
 	Replicas            int32
 	ServiceAccount      string
 	ConfigMapHash       string
+	OwnerRef            metav1.OwnerReference
 }
 
-// MakeDispatcher generates the dispatcher deployment for the KafKa channel
-func MakeDispatcher(args DispatcherArgs) *v1.Deployment {
-	replicas := args.Replicas
+// NewDispatcherBuilder returns a builder which builds from scratch a dispatcher deployment.
+// Intended to be used when creating the dispatcher deployment for the first time.
+func NewDispatcherBuilder() *DispatcherBuilder {
+	b := &DispatcherBuilder{}
+	b.deployment = dispatcherTemplate()
+	return b
+}
+
+// NewDispatcherBuilderFromDeployment returns a builder which builds a dispatcher deployment from the given deployment.
+// Intended to be used when updating an existing dispatcher deployment.
+func NewDispatcherBuilderFromDeployment(d *v1.Deployment) *DispatcherBuilder {
+	b := &DispatcherBuilder{}
+	b.deployment = d
+	return b
+}
+
+func (b *DispatcherBuilder) WithArgs(args *DispatcherArgs) *DispatcherBuilder {
+	b.args = args
+	return b
+}
+
+func (b *DispatcherBuilder) Build() *v1.Deployment {
+	replicas := b.args.Replicas
+	b.deployment.ObjectMeta.Namespace = b.args.DispatcherNamespace
+	b.deployment.ObjectMeta.OwnerReferences = []metav1.OwnerReference{b.args.OwnerRef}
+	b.deployment.Spec.Replicas = &replicas
+	b.deployment.Spec.Template.ObjectMeta.Annotations = map[string]string{
+		commonconstants.ConfigMapHashAnnotationKey: b.args.ConfigMapHash,
+	}
+	b.deployment.Spec.Template.Spec.ServiceAccountName = b.args.ServiceAccount
+
+	for i, c := range b.deployment.Spec.Template.Spec.Containers {
+		if c.Name == DispatcherContainerName {
+			container := &b.deployment.Spec.Template.Spec.Containers[i]
+			container.Image = b.args.Image
+			if container.Env == nil {
+				container.Env = makeEnv(b.args)
+			}
+		}
+	}
+	return b.deployment
+}
+
+func dispatcherTemplate() *v1.Deployment {
 
 	return &v1.Deployment{
 		TypeMeta: metav1.TypeMeta{
@@ -56,28 +104,20 @@ func MakeDispatcher(args DispatcherArgs) *v1.Deployment {
 			Kind:       "Deployments",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      dispatcherName,
-			Namespace: args.DispatcherNamespace,
+			Name: dispatcherName,
 		},
 		Spec: v1.DeploymentSpec{
-			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: dispatcherLabels,
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: dispatcherLabels,
-					Annotations: map[string]string{
-						commonconstants.ConfigMapHashAnnotationKey: args.ConfigMapHash,
-					},
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName: args.ServiceAccount,
 					Containers: []corev1.Container{
 						{
-							Name:  DispatcherContainerName,
-							Image: args.Image,
-							Env:   makeEnv(args),
+							Name: DispatcherContainerName,
 							Ports: []corev1.ContainerPort{{
 								Name:          "metrics",
 								ContainerPort: 9090,
@@ -108,7 +148,7 @@ func MakeDispatcher(args DispatcherArgs) *v1.Deployment {
 	}
 }
 
-func makeEnv(args DispatcherArgs) []corev1.EnvVar {
+func makeEnv(args *DispatcherArgs) []corev1.EnvVar {
 	vars := []corev1.EnvVar{{
 		Name:  system.NamespaceEnvKey,
 		Value: system.Namespace(),
@@ -131,18 +171,20 @@ func makeEnv(args DispatcherArgs) []corev1.EnvVar {
 					FieldPath: "metadata.namespace",
 				},
 			},
-		}, corev1.EnvVar{
-			Name: "POD_NAME",
-			ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{
-					FieldPath: "metadata.name",
-				},
-			},
-		}, corev1.EnvVar{
-			Name:  "CONTAINER_NAME",
-			Value: "dispatcher",
 		})
 	}
 
+	vars = append(vars, corev1.EnvVar{
+		Name: "POD_NAME",
+		ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{
+				APIVersion: "",
+				FieldPath:  "metadata.name",
+			},
+		},
+	}, corev1.EnvVar{
+		Name:  "CONTAINER_NAME",
+		Value: "dispatcher",
+	})
 	return vars
 }
