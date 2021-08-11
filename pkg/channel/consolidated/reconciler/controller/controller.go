@@ -18,18 +18,16 @@ package controller
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"math"
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/pointer"
 	eventingduckv1 "knative.dev/eventing/pkg/apis/duck/v1"
@@ -62,6 +60,8 @@ const (
 	roleLabelKey             = "messaging.knative.dev/role"
 	dispatcherRoleLabelValue = "dispatcher"
 	controllerRoleLabelValue = "controller"
+	interval                 = 100 * time.Millisecond
+	timeout                  = 5 * time.Minute
 )
 
 // NewController initializes the controller and is called by the generated code.
@@ -101,25 +101,12 @@ func NewController(
 	r.dispatcherImage = env.Image
 	r.dispatcherServiceAccount = env.DispatcherServiceAccount
 
-	// get the controller deployment to set the ownerRef
-	ctrlDeploymentLabels := labels.Set{
-		channelLabelKey: channelLabelValue,
-		roleLabelKey:    controllerRoleLabelValue,
-	}
-
-	ctrlDeployment, err := getCtrlDeployment(ctx, system.Namespace(), ctrlDeploymentLabels)
-
+	// get the ref of the controller deployment
+	ownerRef, err := getControllerOwnerRef(ctx)
 	if err != nil {
-		logger.Fatalw("failed to determine the deployment of the KafkaChannel controller based on labels.", zap.Error(err), zap.String("namespace", system.Namespace()), zap.Any("labels", ctrlDeploymentLabels))
+		logger.Fatalw("Could not determine the proper owner reference for the dispatcher deployment.", zap.Error(err))
 	}
-
-	r.controllerRef = metav1.OwnerReference{
-		APIVersion: "apps/v1",
-		Kind:       "Deployment",
-		Name:       ctrlDeployment.Name,
-		UID:        ctrlDeployment.UID,
-		Controller: pointer.BoolPtr(true),
-	}
+	r.controllerRef = *ownerRef
 
 	impl := kafkaChannelReconciler.NewImpl(ctx, r)
 
@@ -208,33 +195,37 @@ func getPodInformerEventHandler(ctx context.Context, logger *zap.SugaredLogger, 
 	}
 }
 
-func getCtrlDeployment(ctx context.Context, ns string, labels labels.Set) (*appsv1.Deployment, error) {
+func getControllerOwnerRef(ctx context.Context) (*metav1.OwnerReference, error) {
 	logger := logging.FromContext(ctx)
-	k8sClient := kubeclient.Get(ctx)
-	var d appsv1.Deployment
-	for i := 0; i <= 10; i++ {
-		deploymentList, err := k8sClient.AppsV1().Deployments(ns).List(ctx,
-			metav1.ListOptions{LabelSelector: labels.String()})
-		if err != nil {
-			return nil, fmt.Errorf("error listing KafkaChannel controller deployment labels %w", err)
-		}
-		if len(deploymentList.Items) == 1 {
-			d = deploymentList.Items[0]
-			break
-		} else if len(deploymentList.Items) == 0 {
-			// Retry until the deployment creation shows up in k8s API
-			if i == 10 {
-				return nil, errors.New("found zero KafkaChannel controller deployment matching labels")
-			} else {
-				// Simple exponential backoff
-				logger.Debugw(fmt.Sprintf("found zero KafkaChannel controller deployment matching labels. Retrying %d / 10", i), zap.String("namesame", ns), zap.Any("selectors", labels.AsSelector()))
-				duration := 100 * math.Pow(2, float64(i))
-				time.Sleep(time.Duration(duration) * time.Millisecond)
-				continue
-			}
-		} else {
-			return nil, fmt.Errorf("found an unexpected number of KafkaChannel controller deployment matching labels. Got: %d, Want: 1", len(deploymentList.Items))
-		}
+	ctrlDeploymentLabels := labels.Set{
+		channelLabelKey: channelLabelValue,
+		roleLabelKey:    controllerRoleLabelValue,
 	}
-	return &d, nil
+
+	ownerRef := metav1.OwnerReference{
+		APIVersion: "apps/v1",
+		Kind:       "Deployment",
+		Controller: pointer.BoolPtr(true),
+	}
+	err := wait.PollImmediate(interval, timeout, func() (bool, error) {
+		k8sClient := kubeclient.Get(ctx)
+		deploymentList, err := k8sClient.AppsV1().Deployments(system.Namespace()).List(ctx, metav1.ListOptions{LabelSelector: ctrlDeploymentLabels.String()})
+		if err != nil {
+			return true, fmt.Errorf("error listing KafkaChannel controller deployment labels %w", err)
+		} else if len(deploymentList.Items) == 0 {
+			// Simple exponential backoff
+			logger.Debugw("found zero KafkaChannel controller deployment matching labels. Retrying.", zap.String("namesame", system.Namespace()), zap.Any("selectors", ctrlDeploymentLabels.AsSelector()))
+			return false, nil
+		} else if len(deploymentList.Items) > 1 {
+			return true, fmt.Errorf("found an unexpected number of KafkaChannel controller deployment matching labels. Got: %d, Want: 1", len(deploymentList.Items))
+		}
+		d := deploymentList.Items[0]
+		ownerRef.Name = d.Name
+		ownerRef.UID = d.UID
+		return true, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to determine the deployment of the KafkaChannel controller based on labels. %w", err)
+	}
+	return &ownerRef, nil
 }
