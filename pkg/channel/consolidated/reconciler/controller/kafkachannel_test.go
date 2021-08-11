@@ -607,7 +607,6 @@ func TestDeploymentMoreThanOneReplicas(t *testing.T) {
 				reconcilertesting.WithKafkaFinalizer(finalizerName),
 				reconcilertesting.WithKafkaChannelConfigReady(),
 				reconcilertesting.WithKafkaChannelTopicReady(),
-				//				reconcilekafkatesting.WithKafkaChannelDeploymentReady(),
 				reconcilertesting.WithKafkaChannelServiceReady(),
 				reconcilertesting.WithKafkaChannelEndpointsReady(),
 				reconcilertesting.WithKafkaChannelChannelServiceReady(),
@@ -834,13 +833,14 @@ func (ca *mockClusterAdmin) DeleteConsumerGroup(group string) error {
 var _ sarama.ClusterAdmin = (*mockClusterAdmin)(nil)
 
 func makeDeploymentWithParams(image string, replicas int32, configMapHash string) *appsv1.Deployment {
-	return resources.MakeDispatcher(resources.DispatcherArgs{
+	args := resources.DispatcherArgs{
 		DispatcherNamespace: testNS,
 		Image:               image,
 		Replicas:            replicas,
 		ServiceAccount:      testDispatcherserviceAccount,
 		ConfigMapHash:       configMapHash,
-	})
+	}
+	return resources.NewDispatcherBuilder().WithArgs(&args).Build()
 }
 
 func makeDeploymentWithImageAndReplicas(image string, replicas int32) *appsv1.Deployment {
