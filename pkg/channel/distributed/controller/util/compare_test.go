@@ -49,15 +49,27 @@ func TestCheckDeploymentChanged(t *testing.T) {
 			expectUpdated:      true,
 		},
 		{
-			name:               "Missing Required Label",
+			name:               "Missing Required Deployment Label",
 			existingDeployment: getBasicDeployment(),
-			newDeployment:      getBasicDeployment(withLabel),
+			newDeployment:      getBasicDeployment(withDeploymentLabel),
 			expectUpdated:      true,
 		},
 		{
-			name:               "Missing Required Annotation",
+			name:               "Missing Required Template Label",
 			existingDeployment: getBasicDeployment(),
-			newDeployment:      getBasicDeployment(withAnnotation),
+			newDeployment:      getBasicDeployment(withTemplateLabel),
+			expectUpdated:      true,
+		},
+		{
+			name:               "Missing Required Deployment Annotation",
+			existingDeployment: getBasicDeployment(),
+			newDeployment:      getBasicDeployment(withDeploymentAnnotation),
+			expectUpdated:      true,
+		},
+		{
+			name:               "Missing Required Template Annotation",
+			existingDeployment: getBasicDeployment(),
+			newDeployment:      getBasicDeployment(withTemplateAnnotation),
 			expectUpdated:      true,
 		},
 		{
@@ -67,13 +79,23 @@ func TestCheckDeploymentChanged(t *testing.T) {
 			expectUpdated:      true,
 		},
 		{
-			name:               "Extra Existing Label",
-			existingDeployment: getBasicDeployment(withLabel),
+			name:               "Extra Existing Deployment Label",
+			existingDeployment: getBasicDeployment(withDeploymentLabel),
 			newDeployment:      getBasicDeployment(),
 		},
 		{
-			name:               "Extra Existing Annotation",
-			existingDeployment: getBasicDeployment(withAnnotation),
+			name:               "Extra Existing Template Label",
+			existingDeployment: getBasicDeployment(withTemplateLabel),
+			newDeployment:      getBasicDeployment(),
+		},
+		{
+			name:               "Extra Existing Deployment Annotation",
+			existingDeployment: getBasicDeployment(withDeploymentAnnotation),
+			newDeployment:      getBasicDeployment(),
+		},
+		{
+			name:               "Extra Existing Template Annotation",
+			existingDeployment: getBasicDeployment(withTemplateAnnotation),
 			newDeployment:      getBasicDeployment(),
 		},
 		{
@@ -92,15 +114,26 @@ func TestCheckDeploymentChanged(t *testing.T) {
 			newDeployment:      getBasicDeployment(),
 		},
 		{
-			name:               "Multiple Existing Containers, Missing Required Annotation",
+			name:               "Multiple Existing Containers, Missing Required Deployment Annotation",
 			existingDeployment: getBasicDeployment(withExtraContainer),
-			newDeployment:      getBasicDeployment(withAnnotation),
+			newDeployment:      getBasicDeployment(withDeploymentAnnotation),
+			expectUpdated:      true,
+		}, {
+			name:               "Multiple Existing Containers, Missing Required Template Annotation",
+			existingDeployment: getBasicDeployment(withExtraContainer),
+			newDeployment:      getBasicDeployment(withTemplateAnnotation),
 			expectUpdated:      true,
 		},
 		{
-			name:               "Multiple Existing Containers, Incorrect First, Missing Required Annotation",
+			name:               "Multiple Existing Containers, Incorrect First, Missing Required Deployment Annotation",
 			existingDeployment: getBasicDeployment(withExtraContainerFirst),
-			newDeployment:      getBasicDeployment(withAnnotation),
+			newDeployment:      getBasicDeployment(withDeploymentAnnotation),
+			expectUpdated:      true,
+		},
+		{
+			name:               "Multiple Existing Containers, Incorrect First, Missing Required Template Annotation",
+			existingDeployment: getBasicDeployment(withExtraContainerFirst),
+			newDeployment:      getBasicDeployment(withTemplateAnnotation),
 			expectUpdated:      true,
 		},
 		{
@@ -147,6 +180,13 @@ func TestCheckServiceChanged(t *testing.T) {
 			expectPatch:     true,
 		},
 		{
+			name:            "Missing Required Annotation",
+			existingService: getBasicService(),
+			newService:      getBasicService(withServiceAnnotation),
+			expectUpdated:   true,
+			expectPatch:     true,
+		},
+		{
 			name:            "Missing Ports",
 			existingService: getBasicService(withoutPorts),
 			newService:      getBasicService(),
@@ -156,6 +196,11 @@ func TestCheckServiceChanged(t *testing.T) {
 		{
 			name:            "Extra Existing Label",
 			existingService: getBasicService(withServiceLabel),
+			newService:      getBasicService(),
+		},
+		{
+			name:            "Extra Existing Annotation",
+			existingService: getBasicService(withServiceAnnotation),
 			newService:      getBasicService(),
 		},
 		{
@@ -220,13 +265,15 @@ func getBasicDeployment(options ...deploymentOption) *appsv1.Deployment {
 			Kind:       constants.DeploymentKind,
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "TestDeployment",
-			Namespace: "TestNamespace",
-			Labels:    make(map[string]string),
+			Name:        "TestDeployment",
+			Namespace:   "TestNamespace",
+			Labels:      make(map[string]string),
+			Annotations: make(map[string]string),
 		},
 		Spec: appsv1.DeploymentSpec{
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
+					Labels:      make(map[string]string),
 					Annotations: make(map[string]string),
 				},
 				Spec: corev1.PodSpec{
@@ -246,12 +293,20 @@ func getBasicDeployment(options ...deploymentOption) *appsv1.Deployment {
 	return deployment
 }
 
-func withLabel(deployment *appsv1.Deployment) {
-	deployment.Labels["TestLabelName"] = "TestLabelValue"
+func withDeploymentLabel(deployment *appsv1.Deployment) {
+	deployment.ObjectMeta.Labels["TestDeploymentLabelName"] = "TestDeploymentLabelValue"
 }
 
-func withAnnotation(deployment *appsv1.Deployment) {
-	deployment.Spec.Template.ObjectMeta.Annotations["TestAnnotationName"] = "TestAnnotationValue"
+func withTemplateLabel(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.ObjectMeta.Labels["TestTemplateLabelName"] = "TestTemplateLabelValue"
+}
+
+func withDeploymentAnnotation(deployment *appsv1.Deployment) {
+	deployment.ObjectMeta.Annotations["TestDeploymentAnnotationName"] = "TestDeploymentAnnotationValue"
+}
+
+func withTemplateAnnotation(deployment *appsv1.Deployment) {
+	deployment.Spec.Template.ObjectMeta.Annotations["TestTemplateAnnotationName"] = "TestTemplateAnnotationValue"
 }
 
 func withoutContainer(deployment *appsv1.Deployment) {
@@ -287,9 +342,10 @@ func getBasicService(options ...serviceOption) *corev1.Service {
 			Kind:       constants.ServiceKind,
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "TestService",
-			Namespace: "TestNamespace",
-			Labels:    make(map[string]string),
+			Name:        "TestService",
+			Namespace:   "TestNamespace",
+			Labels:      make(map[string]string),
+			Annotations: make(map[string]string),
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{{
@@ -307,7 +363,11 @@ func getBasicService(options ...serviceOption) *corev1.Service {
 }
 
 func withServiceLabel(service *corev1.Service) {
-	service.Labels["TestLabelName"] = "TestLabelValue"
+	service.ObjectMeta.Labels["TestServiceLabelName"] = "TestServiceLabelValue"
+}
+
+func withServiceAnnotation(service *corev1.Service) {
+	service.ObjectMeta.Annotations["TestServiceAnnotationName"] = "TestServiceAnnotationValue"
 }
 
 func withDifferentClusterIP(service *corev1.Service) {
