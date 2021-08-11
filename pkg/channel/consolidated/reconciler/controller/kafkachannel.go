@@ -22,6 +22,7 @@ import (
 	"strconv"
 
 	"github.com/Shopify/sarama"
+	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -35,9 +36,9 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/utils/pointer"
 	v1 "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/apis/eventing"
+	eventingclientset "knative.dev/eventing/pkg/client/clientset/versioned"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/controller"
@@ -56,9 +57,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/common/client"
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/common/constants"
-	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	kafkasarama "knative.dev/eventing-kafka/pkg/common/kafka/sarama"
-	eventingclientset "knative.dev/eventing/pkg/client/clientset/versioned"
 )
 
 const (
@@ -135,6 +134,7 @@ type Reconciler struct {
 	serviceAccountLister corev1listers.ServiceAccountLister
 	roleBindingLister    rbacv1listers.RoleBindingLister
 	statusManager        status.Manager
+	controllerRef        metav1.OwnerReference
 }
 
 type envConfig struct {
@@ -286,6 +286,7 @@ func (r *Reconciler) reconcileSubscribers(ctx context.Context, ch *v1beta1.Kafka
 }
 
 func (r *Reconciler) reconcileDispatcher(ctx context.Context, scope string, dispatcherNamespace string, kc *v1beta1.KafkaChannel) error {
+	logger := logging.FromContext(ctx)
 	if scope == scopeNamespace {
 		// Configure RBAC in namespace to access the configmaps
 		sa, err := r.reconcileServiceAccount(ctx, dispatcherNamespace, kc)
@@ -315,93 +316,50 @@ func (r *Reconciler) reconcileDispatcher(ctx context.Context, scope string, disp
 		Replicas:            1,
 		ServiceAccount:      r.dispatcherServiceAccount,
 		ConfigMapHash:       r.kafkaConfigMapHash,
+		OwnerRef:            r.controllerRef,
 	}
 
-	expected := resources.MakeDispatcher(args)
+	want := resources.NewDispatcherBuilder().WithArgs(&args).Build()
 	d, err := r.deploymentLister.Deployments(dispatcherNamespace).Get(dispatcherName)
 	if err != nil {
 		if apierrs.IsNotFound(err) {
-			d, err := r.KubeClientSet.AppsV1().Deployments(dispatcherNamespace).Create(ctx, expected, metav1.CreateOptions{})
+			d, err := r.KubeClientSet.AppsV1().Deployments(dispatcherNamespace).Create(ctx, want, metav1.CreateOptions{})
 			if err == nil {
 				controller.GetEventRecorder(ctx).Event(kc, corev1.EventTypeNormal, dispatcherDeploymentCreated, "Dispatcher deployment created")
 				kc.Status.PropagateDispatcherStatus(&d.Status)
 				return err
 			} else {
+				logger.Errorw("error while creating dispatcher deployment", zap.Error(err), zap.String("namespace", dispatcherNamespace), zap.Any("deployment", want))
 				kc.Status.MarkDispatcherFailed(dispatcherDeploymentFailed, "Failed to create the dispatcher deployment: %v", err)
 				return newDeploymentWarn(err)
 			}
 		}
-
-		logging.FromContext(ctx).Errorw("Unable to get the dispatcher deployment", zap.Error(err))
+		logger.Errorw("can't get dispatcher deployment", zap.Error(err), zap.String("namespace", dispatcherNamespace),
+			zap.String("dispatcher-name", dispatcherName))
 		kc.Status.MarkDispatcherUnknown("DispatcherDeploymentFailed", "Failed to get dispatcher deployment: %v", err)
 		return err
 	} else {
-		existing := utils.FindContainer(d, resources.DispatcherContainerName)
-		if existing == nil {
-			logging.FromContext(ctx).Errorw("Container %s does not exist in existing dispatcher deployment. Updating the deployment", resources.DispatcherContainerName)
-			d, err := r.KubeClientSet.AppsV1().Deployments(dispatcherNamespace).Update(ctx, expected, metav1.UpdateOptions{})
-			if err == nil {
-				controller.GetEventRecorder(ctx).Event(kc, corev1.EventTypeNormal, dispatcherDeploymentUpdated, "Dispatcher deployment updated")
-				kc.Status.PropagateDispatcherStatus(&d.Status)
-				return nil
-			} else {
-				kc.Status.MarkServiceFailed("DispatcherDeploymentUpdateFailed", "Failed to update the dispatcher deployment: %v", err)
-			}
-			return newDeploymentWarn(err)
+		// scale up the dispatcher to 1, otherwise keep the existing number in case the user has scaled it up.
+		if *d.Spec.Replicas == 0 {
+			logger.Infof("Dispatcher deployment has 0 replica. Scaling up deployment to 1 replica")
+			args.Replicas = 1
+		} else {
+			args.Replicas = *d.Spec.Replicas
 		}
+		want = resources.NewDispatcherBuilderFromDeployment(d.DeepCopy()).WithArgs(&args).Build()
 
-		expectedContainer := utils.FindContainer(expected, resources.DispatcherContainerName)
-		if expectedContainer == nil {
-			return fmt.Errorf("container %s does not exist in expected dispatcher deployment. Cannot check if the deployment needs an update", resources.DispatcherContainerName)
-		}
-
-		expectedConfigMapHash := r.kafkaConfigMapHash
-
-		needsUpdate := false
-		// do not touch the original deployment, deepcopy it
-		deploymentCopy := d.DeepCopy()
-		existingCopy := utils.FindContainer(deploymentCopy, resources.DispatcherContainerName)
-
-		if existingCopy.Image != expectedContainer.Image {
-			logging.FromContext(ctx).Infof("Dispatcher deployment image is not what we expect it to be, updating Deployment Got: %q Expect: %q", expected.Spec.Template.Spec.Containers[0].Image, d.Spec.Template.Spec.Containers[0].Image)
-			existingCopy.Image = expectedContainer.Image
-			needsUpdate = true
-		}
-
-		if *deploymentCopy.Spec.Replicas == 0 {
-			logging.FromContext(ctx).Infof("Dispatcher deployment has 0 replica. Scaling up deployment to 1 replica")
-			deploymentCopy.Spec.Replicas = pointer.Int32Ptr(1)
-			needsUpdate = true
-		}
-
-		if deploymentCopy.Spec.Template.Annotations == nil {
-			logging.FromContext(ctx).Infof("Configmap hash is not set. Updating the dispatcher deployment.")
-			deploymentCopy.Spec.Template.Annotations = map[string]string{
-				commonconstants.ConfigMapHashAnnotationKey: expectedConfigMapHash,
-			}
-			needsUpdate = true
-		}
-
-		if deploymentCopy.Spec.Template.Annotations[commonconstants.ConfigMapHashAnnotationKey] != expectedConfigMapHash {
-			logging.FromContext(ctx).Infof("Configmap hash is changed. Updating the dispatcher deployment.")
-			deploymentCopy.Spec.Template.Annotations[commonconstants.ConfigMapHashAnnotationKey] = expectedConfigMapHash
-			needsUpdate = true
-		}
-
-		if needsUpdate {
-			deploymentCopy, err = r.KubeClientSet.AppsV1().Deployments(dispatcherNamespace).Update(ctx, deploymentCopy, metav1.UpdateOptions{})
-			if err == nil {
-				controller.GetEventRecorder(ctx).Event(kc, corev1.EventTypeNormal, dispatcherDeploymentUpdated, "Dispatcher deployment updated")
-				kc.Status.PropagateDispatcherStatus(&deploymentCopy.Status)
-				return nil
-			} else {
+		if !equality.Semantic.DeepEqual(want.Spec, d.Spec) {
+			logger.Infof("Dispatcher deployment changed; reconciling:\n%s", cmp.Diff(want.Spec, d.Spec))
+			if d, err = r.KubeClientSet.AppsV1().Deployments(dispatcherNamespace).Update(ctx, want, metav1.UpdateOptions{}); err != nil {
+				logger.Errorw("error while updating dispatcher deployment", zap.Error(err), zap.String("namespace", dispatcherNamespace), zap.Any("deployment", want))
 				kc.Status.MarkServiceFailed("DispatcherDeploymentUpdateFailed", "Failed to update the dispatcher deployment: %v", err)
 				return newDeploymentWarn(err)
+			} else {
+				controller.GetEventRecorder(ctx).Event(kc, corev1.EventTypeNormal, dispatcherDeploymentUpdated, "Dispatcher deployment updated")
 			}
-		} else {
-			kc.Status.PropagateDispatcherStatus(&d.Status)
-			return nil
 		}
+		kc.Status.PropagateDispatcherStatus(&d.Status)
+		return nil
 	}
 }
 
