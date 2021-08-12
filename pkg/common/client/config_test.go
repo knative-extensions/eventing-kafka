@@ -34,6 +34,7 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/ghodss/yaml"
 	"github.com/stretchr/testify/assert"
+	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
@@ -308,11 +309,13 @@ func TestBuildSaramaConfig(t *testing.T) {
 			},
 		}).
 		WithVersion(&sarama.V2_0_0_0).
+		WithInitialOffset(v1beta1.OffsetEarliest).
 		WithClientId("newClientId").
 		Build(ctx)
 	assert.Nil(t, err)
 	assert.Equal(t, "foo", config.Net.SASL.User)
 	assert.Equal(t, "newClientId", config.ClientID)
+	assert.Equal(t, sarama.OffsetOldest, config.Consumer.Offsets.Initial)
 	assert.Equal(t, sarama.V2_0_0_0, config.Version)
 }
 

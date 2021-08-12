@@ -40,6 +40,7 @@ var (
 		},
 		Topics:        []string{"topics"},
 		ConsumerGroup: "group",
+		InitialOffset: OffsetLatest,
 		SourceSpec: duckv1.SourceSpec{
 			Sink: duckv1.Destination{
 				Ref: &duckv1.KReference{
@@ -87,6 +88,7 @@ func TestKafkaSourceCheckRequiredFields(t *testing.T) {
 				KafkaAuthSpec: fullSpec.KafkaAuthSpec,
 				Topics:        fullSpec.Topics,
 				SourceSpec:    fullSpec.SourceSpec,
+				InitialOffset: OffsetLatest,
 			},
 			allowed: true,
 		},
@@ -126,6 +128,7 @@ func TestKafkaSourceCheckImmutableFields(t *testing.T) {
 				KafkaAuthSpec: fullSpec.KafkaAuthSpec,
 				Topics:        []string{"some-other-topic"},
 				ConsumerGroup: fullSpec.ConsumerGroup,
+				InitialOffset: OffsetLatest,
 				SourceSpec:    fullSpec.SourceSpec,
 			},
 			allowed: true,
@@ -140,6 +143,7 @@ func TestKafkaSourceCheckImmutableFields(t *testing.T) {
 				Topics:        []string{"some-other-topic"},
 				ConsumerGroup: fullSpec.ConsumerGroup,
 				SourceSpec:    fullSpec.SourceSpec,
+				InitialOffset: OffsetLatest,
 			},
 			allowed: true,
 		},
@@ -149,6 +153,7 @@ func TestKafkaSourceCheckImmutableFields(t *testing.T) {
 				KafkaAuthSpec: fullSpec.KafkaAuthSpec,
 				Topics:        fullSpec.Topics,
 				ConsumerGroup: fullSpec.ConsumerGroup,
+				InitialOffset: OffsetLatest,
 				SourceSpec: duckv1.SourceSpec{
 					Sink: duckv1.Destination{
 						Ref: &duckv1.KReference{
@@ -168,6 +173,7 @@ func TestKafkaSourceCheckImmutableFields(t *testing.T) {
 				KafkaAuthSpec: fullSpec.KafkaAuthSpec,
 				Topics:        fullSpec.Topics,
 				ConsumerGroup: fullSpec.ConsumerGroup,
+				InitialOffset: OffsetLatest,
 				SourceSpec: duckv1.SourceSpec{
 					Sink: duckv1.Destination{
 						Ref: &duckv1.KReference{
@@ -188,6 +194,7 @@ func TestKafkaSourceCheckImmutableFields(t *testing.T) {
 				KafkaAuthSpec: fullSpec.KafkaAuthSpec,
 				Topics:        fullSpec.Topics,
 				ConsumerGroup: fullSpec.ConsumerGroup,
+				InitialOffset: OffsetLatest,
 				SourceSpec: duckv1.SourceSpec{
 					Sink: duckv1.Destination{
 						Ref: &duckv1.KReference{
@@ -208,6 +215,7 @@ func TestKafkaSourceCheckImmutableFields(t *testing.T) {
 				KafkaAuthSpec: fullSpec.KafkaAuthSpec,
 				Topics:        fullSpec.Topics,
 				ConsumerGroup: fullSpec.ConsumerGroup,
+				InitialOffset: OffsetLatest,
 				SourceSpec: duckv1.SourceSpec{
 					Sink: duckv1.Destination{
 						Ref: &duckv1.KReference{
@@ -232,6 +240,7 @@ func TestKafkaSourceCheckImmutableFields(t *testing.T) {
 				KafkaAuthSpec: fullSpec.KafkaAuthSpec,
 				Topics:        fullSpec.Topics,
 				ConsumerGroup: "no-way",
+				InitialOffset: OffsetLatest,
 				SourceSpec:    fullSpec.SourceSpec,
 			},
 			allowed: false,
@@ -240,6 +249,7 @@ func TestKafkaSourceCheckImmutableFields(t *testing.T) {
 			orig: &fullSpec,
 			updated: KafkaSourceSpec{
 				ConsumerGroup: fullSpec.ConsumerGroup,
+				InitialOffset: OffsetLatest,
 				SourceSpec:    fullSpec.SourceSpec,
 				Topics:        fullSpec.Topics,
 				KafkaAuthSpec: bindingsv1beta1.KafkaAuthSpec{
@@ -257,6 +267,7 @@ func TestKafkaSourceCheckImmutableFields(t *testing.T) {
 			orig: &fullSpec,
 			updated: KafkaSourceSpec{
 				ConsumerGroup: fullSpec.ConsumerGroup,
+				InitialOffset: OffsetLatest,
 				SourceSpec:    fullSpec.SourceSpec,
 				Topics:        fullSpec.Topics,
 				KafkaAuthSpec: bindingsv1beta1.KafkaAuthSpec{
@@ -288,6 +299,44 @@ func TestKafkaSourceCheckImmutableFields(t *testing.T) {
 			err := updated.Validate(ctx)
 			if tc.allowed != (err == nil) {
 				t.Fatalf("Unexpected immutable field check. Expected %v. Actual %v", tc.allowed, err)
+			}
+		})
+	}
+}
+
+func TestKafkaSourceOffset(t *testing.T) {
+	testCases := map[string]struct {
+		offset  Offset
+		allowed bool
+	}{
+		"empty offset": {
+			allowed: false,
+			offset:  "",
+		},
+		"earliest offset": {
+			allowed: true,
+			offset:  OffsetEarliest,
+		},
+		"latest offset": {
+			allowed: true,
+			offset:  OffsetLatest,
+		},
+		"invalid offset": {
+			allowed: false,
+			offset:  "invalid",
+		},
+	}
+	for n, tc := range testCases {
+		t.Run(n, func(t *testing.T) {
+			ctx := context.TODO()
+			orig := &KafkaSource{
+				Spec: fullSpec,
+			}
+			orig.Spec.InitialOffset = tc.offset
+			ctx = apis.WithinCreate(ctx)
+			err := orig.Validate(ctx)
+			if tc.allowed != (err == nil) {
+				t.Fatalf("valid value not matching: %v", err)
 			}
 		})
 	}

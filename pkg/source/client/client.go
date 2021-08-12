@@ -58,8 +58,9 @@ type KafkaConfig struct {
 type KafkaEnvConfig struct {
 	// KafkaConfigJson is the environment variable that's passed to adapter by the controller.
 	// It contains configuration from the Kafka configmap.
-	KafkaConfigJson  string   `envconfig:"K_KAFKA_CONFIG"`
-	BootstrapServers []string `envconfig:"KAFKA_BOOTSTRAP_SERVERS" required:"true"`
+	KafkaConfigJson  string                `envconfig:"K_KAFKA_CONFIG"`
+	BootstrapServers []string              `envconfig:"KAFKA_BOOTSTRAP_SERVERS" required:"true"`
+	InitialOffset    sourcesv1beta1.Offset `envconfig:"KAFKA_INITIAL_OFFSET" `
 	Net              AdapterNet
 }
 
@@ -95,7 +96,8 @@ func NewConfigWithEnv(ctx context.Context, env *KafkaEnvConfig) ([]string, *sara
 
 	configBuilder := client.NewConfigBuilder().
 		WithDefaults().
-		WithAuth(kafkaAuthConfig)
+		WithAuth(kafkaAuthConfig).
+		WithInitialOffset(env.InitialOffset)
 
 	if env.KafkaConfigJson != "" {
 		kafkaCfg := &KafkaConfig{}
@@ -158,6 +160,7 @@ func NewEnvConfigFromSpec(ctx context.Context, kc kubernetes.Interface, obj *sou
 
 	config := KafkaEnvConfig{
 		BootstrapServers: obj.Spec.BootstrapServers,
+		InitialOffset:    obj.Spec.InitialOffset,
 		Net: AdapterNet{
 			SASL: AdapterSASL{
 				Enable:   obj.Spec.Net.SASL.Enable,
