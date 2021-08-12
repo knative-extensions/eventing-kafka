@@ -799,8 +799,8 @@ func NewKafkaChannelReceiverService(options ...ServiceOption) *corev1.Service {
 	}
 
 	// Append Test Config Annotations & Labels
-	service.Annotations = util.JoinStringMaps(service.Annotations, ReceiverServiceAnnotations)
-	service.Labels = util.JoinStringMaps(service.Labels, ReceiverServiceLabels)
+	service.Annotations = commonconfig.JoinStringMaps(service.Annotations, ReceiverServiceAnnotations)
+	service.Labels = commonconfig.JoinStringMaps(service.Labels, ReceiverServiceLabels)
 
 	// Apply The Specified Service Customizations
 	for _, option := range options {
@@ -974,10 +974,10 @@ func NewKafkaChannelReceiverDeployment(options ...DeploymentOption) *appsv1.Depl
 	}
 
 	// Append Test Config Annotations & Labels
-	deployment.ObjectMeta.Annotations = util.JoinStringMaps(deployment.ObjectMeta.Annotations, ReceiverDeploymentAnnotations)
-	deployment.ObjectMeta.Labels = util.JoinStringMaps(deployment.ObjectMeta.Labels, ReceiverDeploymentLabels)
-	deployment.Spec.Template.ObjectMeta.Annotations = util.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Annotations, ReceiverPodAnnotations)
-	deployment.Spec.Template.ObjectMeta.Labels = util.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Labels, ReceiverPodLabels)
+	deployment.ObjectMeta.Annotations = commonconfig.JoinStringMaps(deployment.ObjectMeta.Annotations, ReceiverDeploymentAnnotations)
+	deployment.ObjectMeta.Labels = commonconfig.JoinStringMaps(deployment.ObjectMeta.Labels, ReceiverDeploymentLabels)
+	deployment.Spec.Template.ObjectMeta.Annotations = commonconfig.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Annotations, ReceiverPodAnnotations)
+	deployment.Spec.Template.ObjectMeta.Labels = commonconfig.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Labels, ReceiverPodLabels)
 
 	// Apply The Specified Deployment Customizations
 	for _, option := range options {
@@ -1028,8 +1028,8 @@ func NewKafkaChannelDispatcherService(options ...ServiceOption) *corev1.Service 
 	}
 
 	// Append Test Config Annotations & Labels
-	service.Annotations = util.JoinStringMaps(service.Annotations, DispatcherServiceAnnotations)
-	service.Labels = util.JoinStringMaps(service.Labels, DispatcherServiceLabels)
+	service.Annotations = commonconfig.JoinStringMaps(service.Annotations, DispatcherServiceAnnotations)
+	service.Labels = commonconfig.JoinStringMaps(service.Labels, DispatcherServiceLabels)
 
 	// Apply The Specified Service Customizations
 	for _, option := range options {
@@ -1214,10 +1214,10 @@ func NewKafkaChannelDispatcherDeployment(options ...DeploymentOption) *appsv1.De
 	}
 
 	// Append Test Config Annotations & Labels
-	deployment.ObjectMeta.Annotations = util.JoinStringMaps(deployment.ObjectMeta.Annotations, DispatcherDeploymentAnnotations)
-	deployment.ObjectMeta.Labels = util.JoinStringMaps(deployment.ObjectMeta.Labels, DispatcherDeploymentLabels)
-	deployment.Spec.Template.ObjectMeta.Annotations = util.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Annotations, DispatcherPodAnnotations)
-	deployment.Spec.Template.ObjectMeta.Labels = util.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Labels, DispatcherPodLabels)
+	deployment.ObjectMeta.Annotations = commonconfig.JoinStringMaps(deployment.ObjectMeta.Annotations, DispatcherDeploymentAnnotations)
+	deployment.ObjectMeta.Labels = commonconfig.JoinStringMaps(deployment.ObjectMeta.Labels, DispatcherDeploymentLabels)
+	deployment.Spec.Template.ObjectMeta.Annotations = commonconfig.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Annotations, DispatcherPodAnnotations)
+	deployment.Spec.Template.ObjectMeta.Labels = commonconfig.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Labels, DispatcherPodLabels)
 
 	// Apply The Specified Deployment Customizations
 	for _, option := range options {

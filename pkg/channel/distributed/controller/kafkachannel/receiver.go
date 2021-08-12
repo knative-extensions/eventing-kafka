@@ -40,6 +40,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 )
 
@@ -240,8 +241,8 @@ func (r *Reconciler) newReceiverService() *corev1.Service {
 	}
 
 	// Update The Receiver Service's Annotations & Labels With Custom Config Values
-	service.Annotations = util.JoinStringMaps(service.Annotations, r.config.Channel.Receiver.ServiceAnnotations)
-	service.Labels = util.JoinStringMaps(service.Labels, r.config.Channel.Receiver.ServiceLabels)
+	service.Annotations = commonconfig.JoinStringMaps(service.Annotations, r.config.Channel.Receiver.ServiceAnnotations)
+	service.Labels = commonconfig.JoinStringMaps(service.Labels, r.config.Channel.Receiver.ServiceLabels)
 
 	// Return The Receiver Service
 	return service
@@ -475,13 +476,13 @@ func (r *Reconciler) newReceiverDeployment(secret *corev1.Secret) *appsv1.Deploy
 		},
 	}
 
-	// Update The Receiver Service's Annotations & Labels With Custom Config Values
-	deployment.ObjectMeta.Annotations = util.JoinStringMaps(deployment.ObjectMeta.Annotations, r.config.Channel.Receiver.DeploymentAnnotations)
-	deployment.ObjectMeta.Labels = util.JoinStringMaps(deployment.ObjectMeta.Labels, r.config.Channel.Receiver.DeploymentLabels)
-	deployment.Spec.Template.ObjectMeta.Annotations = util.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Annotations, r.config.Channel.Receiver.PodAnnotations)
-	deployment.Spec.Template.ObjectMeta.Labels = util.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Labels, r.config.Channel.Receiver.PodLabels)
+	// Update The Receiver Deployment's Annotations & Labels With Custom Config Values
+	deployment.ObjectMeta.Annotations = commonconfig.JoinStringMaps(deployment.ObjectMeta.Annotations, r.config.Channel.Receiver.DeploymentAnnotations)
+	deployment.ObjectMeta.Labels = commonconfig.JoinStringMaps(deployment.ObjectMeta.Labels, r.config.Channel.Receiver.DeploymentLabels)
+	deployment.Spec.Template.ObjectMeta.Annotations = commonconfig.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Annotations, r.config.Channel.Receiver.PodAnnotations)
+	deployment.Spec.Template.ObjectMeta.Labels = commonconfig.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Labels, r.config.Channel.Receiver.PodLabels)
 
-	// Return Receiver Deployment
+	// Return The Receiver Deployment
 	return deployment
 }
 

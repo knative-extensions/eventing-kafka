@@ -24,8 +24,10 @@ import (
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/pkg/system"
+
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
+	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 )
 
 const (
@@ -36,13 +38,22 @@ const (
 func TestNewDispatcher(t *testing.T) {
 	os.Setenv(system.NamespaceEnvKey, "knative-testing")
 
-	args := DispatcherArgs{
-		DispatcherScope:     "cluster",
-		DispatcherNamespace: testNS,
-		Image:               imageName,
-		Replicas:            1,
-		ServiceAccount:      serviceAccount,
-		ConfigMapHash:       testConfigMapHash,
+	configDeploymentAnnotations := map[string]string{"DeploymentAnnotationName1": "DeploymentAnnotationValue1"}
+	configDeploymentLabels := map[string]string{"DeploymentLabelName1": "DeploymentLabelValue1"}
+	configPodAnnotations := map[string]string{"PodAnnotationName1": "PodAnnotationValue1"}
+	configPodLabels := map[string]string{"PodLabelName1": "PodLabelValue1"}
+
+	args := DispatcherDeploymentArgs{
+		DispatcherScope:       "cluster",
+		DispatcherNamespace:   testNS,
+		Image:                 imageName,
+		Replicas:              1,
+		ServiceAccount:        serviceAccount,
+		ConfigMapHash:         testConfigMapHash,
+		DeploymentAnnotations: configDeploymentAnnotations,
+		DeploymentLabels:      configDeploymentLabels,
+		PodAnnotations:        configPodAnnotations,
+		PodLabels:             configPodLabels,
 	}
 
 	replicas := int32(1)
@@ -52,8 +63,10 @@ func TestNewDispatcher(t *testing.T) {
 			Kind:       "Deployments",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: testNS,
-			Name:      dispatcherName,
+			Namespace:   testNS,
+			Name:        dispatcherName,
+			Annotations: configDeploymentAnnotations,
+			Labels:      configDeploymentLabels,
 		},
 		Spec: v1.DeploymentSpec{
 			Replicas: &replicas,
@@ -62,10 +75,8 @@ func TestNewDispatcher(t *testing.T) {
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: dispatcherLabels,
-					Annotations: map[string]string{
-						commonconstants.ConfigMapHashAnnotationKey: testConfigMapHash,
-					},
+					Labels:      commonconfig.JoinStringMaps(dispatcherLabels, configPodLabels),
+					Annotations: commonconfig.JoinStringMaps(map[string]string{commonconstants.ConfigMapHashAnnotationKey: testConfigMapHash}, configPodAnnotations),
 				},
 				Spec: corev1.PodSpec{
 					ServiceAccountName: serviceAccount,
@@ -123,7 +134,7 @@ func TestNewDispatcher(t *testing.T) {
 func TestNewNamespaceDispatcher(t *testing.T) {
 	os.Setenv(system.NamespaceEnvKey, "knative-testing")
 
-	args := DispatcherArgs{
+	args := DispatcherDeploymentArgs{
 		DispatcherScope:     "namespace",
 		DispatcherNamespace: testNS,
 		Image:               imageName,
@@ -139,8 +150,10 @@ func TestNewNamespaceDispatcher(t *testing.T) {
 			Kind:       "Deployments",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: testNS,
-			Name:      dispatcherName,
+			Namespace:   testNS,
+			Name:        dispatcherName,
+			Labels:      map[string]string{},
+			Annotations: map[string]string{},
 		},
 		Spec: v1.DeploymentSpec{
 			Replicas: &replicas,
@@ -149,10 +162,8 @@ func TestNewNamespaceDispatcher(t *testing.T) {
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: dispatcherLabels,
-					Annotations: map[string]string{
-						commonconstants.ConfigMapHashAnnotationKey: testConfigMapHash,
-					},
+					Labels:      dispatcherLabels,
+					Annotations: map[string]string{commonconstants.ConfigMapHashAnnotationKey: testConfigMapHash},
 				},
 				Spec: corev1.PodSpec{
 					ServiceAccountName: serviceAccount,

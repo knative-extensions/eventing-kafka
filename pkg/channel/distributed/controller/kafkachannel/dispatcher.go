@@ -40,6 +40,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 )
 
@@ -278,8 +279,8 @@ func (r *Reconciler) newDispatcherService(channel *kafkav1beta1.KafkaChannel) *c
 	}
 
 	// Update The Dispatcher Service's Annotations & Labels With Custom Config Values
-	service.Annotations = util.JoinStringMaps(service.Annotations, r.config.Channel.Dispatcher.ServiceAnnotations)
-	service.Labels = util.JoinStringMaps(service.Labels, r.config.Channel.Dispatcher.ServiceLabels)
+	service.Annotations = commonconfig.JoinStringMaps(service.Annotations, r.config.Channel.Dispatcher.ServiceAnnotations)
+	service.Labels = commonconfig.JoinStringMaps(service.Labels, r.config.Channel.Dispatcher.ServiceLabels)
 
 	// Return The Dispatcher Service
 	return service
@@ -462,7 +463,7 @@ func (r *Reconciler) newDispatcherDeployment(logger *zap.Logger, channel *kafkav
 		resourceRequests = nil
 	}
 
-	// Create The Dispatcher's Deployment
+	// Create The Dispatcher Deployment
 	deployment := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: appsv1.SchemeGroupVersion.String(),
@@ -561,13 +562,13 @@ func (r *Reconciler) newDispatcherDeployment(logger *zap.Logger, channel *kafkav
 		},
 	}
 
-	// Update The Dispatcher Service's Annotations & Labels With Custom Config Values
-	deployment.ObjectMeta.Annotations = util.JoinStringMaps(deployment.ObjectMeta.Annotations, r.config.Channel.Dispatcher.DeploymentAnnotations)
-	deployment.ObjectMeta.Labels = util.JoinStringMaps(deployment.ObjectMeta.Labels, r.config.Channel.Dispatcher.DeploymentLabels)
-	deployment.Spec.Template.ObjectMeta.Annotations = util.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Annotations, r.config.Channel.Dispatcher.PodAnnotations)
-	deployment.Spec.Template.ObjectMeta.Labels = util.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Labels, r.config.Channel.Dispatcher.PodLabels)
+	// Update The Dispatcher Deployment's Annotations & Labels With Custom Config Values
+	deployment.ObjectMeta.Annotations = commonconfig.JoinStringMaps(deployment.ObjectMeta.Annotations, r.config.Channel.Dispatcher.DeploymentAnnotations)
+	deployment.ObjectMeta.Labels = commonconfig.JoinStringMaps(deployment.ObjectMeta.Labels, r.config.Channel.Dispatcher.DeploymentLabels)
+	deployment.Spec.Template.ObjectMeta.Annotations = commonconfig.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Annotations, r.config.Channel.Dispatcher.PodAnnotations)
+	deployment.Spec.Template.ObjectMeta.Labels = commonconfig.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Labels, r.config.Channel.Dispatcher.PodLabels)
 
-	// Return The Dispatcher's Deployment
+	// Return The Dispatcher Deployment
 	return deployment, nil
 }
 

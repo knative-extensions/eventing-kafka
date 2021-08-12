@@ -20,11 +20,20 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 )
 
-// MakeDispatcherService creates the Kafka dispatcher service
-func MakeDispatcherService(namespace string) *corev1.Service {
-	return &corev1.Service{
+type DispatcherServiceArgs struct {
+	ServiceAnnotations map[string]string
+	ServiceLabels      map[string]string
+}
+
+// MakeDispatcherService creates the Kafka Dispatcher Service
+func MakeDispatcherService(namespace string, args DispatcherServiceArgs) *corev1.Service {
+
+	// Create A New Dispatcher Service
+	service := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
 			Kind:       "Service",
@@ -46,4 +55,11 @@ func MakeDispatcherService(namespace string) *corev1.Service {
 			},
 		},
 	}
+
+	// Update The Dispatcher Service's Annotations & Labels With Custom Config Values
+	service.Annotations = commonconfig.JoinStringMaps(service.Annotations, args.ServiceAnnotations)
+	service.Labels = commonconfig.JoinStringMaps(service.Labels, args.ServiceLabels)
+
+	// Return The Dispatcher Service
+	return service
 }

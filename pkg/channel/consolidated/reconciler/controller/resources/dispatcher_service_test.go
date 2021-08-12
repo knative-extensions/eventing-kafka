@@ -23,18 +23,30 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 )
 
 func TestNewDispatcherService(t *testing.T) {
+
+	configServiceAnnotations := map[string]string{"ServiceAnnotationName1": "ServiceAnnotationValue1"}
+	configServiceLabels := map[string]string{"ServiceLabelName1": "ServiceLabelValue1"}
+
+	args := DispatcherServiceArgs{
+		ServiceAnnotations: configServiceAnnotations,
+		ServiceLabels:      configServiceLabels,
+	}
+
 	want := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
 			Kind:       "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      dispatcherName,
-			Namespace: testNS,
-			Labels:    dispatcherLabels,
+			Name:        dispatcherName,
+			Namespace:   testNS,
+			Annotations: configServiceAnnotations,
+			Labels:      commonconfig.JoinStringMaps(dispatcherLabels, configServiceLabels),
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: dispatcherLabels,
@@ -49,7 +61,7 @@ func TestNewDispatcherService(t *testing.T) {
 		},
 	}
 
-	got := MakeDispatcherService(testNS)
+	got := MakeDispatcherService(testNS, args)
 
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("unexpected condition (-want, +got) = %v", diff)

@@ -20,9 +20,11 @@ import (
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/system"
+
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/common/constants"
 	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
-	"knative.dev/pkg/system"
 )
 
 const (
@@ -37,20 +39,25 @@ var (
 	}
 )
 
-type DispatcherArgs struct {
-	DispatcherScope     string
-	DispatcherNamespace string
-	Image               string
-	Replicas            int32
-	ServiceAccount      string
-	ConfigMapHash       string
+type DispatcherDeploymentArgs struct {
+	DispatcherScope       string
+	DispatcherNamespace   string
+	Image                 string
+	Replicas              int32
+	ServiceAccount        string
+	ConfigMapHash         string
+	DeploymentAnnotations map[string]string
+	DeploymentLabels      map[string]string
+	PodAnnotations        map[string]string
+	PodLabels             map[string]string
 }
 
-// MakeDispatcher generates the dispatcher deployment for the KafKa channel
-func MakeDispatcher(args DispatcherArgs) *v1.Deployment {
+// MakeDispatcher generates the dispatcher Deployment for the KafkaChannel
+func MakeDispatcher(args DispatcherDeploymentArgs) *v1.Deployment {
 	replicas := args.Replicas
 
-	return &v1.Deployment{
+	// Create A New Dispatcher Deployment
+	deployment := &v1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
 			Kind:       "Deployments",
@@ -106,9 +113,18 @@ func MakeDispatcher(args DispatcherArgs) *v1.Deployment {
 			},
 		},
 	}
+
+	// Update The Dispatcher Deployment's Annotations & Labels With Custom Config Values
+	deployment.ObjectMeta.Annotations = commonconfig.JoinStringMaps(deployment.ObjectMeta.Annotations, args.DeploymentAnnotations)
+	deployment.ObjectMeta.Labels = commonconfig.JoinStringMaps(deployment.ObjectMeta.Labels, args.DeploymentLabels)
+	deployment.Spec.Template.ObjectMeta.Annotations = commonconfig.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Annotations, args.PodAnnotations)
+	deployment.Spec.Template.ObjectMeta.Labels = commonconfig.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Labels, args.PodLabels)
+
+	// Return The Dispatcher Deployment
+	return deployment
 }
 
-func makeEnv(args DispatcherArgs) []corev1.EnvVar {
+func makeEnv(args DispatcherDeploymentArgs) []corev1.EnvVar {
 	vars := []corev1.EnvVar{{
 		Name:  system.NamespaceEnvKey,
 		Value: system.Namespace(),

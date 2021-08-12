@@ -4,19 +4,17 @@ import (
 	"context"
 	"testing"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/pkg/system"
-
-	"knative.dev/eventing-kafka/pkg/common/constants"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	injectionclient "knative.dev/pkg/client/injection/kube/client"
 	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/system"
 
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
+	"knative.dev/eventing-kafka/pkg/common/constants"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 )
 
@@ -257,4 +255,28 @@ func TestReplicationFactor(t *testing.T) {
 	channel = &kafkav1beta1.KafkaChannel{Spec: kafkav1beta1.KafkaChannelSpec{ReplicationFactor: replicationFactor}}
 	actualReplicationFactor = ReplicationFactor(channel, configuration, logger)
 	assert.Equal(t, replicationFactor, actualReplicationFactor)
+}
+
+// Test The JoinStringMaps() Functionality
+func TestJoinStringMaps(t *testing.T) {
+	map1 := map[string]string{"key1": "value1a", "key2": "value2", "key3": "value3"}
+	map2 := map[string]string{"key1": "value1b", "key4": "value4"}
+	emptyMap := map[string]string{}
+
+	resultMap := JoinStringMaps(map1, nil)
+	assert.Equal(t, map1, resultMap)
+
+	resultMap = JoinStringMaps(map1, emptyMap)
+	assert.Equal(t, map1, resultMap)
+
+	resultMap = JoinStringMaps(nil, map2)
+	assert.Equal(t, map2, resultMap)
+
+	resultMap = JoinStringMaps(emptyMap, map2)
+	assert.Equal(t, map2, resultMap)
+
+	resultMap = JoinStringMaps(map1, map2)
+	assert.Equal(t, map[string]string{"key1": "value1a", "key2": "value2", "key3": "value3", "key4": "value4"}, resultMap)
+	assert.Equal(t, map1, map[string]string{"key1": "value1a", "key2": "value2", "key3": "value3"})
+	assert.Equal(t, map2, map[string]string{"key1": "value1b", "key4": "value4"})
 }

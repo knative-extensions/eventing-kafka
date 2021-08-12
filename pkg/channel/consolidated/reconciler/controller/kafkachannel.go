@@ -38,6 +38,7 @@ import (
 	"k8s.io/utils/pointer"
 	v1 "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/apis/eventing"
+	eventingclientset "knative.dev/eventing/pkg/client/clientset/versioned"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/controller"
@@ -58,7 +59,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/common/constants"
 	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 	kafkasarama "knative.dev/eventing-kafka/pkg/common/kafka/sarama"
-	eventingclientset "knative.dev/eventing/pkg/client/clientset/versioned"
 )
 
 const (
@@ -71,6 +71,7 @@ const (
 	dispatcherDeploymentUpdated     = "DispatcherDeploymentUpdated"
 	dispatcherDeploymentFailed      = "DispatcherDeploymentFailed"
 	dispatcherServiceCreated        = "DispatcherServiceCreated"
+	dispatcherServiceUpdated        = "DispatcherServiceUpdated"
 	dispatcherServiceFailed         = "DispatcherServiceFailed"
 	dispatcherServiceAccountCreated = "DispatcherServiceAccountCreated"
 	dispatcherRoleBindingCreated    = "DispatcherRoleBindingCreated"
@@ -89,6 +90,10 @@ func newReconciledNormal(namespace, name string) pkgreconciler.Event {
 
 func newDeploymentWarn(err error) pkgreconciler.Event {
 	return pkgreconciler.NewEvent(corev1.EventTypeWarning, "DispatcherDeploymentFailed", "Reconciling dispatcher Deployment failed with: %s", err)
+}
+
+func newServiceWarn(err error) pkgreconciler.Event {
+	return pkgreconciler.NewEvent(corev1.EventTypeWarning, "DispatcherServiceFailed", "Reconciling dispatcher Service failed with: %s", err)
 }
 
 func newDispatcherServiceWarn(err error) pkgreconciler.Event {
@@ -204,7 +209,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel
 	// Make sure the dispatcher service exists and propagate the status to the Channel in case it does not exist.
 	// We don't do anything with the service because it's status contains nothing useful, so just do
 	// an existence check. Then below we check the endpoints targeting it.
-	_, err = r.reconcileDispatcherService(ctx, dispatcherNamespace, kc)
+	err = r.reconcileDispatcherService(ctx, dispatcherNamespace, kc)
 	if err != nil {
 		return err
 	}
@@ -308,13 +313,18 @@ func (r *Reconciler) reconcileDispatcher(ctx context.Context, scope string, disp
 			return err
 		}
 	}
-	args := resources.DispatcherArgs{
-		DispatcherScope:     scope,
-		DispatcherNamespace: dispatcherNamespace,
-		Image:               r.dispatcherImage,
-		Replicas:            1,
-		ServiceAccount:      r.dispatcherServiceAccount,
-		ConfigMapHash:       r.kafkaConfigMapHash,
+
+	args := resources.DispatcherDeploymentArgs{
+		DispatcherScope:       scope,
+		DispatcherNamespace:   dispatcherNamespace,
+		Image:                 r.dispatcherImage,
+		Replicas:              1,
+		ServiceAccount:        r.dispatcherServiceAccount,
+		ConfigMapHash:         r.kafkaConfigMapHash,
+		DeploymentAnnotations: r.kafkaConfig.EventingKafka.Channel.Dispatcher.DeploymentAnnotations,
+		DeploymentLabels:      r.kafkaConfig.EventingKafka.Channel.Dispatcher.DeploymentLabels,
+		PodAnnotations:        r.kafkaConfig.EventingKafka.Channel.Dispatcher.PodAnnotations,
+		PodLabels:             r.kafkaConfig.EventingKafka.Channel.Dispatcher.PodLabels,
 	}
 
 	expected := resources.MakeDispatcher(args)
@@ -388,6 +398,37 @@ func (r *Reconciler) reconcileDispatcher(ctx context.Context, scope string, disp
 			needsUpdate = true
 		}
 
+		// Add / Update (but no Delete) Deployment & Pod Labels & Annotations
+		//  - Not deleting to allow end users the ability to manually add Labels & Annotations which would otherwise be overwritten.
+		for expectedDeploymentLabelKey, expectedDeploymentLabelValue := range expected.ObjectMeta.Labels {
+			if deploymentCopy.ObjectMeta.Labels[expectedDeploymentLabelKey] != expectedDeploymentLabelValue {
+				logging.FromContext(ctx).Infof("Deployment Label '%s' modified. Updating the dispatcher deployment.", expectedDeploymentLabelKey)
+				deploymentCopy.ObjectMeta.Labels[expectedDeploymentLabelKey] = expectedDeploymentLabelValue
+				needsUpdate = true
+			}
+		}
+		for expectedDeploymentAnnotationKey, expectedDeploymentAnnotationValue := range expected.ObjectMeta.Annotations {
+			if deploymentCopy.ObjectMeta.Annotations[expectedDeploymentAnnotationKey] != expectedDeploymentAnnotationValue {
+				logging.FromContext(ctx).Infof("Deployment Annotation '%s' modified. Updating the dispatcher deployment.", expectedDeploymentAnnotationKey)
+				deploymentCopy.ObjectMeta.Annotations[expectedDeploymentAnnotationKey] = expectedDeploymentAnnotationValue
+				needsUpdate = true
+			}
+		}
+		for expectedTemplateLabelKey, expectedTemplateLabelValue := range expected.Spec.Template.ObjectMeta.Labels {
+			if deploymentCopy.Spec.Template.ObjectMeta.Labels[expectedTemplateLabelKey] != expectedTemplateLabelValue {
+				logging.FromContext(ctx).Infof("Deployment Template Label '%s' modified. Updating the dispatcher deployment.", expectedTemplateLabelKey)
+				deploymentCopy.Spec.Template.ObjectMeta.Labels[expectedTemplateLabelKey] = expectedTemplateLabelValue
+				needsUpdate = true
+			}
+		}
+		for expectedTemplateAnnotationKey, expectedTemplateAnnotationValue := range expected.Spec.Template.ObjectMeta.Annotations {
+			if deploymentCopy.Spec.Template.ObjectMeta.Annotations[expectedTemplateAnnotationKey] != expectedTemplateAnnotationValue {
+				logging.FromContext(ctx).Infof("Deployment Template Annotation '%s' modified. Updating the dispatcher deployment.", expectedTemplateAnnotationKey)
+				deploymentCopy.Spec.Template.ObjectMeta.Annotations[expectedTemplateAnnotationKey] = expectedTemplateAnnotationValue
+				needsUpdate = true
+			}
+		}
+
 		if needsUpdate {
 			deploymentCopy, err = r.KubeClientSet.AppsV1().Deployments(dispatcherNamespace).Update(ctx, deploymentCopy, metav1.UpdateOptions{})
 			if err == nil {
@@ -446,13 +487,18 @@ func (r *Reconciler) reconcileRoleBinding(ctx context.Context, name string, ns s
 	return rb, err
 }
 
-func (r *Reconciler) reconcileDispatcherService(ctx context.Context, dispatcherNamespace string, kc *v1beta1.KafkaChannel) (*corev1.Service, error) {
+func (r *Reconciler) reconcileDispatcherService(ctx context.Context, dispatcherNamespace string, kc *v1beta1.KafkaChannel) error {
+
+	args := resources.DispatcherServiceArgs{
+		ServiceAnnotations: r.kafkaConfig.EventingKafka.Channel.Dispatcher.ServiceAnnotations,
+		ServiceLabels:      r.kafkaConfig.EventingKafka.Channel.Dispatcher.ServiceLabels,
+	}
+	expected := resources.MakeDispatcherService(dispatcherNamespace, args)
+
 	svc, err := r.serviceLister.Services(dispatcherNamespace).Get(dispatcherName)
 	if err != nil {
 		if apierrs.IsNotFound(err) {
-			expected := resources.MakeDispatcherService(dispatcherNamespace)
-			svc, err := r.KubeClientSet.CoreV1().Services(dispatcherNamespace).Create(ctx, expected, metav1.CreateOptions{})
-
+			_, err := r.KubeClientSet.CoreV1().Services(dispatcherNamespace).Create(ctx, expected, metav1.CreateOptions{})
 			if err == nil {
 				controller.GetEventRecorder(ctx).Event(kc, corev1.EventTypeNormal, dispatcherServiceCreated, "Dispatcher service created")
 				kc.Status.MarkServiceTrue()
@@ -460,18 +506,49 @@ func (r *Reconciler) reconcileDispatcherService(ctx context.Context, dispatcherN
 				logging.FromContext(ctx).Errorw("Unable to create the dispatcher service", zap.Error(err))
 				controller.GetEventRecorder(ctx).Eventf(kc, corev1.EventTypeWarning, dispatcherServiceFailed, "Failed to create the dispatcher service: %v", err)
 				kc.Status.MarkServiceFailed("DispatcherServiceFailed", "Failed to create the dispatcher service: %v", err)
-				return svc, err
+				return err
 			}
-
-			return svc, err
+			return err
 		}
 
 		kc.Status.MarkServiceUnknown("DispatcherServiceFailed", "Failed to get dispatcher service: %v", err)
-		return nil, newDispatcherServiceWarn(err)
+		return newDispatcherServiceWarn(err)
 	}
 
-	kc.Status.MarkServiceTrue()
-	return svc, nil
+	needsUpdate := false
+	svcCopy := svc.DeepCopy() // do not touch the original service, deepcopy it
+
+	// Add / Update (but no Delete) Service Labels & Annotations
+	//  - Not deleting to allow end users the ability to manually add Labels & Annotations which would otherwise be overwritten.
+	for expectedDeploymentLabelKey, expectedDeploymentLabelValue := range expected.ObjectMeta.Labels {
+		if svcCopy.ObjectMeta.Labels[expectedDeploymentLabelKey] != expectedDeploymentLabelValue {
+			logging.FromContext(ctx).Infof("Deployment Label '%s' modified. Updating the dispatcher deployment.", expectedDeploymentLabelKey)
+			svcCopy.ObjectMeta.Labels[expectedDeploymentLabelKey] = expectedDeploymentLabelValue
+			needsUpdate = true
+		}
+	}
+	for expectedDeploymentAnnotationKey, expectedDeploymentAnnotationValue := range expected.ObjectMeta.Annotations {
+		if svcCopy.ObjectMeta.Annotations[expectedDeploymentAnnotationKey] != expectedDeploymentAnnotationValue {
+			logging.FromContext(ctx).Infof("Deployment Annotation '%s' modified. Updating the dispatcher deployment.", expectedDeploymentAnnotationKey)
+			svcCopy.ObjectMeta.Annotations[expectedDeploymentAnnotationKey] = expectedDeploymentAnnotationValue
+			needsUpdate = true
+		}
+	}
+
+	if needsUpdate {
+		svcCopy, err = r.KubeClientSet.CoreV1().Services(dispatcherNamespace).Update(ctx, svcCopy, metav1.UpdateOptions{})
+		if err == nil {
+			controller.GetEventRecorder(ctx).Event(kc, corev1.EventTypeNormal, dispatcherServiceUpdated, "Dispatcher service updated")
+			kc.Status.MarkServiceTrue()
+			return nil
+		} else {
+			kc.Status.MarkServiceFailed("DispatcherServiceUpdateFailed", "Failed to update the dispatcher service: %v", err)
+			return newServiceWarn(err)
+		}
+	} else {
+		kc.Status.MarkServiceTrue()
+		return nil
+	}
 }
 
 func (r *Reconciler) reconcileChannelService(ctx context.Context, dispatcherNamespace string, channel *v1beta1.KafkaChannel) (*corev1.Service, error) {
