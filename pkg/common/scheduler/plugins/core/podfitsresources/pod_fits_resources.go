@@ -25,8 +25,7 @@ import (
 	"knative.dev/pkg/logging"
 )
 
-// PodFitsResources plugin filters pods that do not have sufficient free capacity
-// for a vreplica to be placed on it
+// PodFitsResources is a plugin that filters pods that do not have sufficient free capacity for a vreplica to be placed on it
 type PodFitsResources struct {
 }
 
@@ -54,9 +53,10 @@ func (pl *PodFitsResources) Filter(ctx context.Context, args interface{}, states
 	logger := logging.FromContext(ctx).With("Filter", pl.Name())
 
 	if len(states.FreeCap) == 0 || states.Free(podID) > 0 { //vpods with no placements or pods with positive free cap
-		logger.Infof("Pod %d passed %s predicate successfully", podID, pl.Name())
+		//logger.Infof("Pod %d with %d free capacity passed %s predicate successfully", podID, states.Free(podID), pl.Name())
 		return state.NewStatus(state.Success)
 	}
-	logger.Infof("Pod %d has no free capacity %v", podID, states.FreeCap)
+
+	logger.Infof("Unschedulable! Pod %d has no free capacity %v", podID, states.FreeCap)
 	return state.NewStatus(state.Unschedulable, ErrReasonUnschedulable)
 }

@@ -24,7 +24,7 @@ data:
               [
                 {"Name": "PodFitsResources"},
                 {"Name": "NoMaxResourceCount",
-                 "Args": "{\"NumPartitions\": 5}"},
+                 "Args": "{\"NumPartitions\": 100}"},
                 {"Name": "EvenPodSpread",
                  "Args": "{\"MaxSkew\": 2}"}
               ]

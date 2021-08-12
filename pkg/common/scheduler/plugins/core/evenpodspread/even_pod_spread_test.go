@@ -17,6 +17,7 @@ limitations under the License.
 package evenpodspread
 
 import (
+	"math"
 	"reflect"
 	"testing"
 
@@ -28,33 +29,37 @@ import (
 
 func TestFilter(t *testing.T) {
 	testCases := []struct {
-		name     string
-		state    *state.State
-		vpod     types.NamespacedName
-		podID    int32
-		expected *state.Status
-		args     interface{}
+		name       string
+		state      *state.State
+		vpod       types.NamespacedName
+		podID      int32
+		expScore   uint64
+		expected   *state.Status
+		onlyFilter bool
+		args       interface{}
 	}{
 		{
 			name:     "no vpods, no pods",
 			vpod:     types.NamespacedName{},
-			state:    &state.State{StatefulSetName: "pod-name", LastOrdinal: -1, PodSpread: map[types.NamespacedName]map[string]int32{}},
+			state:    &state.State{StatefulSetName: "pod-name", Replicas: 0, PodSpread: map[types.NamespacedName]map[string]int32{}},
 			podID:    0,
 			expected: state.NewStatus(state.Success),
+			expScore: 0,
 			args:     "{\"MaxSkew\": 2}",
 		},
 		{
 			name:     "no vpods, no pods, bad arg",
 			vpod:     types.NamespacedName{},
-			state:    &state.State{StatefulSetName: "pod-name", LastOrdinal: -1, PodSpread: map[types.NamespacedName]map[string]int32{}},
+			state:    &state.State{StatefulSetName: "pod-name", Replicas: 0, PodSpread: map[types.NamespacedName]map[string]int32{}},
 			podID:    0,
 			expected: state.NewStatus(state.Unschedulable, ErrReasonInvalidArg),
+			expScore: 0,
 			args:     "{\"MaxSkewness\": 2}",
 		},
 		{
 			name: "one vpod, one pod, same pod filter",
 			vpod: types.NamespacedName{Name: "vpod-name-0", Namespace: "vpod-ns-0"},
-			state: &state.State{StatefulSetName: "pod-name", LastOrdinal: 0,
+			state: &state.State{StatefulSetName: "pod-name", Replicas: 1,
 				PodSpread: map[types.NamespacedName]map[string]int32{
 					{Name: "vpod-name-0", Namespace: "vpod-ns-0"}: {
 						"pod-name-0": 5,
@@ -63,12 +68,13 @@ func TestFilter(t *testing.T) {
 			},
 			podID:    0,
 			expected: state.NewStatus(state.Success),
+			expScore: math.MaxUint64,
 			args:     "{\"MaxSkew\": 2}",
 		},
 		{
 			name: "two vpods, one pod, same pod filter",
 			vpod: types.NamespacedName{Name: "vpod-name-0", Namespace: "vpod-ns-0"},
-			state: &state.State{StatefulSetName: "pod-name", LastOrdinal: 0,
+			state: &state.State{StatefulSetName: "pod-name", Replicas: 1,
 				PodSpread: map[types.NamespacedName]map[string]int32{
 					{Name: "vpod-name-0", Namespace: "vpod-ns-0"}: {
 						"pod-name-0": 5,
@@ -80,12 +86,13 @@ func TestFilter(t *testing.T) {
 			},
 			podID:    0,
 			expected: state.NewStatus(state.Success),
+			expScore: math.MaxUint64,
 			args:     "{\"MaxSkew\": 2}",
 		},
 		{
 			name: "one vpod, two pods,same pod filter",
 			vpod: types.NamespacedName{Name: "vpod-name-0", Namespace: "vpod-ns-0"},
-			state: &state.State{StatefulSetName: "pod-name", LastOrdinal: 1, PodSpread: map[types.NamespacedName]map[string]int32{
+			state: &state.State{StatefulSetName: "pod-name", Replicas: 2, PodSpread: map[types.NamespacedName]map[string]int32{
 				{Name: "vpod-name-0", Namespace: "vpod-ns-0"}: {
 					"pod-name-0": 5,
 					"pod-name-1": 5,
@@ -93,12 +100,13 @@ func TestFilter(t *testing.T) {
 			}},
 			podID:    1,
 			expected: state.NewStatus(state.Success),
+			expScore: math.MaxUint64 - 1,
 			args:     "{\"MaxSkew\": 2}",
 		},
 		{
 			name: "one vpod, five pods, same pod filter",
 			vpod: types.NamespacedName{Name: "vpod-name-0", Namespace: "vpod-ns-0"},
-			state: &state.State{StatefulSetName: "pod-name", LastOrdinal: 4, PodSpread: map[types.NamespacedName]map[string]int32{
+			state: &state.State{StatefulSetName: "pod-name", Replicas: 5, PodSpread: map[types.NamespacedName]map[string]int32{
 				{Name: "vpod-name-0", Namespace: "vpod-ns-0"}: {
 					"pod-name-0": 5,
 					"pod-name-1": 4,
@@ -109,12 +117,13 @@ func TestFilter(t *testing.T) {
 			}},
 			podID:    1,
 			expected: state.NewStatus(state.Success),
+			expScore: math.MaxUint64 - 3,
 			args:     "{\"MaxSkew\": 2}",
 		},
 		{
 			name: "one vpod, five pods, same pod filter unschedulable",
 			vpod: types.NamespacedName{Name: "vpod-name-0", Namespace: "vpod-ns-0"},
-			state: &state.State{StatefulSetName: "pod-name", LastOrdinal: 2, PodSpread: map[types.NamespacedName]map[string]int32{
+			state: &state.State{StatefulSetName: "pod-name", Replicas: 2, PodSpread: map[types.NamespacedName]map[string]int32{
 				{Name: "vpod-name-0", Namespace: "vpod-ns-0"}: {
 					"pod-name-0": 7,
 					"pod-name-1": 4,
@@ -123,9 +132,10 @@ func TestFilter(t *testing.T) {
 					"pod-name-4": 5,
 				},
 			}},
-			podID:    0,
-			expected: state.NewStatus(state.Unschedulable, ErrReasonUnschedulable),
-			args:     "{\"MaxSkew\": 2}",
+			podID:      0,
+			expected:   state.NewStatus(state.Unschedulable, ErrReasonUnschedulable),
+			onlyFilter: true,
+			args:       "{\"MaxSkew\": 2}",
 		},
 	}
 
@@ -139,7 +149,20 @@ func TestFilter(t *testing.T) {
 
 			status := plugin.Filter(ctx, tc.args, tc.state, tc.vpod, tc.podID)
 			if !reflect.DeepEqual(status, tc.expected) {
-				t.Errorf("unexpected state, got %v, want %v", status, tc.expected)
+				t.Errorf("unexpected status, got %v, want %v", status, tc.expected)
+			}
+
+			if !tc.onlyFilter {
+				score, status := plugin.Score(ctx, tc.args, tc.state, tc.vpod, tc.podID)
+				if !reflect.DeepEqual(status, tc.expected) {
+					t.Errorf("unexpected state, got %v, want %v", status, tc.expected)
+				}
+				if score != tc.expScore {
+					t.Errorf("unexpected score, got %v, want %v", score, tc.expScore)
+				}
+				if !reflect.DeepEqual(status, tc.expected) {
+					t.Errorf("unexpected status, got %v, want %v", status, tc.expected)
+				}
 			}
 		})
 	}

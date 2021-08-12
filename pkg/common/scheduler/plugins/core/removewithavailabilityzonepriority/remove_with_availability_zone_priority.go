@@ -54,15 +54,14 @@ func (pl *RemoveWithAvailabilityZonePriority) Name() string {
 	return Name
 }
 
-// Score invoked at the score extension point. The "score" returned in this function is higher for pods with lower ordinals and higher free capacity
-// It is normalized later with zone info
+// Score invoked at the score extension point. The "score" returned in this function is higher for zones that create an even spread across zones.
 func (pl *RemoveWithAvailabilityZonePriority) Score(ctx context.Context, args interface{}, states *state.State, key types.NamespacedName, podID int32) (uint64, *state.Status) {
 	logger := logging.FromContext(ctx).With("Score", pl.Name())
 	var score uint64 = 0
 
 	spreadArgs, ok := args.(string)
 	if !ok {
-		logger.Errorf("Scoring args %v for predicate %q are not valid", args, pl.Name())
+		logger.Errorf("Scoring args %v for priority %q are not valid", args, pl.Name())
 		return 0, state.NewStatus(state.Unschedulable, ErrReasonInvalidArg)
 	}
 
@@ -73,7 +72,7 @@ func (pl *RemoveWithAvailabilityZonePriority) Score(ctx context.Context, args in
 		return 0, state.NewStatus(state.Unschedulable, ErrReasonInvalidArg)
 	}
 
-	if states.LastOrdinal >= 0 {
+	if states.Replicas > 0 { //need atleast a pod to compute spread
 		var skew int32
 		zoneMap := make(map[string]struct{})
 		for _, zoneName := range states.NodeToZoneMap {
@@ -88,7 +87,10 @@ func (pl *RemoveWithAvailabilityZonePriority) Score(ctx context.Context, args in
 		currentReps := states.ZoneSpread[key][zoneName] //get #vreps on this zone
 		for otherZoneName := range zoneMap {            //compare with #vreps on other pods
 			if otherZoneName != zoneName {
-				otherReps := states.ZoneSpread[key][otherZoneName]
+				otherReps, ok := states.ZoneSpread[key][otherZoneName]
+				if !ok {
+					continue //zone does not exist in current placement, so move on
+				}
 				if skew = (currentReps - 1) - otherReps; skew < 0 {
 					skew = skew * int32(-1)
 				}
@@ -105,7 +107,7 @@ func (pl *RemoveWithAvailabilityZonePriority) Score(ctx context.Context, args in
 		score = math.MaxUint64 - score //lesser skews get higher score
 	}
 
-	logger.Infof("Pod %v scored by %q priority successfully with score %v", podID, pl.Name(), score)
+	//logger.Infof("Pod %v scored by %q priority successfully with score %v", podID, pl.Name(), score)
 	return score, state.NewStatus(state.Success)
 }
 

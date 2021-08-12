@@ -24,6 +24,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 
 	kubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/apps/v1/statefulset/fake"
@@ -52,8 +53,9 @@ func TestStatefulsetScheduler(t *testing.T) {
 		expected            []duckv1alpha1.Placement
 		err                 error
 		schedulerPolicyType scheduler.SchedulerPolicyType
-		schedulerPolicy     *SchedulerPolicy
-		deschedulerPolicy   *SchedulerPolicy
+		schedulerPolicy     *scheduler.SchedulerPolicy
+		deschedulerPolicy   *scheduler.SchedulerPolicy
+		pending             map[types.NamespacedName]int32
 	}{
 		{
 			name:                "no replicas, no vreplicas",
@@ -486,11 +488,11 @@ func TestStatefulsetScheduler(t *testing.T) {
 			vreplicas: 0,
 			replicas:  int32(0),
 			expected:  nil,
-			schedulerPolicy: &SchedulerPolicy{
-				Predicates: []PredicatePolicy{
+			schedulerPolicy: &scheduler.SchedulerPolicy{
+				Predicates: []scheduler.PredicatePolicy{
 					{Name: "PodFitsResources"},
 				},
-				Priorities: []PriorityPolicy{
+				Priorities: []scheduler.PriorityPolicy{
 					{Name: "LowestOrdinalPriority", Weight: 1},
 				},
 			},
@@ -501,11 +503,11 @@ func TestStatefulsetScheduler(t *testing.T) {
 			replicas:  int32(0),
 			err:       scheduler.ErrNotEnoughReplicas,
 			expected:  nil,
-			schedulerPolicy: &SchedulerPolicy{
-				Predicates: []PredicatePolicy{
+			schedulerPolicy: &scheduler.SchedulerPolicy{
+				Predicates: []scheduler.PredicatePolicy{
 					{Name: "PodFitsResources"},
 				},
-				Priorities: []PriorityPolicy{
+				Priorities: []scheduler.PriorityPolicy{
 					{Name: "LowestOrdinalPriority", Weight: 1},
 				},
 			},
@@ -515,11 +517,11 @@ func TestStatefulsetScheduler(t *testing.T) {
 			vreplicas: 1,
 			replicas:  int32(1),
 			expected:  []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 1}},
-			schedulerPolicy: &SchedulerPolicy{
-				Predicates: []PredicatePolicy{
+			schedulerPolicy: &scheduler.SchedulerPolicy{
+				Predicates: []scheduler.PredicatePolicy{
 					{Name: "PodFitsResources"},
 				},
-				Priorities: []PriorityPolicy{
+				Priorities: []scheduler.PriorityPolicy{
 					{Name: "LowestOrdinalPriority", Weight: 1},
 				},
 			},
@@ -529,11 +531,11 @@ func TestStatefulsetScheduler(t *testing.T) {
 			vreplicas: 3,
 			replicas:  int32(1),
 			expected:  []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 3}},
-			schedulerPolicy: &SchedulerPolicy{
-				Predicates: []PredicatePolicy{
+			schedulerPolicy: &scheduler.SchedulerPolicy{
+				Predicates: []scheduler.PredicatePolicy{
 					{Name: "PodFitsResources"},
 				},
-				Priorities: []PriorityPolicy{
+				Priorities: []scheduler.PriorityPolicy{
 					{Name: "LowestOrdinalPriority", Weight: 1},
 				},
 			},
@@ -544,11 +546,11 @@ func TestStatefulsetScheduler(t *testing.T) {
 			replicas:  int32(1),
 			err:       scheduler.ErrNotEnoughReplicas,
 			expected:  []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 10}},
-			schedulerPolicy: &SchedulerPolicy{
-				Predicates: []PredicatePolicy{
+			schedulerPolicy: &scheduler.SchedulerPolicy{
+				Predicates: []scheduler.PredicatePolicy{
 					{Name: "PodFitsResources"},
 				},
-				Priorities: []PriorityPolicy{
+				Priorities: []scheduler.PriorityPolicy{
 					{Name: "LowestOrdinalPriority", Weight: 1},
 				},
 			},
@@ -561,8 +563,8 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-0", VReplicas: 6},
 				{PodName: "statefulset-name-1", VReplicas: 6},
 			},
-			schedulerPolicy: &SchedulerPolicy{
-				Predicates: []PredicatePolicy{
+			schedulerPolicy: &scheduler.SchedulerPolicy{
+				Predicates: []scheduler.PredicatePolicy{
 					{Name: "PodFitsResources"},
 					{Name: "EvenPodSpread", Args: "{\"MaxSkew\": 1}"},
 				},
@@ -576,11 +578,11 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-0", VReplicas: 10},
 				{PodName: "statefulset-name-1", VReplicas: 5},
 			},
-			schedulerPolicy: &SchedulerPolicy{
-				Predicates: []PredicatePolicy{
+			schedulerPolicy: &scheduler.SchedulerPolicy{
+				Predicates: []scheduler.PredicatePolicy{
 					{Name: "PodFitsResources"},
 				},
-				Priorities: []PriorityPolicy{
+				Priorities: []scheduler.PriorityPolicy{
 					{Name: "LowestOrdinalPriority", Weight: 1},
 				},
 			},
@@ -597,11 +599,11 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-0", VReplicas: 10},
 				{PodName: "statefulset-name-1", VReplicas: 5},
 			},
-			schedulerPolicy: &SchedulerPolicy{
-				Predicates: []PredicatePolicy{
+			schedulerPolicy: &scheduler.SchedulerPolicy{
+				Predicates: []scheduler.PredicatePolicy{
 					{Name: "PodFitsResources"},
 				},
-				Priorities: []PriorityPolicy{
+				Priorities: []scheduler.PriorityPolicy{
 					{Name: "LowestOrdinalPriority", Weight: 1},
 				},
 			},
@@ -618,11 +620,11 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-0", VReplicas: 10},
 				{PodName: "statefulset-name-1", VReplicas: 10},
 			},
-			schedulerPolicy: &SchedulerPolicy{
-				Predicates: []PredicatePolicy{
+			schedulerPolicy: &scheduler.SchedulerPolicy{
+				Predicates: []scheduler.PredicatePolicy{
 					{Name: "PodFitsResources"},
 				},
-				Priorities: []PriorityPolicy{
+				Priorities: []scheduler.PriorityPolicy{
 					{Name: "LowestOrdinalPriority", Weight: 1},
 				},
 			},
@@ -632,13 +634,13 @@ func TestStatefulsetScheduler(t *testing.T) {
 			vreplicas: 0,
 			replicas:  int32(0),
 			expected:  nil,
-			schedulerPolicy: &SchedulerPolicy{
-				Predicates: []PredicatePolicy{
+			schedulerPolicy: &scheduler.SchedulerPolicy{
+				Predicates: []scheduler.PredicatePolicy{
 					{Name: "PodFitsResources"},
 					{Name: "EvenPodSpread",
 						Args: "{\"MaxSkew\": 2}"},
 				},
-				Priorities: []PriorityPolicy{
+				Priorities: []scheduler.PriorityPolicy{
 					{Name: "LowestOrdinalPriority", Weight: 2},
 					{Name: "AvailabilityZonePriority", Weight: 10, Args: "{\"MaxSkew\": 2}"},
 				},
@@ -650,12 +652,12 @@ func TestStatefulsetScheduler(t *testing.T) {
 			replicas:  int32(0),
 			err:       scheduler.ErrNotEnoughReplicas,
 			expected:  nil,
-			schedulerPolicy: &SchedulerPolicy{
-				Predicates: []PredicatePolicy{
+			schedulerPolicy: &scheduler.SchedulerPolicy{
+				Predicates: []scheduler.PredicatePolicy{
 					{Name: "PodFitsResources"},
 					{Name: "EvenPodSpread", Args: "{\"MaxSkew\": 2}"},
 				},
-				Priorities: []PriorityPolicy{
+				Priorities: []scheduler.PriorityPolicy{
 					{Name: "LowestOrdinalPriority", Weight: 2},
 					{Name: "AvailabilityZonePriority", Weight: 10, Args: "{\"MaxSkew\": 2}"},
 				},
@@ -666,12 +668,12 @@ func TestStatefulsetScheduler(t *testing.T) {
 			vreplicas: 1,
 			replicas:  int32(1),
 			expected:  []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 1}},
-			schedulerPolicy: &SchedulerPolicy{
-				Predicates: []PredicatePolicy{
+			schedulerPolicy: &scheduler.SchedulerPolicy{
+				Predicates: []scheduler.PredicatePolicy{
 					{Name: "PodFitsResources"},
 					{Name: "EvenPodSpread", Args: "{\"MaxSkew\": 2}"},
 				},
-				Priorities: []PriorityPolicy{
+				Priorities: []scheduler.PriorityPolicy{
 					{Name: "LowestOrdinalPriority", Weight: 2},
 					{Name: "AvailabilityZonePriority", Weight: 10, Args: "{\"MaxSkew\": 2}"},
 				},
@@ -682,12 +684,12 @@ func TestStatefulsetScheduler(t *testing.T) {
 			vreplicas: 3,
 			replicas:  int32(1),
 			expected:  []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 3}},
-			schedulerPolicy: &SchedulerPolicy{
-				Predicates: []PredicatePolicy{
+			schedulerPolicy: &scheduler.SchedulerPolicy{
+				Predicates: []scheduler.PredicatePolicy{
 					{Name: "PodFitsResources"},
 					{Name: "EvenPodSpread", Args: "{\"MaxSkew\": 2}"},
 				},
-				Priorities: []PriorityPolicy{
+				Priorities: []scheduler.PriorityPolicy{
 					{Name: "LowestOrdinalPriority", Weight: 2},
 					{Name: "AvailabilityZonePriority", Weight: 10, Args: "{\"MaxSkew\": 2}"},
 				},
@@ -699,12 +701,12 @@ func TestStatefulsetScheduler(t *testing.T) {
 			replicas:  int32(1),
 			err:       scheduler.ErrNotEnoughReplicas,
 			expected:  []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 10}},
-			schedulerPolicy: &SchedulerPolicy{
-				Predicates: []PredicatePolicy{
+			schedulerPolicy: &scheduler.SchedulerPolicy{
+				Predicates: []scheduler.PredicatePolicy{
 					{Name: "PodFitsResources"},
 					{Name: "EvenPodSpread", Args: "{\"MaxSkew\": 2}"},
 				},
-				Priorities: []PriorityPolicy{
+				Priorities: []scheduler.PriorityPolicy{
 					{Name: "LowestOrdinalPriority", Weight: 2},
 					{Name: "AvailabilityZonePriority", Weight: 10, Args: "{\"MaxSkew\": 2}"},
 				},
@@ -718,12 +720,12 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-0", VReplicas: 8},
 				{PodName: "statefulset-name-1", VReplicas: 7},
 			},
-			schedulerPolicy: &SchedulerPolicy{
-				Predicates: []PredicatePolicy{
+			schedulerPolicy: &scheduler.SchedulerPolicy{
+				Predicates: []scheduler.PredicatePolicy{
 					{Name: "PodFitsResources"},
 					{Name: "EvenPodSpread", Args: "{\"MaxSkew\": 2}"},
 				},
-				Priorities: []PriorityPolicy{
+				Priorities: []scheduler.PriorityPolicy{
 					{Name: "LowestOrdinalPriority", Weight: 2},
 					{Name: "AvailabilityZonePriority", Weight: 10, Args: "{\"MaxSkew\": 2}"},
 				},
@@ -741,12 +743,12 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-0", VReplicas: 10},
 				{PodName: "statefulset-name-1", VReplicas: 5},
 			},
-			schedulerPolicy: &SchedulerPolicy{
-				Predicates: []PredicatePolicy{
+			schedulerPolicy: &scheduler.SchedulerPolicy{
+				Predicates: []scheduler.PredicatePolicy{
 					{Name: "PodFitsResources"},
 					{Name: "EvenPodSpread", Args: "{\"MaxSkew\": 2}"},
 				},
-				Priorities: []PriorityPolicy{
+				Priorities: []scheduler.PriorityPolicy{
 					{Name: "LowestOrdinalPriority", Weight: 2},
 					{Name: "AvailabilityZonePriority", Weight: 10, Args: "{\"MaxSkew\": 2}"},
 				},
@@ -766,12 +768,12 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-1", VReplicas: 10},
 				{PodName: "statefulset-name-2", VReplicas: 10},
 			},
-			schedulerPolicy: &SchedulerPolicy{
-				Predicates: []PredicatePolicy{
+			schedulerPolicy: &scheduler.SchedulerPolicy{
+				Predicates: []scheduler.PredicatePolicy{
 					{Name: "PodFitsResources"},
 					{Name: "EvenPodSpread", Args: "{\"MaxSkew\": 5}"},
 				},
-				Priorities: []PriorityPolicy{
+				Priorities: []scheduler.PriorityPolicy{
 					{Name: "LowestOrdinalPriority", Weight: 2},
 					{Name: "AvailabilityZonePriority", Weight: 10, Args: "{\"MaxSkew\": 5}"},
 				},
@@ -786,12 +788,12 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-1", VReplicas: 5},
 				{PodName: "statefulset-name-2", VReplicas: 5},
 			},
-			schedulerPolicy: &SchedulerPolicy{
-				Predicates: []PredicatePolicy{
+			schedulerPolicy: &scheduler.SchedulerPolicy{
+				Predicates: []scheduler.PredicatePolicy{
 					{Name: "PodFitsResources"},
 					{Name: "EvenPodSpread", Args: "{\"MaxSkew\": 2}"},
 				},
-				Priorities: []PriorityPolicy{
+				Priorities: []scheduler.PriorityPolicy{
 					{Name: "LowestOrdinalPriority", Weight: 2},
 					{Name: "AvailabilityZonePriority", Weight: 10, Args: "{\"MaxSkew\": 2}"},
 				},
@@ -806,12 +808,12 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-1", VReplicas: 7},
 				{PodName: "statefulset-name-2", VReplicas: 6},
 			},
-			schedulerPolicy: &SchedulerPolicy{
-				Predicates: []PredicatePolicy{
+			schedulerPolicy: &scheduler.SchedulerPolicy{
+				Predicates: []scheduler.PredicatePolicy{
 					{Name: "PodFitsResources"},
 					{Name: "EvenPodSpread", Args: "{\"MaxSkew\": 2}"},
 				},
-				Priorities: []PriorityPolicy{
+				Priorities: []scheduler.PriorityPolicy{
 					{Name: "LowestOrdinalPriority", Weight: 2},
 					{Name: "AvailabilityZonePriority", Weight: 10, Args: "{\"MaxSkew\": 2}"},
 				},
@@ -829,8 +831,8 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-0", VReplicas: 8},
 				{PodName: "statefulset-name-1", VReplicas: 7},
 			},
-			deschedulerPolicy: &SchedulerPolicy{
-				Priorities: []PriorityPolicy{
+			deschedulerPolicy: &scheduler.SchedulerPolicy{
+				Priorities: []scheduler.PriorityPolicy{
 					{Name: "RemoveWithEvenPodSpreadPriority", Weight: 10, Args: "{\"MaxSkew\": 2}"},
 					{Name: "RemoveWithHighestOrdinalPriority", Weight: 2},
 				},
@@ -850,8 +852,8 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-1", VReplicas: 5},
 				{PodName: "statefulset-name-2", VReplicas: 5},
 			},
-			deschedulerPolicy: &SchedulerPolicy{
-				Priorities: []PriorityPolicy{
+			deschedulerPolicy: &scheduler.SchedulerPolicy{
+				Priorities: []scheduler.PriorityPolicy{
 					{Name: "RemoveWithAvailabilityZonePriority", Weight: 10, Args: "{\"MaxSkew\": 2}"},
 					{Name: "RemoveWithHighestOrdinalPriority", Weight: 2},
 				},
@@ -870,8 +872,8 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-0", VReplicas: 1},
 				{PodName: "statefulset-name-1", VReplicas: 1},
 			},
-			deschedulerPolicy: &SchedulerPolicy{
-				Priorities: []PriorityPolicy{
+			deschedulerPolicy: &scheduler.SchedulerPolicy{
+				Priorities: []scheduler.PriorityPolicy{
 					{Name: "RemoveWithEvenPodSpreadPriority", Weight: 10, Args: "{\"MaxSkew\": 2}"},
 					{Name: "RemoveWithHighestOrdinalPriority", Weight: 2},
 				},
@@ -890,8 +892,8 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-0", VReplicas: 1},
 				{PodName: "statefulset-name-1", VReplicas: 1},
 			},
-			deschedulerPolicy: &SchedulerPolicy{
-				Priorities: []PriorityPolicy{
+			deschedulerPolicy: &scheduler.SchedulerPolicy{
+				Priorities: []scheduler.PriorityPolicy{
 					{Name: "RemoveWithAvailabilityZonePriority", Weight: 10, Args: "{\"MaxSkew\": 2}"},
 					{Name: "RemoveWithHighestOrdinalPriority", Weight: 2},
 				},
@@ -911,8 +913,8 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-1", VReplicas: 1},
 				{PodName: "statefulset-name-2", VReplicas: 1},
 			},
-			deschedulerPolicy: &SchedulerPolicy{
-				Priorities: []PriorityPolicy{
+			deschedulerPolicy: &scheduler.SchedulerPolicy{
+				Priorities: []scheduler.PriorityPolicy{
 					{Name: "RemoveWithEvenPodSpreadPriority", Weight: 10, Args: "{\"MaxSkew\": 2}"},
 					{Name: "RemoveWithHighestOrdinalPriority", Weight: 2},
 				},
@@ -932,8 +934,8 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-1", VReplicas: 2},
 				{PodName: "statefulset-name-2", VReplicas: 2},
 			},
-			deschedulerPolicy: &SchedulerPolicy{
-				Priorities: []PriorityPolicy{
+			deschedulerPolicy: &scheduler.SchedulerPolicy{
+				Priorities: []scheduler.PriorityPolicy{
 					{Name: "RemoveWithEvenPodSpreadPriority", Weight: 10, Args: "{\"MaxSkew\": 2}"},
 					{Name: "RemoveWithHighestOrdinalPriority", Weight: 2},
 				},
@@ -955,10 +957,34 @@ func TestStatefulsetScheduler(t *testing.T) {
 				{PodName: "statefulset-name-2", VReplicas: 2},
 				{PodName: "statefulset-name-3", VReplicas: 1},
 			},
-			deschedulerPolicy: &SchedulerPolicy{
-				Priorities: []PriorityPolicy{
+			deschedulerPolicy: &scheduler.SchedulerPolicy{
+				Priorities: []scheduler.PriorityPolicy{
 					{Name: "RemoveWithEvenPodSpreadPriority", Weight: 10, Args: "{\"MaxSkew\": 2}"},
 					{Name: "RemoveWithHighestOrdinalPriority", Weight: 2},
+				},
+			},
+		},
+		{
+			name:      "three replicas, 15 vreplicas with Predicates and Priorities and non-zero pending for rebalancing",
+			vreplicas: 15,
+			replicas:  int32(3),
+			placements: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 10},
+			},
+			expected: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 5},
+				{PodName: "statefulset-name-1", VReplicas: 5},
+				{PodName: "statefulset-name-2", VReplicas: 5},
+			},
+			pending: map[types.NamespacedName]int32{{Name: vpodName, Namespace: vpodNamespace}: 5},
+			schedulerPolicy: &scheduler.SchedulerPolicy{
+				Predicates: []scheduler.PredicatePolicy{
+					{Name: "PodFitsResources"},
+					{Name: "EvenPodSpread", Args: "{\"MaxSkew\": 1}"},
+				},
+				Priorities: []scheduler.PriorityPolicy{
+					{Name: "AvailabilityZonePriority", Weight: 10, Args: "{\"MaxSkew\": 1}"},
+					{Name: "LowestOrdinalPriority", Weight: 5},
 				},
 			},
 		},
@@ -998,9 +1024,11 @@ func TestStatefulsetScheduler(t *testing.T) {
 			}
 			lsp := listers.NewListers(podlist)
 			lsn := listers.NewListers(nodelist)
-			sa := state.NewStateBuilder(ctx, sfsName, vpodClient.List, 10, tc.schedulerPolicyType, lsp.GetPodLister().Pods(testNs), lsn.GetNodeLister())
-			s := NewStatefulSetScheduler(ctx, testNs, sfsName, vpodClient.List, sa, nil, lsp.GetPodLister().Pods(testNs), tc.schedulerPolicy, tc.deschedulerPolicy).(*StatefulSetScheduler)
-
+			sa := state.NewStateBuilder(ctx, testNs, sfsName, vpodClient.List, 10, tc.schedulerPolicyType, tc.schedulerPolicy, tc.deschedulerPolicy, lsp.GetPodLister().Pods(testNs), lsn.GetNodeLister())
+			s := NewStatefulSetScheduler(ctx, testNs, sfsName, vpodClient.List, sa, nil, lsp.GetPodLister().Pods(testNs)).(*StatefulSetScheduler)
+			if tc.pending != nil {
+				s.pending = tc.pending
+			}
 			// Give some time for the informer to notify the scheduler and set the number of replicas
 			time.Sleep(200 * time.Millisecond)
 

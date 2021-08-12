@@ -42,7 +42,6 @@ import (
 	reconcilerkafkasource "knative.dev/eventing-kafka/pkg/client/injection/reconciler/sources/v1beta1/kafkasource"
 	listers "knative.dev/eventing-kafka/pkg/client/listers/sources/v1beta1"
 	"knative.dev/eventing-kafka/pkg/common/scheduler"
-	sts "knative.dev/eventing-kafka/pkg/common/scheduler/statefulset"
 	"knative.dev/eventing-kafka/pkg/source/client"
 )
 
@@ -198,7 +197,7 @@ func (r *Reconciler) createCloudEventAttributes(src *v1beta1.KafkaSource) []duck
 }
 
 // initPolicyFromConfigMap reads predicates and priorities data from configMap
-func initPolicyFromConfigMap(ctx context.Context, configMapName string, policy *sts.SchedulerPolicy) error {
+func initPolicyFromConfigMap(ctx context.Context, configMapName string, policy *scheduler.SchedulerPolicy) error {
 	policyConfigMap, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, configMapName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("couldn't get scheduler policy config map %s/%s: %v", system.Namespace(), configMapName, err)
@@ -229,11 +228,11 @@ func initPolicyFromConfigMap(ctx context.Context, configMapName string, policy *
 	return nil
 }
 
-func validatePolicy(policy *sts.SchedulerPolicy) []error {
+func validatePolicy(policy *scheduler.SchedulerPolicy) []error {
 	var validationErrors []error
 
 	for _, priority := range policy.Priorities {
-		if priority.Weight < sts.MinWeight || priority.Weight > sts.MaxWeight {
+		if priority.Weight < scheduler.MinWeight || priority.Weight > scheduler.MaxWeight {
 			validationErrors = append(validationErrors, fmt.Errorf("priority %s should have a positive weight applied to it or it has overflown", priority.Name))
 		}
 	}

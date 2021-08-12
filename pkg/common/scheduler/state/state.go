@@ -22,10 +22,14 @@ import (
 	"fmt"
 
 	"go.uber.org/zap"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	clientappsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 	corev1 "k8s.io/client-go/listers/core/v1"
+
 	"knative.dev/eventing-kafka/pkg/common/scheduler"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
 )
 
@@ -49,6 +53,9 @@ type State struct {
 	// Pod capacity.
 	Capacity int32
 
+	// Replicas is the (cached) number of statefulset replicas.
+	Replicas int32
+
 	// Number of zones in cluster
 	NumZones int32
 
@@ -57,6 +64,12 @@ type State struct {
 
 	// Scheduling policy type for placing vreplicas on pods
 	SchedulerPolicy scheduler.SchedulerPolicyType
+
+	// Scheduling policy plugin for placing vreplicas on pods
+	SchedPolicy *scheduler.SchedulerPolicy
+
+	// De-scheduling policy plugin for removing vreplicas from pods
+	DeschedPolicy *scheduler.SchedulerPolicy
 
 	// Mapping node names of nodes currently in cluster to their zone info
 	NodeToZoneMap map[string]string
@@ -112,28 +125,34 @@ func (s *State) GetPodInfo(podName string) (zoneName string, nodeName string, er
 
 // stateBuilder reconstruct the state from scratch, by listing vpods
 type stateBuilder struct {
-	ctx             context.Context
-	logger          *zap.SugaredLogger
-	vpodLister      scheduler.VPodLister
-	capacity        int32
-	schedulerPolicy scheduler.SchedulerPolicyType
-	nodeLister      corev1.NodeLister
-	statefulSetName string
-	podLister       corev1.PodNamespaceLister
+	ctx               context.Context
+	logger            *zap.SugaredLogger
+	vpodLister        scheduler.VPodLister
+	capacity          int32
+	schedulerPolicy   scheduler.SchedulerPolicyType
+	nodeLister        corev1.NodeLister
+	statefulSetClient clientappsv1.StatefulSetInterface
+	statefulSetName   string
+	podLister         corev1.PodNamespaceLister
+	schedPolicy       *scheduler.SchedulerPolicy
+	deschedPolicy     *scheduler.SchedulerPolicy
 }
 
 // NewStateBuilder returns a StateAccessor recreating the state from scratch each time it is requested
-func NewStateBuilder(ctx context.Context, sfsname string, lister scheduler.VPodLister, podCapacity int32, schedulerPolicy scheduler.SchedulerPolicyType, podlister corev1.PodNamespaceLister, nodeLister corev1.NodeLister) StateAccessor {
+func NewStateBuilder(ctx context.Context, namespace, sfsname string, lister scheduler.VPodLister, podCapacity int32, schedulerPolicy scheduler.SchedulerPolicyType, schedPolicy *scheduler.SchedulerPolicy, deschedPolicy *scheduler.SchedulerPolicy, podlister corev1.PodNamespaceLister, nodeLister corev1.NodeLister) StateAccessor {
 
 	return &stateBuilder{
-		ctx:             ctx,
-		logger:          logging.FromContext(ctx),
-		vpodLister:      lister,
-		capacity:        podCapacity,
-		schedulerPolicy: schedulerPolicy,
-		nodeLister:      nodeLister,
-		statefulSetName: sfsname,
-		podLister:       podlister,
+		ctx:               ctx,
+		logger:            logging.FromContext(ctx),
+		vpodLister:        lister,
+		capacity:          podCapacity,
+		schedulerPolicy:   schedulerPolicy,
+		nodeLister:        nodeLister,
+		statefulSetClient: kubeclient.Get(ctx).AppsV1().StatefulSets(namespace),
+		statefulSetName:   sfsname,
+		podLister:         podlister,
+		schedPolicy:       schedPolicy,
+		deschedPolicy:     deschedPolicy,
 	}
 }
 
@@ -143,7 +162,13 @@ func (s *stateBuilder) State(reserved map[types.NamespacedName]map[string]int32)
 		return nil, err
 	}
 
-	free := make([]int32, 0, 256)
+	scale, err := s.statefulSetClient.GetScale(s.ctx, s.statefulSetName, metav1.GetOptions{})
+	if err != nil {
+		s.logger.Infow("failed to get statefulset", zap.Error(err))
+		return nil, err
+	}
+
+	free := make([]int32, 0)
 	last := int32(-1)
 
 	// keep track of (vpod key, podname) pairs with existing placements
@@ -186,9 +211,6 @@ func (s *stateBuilder) State(reserved map[types.NamespacedName]map[string]int32)
 
 		for i := 0; i < len(ps); i++ {
 			podName := ps[i].PodName
-			pod, _ := s.podLister.Get(podName)
-			nodeName := pod.Spec.NodeName       //node name for this pod
-			zoneName := nodeToZoneMap[nodeName] //zone name for this pod
 			vreplicas := ps[i].VReplicas
 
 			// Account for reserved vreplicas
@@ -197,6 +219,13 @@ func (s *stateBuilder) State(reserved map[types.NamespacedName]map[string]int32)
 			free, last = s.updateFreeCapacity(free, last, podName, vreplicas)
 
 			withPlacement[vpod.GetKey()][podName] = true
+
+			pod, err := s.podLister.Get(podName)
+			if err != nil {
+				continue //can't find pod for some reason, move to next placement - will update next time state is invoked
+			}
+			nodeName := pod.Spec.NodeName       //node name for this pod
+			zoneName := nodeToZoneMap[nodeName] //zone name for this pod
 			podSpread[vpod.GetKey()][podName] = podSpread[vpod.GetKey()][podName] + vreplicas
 			nodeSpread[vpod.GetKey()][nodeName] = nodeSpread[vpod.GetKey()][nodeName] + vreplicas
 			zoneSpread[vpod.GetKey()][zoneName] = zoneSpread[vpod.GetKey()][zoneName] + vreplicas
@@ -209,9 +238,13 @@ func (s *stateBuilder) State(reserved map[types.NamespacedName]map[string]int32)
 			if wp, ok := withPlacement[key]; ok {
 				if _, ok := wp[podName]; ok {
 					// already accounted for
-					break
+					continue
 				}
-				pod, _ := s.podLister.Get(podName)
+
+				pod, err := s.podLister.Get(podName)
+				if err != nil {
+					continue //can't find pod for some reason, move to next placement - will update next time state is invoked
+				}
 				nodeName := pod.Spec.NodeName       //node name for this pod
 				zoneName := nodeToZoneMap[nodeName] //zone name for this pod
 				podSpread[key][podName] = podSpread[key][podName] + rvreplicas
@@ -223,9 +256,9 @@ func (s *stateBuilder) State(reserved map[types.NamespacedName]map[string]int32)
 		}
 	}
 
-	s.logger.Infow("cluster state info", zap.String("NumZones", fmt.Sprint(len(zoneMap))), zap.String("NumNodes", fmt.Sprint(len(nodeToZoneMap))))
-	return &State{FreeCap: free, LastOrdinal: last, Capacity: s.capacity, NumZones: int32(len(zoneMap)), NumNodes: int32(len(nodeToZoneMap)),
-		SchedulerPolicy: s.schedulerPolicy, NodeToZoneMap: nodeToZoneMap, StatefulSetName: s.statefulSetName, PodLister: s.podLister,
+	s.logger.Infow("cluster state info", zap.String("NumPods", fmt.Sprint(scale.Spec.Replicas)), zap.String("NumZones", fmt.Sprint(len(zoneMap))), zap.String("NumNodes", fmt.Sprint(len(nodeToZoneMap))))
+	return &State{FreeCap: free, LastOrdinal: last, Capacity: s.capacity, Replicas: scale.Spec.Replicas, NumZones: int32(len(zoneMap)), NumNodes: int32(len(nodeToZoneMap)),
+		SchedulerPolicy: s.schedulerPolicy, SchedPolicy: s.schedPolicy, DeschedPolicy: s.deschedPolicy, NodeToZoneMap: nodeToZoneMap, StatefulSetName: s.statefulSetName, PodLister: s.podLister,
 		PodSpread: podSpread, NodeSpread: nodeSpread, ZoneSpread: zoneSpread}, nil
 }
 

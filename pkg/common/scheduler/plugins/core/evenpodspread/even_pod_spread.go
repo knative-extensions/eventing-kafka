@@ -19,6 +19,7 @@ package evenpodspread
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -27,12 +28,13 @@ import (
 	"knative.dev/pkg/logging"
 )
 
-// EvenPodSpread is a filter plugin that eliminates pods that do not create an equal spread of resources across pods
+// EvenPodSpread is a filter or score plugin that picks/favors pods that create an equal spread of resources across pods
 type EvenPodSpread struct {
 }
 
-// Verify EvenPodSpread Implements FilterPlugin Interface
+// Verify EvenPodSpread Implements FilterPlugin and ScorePlugin Interface
 var _ state.FilterPlugin = &EvenPodSpread{}
+var _ state.ScorePlugin = &EvenPodSpread{}
 
 // Name of the plugin
 const (
@@ -43,6 +45,7 @@ const (
 
 func init() {
 	factory.RegisterFP(Name, &EvenPodSpread{})
+	factory.RegisterSP(Name, &EvenPodSpread{})
 }
 
 // Name returns name of the plugin
@@ -67,10 +70,10 @@ func (pl *EvenPodSpread) Filter(ctx context.Context, args interface{}, states *s
 		return state.NewStatus(state.Unschedulable, ErrReasonInvalidArg)
 	}
 
-	if states.LastOrdinal >= 0 { //need atleast two pods to compute spread
+	if states.Replicas > 0 { //need atleast a pod to compute spread
 		currentReps := states.PodSpread[key][state.PodNameFromOrdinal(states.StatefulSetName, podID)] //get #vreps on this podID
 		var skew int32
-		for otherPodID := int32(0); otherPodID <= states.LastOrdinal; otherPodID++ { //compare with #vreps on other pods
+		for otherPodID := int32(0); otherPodID < states.Replicas; otherPodID++ { //compare with #vreps on other pods
 			if otherPodID != podID {
 				otherReps := states.PodSpread[key][state.PodNameFromOrdinal(states.StatefulSetName, otherPodID)]
 				if skew = (currentReps + 1) - otherReps; skew < 0 {
@@ -79,14 +82,66 @@ func (pl *EvenPodSpread) Filter(ctx context.Context, args interface{}, states *s
 
 				logger.Infof("Current Pod %d with %d and Other Pod %d with %d causing skew %d", podID, currentReps, otherPodID, otherReps, skew)
 				if skew > skewVal.MaxSkew {
-					logger.Infof("Pod %d will cause an uneven spread", podID)
+					logger.Infof("Unschedulable! Pod %d will cause an uneven spread", podID)
 					return state.NewStatus(state.Unschedulable, ErrReasonUnschedulable)
 				}
 			}
 		}
 	}
 
-	logger.Infof("Pod %d passed %q predicate successfully", podID, pl.Name())
+	//logger.Infof("Pod %d passed %q predicate successfully", podID, pl.Name())
 	return state.NewStatus(state.Success)
 
+}
+
+// Score invoked at the score extension point. The "score" returned in this function is higher for pods that create an even spread across pods.
+func (pl *EvenPodSpread) Score(ctx context.Context, args interface{}, states *state.State, key types.NamespacedName, podID int32) (uint64, *state.Status) {
+	logger := logging.FromContext(ctx).With("Score", pl.Name())
+	var score uint64 = 0
+
+	spreadArgs, ok := args.(string)
+	if !ok {
+		logger.Errorf("Scoring args %v for priority %q are not valid", args, pl.Name())
+		return 0, state.NewStatus(state.Unschedulable, ErrReasonInvalidArg)
+	}
+
+	skewVal := state.EvenPodSpreadArgs{}
+	decoder := json.NewDecoder(strings.NewReader(spreadArgs))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&skewVal); err != nil {
+		return 0, state.NewStatus(state.Unschedulable, ErrReasonInvalidArg)
+	}
+
+	if states.Replicas > 0 { //need atleast a pod to compute spread
+		currentReps := states.PodSpread[key][state.PodNameFromOrdinal(states.StatefulSetName, podID)] //get #vreps on this podID
+		var skew int32
+		for otherPodID := int32(0); otherPodID < states.Replicas; otherPodID++ { //compare with #vreps on other pods
+			if otherPodID != podID {
+				otherReps := states.PodSpread[key][state.PodNameFromOrdinal(states.StatefulSetName, otherPodID)]
+				if skew = (currentReps + 1) - otherReps; skew < 0 {
+					skew = skew * int32(-1)
+				}
+
+				logger.Infof("Current Pod %d with %d and Other Pod %d with %d causing skew %d", podID, currentReps, otherPodID, otherReps, skew)
+				if skew > skewVal.MaxSkew {
+					logger.Infof("Pod %d will cause an uneven zone spread", podID)
+				}
+				score = score + uint64(skew)
+			}
+		}
+		score = math.MaxUint64 - score //lesser skews get higher score
+	}
+
+	//logger.Infof("Pod %v scored by %q priority successfully with score %v", podID, pl.Name(), score)
+	return score, state.NewStatus(state.Success)
+}
+
+// ScoreExtensions of the Score plugin.
+func (pl *EvenPodSpread) ScoreExtensions() state.ScoreExtensions {
+	return pl
+}
+
+// NormalizeScore invoked after scoring all pods.
+func (pl *EvenPodSpread) NormalizeScore(ctx context.Context, states *state.State, scores state.PodScoreList) *state.Status {
+	return nil
 }

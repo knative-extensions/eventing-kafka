@@ -32,7 +32,6 @@ func TestFilter(t *testing.T) {
 		name     string
 		state    *state.State
 		vpod     types.NamespacedName
-		replicas int32
 		podID    int32
 		expected *state.Status
 		expScore uint64
@@ -41,8 +40,7 @@ func TestFilter(t *testing.T) {
 		{
 			name:     "no vpods, no pods",
 			vpod:     types.NamespacedName{},
-			state:    &state.State{StatefulSetName: "pod-name", LastOrdinal: -1, PodSpread: map[types.NamespacedName]map[string]int32{}},
-			replicas: 0,
+			state:    &state.State{StatefulSetName: "pod-name", Replicas: 0, PodSpread: map[types.NamespacedName]map[string]int32{}},
 			podID:    0,
 			expScore: 0,
 			expected: state.NewStatus(state.Success),
@@ -51,8 +49,7 @@ func TestFilter(t *testing.T) {
 		{
 			name:     "no vpods, no pods, bad arg",
 			vpod:     types.NamespacedName{},
-			state:    &state.State{StatefulSetName: "pod-name", LastOrdinal: -1, PodSpread: map[types.NamespacedName]map[string]int32{}},
-			replicas: 0,
+			state:    &state.State{StatefulSetName: "pod-name", Replicas: 0, PodSpread: map[types.NamespacedName]map[string]int32{}},
 			podID:    0,
 			expScore: 0,
 			expected: state.NewStatus(state.Unschedulable, ErrReasonInvalidArg),
@@ -61,14 +58,13 @@ func TestFilter(t *testing.T) {
 		{
 			name: "one vpod, one pod, same pod filter",
 			vpod: types.NamespacedName{Name: "vpod-name-0", Namespace: "vpod-ns-0"},
-			state: &state.State{StatefulSetName: "pod-name", LastOrdinal: 0,
+			state: &state.State{StatefulSetName: "pod-name", Replicas: 1,
 				PodSpread: map[types.NamespacedName]map[string]int32{
 					{Name: "vpod-name-0", Namespace: "vpod-ns-0"}: {
 						"pod-name-0": 5,
 					},
 				},
 			},
-			replicas: 1,
 			podID:    0,
 			expScore: math.MaxUint64,
 			expected: state.NewStatus(state.Success),
@@ -77,7 +73,7 @@ func TestFilter(t *testing.T) {
 		{
 			name: "two vpods, one pod, same pod filter",
 			vpod: types.NamespacedName{Name: "vpod-name-0", Namespace: "vpod-ns-0"},
-			state: &state.State{StatefulSetName: "pod-name", LastOrdinal: 0,
+			state: &state.State{StatefulSetName: "pod-name", Replicas: 1,
 				PodSpread: map[types.NamespacedName]map[string]int32{
 					{Name: "vpod-name-0", Namespace: "vpod-ns-0"}: {
 						"pod-name-0": 5,
@@ -87,7 +83,6 @@ func TestFilter(t *testing.T) {
 					},
 				},
 			},
-			replicas: 1,
 			podID:    0,
 			expScore: math.MaxUint64,
 			expected: state.NewStatus(state.Success),
@@ -96,13 +91,12 @@ func TestFilter(t *testing.T) {
 		{
 			name: "one vpod, two pods,same pod filter",
 			vpod: types.NamespacedName{Name: "vpod-name-0", Namespace: "vpod-ns-0"},
-			state: &state.State{StatefulSetName: "pod-name", LastOrdinal: 1, PodSpread: map[types.NamespacedName]map[string]int32{
+			state: &state.State{StatefulSetName: "pod-name", Replicas: 2, PodSpread: map[types.NamespacedName]map[string]int32{
 				{Name: "vpod-name-0", Namespace: "vpod-ns-0"}: {
 					"pod-name-0": 5,
 					"pod-name-1": 5,
 				},
 			}},
-			replicas: 2,
 			podID:    1,
 			expScore: math.MaxUint64 - 1,
 			expected: state.NewStatus(state.Success),
@@ -111,7 +105,7 @@ func TestFilter(t *testing.T) {
 		{
 			name: "one vpod, five pods, same pod filter",
 			vpod: types.NamespacedName{Name: "vpod-name-0", Namespace: "vpod-ns-0"},
-			state: &state.State{StatefulSetName: "pod-name", LastOrdinal: 4, PodSpread: map[types.NamespacedName]map[string]int32{
+			state: &state.State{StatefulSetName: "pod-name", Replicas: 5, PodSpread: map[types.NamespacedName]map[string]int32{
 				{Name: "vpod-name-0", Namespace: "vpod-ns-0"}: {
 					"pod-name-0": 5,
 					"pod-name-1": 4,
@@ -120,7 +114,6 @@ func TestFilter(t *testing.T) {
 					"pod-name-4": 5,
 				},
 			}},
-			replicas: 5,
 			podID:    1,
 			expScore: math.MaxUint64 - 5,
 			expected: state.NewStatus(state.Success),
@@ -129,7 +122,7 @@ func TestFilter(t *testing.T) {
 		{
 			name: "one vpod, five pods, same pod filter diff pod",
 			vpod: types.NamespacedName{Name: "vpod-name-0", Namespace: "vpod-ns-0"},
-			state: &state.State{StatefulSetName: "pod-name", LastOrdinal: 4, PodSpread: map[types.NamespacedName]map[string]int32{
+			state: &state.State{StatefulSetName: "pod-name", Replicas: 5, PodSpread: map[types.NamespacedName]map[string]int32{
 				{Name: "vpod-name-0", Namespace: "vpod-ns-0"}: {
 					"pod-name-0": 10,
 					"pod-name-1": 4,
@@ -138,7 +131,6 @@ func TestFilter(t *testing.T) {
 					"pod-name-4": 5,
 				},
 			}},
-			replicas: 5,
 			podID:    0,
 			expScore: math.MaxUint64 - 20,
 			expected: state.NewStatus(state.Success),

@@ -56,7 +56,7 @@ func TestScore(t *testing.T) {
 		{
 			name: "no vpods, no pods",
 			vpod: types.NamespacedName{},
-			state: &state.State{StatefulSetName: sfsName, LastOrdinal: -1,
+			state: &state.State{StatefulSetName: sfsName, Replicas: 0,
 				NodeSpread: map[types.NamespacedName]map[string]int32{}},
 			replicas: 0,
 			podID:    0,
@@ -67,7 +67,7 @@ func TestScore(t *testing.T) {
 		{
 			name: "no vpods, no pods, bad arg",
 			vpod: types.NamespacedName{},
-			state: &state.State{StatefulSetName: sfsName, LastOrdinal: -1,
+			state: &state.State{StatefulSetName: sfsName, Replicas: 0,
 				ZoneSpread: map[types.NamespacedName]map[string]int32{}},
 			replicas: 0,
 			podID:    0,
@@ -78,7 +78,7 @@ func TestScore(t *testing.T) {
 		{
 			name: "no vpods, no pods, no resource",
 			vpod: types.NamespacedName{},
-			state: &state.State{StatefulSetName: sfsName, LastOrdinal: 1,
+			state: &state.State{StatefulSetName: sfsName, Replicas: 1,
 				ZoneSpread: map[types.NamespacedName]map[string]int32{}},
 			replicas: 0,
 			podID:    1,
@@ -89,7 +89,7 @@ func TestScore(t *testing.T) {
 		{
 			name: "one vpod, one zone, same pod filter",
 			vpod: types.NamespacedName{Name: vpodName + "-0", Namespace: vpodNamespace + "-0"},
-			state: &state.State{StatefulSetName: sfsName, LastOrdinal: 0,
+			state: &state.State{StatefulSetName: sfsName, Replicas: 1,
 				NodeSpread: map[types.NamespacedName]map[string]int32{
 					{Name: vpodName + "-0", Namespace: vpodNamespace + "-0"}: {
 						"node0": 5,
@@ -105,7 +105,7 @@ func TestScore(t *testing.T) {
 		{
 			name: "two vpods, one zone, same pod filter",
 			vpod: types.NamespacedName{Name: vpodName + "-0", Namespace: vpodNamespace + "-0"},
-			state: &state.State{StatefulSetName: sfsName, LastOrdinal: 0,
+			state: &state.State{StatefulSetName: sfsName, Replicas: 1,
 				NodeSpread: map[types.NamespacedName]map[string]int32{
 					{Name: vpodName + "-0", Namespace: vpodNamespace + "-0"}: {
 						"node0": 5,
@@ -124,7 +124,7 @@ func TestScore(t *testing.T) {
 		{
 			name: "one vpod, two zones, same pod filter",
 			vpod: types.NamespacedName{Name: vpodName + "-0", Namespace: vpodNamespace + "-0"},
-			state: &state.State{StatefulSetName: sfsName, LastOrdinal: 1, NodeSpread: map[types.NamespacedName]map[string]int32{
+			state: &state.State{StatefulSetName: sfsName, Replicas: 2, NodeSpread: map[types.NamespacedName]map[string]int32{
 				{Name: vpodName + "-0", Namespace: vpodNamespace + "-0"}: {
 					"node0": 5,
 					"node1": 5,
@@ -140,7 +140,7 @@ func TestScore(t *testing.T) {
 		{
 			name: "one vpod, three zones, same pod filter",
 			vpod: types.NamespacedName{Name: vpodName + "-0", Namespace: vpodNamespace + "-0"},
-			state: &state.State{StatefulSetName: sfsName, LastOrdinal: 4, NodeSpread: map[types.NamespacedName]map[string]int32{
+			state: &state.State{StatefulSetName: sfsName, Replicas: 3, NodeSpread: map[types.NamespacedName]map[string]int32{
 				{Name: vpodName + "-0", Namespace: vpodNamespace + "-0"}: {
 					"node0": 5,
 					"node1": 4,
@@ -156,7 +156,7 @@ func TestScore(t *testing.T) {
 		{
 			name: "one vpod, five pods, same pod filter",
 			vpod: types.NamespacedName{Name: vpodName + "-0", Namespace: vpodNamespace + "-0"},
-			state: &state.State{StatefulSetName: sfsName, LastOrdinal: 2, NodeSpread: map[types.NamespacedName]map[string]int32{
+			state: &state.State{StatefulSetName: sfsName, Replicas: 5, NodeSpread: map[types.NamespacedName]map[string]int32{
 				{Name: vpodName + "-0", Namespace: vpodNamespace + "-0"}: {
 					"node0": 8,
 					"node1": 4,

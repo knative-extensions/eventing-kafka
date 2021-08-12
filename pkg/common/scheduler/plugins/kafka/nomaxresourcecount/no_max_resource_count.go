@@ -27,8 +27,7 @@ import (
 	"knative.dev/pkg/logging"
 )
 
-// NoMaxResourceCount plugin filters pods that cause total pods with placements
-// to exceed total partitioncount
+// NoMaxResourceCount plugin filters pods that cause total pods with placements to exceed total partitioncount.
 type NoMaxResourceCount struct {
 }
 
@@ -71,10 +70,10 @@ func (pl *NoMaxResourceCount) Filter(ctx context.Context, args interface{}, stat
 
 	podName := state.PodNameFromOrdinal(states.StatefulSetName, podID)
 	if _, ok := states.PodSpread[key][podName]; !ok && ((len(states.PodSpread[key]) + 1) > resVal.NumPartitions) { //pod not in vrep's partition map and counting this new pod towards total pod count
-		logger.Infof("Pod %d filtered due to total pod count %v", podID, states.FreeCap)
+		logger.Infof("Unschedulable! Pod %d filtered due to total pod count %v", podID, states.FreeCap)
 		return state.NewStatus(state.Unschedulable, ErrReasonUnschedulable)
 	}
 
-	logger.Infof("Pod %d passed %s predicate successfully", podID, pl.Name())
+	//logger.Infof("Pod %d passed %s predicate successfully", podID, pl.Name())
 	return state.NewStatus(state.Success)
 }

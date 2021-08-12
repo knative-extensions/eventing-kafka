@@ -60,7 +60,7 @@ type ScoreExtensions interface {
 type ScorePlugin interface {
 	Plugin
 	// Score is called by the scheduler.
-	// All ScorePlugins should return "Success"
+	// All ScorePlugins should return "Success" unless the args are invalid.
 	Score(ctx context.Context, args interface{}, state *State, key types.NamespacedName, podID int32) (uint64, *Status)
 
 	// ScoreExtensions returns a ScoreExtensions interface if it implements one, or nil if does not

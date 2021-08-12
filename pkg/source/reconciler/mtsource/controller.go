@@ -131,12 +131,12 @@ func NewController(
 		return nil
 	}
 
-	policy := &stsscheduler.SchedulerPolicy{}
+	policy := &scheduler.SchedulerPolicy{}
 	if err := initPolicyFromConfigMap(ctx, env.SchedulerPolicyConfigMap, policy); err != nil {
 		panic(err)
 	}
 
-	removalpolicy := &stsscheduler.SchedulerPolicy{}
+	removalpolicy := &scheduler.SchedulerPolicy{}
 	if err := initPolicyFromConfigMap(ctx, env.DeSchedulerPolicyConfigMap, removalpolicy); err != nil {
 		panic(err)
 	}

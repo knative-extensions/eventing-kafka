@@ -51,7 +51,7 @@ func (pl *RemoveWithEvenPodSpreadPriority) Name() string {
 	return Name
 }
 
-// Score invoked at the score extension point.
+// Score invoked at the score extension point. The "score" returned in this function is higher for pods that create an even spread across pods.
 func (pl *RemoveWithEvenPodSpreadPriority) Score(ctx context.Context, args interface{}, states *state.State, key types.NamespacedName, podID int32) (uint64, *state.Status) {
 	logger := logging.FromContext(ctx).With("Score", pl.Name())
 	var score uint64 = 0
@@ -69,12 +69,15 @@ func (pl *RemoveWithEvenPodSpreadPriority) Score(ctx context.Context, args inter
 		return 0, state.NewStatus(state.Unschedulable, ErrReasonInvalidArg)
 	}
 
-	if states.LastOrdinal >= 0 { //need atleast two pods to compute spread
+	if states.Replicas > 0 { //need atleast a pod to compute spread
 		currentReps := states.PodSpread[key][state.PodNameFromOrdinal(states.StatefulSetName, podID)] //get #vreps on this podID
 		var skew int32
-		for otherPodID := int32(0); otherPodID <= states.LastOrdinal; otherPodID++ { //compare with #vreps on other pods
+		for otherPodID := int32(0); otherPodID < states.Replicas; otherPodID++ { //compare with #vreps on other pods
 			if otherPodID != podID {
-				otherReps := states.PodSpread[key][state.PodNameFromOrdinal(states.StatefulSetName, otherPodID)]
+				otherReps, ok := states.PodSpread[key][state.PodNameFromOrdinal(states.StatefulSetName, otherPodID)]
+				if !ok {
+					continue //pod does not exist in current placement, so move on
+				}
 				if skew = (currentReps - 1) - otherReps; skew < 0 {
 					skew = skew * int32(-1)
 				}
@@ -89,8 +92,7 @@ func (pl *RemoveWithEvenPodSpreadPriority) Score(ctx context.Context, args inter
 		score = math.MaxUint64 - score //lesser skews get higher score
 	}
 
-	logger.Infof("Pod %v scored by %q priority successfully with score %v", podID, pl.Name(), score)
-
+	//logger.Infof("Pod %v scored by %q priority successfully with score %v", podID, pl.Name(), score)
 	return score, state.NewStatus(state.Success)
 }
 

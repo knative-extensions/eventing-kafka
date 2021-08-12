@@ -44,13 +44,13 @@ func (pl *RemoveWithHighestOrdinalPriority) Name() string {
 	return Name
 }
 
-// Score invoked at the score extension point.
+// Score invoked at the score extension point. The "score" returned in this function is higher for pods with higher ordinal values.
 func (pl *RemoveWithHighestOrdinalPriority) Score(ctx context.Context, args interface{}, states *state.State, key types.NamespacedName, podID int32) (uint64, *state.Status) {
-	logger := logging.FromContext(ctx).With("Score", pl.Name())
+	_ = logging.FromContext(ctx).With("Score", pl.Name())
 
 	score := uint64(podID) //higher ordinals get higher score
 
-	logger.Infof("Pod %v scored by %q priority successfully with score %v", podID, pl.Name(), score)
+	//logger.Infof("Pod %v scored by %q priority successfully with score %v", podID, pl.Name(), score)
 	return score, state.NewStatus(state.Success)
 }
 
@@ -61,5 +61,5 @@ func (pl *RemoveWithHighestOrdinalPriority) ScoreExtensions() state.ScoreExtensi
 
 // NormalizeScore invoked after scoring all pods.
 func (pl *RemoveWithHighestOrdinalPriority) NormalizeScore(ctx context.Context, states *state.State, scores state.PodScoreList) *state.Status {
-	return state.NewStatus(state.Success)
+	return nil
 }

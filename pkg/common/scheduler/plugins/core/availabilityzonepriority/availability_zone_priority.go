@@ -54,15 +54,14 @@ func (pl *AvailabilityZonePriority) Name() string {
 	return Name
 }
 
-// Score invoked at the score extension point. The "score" returned in this function is higher for pods with lower ordinals and higher free capacity
-// It is normalized later with zone info
+// Score invoked at the score extension point. The "score" returned in this function is higher for zones that create an even spread across zones.
 func (pl *AvailabilityZonePriority) Score(ctx context.Context, args interface{}, states *state.State, key types.NamespacedName, podID int32) (uint64, *state.Status) {
 	logger := logging.FromContext(ctx).With("Score", pl.Name())
 	var score uint64 = 0
 
 	spreadArgs, ok := args.(string)
 	if !ok {
-		logger.Errorf("Scoring args %v for predicate %q are not valid", args, pl.Name())
+		logger.Errorf("Scoring args %v for priority %q are not valid", args, pl.Name())
 		return 0, state.NewStatus(state.Unschedulable, ErrReasonInvalidArg)
 	}
 
@@ -73,7 +72,7 @@ func (pl *AvailabilityZonePriority) Score(ctx context.Context, args interface{},
 		return 0, state.NewStatus(state.Unschedulable, ErrReasonInvalidArg)
 	}
 
-	if states.LastOrdinal >= 0 {
+	if states.Replicas > 0 { //need atleast a pod to compute spread
 		var skew int32
 		zoneMap := make(map[string]struct{})
 		for _, zoneName := range states.NodeToZoneMap {
@@ -105,7 +104,7 @@ func (pl *AvailabilityZonePriority) Score(ctx context.Context, args interface{},
 		score = math.MaxUint64 - score //lesser skews get higher score
 	}
 
-	logger.Infof("Pod %v scored by %q priority successfully with score %v", podID, pl.Name(), score)
+	//logger.Infof("Pod %v scored by %q priority successfully with score %v", podID, pl.Name(), score)
 	return score, state.NewStatus(state.Success)
 }
 

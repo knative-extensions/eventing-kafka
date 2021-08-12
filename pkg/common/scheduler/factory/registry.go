@@ -37,7 +37,7 @@ var (
 // exists, it returns an error.
 func RegisterFP(name string, factory state.FilterPlugin) error {
 	if _, ok := FilterRegistry[name]; ok {
-		return fmt.Errorf("a plugin named %v already exists", name)
+		return fmt.Errorf("a filter plugin named %v already exists", name)
 	}
 	FilterRegistry[name] = factory
 	return nil
@@ -47,7 +47,7 @@ func RegisterFP(name string, factory state.FilterPlugin) error {
 // the provided name exists, it returns an error.
 func UnregisterFP(name string) error {
 	if _, ok := FilterRegistry[name]; !ok {
-		return fmt.Errorf("no plugin named %v exists", name)
+		return fmt.Errorf("no filter plugin named %v exists", name)
 	}
 	delete(FilterRegistry, name)
 	return nil
@@ -57,14 +57,14 @@ func GetFilterPlugin(name string) (state.FilterPlugin, error) {
 	if f, exist := FilterRegistry[name]; exist {
 		return f, nil
 	}
-	return nil, fmt.Errorf("no plugin named %v exists", name)
+	return nil, fmt.Errorf("no fitler plugin named %v exists", name)
 }
 
 // Register adds a new plugin to the registry. If a plugin with the same name
 // exists, it returns an error.
 func RegisterSP(name string, factory state.ScorePlugin) error {
 	if _, ok := ScoreRegistry[name]; ok {
-		return fmt.Errorf("a plugin named %v already exists", name)
+		return fmt.Errorf("a score plugin named %v already exists", name)
 	}
 	ScoreRegistry[name] = factory
 	return nil
@@ -74,7 +74,7 @@ func RegisterSP(name string, factory state.ScorePlugin) error {
 // the provided name exists, it returns an error.
 func UnregisterSP(name string) error {
 	if _, ok := ScoreRegistry[name]; !ok {
-		return fmt.Errorf("no plugin named %v exists", name)
+		return fmt.Errorf("no score plugin named %v exists", name)
 	}
 	delete(ScoreRegistry, name)
 	return nil
@@ -84,5 +84,5 @@ func GetScorePlugin(name string) (state.ScorePlugin, error) {
 	if f, exist := ScoreRegistry[name]; exist {
 		return f, nil
 	}
-	return nil, fmt.Errorf("no plugin named %v exists", name)
+	return nil, fmt.Errorf("no score plugin named %v exists", name)
 }
