@@ -447,7 +447,7 @@ func (r *Reconciler) reconcileDispatcherService(ctx context.Context, dispatcherN
 		want = resources.NewDispatcherServiceBuilderFromService(svc.DeepCopy()).WithArgs(&args).Build()
 		if !equality.Semantic.DeepEqual(want.ObjectMeta, svc.ObjectMeta) || !equality.Semantic.DeepEqual(want.Spec, svc.Spec) {
 			logger.Infof("Dispatcher service changed; reconciling: ObjectMeta=\n%s, Spec=\n%s", cmp.Diff(want.ObjectMeta, svc.ObjectMeta), cmp.Diff(want.Spec, svc.Spec))
-			if svc, err = r.KubeClientSet.CoreV1().Services(dispatcherNamespace).Update(ctx, want, metav1.UpdateOptions{}); err != nil {
+			if _, err = r.KubeClientSet.CoreV1().Services(dispatcherNamespace).Update(ctx, want, metav1.UpdateOptions{}); err != nil {
 				logger.Errorw("error while updating dispatcher service", zap.Error(err), zap.String("namespace", dispatcherNamespace), zap.Any("service", want))
 				kc.Status.MarkServiceFailed("DispatcherServiceUpdateFailed", "Failed to update the dispatcher service: %v", err)
 				return newServiceWarn(err)
