@@ -329,7 +329,7 @@ func (r *Reconciler) reconcileDispatcher(ctx context.Context, scope string, disp
 		PodLabels:             r.kafkaConfig.EventingKafka.Channel.Dispatcher.PodLabels,
 	}
 
-	want := resources.NewDispatcherBuilder().WithArgs(&args).Build()
+	want := resources.NewDispatcherDeploymentBuilder().WithArgs(&args).Build()
 	d, err := r.deploymentLister.Deployments(dispatcherNamespace).Get(dispatcherName)
 	if err != nil {
 		if apierrs.IsNotFound(err) {
@@ -356,10 +356,10 @@ func (r *Reconciler) reconcileDispatcher(ctx context.Context, scope string, disp
 		} else {
 			args.Replicas = *d.Spec.Replicas
 		}
-		want = resources.NewDispatcherBuilderFromDeployment(d.DeepCopy()).WithArgs(&args).Build()
+		want = resources.NewDispatcherDeploymentBuilderFromDeployment(d.DeepCopy()).WithArgs(&args).Build()
 
 		if !equality.Semantic.DeepEqual(want.ObjectMeta, d.ObjectMeta) || !equality.Semantic.DeepEqual(want.Spec, d.Spec) {
-			logger.Infof("Dispatcher deployment changed; reconciling:\n%s", cmp.Diff(want.Spec, d.Spec))
+			logger.Infof("Dispatcher deployment changed; reconciling: ObjectMeta=\n%s, Spec=\n%s", cmp.Diff(want.ObjectMeta, d.ObjectMeta), cmp.Diff(want.Spec, d.Spec))
 			if d, err = r.KubeClientSet.AppsV1().Deployments(dispatcherNamespace).Update(ctx, want, metav1.UpdateOptions{}); err != nil {
 				logger.Errorw("error while updating dispatcher deployment", zap.Error(err), zap.String("namespace", dispatcherNamespace), zap.Any("deployment", want))
 				kc.Status.MarkServiceFailed("DispatcherDeploymentUpdateFailed", "Failed to update the dispatcher deployment: %v", err)
@@ -416,63 +416,45 @@ func (r *Reconciler) reconcileRoleBinding(ctx context.Context, name string, ns s
 
 func (r *Reconciler) reconcileDispatcherService(ctx context.Context, dispatcherNamespace string, kc *v1beta1.KafkaChannel) error {
 
-	args := resources.DispatcherServiceArgs{
-		ServiceAnnotations: r.kafkaConfig.EventingKafka.Channel.Dispatcher.ServiceAnnotations,
-		ServiceLabels:      r.kafkaConfig.EventingKafka.Channel.Dispatcher.ServiceLabels,
-	}
-	expected := resources.MakeDispatcherService(dispatcherNamespace, args)
+	logger := logging.FromContext(ctx)
 
+	args := resources.DispatcherServiceArgs{
+		DispatcherNamespace: dispatcherNamespace,
+		ServiceAnnotations:  r.kafkaConfig.EventingKafka.Channel.Dispatcher.ServiceAnnotations,
+		ServiceLabels:       r.kafkaConfig.EventingKafka.Channel.Dispatcher.ServiceLabels,
+	}
+
+	want := resources.NewDispatcherServiceBuilder().WithArgs(&args).Build()
 	svc, err := r.serviceLister.Services(dispatcherNamespace).Get(dispatcherName)
 	if err != nil {
 		if apierrs.IsNotFound(err) {
-			_, err := r.KubeClientSet.CoreV1().Services(dispatcherNamespace).Create(ctx, expected, metav1.CreateOptions{})
+			_, err := r.KubeClientSet.CoreV1().Services(dispatcherNamespace).Create(ctx, want, metav1.CreateOptions{})
 			if err == nil {
 				controller.GetEventRecorder(ctx).Event(kc, corev1.EventTypeNormal, dispatcherServiceCreated, "Dispatcher service created")
 				kc.Status.MarkServiceTrue()
 			} else {
-				logging.FromContext(ctx).Errorw("Unable to create the dispatcher service", zap.Error(err))
+				logger.Errorw("Unable to create the dispatcher service", zap.Error(err))
 				controller.GetEventRecorder(ctx).Eventf(kc, corev1.EventTypeWarning, dispatcherServiceFailed, "Failed to create the dispatcher service: %v", err)
 				kc.Status.MarkServiceFailed("DispatcherServiceFailed", "Failed to create the dispatcher service: %v", err)
 				return err
 			}
 			return err
 		}
-
+		logger.Errorw("can't get dispatcher service", zap.Error(err), zap.String("namespace", dispatcherNamespace), zap.String("dispatcher-name", dispatcherName))
 		kc.Status.MarkServiceUnknown("DispatcherServiceFailed", "Failed to get dispatcher service: %v", err)
 		return newDispatcherServiceWarn(err)
-	}
-
-	needsUpdate := false
-	svcCopy := svc.DeepCopy() // do not touch the original service, deepcopy it
-
-	// Add / Update (but no Delete) Service Labels & Annotations
-	//  - Not deleting to allow end users the ability to manually add Labels & Annotations which would otherwise be overwritten.
-	for expectedDeploymentLabelKey, expectedDeploymentLabelValue := range expected.ObjectMeta.Labels {
-		if svcCopy.ObjectMeta.Labels[expectedDeploymentLabelKey] != expectedDeploymentLabelValue {
-			logging.FromContext(ctx).Debugf("Deployment Label '%s' modified. Updating the dispatcher deployment.", expectedDeploymentLabelKey)
-			svcCopy.ObjectMeta.Labels[expectedDeploymentLabelKey] = expectedDeploymentLabelValue
-			needsUpdate = true
-		}
-	}
-	for expectedDeploymentAnnotationKey, expectedDeploymentAnnotationValue := range expected.ObjectMeta.Annotations {
-		if svcCopy.ObjectMeta.Annotations[expectedDeploymentAnnotationKey] != expectedDeploymentAnnotationValue {
-			logging.FromContext(ctx).Debugf("Deployment Annotation '%s' modified. Updating the dispatcher deployment.", expectedDeploymentAnnotationKey)
-			svcCopy.ObjectMeta.Annotations[expectedDeploymentAnnotationKey] = expectedDeploymentAnnotationValue
-			needsUpdate = true
-		}
-	}
-
-	if needsUpdate {
-		svcCopy, err = r.KubeClientSet.CoreV1().Services(dispatcherNamespace).Update(ctx, svcCopy, metav1.UpdateOptions{})
-		if err == nil {
-			controller.GetEventRecorder(ctx).Event(kc, corev1.EventTypeNormal, dispatcherServiceUpdated, "Dispatcher service updated")
-			kc.Status.MarkServiceTrue()
-			return nil
-		} else {
-			kc.Status.MarkServiceFailed("DispatcherServiceUpdateFailed", "Failed to update the dispatcher service: %v", err)
-			return newServiceWarn(err)
-		}
 	} else {
+		want = resources.NewDispatcherServiceBuilderFromService(svc.DeepCopy()).WithArgs(&args).Build()
+		if !equality.Semantic.DeepEqual(want.ObjectMeta, svc.ObjectMeta) || !equality.Semantic.DeepEqual(want.Spec, svc.Spec) {
+			logger.Infof("Dispatcher service changed; reconciling: ObjectMeta=\n%s, Spec=\n%s", cmp.Diff(want.ObjectMeta, svc.ObjectMeta), cmp.Diff(want.Spec, svc.Spec))
+			if svc, err = r.KubeClientSet.CoreV1().Services(dispatcherNamespace).Update(ctx, want, metav1.UpdateOptions{}); err != nil {
+				logger.Errorw("error while updating dispatcher service", zap.Error(err), zap.String("namespace", dispatcherNamespace), zap.Any("service", want))
+				kc.Status.MarkServiceFailed("DispatcherServiceUpdateFailed", "Failed to update the dispatcher service: %v", err)
+				return newServiceWarn(err)
+			} else {
+				controller.GetEventRecorder(ctx).Event(kc, corev1.EventTypeNormal, dispatcherServiceUpdated, "Dispatcher service updated")
+			}
+		}
 		kc.Status.MarkServiceTrue()
 		return nil
 	}

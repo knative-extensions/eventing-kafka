@@ -39,7 +39,7 @@ var (
 	}
 )
 
-type DispatcherBuilder struct {
+type DispatcherDeploymentBuilder struct {
 	deployment *v1.Deployment
 	args       *DispatcherDeploymentArgs
 }
@@ -58,28 +58,28 @@ type DispatcherDeploymentArgs struct {
 	PodLabels             map[string]string
 }
 
-// NewDispatcherBuilder returns a builder which builds from scratch a dispatcher deployment.
+// NewDispatcherDeploymentBuilder returns a builder which builds from scratch a dispatcher deployment.
 // Intended to be used when creating the dispatcher deployment for the first time.
-func NewDispatcherBuilder() *DispatcherBuilder {
-	b := &DispatcherBuilder{}
+func NewDispatcherDeploymentBuilder() *DispatcherDeploymentBuilder {
+	b := &DispatcherDeploymentBuilder{}
 	b.deployment = dispatcherTemplate()
 	return b
 }
 
-// NewDispatcherBuilderFromDeployment returns a builder which builds a dispatcher deployment from the given deployment.
+// NewDispatcherDeploymentBuilderFromDeployment returns a builder which builds a dispatcher deployment from the given deployment.
 // Intended to be used when updating an existing dispatcher deployment.
-func NewDispatcherBuilderFromDeployment(d *v1.Deployment) *DispatcherBuilder {
-	b := &DispatcherBuilder{}
+func NewDispatcherDeploymentBuilderFromDeployment(d *v1.Deployment) *DispatcherDeploymentBuilder {
+	b := &DispatcherDeploymentBuilder{}
 	b.deployment = d
 	return b
 }
 
-func (b *DispatcherBuilder) WithArgs(args *DispatcherDeploymentArgs) *DispatcherBuilder {
+func (b *DispatcherDeploymentBuilder) WithArgs(args *DispatcherDeploymentArgs) *DispatcherDeploymentBuilder {
 	b.args = args
 	return b
 }
 
-func (b *DispatcherBuilder) Build() *v1.Deployment {
+func (b *DispatcherDeploymentBuilder) Build() *v1.Deployment {
 	replicas := b.args.Replicas
 
 	b.deployment.ObjectMeta.Namespace = b.args.DispatcherNamespace

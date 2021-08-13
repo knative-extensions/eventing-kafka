@@ -957,7 +957,7 @@ func makeDeploymentWithParams(image string, replicas int32, configMapHash string
 		args.PodAnnotations = configPodAnnotations
 		args.PodLabels = configPodLabels
 	}
-	return resources.NewDispatcherBuilder().WithArgs(&args).Build()
+	return resources.NewDispatcherDeploymentBuilder().WithArgs(&args).Build()
 }
 
 func makeDeploymentWithImageAndReplicas(image string, replicas int32) *appsv1.Deployment {
@@ -983,12 +983,14 @@ func makeReadyDeployment() *appsv1.Deployment {
 }
 
 func makeServiceWithParams(objMeta bool) *corev1.Service {
-	args := resources.DispatcherServiceArgs{}
+	args := resources.DispatcherServiceArgs{
+		DispatcherNamespace: testNS,
+	}
 	if objMeta {
 		args.ServiceAnnotations = configServiceAnnotations
 		args.ServiceLabels = configServiceLabels
 	}
-	return resources.MakeDispatcherService(testNS, args)
+	return resources.NewDispatcherServiceBuilder().WithArgs(&args).Build()
 }
 
 func makeServiceWithObjectMeta() *corev1.Service {

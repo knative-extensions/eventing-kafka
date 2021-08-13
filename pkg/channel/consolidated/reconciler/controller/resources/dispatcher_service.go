@@ -24,24 +24,54 @@ import (
 	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 )
 
-type DispatcherServiceArgs struct {
-	ServiceAnnotations map[string]string
-	ServiceLabels      map[string]string
+type DispatcherServiceBuilder struct {
+	service *corev1.Service
+	args    *DispatcherServiceArgs
 }
 
-// MakeDispatcherService creates the Kafka Dispatcher Service
-func MakeDispatcherService(namespace string, args DispatcherServiceArgs) *corev1.Service {
+type DispatcherServiceArgs struct {
+	DispatcherNamespace string
+	ServiceAnnotations  map[string]string
+	ServiceLabels       map[string]string
+}
 
-	// Create A New Dispatcher Service
-	service := &corev1.Service{
+// NewDispatcherServiceBuilder returns a builder which builds from scratch a dispatcher service.
+// Intended to be used when creating the dispatcher service for the first time.
+func NewDispatcherServiceBuilder() *DispatcherServiceBuilder {
+	b := &DispatcherServiceBuilder{}
+	b.service = dispatcherServiceTemplate()
+	return b
+}
+
+// NewDispatcherServiceBuilderFromService returns a builder which builds a dispatcher service from the given service.
+// Intended to be used when updating an existing dispatcher service.
+func NewDispatcherServiceBuilderFromService(s *corev1.Service) *DispatcherServiceBuilder {
+	b := &DispatcherServiceBuilder{}
+	b.service = s
+	return b
+}
+
+func (b *DispatcherServiceBuilder) WithArgs(args *DispatcherServiceArgs) *DispatcherServiceBuilder {
+	b.args = args
+	return b
+}
+
+func (b *DispatcherServiceBuilder) Build() *corev1.Service {
+	b.service.ObjectMeta.Namespace = b.args.DispatcherNamespace
+	b.service.ObjectMeta.Annotations = commonconfig.JoinStringMaps(b.service.Annotations, b.args.ServiceAnnotations)
+	b.service.ObjectMeta.Labels = commonconfig.JoinStringMaps(b.service.Labels, b.args.ServiceLabels)
+	return b.service
+}
+
+func dispatcherServiceTemplate() *corev1.Service {
+	return &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
 			Kind:       "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      dispatcherName,
-			Namespace: namespace,
-			Labels:    dispatcherLabels,
+			Name:   dispatcherName,
+			Labels: dispatcherLabels,
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: dispatcherLabels,
@@ -55,11 +85,4 @@ func MakeDispatcherService(namespace string, args DispatcherServiceArgs) *corev1
 			},
 		},
 	}
-
-	// Update The Dispatcher Service's Annotations & Labels With Custom Config Values
-	service.ObjectMeta.Annotations = commonconfig.JoinStringMaps(service.Annotations, args.ServiceAnnotations)
-	service.ObjectMeta.Labels = commonconfig.JoinStringMaps(service.Labels, args.ServiceLabels)
-
-	// Return The Dispatcher Service
-	return service
 }
