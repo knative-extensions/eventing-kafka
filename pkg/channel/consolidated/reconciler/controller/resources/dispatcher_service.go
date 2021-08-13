@@ -57,8 +57,8 @@ func MakeDispatcherService(namespace string, args DispatcherServiceArgs) *corev1
 	}
 
 	// Update The Dispatcher Service's Annotations & Labels With Custom Config Values
-	service.Annotations = commonconfig.JoinStringMaps(service.Annotations, args.ServiceAnnotations)
-	service.Labels = commonconfig.JoinStringMaps(service.Labels, args.ServiceLabels)
+	service.ObjectMeta.Annotations = commonconfig.JoinStringMaps(service.Annotations, args.ServiceAnnotations)
+	service.ObjectMeta.Labels = commonconfig.JoinStringMaps(service.Labels, args.ServiceLabels)
 
 	// Return The Dispatcher Service
 	return service

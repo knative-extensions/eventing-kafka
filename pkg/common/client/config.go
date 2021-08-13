@@ -28,6 +28,7 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 	"knative.dev/pkg/logging"
 )
@@ -118,6 +119,10 @@ type ConfigBuilder interface {
 	// (if provided) or in the YAML-string
 	WithClientId(clientId string) ConfigBuilder
 
+	// WithInitialOffset sets the initial offset to use
+	// if no offset was previously committed
+	WithInitialOffset(offset v1beta1.Offset) ConfigBuilder
+
 	// Build builds the Sarama config with the given context.
 	// Context is used for getting the config at the moment.
 	Build(ctx context.Context) (*sarama.Config, error)
@@ -128,12 +133,13 @@ func NewConfigBuilder() ConfigBuilder {
 }
 
 type configBuilder struct {
-	existing *sarama.Config
-	defaults bool
-	version  *sarama.KafkaVersion
-	clientId string
-	yaml     string
-	auth     *KafkaAuthConfig
+	existing      *sarama.Config
+	defaults      bool
+	version       *sarama.KafkaVersion
+	clientId      string
+	yaml          string
+	auth          *KafkaAuthConfig
+	initialOffset v1beta1.Offset
 }
 
 func (b *configBuilder) WithExisting(existing *sarama.Config) ConfigBuilder {
@@ -163,6 +169,11 @@ func (b *configBuilder) FromYaml(saramaSettingsYamlString string) ConfigBuilder 
 
 func (b *configBuilder) WithAuth(kafkaAuthCfg *KafkaAuthConfig) ConfigBuilder {
 	b.auth = kafkaAuthCfg
+	return b
+}
+
+func (b *configBuilder) WithInitialOffset(offset v1beta1.Offset) ConfigBuilder {
+	b.initialOffset = offset
 	return b
 }
 
@@ -262,6 +273,15 @@ func (b *configBuilder) Build(ctx context.Context) (*sarama.Config, error) {
 	}
 	if b.clientId != "" {
 		config.ClientID = b.clientId
+	}
+
+	if b.initialOffset != "" {
+		switch b.initialOffset {
+		case v1beta1.OffsetEarliest:
+			config.Consumer.Offsets.Initial = sarama.OffsetOldest
+		case v1beta1.OffsetLatest:
+			config.Consumer.Offsets.Initial = sarama.OffsetNewest
+		}
 	}
 
 	logger := logging.FromContext(ctx)

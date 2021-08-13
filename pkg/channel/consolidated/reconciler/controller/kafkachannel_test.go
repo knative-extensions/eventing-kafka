@@ -141,12 +141,24 @@ func TestAllCases(t *testing.T) {
 					reconcilertesting.WithInitKafkaChannelConditions,
 					reconcilertesting.WithKafkaChannelTopicReady(),
 					reconcilertesting.WithKafkaFinalizer(finalizerName)),
-				makeDeploymentWithoutObjectMeta(),
+				makeDeployment(),
 				makeService(),
 			},
+			OtherTestData: map[string]interface{}{"configEventingKafka": config.EventingKafkaConfig{
+				Channel: config.EKChannelConfig{
+					Dispatcher: config.EKDispatcherConfig{
+						EKKubernetesConfig: config.EKKubernetesConfig{
+							DeploymentAnnotations: configDeploymentAnnotations,
+							DeploymentLabels:      configDeploymentLabels,
+							PodAnnotations:        configPodAnnotations,
+							PodLabels:             configPodLabels,
+						},
+					},
+				},
+			}},
 			WantErr: true,
 			WantUpdates: []clientgotesting.UpdateActionImpl{
-				{Object: makeDeployment()},
+				{Object: makeDeploymentWithObjectMeta()},
 			},
 			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 				Object: reconcilertesting.NewKafkaChannel(kcName, testNS,
@@ -196,11 +208,21 @@ func TestAllCases(t *testing.T) {
 					reconcilertesting.WithKafkaChannelTopicReady(),
 					reconcilertesting.WithKafkaFinalizer(finalizerName)),
 				makeDeployment(),
-				makeServiceWithoutObjectMeta(),
+				makeService(),
 			},
+			OtherTestData: map[string]interface{}{"configEventingKafka": config.EventingKafkaConfig{
+				Channel: config.EKChannelConfig{
+					Dispatcher: config.EKDispatcherConfig{
+						EKKubernetesConfig: config.EKKubernetesConfig{
+							ServiceAnnotations: configServiceAnnotations,
+							ServiceLabels:      configServiceLabels,
+						},
+					},
+				},
+			}},
 			WantErr: true,
 			WantUpdates: []clientgotesting.UpdateActionImpl{
-				{Object: makeService()},
+				{Object: makeServiceWithObjectMeta()},
 			},
 			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 				Object: reconcilertesting.NewKafkaChannel(kcName, testNS,
@@ -390,7 +412,14 @@ func TestAllCases(t *testing.T) {
 		},
 	}
 
-	table.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
+	table.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher, options map[string]interface{}) controller.Reconciler {
+
+		// Optional Customization Of KafkaConfig.EventingKafka - Defaults To Empty
+		configEventingKafkaInterface, ok := options["configEventingKafka"]
+		if !ok || configEventingKafkaInterface == nil {
+			configEventingKafkaInterface = config.EventingKafkaConfig{}
+		}
+		configEventingKafka := configEventingKafkaInterface.(config.EventingKafkaConfig)
 
 		r := &Reconciler{
 			systemNamespace:          testNS,
@@ -398,21 +427,8 @@ func TestAllCases(t *testing.T) {
 			dispatcherServiceAccount: testDispatcherserviceAccount,
 			kafkaConfigMapHash:       testConfigMapHash,
 			kafkaConfig: &KafkaConfig{
-				Brokers: []string{brokerName},
-				EventingKafka: &config.EventingKafkaConfig{
-					Channel: config.EKChannelConfig{
-						Dispatcher: config.EKDispatcherConfig{
-							EKKubernetesConfig: config.EKKubernetesConfig{
-								DeploymentAnnotations: configDeploymentAnnotations,
-								DeploymentLabels:      configDeploymentLabels,
-								PodAnnotations:        configPodAnnotations,
-								PodLabels:             configPodLabels,
-								ServiceAnnotations:    configServiceAnnotations,
-								ServiceLabels:         configServiceLabels,
-							},
-						},
-					},
-				},
+				Brokers:       []string{brokerName},
+				EventingKafka: &configEventingKafka,
 			},
 			kafkachannelLister: listers.GetKafkaChannelLister(),
 			// TODO fix
@@ -469,7 +485,7 @@ func TestTopicExists(t *testing.T) {
 		},
 	}
 
-	row.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
+	row.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher, options map[string]interface{}) controller.Reconciler {
 
 		r := &Reconciler{
 			systemNamespace:          testNS,
@@ -547,7 +563,7 @@ func TestDeploymentUpdatedOnImageChange(t *testing.T) {
 		},
 	}
 
-	row.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
+	row.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher, options map[string]interface{}) controller.Reconciler {
 
 		r := &Reconciler{
 			systemNamespace:          testNS,
@@ -625,7 +641,7 @@ func TestDeploymentZeroReplicas(t *testing.T) {
 		},
 	}
 
-	row.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
+	row.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher, options map[string]interface{}) controller.Reconciler {
 
 		r := &Reconciler{
 			systemNamespace:          testNS,
@@ -688,7 +704,6 @@ func TestDeploymentMoreThanOneReplicas(t *testing.T) {
 				reconcilertesting.WithKafkaFinalizer(finalizerName),
 				reconcilertesting.WithKafkaChannelConfigReady(),
 				reconcilertesting.WithKafkaChannelTopicReady(),
-				//				reconcilekafkatesting.WithKafkaChannelDeploymentReady(),
 				reconcilertesting.WithKafkaChannelServiceReady(),
 				reconcilertesting.WithKafkaChannelEndpointsReady(),
 				reconcilertesting.WithKafkaChannelChannelServiceReady(),
@@ -700,7 +715,7 @@ func TestDeploymentMoreThanOneReplicas(t *testing.T) {
 		},
 	}
 
-	row.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
+	row.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher, options map[string]interface{}) controller.Reconciler {
 
 		r := &Reconciler{
 			systemNamespace:          testNS,
@@ -778,7 +793,7 @@ func TestDeploymentUpdatedOnConfigMapHashChange(t *testing.T) {
 		},
 	}
 
-	row.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
+	row.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher, options map[string]interface{}) controller.Reconciler {
 
 		r := &Reconciler{
 			systemNamespace:          testNS,
@@ -942,19 +957,19 @@ func makeDeploymentWithParams(image string, replicas int32, configMapHash string
 		args.PodAnnotations = configPodAnnotations
 		args.PodLabels = configPodLabels
 	}
-	return resources.MakeDispatcher(args)
+	return resources.NewDispatcherBuilder().WithArgs(&args).Build()
 }
 
 func makeDeploymentWithImageAndReplicas(image string, replicas int32) *appsv1.Deployment {
-	return makeDeploymentWithParams(image, replicas, testConfigMapHash, true)
+	return makeDeploymentWithParams(image, replicas, testConfigMapHash, false)
 }
 
 func makeDeploymentWithConfigMapHash(configMapHash string) *appsv1.Deployment {
-	return makeDeploymentWithParams(testDispatcherImage, 1, configMapHash, true)
+	return makeDeploymentWithParams(testDispatcherImage, 1, configMapHash, false)
 }
 
-func makeDeploymentWithoutObjectMeta() *appsv1.Deployment {
-	return makeDeploymentWithParams(testDispatcherImage, 1, testConfigMapHash, false)
+func makeDeploymentWithObjectMeta() *appsv1.Deployment {
+	return makeDeploymentWithParams(testDispatcherImage, 1, testConfigMapHash, true)
 }
 
 func makeDeployment() *appsv1.Deployment {
@@ -976,12 +991,12 @@ func makeServiceWithParams(objMeta bool) *corev1.Service {
 	return resources.MakeDispatcherService(testNS, args)
 }
 
-func makeServiceWithoutObjectMeta() *corev1.Service {
-	return makeServiceWithParams(false)
+func makeServiceWithObjectMeta() *corev1.Service {
+	return makeServiceWithParams(true)
 }
 
 func makeService() *corev1.Service {
-	return makeServiceWithParams(true)
+	return makeServiceWithParams(false)
 }
 
 func makeChannelService(nc *v1beta1.KafkaChannel) *corev1.Service {

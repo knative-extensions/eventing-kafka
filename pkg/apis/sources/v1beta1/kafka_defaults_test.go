@@ -54,6 +54,11 @@ func TestSetDefaults(t *testing.T) {
 			t.Fatalf("Unexpected consumers (-want, +got): %s", diff)
 		}
 	}
+	assertOffset := func(t *testing.T, ks KafkaSource, expected string) {
+		if diff := cmp.Diff(ks.Spec.InitialOffset, OffsetLatest); diff != "" {
+			t.Fatalf("Unexpected initial offset (-want, +got): %s", diff)
+		}
+	}
 	testCases := []defaultKafkaTestArgs{
 		{
 			Name:       "nil spec",
@@ -81,6 +86,12 @@ func TestSetDefaults(t *testing.T) {
 			Initial:    KafkaSource{Spec: KafkaSourceSpec{Consumers: pointer.Int32Ptr(4)}},
 			Expected:   "4",
 			AssertFunc: assertConsumers,
+		},
+		{
+			Name:       "offset set",
+			Initial:    KafkaSource{},
+			Expected:   "",
+			AssertFunc: assertOffset,
 		},
 	}
 

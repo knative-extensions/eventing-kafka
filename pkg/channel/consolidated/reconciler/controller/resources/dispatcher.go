@@ -39,6 +39,11 @@ var (
 	}
 )
 
+type DispatcherBuilder struct {
+	deployment *v1.Deployment
+	args       *DispatcherDeploymentArgs
+}
+
 type DispatcherDeploymentArgs struct {
 	DispatcherScope       string
 	DispatcherNamespace   string
@@ -46,45 +51,83 @@ type DispatcherDeploymentArgs struct {
 	Replicas              int32
 	ServiceAccount        string
 	ConfigMapHash         string
+	OwnerRef              metav1.OwnerReference
 	DeploymentAnnotations map[string]string
 	DeploymentLabels      map[string]string
 	PodAnnotations        map[string]string
 	PodLabels             map[string]string
 }
 
-// MakeDispatcher generates the dispatcher Deployment for the KafkaChannel
-func MakeDispatcher(args DispatcherDeploymentArgs) *v1.Deployment {
-	replicas := args.Replicas
+// NewDispatcherBuilder returns a builder which builds from scratch a dispatcher deployment.
+// Intended to be used when creating the dispatcher deployment for the first time.
+func NewDispatcherBuilder() *DispatcherBuilder {
+	b := &DispatcherBuilder{}
+	b.deployment = dispatcherTemplate()
+	return b
+}
 
-	// Create A New Dispatcher Deployment
-	deployment := &v1.Deployment{
+// NewDispatcherBuilderFromDeployment returns a builder which builds a dispatcher deployment from the given deployment.
+// Intended to be used when updating an existing dispatcher deployment.
+func NewDispatcherBuilderFromDeployment(d *v1.Deployment) *DispatcherBuilder {
+	b := &DispatcherBuilder{}
+	b.deployment = d
+	return b
+}
+
+func (b *DispatcherBuilder) WithArgs(args *DispatcherDeploymentArgs) *DispatcherBuilder {
+	b.args = args
+	return b
+}
+
+func (b *DispatcherBuilder) Build() *v1.Deployment {
+	replicas := b.args.Replicas
+
+	b.deployment.ObjectMeta.Namespace = b.args.DispatcherNamespace
+	b.deployment.ObjectMeta.OwnerReferences = []metav1.OwnerReference{b.args.OwnerRef}
+	b.deployment.ObjectMeta.Annotations = commonconfig.JoinStringMaps(b.deployment.ObjectMeta.Annotations, b.args.DeploymentAnnotations)
+	b.deployment.ObjectMeta.Labels = commonconfig.JoinStringMaps(b.deployment.ObjectMeta.Labels, b.args.DeploymentLabels)
+
+	b.deployment.Spec.Replicas = &replicas
+	defaultAnnotations := map[string]string{commonconstants.ConfigMapHashAnnotationKey: b.args.ConfigMapHash}
+	b.deployment.Spec.Template.ObjectMeta.Annotations = commonconfig.JoinStringMaps(defaultAnnotations, b.args.PodAnnotations)
+	b.deployment.Spec.Template.ObjectMeta.Labels = commonconfig.JoinStringMaps(b.deployment.Spec.Template.ObjectMeta.Labels, b.args.PodLabels)
+	b.deployment.Spec.Template.Spec.ServiceAccountName = b.args.ServiceAccount
+
+	for i, c := range b.deployment.Spec.Template.Spec.Containers {
+		if c.Name == DispatcherContainerName {
+			container := &b.deployment.Spec.Template.Spec.Containers[i]
+			container.Image = b.args.Image
+			if container.Env == nil {
+				container.Env = makeEnv(b.args)
+			}
+		}
+	}
+
+	return b.deployment
+}
+
+func dispatcherTemplate() *v1.Deployment {
+
+	return &v1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
 			Kind:       "Deployments",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      dispatcherName,
-			Namespace: args.DispatcherNamespace,
+			Name: dispatcherName,
 		},
 		Spec: v1.DeploymentSpec{
-			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: dispatcherLabels,
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: dispatcherLabels,
-					Annotations: map[string]string{
-						commonconstants.ConfigMapHashAnnotationKey: args.ConfigMapHash,
-					},
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName: args.ServiceAccount,
 					Containers: []corev1.Container{
 						{
-							Name:  DispatcherContainerName,
-							Image: args.Image,
-							Env:   makeEnv(args),
+							Name: DispatcherContainerName,
 							Ports: []corev1.ContainerPort{{
 								Name:          "metrics",
 								ContainerPort: 9090,
@@ -113,18 +156,9 @@ func MakeDispatcher(args DispatcherDeploymentArgs) *v1.Deployment {
 			},
 		},
 	}
-
-	// Update The Dispatcher Deployment's Annotations & Labels With Custom Config Values
-	deployment.ObjectMeta.Annotations = commonconfig.JoinStringMaps(deployment.ObjectMeta.Annotations, args.DeploymentAnnotations)
-	deployment.ObjectMeta.Labels = commonconfig.JoinStringMaps(deployment.ObjectMeta.Labels, args.DeploymentLabels)
-	deployment.Spec.Template.ObjectMeta.Annotations = commonconfig.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Annotations, args.PodAnnotations)
-	deployment.Spec.Template.ObjectMeta.Labels = commonconfig.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Labels, args.PodLabels)
-
-	// Return The Dispatcher Deployment
-	return deployment
 }
 
-func makeEnv(args DispatcherDeploymentArgs) []corev1.EnvVar {
+func makeEnv(args *DispatcherDeploymentArgs) []corev1.EnvVar {
 	vars := []corev1.EnvVar{{
 		Name:  system.NamespaceEnvKey,
 		Value: system.Namespace(),
@@ -147,18 +181,20 @@ func makeEnv(args DispatcherDeploymentArgs) []corev1.EnvVar {
 					FieldPath: "metadata.namespace",
 				},
 			},
-		}, corev1.EnvVar{
-			Name: "POD_NAME",
-			ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{
-					FieldPath: "metadata.name",
-				},
-			},
-		}, corev1.EnvVar{
-			Name:  "CONTAINER_NAME",
-			Value: "dispatcher",
 		})
 	}
 
+	vars = append(vars, corev1.EnvVar{
+		Name: "POD_NAME",
+		ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{
+				APIVersion: "",
+				FieldPath:  "metadata.name",
+			},
+		},
+	}, corev1.EnvVar{
+		Name:  "CONTAINER_NAME",
+		Value: "dispatcher",
+	})
 	return vars
 }
