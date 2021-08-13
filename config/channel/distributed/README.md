@@ -229,5 +229,5 @@ your Kafka cluster.
           memoryLimit: 512M
           podAnnotations:
             foo.com/someAnnotation: someValue
-            sidecar.istio.io/proxyCPU: 500m 
+            sidecar.istio.io/proxyCPU: 500m
        ```
