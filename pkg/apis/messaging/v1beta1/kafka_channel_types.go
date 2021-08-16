@@ -17,6 +17,9 @@ limitations under the License.
 package v1beta1
 
 import (
+	"time"
+
+	"github.com/rickb777/date/period"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -67,8 +70,30 @@ type KafkaChannelSpec struct {
 	// ReplicationFactor is the replication factor of a Kafka topic. By default, it is set to 1.
 	ReplicationFactor int16 `json:"replicationFactor"`
 
+	// RetentionDuration is the duration for which events will be retained in the Kafka Topic.
+	// More information on Duration format:
+	//  - https://www.iso.org/iso-8601-date-and-time-format.html
+	//  - https://en.wikipedia.org/wiki/ISO_8601
+	// +optional
+	RetentionDuration *string `string:"retentionTime,omitempty"`
+
 	// Channel conforms to Duck type Channelable.
 	eventingduck.ChannelableSpec `json:",inline"`
+}
+
+// ParseRetentionDuration returns the parsed Offset Time if valid (RFC3339 format) or an error for invalid content.
+// Note - If the optional RetentionDuration field is not present, or is invalid, a Duration of "-1" will be returned.
+func (kcs *KafkaChannelSpec) ParseRetentionDuration() (time.Duration, error) {
+	retentionDuration := time.Duration(-1)
+	var err error = nil
+	if kcs.RetentionDuration != nil {
+		var retentionPeriod period.Period
+		retentionPeriod, err = period.Parse(*kcs.RetentionDuration)
+		if err == nil {
+			retentionDuration, _ = retentionPeriod.Duration() // Ignore precision flag and accept ISO8601 estimation.
+		}
+	}
+	return retentionDuration, err
 }
 
 // KafkaChannelStatus represents the current state of a KafkaChannel.
@@ -88,11 +113,11 @@ type KafkaChannelList struct {
 }
 
 // GetGroupVersionKind returns GroupVersionKind for KafkaChannels
-func (c *KafkaChannel) GetGroupVersionKind() schema.GroupVersionKind {
+func (kc *KafkaChannel) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("KafkaChannel")
 }
 
 // GetStatus retrieves the duck status for this resource. Implements the KRShaped interface.
-func (k *KafkaChannel) GetStatus() *duckv1.Status {
-	return &k.Status.Status
+func (kc *KafkaChannel) GetStatus() *duckv1.Status {
+	return &kc.Status.Status
 }

@@ -18,8 +18,10 @@ package v1beta1
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
@@ -33,7 +35,7 @@ func TestKafkaChannel_GetGroupVersionKind(t *testing.T) {
 	}
 }
 
-func TestKafkaChannelGetStatus(t *testing.T) {
+func TestKafkaChannel_GetStatus(t *testing.T) {
 	status := &duckv1.Status{}
 	config := KafkaChannel{
 		Status: KafkaChannelStatus{
@@ -47,3 +49,96 @@ func TestKafkaChannelGetStatus(t *testing.T) {
 		t.Errorf("GetStatus did not retrieve status. Got=%v Want=%v", config.GetStatus(), status)
 	}
 }
+
+func TestKafkaChannelSpec_ParseRetentionDuration(t *testing.T) {
+
+	tests := []struct {
+		name             string
+		includeRetention bool
+		retentionString  string
+		expectDuration   time.Duration
+		expectErr        bool
+	}{
+		{
+			name:             "valid",
+			includeRetention: true,
+			retentionString:  "P14D",
+			expectDuration:   14 * 24 * time.Hour,
+			expectErr:        false,
+		},
+		{
+			name:             "not-present",
+			includeRetention: false,
+			expectDuration:   time.Duration(-1),
+			expectErr:        false,
+		},
+		{
+			name:             "empty",
+			includeRetention: true,
+			retentionString:  "",
+			expectDuration:   time.Duration(-1),
+			expectErr:        true,
+		},
+		{
+			name:             "invalid",
+			includeRetention: true,
+			retentionString:  "abc123",
+			expectDuration:   time.Duration(-1),
+			expectErr:        true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			kcSpec := &KafkaChannelSpec{}
+			if test.includeRetention {
+				kcSpec.RetentionDuration = &test.retentionString
+			}
+			retentionDuration, err := kcSpec.ParseRetentionDuration()
+			assert.Equal(t, test.expectErr, err != nil)
+			assert.Equal(t, test.expectDuration, retentionDuration)
+		})
+	}
+}
+
+/*
+func TestResetOffsetSpec_ParseOffsetTime(t *testing.T) {
+
+	offsetRFC3339 := time.Now().UTC().Add(-1 * time.Hour).Format(time.RFC3339)
+	timeRFC3339, _ := time.Parse(time.RFC3339, offsetRFC3339)
+
+	tests := []struct {
+		name       string
+		offset     string
+		expectTime time.Time
+		expectErr  bool
+	}{
+		{
+			name:       "valid",
+			offset:     offsetRFC3339,
+			expectTime: timeRFC3339,
+			expectErr:  false,
+		},
+		{
+			name:       "invalid",
+			offset:     "foo",
+			expectTime: time.Time{},
+			expectErr:  true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			resetOffsetSpec := &ResetOffsetSpec{Offset: OffsetSpec{Time: test.offset}}
+			offsetTime, err := resetOffsetSpec.ParseOffsetTime()
+			if test.expectErr {
+				assert.NotNil(t, err)
+				assert.Equal(t, time.Time{}, offsetTime)
+			} else {
+				assert.Nil(t, err)
+				assert.Equal(t, test.expectTime, offsetTime)
+			}
+		})
+	}
+}
+*/

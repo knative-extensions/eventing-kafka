@@ -31,10 +31,23 @@ import (
 
 func TestKafkaChannelValidation(t *testing.T) {
 
+	validRetentionDuration := "P14D"
+	invalidRetentionDuration := "NotAValidISO8601String"
+	negativeRetentionDuration := "-P1D"
+
 	testCases := map[string]struct {
 		cr   resourcesemantics.GenericCRD
 		want *apis.FieldError
 	}{
+		"valid spec": {
+			cr: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     1,
+					ReplicationFactor: 1,
+					RetentionDuration: &validRetentionDuration,
+				},
+			},
+		},
 		"empty spec": {
 			cr: &KafkaChannel{
 				Spec: KafkaChannelSpec{},
@@ -69,6 +82,32 @@ func TestKafkaChannelValidation(t *testing.T) {
 			},
 			want: func() *apis.FieldError {
 				fe := apis.ErrInvalidValue(-10, "spec.replicationFactor")
+				return fe
+			}(),
+		},
+		"negative retentionDuration": {
+			cr: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     1,
+					ReplicationFactor: 1,
+					RetentionDuration: &negativeRetentionDuration,
+				},
+			},
+			want: func() *apis.FieldError {
+				fe := apis.ErrInvalidValue(negativeRetentionDuration, "spec.retentionDuration")
+				return fe
+			}(),
+		},
+		"invalid retentionDuration": {
+			cr: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     1,
+					ReplicationFactor: 1,
+					RetentionDuration: &invalidRetentionDuration,
+				},
+			},
+			want: func() *apis.FieldError {
+				fe := apis.ErrInvalidValue(invalidRetentionDuration, "spec.retentionDuration")
 				return fe
 			}(),
 		},
