@@ -17,6 +17,7 @@ limitations under the License.
 package resources
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -25,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
+	"knative.dev/eventing/pkg/adapter/v2"
 	"knative.dev/pkg/kmeta"
 )
 
@@ -75,6 +77,12 @@ func MakeReceiveAdapter(args *ReceiveAdapterArgs) *v1.Deployment {
 			Name:  "KAFKA_INITIAL_OFFSET",
 			Value: string(args.Source.Spec.InitialOffset),
 		})
+	}
+
+	if args.Source.Spec.CloudEventOverrides != nil {
+		// Cannot fail.
+		ceJson, _ := json.Marshal(args.Source.Spec.CloudEventOverrides)
+		env = append(env, corev1.EnvVar{Name: adapter.EnvConfigCEOverrides, Value: string(ceJson)})
 	}
 
 	env = appendEnvFromSecretKeyRef(env, "KAFKA_NET_SASL_USER", args.Source.Spec.Net.SASL.User.SecretKeyRef)

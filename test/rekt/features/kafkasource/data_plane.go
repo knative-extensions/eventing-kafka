@@ -63,6 +63,7 @@ type delivery struct {
 	auth
 	message         kafkaMessage
 	bootstrapServer string
+	extensions      map[string]string
 	matchers        EventMatcher
 }
 
@@ -207,6 +208,53 @@ func DataPlaneDelivery() []*feature.Feature {
 				HasExtension("comexampleothervalue", "5"),
 			),
 		},
+		"with_extensions": {
+			message: kafkaMessage{
+				Headers: map[string]string{
+					"content-type": "application/cloudevents+json",
+				},
+				Payload: mustJsonMarshal(map[string]interface{}{
+					"specversion": "1.0",
+					"type":        "com.github.pull.create",
+					"source":      "https://github.com/cloudevents/spec/pull",
+					"id":          "A234-1234-1234",
+				}),
+			},
+			extensions: map[string]string{
+				"comexampleextension1": "value",
+				"comexampleothervalue": "5",
+			},
+			matchers: AllOf(
+				HasSpecVersion(cloudevents.VersionV1),
+				HasType("com.github.pull.create"),
+				HasSource("https://github.com/cloudevents/spec/pull"),
+				HasExtension("comexampleextension1", "value"),
+				HasExtension("comexampleothervalue", "5"),
+			),
+		},
+		"with_overrides": {
+			message: kafkaMessage{
+				Headers: map[string]string{
+					"content-type": "application/cloudevents+json",
+				},
+				Payload: mustJsonMarshal(map[string]interface{}{
+					"specversion": "1.0",
+					"type":        "com.github.pull.create",
+					"source":      "https://github.com/cloudevents/spec/pull",
+					"id":          "A234-1234-1234",
+				}),
+			},
+			extensions: map[string]string{
+				"type":                 "my.own.type",
+				"comexampleothervalue": "5",
+			},
+			matchers: AllOf(
+				HasSpecVersion(cloudevents.VersionV1),
+				HasType("my.own.type"),
+				HasSource("https://github.com/cloudevents/spec/pull"),
+				HasExtension("comexampleothervalue", "5"),
+			),
+		},
 	}
 
 	var features []*feature.Feature
@@ -263,6 +311,7 @@ func dataPlaneDelivery(name string, data delivery) *feature.Feature {
 	ksopts := []manifest.CfgFn{
 		kafkasource.WithBootstrapServers([]string{data.bootstrapServer}),
 		kafkasource.WithTopics([]string{topicName}),
+		kafkasource.WithExtensions(data.extensions),
 		kafkasource.WithSink(&duckv1.KReference{
 			Kind:       "Service",
 			Name:       sinkName,

@@ -69,6 +69,10 @@ func Example_full() {
 	WithSASLUser("saslusername", "sasluserkey")(cfg)
 	WithSASLPassword("saslpwdname", "saslpwdkey")(cfg)
 	WithSASLType("sasltypename", "sasltypekey")(cfg)
+	WithExtensions(map[string]string{
+		"myextension":      "myvalue",
+		"myotherextension": "myothervalue",
+	})(cfg)
 	WithSink(&duckv1.KReference{Kind: "Service", Name: "name", APIVersion: "v1"}, "")(cfg)
 
 	files, err := manifest.ExecuteLocalYAML(images, cfg)
@@ -121,6 +125,10 @@ func Example_full() {
 	//         secretKeyRef:
 	//           name: "sasltypename"
 	//           key: "sasltypekey"
+	//   ceOverrides:
+	//     extensions:
+	//       myextension: "myvalue"
+	//       myotherextension: "myothervalue"
 	//   sink:
 	//     ref:
 	//       kind: Service
