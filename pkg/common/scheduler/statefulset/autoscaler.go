@@ -27,7 +27,7 @@ import (
 	clientappsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 
 	"knative.dev/eventing-kafka/pkg/common/scheduler"
-	"knative.dev/eventing-kafka/pkg/common/scheduler/state"
+	st "knative.dev/eventing-kafka/pkg/common/scheduler/state"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
 )
@@ -46,7 +46,7 @@ type autoscaler struct {
 	statefulSetName   string
 	vpodLister        scheduler.VPodLister
 	logger            *zap.SugaredLogger
-	stateAccessor     state.StateAccessor
+	stateAccessor     st.StateAccessor
 	trigger           chan int32
 	evictor           scheduler.Evictor
 
@@ -60,7 +60,7 @@ type autoscaler struct {
 func NewAutoscaler(ctx context.Context,
 	namespace, name string,
 	lister scheduler.VPodLister,
-	stateAccessor state.StateAccessor,
+	stateAccessor st.StateAccessor,
 	evictor scheduler.Evictor,
 	refreshPeriod time.Duration,
 	capacity int32) Autoscaler {
@@ -125,17 +125,27 @@ func (a *autoscaler) doautoscale(ctx context.Context, attemptScaleDown bool, pen
 		zap.Int32("replicas", scale.Spec.Replicas),
 		zap.Int32("last ordinal", state.LastOrdinal))
 
-	newreplicas := state.LastOrdinal + 1 // Ideal number
+	var scaleUpFactor, newreplicas int32
+	if state.SchedPolicy != nil && contains(state.SchedPolicy.Priorities, st.AvailabilityZonePriority) { //HA scaling across zones
+		scaleUpFactor = state.NumZones
+	} else if state.SchedPolicy != nil && contains(state.SchedPolicy.Priorities, st.AvailabilityNodePriority) { //HA scalingacross nodes
+		scaleUpFactor = state.NumNodes
+	} else {
+		scaleUpFactor = 1 // Non-HA scaling
+	}
+
+	newreplicas = state.LastOrdinal + 1 // Ideal number
 
 	// Take into account pending replicas
 	if pending > 0 {
 		// Make sure to allocate enough pods for holding all pending replicas.
-		newreplicas += int32(math.Ceil(float64(math.Ceil(float64(pending)/float64(a.capacity)))/3.0) * 3)
+		minNumPods := math.Ceil(float64(pending) / float64(a.capacity))
+		newreplicas += int32(math.Ceil(minNumPods/float64(scaleUpFactor)) * float64(scaleUpFactor))
 	}
 
 	// Make sure to never scale down past the last ordinal
 	if newreplicas <= state.LastOrdinal {
-		newreplicas = state.LastOrdinal + 1
+		newreplicas = state.LastOrdinal + scaleUpFactor
 	}
 
 	// Only scale down if permitted
@@ -161,7 +171,7 @@ func (a *autoscaler) doautoscale(ctx context.Context, attemptScaleDown bool, pen
 	return nil
 }
 
-func (a *autoscaler) mayCompact(s *state.State) {
+func (a *autoscaler) mayCompact(s *st.State) {
 	// when there is only one pod there is nothing to move!
 	if s.LastOrdinal < 1 {
 		return
@@ -185,7 +195,7 @@ func (a *autoscaler) mayCompact(s *state.State) {
 	}
 }
 
-func (a *autoscaler) compact(s *state.State) error {
+func (a *autoscaler) compact(s *st.State) error {
 	a.logger.Info("compacting vreplicas")
 	vpods, err := a.vpodLister()
 	if err != nil {
@@ -195,7 +205,7 @@ func (a *autoscaler) compact(s *state.State) error {
 	for _, vpod := range vpods {
 		placements := vpod.GetPlacements()
 		for _, placement := range placements {
-			ordinal := state.OrdinalFromPodName(placement.PodName)
+			ordinal := st.OrdinalFromPodName(placement.PodName)
 
 			if ordinal == s.LastOrdinal {
 				a.logger.Infow("evicting vreplica(s)",
@@ -212,4 +222,14 @@ func (a *autoscaler) compact(s *state.State) error {
 		}
 	}
 	return nil
+}
+
+func contains(priors []scheduler.PriorityPolicy, name string) bool {
+	for _, v := range priors {
+		if v.Name == name {
+			return true
+		}
+	}
+
+	return false
 }
