@@ -162,16 +162,16 @@ func (a *autoscaler) doautoscale(ctx context.Context, attemptScaleDown bool, pen
 			a.logger.Errorw("updating scale subresource failed", zap.Error(err))
 			return err
 		}
-	} else {
-		// since the number of replicas hasn't change, take the opportunity to
-		// compact the vreplicas
-		a.mayCompact(state)
+	} else if attemptScaleDown {
+		// since the number of replicas hasn't changed and time has approached to scale down,
+		// take the opportunity to compact the vreplicas
+		a.mayCompact(state, scaleUpFactor)
 	}
 
 	return nil
 }
 
-func (a *autoscaler) mayCompact(s *st.State) {
+func (a *autoscaler) mayCompact(s *st.State, scaleUpFactor int32) {
 	// when there is only one pod there is nothing to move!
 	if s.LastOrdinal < 1 {
 		return
@@ -184,7 +184,7 @@ func (a *autoscaler) mayCompact(s *st.State) {
 		usedInLastPod := s.Capacity - s.Free(s.LastOrdinal)
 
 		if freeCapacity >= usedInLastPod {
-			err := a.compact(s)
+			err := a.compact(s, scaleUpFactor)
 			if err != nil {
 				a.logger.Errorw("vreplicas compaction failed", zap.Error(err))
 			}
@@ -192,11 +192,24 @@ func (a *autoscaler) mayCompact(s *st.State) {
 
 		// only do 1 replica at a time to avoid overloading the scheduler with too many
 		// rescheduling requests.
+	} else if s.SchedPolicy != nil {
+		freeCapacity := s.FreeCapacity()
+		usedInLastXPods := s.Capacity * scaleUpFactor
+		for i := int32(0); i < scaleUpFactor && s.LastOrdinal-i >= 0; i++ {
+			freeCapacity = freeCapacity - s.Free(s.LastOrdinal-i)
+			usedInLastXPods = usedInLastXPods - s.Free(s.LastOrdinal-i)
+		}
+
+		if freeCapacity >= usedInLastXPods {
+			err := a.compact(s, scaleUpFactor)
+			if err != nil {
+				a.logger.Errorw("vreplicas compaction failed", zap.Error(err))
+			}
+		}
 	}
 }
 
-func (a *autoscaler) compact(s *st.State) error {
-	a.logger.Info("compacting vreplicas")
+func (a *autoscaler) compact(s *st.State, scaleUpFactor int32) error {
 	vpods, err := a.vpodLister()
 	if err != nil {
 		return err
@@ -205,18 +218,14 @@ func (a *autoscaler) compact(s *st.State) error {
 	for _, vpod := range vpods {
 		placements := vpod.GetPlacements()
 		for _, placement := range placements {
-			ordinal := st.OrdinalFromPodName(placement.PodName)
+			for i := int32(0); i < scaleUpFactor; i++ {
+				ordinal := st.OrdinalFromPodName(placement.PodName)
 
-			if ordinal == s.LastOrdinal {
-				a.logger.Infow("evicting vreplica(s)",
-					zap.String("name", vpod.GetKey().Name),
-					zap.String("namespace", vpod.GetKey().Namespace),
-					zap.String("podname", placement.PodName),
-					zap.Int("vreplicas", int(placement.VReplicas)))
-
-				err = a.evictor(vpod, &placement)
-				if err != nil {
-					return err
+				if ordinal == s.LastOrdinal-i {
+					err = a.evictor(vpod, &placement)
+					if err != nil {
+						return err
+					}
 				}
 			}
 		}

@@ -87,7 +87,7 @@ func (pl *AvailabilityNodePriority) Score(ctx context.Context, args interface{},
 					skew = skew * int32(-1)
 				}
 
-				logger.Infof("Current Node %v with %d and Other Node %v with %d causing skew %d", nodeName, currentReps, otherNodeName, otherReps, skew)
+				//logger.Infof("Current Node %v with %d and Other Node %v with %d causing skew %d", nodeName, currentReps, otherNodeName, otherReps, skew)
 				if skew > skewVal.MaxSkew {
 					logger.Infof("Pod %d will cause an uneven node spread", podID)
 				}
@@ -98,7 +98,6 @@ func (pl *AvailabilityNodePriority) Score(ctx context.Context, args interface{},
 		score = math.MaxUint64 - score //lesser skews get higher score
 	}
 
-	//logger.Infof("Pod %v scored by %q priority successfully with score %v", podID, pl.Name(), score)
 	return score, state.NewStatus(state.Success)
 }
 

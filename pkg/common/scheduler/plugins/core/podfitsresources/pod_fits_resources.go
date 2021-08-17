@@ -53,7 +53,6 @@ func (pl *PodFitsResources) Filter(ctx context.Context, args interface{}, states
 	logger := logging.FromContext(ctx).With("Filter", pl.Name())
 
 	if len(states.FreeCap) == 0 || states.Free(podID) > 0 { //vpods with no placements or pods with positive free cap
-		//logger.Infof("Pod %d with %d free capacity passed %s predicate successfully", podID, states.Free(podID), pl.Name())
 		return state.NewStatus(state.Success)
 	}
 

@@ -85,26 +85,24 @@ func (pl *AvailabilityZonePriority) Score(ctx context.Context, args interface{},
 		}
 
 		currentReps := states.ZoneSpread[key][zoneName] //get #vreps on this zone
-		for otherZoneName := range zoneMap {            //compare with #vreps on other pods
+		for otherZoneName := range zoneMap {            //compare with #vreps on other zones
 			if otherZoneName != zoneName {
 				otherReps := states.ZoneSpread[key][otherZoneName]
 				if skew = (currentReps + 1) - otherReps; skew < 0 {
 					skew = skew * int32(-1)
 				}
 
-				logger.Infof("Current Zone %v with %d and Other Zone %v with %d causing skew %d", zoneName, currentReps, otherZoneName, otherReps, skew)
+				//logger.Infof("Current Zone %v with %d and Other Zone %v with %d causing skew %d", zoneName, currentReps, otherZoneName, otherReps, skew)
 				if skew > skewVal.MaxSkew { //score low
 					logger.Infof("Pod %d will cause an uneven zone spread", podID)
 				}
 				score = score + uint64(skew)
-
 			}
 		}
 
 		score = math.MaxUint64 - score //lesser skews get higher score
 	}
 
-	//logger.Infof("Pod %v scored by %q priority successfully with score %v", podID, pl.Name(), score)
 	return score, state.NewStatus(state.Success)
 }
 
@@ -113,9 +111,7 @@ func (pl *AvailabilityZonePriority) ScoreExtensions() state.ScoreExtensions {
 	return pl
 }
 
-// NormalizeScore invoked after scoring all pods. Calculates the score of each pod
-// based on the number of existing vreplicas on the pods. It favors pods
-// in zones that create an even spread of resources for HA
+// NormalizeScore invoked after scoring all pods.
 func (pl *AvailabilityZonePriority) NormalizeScore(ctx context.Context, states *state.State, scores state.PodScoreList) *state.Status {
 	return nil
 }

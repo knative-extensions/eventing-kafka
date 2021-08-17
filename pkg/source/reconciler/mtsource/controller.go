@@ -25,6 +25,7 @@ import (
 
 	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/apis/duck"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
@@ -96,38 +97,43 @@ func NewController(
 			return err
 		}
 
-		after := before.DeepCopy()
+		statusCond := before.Status.GetCondition(sourcesv1beta1.KafkaConditionScheduled)
+		if statusCond.Status == corev1.ConditionTrue && statusCond.Type == sourcesv1beta1.KafkaConditionScheduled { //do not evict when scheduling is in-progress
+			logger.Info("evicting vreplica(s)", zap.String("name", key.Name), zap.String("namespace", key.Namespace), zap.String("podname", from.PodName), zap.Int("vreplicas", int(from.VReplicas)))
 
-		bp := after.GetPlacements()
-		ap := make([]duckv1alpha1.Placement, 0, len(bp)-1)
-		for _, p := range bp {
-			if p.PodName != from.PodName {
-				ap = append(ap, p)
+			after := before.DeepCopy()
+
+			bp := after.GetPlacements()
+			ap := make([]duckv1alpha1.Placement, 0, len(bp)-1)
+			for _, p := range bp {
+				if p.PodName != from.PodName {
+					ap = append(ap, p)
+				}
 			}
-		}
-		after.Status.Placement = ap
+			after.Status.Placement = ap
 
-		jsonPatch, err := duck.CreatePatch(before, after)
-		if err != nil {
-			return err
-		}
+			jsonPatch, err := duck.CreatePatch(before, after)
+			if err != nil {
+				return err
+			}
 
-		// If there is nothing to patch, we are good, just return.
-		// Empty patch is [], hence we check for that.
-		if len(jsonPatch) == 0 {
-			return nil
-		}
+			// If there is nothing to patch, we are good, just return.
+			// Empty patch is [], hence we check for that.
+			if len(jsonPatch) == 0 {
+				return nil
+			}
 
-		patch, err := jsonPatch.MarshalJSON()
-		if err != nil {
-			return fmt.Errorf("marshaling JSON patch: %w", err)
-		}
+			patch, err := jsonPatch.MarshalJSON()
+			if err != nil {
+				return fmt.Errorf("marshaling JSON patch: %w", err)
+			}
 
-		patched, err := kafkaclient.Get(ctx).SourcesV1beta1().KafkaSources(key.Namespace).Patch(ctx, key.Name, types.JSONPatchType, patch, metav1.PatchOptions{}, "status")
-		if err != nil {
-			return fmt.Errorf("failed patching: %w", err)
+			patched, err := kafkaclient.Get(ctx).SourcesV1beta1().KafkaSources(key.Namespace).Patch(ctx, key.Name, types.JSONPatchType, patch, metav1.PatchOptions{}, "status")
+			if err != nil {
+				return fmt.Errorf("failed patching: %w", err)
+			}
+			logging.FromContext(ctx).Debugw("Patched resource", zap.Any("patch", patch), zap.Any("patched", patched))
 		}
-		logging.FromContext(ctx).Debugw("Patched resource", zap.Any("patch", patch), zap.Any("patched", patched))
 		return nil
 	}
 

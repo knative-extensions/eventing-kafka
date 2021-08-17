@@ -80,7 +80,7 @@ func (pl *EvenPodSpread) Filter(ctx context.Context, args interface{}, states *s
 					skew = skew * int32(-1)
 				}
 
-				logger.Infof("Current Pod %d with %d and Other Pod %d with %d causing skew %d", podID, currentReps, otherPodID, otherReps, skew)
+				//logger.Infof("Current Pod %d with %d and Other Pod %d with %d causing skew %d", podID, currentReps, otherPodID, otherReps, skew)
 				if skew > skewVal.MaxSkew {
 					logger.Infof("Unschedulable! Pod %d will cause an uneven spread", podID)
 					return state.NewStatus(state.Unschedulable, ErrReasonUnschedulable)
@@ -89,9 +89,7 @@ func (pl *EvenPodSpread) Filter(ctx context.Context, args interface{}, states *s
 		}
 	}
 
-	//logger.Infof("Pod %d passed %q predicate successfully", podID, pl.Name())
 	return state.NewStatus(state.Success)
-
 }
 
 // Score invoked at the score extension point. The "score" returned in this function is higher for pods that create an even spread across pods.
@@ -122,7 +120,7 @@ func (pl *EvenPodSpread) Score(ctx context.Context, args interface{}, states *st
 					skew = skew * int32(-1)
 				}
 
-				logger.Infof("Current Pod %d with %d and Other Pod %d with %d causing skew %d", podID, currentReps, otherPodID, otherReps, skew)
+				//logger.Infof("Current Pod %d with %d and Other Pod %d with %d causing skew %d", podID, currentReps, otherPodID, otherReps, skew)
 				if skew > skewVal.MaxSkew {
 					logger.Infof("Pod %d will cause an uneven zone spread", podID)
 				}
@@ -132,7 +130,6 @@ func (pl *EvenPodSpread) Score(ctx context.Context, args interface{}, states *st
 		score = math.MaxUint64 - score //lesser skews get higher score
 	}
 
-	//logger.Infof("Pod %v scored by %q priority successfully with score %v", podID, pl.Name(), score)
 	return score, state.NewStatus(state.Success)
 }
 

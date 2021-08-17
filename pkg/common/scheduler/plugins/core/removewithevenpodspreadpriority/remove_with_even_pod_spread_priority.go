@@ -82,7 +82,7 @@ func (pl *RemoveWithEvenPodSpreadPriority) Score(ctx context.Context, args inter
 					skew = skew * int32(-1)
 				}
 
-				logger.Infof("Current Pod %v with %d and Other Pod %v with %d causing skew %d", podID, currentReps, otherPodID, otherReps, skew)
+				//logger.Infof("Current Pod %v with %d and Other Pod %v with %d causing skew %d", podID, currentReps, otherPodID, otherReps, skew)
 				if skew > skewVal.MaxSkew { //score low
 					logger.Infof("Pod %d will cause an uneven zone spread", podID)
 				}
@@ -92,7 +92,6 @@ func (pl *RemoveWithEvenPodSpreadPriority) Score(ctx context.Context, args inter
 		score = math.MaxUint64 - score //lesser skews get higher score
 	}
 
-	//logger.Infof("Pod %v scored by %q priority successfully with score %v", podID, pl.Name(), score)
 	return score, state.NewStatus(state.Success)
 }
 
@@ -101,9 +100,7 @@ func (pl *RemoveWithEvenPodSpreadPriority) ScoreExtensions() state.ScoreExtensio
 	return pl
 }
 
-// NormalizeScore invoked after scoring all pods. Calculates the score of each pod
-// based on the number of existing vreplicas on the pods. It favors pods
-// in zones that create an even spread of resources for HA
+// NormalizeScore invoked after scoring all pods.
 func (pl *RemoveWithEvenPodSpreadPriority) NormalizeScore(ctx context.Context, states *state.State, scores state.PodScoreList) *state.Status {
 	return nil
 }

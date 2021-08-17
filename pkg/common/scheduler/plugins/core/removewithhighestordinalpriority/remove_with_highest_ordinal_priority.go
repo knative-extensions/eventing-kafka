@@ -22,7 +22,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/eventing-kafka/pkg/common/scheduler/factory"
 	state "knative.dev/eventing-kafka/pkg/common/scheduler/state"
-	"knative.dev/pkg/logging"
 )
 
 // RemoveWithHighestOrdinalPriority is a score plugin that favors pods that have a higher ordinal
@@ -46,11 +45,7 @@ func (pl *RemoveWithHighestOrdinalPriority) Name() string {
 
 // Score invoked at the score extension point. The "score" returned in this function is higher for pods with higher ordinal values.
 func (pl *RemoveWithHighestOrdinalPriority) Score(ctx context.Context, args interface{}, states *state.State, key types.NamespacedName, podID int32) (uint64, *state.Status) {
-	_ = logging.FromContext(ctx).With("Score", pl.Name())
-
 	score := uint64(podID) //higher ordinals get higher score
-
-	//logger.Infof("Pod %v scored by %q priority successfully with score %v", podID, pl.Name(), score)
 	return score, state.NewStatus(state.Success)
 }
 

@@ -469,14 +469,11 @@ func (s *StatefulSetScheduler) addSelectionToPlacements(placementPodID int32, pl
 
 // findFeasiblePods finds the pods that fit the filter plugins
 func (s *StatefulSetScheduler) findFeasiblePods(ctx context.Context, state *st.State, vpod scheduler.VPod, policy *scheduler.SchedulerPolicy) ([]int32, error) {
-	logger := s.logger.Named("find feasible pods")
-
 	feasiblePods := make([]int32, 0)
 	for podId := int32(0); podId < s.replicas; podId++ {
 		statusMap := s.RunFilterPlugins(ctx, state, vpod, podId, policy)
 		status := statusMap.Merge()
 		if status.IsSuccess() {
-			logger.Infof("SUCCESS! Adding Pod #%v to feasible list", podId)
 			feasiblePods = append(feasiblePods, podId)
 		}
 	}
@@ -570,7 +567,7 @@ func (s *StatefulSetScheduler) RunFilterPlugins(ctx context.Context, states *st.
 			continue
 		}
 
-		logger.Infof("Going to run filter plugin: %s using state: %v ", pl.Name(), states)
+		//logger.Infof("Going to run filter plugin: %s using state: %v ", pl.Name(), states)
 		pluginStatus := s.runFilterPlugin(ctx, pl, plugin.Args, states, vpod, podID)
 		if !pluginStatus.IsSuccess() {
 			if !pluginStatus.IsUnschedulable() {
@@ -603,7 +600,7 @@ func (s *StatefulSetScheduler) RunScorePlugins(ctx context.Context, states *st.S
 			continue
 		}
 
-		logger.Infof("Going to run score plugin: %s using state: %v ", pl.Name(), states)
+		//logger.Infof("Going to run score plugin: %s using state: %v ", pl.Name(), states)
 		pluginToPodScores[pl.Name()] = make(st.PodScoreList, len(feasiblePods))
 		for index, podID := range feasiblePods {
 			score, pluginStatus := s.runScorePlugin(ctx, pl, plugin.Args, states, vpod, podID)
@@ -613,7 +610,7 @@ func (s *StatefulSetScheduler) RunScorePlugins(ctx context.Context, states *st.S
 			}
 
 			score = score * plugin.Weight //WEIGHED SCORE VALUE
-			logger.Infof("scoring plugin %q produced score %v for pod %q: %v", pl.Name(), score, podID, pluginStatus)
+			//logger.Infof("scoring plugin %q produced score %v for pod %q: %v", pl.Name(), score, podID, pluginStatus)
 			pluginToPodScores[pl.Name()][index] = st.PodScore{
 				ID:    podID,
 				Score: score,

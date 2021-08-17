@@ -18,6 +18,7 @@ package statefulset
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -33,6 +34,7 @@ import (
 	duckv1alpha1 "knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
 	"knative.dev/eventing-kafka/pkg/common/scheduler"
 	"knative.dev/eventing-kafka/pkg/common/scheduler/state"
+	st "knative.dev/eventing-kafka/pkg/common/scheduler/state"
 	tscheduler "knative.dev/eventing-kafka/pkg/common/scheduler/testing"
 )
 
@@ -388,7 +390,7 @@ func TestCompactor(t *testing.T) {
 		replicas            int32
 		vpods               []scheduler.VPod
 		schedulerPolicyType scheduler.SchedulerPolicyType
-		wantEvictions       map[types.NamespacedName]duckv1alpha1.Placement
+		wantEvictions       map[types.NamespacedName][]duckv1alpha1.Placement
 		schedulerPolicy     *scheduler.SchedulerPolicy
 		deschedulerPolicy   *scheduler.SchedulerPolicy
 	}{
@@ -432,8 +434,8 @@ func TestCompactor(t *testing.T) {
 					{PodName: "statefulset-name-1", VReplicas: int32(2)}}),
 			},
 			schedulerPolicyType: scheduler.MAXFILLUP,
-			wantEvictions: map[types.NamespacedName]duckv1alpha1.Placement{
-				{Name: "vpod-1", Namespace: testNs}: {PodName: "statefulset-name-1", VReplicas: int32(2)},
+			wantEvictions: map[types.NamespacedName][]duckv1alpha1.Placement{
+				{Name: "vpod-1", Namespace: testNs}: {{PodName: "statefulset-name-1", VReplicas: int32(2)}},
 			},
 		},
 		{
@@ -464,8 +466,265 @@ func TestCompactor(t *testing.T) {
 					{PodName: "statefulset-name-2", VReplicas: int32(7)}}),
 			},
 			schedulerPolicyType: scheduler.MAXFILLUP,
-			wantEvictions: map[types.NamespacedName]duckv1alpha1.Placement{
-				{Name: "vpod-2", Namespace: testNs}: {PodName: "statefulset-name-2", VReplicas: int32(7)},
+			wantEvictions: map[types.NamespacedName][]duckv1alpha1.Placement{
+				{Name: "vpod-2", Namespace: testNs}: {{PodName: "statefulset-name-2", VReplicas: int32(7)}},
+			},
+		},
+		{
+			name:     "no replicas, no placements, no pending, with Predicates and Priorities",
+			replicas: int32(0),
+			vpods: []scheduler.VPod{
+				tscheduler.NewVPod(testNs, "vpod-1", 0, nil),
+			},
+			schedulerPolicy: &scheduler.SchedulerPolicy{
+				Predicates: []scheduler.PredicatePolicy{
+					{Name: "PodFitsResources"},
+					{Name: "EvenPodSpread", Args: "{\"MaxSkew\": 1}"},
+				},
+				Priorities: []scheduler.PriorityPolicy{
+					{Name: "LowestOrdinalPriority", Weight: 5},
+				},
+			},
+			wantEvictions: nil,
+		},
+		{
+			name:     "one vpod, with placements in 2 pods, compacted, with Predicates and Priorities",
+			replicas: int32(2),
+			vpods: []scheduler.VPod{
+				tscheduler.NewVPod(testNs, "vpod-1", 15, []duckv1alpha1.Placement{
+					{PodName: "statefulset-name-0", VReplicas: int32(8)},
+					{PodName: "statefulset-name-1", VReplicas: int32(7)}}),
+			},
+			schedulerPolicy: &scheduler.SchedulerPolicy{
+				Predicates: []scheduler.PredicatePolicy{
+					{Name: "PodFitsResources"},
+					{Name: "EvenPodSpread", Args: "{\"MaxSkew\": 1}"},
+				},
+				Priorities: []scheduler.PriorityPolicy{
+					{Name: "LowestOrdinalPriority", Weight: 5},
+				},
+			},
+			wantEvictions: nil,
+		},
+		{
+			name:     "one vpod, with  placements in 2 pods, compacted edge, with Predicates and Priorities",
+			replicas: int32(2),
+			vpods: []scheduler.VPod{
+				tscheduler.NewVPod(testNs, "vpod-1", 11, []duckv1alpha1.Placement{
+					{PodName: "statefulset-name-0", VReplicas: int32(8)},
+					{PodName: "statefulset-name-1", VReplicas: int32(3)}}),
+			},
+			schedulerPolicy: &scheduler.SchedulerPolicy{
+				Predicates: []scheduler.PredicatePolicy{
+					{Name: "PodFitsResources"},
+					{Name: "EvenPodSpread", Args: "{\"MaxSkew\": 1}"},
+				},
+				Priorities: []scheduler.PriorityPolicy{
+					{Name: "LowestOrdinalPriority", Weight: 5},
+				},
+			},
+			wantEvictions: nil,
+		},
+		{
+			name:     "one vpod, with placements in 2 pods, not compacted, with Predicates and Priorities",
+			replicas: int32(2),
+			vpods: []scheduler.VPod{
+				tscheduler.NewVPod(testNs, "vpod-1", 10, []duckv1alpha1.Placement{
+					{PodName: "statefulset-name-0", VReplicas: int32(8)},
+					{PodName: "statefulset-name-1", VReplicas: int32(2)}}),
+			},
+			schedulerPolicy: &scheduler.SchedulerPolicy{
+				Predicates: []scheduler.PredicatePolicy{
+					{Name: "PodFitsResources"},
+					{Name: "EvenPodSpread", Args: "{\"MaxSkew\": 1}"},
+				},
+				Priorities: []scheduler.PriorityPolicy{
+					{Name: "LowestOrdinalPriority", Weight: 5},
+				},
+			},
+			wantEvictions: map[types.NamespacedName][]duckv1alpha1.Placement{
+				{Name: "vpod-1", Namespace: testNs}: {{PodName: "statefulset-name-1", VReplicas: int32(2)}},
+			},
+		},
+		{
+			name:     "multiple vpods, with placements in multiple pods, compacted, with Predicates and Priorities",
+			replicas: int32(3),
+			// pod-0:6, pod-1:8, pod-2:7
+			vpods: []scheduler.VPod{
+				tscheduler.NewVPod(testNs, "vpod-1", 12, []duckv1alpha1.Placement{
+					{PodName: "statefulset-name-0", VReplicas: int32(4)},
+					{PodName: "statefulset-name-1", VReplicas: int32(8)}}),
+				tscheduler.NewVPod(testNs, "vpod-2", 9, []duckv1alpha1.Placement{
+					{PodName: "statefulset-name-0", VReplicas: int32(2)},
+					{PodName: "statefulset-name-2", VReplicas: int32(7)}}),
+			},
+			schedulerPolicy: &scheduler.SchedulerPolicy{
+				Predicates: []scheduler.PredicatePolicy{
+					{Name: "PodFitsResources"},
+					{Name: "EvenPodSpread", Args: "{\"MaxSkew\": 1}"},
+				},
+				Priorities: []scheduler.PriorityPolicy{
+					{Name: "LowestOrdinalPriority", Weight: 5},
+				},
+			},
+			wantEvictions: nil,
+		},
+		{
+			name:     "multiple vpods, with placements in multiple pods, not compacted, with Predicates and Priorities",
+			replicas: int32(3),
+			// pod-0:6, pod-1:7, pod-2:7
+			vpods: []scheduler.VPod{
+				tscheduler.NewVPod(testNs, "vpod-1", 6, []duckv1alpha1.Placement{
+					{PodName: "statefulset-name-0", VReplicas: int32(4)},
+					{PodName: "statefulset-name-1", VReplicas: int32(7)}}),
+				tscheduler.NewVPod(testNs, "vpod-2", 15, []duckv1alpha1.Placement{
+					{PodName: "statefulset-name-0", VReplicas: int32(2)},
+					{PodName: "statefulset-name-2", VReplicas: int32(7)}}),
+			},
+			schedulerPolicy: &scheduler.SchedulerPolicy{
+				Predicates: []scheduler.PredicatePolicy{
+					{Name: "PodFitsResources"},
+					{Name: "EvenPodSpread", Args: "{\"MaxSkew\": 1}"},
+				},
+				Priorities: []scheduler.PriorityPolicy{
+					{Name: "LowestOrdinalPriority", Weight: 5},
+				},
+			},
+			wantEvictions: map[types.NamespacedName][]duckv1alpha1.Placement{
+				{Name: "vpod-2", Namespace: testNs}: {{PodName: "statefulset-name-2", VReplicas: int32(7)}},
+			},
+		},
+		{
+			name:     "no replicas, no placements, no pending, with Predicates and HA Priorities",
+			replicas: int32(0),
+			vpods: []scheduler.VPod{
+				tscheduler.NewVPod(testNs, "vpod-1", 0, nil),
+			},
+			schedulerPolicy: &scheduler.SchedulerPolicy{
+				Predicates: []scheduler.PredicatePolicy{
+					{Name: "PodFitsResources"},
+					{Name: "EvenPodSpread", Args: "{\"MaxSkew\": 1}"},
+				},
+				Priorities: []scheduler.PriorityPolicy{
+					{Name: "AvailabilityZonePriority", Weight: 10, Args: "{\"MaxSkew\": 1}"},
+					{Name: "LowestOrdinalPriority", Weight: 5},
+				},
+			},
+			wantEvictions: nil,
+		},
+		{
+			name:     "one vpod, with placements in 2 pods, compacted, with Predicates and HA Priorities",
+			replicas: int32(2),
+			vpods: []scheduler.VPod{
+				tscheduler.NewVPod(testNs, "vpod-1", 15, []duckv1alpha1.Placement{
+					{PodName: "statefulset-name-0", VReplicas: int32(8)},
+					{PodName: "statefulset-name-1", VReplicas: int32(7)}}),
+			},
+			schedulerPolicy: &scheduler.SchedulerPolicy{
+				Predicates: []scheduler.PredicatePolicy{
+					{Name: "PodFitsResources"},
+					{Name: "EvenPodSpread", Args: "{\"MaxSkew\": 1}"},
+				},
+				Priorities: []scheduler.PriorityPolicy{
+					{Name: "AvailabilityZonePriority", Weight: 10, Args: "{\"MaxSkew\": 1}"},
+					{Name: "LowestOrdinalPriority", Weight: 5},
+				},
+			},
+			wantEvictions: nil,
+		},
+		{
+			name:     "one vpod, with placements in 2 pods, compacted edge, with Predicates and HA Priorities",
+			replicas: int32(2),
+			vpods: []scheduler.VPod{
+				tscheduler.NewVPod(testNs, "vpod-1", 11, []duckv1alpha1.Placement{
+					{PodName: "statefulset-name-0", VReplicas: int32(8)},
+					{PodName: "statefulset-name-1", VReplicas: int32(3)}}),
+			},
+			schedulerPolicy: &scheduler.SchedulerPolicy{
+				Predicates: []scheduler.PredicatePolicy{
+					{Name: "PodFitsResources"},
+					{Name: "EvenPodSpread", Args: "{\"MaxSkew\": 1}"},
+				},
+				Priorities: []scheduler.PriorityPolicy{
+					{Name: "AvailabilityZonePriority", Weight: 10, Args: "{\"MaxSkew\": 1}"},
+					{Name: "LowestOrdinalPriority", Weight: 5},
+				},
+			},
+			wantEvictions: nil,
+		},
+		{
+			name:     "one vpod, with placements in 3 pods, compacted, with Predicates and HA Priorities",
+			replicas: int32(3),
+			vpods: []scheduler.VPod{
+				tscheduler.NewVPod(testNs, "vpod-1", 14, []duckv1alpha1.Placement{
+					{PodName: "statefulset-name-0", VReplicas: int32(8)},
+					{PodName: "statefulset-name-1", VReplicas: int32(2)},
+					{PodName: "statefulset-name-2", VReplicas: int32(4)}}),
+			},
+			schedulerPolicy: &scheduler.SchedulerPolicy{
+				Predicates: []scheduler.PredicatePolicy{
+					{Name: "PodFitsResources"},
+					{Name: "EvenPodSpread", Args: "{\"MaxSkew\": 1}"},
+				},
+				Priorities: []scheduler.PriorityPolicy{
+					{Name: "AvailabilityZonePriority", Weight: 10, Args: "{\"MaxSkew\": 1}"},
+					{Name: "LowestOrdinalPriority", Weight: 5},
+				},
+			},
+			wantEvictions: nil,
+		},
+		{
+			name:     "multiple vpods, with placements in multiple pods, compacted, with Predicates and HA Priorities",
+			replicas: int32(3),
+			// pod-0:6, pod-1:8, pod-2:7
+			vpods: []scheduler.VPod{
+				tscheduler.NewVPod(testNs, "vpod-1", 12, []duckv1alpha1.Placement{
+					{PodName: "statefulset-name-0", VReplicas: int32(4)},
+					{PodName: "statefulset-name-1", VReplicas: int32(8)}}),
+				tscheduler.NewVPod(testNs, "vpod-2", 9, []duckv1alpha1.Placement{
+					{PodName: "statefulset-name-0", VReplicas: int32(2)},
+					{PodName: "statefulset-name-2", VReplicas: int32(7)}}),
+			},
+			schedulerPolicy: &scheduler.SchedulerPolicy{
+				Predicates: []scheduler.PredicatePolicy{
+					{Name: "PodFitsResources"},
+					{Name: "EvenPodSpread", Args: "{\"MaxSkew\": 1}"},
+				},
+				Priorities: []scheduler.PriorityPolicy{
+					{Name: "AvailabilityNodePriority", Weight: 10, Args: "{\"MaxSkew\": 1}"},
+					{Name: "LowestOrdinalPriority", Weight: 5},
+				},
+			},
+			wantEvictions: nil,
+		},
+		{
+			name:     "multiple vpods, with placements in multiple pods, not compacted, with Predicates and HA Priorities",
+			replicas: int32(6),
+			vpods: []scheduler.VPod{
+				tscheduler.NewVPod(testNs, "vpod-1", 16, []duckv1alpha1.Placement{
+					{PodName: "statefulset-name-0", VReplicas: int32(4)},
+					{PodName: "statefulset-name-1", VReplicas: int32(2)},
+					{PodName: "statefulset-name-2", VReplicas: int32(2)},
+					{PodName: "statefulset-name-3", VReplicas: int32(2)},
+					{PodName: "statefulset-name-4", VReplicas: int32(3)},
+					{PodName: "statefulset-name-5", VReplicas: int32(3)}}),
+				tscheduler.NewVPod(testNs, "vpod-2", 11, []duckv1alpha1.Placement{
+					{PodName: "statefulset-name-0", VReplicas: int32(2)},
+					{PodName: "statefulset-name-1", VReplicas: int32(4)},
+					{PodName: "statefulset-name-2", VReplicas: int32(5)}}),
+			},
+			schedulerPolicy: &scheduler.SchedulerPolicy{
+				Predicates: []scheduler.PredicatePolicy{
+					{Name: "PodFitsResources"},
+					{Name: "EvenPodSpread", Args: "{\"MaxSkew\": 1}"},
+				},
+				Priorities: []scheduler.PriorityPolicy{
+					{Name: "AvailabilityZonePriority", Weight: 10, Args: "{\"MaxSkew\": 1}"},
+					{Name: "LowestOrdinalPriority", Weight: 5},
+				},
+			},
+			wantEvictions: map[types.NamespacedName][]duckv1alpha1.Placement{
+				{Name: "vpod-1", Namespace: testNs}: {{PodName: "statefulset-name-3", VReplicas: int32(2)}, {PodName: "statefulset-name-4", VReplicas: int32(3)}, {PodName: "statefulset-name-5", VReplicas: int32(3)}},
 			},
 		},
 	}
@@ -508,9 +767,9 @@ func TestCompactor(t *testing.T) {
 			lsn := listers.NewListers(nodelist)
 			stateAccessor := state.NewStateBuilder(ctx, testNs, sfsName, vpodClient.List, 10, tc.schedulerPolicyType, tc.schedulerPolicy, tc.deschedulerPolicy, lsp.GetPodLister().Pods(testNs), lsn.GetNodeLister())
 
-			evictions := make(map[types.NamespacedName]duckv1alpha1.Placement)
+			evictions := make(map[types.NamespacedName][]duckv1alpha1.Placement)
 			recordEviction := func(vpod scheduler.VPod, from *duckv1alpha1.Placement) error {
-				evictions[vpod.GetKey()] = *from
+				evictions[vpod.GetKey()] = append(evictions[vpod.GetKey()], *from)
 				return nil
 			}
 
@@ -525,20 +784,29 @@ func TestCompactor(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			autoscaler.mayCompact(state)
+			var scaleUpFactor int32
+			if tc.schedulerPolicy != nil && contains(tc.schedulerPolicy.Priorities, st.AvailabilityZonePriority) { //HA scaling across zones
+				scaleUpFactor = state.NumZones
+			} else if tc.schedulerPolicy != nil && contains(tc.schedulerPolicy.Priorities, st.AvailabilityNodePriority) { //HA scalingacross nodes
+				scaleUpFactor = state.NumNodes
+			} else {
+				scaleUpFactor = 1 // Non-HA scaling
+			}
+
+			autoscaler.mayCompact(state, scaleUpFactor)
 
 			if tc.wantEvictions == nil && len(evictions) != 0 {
 				t.Fatalf("unexpected evictions: %v", evictions)
 
 			}
-			for key, placement := range tc.wantEvictions {
+			for key, placements := range tc.wantEvictions {
 				got, ok := evictions[key]
 				if !ok {
 					t.Fatalf("unexpected %v to be evicted but was not", key)
 				}
 
-				if got != placement {
-					t.Fatalf("expected evicted placement to be %v, but got %v", placement, got)
+				if !reflect.DeepEqual(placements, got) {
+					t.Fatalf("expected evicted placement to be %v, but got %v", placements, got)
 				}
 
 				delete(evictions, key)
