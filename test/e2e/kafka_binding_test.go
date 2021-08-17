@@ -1,5 +1,5 @@
-//+build e2e
-//+build source
+//go:build e2e && source
+// +build e2e,source
 
 /*
 Copyright 2019 The Knative Authors
