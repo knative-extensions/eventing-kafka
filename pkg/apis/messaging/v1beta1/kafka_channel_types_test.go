@@ -67,12 +67,6 @@ func TestKafkaChannelSpec_ParseRetentionDuration(t *testing.T) {
 			expectErr:        false,
 		},
 		{
-			name:             "not-present",
-			includeRetention: false,
-			expectDuration:   time.Duration(-1),
-			expectErr:        false,
-		},
-		{
 			name:             "empty",
 			includeRetention: true,
 			retentionString:  "",
@@ -92,7 +86,7 @@ func TestKafkaChannelSpec_ParseRetentionDuration(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			kcSpec := &KafkaChannelSpec{}
 			if test.includeRetention {
-				kcSpec.RetentionDuration = &test.retentionString
+				kcSpec.RetentionDuration = test.retentionString
 			}
 			retentionDuration, err := kcSpec.ParseRetentionDuration()
 			assert.Equal(t, test.expectErr, err != nil)

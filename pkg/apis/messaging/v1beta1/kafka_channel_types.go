@@ -71,11 +71,11 @@ type KafkaChannelSpec struct {
 	ReplicationFactor int16 `json:"replicationFactor"`
 
 	// RetentionDuration is the duration for which events will be retained in the Kafka Topic.
+	// By default, it is set to 7 days.
 	// More information on Duration format:
 	//  - https://www.iso.org/iso-8601-date-and-time-format.html
 	//  - https://en.wikipedia.org/wiki/ISO_8601
-	// +optional
-	RetentionDuration *string `string:"retentionDuration,omitempty"`
+	RetentionDuration string `json:"retentionDuration"`
 
 	// Channel conforms to Duck type Channelable.
 	eventingduck.ChannelableSpec `json:",inline"`
@@ -84,16 +84,12 @@ type KafkaChannelSpec struct {
 // ParseRetentionDuration returns the parsed Offset Time if valid (RFC3339 format) or an error for invalid content.
 // Note - If the optional RetentionDuration field is not present, or is invalid, a Duration of "-1" will be returned.
 func (kcs *KafkaChannelSpec) ParseRetentionDuration() (time.Duration, error) {
-	retentionDuration := time.Duration(-1)
-	var err error = nil
-	if kcs.RetentionDuration != nil {
-		var retentionPeriod period.Period
-		retentionPeriod, err = period.Parse(*kcs.RetentionDuration)
-		if err == nil {
-			retentionDuration, _ = retentionPeriod.Duration() // Ignore precision flag and accept ISO8601 estimation.
-		}
+	retentionPeriod, err := period.Parse(kcs.RetentionDuration)
+	if err != nil {
+		return time.Duration(-1), err
 	}
-	return retentionDuration, err
+	retentionDuration, _ := retentionPeriod.Duration() // Ignore precision flag and accept ISO8601 estimation
+	return retentionDuration, nil
 }
 
 // KafkaChannelStatus represents the current state of a KafkaChannel.

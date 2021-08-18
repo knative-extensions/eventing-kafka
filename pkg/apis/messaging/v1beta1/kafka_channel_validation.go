@@ -54,12 +54,10 @@ func (cs *KafkaChannelSpec) Validate(ctx context.Context) *apis.FieldError {
 		errs = errs.Also(fe)
 	}
 
-	if cs.RetentionDuration != nil {
-		retentionDuration, err := cs.ParseRetentionDuration()
-		if err != nil || retentionDuration < 0 {
-			fe := apis.ErrInvalidValue(*cs.RetentionDuration, "retentionDuration")
-			errs = errs.Also(fe)
-		}
+	retentionDuration, err := cs.ParseRetentionDuration()
+	if retentionDuration < 0 || err != nil {
+		fe := apis.ErrInvalidValue(cs.RetentionDuration, "retentionDuration")
+		errs = errs.Also(fe)
 	}
 
 	for i, subscriber := range cs.SubscribableSpec.Subscribers {

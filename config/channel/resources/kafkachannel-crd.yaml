@@ -39,15 +39,18 @@ spec:
               type: object
               properties:
                 numPartitions:
-                  description: NumPartitions is the number of partitions of a Kafka topic. By default, it is set to 1.
+                  description: 'NumPartitions is the number of partitions of a Kafka topic. By default, it is set to 1.'
                   type: integer
                   format: int32
                   default: 1
                 replicationFactor:
-                  description: ReplicationFactor is the replication factor of a Kafka topic. By default, it is set to 1.
+                  description: 'ReplicationFactor is the replication factor of a Kafka topic. By default, it is set to 1.'
                   type: integer
                   maximum: 32767
                   default: 1
+                retentionDuration:
+                  description: 'RetentionDuration is the retention time for events in a Kafka Topic represented as an ISO-8601 Duration.  By default it is set to 7 days.'
+                  type: string
                 delivery:
                   description: DeliverySpec contains the default delivery spec for each subscription to this Channelable. Each subscription delivery spec, if any, overrides this global delivery spec.
                   type: object

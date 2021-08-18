@@ -20,8 +20,12 @@ const (
 
 	// DefaultNumPartitions is the KafkaChannel Spec default for the number of partitions
 	DefaultNumPartitions = 1
+
 	// DefaultReplicationFactor is the KafkaChannel Spec default for the replication factor
 	DefaultReplicationFactor = 1
+
+	// DefaultRetentionDuration is the KafkaChannel Spec default for the retention duration (ISO-8601 string)
+	DefaultRetentionDuration = "P7D"
 
 	// SettingsConfigMapName is the name of the configmap used to hold eventing-kafka settings
 	SettingsConfigMapName = "config-kafka"

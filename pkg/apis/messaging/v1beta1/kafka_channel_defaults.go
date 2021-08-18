@@ -19,8 +19,9 @@ package v1beta1
 import (
 	"context"
 
-	"knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/eventing/pkg/apis/messaging"
+
+	"knative.dev/eventing-kafka/pkg/common/constants"
 )
 
 func (c *KafkaChannel) SetDefaults(ctx context.Context) {
@@ -46,5 +47,8 @@ func (cs *KafkaChannelSpec) SetDefaults(ctx context.Context) {
 	}
 	if cs.ReplicationFactor == 0 {
 		cs.ReplicationFactor = constants.DefaultReplicationFactor
+	}
+	if len(cs.RetentionDuration) <= 0 {
+		cs.RetentionDuration = constants.DefaultRetentionDuration
 	}
 }
