@@ -29,10 +29,6 @@ import (
 const (
 	kafkaAdminType = "custom"
 
-	defaultNumPartitions     = 7
-	defaultReplicationFactor = 2
-	defaultRetentionMillis   = 13579
-
 	dispatcherReplicas      = 1
 	dispatcherMemoryRequest = "20Mi"
 	dispatcherCpuRequest    = "100m"
@@ -51,20 +47,17 @@ type TestCase struct {
 	name string
 
 	// Config settings
-	kafkaTopicDefaultNumPartitions     int32
-	kafkaTopicDefaultReplicationFactor int16
-	kafkaTopicDefaultRetentionMillis   int64
-	kafkaAdminType                     string
-	dispatcherCpuLimit                 resource.Quantity
-	dispatcherCpuRequest               resource.Quantity
-	dispatcherMemoryLimit              resource.Quantity
-	dispatcherMemoryRequest            resource.Quantity
-	dispatcherReplicas                 int
-	receiverCpuLimit                   resource.Quantity
-	receiverCpuRequest                 resource.Quantity
-	receiverMemoryLimit                resource.Quantity
-	receiverMemoryRequest              resource.Quantity
-	receiverReplicas                   int
+	kafkaAdminType          string
+	dispatcherCpuLimit      resource.Quantity
+	dispatcherCpuRequest    resource.Quantity
+	dispatcherMemoryLimit   resource.Quantity
+	dispatcherMemoryRequest resource.Quantity
+	dispatcherReplicas      int
+	receiverCpuLimit        resource.Quantity
+	receiverCpuRequest      resource.Quantity
+	receiverMemoryLimit     resource.Quantity
+	receiverMemoryRequest   resource.Quantity
+	receiverReplicas        int
 
 	expectedError error
 }
@@ -72,22 +65,19 @@ type TestCase struct {
 // Get The Base / Valid Test Case - All Config Specified / No Errors
 func getValidTestCase(name string) TestCase {
 	return TestCase{
-		name:                               name,
-		kafkaTopicDefaultNumPartitions:     defaultNumPartitions,
-		kafkaTopicDefaultReplicationFactor: defaultReplicationFactor,
-		kafkaTopicDefaultRetentionMillis:   defaultRetentionMillis,
-		kafkaAdminType:                     kafkaAdminType,
-		dispatcherCpuLimit:                 resource.MustParse(dispatcherCpuLimit),
-		dispatcherCpuRequest:               resource.MustParse(dispatcherCpuRequest),
-		dispatcherMemoryLimit:              resource.MustParse(dispatcherMemoryLimit),
-		dispatcherMemoryRequest:            resource.MustParse(dispatcherMemoryRequest),
-		dispatcherReplicas:                 dispatcherReplicas,
-		receiverCpuLimit:                   resource.MustParse(receiverCpuLimit),
-		receiverCpuRequest:                 resource.MustParse(receiverCpuRquest),
-		receiverMemoryLimit:                resource.MustParse(receiverMemoryLimit),
-		receiverMemoryRequest:              resource.MustParse(receiverMemoryRequest),
-		receiverReplicas:                   receiverReplicas,
-		expectedError:                      nil,
+		name:                    name,
+		kafkaAdminType:          kafkaAdminType,
+		dispatcherCpuLimit:      resource.MustParse(dispatcherCpuLimit),
+		dispatcherCpuRequest:    resource.MustParse(dispatcherCpuRequest),
+		dispatcherMemoryLimit:   resource.MustParse(dispatcherMemoryLimit),
+		dispatcherMemoryRequest: resource.MustParse(dispatcherMemoryRequest),
+		dispatcherReplicas:      dispatcherReplicas,
+		receiverCpuLimit:        resource.MustParse(receiverCpuLimit),
+		receiverCpuRequest:      resource.MustParse(receiverCpuRquest),
+		receiverMemoryLimit:     resource.MustParse(receiverMemoryLimit),
+		receiverMemoryRequest:   resource.MustParse(receiverMemoryRequest),
+		receiverReplicas:        receiverReplicas,
+		expectedError:           nil,
 	}
 }
 
@@ -98,21 +88,6 @@ func TestVerifyConfiguration(t *testing.T) {
 	testCases := make([]TestCase, 0, 7)
 
 	testCase := getValidTestCase("Valid Complete Config")
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Invalid Config - Kafka.Topic.DefaultNumPartitions")
-	testCase.kafkaTopicDefaultNumPartitions = -1
-	testCase.expectedError = ControllerConfigurationError("Kafka.Topic.DefaultNumPartitions must be > 0")
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Invalid Config - Kafka.Topic.DefaultReplicationFactor")
-	testCase.kafkaTopicDefaultReplicationFactor = -1
-	testCase.expectedError = ControllerConfigurationError("Kafka.Topic.DefaultReplicationFactor must be > 0")
-	testCases = append(testCases, testCase)
-
-	testCase = getValidTestCase("Invalid Config - Kafka.Topic.DefaultRetentionMillis")
-	testCase.kafkaTopicDefaultRetentionMillis = -1
-	testCase.expectedError = ControllerConfigurationError("Kafka.Topic.DefaultRetentionMillis must be > 0")
 	testCases = append(testCases, testCase)
 
 	testCase = getValidTestCase("Valid Config - Dispatcher.CpuLimit = Zero (unlimited)")
@@ -165,9 +140,6 @@ func TestVerifyConfiguration(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			testConfig := &commonconfig.EventingKafkaConfig{}
-			testConfig.Kafka.Topic.DefaultNumPartitions = testCase.kafkaTopicDefaultNumPartitions
-			testConfig.Kafka.Topic.DefaultReplicationFactor = testCase.kafkaTopicDefaultReplicationFactor
-			testConfig.Kafka.Topic.DefaultRetentionMillis = testCase.kafkaTopicDefaultRetentionMillis
 			testConfig.Channel.AdminType = testCase.kafkaAdminType
 			testConfig.Channel.Dispatcher.CpuLimit = testCase.dispatcherCpuLimit
 			testConfig.Channel.Dispatcher.CpuRequest = testCase.dispatcherCpuRequest
@@ -186,9 +158,6 @@ func TestVerifyConfiguration(t *testing.T) {
 			// Verify The Results
 			if testCase.expectedError == nil {
 				assert.Nil(t, err)
-				assert.Equal(t, testCase.kafkaTopicDefaultNumPartitions, testConfig.Kafka.Topic.DefaultNumPartitions)
-				assert.Equal(t, testCase.kafkaTopicDefaultReplicationFactor, testConfig.Kafka.Topic.DefaultReplicationFactor)
-				assert.Equal(t, testCase.kafkaTopicDefaultRetentionMillis, testConfig.Kafka.Topic.DefaultRetentionMillis)
 				assert.Equal(t, testCase.kafkaAdminType, testConfig.Channel.AdminType)
 				assert.Equal(t, testCase.dispatcherCpuLimit, testConfig.Channel.Dispatcher.CpuLimit)
 				assert.Equal(t, testCase.dispatcherCpuRequest, testConfig.Channel.Dispatcher.CpuRequest)

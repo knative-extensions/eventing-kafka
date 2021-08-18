@@ -25,6 +25,7 @@ import (
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	cloudeventtest "github.com/cloudevents/sdk-go/v2/test"
+	subscriptionresources "knative.dev/eventing/test/rekt/resources/subscription"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/reconciler-test/pkg/eventshub"
 	"knative.dev/reconciler-test/pkg/eventshub/assert"
@@ -33,7 +34,6 @@ import (
 
 	kafkachannelresources "knative.dev/eventing-kafka/test/rekt/resources/kafkachannel"
 	resetoffsetresources "knative.dev/eventing-kafka/test/rekt/resources/resetoffset"
-	subscriptionresources "knative.dev/eventing/test/rekt/resources/subscription"
 )
 
 const (
@@ -76,6 +76,7 @@ func setupKafkaChannel(f *feature.Feature, name string) {
 	f.Setup("Install A KafkaChannel", kafkachannelresources.Install(name,
 		kafkachannelresources.WithNumPartitions("3"),
 		kafkachannelresources.WithReplicationFactor("1"),
+		kafkachannelresources.WithRetentionDuration("P1D"),
 	))
 }
 

@@ -33,12 +33,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/common/constants"
 )
 
-const (
-	DefaultAuthSecretName    = "kafka-cluster"
-	DefaultNumPartitions     = 4
-	DefaultReplicationFactor = 1
-	DefaultRetentionMillis   = 604800000 // 1 week
-)
+const DefaultAuthSecretName = "kafka-cluster"
 
 // EnableSaramaLogging Is A Utility Function For Enabling Sarama Logging (Debugging)
 func EnableSaramaLogging(enable bool) {
@@ -139,12 +134,11 @@ func upgradeConfig(data map[string]string) *commonconfig.EventingKafkaConfig {
 
 	// Pre-1.0.0 structs
 	type oldKafkaConfig struct {
-		Brokers             string                          `json:"brokers,omitempty"`
-		EnableSaramaLogging bool                            `json:"enableSaramaLogging,omitempty"`
-		Topic               commonconfig.EKKafkaTopicConfig `json:"topic,omitempty"`
-		AdminType           string                          `json:"adminType,omitempty"`
-		AuthSecretName      string                          `json:"authSecretName,omitempty"`
-		AuthSecretNamespace string                          `json:"authSecretNamespace,omitempty"`
+		Brokers             string `json:"brokers,omitempty"`
+		EnableSaramaLogging bool   `json:"enableSaramaLogging,omitempty"`
+		AdminType           string `json:"adminType,omitempty"`
+		AuthSecretName      string `json:"authSecretName,omitempty"`
+		AuthSecretNamespace string `json:"authSecretNamespace,omitempty"`
 	}
 	type oldEventingKafkaConfig struct {
 		Receiver    commonconfig.EKReceiverConfig   `json:"receiver,omitempty"`
@@ -171,7 +165,6 @@ func upgradeConfig(data map[string]string) *commonconfig.EventingKafkaConfig {
 			Brokers:             oldConfig.Kafka.Brokers,
 			AuthSecretName:      oldConfig.Kafka.AuthSecretName,
 			AuthSecretNamespace: oldConfig.Kafka.AuthSecretNamespace,
-			Topic:               oldConfig.Kafka.Topic,
 		},
 		Sarama: commonconfig.EKSaramaConfig{
 			EnableLogging: oldConfig.Kafka.EnableSaramaLogging,

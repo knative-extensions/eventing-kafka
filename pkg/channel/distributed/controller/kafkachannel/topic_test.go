@@ -47,8 +47,8 @@ type TopicTestCase struct {
 // Test The Kafka Topic Reconciliation
 //
 // Ideally the Knative Eventing test runner implementation would have provided a hook for additional
-// channel-type-specific (ie Kafka, NATS, etc) validation, but unfortunately it is solely focused
-// on the K8S objects existing/not.  Therefore we're left to test the actual Topic handling separately.
+// channel-type-specific (ie Kafka, NATS, etc.) validation, but unfortunately it is solely focused
+// on the K8S objects existing/not.  Therefore, we're left to test the actual Topic handling separately.
 //
 func TestReconcileTopic(t *testing.T) {
 
@@ -85,7 +85,7 @@ func TestReconcileTopic(t *testing.T) {
 			WantTopicDetail: &sarama.TopicDetail{
 				NumPartitions:     controllertesting.NumPartitions,
 				ReplicationFactor: controllertesting.ReplicationFactor,
-				ConfigEntries:     map[string]*string{commonconstants.KafkaTopicConfigRetentionMs: &controllertesting.DefaultRetentionMillisString},
+				ConfigEntries:     map[string]*string{commonconstants.KafkaTopicConfigRetentionMs: &controllertesting.RetentionMillisString},
 			},
 		},
 		{
@@ -104,7 +104,7 @@ func TestReconcileTopic(t *testing.T) {
 			WantTopicDetail: &sarama.TopicDetail{
 				NumPartitions:     controllertesting.NumPartitions,
 				ReplicationFactor: controllertesting.ReplicationFactor,
-				ConfigEntries:     map[string]*string{commonconstants.KafkaTopicConfigRetentionMs: &controllertesting.DefaultRetentionMillisString},
+				ConfigEntries:     map[string]*string{commonconstants.KafkaTopicConfigRetentionMs: &controllertesting.RetentionMillisString},
 			},
 			MockErrorCode: sarama.ErrTopicAlreadyExists,
 		},
@@ -124,7 +124,7 @@ func TestReconcileTopic(t *testing.T) {
 			WantTopicDetail: &sarama.TopicDetail{
 				NumPartitions:     controllertesting.NumPartitions,
 				ReplicationFactor: controllertesting.ReplicationFactor,
-				ConfigEntries:     map[string]*string{commonconstants.KafkaTopicConfigRetentionMs: &controllertesting.DefaultRetentionMillisString},
+				ConfigEntries:     map[string]*string{commonconstants.KafkaTopicConfigRetentionMs: &controllertesting.RetentionMillisString},
 			},
 			MockErrorCode: sarama.ErrBrokerNotAvailable,
 			WantError:     sarama.ErrBrokerNotAvailable.Error() + " - " + controllertesting.ErrorString,

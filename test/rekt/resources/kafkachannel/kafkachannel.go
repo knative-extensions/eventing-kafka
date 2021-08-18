@@ -77,3 +77,10 @@ func WithReplicationFactor(replicationFactor string) manifest.CfgFn {
 		cfg["replicationFactor"] = replicationFactor
 	}
 }
+
+// WithRetentionDuration adds the retentionDuration config to a KafkaChannel spec.
+func WithRetentionDuration(retentionDuration string) manifest.CfgFn {
+	return func(cfg map[string]interface{}) {
+		cfg["retentionDuration"] = retentionDuration
+	}
+}

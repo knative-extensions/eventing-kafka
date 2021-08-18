@@ -44,13 +44,6 @@ type EKDispatcherConfig struct {
 	EKKubernetesConfig
 }
 
-// EKKafkaTopicConfig contains some defaults that are only used if not provided by the channel spec
-type EKKafkaTopicConfig struct {
-	DefaultNumPartitions     int32 `json:"defaultNumPartitions,omitempty"`
-	DefaultReplicationFactor int16 `json:"defaultReplicationFactor,omitempty"`
-	DefaultRetentionMillis   int64 `json:"defaultRetentionMillis,omitempty"`
-}
-
 // EKCloudEventConfig contains the values send to the Knative cloudevents' ConfigureConnectionArgs function
 // If they are not provided in the configmap, the DefaultMaxIdleConns and DefaultMaxIdleConnsPerHost constants are used
 type EKCloudEventConfig struct {
@@ -60,10 +53,9 @@ type EKCloudEventConfig struct {
 
 // EKKafkaConfig contains items relevant to Kafka specifically
 type EKKafkaConfig struct {
-	Brokers             string             `json:"brokers,omitempty"`
-	AuthSecretName      string             `json:"authSecretName,omitempty"`
-	AuthSecretNamespace string             `json:"authSecretNamespace,omitempty"`
-	Topic               EKKafkaTopicConfig `json:"topic,omitempty"`
+	Brokers             string `json:"brokers,omitempty"`
+	AuthSecretName      string `json:"authSecretName,omitempty"`
+	AuthSecretNamespace string `json:"authSecretNamespace,omitempty"`
 }
 
 // EKSourceConfig is reserved for configuration fields needed by the Kafka Source component

@@ -33,6 +33,7 @@ func Example() {
 	}
 	WithNumPartitions("10")(cfg)
 	WithReplicationFactor("3")(cfg)
+	WithRetentionDuration("P1D")
 
 	files, err := manifest.ExecuteYAML(yaml, images, cfg)
 	if err != nil {

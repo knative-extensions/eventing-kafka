@@ -46,12 +46,6 @@ func VerifyConfiguration(configuration *commonconfig.EventingKafkaConfig) error 
 
 	// Verify mandatory configuration settings
 	switch {
-	case configuration.Kafka.Topic.DefaultNumPartitions < 1:
-		return ControllerConfigurationError("Kafka.Topic.DefaultNumPartitions must be > 0")
-	case configuration.Kafka.Topic.DefaultReplicationFactor < 1:
-		return ControllerConfigurationError("Kafka.Topic.DefaultReplicationFactor must be > 0")
-	case configuration.Kafka.Topic.DefaultRetentionMillis < 1:
-		return ControllerConfigurationError("Kafka.Topic.DefaultRetentionMillis must be > 0")
 	case configuration.Channel.Dispatcher.Replicas < 1:
 		return ControllerConfigurationError("Distributed.Dispatcher.Replicas must be > 0")
 	case configuration.Channel.Receiver.Replicas < 1:

@@ -240,11 +240,6 @@ func TestGetKafkaConfig(t *testing.T) {
 			Brokers:             brokers,
 			AuthSecretName:      name,
 			AuthSecretNamespace: namespace,
-			Topic: config.EKKafkaTopicConfig{
-				DefaultNumPartitions:     kafkasarama.DefaultNumPartitions,
-				DefaultReplicationFactor: kafkasarama.DefaultReplicationFactor,
-				DefaultRetentionMillis:   kafkasarama.DefaultRetentionMillis,
-			},
 		}
 	}
 

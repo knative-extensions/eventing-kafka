@@ -43,7 +43,7 @@ func TestKafkaChannelDefaults(t *testing.T) {
 				Spec: KafkaChannelSpec{
 					NumPartitions:     constants.DefaultNumPartitions,
 					ReplicationFactor: constants.DefaultReplicationFactor,
-					RetentionDuration: constants.DefaultRetentionDuration,
+					RetentionDuration: constants.DefaultRetentionISO8601Duration,
 				},
 			},
 		},
@@ -97,7 +97,7 @@ func TestKafkaChannelDefaults(t *testing.T) {
 				Spec: KafkaChannelSpec{
 					NumPartitions:     testNumPartitions,
 					ReplicationFactor: testReplicationFactor,
-					RetentionDuration: constants.DefaultRetentionDuration,
+					RetentionDuration: constants.DefaultRetentionISO8601Duration,
 				},
 			},
 		},
