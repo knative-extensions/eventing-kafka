@@ -73,16 +73,20 @@ func (pl *EvenPodSpread) Filter(ctx context.Context, args interface{}, states *s
 	if states.Replicas > 0 { //need atleast a pod to compute spread
 		currentReps := states.PodSpread[key][state.PodNameFromOrdinal(states.StatefulSetName, podID)] //get #vreps on this podID
 		var skew int32
-		for otherPodID := int32(0); otherPodID < states.Replicas; otherPodID++ { //compare with #vreps on other pods
+		for _, otherPodID := range states.SchedulablePods { //compare with #vreps on other pods
 			if otherPodID != podID {
 				otherReps := states.PodSpread[key][state.PodNameFromOrdinal(states.StatefulSetName, otherPodID)]
+
+				if otherReps == 0 && states.Free(otherPodID) <= 0 { //other pod fully occupied by other vpods - so ignore
+					continue
+				}
 				if skew = (currentReps + 1) - otherReps; skew < 0 {
 					skew = skew * int32(-1)
 				}
 
 				//logger.Infof("Current Pod %d with %d and Other Pod %d with %d causing skew %d", podID, currentReps, otherPodID, otherReps, skew)
 				if skew > skewVal.MaxSkew {
-					logger.Infof("Unschedulable! Pod %d will cause an uneven spread", podID)
+					logger.Infof("Unschedulable! Pod %d will cause an uneven spread %v with other pod %v", podID, states.PodSpread[key], otherPodID)
 					return state.NewStatus(state.Unschedulable, ErrReasonUnschedulable)
 				}
 			}
@@ -113,16 +117,19 @@ func (pl *EvenPodSpread) Score(ctx context.Context, args interface{}, states *st
 	if states.Replicas > 0 { //need atleast a pod to compute spread
 		currentReps := states.PodSpread[key][state.PodNameFromOrdinal(states.StatefulSetName, podID)] //get #vreps on this podID
 		var skew int32
-		for otherPodID := int32(0); otherPodID < states.Replicas; otherPodID++ { //compare with #vreps on other pods
+		for _, otherPodID := range states.SchedulablePods { //compare with #vreps on other pods
 			if otherPodID != podID {
 				otherReps := states.PodSpread[key][state.PodNameFromOrdinal(states.StatefulSetName, otherPodID)]
+				if otherReps == 0 && states.Free(otherPodID) == 0 { //other pod fully occupied by other vpods - so ignore
+					continue
+				}
 				if skew = (currentReps + 1) - otherReps; skew < 0 {
 					skew = skew * int32(-1)
 				}
 
 				//logger.Infof("Current Pod %d with %d and Other Pod %d with %d causing skew %d", podID, currentReps, otherPodID, otherReps, skew)
 				if skew > skewVal.MaxSkew {
-					logger.Infof("Pod %d will cause an uneven zone spread", podID)
+					logger.Infof("Pod %d will cause an uneven spread %v with other pod %v", podID, states.PodSpread[key], otherPodID)
 				}
 				score = score + uint64(skew)
 			}

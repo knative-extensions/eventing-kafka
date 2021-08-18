@@ -19,6 +19,7 @@ package scheduler
 import (
 	"errors"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	duckv1alpha1 "knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
@@ -79,7 +80,7 @@ type VPodLister func() ([]VPod, error)
 // Evictor allows for vreplicas to be evicted.
 // For instance, the evictor is used by the statefulset scheduler to
 // move vreplicas to pod with a lower ordinal.
-type Evictor func(vpod VPod, from *duckv1alpha1.Placement) error
+type Evictor func(pod *corev1.Pod, vpod VPod, from *duckv1alpha1.Placement) error
 
 // Scheduler is responsible for placing VPods into real Kubernetes pods
 type Scheduler interface {
@@ -99,4 +100,6 @@ type VPod interface {
 	// GetPlacements returns the current list of placements
 	// Do not mutate!
 	GetPlacements() []duckv1alpha1.Placement
+
+	GetResourceVersion() string
 }

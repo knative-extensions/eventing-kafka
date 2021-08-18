@@ -49,6 +49,7 @@ import (
 	_ "knative.dev/eventing-kafka/pkg/common/scheduler/plugins/core/evenpodspread"
 	_ "knative.dev/eventing-kafka/pkg/common/scheduler/plugins/core/lowestordinalpriority"
 	_ "knative.dev/eventing-kafka/pkg/common/scheduler/plugins/core/podfitsresources"
+	_ "knative.dev/eventing-kafka/pkg/common/scheduler/plugins/core/removewithavailabilitynodepriority"
 	_ "knative.dev/eventing-kafka/pkg/common/scheduler/plugins/core/removewithavailabilityzonepriority"
 	_ "knative.dev/eventing-kafka/pkg/common/scheduler/plugins/core/removewithevenpodspreadpriority"
 	_ "knative.dev/eventing-kafka/pkg/common/scheduler/plugins/core/removewithhighestordinalpriority"
@@ -157,6 +158,15 @@ func (s *StatefulSetScheduler) Schedule(vpod scheduler.VPod) ([]duckv1alpha1.Pla
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
+	vpods, err := s.vpodLister()
+	if err != nil {
+		return nil, err
+	}
+	vpodFromLister := st.GetVPod(vpod.GetKey(), vpods)
+	if vpod.GetResourceVersion() != vpodFromLister.GetResourceVersion() {
+		return nil, fmt.Errorf("vpod to schedule has resource version different from one in indexer")
+	}
+
 	placements, err := s.scheduleVPod(vpod)
 	if placements == nil {
 		return placements, err
@@ -191,14 +201,6 @@ func (s *StatefulSetScheduler) scheduleVPod(vpod scheduler.VPod) ([]duckv1alpha1
 	// Policy: MAXFILLUP (SchedulerPolicyType == MAXFILLUP)
 	// - allocates as many vreplicas as possible to the same pod(s)
 	// - allocates remaining vreplicas to new pods
-	// Policy: EVENSPREAD (SchedulerPolicyType == EVENSPREAD)
-	// - divides up vreplicas equally between the zones and
-	// - allocates as many vreplicas as possible to existing pods while not going over the equal spread value
-	// - allocates remaining vreplicas to new pods created in new zones still satisfying equal spread
-	// Policy: EVENSPREAD_BYNODE (SchedulerPolicyType == EVENSPREAD_BYNODE)
-	// - divides up vreplicas equally between the nodes and
-	// - allocates as many vreplicas as possible to existing pods while not going over the equal spread value
-	// - allocates remaining vreplicas to new pods created on new nodes and zones still satisfying equal spread
 
 	// Exact number of vreplicas => do nothing
 	tr := scheduler.GetTotalVReplicas(placements)
@@ -239,14 +241,12 @@ func (s *StatefulSetScheduler) scheduleVPod(vpod scheduler.VPod) ([]duckv1alpha1
 		}
 
 		if state.SchedPolicy != nil {
+
 			// Need more => scale up
-			if s.pending[vpod.GetKey()] > 0 { //rebalancing needed for all vreps most likely since there are pending vreps from previous reconciliation
-				logger.Infow("scaling up", zap.Int32("new vreplicas", vpod.GetVReplicas()))
-				placements, left = s.rebalanceReplicasWithPolicy(vpod, vpod.GetVReplicas(), placements)
-			} else { //scheduling of only new reps
-				logger.Infow("scaling up", zap.Int32("vreplicas", tr), zap.Int32("new vreplicas", vpod.GetVReplicas()))
-				placements, left = s.addReplicasWithPolicy(vpod, vpod.GetVReplicas()-tr, placements)
-			}
+			// rebalancing needed for all vreps most likely since there are pending vreps from previous reconciliation
+			// can fall here when vreps scaled up or after eviction
+			logger.Infow("scaling up with a rebalance (if needed)", zap.Int32("vreplicas", tr), zap.Int32("new vreplicas", vpod.GetVReplicas()))
+			placements, left = s.rebalanceReplicasWithPolicy(vpod, vpod.GetVReplicas(), placements)
 		}
 	}
 
@@ -259,6 +259,10 @@ func (s *StatefulSetScheduler) scheduleVPod(vpod scheduler.VPod) ([]duckv1alpha1
 		// Trigger the autoscaler
 		if s.autoscaler != nil {
 			s.autoscaler.Autoscale(s.pendingVReplicas())
+
+			/* 			if state.SchedPolicy != nil {
+				delete(s.pending, vpod.GetKey()) //rebalancing doesn't care about pending since all vreps will be re-placed
+			} */
 		}
 
 		return placements, scheduler.ErrNotEnoughReplicas
@@ -307,7 +311,7 @@ func (s *StatefulSetScheduler) removeReplicasWithPolicy(vpod scheduler.VPod, dif
 			placementPodID := feasiblePods[0]
 			logger.Infof("Selected pod #%v to remove vreplica #%v from", placementPodID, i)
 			placements = s.removeSelectionFromPlacements(placementPodID, placements)
-			state.SetFree(placementPodID, state.Free(placementPodID)+1)
+			//state.SetFree(placementPodID, state.Free(placementPodID)+1)
 			s.reservePlacements(vpod, placements)
 			continue
 		}
@@ -328,7 +332,7 @@ func (s *StatefulSetScheduler) removeReplicasWithPolicy(vpod scheduler.VPod, dif
 
 		logger.Infof("Selected pod #%v to remove vreplica #%v from", placementPodID, i)
 		placements = s.removeSelectionFromPlacements(placementPodID, placements)
-		state.SetFree(placementPodID, state.Free(placementPodID)+1)
+		//state.SetFree(placementPodID, state.Free(placementPodID)+1)
 		s.reservePlacements(vpod, placements)
 	}
 	return placements
@@ -396,7 +400,7 @@ func (s *StatefulSetScheduler) addReplicasWithPolicy(vpod scheduler.VPod, diff i
 			placementPodID := feasiblePods[0]
 			logger.Infof("Selected pod #%v for vreplica #%v ", placementPodID, i)
 			placements = s.addSelectionToPlacements(placementPodID, placements)
-			state.SetFree(placementPodID, state.Free(placementPodID)-1)
+			//state.SetFree(placementPodID, state.Free(placementPodID)-1)
 			s.reservePlacements(vpod, placements)
 			diff--
 			continue
@@ -420,7 +424,7 @@ func (s *StatefulSetScheduler) addReplicasWithPolicy(vpod scheduler.VPod, diff i
 
 		logger.Infof("Selected pod #%v for vreplica #%v", placementPodID, i)
 		placements = s.addSelectionToPlacements(placementPodID, placements)
-		state.SetFree(placementPodID, state.Free(placementPodID)-1)
+		//state.SetFree(placementPodID, state.Free(placementPodID)-1)
 		s.reservePlacements(vpod, placements)
 		diff--
 	}
@@ -449,7 +453,7 @@ func (s *StatefulSetScheduler) addSelectionToPlacements(placementPodID int32, pl
 // findFeasiblePods finds the pods that fit the filter plugins
 func (s *StatefulSetScheduler) findFeasiblePods(ctx context.Context, state *st.State, vpod scheduler.VPod, policy *scheduler.SchedulerPolicy) ([]int32, error) {
 	feasiblePods := make([]int32, 0)
-	for podId := int32(0); podId < s.replicas; podId++ {
+	for _, podId := range state.SchedulablePods {
 		statusMap := s.RunFilterPlugins(ctx, state, vpod, podId, policy)
 		status := statusMap.Merge()
 		if status.IsSuccess() {

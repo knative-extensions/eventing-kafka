@@ -20,14 +20,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"go.uber.org/zap"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	clientappsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 	corev1 "k8s.io/client-go/listers/core/v1"
 
+	"knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/eventing-kafka/pkg/common/scheduler"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
@@ -46,6 +49,9 @@ type State struct {
 	// free tracks the free capacity of each pod.
 	FreeCap []int32
 
+	// schedulable pods tracks the pods that aren't being evicted.
+	SchedulablePods []int32
+
 	// LastOrdinal is the ordinal index corresponding to the last statefulset replica
 	// with placed vpods.
 	LastOrdinal int32
@@ -56,7 +62,7 @@ type State struct {
 	// Replicas is the (cached) number of statefulset replicas.
 	Replicas int32
 
-	// Number of zones in cluster
+	// Number of available zones in cluster
 	NumZones int32
 
 	// Number of available nodes in cluster
@@ -78,10 +84,13 @@ type State struct {
 
 	PodLister corev1.PodNamespaceLister
 
+	// Stores for each vpod, a map of podname to number of vreplicas placed on that pod currently
 	PodSpread map[types.NamespacedName]map[string]int32
 
+	// Stores for each vpod, a map of nodename to total number of vreplicas placed on all pods running on that node currently
 	NodeSpread map[types.NamespacedName]map[string]int32
 
+	// Stores for each vpod, a map of zonename to total number of vreplicas placed on all pods located in that zone currently
 	ZoneSpread map[types.NamespacedName]map[string]int32
 }
 
@@ -169,6 +178,7 @@ func (s *stateBuilder) State(reserved map[types.NamespacedName]map[string]int32)
 	}
 
 	free := make([]int32, 0)
+	schedulablePods := make([]int32, 0)
 	last := int32(-1)
 
 	// keep track of (vpod key, podname) pairs with existing placements
@@ -200,6 +210,36 @@ func (s *stateBuilder) State(reserved map[types.NamespacedName]map[string]int32)
 		zoneMap[zoneName] = struct{}{}
 	}
 
+	for podId := int32(0); podId < scale.Spec.Replicas && s.podLister != nil; podId++ {
+		var pod *v1.Pod
+		Retry(func() error {
+			pod, err = s.podLister.Get(PodNameFromOrdinal(s.statefulSetName, podId))
+			if err != nil {
+				// This error will result in a retry
+				return err
+			}
+			return nil
+		})
+
+		var unschedulable bool
+		annotVal, ok := pod.ObjectMeta.Annotations[constants.PodAnnotationKey] //Pod is marked for eviction - CANNOT SCHEDULE VREPS on this pod
+		if ok {
+			unschedulable, _ = strconv.ParseBool(annotVal)
+		}
+
+		nodeName := pod.Spec.NodeName
+		node, err := s.nodeLister.Get(nodeName) //Node could be marked as Unschedulable - CANNOT SCHEDULE VREPS on a pod running on this node
+		if err != nil {
+			return nil, err
+		}
+
+		_, okZone := node.GetLabels()[scheduler.ZoneLabel] //Node has no zone info (maybe zone is down or a control node) - CANNOT SCHEDULE VREPS on a pod running on this node
+
+		if (!ok || !unschedulable) && !node.Spec.Unschedulable && okZone { //Pod has no annotation or not annotated as unschedulable and not on an unschedulable node, so add to feasible
+			schedulablePods = append(schedulablePods, podId)
+		}
+	}
+
 	// Getting current state from existing placements for all vpods
 	for _, vpod := range vpods {
 		ps := vpod.GetPlacements()
@@ -220,10 +260,16 @@ func (s *stateBuilder) State(reserved map[types.NamespacedName]map[string]int32)
 
 			withPlacement[vpod.GetKey()][podName] = true
 
-			pod, err := s.podLister.Get(podName)
-			if err != nil {
-				continue //can't find pod for some reason, move to next placement - will update next time state is invoked
-			}
+			var pod *v1.Pod
+			Retry(func() error {
+				pod, err = s.podLister.Get(podName)
+				if err != nil {
+					// This error will result in a retry
+					return err
+				}
+				return nil
+			})
+
 			nodeName := pod.Spec.NodeName       //node name for this pod
 			zoneName := nodeToZoneMap[nodeName] //zone name for this pod
 			podSpread[vpod.GetKey()][podName] = podSpread[vpod.GetKey()][podName] + vreplicas
@@ -241,10 +287,16 @@ func (s *stateBuilder) State(reserved map[types.NamespacedName]map[string]int32)
 					continue
 				}
 
-				pod, err := s.podLister.Get(podName)
-				if err != nil {
-					continue //can't find pod for some reason, move to next placement - will update next time state is invoked
-				}
+				var pod *v1.Pod
+				Retry(func() error {
+					pod, err = s.podLister.Get(podName)
+					if err != nil {
+						// This error will result in a retry
+						return err
+					}
+					return nil
+				})
+
 				nodeName := pod.Spec.NodeName       //node name for this pod
 				zoneName := nodeToZoneMap[nodeName] //zone name for this pod
 				podSpread[key][podName] = podSpread[key][podName] + rvreplicas
@@ -256,8 +308,8 @@ func (s *stateBuilder) State(reserved map[types.NamespacedName]map[string]int32)
 		}
 	}
 
-	s.logger.Infow("cluster state info", zap.String("NumPods", fmt.Sprint(scale.Spec.Replicas)), zap.String("NumZones", fmt.Sprint(len(zoneMap))), zap.String("NumNodes", fmt.Sprint(len(nodeToZoneMap))))
-	return &State{FreeCap: free, LastOrdinal: last, Capacity: s.capacity, Replicas: scale.Spec.Replicas, NumZones: int32(len(zoneMap)), NumNodes: int32(len(nodeToZoneMap)),
+	s.logger.Infow("cluster state info", zap.String("NumPods", fmt.Sprint(scale.Spec.Replicas)), zap.String("NumZones", fmt.Sprint(len(zoneMap))), zap.String("NumNodes", fmt.Sprint(len(nodeToZoneMap))), zap.String("Schedulable", fmt.Sprint(schedulablePods)))
+	return &State{FreeCap: free, SchedulablePods: schedulablePods, LastOrdinal: last, Capacity: s.capacity, Replicas: scale.Spec.Replicas, NumZones: int32(len(zoneMap)), NumNodes: int32(len(nodeToZoneMap)),
 		SchedulerPolicy: s.schedulerPolicy, SchedPolicy: s.schedPolicy, DeschedPolicy: s.deschedPolicy, NodeToZoneMap: nodeToZoneMap, StatefulSetName: s.statefulSetName, PodLister: s.podLister,
 		PodSpread: podSpread, NodeSpread: nodeSpread, ZoneSpread: zoneSpread}, nil
 }

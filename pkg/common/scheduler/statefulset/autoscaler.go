@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientappsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
@@ -55,6 +56,7 @@ type autoscaler struct {
 
 	// refreshPeriod is how often the autoscaler tries to scale down the statefulset
 	refreshPeriod time.Duration
+	done          chan bool
 }
 
 func NewAutoscaler(ctx context.Context,
@@ -75,6 +77,7 @@ func NewAutoscaler(ctx context.Context,
 		trigger:           make(chan int32, 1),
 		capacity:          capacity,
 		refreshPeriod:     refreshPeriod,
+		done:              make(chan bool),
 	}
 }
 
@@ -97,13 +100,14 @@ func (a *autoscaler) Start(ctx context.Context) {
 			err := a.doautoscale(ctx, attemptScaleDown, pending)
 			return err == nil, nil
 		})
-
+		a.done <- true
 		pending = int32(0)
 	}
 }
 
 func (a *autoscaler) Autoscale(pending int32) {
 	a.trigger <- pending
+	<-a.done //TODO: Right place to receive?
 }
 
 func (a *autoscaler) doautoscale(ctx context.Context, attemptScaleDown bool, pending int32) error {
@@ -125,22 +129,27 @@ func (a *autoscaler) doautoscale(ctx context.Context, attemptScaleDown bool, pen
 		zap.Int32("replicas", scale.Spec.Replicas),
 		zap.Int32("last ordinal", state.LastOrdinal))
 
-	var scaleUpFactor, newreplicas int32
-	if state.SchedPolicy != nil && contains(state.SchedPolicy.Priorities, st.AvailabilityZonePriority) { //HA scaling across zones
+	var scaleUpFactor, newreplicas, minNumPods int32
+	scaleUpFactor = 1                                                                                         // Non-HA scaling
+	if state.SchedPolicy != nil && contains(nil, state.SchedPolicy.Priorities, st.AvailabilityZonePriority) { //HA scaling across zones
 		scaleUpFactor = state.NumZones
-	} else if state.SchedPolicy != nil && contains(state.SchedPolicy.Priorities, st.AvailabilityNodePriority) { //HA scalingacross nodes
+	}
+	if state.SchedPolicy != nil && contains(nil, state.SchedPolicy.Priorities, st.AvailabilityNodePriority) { //HA scaling across nodes
 		scaleUpFactor = state.NumNodes
-	} else {
-		scaleUpFactor = 1 // Non-HA scaling
 	}
 
 	newreplicas = state.LastOrdinal + 1 // Ideal number
 
-	// Take into account pending replicas
+	// Take into account pending replicas and pods that are already filled (for even pod spread)
 	if pending > 0 {
 		// Make sure to allocate enough pods for holding all pending replicas.
-		minNumPods := math.Ceil(float64(pending) / float64(a.capacity))
-		newreplicas += int32(math.Ceil(minNumPods/float64(scaleUpFactor)) * float64(scaleUpFactor))
+		if state.SchedPolicy != nil && contains(state.SchedPolicy.Predicates, nil, st.EvenPodSpread) && len(state.FreeCap) > 0 { //HA scaling across pods
+			leastNonZeroCapacity := a.minNonZeroInt(state.FreeCap)
+			minNumPods = int32(math.Ceil(float64(pending) / float64(leastNonZeroCapacity)))
+		} else {
+			minNumPods = int32(math.Ceil(float64(pending) / float64(a.capacity)))
+		}
+		newreplicas += int32(math.Ceil(float64(minNumPods)/float64(scaleUpFactor)) * float64(scaleUpFactor))
 	}
 
 	// Make sure to never scale down past the last ordinal
@@ -167,7 +176,6 @@ func (a *autoscaler) doautoscale(ctx context.Context, attemptScaleDown bool, pen
 		// take the opportunity to compact the vreplicas
 		a.mayCompact(state, scaleUpFactor)
 	}
-
 	return nil
 }
 
@@ -210,6 +218,7 @@ func (a *autoscaler) mayCompact(s *st.State, scaleUpFactor int32) {
 }
 
 func (a *autoscaler) compact(s *st.State, scaleUpFactor int32) error {
+	var pod *v1.Pod
 	vpods, err := a.vpodLister()
 	if err != nil {
 		return err
@@ -217,12 +226,23 @@ func (a *autoscaler) compact(s *st.State, scaleUpFactor int32) error {
 
 	for _, vpod := range vpods {
 		placements := vpod.GetPlacements()
-		for _, placement := range placements {
-			for i := int32(0); i < scaleUpFactor; i++ {
-				ordinal := st.OrdinalFromPodName(placement.PodName)
+		for i := len(placements) - 1; i >= 0; i-- { //start from the last placement
+			for j := int32(0); j < scaleUpFactor; j++ {
+				ordinal := st.OrdinalFromPodName(placements[i].PodName)
 
-				if ordinal == s.LastOrdinal-i {
-					err = a.evictor(vpod, &placement)
+				if ordinal == s.LastOrdinal-j {
+					st.Retry(func() error {
+						if s.PodLister != nil {
+							pod, err = s.PodLister.Get(placements[i].PodName)
+							if err != nil {
+								// This error will result in a retry
+								return err
+							}
+						}
+						return nil
+					})
+
+					err = a.evictor(pod, vpod, &placements[i])
 					if err != nil {
 						return err
 					}
@@ -233,12 +253,31 @@ func (a *autoscaler) compact(s *st.State, scaleUpFactor int32) error {
 	return nil
 }
 
-func contains(priors []scheduler.PriorityPolicy, name string) bool {
-	for _, v := range priors {
-		if v.Name == name {
-			return true
+func contains(preds []scheduler.PredicatePolicy, priors []scheduler.PriorityPolicy, name string) bool {
+	if preds != nil {
+		for _, v := range preds {
+			if v.Name == name {
+				return true
+			}
+		}
+	}
+	if priors != nil {
+		for _, v := range priors {
+			if v.Name == name {
+				return true
+			}
 		}
 	}
 
 	return false
+}
+
+func (a *autoscaler) minNonZeroInt(slice []int32) int32 {
+	min := a.capacity
+	for _, v := range slice {
+		if v < min && v > 0 {
+			min = v
+		}
+	}
+	return min
 }

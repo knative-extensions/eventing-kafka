@@ -72,7 +72,7 @@ func (pl *RemoveWithEvenPodSpreadPriority) Score(ctx context.Context, args inter
 	if states.Replicas > 0 { //need atleast a pod to compute spread
 		currentReps := states.PodSpread[key][state.PodNameFromOrdinal(states.StatefulSetName, podID)] //get #vreps on this podID
 		var skew int32
-		for otherPodID := int32(0); otherPodID < states.Replicas; otherPodID++ { //compare with #vreps on other pods
+		for _, otherPodID := range states.SchedulablePods { //compare with #vreps on other pods
 			if otherPodID != podID {
 				otherReps, ok := states.PodSpread[key][state.PodNameFromOrdinal(states.StatefulSetName, otherPodID)]
 				if !ok {
@@ -84,7 +84,7 @@ func (pl *RemoveWithEvenPodSpreadPriority) Score(ctx context.Context, args inter
 
 				//logger.Infof("Current Pod %v with %d and Other Pod %v with %d causing skew %d", podID, currentReps, otherPodID, otherReps, skew)
 				if skew > skewVal.MaxSkew { //score low
-					logger.Infof("Pod %d will cause an uneven zone spread", podID)
+					logger.Infof("Pod %d will cause an uneven spread %v with other pod %v", podID, states.PodSpread[key], otherPodID)
 				}
 				score = score + uint64(skew)
 			}

@@ -18,13 +18,16 @@ package statefulset
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"testing"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	v1 "k8s.io/client-go/listers/core/v1"
 	gtesting "k8s.io/client-go/testing"
 
 	listers "knative.dev/eventing/pkg/reconciler/testing/v1"
@@ -218,8 +221,68 @@ func TestAutoscaler(t *testing.T) {
 			schedulerPolicyType: scheduler.MAXFILLUP,
 		},
 		{
-			name:     "no replicas, with placements, with pending, enough capacity, with Predicates and Priorities",
-			replicas: int32(0),
+			name:     "with replicas, with placements, with pending, enough capacity, with Predicates and Zone Priorities",
+			replicas: int32(2),
+			vpods: []scheduler.VPod{
+				tscheduler.NewVPod(testNs, "vpod-1", 15, []duckv1alpha1.Placement{
+					{PodName: "statefulset-name-0", VReplicas: int32(8)},
+					{PodName: "statefulset-name-1", VReplicas: int32(7)}}),
+			},
+			pendings:     int32(3),
+			wantReplicas: int32(5),
+			schedulerPolicy: &scheduler.SchedulerPolicy{
+				Predicates: []scheduler.PredicatePolicy{
+					{Name: "PodFitsResources"},
+				},
+				Priorities: []scheduler.PriorityPolicy{
+					{Name: "AvailabilityZonePriority", Weight: 10, Args: "{\"MaxSkew\": 1}"},
+					{Name: "LowestOrdinalPriority", Weight: 5},
+				},
+			},
+		},
+		{
+			name:     "with replicas, with placements, with pending, enough capacity, with Predicates and Node Priorities",
+			replicas: int32(2),
+			vpods: []scheduler.VPod{
+				tscheduler.NewVPod(testNs, "vpod-1", 15, []duckv1alpha1.Placement{
+					{PodName: "statefulset-name-0", VReplicas: int32(8)},
+					{PodName: "statefulset-name-1", VReplicas: int32(7)}}),
+			},
+			pendings:     int32(3),
+			wantReplicas: int32(8),
+			schedulerPolicy: &scheduler.SchedulerPolicy{
+				Predicates: []scheduler.PredicatePolicy{
+					{Name: "PodFitsResources"},
+				},
+				Priorities: []scheduler.PriorityPolicy{
+					{Name: "AvailabilityNodePriority", Weight: 10, Args: "{\"MaxSkew\": 1}"},
+					{Name: "LowestOrdinalPriority", Weight: 5},
+				},
+			},
+		},
+		{
+			name:     "with replicas, with placements, with pending, enough capacity, with Pod Predicates and Priorities",
+			replicas: int32(2),
+			vpods: []scheduler.VPod{
+				tscheduler.NewVPod(testNs, "vpod-1", 15, []duckv1alpha1.Placement{
+					{PodName: "statefulset-name-0", VReplicas: int32(8)},
+					{PodName: "statefulset-name-1", VReplicas: int32(7)}}),
+			},
+			pendings:     int32(3),
+			wantReplicas: int32(4),
+			schedulerPolicy: &scheduler.SchedulerPolicy{
+				Predicates: []scheduler.PredicatePolicy{
+					{Name: "PodFitsResources"},
+					{Name: "EvenPodSpread", Args: "{\"MaxSkew\": 1}"},
+				},
+				Priorities: []scheduler.PriorityPolicy{
+					{Name: "LowestOrdinalPriority", Weight: 5},
+				},
+			},
+		},
+		{
+			name:     "with replicas, with placements, with pending, enough capacity, with Pod Predicates and Zone Priorities",
+			replicas: int32(2),
 			vpods: []scheduler.VPod{
 				tscheduler.NewVPod(testNs, "vpod-1", 15, []duckv1alpha1.Placement{
 					{PodName: "statefulset-name-0", VReplicas: int32(8)},
@@ -239,7 +302,7 @@ func TestAutoscaler(t *testing.T) {
 			},
 		},
 		{
-			name:     "with replicas, with placements, with pending, enough capacity, with Predicates and Priorities",
+			name:     "with replicas, with placements, with pending, enough capacity, with Pod Predicates and Node Priorities",
 			replicas: int32(2),
 			vpods: []scheduler.VPod{
 				tscheduler.NewVPod(testNs, "vpod-1", 15, []duckv1alpha1.Placement{
@@ -280,7 +343,8 @@ func TestAutoscaler(t *testing.T) {
 					nodelist = append(nodelist, node)
 				}
 			}
-			for i := int32(0); i < tc.wantReplicas; i++ {
+
+			for i := int32(0); i < int32(math.Max(float64(tc.wantReplicas), float64(tc.replicas))); i++ {
 				nodeName := "node" + fmt.Sprint(i)
 				podName := sfsName + "-" + fmt.Sprint(i)
 				pod, err := kubeclient.Get(ctx).CoreV1().Pods(testNs).Create(ctx, tscheduler.MakePod(testNs, podName, nodeName), metav1.CreateOptions{})
@@ -290,9 +354,18 @@ func TestAutoscaler(t *testing.T) {
 				podlist = append(podlist, pod)
 			}
 
-			lsp := listers.NewListers(podlist)
-			lsn := listers.NewListers(nodelist)
-			stateAccessor := state.NewStateBuilder(ctx, testNs, sfsName, vpodClient.List, 10, tc.schedulerPolicyType, tc.schedulerPolicy, tc.deschedulerPolicy, lsp.GetPodLister().Pods(testNs), lsn.GetNodeLister())
+			var lspp v1.PodNamespaceLister
+			var lsnn v1.NodeLister
+			if len(podlist) != 0 {
+				lsp := listers.NewListers(podlist)
+				lspp = lsp.GetPodLister().Pods(testNs)
+			}
+			if len(nodelist) != 0 {
+				lsn := listers.NewListers(nodelist)
+				lsnn = lsn.GetNodeLister()
+			}
+
+			stateAccessor := state.NewStateBuilder(ctx, testNs, sfsName, vpodClient.List, 10, tc.schedulerPolicyType, tc.schedulerPolicy, tc.deschedulerPolicy, lspp, lsnn)
 
 			sfsClient := kubeclient.Get(ctx).AppsV1().StatefulSets(testNs)
 			_, err := sfsClient.Create(ctx, tscheduler.MakeStatefulset(testNs, sfsName, tc.replicas), metav1.CreateOptions{})
@@ -300,7 +373,7 @@ func TestAutoscaler(t *testing.T) {
 				t.Fatal("unexpected error", err)
 			}
 
-			noopEvictor := func(vpod scheduler.VPod, from *duckv1alpha1.Placement) error {
+			noopEvictor := func(pod *corev1.Pod, vpod scheduler.VPod, from *duckv1alpha1.Placement) error {
 				return nil
 			}
 
@@ -340,7 +413,7 @@ func TestAutoscalerScaleDownToZero(t *testing.T) {
 
 	vpodClient := tscheduler.NewVPodClient()
 	ls := listers.NewListers(nil)
-	stateAccessor := state.NewStateBuilder(ctx, testNs, sfsName, vpodClient.List, 10, scheduler.MAXFILLUP, &scheduler.SchedulerPolicy{}, &scheduler.SchedulerPolicy{}, ls.GetPodLister().Pods(testNs), ls.GetNodeLister())
+	stateAccessor := state.NewStateBuilder(ctx, testNs, sfsName, vpodClient.List, 10, scheduler.MAXFILLUP, &scheduler.SchedulerPolicy{}, &scheduler.SchedulerPolicy{}, nil, ls.GetNodeLister())
 
 	sfsClient := kubeclient.Get(ctx).AppsV1().StatefulSets(testNs)
 	_, err := sfsClient.Create(ctx, tscheduler.MakeStatefulset(testNs, sfsName, 10), metav1.CreateOptions{})
@@ -348,16 +421,14 @@ func TestAutoscalerScaleDownToZero(t *testing.T) {
 		t.Fatal("unexpected error", err)
 	}
 
-	noopEvictor := func(vpod scheduler.VPod, from *duckv1alpha1.Placement) error {
+	noopEvictor := func(pod *corev1.Pod, vpod scheduler.VPod, from *duckv1alpha1.Placement) error {
 		return nil
 	}
 
 	autoscaler := NewAutoscaler(ctx, testNs, sfsName, vpodClient.List, stateAccessor, noopEvictor, 2*time.Second, int32(10)).(*autoscaler)
 
-	done := make(chan bool)
 	go func() {
 		autoscaler.Start(ctx)
-		done <- true
 	}()
 
 	select {
@@ -378,7 +449,7 @@ func TestAutoscalerScaleDownToZero(t *testing.T) {
 	cancel()
 
 	select {
-	case <-done:
+	case <-autoscaler.done:
 	case <-time.After(1 * time.Second):
 		t.Fatal("timeout waiting for autoscaler to stop")
 	}
@@ -724,7 +795,7 @@ func TestCompactor(t *testing.T) {
 				},
 			},
 			wantEvictions: map[types.NamespacedName][]duckv1alpha1.Placement{
-				{Name: "vpod-1", Namespace: testNs}: {{PodName: "statefulset-name-3", VReplicas: int32(2)}, {PodName: "statefulset-name-4", VReplicas: int32(3)}, {PodName: "statefulset-name-5", VReplicas: int32(3)}},
+				{Name: "vpod-1", Namespace: testNs}: {{PodName: "statefulset-name-5", VReplicas: int32(3)}, {PodName: "statefulset-name-4", VReplicas: int32(3)}, {PodName: "statefulset-name-3", VReplicas: int32(2)}},
 			},
 		},
 	}
@@ -768,7 +839,7 @@ func TestCompactor(t *testing.T) {
 			stateAccessor := state.NewStateBuilder(ctx, testNs, sfsName, vpodClient.List, 10, tc.schedulerPolicyType, tc.schedulerPolicy, tc.deschedulerPolicy, lsp.GetPodLister().Pods(testNs), lsn.GetNodeLister())
 
 			evictions := make(map[types.NamespacedName][]duckv1alpha1.Placement)
-			recordEviction := func(vpod scheduler.VPod, from *duckv1alpha1.Placement) error {
+			recordEviction := func(pod *corev1.Pod, vpod scheduler.VPod, from *duckv1alpha1.Placement) error {
 				evictions[vpod.GetKey()] = append(evictions[vpod.GetKey()], *from)
 				return nil
 			}
@@ -785,9 +856,9 @@ func TestCompactor(t *testing.T) {
 			}
 
 			var scaleUpFactor int32
-			if tc.schedulerPolicy != nil && contains(tc.schedulerPolicy.Priorities, st.AvailabilityZonePriority) { //HA scaling across zones
+			if tc.schedulerPolicy != nil && contains(nil, tc.schedulerPolicy.Priorities, st.AvailabilityZonePriority) { //HA scaling across zones
 				scaleUpFactor = state.NumZones
-			} else if tc.schedulerPolicy != nil && contains(tc.schedulerPolicy.Priorities, st.AvailabilityNodePriority) { //HA scalingacross nodes
+			} else if tc.schedulerPolicy != nil && contains(nil, tc.schedulerPolicy.Priorities, st.AvailabilityNodePriority) { //HA scalingacross nodes
 				scaleUpFactor = state.NumNodes
 			} else {
 				scaleUpFactor = 1 // Non-HA scaling

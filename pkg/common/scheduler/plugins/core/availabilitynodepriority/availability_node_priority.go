@@ -40,7 +40,7 @@ const Name = state.AvailabilityNodePriority
 
 const (
 	ErrReasonInvalidArg = "invalid arguments"
-	ErrReasonNoResource = "node or zone does not exist"
+	ErrReasonNoResource = "node does not exist"
 )
 
 func init() {
@@ -87,7 +87,7 @@ func (pl *AvailabilityNodePriority) Score(ctx context.Context, args interface{},
 
 				//logger.Infof("Current Node %v with %d and Other Node %v with %d causing skew %d", nodeName, currentReps, otherNodeName, otherReps, skew)
 				if skew > skewVal.MaxSkew {
-					logger.Infof("Pod %d will cause an uneven node spread", podID)
+					logger.Infof("Pod %d in node %v will cause an uneven node spread %v with other node %v", podID, nodeName, states.NodeSpread[key], otherNodeName)
 				}
 				score = score + uint64(skew)
 			}

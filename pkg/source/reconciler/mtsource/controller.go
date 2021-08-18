@@ -42,6 +42,7 @@ import (
 	kafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client"
 	kafkainformer "knative.dev/eventing-kafka/pkg/client/injection/informers/sources/v1beta1/kafkasource"
 	"knative.dev/eventing-kafka/pkg/client/injection/reconciler/sources/v1beta1/kafkasource"
+	"knative.dev/eventing-kafka/pkg/common/constants"
 	scheduler "knative.dev/eventing-kafka/pkg/common/scheduler"
 	stsscheduler "knative.dev/eventing-kafka/pkg/common/scheduler/statefulset"
 	nodeinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/node"
@@ -88,7 +89,23 @@ func NewController(
 	sourcesv1beta1.RegisterAlternateKafkaConditionSet(sourcesv1beta1.KafkaMTSourceCondSet)
 
 	rp := time.Duration(env.SchedulerRefreshPeriod) * time.Second
-	evictor := func(vpod scheduler.VPod, from *duckv1alpha1.Placement) error {
+	evictor := func(pod *corev1.Pod, vpod scheduler.VPod, from *duckv1alpha1.Placement) error {
+		//First, annotate pod as unschedulable
+		newPod := pod.DeepCopy()
+		annots := newPod.ObjectMeta.Annotations
+		if annots == nil {
+			annots = make(map[string]string)
+		}
+		annots[constants.PodAnnotationKey] = "true" //scheduling disabled
+		newPod.ObjectMeta.Annotations = annots
+
+		updated, err := kubeclient.Get(ctx).CoreV1().Pods(newPod.ObjectMeta.Namespace).Update(ctx, newPod, metav1.UpdateOptions{})
+		if err != nil {
+			return err
+		}
+		logging.FromContext(ctx).Debugw("Updated pod to be unschedulable", zap.Any("updated", updated))
+
+		//Second, remove placements on that pod for this vpod
 		key := vpod.GetKey()
 		sources := kafkaclient.Get(ctx).SourcesV1beta1().KafkaSources(key.Namespace)
 

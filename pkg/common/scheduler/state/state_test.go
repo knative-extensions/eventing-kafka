@@ -55,7 +55,7 @@ func TestStateBuilder(t *testing.T) {
 			name:            "no vpods",
 			replicas:        int32(0),
 			vpods:           [][]duckv1alpha1.Placement{},
-			expected:        State{Capacity: 10, FreeCap: []int32{}, LastOrdinal: -1, SchedulerPolicy: scheduler.MAXFILLUP, SchedPolicy: &scheduler.SchedulerPolicy{}, DeschedPolicy: &scheduler.SchedulerPolicy{}, StatefulSetName: sfsName},
+			expected:        State{Capacity: 10, FreeCap: []int32{}, SchedulablePods: []int32{}, LastOrdinal: -1, SchedulerPolicy: scheduler.MAXFILLUP, SchedPolicy: &scheduler.SchedulerPolicy{}, DeschedPolicy: &scheduler.SchedulerPolicy{}, StatefulSetName: sfsName},
 			freec:           int32(0),
 			schedulerPolicy: scheduler.MAXFILLUP,
 		},
@@ -63,7 +63,7 @@ func TestStateBuilder(t *testing.T) {
 			name:     "one vpods",
 			replicas: int32(1),
 			vpods:    [][]duckv1alpha1.Placement{{{PodName: "statefulset-name-0", VReplicas: 1}}},
-			expected: State{Capacity: 10, FreeCap: []int32{int32(9)}, LastOrdinal: 0, Replicas: 1, NumNodes: 1, NumZones: 1, SchedulerPolicy: scheduler.MAXFILLUP, SchedPolicy: &scheduler.SchedulerPolicy{}, DeschedPolicy: &scheduler.SchedulerPolicy{}, StatefulSetName: sfsName,
+			expected: State{Capacity: 10, FreeCap: []int32{int32(9)}, SchedulablePods: []int32{int32(0)}, LastOrdinal: 0, Replicas: 1, NumNodes: 1, NumZones: 1, SchedulerPolicy: scheduler.MAXFILLUP, SchedPolicy: &scheduler.SchedulerPolicy{}, DeschedPolicy: &scheduler.SchedulerPolicy{}, StatefulSetName: sfsName,
 				NodeToZoneMap: map[string]string{"node-0": "zone-0"},
 				PodSpread: map[types.NamespacedName]map[string]int32{
 					{Name: vpodName + "-0", Namespace: vpodNs + "-0"}: {
@@ -93,7 +93,7 @@ func TestStateBuilder(t *testing.T) {
 				{{PodName: "statefulset-name-1", VReplicas: 2}},
 				{{PodName: "statefulset-name-1", VReplicas: 3}, {PodName: "statefulset-name-0", VReplicas: 1}},
 			},
-			expected: State{Capacity: 10, FreeCap: []int32{int32(8), int32(5), int32(5)}, LastOrdinal: 2, Replicas: 3, NumNodes: 3, NumZones: 3, SchedulerPolicy: scheduler.MAXFILLUP, SchedPolicy: &scheduler.SchedulerPolicy{}, DeschedPolicy: &scheduler.SchedulerPolicy{}, StatefulSetName: sfsName,
+			expected: State{Capacity: 10, FreeCap: []int32{int32(8), int32(5), int32(5)}, SchedulablePods: []int32{int32(0), int32(1), int32(2)}, LastOrdinal: 2, Replicas: 3, NumNodes: 3, NumZones: 3, SchedulerPolicy: scheduler.MAXFILLUP, SchedPolicy: &scheduler.SchedulerPolicy{}, DeschedPolicy: &scheduler.SchedulerPolicy{}, StatefulSetName: sfsName,
 				NodeToZoneMap: map[string]string{"node-0": "zone-0", "node-1": "zone-1", "node-2": "zone-2"},
 				PodSpread: map[types.NamespacedName]map[string]int32{
 					{Name: vpodName + "-0", Namespace: vpodNs + "-0"}: {
@@ -147,7 +147,7 @@ func TestStateBuilder(t *testing.T) {
 				{{PodName: "statefulset-name-1", VReplicas: 0}},
 				{{PodName: "statefulset-name-1", VReplicas: 0}, {PodName: "statefulset-name-3", VReplicas: 0}},
 			},
-			expected: State{Capacity: 10, FreeCap: []int32{int32(9), int32(10), int32(5), int32(10)}, LastOrdinal: 2, Replicas: 4, NumNodes: 4, NumZones: 3, SchedulerPolicy: scheduler.MAXFILLUP, SchedPolicy: &scheduler.SchedulerPolicy{}, DeschedPolicy: &scheduler.SchedulerPolicy{}, StatefulSetName: sfsName,
+			expected: State{Capacity: 10, FreeCap: []int32{int32(9), int32(10), int32(5), int32(10)}, SchedulablePods: []int32{int32(0), int32(1), int32(2), int32(3)}, LastOrdinal: 2, Replicas: 4, NumNodes: 4, NumZones: 3, SchedulerPolicy: scheduler.MAXFILLUP, SchedPolicy: &scheduler.SchedulerPolicy{}, DeschedPolicy: &scheduler.SchedulerPolicy{}, StatefulSetName: sfsName,
 				NodeToZoneMap: map[string]string{"node-0": "zone-0", "node-1": "zone-1", "node-2": "zone-2", "node-3": "zone-0"},
 				PodSpread: map[types.NamespacedName]map[string]int32{
 					{Name: vpodName + "-0", Namespace: vpodNs + "-0"}: {
@@ -201,7 +201,7 @@ func TestStateBuilder(t *testing.T) {
 				{{PodName: "statefulset-name-1", VReplicas: 0}},
 				{{PodName: "statefulset-name-1", VReplicas: 0}, {PodName: "statefulset-name-3", VReplicas: 0}},
 			},
-			expected: State{Capacity: 10, FreeCap: []int32{int32(3), int32(10), int32(5), int32(10)}, LastOrdinal: 2, Replicas: 4, NumNodes: 4, NumZones: 3, SchedulerPolicy: scheduler.MAXFILLUP, SchedPolicy: &scheduler.SchedulerPolicy{}, DeschedPolicy: &scheduler.SchedulerPolicy{}, StatefulSetName: sfsName,
+			expected: State{Capacity: 10, FreeCap: []int32{int32(3), int32(10), int32(5), int32(10)}, SchedulablePods: []int32{int32(0), int32(1), int32(2), int32(3)}, LastOrdinal: 2, Replicas: 4, NumNodes: 4, NumZones: 3, SchedulerPolicy: scheduler.MAXFILLUP, SchedPolicy: &scheduler.SchedulerPolicy{}, DeschedPolicy: &scheduler.SchedulerPolicy{}, StatefulSetName: sfsName,
 				NodeToZoneMap: map[string]string{"node-0": "zone-0", "node-1": "zone-1", "node-2": "zone-2", "node-3": "zone-0"},
 				PodSpread: map[types.NamespacedName]map[string]int32{
 					{Name: vpodName + "-0", Namespace: vpodNs + "-0"}: {
@@ -264,7 +264,7 @@ func TestStateBuilder(t *testing.T) {
 				{{PodName: "statefulset-name-1", VReplicas: 0}},
 				{{PodName: "statefulset-name-1", VReplicas: 0}, {PodName: "statefulset-name-3", VReplicas: 0}},
 			},
-			expected: State{Capacity: 10, FreeCap: []int32{int32(4), int32(7), int32(5), int32(10), int32(5)}, LastOrdinal: 4, Replicas: 4, NumNodes: 4, NumZones: 3, SchedulerPolicy: scheduler.MAXFILLUP, SchedPolicy: &scheduler.SchedulerPolicy{}, DeschedPolicy: &scheduler.SchedulerPolicy{}, StatefulSetName: sfsName,
+			expected: State{Capacity: 10, FreeCap: []int32{int32(4), int32(7), int32(5), int32(10), int32(5)}, SchedulablePods: []int32{int32(0), int32(1), int32(2), int32(3)}, LastOrdinal: 4, Replicas: 4, NumNodes: 4, NumZones: 3, SchedulerPolicy: scheduler.MAXFILLUP, SchedPolicy: &scheduler.SchedulerPolicy{}, DeschedPolicy: &scheduler.SchedulerPolicy{}, StatefulSetName: sfsName,
 				NodeToZoneMap: map[string]string{"node-0": "zone-0", "node-1": "zone-1", "node-2": "zone-2", "node-3": "zone-0"},
 				PodSpread: map[types.NamespacedName]map[string]int32{
 					{Name: vpodName + "-0", Namespace: vpodNs + "-0"}: {
@@ -327,7 +327,7 @@ func TestStateBuilder(t *testing.T) {
 				{{PodName: "statefulset-name-1", VReplicas: 0}},
 				{{PodName: "statefulset-name-1", VReplicas: 0}, {PodName: "statefulset-name-3", VReplicas: 0}},
 			},
-			expected: State{Capacity: 10, FreeCap: []int32{int32(4), int32(7), int32(5), int32(10), int32(2)}, LastOrdinal: 4, Replicas: 5, NumNodes: 5, NumZones: 3, SchedulerPolicy: scheduler.MAXFILLUP, SchedPolicy: &scheduler.SchedulerPolicy{}, DeschedPolicy: &scheduler.SchedulerPolicy{}, StatefulSetName: sfsName,
+			expected: State{Capacity: 10, FreeCap: []int32{int32(4), int32(7), int32(5), int32(10), int32(2)}, SchedulablePods: []int32{int32(0), int32(1), int32(2), int32(3), int32(4)}, LastOrdinal: 4, Replicas: 5, NumNodes: 5, NumZones: 3, SchedulerPolicy: scheduler.MAXFILLUP, SchedPolicy: &scheduler.SchedulerPolicy{}, DeschedPolicy: &scheduler.SchedulerPolicy{}, StatefulSetName: sfsName,
 				NodeToZoneMap: map[string]string{"node-0": "zone-0", "node-1": "zone-1", "node-2": "zone-2", "node-3": "zone-0", "node-4": "zone-1"},
 				PodSpread: map[types.NamespacedName]map[string]int32{
 					{Name: vpodName + "-0", Namespace: vpodNs + "-0"}: {
@@ -398,7 +398,16 @@ func TestStateBuilder(t *testing.T) {
 				vpodName := fmt.Sprint(vpodName+"-", i)
 				vpodNamespace := fmt.Sprint(vpodNs+"-", i)
 
-				vpodClient.Create(vpodNamespace, vpodName, 1, placements)
+				vpodC := vpodClient.Create(vpodNamespace, vpodName, 1, placements)
+
+				lsvp, err := vpodClient.List()
+				if err != nil {
+					t.Fatal("unexpected error", err)
+				}
+				vpodG := GetVPod(types.NamespacedName{Name: vpodName, Namespace: vpodNamespace}, lsvp)
+				if !reflect.DeepEqual(vpodC, vpodG) {
+					t.Errorf("unexpected vpod, got %v, want %v", vpodG, vpodC)
+				}
 			}
 
 			for i := 0; i < len(tc.nodes); i++ {
@@ -426,6 +435,7 @@ func TestStateBuilder(t *testing.T) {
 
 			lsp := listers.NewListers(podlist)
 			lsn := listers.NewListers(nodelist)
+
 			stateBuilder := NewStateBuilder(ctx, testNs, sfsName, vpodClient.List, int32(10), tc.schedulerPolicy, &scheduler.SchedulerPolicy{}, &scheduler.SchedulerPolicy{}, lsp.GetPodLister().Pods(testNs), lsn.GetNodeLister())
 			state, err := stateBuilder.State(tc.reserved)
 			if err != nil {

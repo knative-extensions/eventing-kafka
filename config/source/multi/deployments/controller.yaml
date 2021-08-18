@@ -62,10 +62,10 @@ spec:
         - name: SCHEDULER_POLICY_TYPE
           value: ''
 
-        - name: CONFIG_SCHEDULER
+        - name: SCHEDULER_CONFIG
           value: config-scheduler
 
-        - name: CONFIG_DESCHEDULER
+        - name: DESCHEDULER_CONFIG
           value: config-descheduler
 
         resources:

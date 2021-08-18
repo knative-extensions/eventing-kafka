@@ -60,6 +60,7 @@ func TestFilter(t *testing.T) {
 			name: "one vpod, one pod, same pod filter",
 			vpod: types.NamespacedName{Name: "vpod-name-0", Namespace: "vpod-ns-0"},
 			state: &state.State{StatefulSetName: "pod-name", Replicas: 1,
+				SchedulablePods: []int32{int32(0)},
 				PodSpread: map[types.NamespacedName]map[string]int32{
 					{Name: "vpod-name-0", Namespace: "vpod-ns-0"}: {
 						"pod-name-0": 5,
@@ -75,6 +76,7 @@ func TestFilter(t *testing.T) {
 			name: "two vpods, one pod, same pod filter",
 			vpod: types.NamespacedName{Name: "vpod-name-0", Namespace: "vpod-ns-0"},
 			state: &state.State{StatefulSetName: "pod-name", Replicas: 1,
+				SchedulablePods: []int32{int32(0)},
 				PodSpread: map[types.NamespacedName]map[string]int32{
 					{Name: "vpod-name-0", Namespace: "vpod-ns-0"}: {
 						"pod-name-0": 5,
@@ -92,12 +94,14 @@ func TestFilter(t *testing.T) {
 		{
 			name: "one vpod, two pods,same pod filter",
 			vpod: types.NamespacedName{Name: "vpod-name-0", Namespace: "vpod-ns-0"},
-			state: &state.State{StatefulSetName: "pod-name", Replicas: 2, PodSpread: map[types.NamespacedName]map[string]int32{
-				{Name: "vpod-name-0", Namespace: "vpod-ns-0"}: {
-					"pod-name-0": 5,
-					"pod-name-1": 5,
-				},
-			}},
+			state: &state.State{StatefulSetName: "pod-name", Replicas: 2,
+				SchedulablePods: []int32{int32(0), int32(1)},
+				PodSpread: map[types.NamespacedName]map[string]int32{
+					{Name: "vpod-name-0", Namespace: "vpod-ns-0"}: {
+						"pod-name-0": 5,
+						"pod-name-1": 5,
+					},
+				}},
 			podID:    1,
 			expected: state.NewStatus(state.Success),
 			expScore: math.MaxUint64 - 1,
@@ -106,15 +110,17 @@ func TestFilter(t *testing.T) {
 		{
 			name: "one vpod, five pods, same pod filter",
 			vpod: types.NamespacedName{Name: "vpod-name-0", Namespace: "vpod-ns-0"},
-			state: &state.State{StatefulSetName: "pod-name", Replicas: 5, PodSpread: map[types.NamespacedName]map[string]int32{
-				{Name: "vpod-name-0", Namespace: "vpod-ns-0"}: {
-					"pod-name-0": 5,
-					"pod-name-1": 4,
-					"pod-name-2": 3,
-					"pod-name-3": 4,
-					"pod-name-4": 5,
-				},
-			}},
+			state: &state.State{StatefulSetName: "pod-name", Replicas: 5,
+				SchedulablePods: []int32{int32(0), int32(1), int32(2), int32(3), int32(4)},
+				PodSpread: map[types.NamespacedName]map[string]int32{
+					{Name: "vpod-name-0", Namespace: "vpod-ns-0"}: {
+						"pod-name-0": 5,
+						"pod-name-1": 4,
+						"pod-name-2": 3,
+						"pod-name-3": 4,
+						"pod-name-4": 5,
+					},
+				}},
 			podID:    1,
 			expected: state.NewStatus(state.Success),
 			expScore: math.MaxUint64 - 3,
@@ -123,17 +129,40 @@ func TestFilter(t *testing.T) {
 		{
 			name: "one vpod, five pods, same pod filter unschedulable",
 			vpod: types.NamespacedName{Name: "vpod-name-0", Namespace: "vpod-ns-0"},
-			state: &state.State{StatefulSetName: "pod-name", Replicas: 2, PodSpread: map[types.NamespacedName]map[string]int32{
-				{Name: "vpod-name-0", Namespace: "vpod-ns-0"}: {
-					"pod-name-0": 7,
-					"pod-name-1": 4,
-					"pod-name-2": 3,
-					"pod-name-3": 4,
-					"pod-name-4": 5,
-				},
-			}},
+			state: &state.State{StatefulSetName: "pod-name", Replicas: 5,
+				SchedulablePods: []int32{int32(0), int32(1), int32(2), int32(3), int32(4)},
+				PodSpread: map[types.NamespacedName]map[string]int32{
+					{Name: "vpod-name-0", Namespace: "vpod-ns-0"}: {
+						"pod-name-0": 7,
+						"pod-name-1": 4,
+						"pod-name-2": 3,
+						"pod-name-3": 4,
+						"pod-name-4": 5,
+					},
+				}},
 			podID:      0,
 			expected:   state.NewStatus(state.Unschedulable, ErrReasonUnschedulable),
+			onlyFilter: true,
+			args:       "{\"MaxSkew\": 2}",
+		},
+		{
+			name: "two vpods, two pods, one pod full",
+			vpod: types.NamespacedName{Name: "vpod-name-0", Namespace: "vpod-ns-0"},
+			state: &state.State{StatefulSetName: "pod-name", Replicas: 2,
+				SchedulablePods: []int32{int32(0), int32(1)},
+				FreeCap:         []int32{int32(3), int32(0)},
+				PodSpread: map[types.NamespacedName]map[string]int32{
+					{Name: "vpod-name-0", Namespace: "vpod-ns-0"}: {
+						"pod-name-0": 5,
+					},
+					{Name: "vpod-name-1", Namespace: "vpod-ns-1"}: {
+						"pod-name-0": 2,
+						"pod-name-1": 10,
+					},
+				},
+			},
+			podID:      0,
+			expected:   state.NewStatus(state.Success),
 			onlyFilter: true,
 			args:       "{\"MaxSkew\": 2}",
 		},

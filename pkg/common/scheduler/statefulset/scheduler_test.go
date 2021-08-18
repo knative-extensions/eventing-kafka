@@ -165,7 +165,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 			vreplicas: 1,
 			replicas:  int32(0),
 			err:       scheduler.ErrNotEnoughReplicas,
-			expected:  nil,
+			expected:  []duckv1alpha1.Placement{},
 			schedulerPolicy: &scheduler.SchedulerPolicy{
 				Predicates: []scheduler.PredicatePolicy{
 					{Name: "PodFitsResources"},
@@ -314,7 +314,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 			vreplicas: 1,
 			replicas:  int32(0),
 			err:       scheduler.ErrNotEnoughReplicas,
-			expected:  nil,
+			expected:  []duckv1alpha1.Placement{},
 			schedulerPolicy: &scheduler.SchedulerPolicy{
 				Predicates: []scheduler.PredicatePolicy{
 					{Name: "PodFitsResources"},
@@ -479,6 +479,23 @@ func TestStatefulsetScheduler(t *testing.T) {
 				Priorities: []scheduler.PriorityPolicy{
 					{Name: "LowestOrdinalPriority", Weight: 2},
 					{Name: "AvailabilityZonePriority", Weight: 10, Args: "{\"MaxSkew\": 2}"},
+				},
+			},
+		},
+		{
+			name:      "one replica, 8 vreplicas, too much scheduled (scale down), with two desched Priorities",
+			vreplicas: 8,
+			replicas:  int32(1),
+			placements: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 10},
+			},
+			expected: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 8},
+			},
+			deschedulerPolicy: &scheduler.SchedulerPolicy{
+				Priorities: []scheduler.PriorityPolicy{
+					{Name: "RemoveWithEvenPodSpreadPriority", Weight: 10, Args: "{\"MaxSkew\": 2}"},
+					{Name: "RemoveWithHighestOrdinalPriority", Weight: 2},
 				},
 			},
 		},

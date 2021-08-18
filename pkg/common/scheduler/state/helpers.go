@@ -19,6 +19,10 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"time"
+
+	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/eventing-kafka/pkg/common/scheduler"
 )
 
 func PodNameFromOrdinal(name string, ordinal int32) string {
@@ -31,4 +35,22 @@ func OrdinalFromPodName(podName string) int32 {
 		return math.MaxInt32
 	}
 	return int32(ordinal)
+}
+
+func Retry(f func() error) error {
+	if err := f(); err != nil {
+		time.Sleep(2 * time.Second)
+		return Retry(f)
+	}
+	return nil
+}
+
+// Get retrieves the VPod from the vpods lister for a given namespace and name.
+func GetVPod(key types.NamespacedName, vpods []scheduler.VPod) scheduler.VPod {
+	for _, vpod := range vpods {
+		if vpod.GetKey().Name == key.Name && vpod.GetKey().Namespace == key.Namespace {
+			return vpod
+		}
+	}
+	return nil
 }

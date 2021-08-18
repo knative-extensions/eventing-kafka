@@ -20,7 +20,7 @@ metadata:
   labels:
     kafka.eventing.knative.dev/release: devel
 spec:
-  replicas: 1
+  replicas: 0
   selector:
     matchLabels: &labels
       control-plane: kafkasource-mt-adapter
@@ -78,7 +78,7 @@ spec:
         - name: profiling
           containerPort: 8008
 
-      terminationGracePeriodSeconds: 10
+      terminationGracePeriodSeconds: 0
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:

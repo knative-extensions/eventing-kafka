@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package removewithavailabilityzonepriority
+package removewithavailabilitynodepriority
 
 import (
 	"context"
@@ -28,32 +28,32 @@ import (
 	"knative.dev/pkg/logging"
 )
 
-// RemoveWithAvailabilityZonePriority is a score plugin that favors pods that create an even spread of resources across zones for HA
-type RemoveWithAvailabilityZonePriority struct {
+// RemoveWithAvailabilityNodePriority is a score plugin that favors pods that create an even spread of resources across nodes for HA
+type RemoveWithAvailabilityNodePriority struct {
 }
 
-// Verify RemoveWithAvailabilityZonePriority Implements ScorePlugin Interface
-var _ state.ScorePlugin = &RemoveWithAvailabilityZonePriority{}
+// Verify RemoveWithAvailabilityNodePriority Implements ScorePlugin Interface
+var _ state.ScorePlugin = &RemoveWithAvailabilityNodePriority{}
 
 // Name of the plugin
-const Name = state.RemoveWithAvailabilityZonePriority
+const Name = state.RemoveWithAvailabilityNodePriority
 
 const (
 	ErrReasonInvalidArg = "invalid arguments"
-	ErrReasonNoResource = "zone does not exist"
+	ErrReasonNoResource = "node does not exist"
 )
 
 func init() {
-	factory.RegisterSP(Name, &RemoveWithAvailabilityZonePriority{})
+	factory.RegisterSP(Name, &RemoveWithAvailabilityNodePriority{})
 }
 
 // Name returns name of the plugin
-func (pl *RemoveWithAvailabilityZonePriority) Name() string {
+func (pl *RemoveWithAvailabilityNodePriority) Name() string {
 	return Name
 }
 
-// Score invoked at the score extension point. The "score" returned in this function is higher for zones that create an even spread across zones.
-func (pl *RemoveWithAvailabilityZonePriority) Score(ctx context.Context, args interface{}, states *state.State, key types.NamespacedName, podID int32) (uint64, *state.Status) {
+// Score invoked at the score extension point. The "score" returned in this function is higher for nodes that create an even spread across nodes.
+func (pl *RemoveWithAvailabilityNodePriority) Score(ctx context.Context, args interface{}, states *state.State, key types.NamespacedName, podID int32) (uint64, *state.Status) {
 	logger := logging.FromContext(ctx).With("Score", pl.Name())
 	var score uint64 = 0
 
@@ -63,7 +63,7 @@ func (pl *RemoveWithAvailabilityZonePriority) Score(ctx context.Context, args in
 		return 0, state.NewStatus(state.Unschedulable, ErrReasonInvalidArg)
 	}
 
-	skewVal := state.AvailabilityZonePriorityArgs{}
+	skewVal := state.AvailabilityNodePriorityArgs{}
 	decoder := json.NewDecoder(strings.NewReader(spreadArgs))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&skewVal); err != nil {
@@ -72,30 +72,25 @@ func (pl *RemoveWithAvailabilityZonePriority) Score(ctx context.Context, args in
 
 	if states.Replicas > 0 { //need atleast a pod to compute spread
 		var skew int32
-		zoneMap := make(map[string]struct{})
-		for _, zoneName := range states.NodeToZoneMap {
-			zoneMap[zoneName] = struct{}{}
-		}
-
-		zoneName, _, err := states.GetPodInfo(state.PodNameFromOrdinal(states.StatefulSetName, podID))
+		_, nodeName, err := states.GetPodInfo(state.PodNameFromOrdinal(states.StatefulSetName, podID))
 		if err != nil {
 			return score, state.NewStatus(state.Error, ErrReasonNoResource)
 		}
 
-		currentReps := states.ZoneSpread[key][zoneName] //get #vreps on this zone
-		for otherZoneName := range zoneMap {            //compare with #vreps on other pods
-			if otherZoneName != zoneName {
-				otherReps, ok := states.ZoneSpread[key][otherZoneName]
+		currentReps := states.NodeSpread[key][nodeName]   //get #vreps on this node
+		for otherNodeName := range states.NodeToZoneMap { //compare with #vreps on other pods
+			if otherNodeName != nodeName {
+				otherReps, ok := states.NodeSpread[key][otherNodeName]
 				if !ok {
-					continue //zone does not exist in current placement, so move on
+					continue //node does not exist in current placement, so move on
 				}
 				if skew = (currentReps - 1) - otherReps; skew < 0 {
 					skew = skew * int32(-1)
 				}
 
-				//logger.Infof("Current Zone %v with %d and Other Zone %v with %d causing skew %d", zoneName, currentReps, otherZoneName, otherReps, skew)
+				//logger.Infof("Current Node %v with %d and Other Node %v with %d causing skew %d", nodeName, currentReps, otherNodeName, otherReps, skew)
 				if skew > skewVal.MaxSkew { //score low
-					logger.Infof("Pod %d in zone %v will cause an uneven zone spread %v with other zone %v", podID, zoneName, states.ZoneSpread[key], otherZoneName)
+					logger.Infof("Pod %d in node %v will cause an uneven node spread %v with other node %v", podID, nodeName, states.NodeSpread[key], otherNodeName)
 				}
 				score = score + uint64(skew)
 			}
@@ -108,11 +103,11 @@ func (pl *RemoveWithAvailabilityZonePriority) Score(ctx context.Context, args in
 }
 
 // ScoreExtensions of the Score plugin.
-func (pl *RemoveWithAvailabilityZonePriority) ScoreExtensions() state.ScoreExtensions {
+func (pl *RemoveWithAvailabilityNodePriority) ScoreExtensions() state.ScoreExtensions {
 	return pl
 }
 
 // NormalizeScore invoked after scoring all pods.
-func (pl *RemoveWithAvailabilityZonePriority) NormalizeScore(ctx context.Context, states *state.State, scores state.PodScoreList) *state.Status {
+func (pl *RemoveWithAvailabilityNodePriority) NormalizeScore(ctx context.Context, states *state.State, scores state.PodScoreList) *state.Status {
 	return nil
 }

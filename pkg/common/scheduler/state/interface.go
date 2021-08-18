@@ -32,6 +32,7 @@ const (
 	AvailabilityZonePriority           = "AvailabilityZonePriority"
 	LowestOrdinalPriority              = "LowestOrdinalPriority"
 	RemoveWithEvenPodSpreadPriority    = "RemoveWithEvenPodSpreadPriority"
+	RemoveWithAvailabilityNodePriority = "RemoveWithAvailabilityNodePriority"
 	RemoveWithAvailabilityZonePriority = "RemoveWithAvailabilityZonePriority"
 	RemoveWithHighestOrdinalPriority   = "RemoveWithHighestOrdinalPriority"
 )

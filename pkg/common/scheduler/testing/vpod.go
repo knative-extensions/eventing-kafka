@@ -39,9 +39,10 @@ import (
 )
 
 type sampleVPod struct {
-	key        types.NamespacedName
-	vreplicas  int32
-	placements []duckv1alpha1.Placement
+	key         types.NamespacedName
+	vreplicas   int32
+	placements  []duckv1alpha1.Placement
+	rsrcversion string
 }
 
 func NewVPod(ns, name string, vreplicas int32, placements []duckv1alpha1.Placement) *sampleVPod {
@@ -50,8 +51,9 @@ func NewVPod(ns, name string, vreplicas int32, placements []duckv1alpha1.Placeme
 			Namespace: ns,
 			Name:      name,
 		},
-		vreplicas:  vreplicas,
-		placements: placements,
+		vreplicas:   vreplicas,
+		placements:  placements,
+		rsrcversion: "12345",
 	}
 }
 
@@ -65,6 +67,10 @@ func (d *sampleVPod) GetVReplicas() int32 {
 
 func (d *sampleVPod) GetPlacements() []duckv1alpha1.Placement {
 	return d.placements
+}
+
+func (d *sampleVPod) GetResourceVersion() string {
+	return d.rsrcversion
 }
 
 func MakeNode(name, zonename string) *v1.Node {

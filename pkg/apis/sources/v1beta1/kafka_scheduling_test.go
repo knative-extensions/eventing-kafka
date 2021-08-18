@@ -28,22 +28,25 @@ import (
 
 func TestScheduling(t *testing.T) {
 	testCases := map[string]struct {
-		source     KafkaSource
-		key        types.NamespacedName
-		vreplicas  int32
-		placements []v1alpha1.Placement
+		source      KafkaSource
+		key         types.NamespacedName
+		vreplicas   int32
+		placements  []v1alpha1.Placement
+		rsrcversion string
 	}{
 		"all empty": {
-			source:     KafkaSource{},
-			key:        types.NamespacedName{},
-			vreplicas:  int32(1),
-			placements: nil,
+			source:      KafkaSource{},
+			key:         types.NamespacedName{},
+			vreplicas:   int32(1),
+			placements:  nil,
+			rsrcversion: "",
 		},
 		"all full": {
 			source: KafkaSource{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "asource",
-					Namespace: "anamespace",
+					Name:            "asource",
+					Namespace:       "anamespace",
+					ResourceVersion: "12345",
 				},
 				Spec: KafkaSourceSpec{
 					Consumers: pointer.Int32Ptr(4),
@@ -62,6 +65,7 @@ func TestScheduling(t *testing.T) {
 			placements: []v1alpha1.Placement{
 				{PodName: "apod", VReplicas: 4},
 			},
+			rsrcversion: "12345",
 		},
 	}
 
@@ -75,6 +79,9 @@ func TestScheduling(t *testing.T) {
 			}
 			if tc.source.GetVReplicas() != tc.vreplicas {
 				t.Errorf("unexpected vreplicas (want %d, got %d)", tc.vreplicas, tc.source.GetVReplicas())
+			}
+			if tc.source.GetResourceVersion() != tc.rsrcversion {
+				t.Errorf("unexpected resource version (want %v, got %v)", tc.rsrcversion, tc.source.GetResourceVersion())
 			}
 			if !reflect.DeepEqual(tc.source.GetPlacements(), tc.placements) {
 				t.Errorf("unexpected placements (want %v, got %v)", tc.placements, tc.source.GetPlacements())
