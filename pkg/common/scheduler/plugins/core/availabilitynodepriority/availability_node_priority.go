@@ -39,10 +39,8 @@ var _ state.ScorePlugin = &AvailabilityNodePriority{}
 const Name = state.AvailabilityNodePriority
 
 const (
-	// When zone information is present, give 1/3 of the weighting to zone spreading, 2/3 to node spreading
-	zoneWeighting       float64 = 1.0 / 3.0
-	ErrReasonInvalidArg         = "invalid arguments"
-	ErrReasonNoResource         = "node or zone does not exist"
+	ErrReasonInvalidArg = "invalid arguments"
+	ErrReasonNoResource = "node or zone does not exist"
 )
 
 func init() {

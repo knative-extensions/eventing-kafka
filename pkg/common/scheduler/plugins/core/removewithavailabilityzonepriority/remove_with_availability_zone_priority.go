@@ -39,10 +39,8 @@ var _ state.ScorePlugin = &RemoveWithAvailabilityZonePriority{}
 const Name = state.RemoveWithAvailabilityZonePriority
 
 const (
-	// When zone information is present, give 2/3 of the weighting to zone spreading, 1/3 to node spreading
-	zoneWeighting       float64 = 2.0 / 3.0
-	ErrReasonInvalidArg         = "invalid arguments"
-	ErrReasonNoResource         = "node or zone does not exist"
+	ErrReasonInvalidArg = "invalid arguments"
+	ErrReasonNoResource = "node or zone does not exist"
 )
 
 func init() {

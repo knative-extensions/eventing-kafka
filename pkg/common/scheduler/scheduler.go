@@ -33,10 +33,6 @@ type SchedulerPolicyType string
 const (
 	// MAXFILLUP policy type adds vreplicas to existing pods to fill them up before adding to new pods
 	MAXFILLUP SchedulerPolicyType = "MAXFILLUP"
-	// EVENSPREAD policy type spreads vreplicas uniformly across zones to reduce impact of failure
-	EVENSPREAD = "EVENSPREAD"
-	// EVENSPREAD_BYNODE policy type spreads vreplicas uniformly across nodes to reduce impact of failure
-	EVENSPREAD_BYNODE = "EVENSPREAD_BYNODE"
 )
 
 const (
