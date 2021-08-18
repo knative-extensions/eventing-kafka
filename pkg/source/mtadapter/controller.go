@@ -44,12 +44,14 @@ type MTAdapter interface {
 // registers event handlers to enqueue events.
 func NewController(ctx context.Context, adapter adapter.Adapter) *controller.Impl {
 	mtadapter, ok := adapter.(*Adapter)
+	logger := logging.FromContext(ctx)
 	if !ok {
-		logging.FromContext(ctx).Fatal("Multi-tenant adapters must implement the MTAdapter interface")
+		logger.Fatal("Multi-tenant adapters must implement the MTAdapter interface")
 	}
 
 	r := &Reconciler{
 		mtadapter: mtadapter,
+		logger:    logger,
 	}
 
 	impl := kafkasourcereconciler.NewImpl(ctx, r, func(impl *controller.Impl) controller.Options {
