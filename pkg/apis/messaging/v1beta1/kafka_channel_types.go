@@ -75,7 +75,7 @@ type KafkaChannelSpec struct {
 	//  - https://www.iso.org/iso-8601-date-and-time-format.html
 	//  - https://en.wikipedia.org/wiki/ISO_8601
 	// +optional
-	RetentionDuration *string `string:"retentionTime,omitempty"`
+	RetentionDuration *string `string:"retentionDuration,omitempty"`
 
 	// Channel conforms to Duck type Channelable.
 	eventingduck.ChannelableSpec `json:",inline"`
