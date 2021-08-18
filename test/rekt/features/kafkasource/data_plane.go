@@ -208,7 +208,7 @@ func DataPlaneDelivery() []*feature.Feature {
 				HasExtension("comexampleothervalue", "5"),
 			),
 		},
-		"with_extensions": {
+		"with-extensions": {
 			message: kafkaMessage{
 				Headers: map[string]string{
 					"content-type": "application/cloudevents+json",
@@ -232,7 +232,7 @@ func DataPlaneDelivery() []*feature.Feature {
 				HasExtension("comexampleothervalue", "5"),
 			),
 		},
-		"with_overrides": {
+		"with-overrides": {
 			message: kafkaMessage{
 				Headers: map[string]string{
 					"content-type": "application/cloudevents+json",
