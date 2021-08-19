@@ -76,7 +76,7 @@ type Adapter struct {
 	logger            *zap.SugaredLogger
 	keyTypeMapper     func([]byte) interface{}
 	rateLimiter       *rate.Limiter
-	extensions        http.Header
+	extensions        map[string]string
 }
 
 var (
@@ -119,10 +119,7 @@ func (a *Adapter) Start(ctx context.Context) (err error) {
 			return err
 		}
 		if len(ceOverrides.Extensions) > 0 {
-			a.extensions = make(http.Header)
-			for k, v := range ceOverrides.Extensions {
-				a.extensions[k] = []string{v}
-			}
+			a.extensions = ceOverrides.Extensions
 		}
 	}
 
