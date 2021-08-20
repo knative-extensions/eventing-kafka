@@ -143,7 +143,7 @@ func getKafkaChannelNamespacedName(topicName string) (*types.NamespacedName, err
 
 	// Validate We Only Have The Expected Components
 	if len(topicNameComponents) > 2 {
-		return nil, fmt.Errorf("received Topic name with mulitple components '%s'", topicName)
+		return nil, fmt.Errorf("received Topic name with multiple components '%s'", topicName)
 	}
 
 	// Bundle & Return As A NamespacedName
