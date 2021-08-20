@@ -166,7 +166,7 @@ func TestStartConsumerGroup(t *testing.T) {
 			}
 			err := manager.StartConsumerGroup("testid", []string{}, nil, nil)
 			assert.Equal(t, testCase.factoryErr, err != nil)
-			time.Sleep(5 * time.Millisecond) // Give the transferErrors routine a chance to call Errors()
+			time.Sleep(shortTimeout) // Give the transferErrors routine a chance to call Errors()
 			mockGroup.AssertExpectations(t)
 		})
 	}
@@ -570,7 +570,7 @@ func TestManagerEvents(t *testing.T) {
 				}
 			}
 
-			time.Sleep(50 * time.Millisecond)
+			time.Sleep(shortTimeout)
 			impl.notify(ManagerEvent{Event: GroupCreated, GroupId: "created-group-id"})
 			waitGroup.Wait()
 			assert.Equal(t, testCase.expectEvent, count)
@@ -586,7 +586,7 @@ func TestManagerEvents(t *testing.T) {
 				}(notifyChan)
 			}
 
-			time.Sleep(50 * time.Millisecond)
+			time.Sleep(shortTimeout)
 			manager.ClearNotifications()
 			waitGroup.Wait()
 			assert.Equal(t, testCase.expectClose, count)
@@ -634,7 +634,7 @@ func createMockAndManagedGroups(t *testing.T) (*kafkatesting.MockConsumerGroup, 
 	mockGroup.On("Errors").Return(make(chan error))
 	managedGrp := createManagedGroup(context.Background(), logtesting.TestLogger(t).Desugar(), mockGroup, func() {}, func() {})
 	// let the transferErrors function start (otherwise AssertExpectations will randomly fail because Errors() isn't called)
-	time.Sleep(5 * time.Millisecond)
+	time.Sleep(shortTimeout)
 	return mockGroup, managedGrp.(*managedGroupImpl)
 }
 
