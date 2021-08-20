@@ -30,7 +30,7 @@ const (
 	DefaultRetentionISO8601Duration = "PT168H" // Precise 7 Days
 
 	// DefaultRetentionDuration is the time.Duration representation of the DefaultRetentionISO8601Duration
-	DefaultRetentionDuration = 7 * 24 * time.Hour
+	DefaultRetentionDuration = 7 * 24 * time.Hour // Precise 7 Days
 
 	// SettingsConfigMapName is the name of the configmap used to hold eventing-kafka settings
 	SettingsConfigMapName = "config-kafka"

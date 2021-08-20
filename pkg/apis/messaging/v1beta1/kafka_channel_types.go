@@ -71,7 +71,7 @@ type KafkaChannelSpec struct {
 	ReplicationFactor int16 `json:"replicationFactor"`
 
 	// RetentionDuration is the duration for which events will be retained in the Kafka Topic.
-	// By default, it is set to 7 days.
+	// By default, it is set to 168 hours, which is the precise form for 7 days.
 	// More information on Duration format:
 	//  - https://www.iso.org/iso-8601-date-and-time-format.html
 	//  - https://en.wikipedia.org/wiki/ISO_8601

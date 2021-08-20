@@ -63,10 +63,6 @@ func main() {
 	// Put The Kubernetes Clientset Into The Context Where The Injection Framework Expects It
 	ctx = context.WithValue(ctx, injectionclient.Key{}, k8sClient)
 
-	// TODO - REMOVE ?!?!?!
-	// Initialize A Knative Injection Lite Context (K8S Client & Logger)
-	// ctx = commonk8s.LoggingContext(ctx, Component, k8sClient)
-
 	// Create A New Kafka Client From The K8S Config
 	kafkaClient := kafkaclientset.NewForConfigOrDie(k8sConfig)
 
