@@ -231,4 +231,3 @@ func TestJoinStringMaps(t *testing.T) {
 	assert.Equal(t, map1, map[string]string{"key1": "value1a", "key2": "value2", "key3": "value3"})
 	assert.Equal(t, map2, map[string]string{"key1": "value1b", "key4": "value4"})
 }
-

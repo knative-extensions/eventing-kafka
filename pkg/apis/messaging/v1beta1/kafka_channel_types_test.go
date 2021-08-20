@@ -67,6 +67,12 @@ func TestKafkaChannelSpec_ParseRetentionDuration(t *testing.T) {
 			expectErr:        false,
 		},
 		{
+			name:             "precision",
+			includeRetention: true,
+			retentionString:  "PT720H", // 30 Days Precise
+			expectDuration:   30 * 24 * time.Hour,
+			expectErr:        false,
+		}, {
 			name:             "empty",
 			includeRetention: true,
 			retentionString:  "",

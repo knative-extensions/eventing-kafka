@@ -119,4 +119,3 @@ func JoinStringMaps(map1 map[string]string, map2 map[string]string) map[string]s
 	}
 	return resultMap
 }
-
