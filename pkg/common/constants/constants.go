@@ -27,7 +27,7 @@ const (
 	DefaultReplicationFactor = 1
 
 	// DefaultRetentionISO8601Duration is the KafkaChannel Spec default for the retention duration as an ISO-8601 string
-	DefaultRetentionISO8601Duration = "P7D"
+	DefaultRetentionISO8601Duration = "PT168H" // Precise 7 Days
 
 	// DefaultRetentionDuration is the time.Duration representation of the DefaultRetentionISO8601Duration
 	DefaultRetentionDuration = 7 * 24 * time.Hour
