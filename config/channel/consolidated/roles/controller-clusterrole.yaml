@@ -88,7 +88,14 @@ rules:
     resources:
       - deployments
       - deployments/status
-    verbs: *everything
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - patch
+      - update
+      - delete
   - apiGroups:
       - rbac.authorization.k8s.io
     resources:
