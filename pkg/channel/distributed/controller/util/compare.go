@@ -25,47 +25,77 @@ import (
 	"knative.dev/pkg/apis/duck"
 )
 
-// CheckDeploymentChanged Modifies A Deployment With New Fields (If Necessary)
-// Returns True If Any Modifications Were Made
+// CheckDeploymentChanged returns a new Deployment based on the oldDeployment but with updated data
+// from the newDeployment as well as a boolean indicator of whether any changes were necessary.
+// Only specific portions of the Deployment are evaluated including...
+//
+//    - ObjectMeta Labels & Annotations
+//    - Spec.Template.ObjectMeta Labels & Annotations
+//    - Spec.Template.Spec.Containers  (excluding certain fields)
+//
+// Note - Spec.Replicas are ignored to avoid overwriting local HPA configuration.
+//
 func CheckDeploymentChanged(logger *zap.Logger, oldDeployment, newDeployment *appsv1.Deployment) (*appsv1.Deployment, bool) {
 
-	// Make a copy of the old labels and annotations so we don't inadvertently
-	// modify the old deployment fields directly
-	updatedLabels := make(map[string]string)
+	// Copy The "old" Labels & Annotations For Immutability
+	updatedDeploymentLabels := make(map[string]string)
 	for oldKey, oldValue := range oldDeployment.ObjectMeta.Labels {
-		updatedLabels[oldKey] = oldValue
+		updatedDeploymentLabels[oldKey] = oldValue
 	}
-	updatedAnnotations := make(map[string]string)
+	updatedTemplateLabels := make(map[string]string)
+	for oldKey, oldValue := range oldDeployment.Spec.Template.ObjectMeta.Labels {
+		updatedTemplateLabels[oldKey] = oldValue
+	}
+	updatedDeploymentAnnotations := make(map[string]string)
+	for oldKey, oldValue := range oldDeployment.ObjectMeta.Annotations {
+		updatedDeploymentAnnotations[oldKey] = oldValue
+	}
+	updatedTemplateAnnotations := make(map[string]string)
 	for oldKey, oldValue := range oldDeployment.Spec.Template.ObjectMeta.Annotations {
-		updatedAnnotations[oldKey] = oldValue
+		updatedTemplateAnnotations[oldKey] = oldValue
 	}
 
+	// Add/Update "new" Labels & Annotations Into "old" Set
+	// Note - We're purposefully not handling "deletes" of labels and annotations from the ConfigMap
+	//        because this would eliminate the possibility of supporting manual annotation/labels made
+	//        by end users.  Such manual edits are inherently "fragile" in that they could be lost on
+	//        restart, but the legacy implementation supports that. If a user really needs to "delete"
+	//        a label or annotation, they can just bounce the pod or manually edit the yaml.
 	metadataChanged := false
-	// Add any labels in the "new" deployment to the copy of the labels from the old deployment.
 	for newKey, newValue := range newDeployment.ObjectMeta.Labels {
 		oldValue, ok := oldDeployment.ObjectMeta.Labels[newKey]
 		if !ok || oldValue != newValue {
 			metadataChanged = true
-			updatedLabels[newKey] = newValue
+			updatedDeploymentLabels[newKey] = newValue
 		}
 	}
-
-	// Add any annotations in the "new" deployment to the copy of the labels from the old deployment.
-	// (In particular this will trigger on differences in "kafka.eventing.knative.dev/configmap-hash")
+	for newKey, newValue := range newDeployment.Spec.Template.ObjectMeta.Labels {
+		oldValue, ok := oldDeployment.Spec.Template.ObjectMeta.Labels[newKey]
+		if !ok || oldValue != newValue {
+			metadataChanged = true
+			updatedTemplateLabels[newKey] = newValue
+		}
+	}
+	for newKey, newValue := range newDeployment.ObjectMeta.Annotations {
+		oldValue, ok := oldDeployment.ObjectMeta.Annotations[newKey]
+		if !ok || oldValue != newValue {
+			metadataChanged = true
+			updatedDeploymentAnnotations[newKey] = newValue
+		}
+	}
 	for newKey, newValue := range newDeployment.Spec.Template.ObjectMeta.Annotations {
 		oldValue, ok := oldDeployment.Spec.Template.ObjectMeta.Annotations[newKey]
 		if !ok || oldValue != newValue {
 			metadataChanged = true
-			updatedAnnotations[newKey] = newValue
+			updatedTemplateAnnotations[newKey] = newValue
 		}
 	}
 
 	// Fields intentionally ignored:
-	//    Spec.Replicas - Since a HorizontalPodAutoscaler explicitly changes this value on the deployment directly
+	//    Spec.Replicas - Since a HorizontalPodAutoscaler explicitly changes this value on the deployment.
 
-	// Verify everything in the container spec aside from some particular exceptions (see "ignoreFields" below)
-	oldContainerCount := len(oldDeployment.Spec.Template.Spec.Containers)
-	if oldContainerCount == 0 {
+	// Validate The Old/New Containers
+	if len(oldDeployment.Spec.Template.Spec.Containers) == 0 {
 		// This is unlikely but if it happens, replace the entire old deployment with a proper one
 		logger.Warn("Old Deployment Has No Containers - Replacing Entire Deployment")
 		return newDeployment, true
@@ -75,13 +105,13 @@ func CheckDeploymentChanged(logger *zap.Logger, oldDeployment, newDeployment *ap
 		return oldDeployment, false
 	}
 
+	// Verify everything in the container spec aside from some particular exceptions (see "ignoreFields" below)
 	newContainer := &newDeployment.Spec.Template.Spec.Containers[0]
 	oldContainer := findContainer(oldDeployment, newContainer.Name)
 	if oldContainer == nil {
 		logger.Error("Old Deployment Does Not Have Same Container Name - Replacing Entire Deployment")
 		return newDeployment, true
 	}
-
 	ignoreFields := []cmp.Option{
 		// Ignore the fields in a Container struct which are not set directly by the distributed channel reconcilers
 		// and ones that are acceptable to be changed manually (such as the ImagePullPolicy)
@@ -111,8 +141,10 @@ func CheckDeploymentChanged(logger *zap.Logger, oldDeployment, newDeployment *ap
 	// Create an updated deployment from the old one, but using the new Container field
 	updatedDeployment := oldDeployment.DeepCopy()
 	if metadataChanged {
-		updatedDeployment.ObjectMeta.Labels = updatedLabels
-		updatedDeployment.Spec.Template.ObjectMeta.Annotations = updatedAnnotations
+		updatedDeployment.ObjectMeta.Labels = updatedDeploymentLabels
+		updatedDeployment.ObjectMeta.Annotations = updatedDeploymentAnnotations
+		updatedDeployment.Spec.Template.ObjectMeta.Annotations = updatedTemplateAnnotations
+		updatedDeployment.Spec.Template.ObjectMeta.Labels = updatedTemplateLabels
 	}
 	if !containersEqual {
 		updatedDeployment.Spec.Template.Spec.Containers[0] = *newContainer
@@ -140,19 +172,34 @@ func CheckServiceChanged(logger *zap.Logger, oldService, newService *corev1.Serv
 	for oldKey, oldValue := range oldService.ObjectMeta.Labels {
 		updatedLabels[oldKey] = oldValue
 	}
+	updatedAnnotations := make(map[string]string)
+	for oldKey, oldValue := range oldService.ObjectMeta.Annotations {
+		updatedAnnotations[oldKey] = oldValue
+	}
 
-	// Add any labels in the "new" service to the copy of the labels from the old service.
-	// Annotations could be similarly updated, but there are currently no annotations being made
-	// in new services anyway so it would serve no practical purpose at the moment.
-	labelsChanged := false
+	// Track MetaData Changed State
+	metadataChanged := false
+
+	// Add any labels and annotations in the "new" service to the copy of the labels from the old service.
+	// Currently not handling the "removal" of custom labels from ConfigMap as this would negate the user's
+	// ability to manually place custom labels, since we would be enforcing a strict set matching the custom
+	// ConfigMap values only.  Labels can always be manually removed if necessary.
 	for newKey, newValue := range newService.ObjectMeta.Labels {
 		oldValue, ok := oldService.ObjectMeta.Labels[newKey]
 		if !ok || oldValue != newValue {
-			labelsChanged = true
+			metadataChanged = true
 			updatedLabels[newKey] = newValue
 		}
 	}
+	for newKey, newValue := range newService.ObjectMeta.Annotations {
+		oldValue, ok := oldService.ObjectMeta.Annotations[newKey]
+		if !ok || oldValue != newValue {
+			metadataChanged = true
+			updatedAnnotations[newKey] = newValue
+		}
+	}
 
+	// Define Fields To Ignore When Comparing
 	ignoreFields := []cmp.Option{
 		// Ignore the fields in a Spec struct which are not set directly by the distributed channel reconcilers
 		cmpopts.IgnoreFields(oldService.Spec, "ClusterIP", "Type", "SessionAffinity"),
@@ -163,15 +210,16 @@ func CheckServiceChanged(logger *zap.Logger, oldService, newService *corev1.Serv
 
 	// Verify everything in the service spec aside from some particular exceptions (see "ignoreFields" above)
 	specEqual := cmp.Equal(oldService.Spec, newService.Spec, ignoreFields...)
-	if specEqual && !labelsChanged {
+	if specEqual && !metadataChanged {
 		// Nothing of interest changed, so just keep the old service
 		return nil, false
 	}
 
 	// Create an updated service from the old one, but using the new Spec field
 	updatedService := oldService.DeepCopy()
-	if labelsChanged {
+	if metadataChanged {
 		updatedService.ObjectMeta.Labels = updatedLabels
+		updatedService.ObjectMeta.Annotations = updatedAnnotations
 	}
 	if !specEqual {
 		updatedService.Spec = newService.Spec

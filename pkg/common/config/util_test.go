@@ -207,3 +207,28 @@ func getSaramaTestSecret(t *testing.T, name string,
 	commontesting.SetTestEnvironment(t)
 	return commontesting.GetTestSaramaSecret(name, username, password, namespace, saslType)
 }
+
+// Test The JoinStringMaps() Functionality
+func TestJoinStringMaps(t *testing.T) {
+	map1 := map[string]string{"key1": "value1a", "key2": "value2", "key3": "value3"}
+	map2 := map[string]string{"key1": "value1b", "key4": "value4"}
+	emptyMap := map[string]string{}
+
+	resultMap := JoinStringMaps(map1, nil)
+	assert.Equal(t, map1, resultMap)
+
+	resultMap = JoinStringMaps(map1, emptyMap)
+	assert.Equal(t, map1, resultMap)
+
+	resultMap = JoinStringMaps(nil, map2)
+	assert.Equal(t, map2, resultMap)
+
+	resultMap = JoinStringMaps(emptyMap, map2)
+	assert.Equal(t, map2, resultMap)
+
+	resultMap = JoinStringMaps(map1, map2)
+	assert.Equal(t, map[string]string{"key1": "value1a", "key2": "value2", "key3": "value3", "key4": "value4"}, resultMap)
+	assert.Equal(t, map1, map[string]string{"key1": "value1a", "key2": "value2", "key3": "value3"})
+	assert.Equal(t, map2, map[string]string{"key1": "value1b", "key4": "value4"})
+}
+

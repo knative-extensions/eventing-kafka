@@ -22,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/system"
 
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/eventing-kafka/pkg/common/constants"
 	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 )
@@ -38,50 +39,58 @@ var (
 	}
 )
 
-type DispatcherBuilder struct {
+type DispatcherDeploymentBuilder struct {
 	deployment *v1.Deployment
-	args       *DispatcherArgs
+	args       *DispatcherDeploymentArgs
 }
 
-type DispatcherArgs struct {
-	DispatcherScope     string
-	DispatcherNamespace string
-	Image               string
-	Replicas            int32
-	ServiceAccount      string
-	ConfigMapHash       string
-	OwnerRef            metav1.OwnerReference
+type DispatcherDeploymentArgs struct {
+	DispatcherScope       string
+	DispatcherNamespace   string
+	Image                 string
+	Replicas              int32
+	ServiceAccount        string
+	ConfigMapHash         string
+	OwnerRef              metav1.OwnerReference
+	DeploymentAnnotations map[string]string
+	DeploymentLabels      map[string]string
+	PodAnnotations        map[string]string
+	PodLabels             map[string]string
 }
 
-// NewDispatcherBuilder returns a builder which builds from scratch a dispatcher deployment.
+// NewDispatcherDeploymentBuilder returns a builder which builds from scratch a dispatcher deployment.
 // Intended to be used when creating the dispatcher deployment for the first time.
-func NewDispatcherBuilder() *DispatcherBuilder {
-	b := &DispatcherBuilder{}
+func NewDispatcherDeploymentBuilder() *DispatcherDeploymentBuilder {
+	b := &DispatcherDeploymentBuilder{}
 	b.deployment = dispatcherTemplate()
 	return b
 }
 
-// NewDispatcherBuilderFromDeployment returns a builder which builds a dispatcher deployment from the given deployment.
+// NewDispatcherDeploymentBuilderFromDeployment returns a builder which builds a dispatcher deployment from the given deployment.
 // Intended to be used when updating an existing dispatcher deployment.
-func NewDispatcherBuilderFromDeployment(d *v1.Deployment) *DispatcherBuilder {
-	b := &DispatcherBuilder{}
+func NewDispatcherDeploymentBuilderFromDeployment(d *v1.Deployment) *DispatcherDeploymentBuilder {
+	b := &DispatcherDeploymentBuilder{}
 	b.deployment = d
 	return b
 }
 
-func (b *DispatcherBuilder) WithArgs(args *DispatcherArgs) *DispatcherBuilder {
+func (b *DispatcherDeploymentBuilder) WithArgs(args *DispatcherDeploymentArgs) *DispatcherDeploymentBuilder {
 	b.args = args
 	return b
 }
 
-func (b *DispatcherBuilder) Build() *v1.Deployment {
+func (b *DispatcherDeploymentBuilder) Build() *v1.Deployment {
 	replicas := b.args.Replicas
+
 	b.deployment.ObjectMeta.Namespace = b.args.DispatcherNamespace
 	b.deployment.ObjectMeta.OwnerReferences = []metav1.OwnerReference{b.args.OwnerRef}
+	b.deployment.ObjectMeta.Annotations = commonconfig.JoinStringMaps(b.deployment.ObjectMeta.Annotations, b.args.DeploymentAnnotations)
+	b.deployment.ObjectMeta.Labels = commonconfig.JoinStringMaps(b.deployment.ObjectMeta.Labels, b.args.DeploymentLabels)
+
 	b.deployment.Spec.Replicas = &replicas
-	b.deployment.Spec.Template.ObjectMeta.Annotations = map[string]string{
-		commonconstants.ConfigMapHashAnnotationKey: b.args.ConfigMapHash,
-	}
+	defaultAnnotations := map[string]string{commonconstants.ConfigMapHashAnnotationKey: b.args.ConfigMapHash}
+	b.deployment.Spec.Template.ObjectMeta.Annotations = commonconfig.JoinStringMaps(defaultAnnotations, b.args.PodAnnotations)
+	b.deployment.Spec.Template.ObjectMeta.Labels = commonconfig.JoinStringMaps(b.deployment.Spec.Template.ObjectMeta.Labels, b.args.PodLabels)
 	b.deployment.Spec.Template.Spec.ServiceAccountName = b.args.ServiceAccount
 
 	for i, c := range b.deployment.Spec.Template.Spec.Containers {
@@ -93,6 +102,7 @@ func (b *DispatcherBuilder) Build() *v1.Deployment {
 			}
 		}
 	}
+
 	return b.deployment
 }
 
@@ -148,7 +158,7 @@ func dispatcherTemplate() *v1.Deployment {
 	}
 }
 
-func makeEnv(args *DispatcherArgs) []corev1.EnvVar {
+func makeEnv(args *DispatcherDeploymentArgs) []corev1.EnvVar {
 	vars := []corev1.EnvVar{{
 		Name:  system.NamespaceEnvKey,
 		Value: system.Namespace(),
