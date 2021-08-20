@@ -25,13 +25,21 @@ import (
 
 // EKKubernetesConfig and these EK sub-structs contain our custom configuration settings,
 // stored in the config-kafka configmap.  The sub-structs are explicitly declared so that they
-// can have their own JSON tags in the overall EventingKafkaConfig
+// can have their own JSON tags in the overall EventingKafkaConfig.  The user is responsible
+// for providing valid values depending on use case (e.g. respecting Kubernetes label naming
+// conventions) or the reconciliation of the respective resource will fail.
 type EKKubernetesConfig struct {
-	CpuLimit      resource.Quantity `json:"cpuLimit,omitempty"`
-	CpuRequest    resource.Quantity `json:"cpuRequest,omitempty"`
-	MemoryLimit   resource.Quantity `json:"memoryLimit,omitempty"`
-	MemoryRequest resource.Quantity `json:"memoryRequest,omitempty"`
-	Replicas      int               `json:"replicas,omitempty"`
+	DeploymentAnnotations map[string]string `json:"deploymentAnnotations,omitempty"`
+	DeploymentLabels      map[string]string `json:"deploymentLabels,omitempty"`
+	PodAnnotations        map[string]string `json:"podAnnotations,omitempty"`
+	PodLabels             map[string]string `json:"podLabels,omitempty"`
+	ServiceAnnotations    map[string]string `json:"serviceAnnotations,omitempty"`
+	ServiceLabels         map[string]string `json:"serviceLabels,omitempty"`
+	CpuLimit              resource.Quantity `json:"cpuLimit,omitempty"`
+	CpuRequest            resource.Quantity `json:"cpuRequest,omitempty"`
+	MemoryLimit           resource.Quantity `json:"memoryLimit,omitempty"`
+	MemoryRequest         resource.Quantity `json:"memoryRequest,omitempty"`
+	Replicas              int               `json:"replicas,omitempty"`
 }
 
 // EKReceiverConfig has the base Kubernetes fields (Cpu, Memory, Replicas) only

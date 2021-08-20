@@ -40,6 +40,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
 	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 )
 
@@ -244,8 +245,8 @@ func (r *Reconciler) newDispatcherService(channel *kafkav1beta1.KafkaChannel) *c
 	// Get The Dispatcher Service Name For The Channel
 	serviceName := util.DispatcherDnsSafeName(channel)
 
-	// Create & Return The Service Model
-	return &corev1.Service{
+	// Create A New Dispatcher Service
+	service := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: corev1.SchemeGroupVersion.String(),
 			Kind:       constants.ServiceKind,
@@ -276,6 +277,13 @@ func (r *Reconciler) newDispatcherService(channel *kafkav1beta1.KafkaChannel) *c
 			},
 		},
 	}
+
+	// Update The Dispatcher Service's Annotations & Labels With Custom Config Values
+	service.Annotations = commonconfig.JoinStringMaps(service.Annotations, r.config.Channel.Dispatcher.ServiceAnnotations)
+	service.Labels = commonconfig.JoinStringMaps(service.Labels, r.config.Channel.Dispatcher.ServiceLabels)
+
+	// Return The Dispatcher Service
+	return service
 }
 
 //
@@ -455,7 +463,7 @@ func (r *Reconciler) newDispatcherDeployment(logger *zap.Logger, channel *kafkav
 		resourceRequests = nil
 	}
 
-	// Create The Dispatcher's Deployment
+	// Create The Dispatcher Deployment
 	deployment := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: appsv1.SchemeGroupVersion.String(),
@@ -484,7 +492,7 @@ func (r *Reconciler) newDispatcherDeployment(logger *zap.Logger, channel *kafkav
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						constants.AppLabel:                    deploymentName,    // Matched By Deployment Selector Above
+						constants.AppLabel:                    deploymentName,
 						constants.KafkaChannelDispatcherLabel: "true",            // Identifies the Pod as being a KafkaChannel "Dispatcher"
 						constants.KafkaChannelNameLabel:       channel.Name,      // Identifies the Pod's Owning KafkaChannel's Name
 						constants.KafkaChannelNamespaceLabel:  channel.Namespace, // Identifies the Pod's Owning KafkaChannel's Namespace
@@ -554,7 +562,13 @@ func (r *Reconciler) newDispatcherDeployment(logger *zap.Logger, channel *kafkav
 		},
 	}
 
-	// Return The Dispatcher's Deployment
+	// Update The Dispatcher Deployment's Annotations & Labels With Custom Config Values
+	deployment.ObjectMeta.Annotations = commonconfig.JoinStringMaps(deployment.ObjectMeta.Annotations, r.config.Channel.Dispatcher.DeploymentAnnotations)
+	deployment.ObjectMeta.Labels = commonconfig.JoinStringMaps(deployment.ObjectMeta.Labels, r.config.Channel.Dispatcher.DeploymentLabels)
+	deployment.Spec.Template.ObjectMeta.Annotations = commonconfig.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Annotations, r.config.Channel.Dispatcher.PodAnnotations)
+	deployment.Spec.Template.ObjectMeta.Labels = commonconfig.JoinStringMaps(deployment.Spec.Template.ObjectMeta.Labels, r.config.Channel.Dispatcher.PodLabels)
+
+	// Return The Dispatcher Deployment
 	return deployment, nil
 }
 

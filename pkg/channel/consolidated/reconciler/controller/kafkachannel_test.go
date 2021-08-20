@@ -29,7 +29,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	clientgotesting "k8s.io/client-go/testing"
-	"knative.dev/eventing-kafka/pkg/common/config"
+	eventingduckv1 "knative.dev/eventing/pkg/apis/duck/v1"
+	eventingClient "knative.dev/eventing/pkg/client/injection/client"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
@@ -46,8 +47,7 @@ import (
 	. "knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
 	fakekafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client/fake"
 	"knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
-	eventingduckv1 "knative.dev/eventing/pkg/apis/duck/v1"
-	eventingClient "knative.dev/eventing/pkg/client/injection/client"
+	"knative.dev/eventing-kafka/pkg/common/config"
 )
 
 const (
@@ -66,6 +66,13 @@ const (
 
 var (
 	finalizerUpdatedEvent = Eventf(corev1.EventTypeNormal, "FinalizerUpdate", `Updated "test-kc" finalizers`)
+
+	configDeploymentAnnotations = map[string]string{"DeploymentAnnotationName": "DeploymentAnnotationValue"}
+	configDeploymentLabels      = map[string]string{"DeploymentLabelName": "DeploymentLabelValue"}
+	configPodAnnotations        = map[string]string{"PodAnnotationName": "PodAnnotationValue"}
+	configPodLabels             = map[string]string{"PodLabelName": "PodLabelValue"}
+	configServiceAnnotations    = map[string]string{"ServiceAnnotationName": "ServiceAnnotationValue"}
+	configServiceLabels         = map[string]string{"ServiceLabelName": "ServiceLabelValue"}
 )
 
 func init() {
@@ -127,6 +134,46 @@ func TestAllCases(t *testing.T) {
 				Eventf(corev1.EventTypeWarning, "InternalError", `endpoints "kafka-ch-dispatcher" not found`),
 			},
 		}, {
+			Name: "deployment does exist, update ObjectMeta",
+			Key:  kcKey,
+			Objects: []runtime.Object{
+				reconcilertesting.NewKafkaChannel(kcName, testNS,
+					reconcilertesting.WithInitKafkaChannelConditions,
+					reconcilertesting.WithKafkaChannelTopicReady(),
+					reconcilertesting.WithKafkaFinalizer(finalizerName)),
+				makeDeployment(),
+				makeService(),
+			},
+			OtherTestData: map[string]interface{}{"configEventingKafka": config.EventingKafkaConfig{
+				Channel: config.EKChannelConfig{
+					Dispatcher: config.EKDispatcherConfig{
+						EKKubernetesConfig: config.EKKubernetesConfig{
+							DeploymentAnnotations: configDeploymentAnnotations,
+							DeploymentLabels:      configDeploymentLabels,
+							PodAnnotations:        configPodAnnotations,
+							PodLabels:             configPodLabels,
+						},
+					},
+				},
+			}},
+			WantErr: true,
+			WantUpdates: []clientgotesting.UpdateActionImpl{
+				{Object: makeDeploymentWithObjectMeta()},
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: reconcilertesting.NewKafkaChannel(kcName, testNS,
+					reconcilertesting.WithInitKafkaChannelConditions,
+					reconcilertesting.WithKafkaFinalizer(finalizerName),
+					reconcilertesting.WithKafkaChannelConfigReady(),
+					reconcilertesting.WithKafkaChannelTopicReady(),
+					reconcilertesting.WithKafkaChannelServiceReady(),
+					reconcilertesting.WithKafkaChannelEndpointsNotReady("DispatcherEndpointsDoesNotExist", "Dispatcher Endpoints does not exist")),
+			}},
+			WantEvents: []string{
+				Eventf(corev1.EventTypeNormal, dispatcherDeploymentUpdated, "Dispatcher deployment updated"),
+				Eventf(corev1.EventTypeWarning, "InternalError", `endpoints "kafka-ch-dispatcher" not found`),
+			},
+		}, {
 			Name: "Service does not exist, automatically created",
 			Key:  kcKey,
 			Objects: []runtime.Object{
@@ -150,6 +197,44 @@ func TestAllCases(t *testing.T) {
 			}},
 			WantEvents: []string{
 				Eventf(corev1.EventTypeNormal, dispatcherServiceCreated, "Dispatcher service created"),
+				Eventf(corev1.EventTypeWarning, "InternalError", `endpoints "kafka-ch-dispatcher" not found`),
+			},
+		}, {
+			Name: "service does exist, update ObjectMeta",
+			Key:  kcKey,
+			Objects: []runtime.Object{
+				reconcilertesting.NewKafkaChannel(kcName, testNS,
+					reconcilertesting.WithInitKafkaChannelConditions,
+					reconcilertesting.WithKafkaChannelTopicReady(),
+					reconcilertesting.WithKafkaFinalizer(finalizerName)),
+				makeDeployment(),
+				makeService(),
+			},
+			OtherTestData: map[string]interface{}{"configEventingKafka": config.EventingKafkaConfig{
+				Channel: config.EKChannelConfig{
+					Dispatcher: config.EKDispatcherConfig{
+						EKKubernetesConfig: config.EKKubernetesConfig{
+							ServiceAnnotations: configServiceAnnotations,
+							ServiceLabels:      configServiceLabels,
+						},
+					},
+				},
+			}},
+			WantErr: true,
+			WantUpdates: []clientgotesting.UpdateActionImpl{
+				{Object: makeServiceWithObjectMeta()},
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: reconcilertesting.NewKafkaChannel(kcName, testNS,
+					reconcilertesting.WithInitKafkaChannelConditions,
+					reconcilertesting.WithKafkaFinalizer(finalizerName),
+					reconcilertesting.WithKafkaChannelConfigReady(),
+					reconcilertesting.WithKafkaChannelTopicReady(),
+					reconcilertesting.WithKafkaChannelServiceReady(),
+					reconcilertesting.WithKafkaChannelEndpointsNotReady("DispatcherEndpointsDoesNotExist", "Dispatcher Endpoints does not exist")),
+			}},
+			WantEvents: []string{
+				Eventf(corev1.EventTypeNormal, dispatcherServiceUpdated, "Dispatcher service updated"),
 				Eventf(corev1.EventTypeWarning, "InternalError", `endpoints "kafka-ch-dispatcher" not found`),
 			},
 		}, {
@@ -327,7 +412,14 @@ func TestAllCases(t *testing.T) {
 		},
 	}
 
-	table.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
+	table.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher, options map[string]interface{}) controller.Reconciler {
+
+		// Optional Customization Of KafkaConfig.EventingKafka - Defaults To Empty
+		configEventingKafkaInterface, ok := options["configEventingKafka"]
+		if !ok || configEventingKafkaInterface == nil {
+			configEventingKafkaInterface = config.EventingKafkaConfig{}
+		}
+		configEventingKafka := configEventingKafkaInterface.(config.EventingKafkaConfig)
 
 		r := &Reconciler{
 			systemNamespace:          testNS,
@@ -336,7 +428,7 @@ func TestAllCases(t *testing.T) {
 			kafkaConfigMapHash:       testConfigMapHash,
 			kafkaConfig: &KafkaConfig{
 				Brokers:       []string{brokerName},
-				EventingKafka: &config.EventingKafkaConfig{},
+				EventingKafka: &configEventingKafka,
 			},
 			kafkachannelLister: listers.GetKafkaChannelLister(),
 			// TODO fix
@@ -393,7 +485,7 @@ func TestTopicExists(t *testing.T) {
 		},
 	}
 
-	row.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
+	row.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher, options map[string]interface{}) controller.Reconciler {
 
 		r := &Reconciler{
 			systemNamespace:          testNS,
@@ -471,7 +563,7 @@ func TestDeploymentUpdatedOnImageChange(t *testing.T) {
 		},
 	}
 
-	row.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
+	row.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher, options map[string]interface{}) controller.Reconciler {
 
 		r := &Reconciler{
 			systemNamespace:          testNS,
@@ -549,7 +641,7 @@ func TestDeploymentZeroReplicas(t *testing.T) {
 		},
 	}
 
-	row.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
+	row.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher, options map[string]interface{}) controller.Reconciler {
 
 		r := &Reconciler{
 			systemNamespace:          testNS,
@@ -623,7 +715,7 @@ func TestDeploymentMoreThanOneReplicas(t *testing.T) {
 		},
 	}
 
-	row.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
+	row.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher, options map[string]interface{}) controller.Reconciler {
 
 		r := &Reconciler{
 			systemNamespace:          testNS,
@@ -701,7 +793,7 @@ func TestDeploymentUpdatedOnConfigMapHashChange(t *testing.T) {
 		},
 	}
 
-	row.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
+	row.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher, options map[string]interface{}) controller.Reconciler {
 
 		r := &Reconciler{
 			systemNamespace:          testNS,
@@ -851,23 +943,33 @@ func (ca *mockClusterAdmin) DeleteConsumerGroup(group string) error {
 
 var _ sarama.ClusterAdmin = (*mockClusterAdmin)(nil)
 
-func makeDeploymentWithParams(image string, replicas int32, configMapHash string) *appsv1.Deployment {
-	args := resources.DispatcherArgs{
+func makeDeploymentWithParams(image string, replicas int32, configMapHash string, objMeta bool) *appsv1.Deployment {
+	args := resources.DispatcherDeploymentArgs{
 		DispatcherNamespace: testNS,
 		Image:               image,
 		Replicas:            replicas,
 		ServiceAccount:      testDispatcherserviceAccount,
 		ConfigMapHash:       configMapHash,
 	}
-	return resources.NewDispatcherBuilder().WithArgs(&args).Build()
+	if objMeta {
+		args.DeploymentAnnotations = configDeploymentAnnotations
+		args.DeploymentLabels = configDeploymentLabels
+		args.PodAnnotations = configPodAnnotations
+		args.PodLabels = configPodLabels
+	}
+	return resources.NewDispatcherDeploymentBuilder().WithArgs(&args).Build()
 }
 
 func makeDeploymentWithImageAndReplicas(image string, replicas int32) *appsv1.Deployment {
-	return makeDeploymentWithParams(image, replicas, testConfigMapHash)
+	return makeDeploymentWithParams(image, replicas, testConfigMapHash, false)
 }
 
 func makeDeploymentWithConfigMapHash(configMapHash string) *appsv1.Deployment {
-	return makeDeploymentWithParams(testDispatcherImage, 1, configMapHash)
+	return makeDeploymentWithParams(testDispatcherImage, 1, configMapHash, false)
+}
+
+func makeDeploymentWithObjectMeta() *appsv1.Deployment {
+	return makeDeploymentWithParams(testDispatcherImage, 1, testConfigMapHash, true)
 }
 
 func makeDeployment() *appsv1.Deployment {
@@ -880,8 +982,23 @@ func makeReadyDeployment() *appsv1.Deployment {
 	return d
 }
 
+func makeServiceWithParams(objMeta bool) *corev1.Service {
+	args := resources.DispatcherServiceArgs{
+		DispatcherNamespace: testNS,
+	}
+	if objMeta {
+		args.ServiceAnnotations = configServiceAnnotations
+		args.ServiceLabels = configServiceLabels
+	}
+	return resources.NewDispatcherServiceBuilder().WithArgs(&args).Build()
+}
+
+func makeServiceWithObjectMeta() *corev1.Service {
+	return makeServiceWithParams(true)
+}
+
 func makeService() *corev1.Service {
-	return resources.MakeDispatcherService(testNS)
+	return makeServiceWithParams(false)
 }
 
 func makeChannelService(nc *v1beta1.KafkaChannel) *corev1.Service {

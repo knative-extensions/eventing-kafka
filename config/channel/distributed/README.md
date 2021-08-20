@@ -134,33 +134,34 @@ your Kafka cluster.
   Producer, Consumer). There are, however, several caveats as the entire
   structure is not supported...
 
-  - **Version:** The Sarama.Config.Version field is implemented as a Struct with
-    private storage of the version numbers and cannot be easily parsed.
-    Therefore, we have implemented custom parsing which requires you to enter
-    `2.3.0` instead of the Sarama value of `V2_3_0_0`. Further it should be
-    noted that when using with the `azure` adminType it should be set to
-    `1.0.0`.
-  - **Net.SASL.Enable** Enable (true) / disable (false) according to your
-    authentication needs.
-  - **Net.SASL.User:** If you specify the username in the ConfigMap it will be
-    overridden by the values from the [kafka-secret.yaml](300-kafka-secret.yaml)
-    file!
-  - **Net.SASL.Password:** If you specify the password in the ConfigMap it will
-    be overridden by the values from the
-    [kafka-secret.yaml](300-kafka-secret.yaml) file!
-  - **Net.SASL.Mechanism:** If you specify the Mechanism in the ConfigMap it
-    will be overridden by the value of `sasltype` from the
-    [kafka-secret.yaml](300-kafka-secret.yaml) or default to `PLAIN`. Optional
-    values are `SCRAM-SHA-256` and `SCRAM-SHA-512`.
-  - **Net.TLS.Enable** Enable (true) / disable (false) according to your
-    authentication needs.
-  - **Net.TLS.Config:** The Golang
-    [tls.Config struct](https://golang.org/pkg/crypto/tls/#Config) is not
-    completely supported. We have though added a Custom field called `RootPEMs`
-    which can contain an inline PEM file to be used for validating RootCerts
-    from the Kafka cluster during TLS authentication. The format and
-    white-spacing is VERY important for this nested YAML string to be parsed
-    correctly. It must look like this...
+    - **Version:** The Sarama.Config.Version field is implemented as a Struct
+      with private storage of the version numbers and cannot be easily parsed.
+      Therefore, we have implemented custom parsing which requires you to enter
+      `2.3.0` instead of the Sarama value of `V2_3_0_0`. Further it should be
+      noted that when using with the `azure` adminType it should be set to
+      `1.0.0`.
+    - **Net.SASL.Enable** Enable (true) / disable (false) according to your
+      authentication needs.
+    - **Net.SASL.User:** If you specify the username in the ConfigMap it will be
+      overridden by the values from
+      the [kafka-secret.yaml](300-kafka-secret.yaml) file!
+    - **Net.SASL.Password:** If you specify the password in the ConfigMap it
+      will be overridden by the values from the
+      [kafka-secret.yaml](300-kafka-secret.yaml) file!
+    - **Net.SASL.Mechanism:** If you specify the Mechanism in the ConfigMap it
+      will be overridden by the value of `sasltype` from the
+      [kafka-secret.yaml](300-kafka-secret.yaml) or default to `PLAIN`. Optional
+      values are `SCRAM-SHA-256` and `SCRAM-SHA-512`.
+    - **Net.TLS.Enable** Enable (true) / disable (false) according to your
+      authentication needs.
+    - **Net.TLS.Config:** The Golang
+      [tls.Config struct](https://golang.org/pkg/crypto/tls/#Config) is not
+      completely supported. We have though added a Custom field
+      called `RootPEMs`
+      which can contain an inline PEM file to be used for validating RootCerts
+      from the Kafka cluster during TLS authentication. The format and
+      white-spacing is VERY important for this nested YAML string to be parsed
+      correctly. It must look like this...
 
   ```yaml
   data:
@@ -178,29 +179,55 @@ your Kafka cluster.
               -----END CERTIFICATE-----
   ```
 
-  - **Net.MaxOpenRequests:** While you are free to change this value it is
-    paired with the Idempotent value below to provide in-order guarantees.
-  - **Producer.Idempotent:** This value is expected to be `true` in order to
-    help provide the in-order guarantees of eventing-kafka. The exception is
-    when using the `azure` adminType, in which case it must be `false`.
-  - **Producer.RequiredAcks:** Same `in-order` concerns as above ; )
+    - **Net.MaxOpenRequests:** While you are free to change this value it is
+      paired with the Idempotent value below to provide in-order guarantees.
+    - **Producer.Idempotent:** This value is expected to be `true` in order to
+      help provide the in-order guarantees of eventing-kafka. The exception is
+      when using the `azure` adminType, in which case it must be `false`.
+    - **Producer.RequiredAcks:** Same `in-order` concerns as above ; )
 
 - **eventing-kafka:** This section provides customization of runtime behavior of
-  the eventing-kafka implementation as follows.  Note that the `eventing-kafka`
+  the eventing-kafka implementation as follows. Note that the `eventing-kafka`
   section is shared between the distributed and consolidated channel types, and
-  not all fields are intended to be applicable to both.  Currently the
+  not all fields are intended to be applicable to both. Currently, the
   distributed channel uses the `receiver`, `dispatcher`, and `adminType` of the
   `channel` category, but the consolidated channel uses only the `dispatcher`
   and will ignore any other entries.
 
-  - **kafka.brokers:** This field must be set to your kafka brokers string (see
-    above)
-  - **kafka.topic.defaultReplicationFactor:** Cannot exceed the number of Kafka
-    Brokers configured in your system.
-  - **channel.receiver:** Controls the Deployment runtime characteristics of the
-    Receiver (one Deployment per Installation).
-  - **channel.dispatcher:** Controls the Deployment runtime characteristics of the
-    Dispatcher (one Deployment per KafkaChannel CR).
-  - **channel.adminType:** As described above this value must be set to one of
-    `kafka`, `azure`, or `custom`. The default is `kakfa` and will be used by
-    most users.
+    - **kafka.brokers:** This field must be set to your kafka brokers string (
+      see above)
+    - **kafka.topic.defaultReplicationFactor:** Cannot exceed the number of
+      Kafka Brokers configured in your system.
+    - **channel.adminType:** As described above this value must be set to one of
+      `kafka`, `azure`, or `custom`. The default is `kakfa` and will be used by
+      most users.
+    - **channel.receiver:** Controls the Deployment runtime characteristics of
+      the Receiver (one Deployment per Installation).
+    - **channel.dispatcher:** Exposes the ability to customize the Dispatcher
+      Deployment and Pods (one per KafkaChannel).
+
+    - **NOTE:** Both the `channel.receiver` and `channel.dispatcher` sections
+      support the following optional fields, which expect valid Kubernetes
+      configuration...
+        - **replicas:** Desired number of Replicas if not using HPA
+        - **cpuRequest:** Kubernetes CPU Request
+        - **cpuLimit:** Kubernetes CPU Limit>
+        - **memoryRequest:** Kubernetes Memory Request
+        - **memoryLimit:** Kubernetes Memory Limit
+        - **deploymentAnnotations:** Map of annotations added to the Deployment.
+        - **deploymentLabels:** Map of labels added to the Deployment.
+        - **podAnnotations:** Map of annotations added to the Pod(s).
+        - **podLabels:** Map of labels added to the Pod(s).
+        - **serviceAnnotations:** Map of annotations added to Service.
+        - **serviceLabels:** Map of labels added to Service.
+
+      ```yaml
+      # Sample Custom Dispatcher Configuration...
+      channel:
+        dispatcher:
+          cpuLimit: 500m
+          memoryLimit: 512M
+          podAnnotations:
+            foo.com/someAnnotation: someValue
+            sidecar.istio.io/proxyCPU: 500m
+       ```
