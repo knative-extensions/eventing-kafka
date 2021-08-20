@@ -20,6 +20,7 @@ require (
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/mitchellh/mapstructure v1.3.3 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475
+	github.com/rickb777/date v1.13.0
 	github.com/slinkydeveloper/loadastic v0.0.0-20201218203601-5c69eea3b7d8
 	github.com/stretchr/testify v1.7.0
 	github.com/xdg/scram v1.0.3
