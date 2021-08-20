@@ -106,7 +106,7 @@ func (u KafkaChannelUpdater) Update(ctx context.Context) error {
 		// Set/Update The KafkaChannel's RetentionDuration
 		kafkaChannel = kafkaChannel.DeepCopy()
 		kafkaChannel.Spec.RetentionDuration = expectedRetentionDurationString
-		kafkaChannel, err = u.clientset.MessagingV1beta1().KafkaChannels(kafkaChannel.Namespace).Update(ctx, kafkaChannel, v1.UpdateOptions{})
+		_, err = u.clientset.MessagingV1beta1().KafkaChannels(kafkaChannel.Namespace).Update(ctx, kafkaChannel, v1.UpdateOptions{})
 		if err != nil {
 			logger.Error("Failed To Update KafkaChannel With RetentionDuration", zap.Error(err))
 			multierr.AppendInto(&multiErr, fmt.Errorf("skipping Topic '%s': failed to update KafkaChannel with RetentionDuration value '%s'", topicName, expectedRetentionDurationString))
