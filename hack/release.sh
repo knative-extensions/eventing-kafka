@@ -51,17 +51,17 @@ function build_release() {
     all_yamls+=(${yaml})
   done
 
-  if [ -d "${REPO_ROOT_DIR}/config/post-install/channel" ]; then
+  if [ -d "${REPO_ROOT_DIR}/config/channel/post-install" ]; then
     echo "Resolving channel post-install manifests"
     local yaml="channel-post-install.yaml"
-    ko resolve ${KO_FLAGS} -f config/post-install/channel | "${LABEL_YAML_CMD[@]}" > ${yaml}
+    ko resolve ${KO_FLAGS} -f config/channel/post-install | "${LABEL_YAML_CMD[@]}" > ${yaml}
     all_yamls+=(${yaml})
   fi
 
-  if [ -d "${REPO_ROOT_DIR}/config/post-install/source" ]; then
+  if [ -d "${REPO_ROOT_DIR}/config/source/post-install" ]; then
     echo "Resolving source post-install manifests"
     local yaml="source-post-install.yaml"
-    ko resolve ${KO_FLAGS} -f config/post-install/source | "${LABEL_YAML_CMD[@]}" > ${yaml}
+    ko resolve ${KO_FLAGS} -f config/source/post-install | "${LABEL_YAML_CMD[@]}" > ${yaml}
     all_yamls+=(${yaml})
   fi
 
