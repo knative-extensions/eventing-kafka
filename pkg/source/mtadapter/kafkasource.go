@@ -18,8 +18,8 @@ package mtadapter
 
 import (
 	"context"
-	"fmt"
 
+	"go.uber.org/zap"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/reconciler"
 
@@ -30,6 +30,7 @@ import (
 // Reconciler updates the internal Adapter cache kafkaSources
 type Reconciler struct {
 	mtadapter MTAdapter
+	logger    *zap.SugaredLogger
 }
 
 // Check that our Reconciler implements ReconcileKind.
@@ -37,7 +38,8 @@ var _ kafkasourcereconciler.Interface = (*Reconciler)(nil)
 
 func (r *Reconciler) ReconcileKind(ctx context.Context, source *v1beta1.KafkaSource) reconciler.Event {
 	if !source.Status.IsReady() {
-		return fmt.Errorf("warning: KafkaSource is not ready")
+		r.logger.Warn("warning: KafkaSource is not ready")
+		return nil
 	}
 
 	// Update the adapter state
