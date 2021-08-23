@@ -12,7 +12,7 @@ deployed into the **knative-eventing** namespace, and expects the
 **config-kafka** ConfigMap and associated Kafka auth Secret to be in place.
 
 ```shell
-kubectl apply -f config/post-install/retentionupdate
+kubectl apply -f config/post-install
 ```
 
 The consolidated KafkaChannel implementation also supports the "namespace"
@@ -25,7 +25,7 @@ following...
       Kafka auth Secret
     - Apply the yaml, specifying the namespace such as...
       ```shell
-      kubectl apply -n <namespace> -f config/post-install/retentionupdate
+      kubectl apply -n <namespace> -f config/post-install
       ```
     - Use the same per-namespace approach in the _Cleanup_ section as well ;)
 
@@ -41,11 +41,11 @@ kubectl get jobs -n knative-eventing -w
 It is suggested that you grab the log prior to uninstalling....
 
 ```shell
-kubectl logs -n knative-eventing eventing-kafka-v0.26-post-install-retention-update > postinstall-retentionupdate.log
+kubectl logs -n knative-eventing eventing-kafka-v0.26-post-install-job > postinstall.log
 ```
 
 ...which can be done via...
 
 ```shell
-kubectl delete -f config/post-install/retentionupdate
+kubectl delete -f config/post-install
 ```
