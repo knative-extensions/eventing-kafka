@@ -23,28 +23,28 @@ import (
 	"knative.dev/eventing/pkg/apis/messaging"
 )
 
-func (c *KafkaChannel) SetDefaults(ctx context.Context) {
+func (kc *KafkaChannel) SetDefaults(ctx context.Context) {
 	// Set the duck subscription to the stored version of the duck
 	// we support. Reason for this is that the stored version will
 	// not get a chance to get modified, but for newer versions
 	// conversion webhook will be able to take a crack at it and
 	// can modify it to match the duck shape.
-	if c.Annotations == nil {
-		c.Annotations = make(map[string]string)
+	if kc.Annotations == nil {
+		kc.Annotations = make(map[string]string)
 	}
 
-	if _, ok := c.Annotations[messaging.SubscribableDuckVersionAnnotation]; !ok {
-		c.Annotations[messaging.SubscribableDuckVersionAnnotation] = "v1"
+	if _, ok := kc.Annotations[messaging.SubscribableDuckVersionAnnotation]; !ok {
+		kc.Annotations[messaging.SubscribableDuckVersionAnnotation] = "v1"
 	}
 
-	c.Spec.SetDefaults(ctx)
+	kc.Spec.SetDefaults(ctx)
 }
 
-func (cs *KafkaChannelSpec) SetDefaults(ctx context.Context) {
-	if cs.NumPartitions == 0 {
-		cs.NumPartitions = constants.DefaultNumPartitions
+func (kcs *KafkaChannelSpec) SetDefaults(ctx context.Context) {
+	if kcs.NumPartitions == 0 {
+		kcs.NumPartitions = constants.DefaultNumPartitions
 	}
-	if cs.ReplicationFactor == 0 {
-		cs.ReplicationFactor = constants.DefaultReplicationFactor
+	if kcs.ReplicationFactor == 0 {
+		kcs.ReplicationFactor = constants.DefaultReplicationFactor
 	}
 }
