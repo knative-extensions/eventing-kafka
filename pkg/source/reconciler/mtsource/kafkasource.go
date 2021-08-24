@@ -53,10 +53,14 @@ type Reconciler struct {
 	sinkResolver *resolver.URIResolver
 	configs      source.ConfigAccessor
 	scheduler    scheduler.Scheduler
+
+	VReplicaMPS                   int32
+	MaxEventPerSecondPerPartition int32
 }
 
 // Check that our Reconciler implements Interface
 var _ reconcilerkafkasource.Interface = (*Reconciler)(nil)
+var env *envConfig
 
 func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource) pkgreconciler.Event {
 	src.Status.InitializeConditions()
@@ -120,13 +124,17 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 	defer c.Close()
 	src.Status.MarkConnectionEstablished()
 
-	err = client.InitOffsets(ctx, c, src.Spec.Topics, src.Spec.ConsumerGroup)
+	totalPartitions, err := client.InitOffsets(ctx, c, src.Spec.Topics, src.Spec.ConsumerGroup)
 	if err != nil {
 		logging.FromContext(ctx).Errorw("unable to initialize consumergroup offsets", zap.Error(err))
 		src.Status.MarkInitialOffsetNotCommitted("OffsetsNotCommitted", "Unable to initialize consumergroup offsets: %v", err)
 		return err
 	}
 	src.Status.MarkInitialOffsetCommitted()
+	if r.MaxEventPerSecondPerPartition != -1 && r.VReplicaMPS != -1 {
+		maxVReplicas := totalPartitions*r.MaxEventPerSecondPerPartition/r.VReplicaMPS + 1
+		src.Status.MaxAllowedVReplicas = &maxVReplicas
+	}
 
 	// Finally, schedule the source
 	if err := r.reconcileMTReceiveAdapter(src); err != nil {
