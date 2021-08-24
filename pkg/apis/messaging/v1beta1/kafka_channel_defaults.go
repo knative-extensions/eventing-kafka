@@ -48,7 +48,7 @@ func (kcs *KafkaChannelSpec) SetDefaults(ctx context.Context) {
 	if kcs.ReplicationFactor == 0 {
 		kcs.ReplicationFactor = constants.DefaultReplicationFactor
 	}
-	if len(cs.RetentionDuration) <= 0 {
-		cs.RetentionDuration = constants.DefaultRetentionISO8601Duration
+	if len(kcs.RetentionDuration) <= 0 {
+		kcs.RetentionDuration = constants.DefaultRetentionISO8601Duration
 	}
 }
