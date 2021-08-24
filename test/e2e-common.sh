@@ -53,6 +53,8 @@ readonly EVENTING_IN_MEMORY_CHANNEL_CONFIG="./config/channels/in-memory-channel"
 readonly VENDOR_EVENTING_TEST_IMAGES="vendor/knative.dev/eventing/test/test_images/"
 # HEAD eventing test images.
 readonly HEAD_EVENTING_TEST_IMAGES="${GOPATH}/src/knative.dev/eventing/test/test_images/"
+# Vendored reconciler-test images.
+readonly VENDOR_RECONCILER_TEST_IMAGES="vendor/knative.dev/reconciler-test/"
 
 # Config tracing config.
 readonly CONFIG_TRACING_CONFIG="test/config/config-tracing.yaml"
@@ -571,7 +573,8 @@ function test_mt_source() {
   export TEST_MT_SOURCE
 
   echo "Run rekt tests"
-  go_test_e2e -tags=e2e -timeout=20m -test.parallel=${TEST_PARALLEL} -run "^TestKafkaSource*" ./test/rekt/... || fail_test
+  #go_test_e2e -tags=e2e -timeout=20m -test.parallel=${TEST_PARALLEL} -run "^TestKafkaSource*" ./test/rekt/... || fail_test
+  # go_test_e2e -tags=e2e -timeout=20m -test.parallel=${TEST_PARALLEL}  ./test/e2e/... || fail_test
 
   # still run those since some test cases are still missing
   echo "Run classic tests"

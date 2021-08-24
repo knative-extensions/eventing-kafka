@@ -19,6 +19,8 @@ require (
 	github.com/influxdata/tdigest v0.0.1 // indirect
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/mitchellh/mapstructure v1.3.3 // indirect
+	github.com/onsi/ginkgo v1.14.2
+	github.com/onsi/gomega v1.10.4
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475
 	github.com/rickb777/date v1.13.0
 	github.com/slinkydeveloper/loadastic v0.0.0-20201218203601-5c69eea3b7d8
@@ -42,3 +44,4 @@ require (
 	knative.dev/pkg v0.0.0-20210827112638-4472e04552d3
 	knative.dev/reconciler-test v0.0.0-20210820180205-a25de6a08087
 )
+
