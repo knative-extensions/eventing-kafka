@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/Shopify/sarama"
+	"github.com/stretchr/testify/assert"
 
 	logtesting "knative.dev/pkg/logging/testing"
 )
@@ -138,8 +139,12 @@ func TestInitOffsets(t *testing.T) {
 			}
 			defer sc.Close()
 			ctx := logtesting.TestContextWithLogger(t)
-			err = InitOffsets(ctx, sc, tc.topics, group)
-
+			partitionCt, err := InitOffsets(ctx, sc, tc.topics, group)
+			total := 0
+			for _, partitions := range tc.topicOffsets {
+				total += len(partitions)
+			}
+			assert.Equal(t, int(partitionCt), total)
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}
