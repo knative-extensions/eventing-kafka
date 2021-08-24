@@ -187,7 +187,7 @@ func (r Reconciler) Reconcile(ctx context.Context, key string) error {
 		return err
 	}
 
-	if !original.Status.IsReady() {
+	if !original.IsReady() {
 		return fmt.Errorf("channel is not ready - cannot configure and update subscriber status")
 	}
 

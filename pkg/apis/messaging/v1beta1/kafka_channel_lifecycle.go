@@ -25,7 +25,7 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
-var kc = apis.NewLivingConditionSet(
+var kcCondSet = apis.NewLivingConditionSet(
 	KafkaChannelConditionTopicReady,
 	KafkaChannelConditionDispatcherReady,
 	KafkaChannelConditionServiceReady,
@@ -74,7 +74,7 @@ func RegisterAlternateKafkaChannelConditionSet(conditionSet apis.ConditionSet) {
 	channelCondSetLock.Lock()
 	defer channelCondSetLock.Unlock()
 
-	kc = conditionSet
+	kcCondSet = conditionSet
 }
 
 // GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
@@ -82,7 +82,7 @@ func (*KafkaChannel) GetConditionSet() apis.ConditionSet {
 	channelCondSetLock.RLock()
 	defer channelCondSetLock.RUnlock()
 
-	return kc
+	return kcCondSet
 }
 
 // GetConditionSet retrieves the condition set for this resource.
@@ -90,7 +90,7 @@ func (*KafkaChannelStatus) GetConditionSet() apis.ConditionSet {
 	channelCondSetLock.RLock()
 	defer channelCondSetLock.RUnlock()
 
-	return kc
+	return kcCondSet
 }
 
 // GetCondition returns the condition currently associated with the given type, or nil.
@@ -99,8 +99,18 @@ func (kcs *KafkaChannelStatus) GetCondition(t apis.ConditionType) *apis.Conditio
 }
 
 // IsReady returns true if the resource is ready overall.
-func (kcs *KafkaChannelStatus) IsReady() bool {
-	return kcs.GetConditionSet().Manage(kcs).IsHappy()
+func (kc *KafkaChannel) IsReady() bool {
+	kcs := kc.Status
+	return kcs.ObservedGeneration == kc.Generation &&
+		kc.GetConditionSet().Manage(&kcs).IsHappy()
+}
+
+// IsFailed returns true if the resource has observed the latest generation
+// and ready is false.
+func (kc *KafkaChannel) IsFailed() bool {
+	kcs := kc.Status
+	return kcs.ObservedGeneration == kc.Generation &&
+		!kc.GetConditionSet().Manage(&kcs).IsHappy()
 }
 
 // InitializeConditions sets relevant unset conditions to Unknown state.

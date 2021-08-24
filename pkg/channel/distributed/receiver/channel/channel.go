@@ -89,7 +89,7 @@ func ValidateKafkaChannel(channelReference eventingChannel.ChannelReference) err
 	}
 
 	// Check KafkaChannel READY Status
-	if !kafkaChannel.Status.IsReady() {
+	if !kafkaChannel.IsReady() {
 		logger.Info("Invalid KafkaChannel - Not READY")
 		return errors.New("channel status not READY")
 	}

@@ -169,7 +169,7 @@ func (r *Reconciler) ObserveKind(ctx context.Context, kc *v1beta1.KafkaChannel) 
 }
 
 func (r *Reconciler) syncChannel(ctx context.Context, kc *v1beta1.KafkaChannel) pkgreconciler.Event {
-	if !kc.Status.IsReady() {
+	if !kc.IsReady() {
 		logging.FromContext(ctx).Debugw("KafkaChannel still not ready, short-circuiting the reconciler", zap.String("channel", kc.Name))
 		return nil
 	}

@@ -330,50 +330,139 @@ func TestChannelIsReady(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			cs := &KafkaChannelStatus{}
-			cs.InitializeConditions()
+			kcs := KafkaChannelStatus{}
+			kcs.InitializeConditions()
 			if test.markServiceReady {
-				cs.MarkServiceTrue()
+				kcs.MarkServiceTrue()
 			} else {
-				cs.MarkServiceFailed("NotReadyService", "testing")
+				kcs.MarkServiceFailed("NotReadyService", "testing")
 			}
 			if test.markChannelServiceReady {
-				cs.MarkChannelServiceTrue()
+				kcs.MarkChannelServiceTrue()
 			} else {
-				cs.MarkChannelServiceFailed("NotReadyChannelService", "testing")
+				kcs.MarkChannelServiceFailed("NotReadyChannelService", "testing")
 			}
 			if test.markConfigurationReady {
-				cs.MarkConfigTrue()
+				kcs.MarkConfigTrue()
 			} else {
-				cs.MarkConfigFailed("NotReadyConfiguration", "testing")
+				kcs.MarkConfigFailed("NotReadyConfiguration", "testing")
 			}
 			if test.setAddress {
-				cs.SetAddress(&apis.URL{Scheme: "http", Host: "foo.bar"})
+				kcs.SetAddress(&apis.URL{Scheme: "http", Host: "foo.bar"})
 			}
 			if test.markEndpointsReady {
-				cs.MarkEndpointsTrue()
+				kcs.MarkEndpointsTrue()
 			} else {
-				cs.MarkEndpointsFailed("NotReadyEndpoints", "testing")
+				kcs.MarkEndpointsFailed("NotReadyEndpoints", "testing")
 			}
 			if test.dispatcherStatus != nil {
-				cs.PropagateDispatcherStatus(test.dispatcherStatus)
+				kcs.PropagateDispatcherStatus(test.dispatcherStatus)
 			} else {
-				cs.MarkDispatcherFailed("NotReadyDispatcher", "testing")
+				kcs.MarkDispatcherFailed("NotReadyDispatcher", "testing")
 			}
 			if test.markTopicReady {
-				cs.MarkTopicTrue()
+				kcs.MarkTopicTrue()
 			} else {
-				cs.MarkTopicFailed("NotReadyTopic", "testing")
+				kcs.MarkTopicFailed("NotReadyTopic", "testing")
 			}
-			got := cs.IsReady()
+
+			kc := KafkaChannel{Status: kcs}
+			got := kc.IsReady()
 			if test.wantReady != got {
 				t.Errorf("unexpected readiness: want %v, got %v", test.wantReady, got)
+			}
+
+			kc.Generation = 1
+			kc.Status.ObservedGeneration = 2
+			if kc.IsReady() {
+				t.Error("Expected IsReady() to be false when Generation != ObservedGeneration")
 			}
 		})
 	}
 }
 
-func TestKafkaChannelStatus_SetAddressable(t *testing.T) {
+func TestChannelIsFailed(t *testing.T) {
+	tests := []struct {
+		name     string
+		status   KafkaChannelStatus
+		isFailed bool
+	}{{
+		name:     "empty status should be failed",
+		status:   KafkaChannelStatus{},
+		isFailed: true,
+	}, {
+		name: "False condition status should be failed",
+		status: KafkaChannelStatus{
+			ChannelableStatus: eventingduckv1.ChannelableStatus{
+				Status: duckv1.Status{
+					Conditions: []apis.Condition{{
+						Type:   KafkaChannelConditionReady,
+						Status: corev1.ConditionFalse,
+					}},
+				},
+			},
+		},
+		isFailed: true,
+	}, {
+		name: "Unknown condition status should be failed",
+		status: KafkaChannelStatus{
+			ChannelableStatus: eventingduckv1.ChannelableStatus{
+				Status: duckv1.Status{
+					Conditions: []apis.Condition{{
+						Type:   KafkaChannelConditionReady,
+						Status: corev1.ConditionUnknown,
+					}},
+				},
+			},
+		},
+		isFailed: true,
+	}, {
+		name: "Missing condition status should be failed",
+		status: KafkaChannelStatus{
+			ChannelableStatus: eventingduckv1.ChannelableStatus{
+				Status: duckv1.Status{
+					Conditions: []apis.Condition{{
+						Type: KafkaChannelConditionReady,
+					}},
+				},
+			},
+		},
+		isFailed: true,
+	}, {
+		name: "True condition status should not be failed",
+		status: KafkaChannelStatus{
+			ChannelableStatus: eventingduckv1.ChannelableStatus{
+				Status: duckv1.Status{
+					Conditions: []apis.Condition{{
+						Type:   KafkaChannelConditionReady,
+						Status: corev1.ConditionTrue,
+					}},
+				},
+			},
+		},
+		isFailed: false,
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			kc := KafkaChannel{Status: tc.status}
+			if e, a := tc.isFailed, kc.IsFailed(); e != a {
+				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+			}
+		})
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			kc := KafkaChannel{Status: tc.status}
+			// check that when failed is TRUE, the ready is FALSE
+			if e, a := tc.isFailed, !kc.IsReady(); e != a {
+				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+			}
+		})
+	}
+}
+
+func TestKafkaChannelStatusSetAddressable(t *testing.T) {
 	testCases := map[string]struct {
 		url  *apis.URL
 		want *KafkaChannelStatus
@@ -427,9 +516,9 @@ func TestKafkaChannelStatus_SetAddressable(t *testing.T) {
 	}
 	for n, tc := range testCases {
 		t.Run(n, func(t *testing.T) {
-			cs := &KafkaChannelStatus{}
-			cs.SetAddress(tc.url)
-			if diff := cmp.Diff(tc.want, cs, ignoreAllButTypeAndStatus); diff != "" {
+			kcs := &KafkaChannelStatus{}
+			kcs.SetAddress(tc.url)
+			if diff := cmp.Diff(tc.want, kcs, ignoreAllButTypeAndStatus); diff != "" {
 				t.Errorf("unexpected conditions (-want, +got) = %v", diff)
 			}
 		})
