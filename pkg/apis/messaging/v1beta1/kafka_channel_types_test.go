@@ -35,7 +35,7 @@ func TestKafkaChannel_GetGroupVersionKind(t *testing.T) {
 	}
 }
 
-func TestKafkaChannel_GetStatus(t *testing.T) {
+func TestKafkaChannelGetStatus(t *testing.T) {
 	status := &duckv1.Status{}
 	config := KafkaChannel{
 		Status: KafkaChannelStatus{
@@ -50,7 +50,7 @@ func TestKafkaChannel_GetStatus(t *testing.T) {
 	}
 }
 
-func TestKafkaChannelSpec_ParseRetentionDuration(t *testing.T) {
+func TestKafkaChannelSpecParseRetentionDuration(t *testing.T) {
 
 	tests := []struct {
 		name             string
