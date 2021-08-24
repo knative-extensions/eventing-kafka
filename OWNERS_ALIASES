@@ -12,15 +12,19 @@ aliases:
   - markusthoemmes
   - vagababov
   client-wg-leads:
+  - dsimansk
   - navidshaikh
   - rhuss
   client-writers:
+  - dsimansk
   - navidshaikh
   - rhuss
   control-protocol-approvers:
   - devguyio
+  - eric-sap
   - lionelvillard
   - matzew
+  - travis-minke-sap
   - vaikas
   delivery-wg-leads:
   - matzew
@@ -128,6 +132,7 @@ aliases:
   - nicolaferraro
   - rhuss
   knative-admin:
+  - ZhiminXiang
   - bsnchan
   - dprotaso
   - evankanderson
@@ -137,7 +142,6 @@ aliases:
   - knative-prow-updater-robot
   - knative-test-reporter-robot
   - markusthoemmes
-  - matzew
   - mbehrendt
   - pmorie
   - rhuss
@@ -166,8 +170,8 @@ aliases:
   - vagababov
   - vaikas
   knative-release-leads:
-  - dprotaso
-  - matzew
+  - ZhiminXiang
+  - evankanderson
   knative-robots:
   - knative-prow-releaser-robot
   - knative-prow-robot

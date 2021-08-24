@@ -26,7 +26,7 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
-func TestKafkaChannel_GetGroupVersionKind(t *testing.T) {
+func TestKafkaChannelGetGroupVersionKind(t *testing.T) {
 	ch := KafkaChannel{}
 	gvk := ch.GetGroupVersionKind()
 
