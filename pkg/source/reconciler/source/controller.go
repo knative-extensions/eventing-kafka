@@ -67,7 +67,7 @@ func NewController(
 	}
 
 	impl := kafkasource.NewImpl(ctx, c)
-	c.sinkResolver = resolver.NewURIResolver(ctx, impl.EnqueueKey)
+	c.sinkResolver = resolver.NewURIResolverFromTracker(ctx, impl.Tracker)
 
 	c.claimsNotificationStore = ctrlreconciler.NewNotificationStore(impl.EnqueueKey, kafkasourcecontrol.ClaimsParser)
 

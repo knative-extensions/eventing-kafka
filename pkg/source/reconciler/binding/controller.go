@@ -36,7 +36,6 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection/clients/dynamicclient"
 	"knative.dev/pkg/logging"
-	"knative.dev/pkg/tracker"
 	"knative.dev/pkg/webhook/psbinding"
 )
 
@@ -88,7 +87,7 @@ func NewController(
 	kfkInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 	namespaceInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
-	c.Tracker = tracker.New(impl.EnqueueKey, controller.GetTrackerLease(ctx))
+	c.Tracker = impl.Tracker
 	c.Factory = &duck.CachedInformerFactory{
 		Delegate: &duck.EnqueueInformerFactory{
 			Delegate:     psInformerFactory,
