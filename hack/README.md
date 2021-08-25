@@ -1,7 +1,7 @@
 # Assorted scripts for development
 
 This directory contains several scripts useful in the development process of
-Knative Eventing Sources.
+Knative Eventing Kafka.
 
 - `boilerplate-go.txt` Used by kubebuilder to set the boilerplate.
 - `release.sh` Creates a new release.
