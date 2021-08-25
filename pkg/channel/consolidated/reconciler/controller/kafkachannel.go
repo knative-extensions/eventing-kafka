@@ -532,15 +532,18 @@ func (r *Reconciler) reconcileTopic(ctx context.Context, channel *v1beta1.KafkaC
 	logger.Infow("Creating topic on Kafka cluster", zap.String("topic", topicName),
 		zap.Int32("partitions", channel.Spec.NumPartitions), zap.Int16("replication", channel.Spec.ReplicationFactor))
 
-	// TODO - The eventing-kafka KafkaChannel spec does not include RetentionMillis so we're
-	//        currently just using the default value specified in the ConfigMap.  If/when the
-	//        RetentionMillis is added, any value from channel.Spec.RetentionMillis should
-	//        take precedence.
-	retentionMillisString := strconv.FormatInt(r.kafkaConfig.EventingKafka.Kafka.Topic.DefaultRetentionMillis, 10)
+	// Parse & Format the RetentionDuration into Sarama retention.ms string
+	retentionDuration, err := channel.Spec.ParseRetentionDuration()
+	if err != nil {
+		// Should never happen with webhook defaulting and validation in place.
+		logger.Errorw("Error parsing RetentionDuration, using default instead", zap.String("RetentionDuration", channel.Spec.RetentionDuration), zap.Error(err))
+		retentionDuration = constants.DefaultRetentionDuration
+	}
+	retentionMillisString := strconv.FormatInt(retentionDuration.Milliseconds(), 10)
 
-	err := kafkaClusterAdmin.CreateTopic(topicName, &sarama.TopicDetail{
-		ReplicationFactor: commonconfig.ReplicationFactor(channel, r.kafkaConfig.EventingKafka, logger),
-		NumPartitions:     commonconfig.NumPartitions(channel, r.kafkaConfig.EventingKafka, logger),
+	err = kafkaClusterAdmin.CreateTopic(topicName, &sarama.TopicDetail{
+		NumPartitions:     channel.Spec.NumPartitions,
+		ReplicationFactor: channel.Spec.ReplicationFactor,
 		ConfigEntries: map[string]*string{
 			constants.KafkaTopicConfigRetentionMs: &retentionMillisString,
 		},

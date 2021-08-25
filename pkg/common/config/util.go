@@ -7,12 +7,10 @@ import (
 	"strconv"
 
 	"github.com/Shopify/sarama"
-	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 
-	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/common/client"
 	"knative.dev/eventing-kafka/pkg/common/constants"
 )
@@ -106,26 +104,6 @@ func GetAuthConfigFromSecret(secret *corev1.Secret) *client.KafkaAuthConfig {
 	}
 
 	return &authConfig
-}
-
-// NumPartitions Gets The NumPartitions - First From Channel Spec And Then From ConfigMap-Provided Settings
-func NumPartitions(channel *kafkav1beta1.KafkaChannel, configuration *EventingKafkaConfig, logger *zap.SugaredLogger) int32 {
-	value := channel.Spec.NumPartitions
-	if value <= 0 && configuration != nil {
-		logger.Debug("Kafka Channel Spec 'NumPartitions' Not Specified - Using Default", zap.Int32("Value", configuration.Kafka.Topic.DefaultNumPartitions))
-		value = configuration.Kafka.Topic.DefaultNumPartitions
-	}
-	return value
-}
-
-// ReplicationFactor Gets The ReplicationFactor - First From Channel Spec And Then From ConfigMap-Provided Settings
-func ReplicationFactor(channel *kafkav1beta1.KafkaChannel, configuration *EventingKafkaConfig, logger *zap.SugaredLogger) int16 {
-	value := channel.Spec.ReplicationFactor
-	if value <= 0 && configuration != nil {
-		logger.Debug("Kafka Channel Spec 'ReplicationFactor' Not Specified - Using Default", zap.Int16("Value", configuration.Kafka.Topic.DefaultReplicationFactor))
-		value = configuration.Kafka.Topic.DefaultReplicationFactor
-	}
-	return value
 }
 
 // JoinStringMaps returns a new map containing the contents of both argument maps, preferring the contents of map1 on conflict.

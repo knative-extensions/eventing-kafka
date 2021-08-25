@@ -35,6 +35,15 @@ func TestKafkaChannelValidation(t *testing.T) {
 		cr   resourcesemantics.GenericCRD
 		want *apis.FieldError
 	}{
+		"valid spec": {
+			cr: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     1,
+					ReplicationFactor: 1,
+					RetentionDuration: "P1D",
+				},
+			},
+		},
 		"empty spec": {
 			cr: &KafkaChannel{
 				Spec: KafkaChannelSpec{},
@@ -45,6 +54,8 @@ func TestKafkaChannelValidation(t *testing.T) {
 				errs = errs.Also(fe)
 				fe = apis.ErrInvalidValue(0, "spec.replicationFactor")
 				errs = errs.Also(fe)
+				fe = apis.ErrInvalidValue("", "spec.retentionDuration")
+				errs = errs.Also(fe)
 				return errs
 			}(),
 		},
@@ -53,6 +64,7 @@ func TestKafkaChannelValidation(t *testing.T) {
 				Spec: KafkaChannelSpec{
 					NumPartitions:     -10,
 					ReplicationFactor: 1,
+					RetentionDuration: "P1D",
 				},
 			},
 			want: func() *apis.FieldError {
@@ -65,10 +77,37 @@ func TestKafkaChannelValidation(t *testing.T) {
 				Spec: KafkaChannelSpec{
 					NumPartitions:     1,
 					ReplicationFactor: -10,
+					RetentionDuration: "P1D",
 				},
 			},
 			want: func() *apis.FieldError {
 				fe := apis.ErrInvalidValue(-10, "spec.replicationFactor")
+				return fe
+			}(),
+		},
+		"negative retentionDuration": {
+			cr: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     1,
+					ReplicationFactor: 1,
+					RetentionDuration: "-P1D",
+				},
+			},
+			want: func() *apis.FieldError {
+				fe := apis.ErrInvalidValue("-P1D", "spec.retentionDuration")
+				return fe
+			}(),
+		},
+		"invalid retentionDuration": {
+			cr: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     1,
+					ReplicationFactor: 1,
+					RetentionDuration: "NotAValidISO8601String",
+				},
+			},
+			want: func() *apis.FieldError {
+				fe := apis.ErrInvalidValue("NotAValidISO8601String", "spec.retentionDuration")
 				return fe
 			}(),
 		},
@@ -77,6 +116,7 @@ func TestKafkaChannelValidation(t *testing.T) {
 				Spec: KafkaChannelSpec{
 					NumPartitions:     1,
 					ReplicationFactor: 1,
+					RetentionDuration: "P1D",
 					ChannelableSpec: eventingduck.ChannelableSpec{
 						SubscribableSpec: eventingduck.SubscribableSpec{
 							Subscribers: []eventingduck.SubscriberSpec{{
@@ -93,6 +133,7 @@ func TestKafkaChannelValidation(t *testing.T) {
 				Spec: KafkaChannelSpec{
 					NumPartitions:     1,
 					ReplicationFactor: 1,
+					RetentionDuration: "P1D",
 					ChannelableSpec: eventingduck.ChannelableSpec{
 						SubscribableSpec: eventingduck.SubscribableSpec{
 							Subscribers: []eventingduck.SubscriberSpec{{
@@ -113,6 +154,7 @@ func TestKafkaChannelValidation(t *testing.T) {
 				Spec: KafkaChannelSpec{
 					NumPartitions:     1,
 					ReplicationFactor: 1,
+					RetentionDuration: "P1D",
 					ChannelableSpec: eventingduck.ChannelableSpec{
 						SubscribableSpec: eventingduck.SubscribableSpec{
 							Subscribers: []eventingduck.SubscriberSpec{{}, {}},
@@ -141,6 +183,7 @@ func TestKafkaChannelValidation(t *testing.T) {
 				Spec: KafkaChannelSpec{
 					NumPartitions:     1,
 					ReplicationFactor: 1,
+					RetentionDuration: "P1D",
 				},
 			},
 			want: func() *apis.FieldError {

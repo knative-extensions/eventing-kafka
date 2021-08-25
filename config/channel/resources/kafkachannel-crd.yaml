@@ -48,6 +48,9 @@ spec:
                   type: integer
                   maximum: 32767
                   default: 1
+                retentionDuration:
+                  description: RetentionDuration is the retention time for events in a Kafka Topic represented as an ISO-8601 Duration.  By default it is set to 168 hours, which is the precise form of 7 days.
+                  type: string
                 delivery:
                   description: DeliverySpec contains the default delivery spec for each subscription to this Channelable. Each subscription delivery spec, if any, overrides this global delivery spec.
                   type: object

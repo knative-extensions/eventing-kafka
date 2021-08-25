@@ -24,11 +24,11 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/system"
 
 	"knative.dev/eventing-kafka/pkg/common/config"
+	"knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 )
 
@@ -64,11 +64,6 @@ func GetKafkaConfig(ctx context.Context, clientId string, configMap map[string]s
 		Kafka: config.EKKafkaConfig{
 			AuthSecretName:      sarama.DefaultAuthSecretName,
 			AuthSecretNamespace: system.Namespace(),
-			Topic: config.EKKafkaTopicConfig{
-				DefaultNumPartitions:     sarama.DefaultNumPartitions,
-				DefaultReplicationFactor: sarama.DefaultReplicationFactor,
-				DefaultRetentionMillis:   sarama.DefaultRetentionMillis,
-			},
 		},
 	}
 	var err error

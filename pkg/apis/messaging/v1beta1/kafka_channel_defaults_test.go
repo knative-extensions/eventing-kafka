@@ -19,12 +19,14 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"knative.dev/eventing-kafka/pkg/common/constants"
 )
 
 const (
 	testNumPartitions     = 10
 	testReplicationFactor = 5
+	testRetentionDuration = "P1D"
 )
 
 func TestKafkaChannelDefaults(t *testing.T) {
@@ -41,6 +43,7 @@ func TestKafkaChannelDefaults(t *testing.T) {
 				Spec: KafkaChannelSpec{
 					NumPartitions:     constants.DefaultNumPartitions,
 					ReplicationFactor: constants.DefaultReplicationFactor,
+					RetentionDuration: constants.DefaultRetentionISO8601Duration,
 				},
 			},
 		},
@@ -48,6 +51,7 @@ func TestKafkaChannelDefaults(t *testing.T) {
 			initial: KafkaChannel{
 				Spec: KafkaChannelSpec{
 					ReplicationFactor: testReplicationFactor,
+					RetentionDuration: testRetentionDuration,
 				},
 			},
 			expected: KafkaChannel{
@@ -57,13 +61,15 @@ func TestKafkaChannelDefaults(t *testing.T) {
 				Spec: KafkaChannelSpec{
 					NumPartitions:     constants.DefaultNumPartitions,
 					ReplicationFactor: testReplicationFactor,
+					RetentionDuration: testRetentionDuration,
 				},
 			},
 		},
 		"replicationFactor not set": {
 			initial: KafkaChannel{
 				Spec: KafkaChannelSpec{
-					NumPartitions: testNumPartitions,
+					NumPartitions:     testNumPartitions,
+					RetentionDuration: testRetentionDuration,
 				},
 			},
 			expected: KafkaChannel{
@@ -73,6 +79,25 @@ func TestKafkaChannelDefaults(t *testing.T) {
 				Spec: KafkaChannelSpec{
 					NumPartitions:     testNumPartitions,
 					ReplicationFactor: constants.DefaultReplicationFactor,
+					RetentionDuration: testRetentionDuration,
+				},
+			},
+		},
+		"retentionDuration not set": {
+			initial: KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     testNumPartitions,
+					ReplicationFactor: testReplicationFactor,
+				},
+			},
+			expected: KafkaChannel{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{"messaging.knative.dev/subscribable": "v1"},
+				},
+				Spec: KafkaChannelSpec{
+					NumPartitions:     testNumPartitions,
+					ReplicationFactor: testReplicationFactor,
+					RetentionDuration: constants.DefaultRetentionISO8601Duration,
 				},
 			},
 		},

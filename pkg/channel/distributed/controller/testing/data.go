@@ -57,19 +57,16 @@ const (
 	MetricsPortName = "metrics"
 
 	// Environment Test Data
-	ServiceAccount           = "TestServiceAccount"
-	KafkaAdminType           = "kafka"
-	MetricsPort              = 9876
-	MetricsDomain            = "eventing-kafka"
-	HealthPort               = 8082
-	ResyncPeriod             = 3600 * time.Minute
-	ReceiverImage            = "TestReceiverImage"
-	ReceiverReplicas         = 1
-	DispatcherImage          = "TestDispatcherImage"
-	DispatcherReplicas       = 1
-	DefaultNumPartitions     = 4
-	DefaultReplicationFactor = 1
-	DefaultRetentionMillis   = 99999
+	ServiceAccount     = "TestServiceAccount"
+	KafkaAdminType     = "kafka"
+	MetricsPort        = 9876
+	MetricsDomain      = "eventing-kafka"
+	HealthPort         = 8082
+	ResyncPeriod       = 3600 * time.Minute
+	ReceiverImage      = "TestReceiverImage"
+	ReceiverReplicas   = 1
+	DispatcherImage    = "TestDispatcherImage"
+	DispatcherReplicas = 1
 
 	// Channel Test Data
 	KafkaChannelNamespace  = "kafkachannel-namespace"
@@ -89,6 +86,8 @@ const (
 	NumPartitions = 123
 	// ReplicationFactor - ChannelSpec Test Data
 	ReplicationFactor = 456
+	// RetentionDurationISO8601 - ChannelSpec Test Data
+	RetentionDurationISO8601 = "P3D"
 
 	// ErrorString - Mock Test Error MetaData
 	ErrorString = "Expected Mock Test Error"
@@ -161,10 +160,6 @@ kafka:
   authSecretName: ` + KafkaSecretName + `
   authSecretNamespace: ` + KafkaSecretNamespace + `
   enableSaramaLogging: false
-  topic:
-    defaultNumPartitions: 4
-    defaultReplicationFactor: 1
-    defaultRetentionMillis: 604800000
   adminType: kafka
 `
 	SaramaConfigYaml = `
@@ -194,8 +189,9 @@ Producer:
 )
 
 var (
-	DefaultRetentionMillisString = strconv.FormatInt(DefaultRetentionMillis, 10)
-	DeletionTimestamp            = metav1.Now()
+	RetentionDuration     = 3 * 24 * time.Hour // Match RetentionDurationISO8601 Value Above !
+	RetentionMillisString = strconv.FormatInt(RetentionDuration.Milliseconds(), 10)
+	DeletionTimestamp     = metav1.Now()
 
 	DispatcherDeploymentAnnotations = map[string]string{"DDAKey1": "DDAValue1", "DDAKey2": "DDAValue2", "DDAKey3": "DDAValue3"}
 	DispatcherDeploymentLabels      = map[string]string{"DDLKey1": "DDLValue1", "DDLKey2": "DDLValue2", "DDLKey3": "DDLValue3"}
@@ -446,11 +442,6 @@ func NewConfig(options ...KafkaConfigOption) *commonconfig.EventingKafkaConfig {
 		Kafka: commonconfig.EKKafkaConfig{
 			AuthSecretName:      KafkaSecretName,
 			AuthSecretNamespace: KafkaSecretNamespace,
-			Topic: commonconfig.EKKafkaTopicConfig{
-				DefaultNumPartitions:     DefaultNumPartitions,
-				DefaultReplicationFactor: DefaultReplicationFactor,
-				DefaultRetentionMillis:   DefaultRetentionMillis,
-			},
 		},
 		Channel: commonconfig.EKChannelConfig{
 			AdminType: KafkaAdminType,
@@ -576,7 +567,7 @@ func NewKafkaChannel(options ...KafkaChannelOption) *kafkav1beta1.KafkaChannel {
 		Spec: kafkav1beta1.KafkaChannelSpec{
 			NumPartitions:     NumPartitions,
 			ReplicationFactor: ReplicationFactor,
-			// TODO RetentionMillis:   RetentionMillis,
+			RetentionDuration: RetentionDurationISO8601,
 		},
 	}
 

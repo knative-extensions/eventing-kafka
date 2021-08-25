@@ -31,7 +31,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
-	"knative.dev/eventing-kafka/pkg/common/config"
 	commonconstants "knative.dev/eventing-kafka/pkg/common/constants"
 )
 
@@ -44,18 +43,19 @@ func (r *Reconciler) reconcileKafkaTopic(ctx context.Context, channel *kafkav1be
 	// Get Channel-Specific Logger (From The Context) & Add Topic Name
 	logger := logging.FromContext(ctx).With(zap.String("TopicName", topicName))
 
-	// Get The Topic Configuration (First From Channel With Failover To Environment)
-	numPartitions := config.NumPartitions(channel, r.config, logger)
-	replicationFactor := config.ReplicationFactor(channel, r.config, logger)
-
-	// TODO - The eventing-kafka KafkaChannel spec does not include RetentionMillis so we're
-	//        currently just using the default value specified in the ConfigMap.  If/when the
-	//        RetentionMillis is added, any value from channel.Spec.RetentionMillis should
-	//        take precedence.
-	retentionMillis := r.config.Kafka.Topic.DefaultRetentionMillis
+	// Get The Topic Configuration From The Channel
+	numPartitions := channel.Spec.NumPartitions
+	replicationFactor := channel.Spec.ReplicationFactor
+	retentionDuration, err := channel.Spec.ParseRetentionDuration()
+	if err != nil {
+		// Should never happen with webhook defaulting and validation in place.
+		logger.Error("Failed To Parse RetentionDuration Using Default Value Instead", zap.String("RetentionDuration", channel.Spec.RetentionDuration), zap.Error(err))
+		retentionDuration = commonconstants.DefaultRetentionDuration
+	}
+	retentionMillis := retentionDuration.Milliseconds()
 
 	// Create The Topic (Handles Case Where Already Exists)
-	err := r.createTopic(ctx, topicName, numPartitions, replicationFactor, retentionMillis)
+	err = r.createTopic(ctx, topicName, numPartitions, replicationFactor, retentionMillis)
 
 	// Log Results & Return Status
 	if err != nil {

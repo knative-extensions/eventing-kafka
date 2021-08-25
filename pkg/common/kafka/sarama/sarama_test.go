@@ -52,10 +52,6 @@ channel:
 kafka:
   brokers: REPLACE_WITH_CLUSTER_URL
   enableSaramaLogging: false
-  topic:
-    defaultNumPartitions: 4
-    defaultReplicationFactor: 1
-    defaultRetentionMillis: 604800000
 `
 	EKDefaultSaramaConfig = `
 enableLogging: false
@@ -91,10 +87,6 @@ dispatcher:
 kafka:
   brokers: REPLACE_WITH_CLUSTER_URL
   enableSaramaLogging: false
-  topic:
-    defaultNumPartitions: 4
-    defaultReplicationFactor: 1
-    defaultRetentionMillis: 604800000
   adminType: azure
 `
 	EKDefaultSaramaConfigOld = `
@@ -226,9 +218,6 @@ func verifyEventingKafkaSettings(t *testing.T, settings *commonconfig.EventingKa
 	assert.Equal(t, resource.Quantity{}, settings.Channel.Receiver.MemoryLimit)
 	assert.Equal(t, resource.MustParse("50Mi"), settings.Channel.Receiver.MemoryRequest)
 	assert.Equal(t, 1, settings.Channel.Receiver.Replicas)
-	assert.Equal(t, int32(4), settings.Kafka.Topic.DefaultNumPartitions)
-	assert.Equal(t, int16(1), settings.Kafka.Topic.DefaultReplicationFactor)
-	assert.Equal(t, int64(604800000), settings.Kafka.Topic.DefaultRetentionMillis)
 	assert.Equal(t, resource.Quantity{}, settings.Channel.Dispatcher.CpuLimit)
 	assert.Equal(t, resource.MustParse("100m"), settings.Channel.Dispatcher.CpuRequest)
 	assert.Equal(t, resource.Quantity{}, settings.Channel.Dispatcher.MemoryLimit)

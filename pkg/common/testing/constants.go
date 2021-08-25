@@ -55,10 +55,6 @@ channel:
     replicas: ` + DispatcherReplicas + `
 kafka:
   brokers: ` + BrokerString + `
-  topic:
-    defaultNumPartitions: 4
-    defaultReplicationFactor: 1 # Cannot exceed the number of Kafka Brokers!
-    defaultRetentionMillis: 604800000  # 1 week
 `
 
 	OldSaramaConfig = `

@@ -54,6 +54,12 @@ func (kcs *KafkaChannelSpec) Validate(ctx context.Context) *apis.FieldError {
 		errs = errs.Also(fe)
 	}
 
+	retentionDuration, err := kcs.ParseRetentionDuration()
+	if retentionDuration < 0 || err != nil {
+		fe := apis.ErrInvalidValue(kcs.RetentionDuration, "retentionDuration")
+		errs = errs.Also(fe)
+	}
+
 	for i, subscriber := range kcs.SubscribableSpec.Subscribers {
 		if subscriber.ReplyURI == nil && subscriber.SubscriberURI == nil {
 			fe := apis.ErrMissingField("replyURI", "subscriberURI")
