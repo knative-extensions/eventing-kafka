@@ -162,6 +162,7 @@ func main() {
 
 	// Construct The KafkaChannel Controller
 	kcController := controller.NewController(
+		ctx,
 		logger,
 		environment.ChannelKey,
 		dispatcher,

@@ -88,7 +88,7 @@ func TestNewController(t *testing.T) {
 			stopChan := make(chan struct{})
 
 			// Perform The Test
-			c := NewController(logger, channelKey, mockDispatcher, kafkaChannelInformer, fakeK8sClientSet, fakeKafkaChannelClientSet, stopChan, testCase.managerEvents)
+			c := NewController(context.TODO(), logger, channelKey, mockDispatcher, kafkaChannelInformer, fakeK8sClientSet, fakeKafkaChannelClientSet, stopChan, testCase.managerEvents)
 
 			// Verify Results
 			assert.NotNil(t, c)
@@ -122,7 +122,7 @@ func TestProcessManagerEvents(t *testing.T) {
 		kafkachannelInformer: kafkaChannelInformer.Informer(),
 		kafkachannelLister:   kafkaChannelInformer.Lister(),
 		kafkaClientSet:       fakeKafkaChannelClientSet,
-		impl:                 controller.NewImplFull(mockReconciler, controller.ControllerOptions{Logger: logger.Sugar()}),
+		impl:                 controller.NewContext(context.TODO(), mockReconciler, controller.ControllerOptions{Logger: logger.Sugar()}),
 	}
 	events := make(chan consumer.ManagerEvent)
 
