@@ -196,8 +196,6 @@ your Kafka cluster.
 
     - **kafka.brokers:** This field must be set to your kafka brokers string (
       see above)
-    - **kafka.topic.defaultReplicationFactor:** Cannot exceed the number of
-      Kafka Brokers configured in your system.
     - **channel.adminType:** As described above this value must be set to one of
       `kafka`, `azure`, or `custom`. The default is `kakfa` and will be used by
       most users.
