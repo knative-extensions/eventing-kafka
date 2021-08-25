@@ -134,9 +134,7 @@ func getKafkaChannelNamespacedName(topicName string) (*types.NamespacedName, err
 	}
 
 	// Strip The Topic Name Prefix Used By Consolidated KafkaChannel
-	if strings.HasPrefix(topicName, "knative-messaging-kafka.") {
-		topicName = strings.TrimPrefix(topicName, "knative-messaging-kafka.")
-	}
+	topicName = strings.TrimPrefix(topicName, "knative-messaging-kafka.")
 
 	// Split The KafkaChannel Namespace/Name From The Topic Name
 	topicNameComponents := strings.Split(topicName, ".")
