@@ -75,7 +75,7 @@ func NewController(
 
 	impl := kafkasource.NewImpl(ctx, c)
 
-	c.sinkResolver = resolver.NewURIResolver(ctx, impl.EnqueueKey)
+	c.sinkResolver = resolver.NewURIResolverFromTracker(ctx, impl.Tracker)
 
 	// Use a different set of conditions
 	sourcesv1beta1.RegisterAlternateKafkaConditionSet(sourcesv1beta1.KafkaMTSourceCondSet)

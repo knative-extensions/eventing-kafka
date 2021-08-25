@@ -67,16 +67,14 @@ func NewController(
 	}
 
 	impl := kafkasource.NewImpl(ctx, c)
-	c.sinkResolver = resolver.NewURIResolver(ctx, impl.EnqueueKey)
+	c.sinkResolver = resolver.NewURIResolverFromTracker(ctx, impl.Tracker)
 
 	c.claimsNotificationStore = ctrlreconciler.NewNotificationStore(impl.EnqueueKey, kafkasourcecontrol.ClaimsParser)
-
-	logging.FromContext(ctx).Info("Setting up kafka event handlers")
 
 	kafkaInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	deploymentInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterControllerGK(v1beta1.Kind("KafkaSource")),
+		FilterFunc: controller.FilterController(&v1beta1.KafkaSource{}),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 

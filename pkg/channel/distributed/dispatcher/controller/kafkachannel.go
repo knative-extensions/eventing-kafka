@@ -72,6 +72,7 @@ var _ controller.Reconciler = Reconciler{}
 // NewController initializes the controller and is called by the generated code.
 // Registers event handlers to enqueue events.
 func NewController(
+	ctx context.Context,
 	logger *zap.Logger,
 	channelKey string,
 	dispatcher dispatcher.Dispatcher,
@@ -90,7 +91,7 @@ func NewController(
 		kafkachannelLister:   kafkachannelInformer.Lister(),
 		kafkaClientSet:       kafkaClientSet,
 	}
-	reconciler.impl = controller.NewImplFull(reconciler, controller.ControllerOptions{
+	reconciler.impl = controller.NewContext(ctx, reconciler, controller.ControllerOptions{
 		WorkQueueName: ReconcilerName,
 		Logger:        logger.Sugar(),
 	})
