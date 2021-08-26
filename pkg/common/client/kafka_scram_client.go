@@ -20,7 +20,7 @@ import (
 	"crypto/sha512"
 	"hash"
 
-	"github.com/xdg/scram"
+	"github.com/xdg-go/scram"
 )
 
 // SHA256 hash generator function for SCRAM conversation

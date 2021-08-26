@@ -363,11 +363,13 @@ github.com/tsenart/vegeta/v12/lib
 github.com/valyala/bytebufferpool
 # github.com/wavesoftware/go-ensure v1.0.0
 github.com/wavesoftware/go-ensure
-# github.com/xdg/scram v1.0.3
+# github.com/xdg-go/pbkdf2 v1.0.0
+github.com/xdg-go/pbkdf2
+# github.com/xdg-go/scram v1.0.2
 ## explicit
-github.com/xdg/scram
-# github.com/xdg/stringprep v1.0.3
-github.com/xdg/stringprep
+github.com/xdg-go/scram
+# github.com/xdg-go/stringprep v1.0.2
+github.com/xdg-go/stringprep
 # go.opencensus.io v0.23.0
 ## explicit
 go.opencensus.io

@@ -23,7 +23,7 @@ require (
 	github.com/rickb777/date v1.13.0
 	github.com/slinkydeveloper/loadastic v0.0.0-20201218203601-5c69eea3b7d8
 	github.com/stretchr/testify v1.7.0
-	github.com/xdg/scram v1.0.3
+	github.com/xdg-go/scram v1.0.2
 	go.opencensus.io v0.23.0
 	go.uber.org/atomic v1.9.0
 	go.uber.org/multierr v1.6.0
