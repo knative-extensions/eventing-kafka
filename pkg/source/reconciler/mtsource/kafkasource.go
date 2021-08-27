@@ -60,7 +60,6 @@ type Reconciler struct {
 
 // Check that our Reconciler implements Interface
 var _ reconcilerkafkasource.Interface = (*Reconciler)(nil)
-var env *envConfig
 
 func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource) pkgreconciler.Event {
 	src.Status.InitializeConditions()
