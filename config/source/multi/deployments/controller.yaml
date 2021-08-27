@@ -51,13 +51,13 @@ spec:
 
         # The number of virtual replicas each adapter pod can handle.
         - name: POD_CAPACITY
-          value: '100'
+          value: '20'
 
         - name: MAX_MPS_PER_PARTITION
           value: '15'
-        
+
         - name: VREPLICA_LIMITS_MPS
-          value: '50'
+          value: '250'
         # The scheduling policy type for placing vreplicas on pods (see type SchedulerPolicyType for enum list)
         - name: SCHEDULER_POLICY_TYPE
           value: 'MAXFILLUP'
