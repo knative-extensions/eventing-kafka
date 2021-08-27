@@ -30,9 +30,7 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
-// TODO: refactor reconciler-test
 func IsReady(c *testlib.Client, namespace, name string, gvr schema.GroupVersionResource) (bool, error) {
-	lastMsg := ""
 	like := &duckv1.KResource{}
 
 	us, err := c.Dynamic.Resource(gvr).Namespace(namespace).Get(context.Background(), name, metav1.GetOptions{})
@@ -67,10 +65,9 @@ func IsReady(c *testlib.Client, namespace, name string, gvr schema.GroupVersionR
 	if ready != nil {
 		if !ready.IsTrue() {
 			msg := fmt.Sprintf("%s is not %s, %s: %s", name, ready.Type, ready.Reason, ready.Message)
-			if msg != lastMsg {
-				c.T.Log(msg)
-				lastMsg = msg
-			}
+			c.T.Log(msg)
+
+			return ready.IsFalse(), nil
 		}
 
 		c.T.Logf("%s is %s, %s: %s\n", name, ready.Type, ready.Reason, ready.Message)
@@ -84,10 +81,7 @@ func IsReady(c *testlib.Client, namespace, name string, gvr schema.GroupVersionR
 	for _, cd := range obj.Status.Conditions {
 		if !cd.IsTrue() {
 			msg := fmt.Sprintf("%s is not %s, %s: %s", name, cd.Type, cd.Reason, cd.Message)
-			if msg != lastMsg {
-				c.T.Logf(msg)
-				lastMsg = msg
-			}
+			c.T.Logf(msg)
 			allReady = false
 			break
 		}
