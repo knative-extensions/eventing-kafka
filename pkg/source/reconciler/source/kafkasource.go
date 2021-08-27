@@ -186,7 +186,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 	defer c.Close()
 	src.Status.MarkConnectionEstablished()
 
-	err = client.InitOffsets(ctx, c, src.Spec.Topics, src.Spec.ConsumerGroup)
+	_, err = client.InitOffsets(ctx, c, src.Spec.Topics, src.Spec.ConsumerGroup)
 	if err != nil {
 		logging.FromContext(ctx).Errorw("unable to initialize consumergroup offsets", zap.Error(err))
 		src.Status.MarkInitialOffsetNotCommitted("OffsetsNotCommitted", "Unable to initialize consumergroup offsets: %v", err)
