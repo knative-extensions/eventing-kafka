@@ -130,6 +130,13 @@ func WithSASLEnabled(source *kafkasourcev1beta1.KafkaSource, secretName string) 
 		},
 		Key: "saslType",
 	}
+	source.Spec.KafkaAuthSpec.Net.TLS.Enable = true
+	source.Spec.KafkaAuthSpec.Net.TLS.CACert.SecretKeyRef = &corev1.SecretKeySelector{
+		LocalObjectReference: corev1.LocalObjectReference{
+			Name: secretName,
+		},
+		Key: "ca.crt",
+	}
 }
 
 // IsReady returns true when the source is ready
