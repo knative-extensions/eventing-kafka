@@ -1,5 +1,4 @@
-// +build e2e
-// +build source mtsource
+// +build e2e_ginkgo
 
 /*
 Copyright 2019 The Knative Authors
@@ -19,9 +18,10 @@ package source
 
 import (
 	"fmt"
-	"knative.dev/eventing/pkg/utils"
 	"testing"
 	"time"
+
+	"knative.dev/eventing/pkg/utils"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

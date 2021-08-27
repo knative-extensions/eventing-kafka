@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"context"
+
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,16 +35,17 @@ import (
 
 var GVR = schema.GroupVersionResource{Group: "sources.knative.dev", Version: "v1beta1", Resource: "kafkasources"}
 
+// Install creates a minimal KafkaSource object, installs it and wait for it to be ready
 func Install(c *testlib.Client, bootstrapServer string, topicName string, ref *duckv1.KReference) string {
 	name := feature.MakeRandomK8sName("kafkasource")
 	ks := New(name, bootstrapServer, topicName, ref)
 	Create(c, ks)
 
 	Eventually(IsReady(c, ks)).Should(BeTrue())
-
 	return name
 }
 
+// New creates a minimal KafkaSource object
 func New(name string, bootstrapServer string, topicName string, ref *duckv1.KReference) *kafkasourcev1beta1.KafkaSource {
 	source := &kafkasourcev1beta1.KafkaSource{
 		ObjectMeta: metav1.ObjectMeta{
@@ -65,6 +67,7 @@ func New(name string, bootstrapServer string, topicName string, ref *duckv1.KRef
 	return source
 }
 
+// Create the given source on the cluster
 func Create(c *testlib.Client, source *kafkasourcev1beta1.KafkaSource) {
 	kafkaSourceClientSet, err := kafkaclientset.NewForConfig(c.Config)
 	if err != nil {
@@ -81,6 +84,7 @@ func Create(c *testlib.Client, source *kafkasourcev1beta1.KafkaSource) {
 	c.Tracker.AddObj(obj)
 }
 
+// WithTLSEnabled enables TLS
 func WithTLSEnabled(source *kafkasourcev1beta1.KafkaSource, secretName string) {
 	source.Spec.KafkaAuthSpec.Net.TLS.Enable = true
 	if secretName != "" {
@@ -105,6 +109,7 @@ func WithTLSEnabled(source *kafkasourcev1beta1.KafkaSource, secretName string) {
 	}
 }
 
+// WithSASLEnabled enables SASL
 func WithSASLEnabled(source *kafkasourcev1beta1.KafkaSource, secretName string) {
 	source.Spec.KafkaAuthSpec.Net.SASL.Enable = true
 	source.Spec.KafkaAuthSpec.Net.SASL.User.SecretKeyRef = &corev1.SecretKeySelector{
@@ -127,6 +132,7 @@ func WithSASLEnabled(source *kafkasourcev1beta1.KafkaSource, secretName string) 
 	}
 }
 
+// IsReady returns true when the source is ready
 func IsReady(c *testlib.Client, source *kafkasourcev1beta1.KafkaSource) func() (bool, error) {
 	return func() (bool, error) {
 		return ktestlib.IsReady(c, c.Namespace, source.Name, GVR)

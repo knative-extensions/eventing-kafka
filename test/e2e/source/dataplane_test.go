@@ -1,3 +1,5 @@
+// +build e2e_ginkgo
+
 /*
 Copyright 2019 The Knative Authors
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,16 +19,17 @@ package source
 import (
 	"context"
 	"encoding/json"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	"knative.dev/eventing/test/lib/recordevents"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	. "github.com/cloudevents/sdk-go/v2/test"
 	cetypes "github.com/cloudevents/sdk-go/v2/types"
 
 	"knative.dev/eventing/test/lib/naming"
+	"knative.dev/eventing/test/lib/recordevents"
 	rrecordevents "knative.dev/eventing/test/lib/resources/recordevents"
 
 	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
