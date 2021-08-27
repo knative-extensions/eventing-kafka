@@ -44,4 +44,3 @@ require (
 	knative.dev/pkg v0.0.0-20210827112638-4472e04552d3
 	knative.dev/reconciler-test v0.0.0-20210820180205-a25de6a08087
 )
-

@@ -304,9 +304,6 @@ github.com/nxadm/tail/ratelimiter
 github.com/nxadm/tail/util
 github.com/nxadm/tail/watch
 github.com/nxadm/tail/winfile
-# github.com/onsi/ginkgo v1.14.2
-github.com/onsi/ginkgo
-github.com/onsi/ginkgo/config
 # github.com/onsi/ginkgo v1.16.4
 ## explicit
 github.com/onsi/ginkgo
@@ -1372,4 +1369,3 @@ knative.dev/reconciler-test/resources/svc
 sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 sigs.k8s.io/yaml
-# knative.dev/eventing => ../eventing
