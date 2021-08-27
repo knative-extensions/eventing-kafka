@@ -53,8 +53,6 @@ readonly EVENTING_IN_MEMORY_CHANNEL_CONFIG="./config/channels/in-memory-channel"
 readonly VENDOR_EVENTING_TEST_IMAGES="vendor/knative.dev/eventing/test/test_images/"
 # HEAD eventing test images.
 readonly HEAD_EVENTING_TEST_IMAGES="${GOPATH}/src/knative.dev/eventing/test/test_images/"
-# Vendored reconciler-test images.
-readonly VENDOR_RECONCILER_TEST_IMAGES="vendor/knative.dev/reconciler-test/"
 
 # Config tracing config.
 readonly CONFIG_TRACING_CONFIG="test/config/config-tracing.yaml"
