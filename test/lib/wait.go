@@ -97,3 +97,25 @@ func IsPodRunning(c *testlib.Client, ctx context.Context, podName string) (bool,
 	}
 	return pod.Status.Phase == corev1.PodRunning || pod.Status.Phase == corev1.PodSucceeded, nil
 }
+
+// HasGenerationBeenObserved returns true when `status.ObservedGeneration` matches the KResource generation.
+func HasGenerationBeenObserved(c *testlib.Client, namespace, name string, gvr schema.GroupVersionResource) (bool, error) {
+	obj, err := c.Dynamic.Resource(gvr).Namespace(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			c.T.Log(namespace, name, err)
+			// keep polling
+			return false, nil
+		}
+
+		return false, err
+	}
+
+	kr := new(duckv1.KResource)
+	if err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, kr); err != nil {
+		c.T.Fatalf("Error DefaultUnstructured.DynamicConverter. %v", err)
+	}
+
+	return kr.Status.ObservedGeneration == kr.Generation, nil
+
+}

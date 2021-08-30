@@ -23,21 +23,21 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
-	ktestlib "knative.dev/eventing-kafka/test/lib"
 	testlib "knative.dev/eventing/test/lib"
+	"knative.dev/eventing/test/lib/naming"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
-	"knative.dev/reconciler-test/pkg/feature"
 
 	kafkabindingv1beta1 "knative.dev/eventing-kafka/pkg/apis/bindings/v1beta1"
 	kafkasourcev1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
+	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
+	ktestlib "knative.dev/eventing-kafka/test/lib"
 )
 
 var GVR = schema.GroupVersionResource{Group: "sources.knative.dev", Version: "v1beta1", Resource: "kafkasources"}
 
 // Install creates a minimal KafkaSource object, installs it and wait for it to be ready
 func Install(c *testlib.Client, bootstrapServer string, topicName string, ref *duckv1.KReference) string {
-	name := feature.MakeRandomK8sName("kafkasource")
+	name := naming.MakeRandomK8sName("kafkasource")
 	ks := New(name, bootstrapServer, topicName, ref)
 	Create(c, ks)
 
@@ -67,6 +67,21 @@ func New(name string, bootstrapServer string, topicName string, ref *duckv1.KRef
 	return source
 }
 
+// Get the KafkaSource of the given name
+func Get(c *testlib.Client, name string) *kafkasourcev1beta1.KafkaSource {
+	kafkaSourceClientSet, err := kafkaclientset.NewForConfig(c.Config)
+	if err != nil {
+		c.T.Fatalf("Failed to create v1beta1 KafkaSource client: %v", err)
+	}
+
+	obj, err := kafkaSourceClientSet.SourcesV1beta1().KafkaSources(c.Namespace).Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		c.T.Fatalf("Failed to get v1beta1 KafkaSource %q: %v", name, err)
+	}
+
+	return obj
+}
+
 // Create the given source on the cluster
 func Create(c *testlib.Client, source *kafkasourcev1beta1.KafkaSource) {
 	kafkaSourceClientSet, err := kafkaclientset.NewForConfig(c.Config)
@@ -82,6 +97,21 @@ func Create(c *testlib.Client, source *kafkasourcev1beta1.KafkaSource) {
 	}
 
 	c.Tracker.AddObj(obj)
+}
+
+// Update the given source on the cluster
+func Update(c *testlib.Client, source *kafkasourcev1beta1.KafkaSource) {
+	kafkaSourceClientSet, err := kafkaclientset.NewForConfig(c.Config)
+	if err != nil {
+		c.T.Fatalf("Failed to create v1beta1 KafkaSource client: %v", err)
+	}
+
+	kSources := kafkaSourceClientSet.SourcesV1beta1().KafkaSources(c.Namespace)
+	source, err = kSources.Update(context.Background(), source, metav1.UpdateOptions{})
+
+	if err != nil {
+		c.T.Fatalf("Failed to update v1beta1 KafkaSource %q: %v", source.Name, err)
+	}
 }
 
 // WithTLSEnabled enables TLS
@@ -136,6 +166,13 @@ func WithSASLEnabled(source *kafkasourcev1beta1.KafkaSource, secretName string) 
 			Name: secretName,
 		},
 		Key: "ca.crt",
+	}
+}
+
+// HasGenerationBeenObserved returns true when the observed generation matches the source generation
+func HasGenerationBeenObserved(c *testlib.Client, source *kafkasourcev1beta1.KafkaSource) func() (bool, error) {
+	return func() (bool, error) {
+		return ktestlib.HasGenerationBeenObserved(c, c.Namespace, source.Name, GVR)
 	}
 }
 

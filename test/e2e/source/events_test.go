@@ -85,7 +85,7 @@ var (
 	}
 )
 
-var _ = Describe("KafkaSource dataplane", func() {
+var _ = Describe("KafkaSource event type", func() {
 	var topicName string
 	var eventStore *recordevents.EventInfoStore
 
