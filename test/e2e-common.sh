@@ -574,7 +574,7 @@ function test_mt_source() {
   go get github.com/onsi/ginkgo/ginkgo
 
   echo "Run Ginkgo tests"
-  ginkgo -tags=e2e_ginkgo --randomizeAllSpecs --randomizeSuites --failOnPending --trace --race --compilers=2 ./test/e2e/source/... || fail_test
+  ginkgo -tags=e2e_ginkgo --noColor --randomizeAllSpecs --randomizeSuites --failOnPending --trace --race --compilers=2 ./test/e2e/source/... || fail_test
 
   # still run those since some test cases are still missing
   echo "Run classic tests"
