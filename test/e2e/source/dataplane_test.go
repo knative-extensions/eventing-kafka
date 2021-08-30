@@ -19,6 +19,7 @@ package source
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
@@ -26,7 +27,6 @@ import (
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	. "github.com/cloudevents/sdk-go/v2/test"
-	cetypes "github.com/cloudevents/sdk-go/v2/types"
 
 	"knative.dev/eventing/test/lib/naming"
 	"knative.dev/eventing/test/lib/recordevents"
@@ -62,7 +62,7 @@ const (
 )
 
 var (
-	ts, _ = cetypes.ParseTime("2018-04-05T17:31:00Z")
+	ts = time.Now()
 
 	// All auth configurations
 	auths = map[string]auth{

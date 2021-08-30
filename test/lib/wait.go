@@ -57,7 +57,7 @@ func IsReady(c *testlib.Client, namespace, name string, gvr schema.GroupVersionR
 
 	// Ready type.
 	ready := obj.Status.GetCondition(apis.ConditionReady)
-	if ready != nil {
+	if ready == nil {
 		// Succeeded type.
 		ready = obj.Status.GetCondition(apis.ConditionSucceeded)
 	}
