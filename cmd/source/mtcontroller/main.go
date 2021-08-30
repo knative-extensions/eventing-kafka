@@ -35,6 +35,7 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
+	"knative.dev/pkg/logging"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/webhook"
 	"knative.dev/pkg/webhook/certificates"
@@ -42,6 +43,11 @@ import (
 	"knative.dev/pkg/webhook/resourcesemantics"
 	"knative.dev/pkg/webhook/resourcesemantics/defaulting"
 	"knative.dev/pkg/webhook/resourcesemantics/validation"
+
+	defaultconfig "knative.dev/eventing/pkg/apis/config"
+	"knative.dev/eventing/pkg/apis/feature"
+	channeldefaultconfig "knative.dev/eventing/pkg/apis/messaging/config"
+	kafkaKedadefaultconfig "knative.dev/eventing/pkg/apis/sources/config"
 )
 
 const (
@@ -81,6 +87,23 @@ func NewDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher
 }
 
 func NewValidationAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
+	// Decorate contexts with the current state of the config.
+	store := defaultconfig.NewStore(logging.FromContext(ctx).Named("config-store"))
+	store.WatchConfigs(cmw)
+
+	channelStore := channeldefaultconfig.NewStore(logging.FromContext(ctx).Named("channel-config-store"))
+	channelStore.WatchConfigs(cmw)
+
+	kafkaKedastore := kafkaKedadefaultconfig.NewStore(logging.FromContext(ctx).Named("kafka-config-store"))
+	kafkaKedastore.WatchConfigs(cmw)
+
+	featureStore := feature.NewStore(logging.FromContext(ctx).Named("feature-config-store"))
+	featureStore.WatchConfigs(cmw)
+
+	// Decorate contexts with the current state of the config.
+	ctxFunc := func(ctx context.Context) context.Context {
+		return featureStore.ToContext(channelStore.ToContext(kafkaKedastore.ToContext(store.ToContext(ctx))))
+	}
 	return validation.NewAdmissionController(ctx,
 
 		// Name of the resource webhook.
@@ -93,11 +116,7 @@ func NewValidationAdmissionController(ctx context.Context, cmw configmap.Watcher
 		types,
 
 		// A function that infuses the context passed to Validate/SetDefaults with custom metadata.
-		func(ctx context.Context) context.Context {
-			// Here is where you would infuse the context with state
-			// (e.g. attach a store with configmap data)
-			return ctx
-		},
+		ctxFunc,
 
 		// Whether to disallow unknown fields.
 		true,

@@ -1,0 +1,53 @@
+# Copyright 2020 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-kafka-defaults
+  namespace: knative-eventing
+  labels:
+    eventing.knative.dev/release: devel
+data:
+  _example: |
+    ################################
+    #                              #
+    #    EXAMPLE CONFIGURATION     #
+    #                              #
+    ################################
+
+    # This block is not actually functional configuration,
+    # but serves to illustrate the available configuration
+    # options and document them in a way that is accessible
+    # to users that `kubectl edit` this config map.
+    #
+    # These sample configuration options may be copied out of
+    # this example block and unindented to be in the data block
+    # to actually change the configuration.
+
+    # The minimum vreplicas allocated to a Kafka source 
+    minScale: "1"
+    # The maximum vreplicas allocated to a Kafka source
+    maxScale: "64"
+    # The frequency Keda checks for lags on users topics 
+    pollingInterval: "1"
+    # The priod of rest between each Kafka lag check by Keda
+    cooldownPeriod: "10"
+    # The minimum kafka lags for Keda to scale the vreplicas of a Kafka source
+    kafkaLagThreshold: "10"
+  minScale: "1"
+  maxScale: "64"
+  pollingInterval: "1"
+  cooldownPeriod: "10"
+  kafkaLagThreshold: "10"
