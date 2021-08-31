@@ -19,8 +19,8 @@ package source
 import (
 	"context"
 	"encoding/json"
-	"time"
 
+	cetypes "github.com/cloudevents/sdk-go/v2/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -62,7 +62,7 @@ const (
 )
 
 var (
-	ts = time.Now()
+	ts, _ = cetypes.ParseTime("2018-04-05T17:31:00Z")
 
 	// All auth configurations
 	auths = map[string]auth{
@@ -202,7 +202,7 @@ var _ = Describe("KafkaSource dataplane", func() {
 							"source":          "https://github.com/cloudevents/spec/pull",
 							"subject":         "123",
 							"id":              "A234-1234-1234",
-							"time":            "2018-04-05T17:31:00Z",
+							"time":            ts,
 							"datacontenttype": "application/json",
 							"data": map[string]string{
 								"hello": "Francesco",
