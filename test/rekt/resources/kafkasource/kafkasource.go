@@ -206,7 +206,7 @@ func WithSASLType(name, key string) manifest.CfgFn {
 	}
 }
 
-// WithSink adds the sink related config to a PingSource spec.
+// WithSink adds the sink related config to a KafkaSource spec.
 func WithSink(ref *duckv1.KReference, uri string) manifest.CfgFn {
 	return func(cfg map[string]interface{}) {
 		if _, set := cfg["sink"]; !set {
@@ -226,6 +226,15 @@ func WithSink(ref *duckv1.KReference, uri string) manifest.CfgFn {
 			sref["kind"] = ref.Kind
 			// skip namespace
 			sref["name"] = ref.Name
+		}
+	}
+}
+
+// WithExtensions set ceoverrides.extensions to a KafkaSource spec.
+func WithExtensions(extensions map[string]string) manifest.CfgFn {
+	return func(cfg map[string]interface{}) {
+		if extensions != nil {
+			cfg["extensions"] = extensions
 		}
 	}
 }

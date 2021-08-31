@@ -76,6 +76,7 @@ type Adapter struct {
 	logger            *zap.SugaredLogger
 	keyTypeMapper     func([]byte) interface{}
 	rateLimiter       *rate.Limiter
+	extensions        map[string]string
 }
 
 var (
@@ -110,6 +111,17 @@ func (a *Adapter) Start(ctx context.Context) (err error) {
 		zap.String("Name", a.config.Name),
 		zap.String("Namespace", a.config.Namespace),
 	)
+
+	// Preprocess ceOverrides
+	if a.config.CEOverrides != "" {
+		ceOverrides, err := a.config.GetCloudEventOverrides()
+		if err != nil {
+			return err
+		}
+		if len(ceOverrides.Extensions) > 0 {
+			a.extensions = ceOverrides.Extensions
+		}
+	}
 
 	// Init control service
 	if !a.config.DisableControlServer {

@@ -90,6 +90,7 @@ func AssureKafkaSourceIsOperational(t *testing.T, scope SourceTestScope) {
 		messageHeaders map[string]string
 		messagePayload string
 		matcherGen     func(cloudEventsSourceName, cloudEventsEventType string) EventMatcher
+		extensions     map[string]string
 	}{
 		"no_event": {
 			messageKey: "0",
@@ -208,6 +209,53 @@ func AssureKafkaSourceIsOperational(t *testing.T, scope SourceTestScope) {
 				)
 			},
 		},
+		"with_extensions": {
+			messageHeaders: map[string]string{
+				"content-type": "application/cloudevents+json",
+			},
+			messagePayload: mustJsonMarshal(t, map[string]interface{}{
+				"specversion": "1.0",
+				"type":        "com.github.pull.create",
+				"source":      "https://github.com/cloudevents/spec/pull",
+				"id":          "A234-1234-1234",
+			}),
+			extensions: map[string]string{
+				"comexampleextension1": "value",
+				"comexampleothervalue": "5",
+			},
+			matcherGen: func(cloudEventsSourceName, cloudEventsEventType string) EventMatcher {
+				return AllOf(
+					HasSpecVersion(cloudevents.VersionV1),
+					HasType("com.github.pull.create"),
+					HasSource("https://github.com/cloudevents/spec/pull"),
+					HasExtension("comexampleextension1", "value"),
+					HasExtension("comexampleothervalue", "5"),
+				)
+			},
+		},
+		"with_overrides": {
+			messageHeaders: map[string]string{
+				"content-type": "application/cloudevents+json",
+			},
+			messagePayload: mustJsonMarshal(t, map[string]interface{}{
+				"specversion": "1.0",
+				"type":        "com.github.pull.create",
+				"source":      "https://github.com/cloudevents/spec/pull",
+				"id":          "A234-1234-1234",
+			}),
+			extensions: map[string]string{
+				"type":                 "my.own.type",
+				"comexampleothervalue": "5",
+			},
+			matcherGen: func(cloudEventsSourceName, cloudEventsEventType string) EventMatcher {
+				return AllOf(
+					HasSpecVersion(cloudevents.VersionV1),
+					HasType("my.own.type"), // TODO: this is wrong (bug in CloudEvent SDK)
+					HasSource("https://github.com/cloudevents/spec/pull"),
+					HasExtension("comexampleothervalue", "5"),
+				)
+			},
+		},
 	}
 	for authName, auth := range auths {
 		for testcase, test := range tests {
@@ -220,7 +268,7 @@ func AssureKafkaSourceIsOperational(t *testing.T, scope SourceTestScope) {
 					continue
 				}
 				t.Run(testName, func(t *testing.T) {
-					testKafkaSource(t, name, version, test.messageKey, test.messageHeaders, test.messagePayload, test.matcherGen, auth.auth)
+					testKafkaSource(t, name, version, test.messageKey, test.messageHeaders, test.messagePayload, test.matcherGen, auth.auth, test.extensions)
 				})
 			}
 		}
@@ -291,7 +339,11 @@ func withAuthEnablementV1Beta1(auth authSetup) contribresources.KafkaSourceV1Bet
 	return func(ks *sourcesv1beta1.KafkaSource) {}
 }
 
-func testKafkaSource(t *testing.T, name string, version string, messageKey string, messageHeaders map[string]string, messagePayload string, matcherGen func(cloudEventsSourceName, cloudEventsEventType string) EventMatcher, auth authSetup) {
+func testKafkaSource(t *testing.T,
+	name string, version string, messageKey string, messageHeaders map[string]string, messagePayload string,
+	matcherGen func(cloudEventsSourceName, cloudEventsEventType string) EventMatcher,
+	auth authSetup, extensions map[string]string) {
+
 	name = fmt.Sprintf("%s-%s", name, version)
 
 	var (
@@ -337,6 +389,7 @@ func testKafkaSource(t *testing.T, name string, version string, messageKey strin
 			contribresources.WithNameV1Beta1(kafkaSourceName),
 			contribresources.WithConsumerGroupV1Beta1(consumerGroup),
 			withAuthEnablementV1Beta1(auth),
+			contribresources.WithExtensionsV1Beta1(extensions),
 		))
 		cloudEventsSourceName = sourcesv1beta1.KafkaEventSource(client.Namespace, kafkaSourceName, kafkaTopicName)
 		cloudEventsEventType = sourcesv1beta1.KafkaEventType

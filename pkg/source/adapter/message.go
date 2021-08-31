@@ -30,7 +30,6 @@ import (
 	"github.com/cloudevents/sdk-go/v2/binding"
 	"github.com/cloudevents/sdk-go/v2/protocol/http"
 	"go.uber.org/zap"
-
 	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 )
 
@@ -46,7 +45,7 @@ func (a *Adapter) ConsumerMessageToHttpRequest(ctx context.Context, cm *sarama.C
 
 	if msg.ReadEncoding() != binding.EncodingUnknown {
 		// Message is a CloudEvent -> Encode directly to HTTP
-		return http.WriteRequest(cloudevents.WithEncodingBinary(ctx), msg, req)
+		return http.WriteRequest(cloudevents.WithEncodingBinary(ctx), msg, req, extensionAsTransformer(a.extensions))
 	}
 
 	a.logger.Debug("Message is not a CloudEvent -> We need to translate it to a valid CloudEvent")
@@ -72,7 +71,7 @@ func (a *Adapter) ConsumerMessageToHttpRequest(ctx context.Context, cm *sarama.C
 		}
 	}
 
-	return http.WriteRequest(ctx, binding.ToMessage(&event), req)
+	return http.WriteRequest(ctx, binding.ToMessage(&event), req, extensionAsTransformer(a.extensions))
 }
 
 func makeEventId(partition int32, offset int64) string {
@@ -160,4 +159,15 @@ func getKeyTypeMapper(keyType string) func([]byte) interface{} {
 		}
 	}
 	return keyTypeMapper
+}
+
+type extensionAsTransformer map[string]string
+
+func (c extensionAsTransformer) Transform(r binding.MessageMetadataReader, w binding.MessageMetadataWriter) error {
+	for k, v := range c {
+		if err := w.SetExtension(k, v); err != nil {
+			return err
+		}
+	}
+	return nil
 }

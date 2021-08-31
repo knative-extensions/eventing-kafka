@@ -18,6 +18,7 @@ package mtadapter
 
 import (
 	"context"
+	"encoding/json"
 	"math"
 	"strconv"
 	"sync"
@@ -173,6 +174,12 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) error {
 
 	if val, ok := obj.GetLabels()[v1beta1.KafkaKeyTypeLabel]; ok {
 		config.KeyType = val
+	}
+
+	if obj.Spec.CloudEventOverrides != nil {
+		// Cannot fail here.
+		ceJson, _ := json.Marshal(obj.Spec.CloudEventOverrides)
+		config.CEOverrides = string(ceJson)
 	}
 
 	reporter, err := source.NewStatsReporter()

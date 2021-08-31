@@ -92,6 +92,14 @@ func WithConsumerGroupV1Beta1(cg string) KafkaSourceV1Beta1Option {
 	}
 }
 
+func WithExtensionsV1Beta1(extensions map[string]string) KafkaSourceV1Beta1Option {
+	return func(source *kafkasourcev1beta1.KafkaSource) {
+		source.Spec.CloudEventOverrides = &duckv1.CloudEventOverrides{
+			Extensions: extensions,
+		}
+	}
+}
+
 func KafkaSourceV1Beta1(bootstrapServer string, topicName string, ref *corev1.ObjectReference, options ...KafkaSourceV1Beta1Option) *kafkasourcev1beta1.KafkaSource {
 	source := &kafkasourcev1beta1.KafkaSource{
 		ObjectMeta: metav1.ObjectMeta{

@@ -86,6 +86,13 @@ spec:
       {{ end }}
     {{ end }}
   {{ end }}
+  {{ if .extensions }}
+  ceOverrides:
+    extensions:
+      {{ range $key, $value := .extensions }}
+      {{ $key }}: "{{ $value }}"
+      {{ end }}
+  {{ end }}
   {{ if .sink }}
   sink:
     {{ if .sink.ref }}

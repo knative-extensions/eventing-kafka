@@ -63,6 +63,7 @@ type delivery struct {
 	auth
 	message         kafkaMessage
 	bootstrapServer string
+	extensions      map[string]string
 	matchers        EventMatcher
 }
 
@@ -263,6 +264,7 @@ func dataPlaneDelivery(name string, data delivery) *feature.Feature {
 	ksopts := []manifest.CfgFn{
 		kafkasource.WithBootstrapServers([]string{data.bootstrapServer}),
 		kafkasource.WithTopics([]string{topicName}),
+		kafkasource.WithExtensions(data.extensions),
 		kafkasource.WithSink(&duckv1.KReference{
 			Kind:       "Service",
 			Name:       sinkName,
