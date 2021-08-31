@@ -100,14 +100,14 @@ var _ = Describe("KafkaSource updates", func() {
 			time.Sleep(10 * time.Second)
 		})
 
-		PIt("should receive produced events when sent to the new topic", func() {
+		It("should receive produced events when sent to the new topic", func() {
 			By("sending an event to the new Kafka topic")
 			helpers.MustPublishKafkaMessage(client, kafkaBootstrapUrlPlain, newTopicName, "", nil, `{"msg":"hello"}`)
 
 			eventStore.AssertExact(1, recordevents.MatchEvent(HasData([]byte(`{"msg":"hello"}`))))
 		})
 
-		PIt("should not receive produced events when sent to the old topic", func() {
+		It("should not receive produced events when sent to the old topic", func() {
 			By("sending an event to the new Kafka topic")
 			helpers.MustPublishKafkaMessage(client, kafkaBootstrapUrlPlain, topicName, "", nil, `{"msg":"hello"}`)
 
