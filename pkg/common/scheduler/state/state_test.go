@@ -385,6 +385,32 @@ func TestStateBuilder(t *testing.T) {
 			schedulerPolicy: scheduler.MAXFILLUP,
 			nodes:           []*v1.Node{tscheduler.MakeNode("node-0", "zone-0"), tscheduler.MakeNode("node-1", "zone-1"), tscheduler.MakeNode("node-2", "zone-2"), tscheduler.MakeNode("node-3", "zone-0"), tscheduler.MakeNode("node-4", "zone-1")},
 		},
+		{
+			name:     "three vpods but one tainted and one wit no zoen label",
+			replicas: int32(1),
+			vpods:    [][]duckv1alpha1.Placement{{{PodName: "statefulset-name-0", VReplicas: 1}}},
+			expected: State{Capacity: 10, FreeCap: []int32{int32(9)}, SchedulablePods: []int32{int32(0)}, LastOrdinal: 0, Replicas: 1, NumNodes: 1, NumZones: 1, SchedulerPolicy: scheduler.MAXFILLUP, SchedPolicy: &scheduler.SchedulerPolicy{}, DeschedPolicy: &scheduler.SchedulerPolicy{}, StatefulSetName: sfsName,
+				NodeToZoneMap: map[string]string{"node-0": "zone-0"},
+				PodSpread: map[types.NamespacedName]map[string]int32{
+					{Name: vpodName + "-0", Namespace: vpodNs + "-0"}: {
+						"statefulset-name-0": 1,
+					},
+				},
+				NodeSpread: map[types.NamespacedName]map[string]int32{
+					{Name: vpodName + "-0", Namespace: vpodNs + "-0"}: {
+						"node-0": 1,
+					},
+				},
+				ZoneSpread: map[types.NamespacedName]map[string]int32{
+					{Name: vpodName + "-0", Namespace: vpodNs + "-0"}: {
+						"zone-0": 1,
+					},
+				},
+			},
+			freec:           int32(9),
+			schedulerPolicy: scheduler.MAXFILLUP,
+			nodes:           []*v1.Node{tscheduler.MakeNode("node-0", "zone-0"), tscheduler.MakeNodeNoLabel("node-1"), tscheduler.MakeNodeTainted("node-2", "zone-2")},
+		},
 	}
 
 	for _, tc := range testCases {

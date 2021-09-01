@@ -54,8 +54,8 @@ type envConfig struct {
 	VReplicaMPS                   int32                         `envconfig:"VREPLICA_LIMITS_MPS" required:"false" default:"-1"`
 	MaxEventPerSecondPerPartition int32                         `envconfig:"MAX_MPS_PER_PARTITION" required:"false" default:"-1"`
 	SchedulerPolicyType           scheduler.SchedulerPolicyType `envconfig:"SCHEDULER_POLICY_TYPE" required:"true"`
-	SchedulerPolicyConfigMap      string                        `envconfig:"CONFIG_SCHEDULER" required:"true"`
-	DeSchedulerPolicyConfigMap    string                        `envconfig:"CONFIG_DESCHEDULER" required:"true"`
+	SchedulerPolicyConfigMap      string                        `envconfig:"SCHEDULER_CONFIG" required:"true"`
+	DeSchedulerPolicyConfigMap    string                        `envconfig:"DESCHEDULER_CONFIG" required:"true"`
 }
 
 func NewController(

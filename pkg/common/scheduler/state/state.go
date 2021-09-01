@@ -188,6 +188,16 @@ func (s *stateBuilder) State(reserved map[types.NamespacedName]map[string]int32)
 	nodeSpread := make(map[types.NamespacedName]map[string]int32)
 	zoneSpread := make(map[types.NamespacedName]map[string]int32)
 
+	noexec := &v1.Taint{
+		Key:    "node.kubernetes.io/unreachable",
+		Effect: v1.TaintEffectNoExecute,
+	}
+
+	nosched := &v1.Taint{
+		Key:    "node.kubernetes.io/unreachable",
+		Effect: v1.TaintEffectNoSchedule,
+	}
+
 	//Build the node to zone map
 	nodes, err := s.nodeLister.List(labels.Everything())
 	if err != nil {
@@ -201,6 +211,12 @@ func (s *stateBuilder) State(reserved map[types.NamespacedName]map[string]int32)
 		if node.Spec.Unschedulable {
 			continue //ignore node that is currently unschedulable
 		}
+
+		taints := node.Spec.Taints
+		if contains(taints, noexec) || contains(taints, nosched) {
+			continue //ignore node that is currently unschedulable
+		}
+
 		zoneName, ok := node.GetLabels()[scheduler.ZoneLabel]
 		if !ok {
 			continue //ignore node that doesn't have zone info (maybe a test setup or control node)
@@ -235,7 +251,9 @@ func (s *stateBuilder) State(reserved map[types.NamespacedName]map[string]int32)
 
 		_, okZone := node.GetLabels()[scheduler.ZoneLabel] //Node has no zone info (maybe zone is down or a control node) - CANNOT SCHEDULE VREPS on a pod running on this node
 
-		if (!ok || !unschedulable) && !node.Spec.Unschedulable && okZone { //Pod has no annotation or not annotated as unschedulable and not on an unschedulable node, so add to feasible
+		taints := node.Spec.Taints
+
+		if (!ok || !unschedulable) && !node.Spec.Unschedulable && okZone && !contains(taints, noexec) && !contains(taints, nosched) { //Pod has no annotation or not annotated as unschedulable and not on an unschedulable node, so add to feasible
 			schedulablePods = append(schedulablePods, podId)
 		}
 	}
@@ -366,4 +384,16 @@ func withReserved(key types.NamespacedName, podName string, committed int32, res
 		}
 	}
 	return committed
+}
+
+func contains(taints []v1.Taint, taint *v1.Taint) bool {
+	if taints != nil {
+		for _, v := range taints {
+			if v.MatchTaint(taint) {
+				return true
+			}
+		}
+	}
+
+	return false
 }

@@ -94,6 +94,24 @@ func MakeNodeNoLabel(name string) *v1.Node {
 	return obj
 }
 
+func MakeNodeTainted(name, zonename string) *v1.Node {
+	obj := &v1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+			Labels: map[string]string{
+				scheduler.ZoneLabel: zonename,
+			},
+		},
+		Spec: v1.NodeSpec{
+			Taints: []v1.Taint{
+				{Key: "node.kubernetes.io/unreachable", Effect: v1.TaintEffectNoExecute},
+				{Key: "node.kubernetes.io/unreachable", Effect: v1.TaintEffectNoSchedule},
+			},
+		},
+	}
+	return obj
+}
+
 func MakeStatefulset(ns, name string, replicas int32) *appsv1.StatefulSet {
 	obj := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
