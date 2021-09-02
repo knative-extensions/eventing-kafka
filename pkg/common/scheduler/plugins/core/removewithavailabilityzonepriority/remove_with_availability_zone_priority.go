@@ -53,7 +53,7 @@ func (pl *RemoveWithAvailabilityZonePriority) Name() string {
 }
 
 // Score invoked at the score extension point. The "score" returned in this function is higher for zones that create an even spread across zones.
-func (pl *RemoveWithAvailabilityZonePriority) Score(ctx context.Context, args interface{}, states *state.State, key types.NamespacedName, podID int32) (uint64, *state.Status) {
+func (pl *RemoveWithAvailabilityZonePriority) Score(ctx context.Context, args interface{}, states *state.State, feasiblePods []int32, key types.NamespacedName, podID int32) (uint64, *state.Status) {
 	logger := logging.FromContext(ctx).With("Score", pl.Name())
 	var score uint64 = 0
 

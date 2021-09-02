@@ -216,7 +216,7 @@ func TestScore(t *testing.T) {
 			tc.state.PodLister = lsp.GetPodLister().Pods(testNs)
 			tc.state.NodeToZoneMap = nodeToZoneMap
 
-			score, status := plugin.Score(ctx, tc.args, tc.state, tc.vpod, tc.podID)
+			score, status := plugin.Score(ctx, tc.args, tc.state, tc.state.SchedulablePods, tc.vpod, tc.podID)
 			if score != tc.expScore {
 				t.Errorf("unexpected score, got %v, want %v", score, tc.expScore)
 			}

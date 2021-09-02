@@ -102,7 +102,7 @@ func TestScore(t *testing.T) {
 			name := plugin.Name()
 			assert.Equal(t, name, state.LowestOrdinalPriority)
 
-			score, status := plugin.Score(ctx, args, tc.state, types.NamespacedName{}, tc.podID)
+			score, status := plugin.Score(ctx, args, tc.state, tc.state.SchedulablePods, types.NamespacedName{}, tc.podID)
 			if score != tc.expScore {
 				t.Errorf("unexpected score, got %v, want %v", score, tc.expScore)
 			}

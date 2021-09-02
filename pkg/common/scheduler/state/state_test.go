@@ -189,7 +189,7 @@ func TestStateBuilder(t *testing.T) {
 					},
 				},
 			},
-			freec:           int32(24),
+			freec:           int32(34),
 			schedulerPolicy: scheduler.MAXFILLUP,
 			nodes:           []*v1.Node{tscheduler.MakeNode("node-0", "zone-0"), tscheduler.MakeNode("node-1", "zone-1"), tscheduler.MakeNode("node-2", "zone-2"), tscheduler.MakeNode("node-3", "zone-0")},
 		},
@@ -243,7 +243,7 @@ func TestStateBuilder(t *testing.T) {
 					},
 				},
 			},
-			freec: int32(18),
+			freec: int32(28),
 			reserved: map[types.NamespacedName]map[string]int32{
 				{Name: vpodName + "-0", Namespace: vpodNs + "-0"}: {
 					"statefulset-name-0": 2,
@@ -306,7 +306,7 @@ func TestStateBuilder(t *testing.T) {
 					},
 				},
 			},
-			freec: int32(31),
+			freec: int32(26),
 			reserved: map[types.NamespacedName]map[string]int32{
 				{Name: "vpod-name-3", Namespace: "vpod-ns-3"}: {
 					"statefulset-name-4": 5,

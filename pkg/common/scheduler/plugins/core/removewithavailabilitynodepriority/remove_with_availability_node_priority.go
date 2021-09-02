@@ -53,7 +53,7 @@ func (pl *RemoveWithAvailabilityNodePriority) Name() string {
 }
 
 // Score invoked at the score extension point. The "score" returned in this function is higher for nodes that create an even spread across nodes.
-func (pl *RemoveWithAvailabilityNodePriority) Score(ctx context.Context, args interface{}, states *state.State, key types.NamespacedName, podID int32) (uint64, *state.Status) {
+func (pl *RemoveWithAvailabilityNodePriority) Score(ctx context.Context, args interface{}, states *state.State, feasiblePods []int32, key types.NamespacedName, podID int32) (uint64, *state.Status) {
 	logger := logging.FromContext(ctx).With("Score", pl.Name())
 	var score uint64 = 0
 

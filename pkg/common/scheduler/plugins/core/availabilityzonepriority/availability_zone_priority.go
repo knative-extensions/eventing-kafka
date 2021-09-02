@@ -39,8 +39,9 @@ var _ state.ScorePlugin = &AvailabilityZonePriority{}
 const Name = state.AvailabilityZonePriority
 
 const (
-	ErrReasonInvalidArg = "invalid arguments"
-	ErrReasonNoResource = "zone does not exist"
+	ErrReasonInvalidArg    = "invalid arguments"
+	ErrReasonNoResource    = "zone does not exist"
+	ErrReasonNotEnoughPods = "pods not enough to satisfy zone availability"
 )
 
 func init() {
@@ -53,7 +54,7 @@ func (pl *AvailabilityZonePriority) Name() string {
 }
 
 // Score invoked at the score extension point. The "score" returned in this function is higher for zones that create an even spread across zones.
-func (pl *AvailabilityZonePriority) Score(ctx context.Context, args interface{}, states *state.State, key types.NamespacedName, podID int32) (uint64, *state.Status) {
+func (pl *AvailabilityZonePriority) Score(ctx context.Context, args interface{}, states *state.State, feasiblePods []int32, key types.NamespacedName, podID int32) (uint64, *state.Status) {
 	logger := logging.FromContext(ctx).With("Score", pl.Name())
 	var score uint64 = 0
 
@@ -75,6 +76,11 @@ func (pl *AvailabilityZonePriority) Score(ctx context.Context, args interface{},
 		zoneMap := make(map[string]struct{})
 		for _, zoneName := range states.NodeToZoneMap {
 			zoneMap[zoneName] = struct{}{}
+		}
+
+		//Need to check if there is at least one pod in every zone to satisfy HA
+		if !state.SatisfyZoneAvailability(feasiblePods, states) {
+			return 0, state.NewStatus(state.Unschedulable, ErrReasonNotEnoughPods)
 		}
 
 		zoneName, _, err := states.GetPodInfo(state.PodNameFromOrdinal(states.StatefulSetName, podID))

@@ -182,7 +182,7 @@ func TestFilter(t *testing.T) {
 			}
 
 			if !tc.onlyFilter {
-				score, status := plugin.Score(ctx, tc.args, tc.state, tc.vpod, tc.podID)
+				score, status := plugin.Score(ctx, tc.args, tc.state, tc.state.SchedulablePods, tc.vpod, tc.podID)
 				if !reflect.DeepEqual(status, tc.expected) {
 					t.Errorf("unexpected state, got %v, want %v", status, tc.expected)
 				}

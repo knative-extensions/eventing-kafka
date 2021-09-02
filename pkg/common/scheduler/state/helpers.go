@@ -54,3 +54,45 @@ func GetVPod(key types.NamespacedName, vpods []scheduler.VPod) scheduler.VPod {
 	}
 	return nil
 }
+
+func SatisfyZoneAvailability(feasiblePods []int32, states *State) bool {
+	zoneMap := make(map[string]struct{})
+	var zoneName string
+	var err error
+	for _, podID := range feasiblePods {
+		Retry(func() error {
+			zoneName, _, err = states.GetPodInfo(PodNameFromOrdinal(states.StatefulSetName, podID))
+			if err != nil {
+				// This error will result in a retry
+				return err
+			}
+			return nil
+		})
+		zoneMap[zoneName] = struct{}{}
+	}
+	if len(zoneMap) == int(states.NumZones) {
+		return true
+	}
+	return false
+}
+
+func SatisfyNodeAvailability(feasiblePods []int32, states *State) bool {
+	nodeMap := make(map[string]struct{})
+	var nodeName string
+	var err error
+	for _, podID := range feasiblePods {
+		Retry(func() error {
+			_, nodeName, err = states.GetPodInfo(PodNameFromOrdinal(states.StatefulSetName, podID))
+			if err != nil {
+				// This error will result in a retry
+				return err
+			}
+			return nil
+		})
+		nodeMap[nodeName] = struct{}{}
+	}
+	if len(nodeMap) == int(states.NumNodes) {
+		return true
+	}
+	return false
+}

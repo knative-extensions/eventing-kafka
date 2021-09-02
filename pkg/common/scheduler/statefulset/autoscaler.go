@@ -19,6 +19,7 @@ package statefulset
 import (
 	"context"
 	"math"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -39,7 +40,7 @@ type Autoscaler interface {
 
 	// Autoscale is used to immediately trigger the autoscaler with the hint
 	// that pending number of vreplicas couldn't be scheduled.
-	Autoscale(pending int32)
+	Autoscale(ctx context.Context, attemptScaleDown bool, pending int32)
 }
 
 type autoscaler struct {
@@ -56,7 +57,7 @@ type autoscaler struct {
 
 	// refreshPeriod is how often the autoscaler tries to scale down the statefulset
 	refreshPeriod time.Duration
-	done          chan bool
+	lock          sync.Locker
 }
 
 func NewAutoscaler(ctx context.Context,
@@ -77,7 +78,7 @@ func NewAutoscaler(ctx context.Context,
 		trigger:           make(chan int32, 1),
 		capacity:          capacity,
 		refreshPeriod:     refreshPeriod,
-		done:              make(chan bool),
+		lock:              new(sync.Mutex),
 	}
 }
 
@@ -96,18 +97,24 @@ func (a *autoscaler) Start(ctx context.Context) {
 
 		// Retry a few times, just so that we don't have to wait for the next beat when
 		// a transient error occurs
-		wait.Poll(500*time.Millisecond, 5*time.Second, func() (bool, error) {
-			err := a.doautoscale(ctx, attemptScaleDown, pending)
-			return err == nil, nil
-		})
-		a.done <- true
+		a.syncAutoscale(ctx, attemptScaleDown, pending)
 		pending = int32(0)
 	}
 }
 
-func (a *autoscaler) Autoscale(pending int32) {
+func (a *autoscaler) Autoscale(ctx context.Context, attemptScaleDown bool, pending int32) {
 	a.trigger <- pending
-	<-a.done //TODO: Right place to receive?
+	a.syncAutoscale(ctx, attemptScaleDown, pending)
+}
+
+func (a *autoscaler) syncAutoscale(ctx context.Context, attemptScaleDown bool, pending int32) {
+	a.lock.Lock()
+	defer a.lock.Unlock()
+
+	wait.Poll(500*time.Millisecond, 5*time.Second, func() (bool, error) {
+		err := a.doautoscale(ctx, attemptScaleDown, pending)
+		return err == nil, nil
+	})
 }
 
 func (a *autoscaler) doautoscale(ctx context.Context, attemptScaleDown bool, pending int32) error {
@@ -180,8 +187,8 @@ func (a *autoscaler) doautoscale(ctx context.Context, attemptScaleDown bool, pen
 }
 
 func (a *autoscaler) mayCompact(s *st.State, scaleUpFactor int32) {
-	// when there is only one pod there is nothing to move!
-	if s.LastOrdinal < 1 {
+	// when there is only one pod there is nothing to move or number of pods is just enough!
+	if s.LastOrdinal < 1 || len(s.SchedulablePods) <= int(scaleUpFactor) {
 		return
 	}
 
@@ -201,6 +208,7 @@ func (a *autoscaler) mayCompact(s *st.State, scaleUpFactor int32) {
 		// only do 1 replica at a time to avoid overloading the scheduler with too many
 		// rescheduling requests.
 	} else if s.SchedPolicy != nil {
+		//Below calculation can be optimized to work for recovery scenarios when nodes/zones are lost due to failure
 		freeCapacity := s.FreeCapacity()
 		usedInLastXPods := s.Capacity * scaleUpFactor
 		for i := int32(0); i < scaleUpFactor && s.LastOrdinal-i >= 0; i++ {
@@ -208,7 +216,8 @@ func (a *autoscaler) mayCompact(s *st.State, scaleUpFactor int32) {
 			usedInLastXPods = usedInLastXPods - s.Free(s.LastOrdinal-i)
 		}
 
-		if freeCapacity >= usedInLastXPods {
+		if (freeCapacity >= usedInLastXPods) && //remaining pods can hold all vreps from evicted pods
+			(s.Replicas-scaleUpFactor >= scaleUpFactor) { //remaining # of pods is enough for HA scaling
 			err := a.compact(s, scaleUpFactor)
 			if err != nil {
 				a.logger.Errorw("vreplicas compaction failed", zap.Error(err))

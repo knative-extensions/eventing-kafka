@@ -258,7 +258,7 @@ func (s *StatefulSetScheduler) scheduleVPod(vpod scheduler.VPod) ([]duckv1alpha1
 
 		// Trigger the autoscaler
 		if s.autoscaler != nil {
-			s.autoscaler.Autoscale(s.pendingVReplicas())
+			s.autoscaler.Autoscale(s.ctx, false, s.pendingVReplicas())
 
 			/* 			if state.SchedPolicy != nil {
 				delete(s.pending, vpod.GetKey()) //rebalancing doesn't care about pending since all vreps will be re-placed
@@ -396,7 +396,7 @@ func (s *StatefulSetScheduler) addReplicasWithPolicy(vpod scheduler.VPod, diff i
 			break
 		}
 
-		if len(feasiblePods) == 1 { //nothing to score, place vrep on that pod
+		/* 	if len(feasiblePods) == 1 { //nothing to score, place vrep on that pod (Update: for HA, must run HA scorers)
 			placementPodID := feasiblePods[0]
 			logger.Infof("Selected pod #%v for vreplica #%v ", placementPodID, i)
 			placements = s.addSelectionToPlacements(placementPodID, placements)
@@ -404,7 +404,7 @@ func (s *StatefulSetScheduler) addReplicasWithPolicy(vpod scheduler.VPod, diff i
 			s.reservePlacements(vpod, placements)
 			diff--
 			continue
-		}
+		} */
 
 		priorityList, err := s.prioritizePods(s.ctx, state, vpod, feasiblePods, state.SchedPolicy)
 		if err != nil {
@@ -586,7 +586,7 @@ func (s *StatefulSetScheduler) RunScorePlugins(ctx context.Context, states *st.S
 		//logger.Infof("Going to run score plugin: %s using state: %v ", pl.Name(), states)
 		pluginToPodScores[pl.Name()] = make(st.PodScoreList, len(feasiblePods))
 		for index, podID := range feasiblePods {
-			score, pluginStatus := s.runScorePlugin(ctx, pl, plugin.Args, states, vpod, podID)
+			score, pluginStatus := s.runScorePlugin(ctx, pl, plugin.Args, states, feasiblePods, vpod, podID)
 			if !pluginStatus.IsSuccess() {
 				errStatus := st.NewStatus(st.Error, fmt.Sprintf("running %q scoring plugin for pod %q failed with: %v", pl.Name(), podID, pluginStatus.AsError()))
 				return pluginToPodScores, errStatus //TODO: if one plugin fails, then no more plugins are run
@@ -610,8 +610,8 @@ func (s *StatefulSetScheduler) RunScorePlugins(ctx context.Context, states *st.S
 	return pluginToPodScores, st.NewStatus(st.Success)
 }
 
-func (s *StatefulSetScheduler) runScorePlugin(ctx context.Context, pl st.ScorePlugin, args interface{}, states *st.State, vpod scheduler.VPod, podID int32) (uint64, *st.Status) {
-	score, status := pl.Score(ctx, args, states, vpod.GetKey(), podID)
+func (s *StatefulSetScheduler) runScorePlugin(ctx context.Context, pl st.ScorePlugin, args interface{}, states *st.State, feasiblePods []int32, vpod scheduler.VPod, podID int32) (uint64, *st.Status) {
+	score, status := pl.Score(ctx, args, states, feasiblePods, vpod.GetKey(), podID)
 	return score, status
 }
 

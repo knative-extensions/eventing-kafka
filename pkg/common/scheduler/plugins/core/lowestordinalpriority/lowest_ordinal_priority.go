@@ -45,7 +45,7 @@ func (pl *LowestOrdinalPriority) Name() string {
 }
 
 // Score invoked at the score extension point. The "score" returned in this function is higher for pods with lower ordinal values.
-func (pl *LowestOrdinalPriority) Score(ctx context.Context, args interface{}, states *state.State, key types.NamespacedName, podID int32) (uint64, *state.Status) {
+func (pl *LowestOrdinalPriority) Score(ctx context.Context, args interface{}, states *state.State, feasiblePods []int32, key types.NamespacedName, podID int32) (uint64, *state.Status) {
 	score := math.MaxUint64 - uint64(podID) //lower ordinals get higher score
 	return score, state.NewStatus(state.Success)
 }

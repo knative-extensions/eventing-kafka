@@ -112,7 +112,7 @@ func (s *State) SetFree(ordinal int32, value int32) {
 // up to the last ordinal
 func (s *State) FreeCapacity() int32 {
 	t := int32(0)
-	for i := int32(0); i <= s.LastOrdinal; i++ {
+	for _, i := range s.SchedulablePods {
 		t += s.FreeCap[i]
 	}
 	return t

@@ -427,8 +427,10 @@ func TestAutoscalerScaleDownToZero(t *testing.T) {
 
 	autoscaler := NewAutoscaler(ctx, testNs, sfsName, vpodClient.List, stateAccessor, noopEvictor, 2*time.Second, int32(10)).(*autoscaler)
 
+	done := make(chan bool)
 	go func() {
 		autoscaler.Start(ctx)
+		done <- true
 	}()
 
 	select {
@@ -449,7 +451,7 @@ func TestAutoscalerScaleDownToZero(t *testing.T) {
 	cancel()
 
 	select {
-	case <-autoscaler.done:
+	case <-done:
 	case <-time.After(1 * time.Second):
 		t.Fatal("timeout waiting for autoscaler to stop")
 	}

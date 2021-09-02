@@ -39,8 +39,9 @@ var _ state.ScorePlugin = &AvailabilityNodePriority{}
 const Name = state.AvailabilityNodePriority
 
 const (
-	ErrReasonInvalidArg = "invalid arguments"
-	ErrReasonNoResource = "node does not exist"
+	ErrReasonInvalidArg    = "invalid arguments"
+	ErrReasonNoResource    = "node does not exist"
+	ErrReasonNotEnoughPods = "pods not enough to satisfy node availability"
 )
 
 func init() {
@@ -53,7 +54,7 @@ func (pl *AvailabilityNodePriority) Name() string {
 }
 
 // Score invoked at the score extension point. The "score" returned in this function is higher for nodes that create an even spread across nodes.
-func (pl *AvailabilityNodePriority) Score(ctx context.Context, args interface{}, states *state.State, key types.NamespacedName, podID int32) (uint64, *state.Status) {
+func (pl *AvailabilityNodePriority) Score(ctx context.Context, args interface{}, states *state.State, feasiblePods []int32, key types.NamespacedName, podID int32) (uint64, *state.Status) {
 	logger := logging.FromContext(ctx).With("Score", pl.Name())
 	var score uint64 = 0
 
@@ -72,6 +73,12 @@ func (pl *AvailabilityNodePriority) Score(ctx context.Context, args interface{},
 
 	if states.Replicas > 0 { //need atleast a pod to compute spread
 		var skew int32
+
+		//Need to check if there is at least one pod in every node to satisfy HA
+		if !state.SatisfyNodeAvailability(feasiblePods, states) {
+			return 0, state.NewStatus(state.Unschedulable, ErrReasonNotEnoughPods)
+		}
+
 		_, nodeName, err := states.GetPodInfo(state.PodNameFromOrdinal(states.StatefulSetName, podID))
 		if err != nil {
 			return score, state.NewStatus(state.Error, ErrReasonNoResource)
