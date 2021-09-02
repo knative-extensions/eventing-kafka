@@ -72,7 +72,7 @@ func LoadSettings(ctx context.Context, clientId string, configMap map[string]str
 		return nil, fmt.Errorf("attempted to merge sarama settings with empty configmap")
 	}
 
-	ekConfig, err := loadEventingKafkaSettings(configMap)
+	ekConfig, err := LoadEventingKafkaSettings(configMap)
 	if err != nil {
 		return nil, err
 	}
@@ -173,7 +173,7 @@ func upgradeConfig(data map[string]string) *commonconfig.EventingKafkaConfig {
 	}
 }
 
-func loadEventingKafkaSettings(configMap map[string]string) (*commonconfig.EventingKafkaConfig, error) {
+func LoadEventingKafkaSettings(configMap map[string]string) (*commonconfig.EventingKafkaConfig, error) {
 	eventingKafkaConfig := upgradeConfig(configMap)
 	if eventingKafkaConfig == nil {
 		// Upgrade didn't produce an EventingKafkaConfig, so assume it is the current version
