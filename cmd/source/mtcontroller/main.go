@@ -20,21 +20,16 @@ import (
 	"context"
 	"os"
 
-	"knative.dev/eventing-kafka/pkg/apis/bindings"
-	"knative.dev/eventing-kafka/pkg/apis/sources"
 	"knative.dev/pkg/webhook/resourcesemantics/conversion"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	bindingsv1beta1 "knative.dev/eventing-kafka/pkg/apis/bindings/v1beta1"
-	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
-
-	"knative.dev/eventing-kafka/pkg/source/reconciler/binding"
 	source "knative.dev/eventing-kafka/pkg/source/reconciler/mtsource"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
+	"knative.dev/pkg/logging"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/webhook"
 	"knative.dev/pkg/webhook/certificates"
@@ -42,6 +37,14 @@ import (
 	"knative.dev/pkg/webhook/resourcesemantics"
 	"knative.dev/pkg/webhook/resourcesemantics/defaulting"
 	"knative.dev/pkg/webhook/resourcesemantics/validation"
+
+	"knative.dev/eventing-kafka/pkg/apis/bindings"
+	bindingsv1beta1 "knative.dev/eventing-kafka/pkg/apis/bindings/v1beta1"
+	"knative.dev/eventing-kafka/pkg/apis/sources"
+	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
+	"knative.dev/eventing-kafka/pkg/source/reconciler/binding"
+
+	kafkasourcedefaultconfig "knative.dev/eventing-kafka/pkg/apis/sources/config"
 )
 
 const (
@@ -57,6 +60,15 @@ var types = map[schema.GroupVersionKind]resourcesemantics.GenericCRD{
 var callbacks = map[schema.GroupVersionKind]validation.Callback{}
 
 func NewDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
+	// Decorate contexts with the current state of the config.
+	kafkaStore := kafkasourcedefaultconfig.NewStore(logging.FromContext(ctx).Named("kafka-source-config-store"))
+	kafkaStore.WatchConfigs(cmw)
+
+	// Decorate contexts with the current state of the config.
+	ctxFunc := func(ctx context.Context) context.Context {
+		return kafkaStore.ToContext(ctx)
+	}
+
 	return defaulting.NewAdmissionController(ctx,
 
 		// Name of the resource webhook.
@@ -69,11 +81,7 @@ func NewDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher
 		types,
 
 		// A function that infuses the context passed to Validate/SetDefaults with custom metadata.
-		func(ctx context.Context) context.Context {
-			// Here is where you would infuse the context with state
-			// (e.g. attach a store with configmap data)
-			return ctx
-		},
+		ctxFunc,
 
 		// Whether to disallow unknown fields.
 		true,
@@ -92,6 +100,7 @@ func NewValidationAdmissionController(ctx context.Context, cmw configmap.Watcher
 		// The resources to validate.
 		types,
 
+		// A function that infuses the context passed to Validate/SetDefaults with custom metadata.
 		// A function that infuses the context passed to Validate/SetDefaults with custom metadata.
 		func(ctx context.Context) context.Context {
 			// Here is where you would infuse the context with state
