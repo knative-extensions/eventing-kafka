@@ -47,9 +47,11 @@ import (
 )
 
 type envConfig struct {
-	SchedulerRefreshPeriod int64                            `envconfig:"AUTOSCALER_REFRESH_PERIOD" required:"true"`
-	PodCapacity            int32                            `envconfig:"POD_CAPACITY" required:"true"`
-	SchedulerPolicy        stsscheduler.SchedulerPolicyType `envconfig:"SCHEDULER_POLICY_TYPE" required:"true"`
+	SchedulerRefreshPeriod        int64                            `envconfig:"AUTOSCALER_REFRESH_PERIOD" required:"true"`
+	PodCapacity                   int32                            `envconfig:"POD_CAPACITY" required:"true"`
+	VReplicaMPS                   int32                            `envconfig:"VREPLICA_LIMITS_MPS" required:"false" default:"-1"`
+	MaxEventPerSecondPerPartition int32                            `envconfig:"MAX_MPS_PER_PARTITION" required:"false" default:"-1"`
+	SchedulerPolicy               stsscheduler.SchedulerPolicyType `envconfig:"SCHEDULER_POLICY_TYPE" required:"true"`
 }
 
 func NewController(
@@ -67,10 +69,12 @@ func NewController(
 	nodeInformer := nodeinformer.Get(ctx)
 
 	c := &Reconciler{
-		KubeClientSet:  kubeclient.Get(ctx),
-		kafkaClientSet: kafkaclient.Get(ctx),
-		kafkaLister:    kafkaInformer.Lister(),
-		configs:        source.WatchConfigurations(ctx, component, cmw),
+		KubeClientSet:                 kubeclient.Get(ctx),
+		kafkaClientSet:                kafkaclient.Get(ctx),
+		kafkaLister:                   kafkaInformer.Lister(),
+		configs:                       source.WatchConfigurations(ctx, component, cmw),
+		VReplicaMPS:                   env.VReplicaMPS,
+		MaxEventPerSecondPerPartition: env.MaxEventPerSecondPerPartition,
 	}
 
 	impl := kafkasource.NewImpl(ctx, c)
