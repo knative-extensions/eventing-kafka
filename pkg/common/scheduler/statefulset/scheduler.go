@@ -18,8 +18,8 @@ package statefulset
 
 import (
 	"context"
-	"errors"
-	"math"
+	"fmt"
+	"math/rand"
 	"sort"
 	"sync"
 	"time"
@@ -39,20 +39,20 @@ import (
 
 	duckv1alpha1 "knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
 	"knative.dev/eventing-kafka/pkg/common/scheduler"
+	"knative.dev/eventing-kafka/pkg/common/scheduler/factory"
+	st "knative.dev/eventing-kafka/pkg/common/scheduler/state"
 	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
-)
 
-type SchedulerPolicyType string
-
-const (
-	// MAXFILLUP policy type adds replicas to existing pods to fill them up before adding to new pods
-	MAXFILLUP SchedulerPolicyType = "MAXFILLUP"
-	// EVENSPREAD policy type spreads replicas uniformly across failure-domains such as regions, zones, nodes, etc
-	EVENSPREAD = "EVENSPREAD"
-)
-
-const (
-	ZoneLabel = "topology.kubernetes.io/zone"
+	_ "knative.dev/eventing-kafka/pkg/common/scheduler/plugins/core/availabilitynodepriority"
+	_ "knative.dev/eventing-kafka/pkg/common/scheduler/plugins/core/availabilityzonepriority"
+	_ "knative.dev/eventing-kafka/pkg/common/scheduler/plugins/core/evenpodspread"
+	_ "knative.dev/eventing-kafka/pkg/common/scheduler/plugins/core/lowestordinalpriority"
+	_ "knative.dev/eventing-kafka/pkg/common/scheduler/plugins/core/podfitsresources"
+	_ "knative.dev/eventing-kafka/pkg/common/scheduler/plugins/core/removewithavailabilitynodepriority"
+	_ "knative.dev/eventing-kafka/pkg/common/scheduler/plugins/core/removewithavailabilityzonepriority"
+	_ "knative.dev/eventing-kafka/pkg/common/scheduler/plugins/core/removewithevenpodspreadpriority"
+	_ "knative.dev/eventing-kafka/pkg/common/scheduler/plugins/core/removewithhighestordinalpriority"
+	_ "knative.dev/eventing-kafka/pkg/common/scheduler/plugins/kafka/nomaxresourcecount"
 )
 
 // NewScheduler creates a new scheduler with pod autoscaling enabled.
@@ -61,14 +61,17 @@ func NewScheduler(ctx context.Context,
 	lister scheduler.VPodLister,
 	refreshPeriod time.Duration,
 	capacity int32,
-	schedulerPolicy SchedulerPolicyType,
+	schedulerPolicy scheduler.SchedulerPolicyType,
 	nodeLister corev1listers.NodeLister,
-	evictor scheduler.Evictor) scheduler.Scheduler {
+	evictor scheduler.Evictor,
+	schedPolicy *scheduler.SchedulerPolicy,
+	deschedPolicy *scheduler.SchedulerPolicy) scheduler.Scheduler {
 
-	stateAccessor := newStateBuilder(ctx, lister, capacity, schedulerPolicy, nodeLister)
-	autoscaler := NewAutoscaler(ctx, namespace, name, lister, stateAccessor, evictor, refreshPeriod, capacity)
 	podInformer := podinformer.Get(ctx)
 	podLister := podInformer.Lister().Pods(namespace)
+
+	stateAccessor := st.NewStateBuilder(ctx, namespace, name, lister, capacity, schedulerPolicy, schedPolicy, deschedPolicy, podLister, nodeLister)
+	autoscaler := NewAutoscaler(ctx, namespace, name, lister, stateAccessor, evictor, refreshPeriod, capacity)
 
 	go autoscaler.Start(ctx)
 
@@ -77,13 +80,14 @@ func NewScheduler(ctx context.Context,
 
 // StatefulSetScheduler is a scheduler placing VPod into statefulset-managed set of pods
 type StatefulSetScheduler struct {
+	ctx               context.Context
 	logger            *zap.SugaredLogger
 	statefulSetName   string
 	statefulSetClient clientappsv1.StatefulSetInterface
 	podLister         corev1listers.PodNamespaceLister
 	vpodLister        scheduler.VPodLister
 	lock              sync.Locker
-	stateAccessor     stateAccessor
+	stateAccessor     st.StateAccessor
 	autoscaler        Autoscaler
 
 	// replicas is the (cached) number of statefulset replicas.
@@ -102,10 +106,11 @@ type StatefulSetScheduler struct {
 func NewStatefulSetScheduler(ctx context.Context,
 	namespace, name string,
 	lister scheduler.VPodLister,
-	stateAccessor stateAccessor,
+	stateAccessor st.StateAccessor,
 	autoscaler Autoscaler, podlister corev1listers.PodNamespaceLister) scheduler.Scheduler {
 
 	scheduler := &StatefulSetScheduler{
+		ctx:               ctx,
 		logger:            logging.FromContext(ctx),
 		statefulSetName:   name,
 		statefulSetClient: kubeclient.Get(ctx).AppsV1().StatefulSets(namespace),
@@ -132,13 +137,22 @@ func (s *StatefulSetScheduler) Schedule(vpod scheduler.VPod) ([]duckv1alpha1.Pla
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
+	vpods, err := s.vpodLister()
+	if err != nil {
+		return nil, err
+	}
+	vpodFromLister := st.GetVPod(vpod.GetKey(), vpods)
+	if vpod.GetResourceVersion() != vpodFromLister.GetResourceVersion() {
+		return nil, fmt.Errorf("vpod to schedule has resource version different from one in indexer")
+	}
+
 	placements, err := s.scheduleVPod(vpod)
 	if placements == nil {
 		return placements, err
 	}
 
 	sort.SliceStable(placements, func(i int, j int) bool {
-		return ordinalFromPodName(placements[i].PodName) < ordinalFromPodName(placements[j].PodName)
+		return st.OrdinalFromPodName(placements[i].PodName) < st.OrdinalFromPodName(placements[j].PodName)
 	})
 
 	// Reserve new placements until they are committed to the vpod.
@@ -160,16 +174,12 @@ func (s *StatefulSetScheduler) scheduleVPod(vpod scheduler.VPod) ([]duckv1alpha1
 	}
 
 	placements := vpod.GetPlacements()
-	var spreadVal, left int32
+	var left int32
 
 	// The scheduler when policy type is
 	// Policy: MAXFILLUP (SchedulerPolicyType == MAXFILLUP)
 	// - allocates as many vreplicas as possible to the same pod(s)
 	// - allocates remaining vreplicas to new pods
-	// Policy: EVENSPREAD (SchedulerPolicyType == EVENSPREAD)
-	// - divides up vreplicas equally between the zones and
-	// - allocates as many vreplicas as possible to existing pods while not going over the equal spread value
-	// - allocates remaining vreplicas to new pods created in new zones still satisfying equal spread
 
 	// Exact number of vreplicas => do nothing
 	tr := scheduler.GetTotalVReplicas(placements)
@@ -181,32 +191,42 @@ func (s *StatefulSetScheduler) scheduleVPod(vpod scheduler.VPod) ([]duckv1alpha1
 		return placements, nil
 	}
 
-	// Need less => scale down
-	if tr > vpod.GetVReplicas() {
-		logger.Infow("scaling down", zap.Int32("vreplicas", tr), zap.Int32("new vreplicas", vpod.GetVReplicas()))
-		if state.schedulerPolicy == EVENSPREAD {
-			//spreadVal is the minimum number of replicas to be left behind in each zone for high availability
-			spreadVal = int32(math.Floor(float64(vpod.GetVReplicas()) / float64(state.numZones)))
-			logger.Infow("number of replicas per zone", zap.Int32("spreadVal", spreadVal))
-			placements = s.removeReplicasEvenSpread(tr-vpod.GetVReplicas(), placements, spreadVal)
-		} else {
+	if state.SchedulerPolicy != "" {
+		// Need less => scale down
+		if tr > vpod.GetVReplicas() {
+			logger.Infow("scaling down", zap.Int32("vreplicas", tr), zap.Int32("new vreplicas", vpod.GetVReplicas()))
+
 			placements = s.removeReplicas(tr-vpod.GetVReplicas(), placements)
+
+			// Do not trigger the autoscaler to avoid unnecessary churn
+
+			return placements, nil
 		}
 
-		// Do not trigger the autoscaler to avoid unnecessary churn
+		// Need more => scale up
+		logger.Infow("scaling up", zap.Int32("vreplicas", tr), zap.Int32("new vreplicas", vpod.GetVReplicas()))
 
-		return placements, nil
-	}
-
-	// Need more => scale up
-	logger.Infow("scaling up", zap.Int32("vreplicas", tr), zap.Int32("new vreplicas", vpod.GetVReplicas()))
-	if state.schedulerPolicy == EVENSPREAD {
-		//spreadVal is the maximum number of replicas to be placed in each zone for high availability
-		spreadVal = int32(math.Ceil(float64(vpod.GetVReplicas()) / float64(state.numZones)))
-		logger.Infow("number of replicas per zone", zap.Int32("spreadVal", spreadVal))
-		placements, left = s.addReplicasEvenSpread(state, vpod.GetVReplicas()-tr, placements, spreadVal)
-	} else {
 		placements, left = s.addReplicas(state, vpod.GetVReplicas()-tr, placements)
+
+	} else { //Predicates and priorities must be used for scheduling
+		// Need less => scale down
+		if tr > vpod.GetVReplicas() && state.DeschedPolicy != nil {
+			logger.Infow("scaling down", zap.Int32("vreplicas", tr), zap.Int32("new vreplicas", vpod.GetVReplicas()))
+			placements = s.removeReplicasWithPolicy(vpod, tr-vpod.GetVReplicas(), placements)
+
+			// Do not trigger the autoscaler to avoid unnecessary churn
+
+			return placements, nil
+		}
+
+		if state.SchedPolicy != nil {
+
+			// Need more => scale up
+			// rebalancing needed for all vreps most likely since there are pending vreps from previous reconciliation
+			// can fall here when vreps scaled up or after eviction
+			logger.Infow("scaling up with a rebalance (if needed)", zap.Int32("vreplicas", tr), zap.Int32("new vreplicas", vpod.GetVReplicas()))
+			placements, left = s.rebalanceReplicasWithPolicy(vpod, vpod.GetVReplicas(), placements)
+		}
 	}
 
 	if left > 0 {
@@ -217,7 +237,11 @@ func (s *StatefulSetScheduler) scheduleVPod(vpod scheduler.VPod) ([]duckv1alpha1
 
 		// Trigger the autoscaler
 		if s.autoscaler != nil {
-			s.autoscaler.Autoscale(s.pendingVReplicas())
+			s.autoscaler.Autoscale(s.ctx, false, s.pendingVReplicas())
+
+			/* 			if state.SchedPolicy != nil {
+				delete(s.pending, vpod.GetKey()) //rebalancing doesn't care about pending since all vreps will be re-placed
+			} */
 		}
 
 		return placements, scheduler.ErrNotEnoughReplicas
@@ -225,7 +249,354 @@ func (s *StatefulSetScheduler) scheduleVPod(vpod scheduler.VPod) ([]duckv1alpha1
 
 	logger.Infow("scheduling successful", zap.Any("placement", placements))
 	delete(s.pending, vpod.GetKey())
+
 	return placements, nil
+}
+
+func (s *StatefulSetScheduler) rebalanceReplicasWithPolicy(vpod scheduler.VPod, diff int32, placements []duckv1alpha1.Placement) ([]duckv1alpha1.Placement, int32) {
+	newPlacements := make([]duckv1alpha1.Placement, len(placements))
+	for i := 0; i < len(placements); i++ {
+		newPlacements[i].PodName = placements[i].PodName
+		newPlacements[i].VReplicas = 0
+	}
+	s.reservePlacements(vpod, newPlacements)
+
+	placements, diff = s.addReplicasWithPolicy(vpod, diff, newPlacements)
+
+	return placements, diff
+}
+
+func (s *StatefulSetScheduler) removeReplicasWithPolicy(vpod scheduler.VPod, diff int32, placements []duckv1alpha1.Placement) []duckv1alpha1.Placement {
+	logger := s.logger.Named("remove replicas with policy")
+	numVreps := diff
+
+	for i := int32(0); i < numVreps; i++ { //deschedule one vreplica at a time
+		state, err := s.stateAccessor.State(s.reserved)
+		if err != nil {
+			logger.Info("error while refreshing scheduler state (will retry)", zap.Error(err))
+			return placements
+		}
+
+		feasiblePods, err := s.findFeasiblePods(s.ctx, state, vpod, state.DeschedPolicy)
+		if err != nil {
+			logger.Info("error while filtering pods using predicates", zap.Error(err))
+			s.reservePlacements(vpod, placements)
+			break
+		}
+
+		feasiblePods = s.removePodsNotInPlacement(vpod, feasiblePods)
+
+		if len(feasiblePods) == 1 { //nothing to score, remove vrep from that pod
+			placementPodID := feasiblePods[0]
+			logger.Infof("Selected pod #%v to remove vreplica #%v from", placementPodID, i)
+			placements = s.removeSelectionFromPlacements(placementPodID, placements)
+			//state.SetFree(placementPodID, state.Free(placementPodID)+1)
+			s.reservePlacements(vpod, placements)
+			continue
+		}
+
+		priorityList, err := s.prioritizePods(s.ctx, state, vpod, feasiblePods, state.DeschedPolicy)
+		if err != nil {
+			logger.Info("error while scoring pods using priorities", zap.Error(err))
+			s.reservePlacements(vpod, placements)
+			break
+		}
+
+		placementPodID, err := s.selectPod(priorityList)
+		if err != nil {
+			logger.Info("error while selecting the placement pod", zap.Error(err))
+			s.reservePlacements(vpod, placements)
+			break
+		}
+
+		logger.Infof("Selected pod #%v to remove vreplica #%v from", placementPodID, i)
+		placements = s.removeSelectionFromPlacements(placementPodID, placements)
+		//state.SetFree(placementPodID, state.Free(placementPodID)+1)
+		s.reservePlacements(vpod, placements)
+	}
+	return placements
+}
+
+func (s *StatefulSetScheduler) removeSelectionFromPlacements(placementPodID int32, placements []duckv1alpha1.Placement) []duckv1alpha1.Placement {
+	newPlacements := make([]duckv1alpha1.Placement, 0, len(placements))
+
+	for i := 0; i < len(placements); i++ {
+		ordinal := st.OrdinalFromPodName(placements[i].PodName)
+		if placementPodID == ordinal {
+			if placements[i].VReplicas == 1 {
+				// remove the entire placement
+			} else {
+				newPlacements = append(newPlacements, duckv1alpha1.Placement{
+					PodName:   placements[i].PodName,
+					VReplicas: placements[i].VReplicas - 1,
+				})
+			}
+		} else {
+			newPlacements = append(newPlacements, duckv1alpha1.Placement{
+				PodName:   placements[i].PodName,
+				VReplicas: placements[i].VReplicas,
+			})
+		}
+	}
+	return newPlacements
+}
+
+func (s *StatefulSetScheduler) addReplicasWithPolicy(vpod scheduler.VPod, diff int32, placements []duckv1alpha1.Placement) ([]duckv1alpha1.Placement, int32) {
+	logger := s.logger.Named("add replicas with policy")
+
+	numVreps := diff
+	for i := int32(0); i < numVreps; i++ { //schedule one vreplica at a time (find most suitable pod placement satisying predicates with high score)
+		// Get the current placements state
+		state, err := s.stateAccessor.State(s.reserved)
+		if err != nil {
+			logger.Info("error while refreshing scheduler state (will retry)", zap.Error(err))
+			return placements, diff
+		}
+
+		if s.replicas == 0 { //no pods to filter
+			logger.Infow("no pods available in statefulset")
+			s.reservePlacements(vpod, placements)
+			diff = numVreps - i //for autoscaling up
+			break               //end the iteration for all vreps since there are not pods
+		}
+
+		feasiblePods, err := s.findFeasiblePods(s.ctx, state, vpod, state.SchedPolicy)
+		if err != nil {
+			logger.Info("error while filtering pods using predicates", zap.Error(err))
+			s.reservePlacements(vpod, placements)
+			diff = numVreps - i //for autoscaling up and possible rebalancing
+			break
+		}
+
+		if len(feasiblePods) == 0 { //no pods available to schedule this vreplica
+			logger.Info("no feasible pods available to schedule this vreplica")
+			s.reservePlacements(vpod, placements)
+			diff = numVreps - i //for autoscaling up and possible rebalancing
+			break
+		}
+
+		/* 	if len(feasiblePods) == 1 { //nothing to score, place vrep on that pod (Update: for HA, must run HA scorers)
+			placementPodID := feasiblePods[0]
+			logger.Infof("Selected pod #%v for vreplica #%v ", placementPodID, i)
+			placements = s.addSelectionToPlacements(placementPodID, placements)
+			//state.SetFree(placementPodID, state.Free(placementPodID)-1)
+			s.reservePlacements(vpod, placements)
+			diff--
+			continue
+		} */
+
+		priorityList, err := s.prioritizePods(s.ctx, state, vpod, feasiblePods, state.SchedPolicy)
+		if err != nil {
+			logger.Info("error while scoring pods using priorities", zap.Error(err))
+			s.reservePlacements(vpod, placements)
+			diff = numVreps - i //for autoscaling up and possible rebalancing
+			break
+		}
+
+		placementPodID, err := s.selectPod(priorityList)
+		if err != nil {
+			logger.Info("error while selecting the placement pod", zap.Error(err))
+			s.reservePlacements(vpod, placements)
+			diff = numVreps - i //for autoscaling up and possible rebalancing
+			break
+		}
+
+		logger.Infof("Selected pod #%v for vreplica #%v", placementPodID, i)
+		placements = s.addSelectionToPlacements(placementPodID, placements)
+		//state.SetFree(placementPodID, state.Free(placementPodID)-1)
+		s.reservePlacements(vpod, placements)
+		diff--
+	}
+	return placements, diff
+}
+
+func (s *StatefulSetScheduler) addSelectionToPlacements(placementPodID int32, placements []duckv1alpha1.Placement) []duckv1alpha1.Placement {
+	seen := false
+
+	for i := 0; i < len(placements); i++ {
+		ordinal := st.OrdinalFromPodName(placements[i].PodName)
+		if placementPodID == ordinal {
+			seen = true
+			placements[i].VReplicas = placements[i].VReplicas + 1
+		}
+	}
+	if !seen {
+		placements = append(placements, duckv1alpha1.Placement{
+			PodName:   st.PodNameFromOrdinal(s.statefulSetName, placementPodID),
+			VReplicas: 1,
+		})
+	}
+	return placements
+}
+
+// findFeasiblePods finds the pods that fit the filter plugins
+func (s *StatefulSetScheduler) findFeasiblePods(ctx context.Context, state *st.State, vpod scheduler.VPod, policy *scheduler.SchedulerPolicy) ([]int32, error) {
+	feasiblePods := make([]int32, 0)
+	for _, podId := range state.SchedulablePods {
+		statusMap := s.RunFilterPlugins(ctx, state, vpod, podId, policy)
+		status := statusMap.Merge()
+		if status.IsSuccess() {
+			feasiblePods = append(feasiblePods, podId)
+		}
+	}
+
+	return feasiblePods, nil
+}
+
+// removePodsNotInPlacement removes pods that do not have vreplicas placed
+func (s *StatefulSetScheduler) removePodsNotInPlacement(vpod scheduler.VPod, feasiblePods []int32) []int32 {
+	newFeasiblePods := make([]int32, 0)
+	for _, e := range vpod.GetPlacements() {
+		for _, podID := range feasiblePods {
+			if podID == st.OrdinalFromPodName(e.PodName) { //if pod is in current placement list
+				newFeasiblePods = append(newFeasiblePods, podID)
+			}
+		}
+	}
+
+	return newFeasiblePods
+}
+
+// prioritizePods prioritizes the pods by running the score plugins, which return a score for each pod.
+// The scores from each plugin are added together to make the score for that pod.
+func (s *StatefulSetScheduler) prioritizePods(ctx context.Context, states *st.State, vpod scheduler.VPod, feasiblePods []int32, policy *scheduler.SchedulerPolicy) (st.PodScoreList, error) {
+	logger := s.logger.Named("prioritize all feasible pods")
+
+	// If no priority configs are provided, then all pods will have a score of one
+	result := make(st.PodScoreList, 0, len(feasiblePods))
+	if !s.HasScorePlugins(states, policy) {
+		for _, podID := range feasiblePods {
+			result = append(result, st.PodScore{
+				ID:    podID,
+				Score: 1,
+			})
+		}
+		return result, nil
+	}
+
+	scoresMap, scoreStatus := s.RunScorePlugins(ctx, states, vpod, feasiblePods, policy)
+	if !scoreStatus.IsSuccess() {
+		logger.Infof("FAILURE! Cannot score feasible pods due to plugin errors %v", scoreStatus.AsError())
+		return nil, scoreStatus.AsError()
+	}
+
+	// Summarize all scores.
+	for i := range feasiblePods {
+		result = append(result, st.PodScore{ID: feasiblePods[i], Score: 0})
+		for j := range scoresMap {
+			result[i].Score += scoresMap[j][i].Score
+		}
+	}
+
+	return result, nil
+}
+
+// selectPod takes a prioritized list of pods and then picks one
+func (s *StatefulSetScheduler) selectPod(podScoreList st.PodScoreList) (int32, error) {
+	if len(podScoreList) == 0 {
+		return -1, fmt.Errorf("empty priority list") //no selected pod
+	}
+
+	maxScore := podScoreList[0].Score
+	selected := podScoreList[0].ID
+	cntOfMaxScore := 1
+	for _, ps := range podScoreList[1:] {
+		if ps.Score > maxScore {
+			maxScore = ps.Score
+			selected = ps.ID
+			cntOfMaxScore = 1
+		} else if ps.Score == maxScore { //if equal scores, randomly picks one
+			cntOfMaxScore++
+			if rand.Intn(cntOfMaxScore) == 0 {
+				selected = ps.ID
+			}
+		}
+	}
+	return selected, nil
+}
+
+// RunFilterPlugins runs the set of configured Filter plugins for a vrep on the given pod.
+// If any of these plugins doesn't return "Success", the pod is not suitable for placing the vrep.
+// Meanwhile, the failure message and status are set for the given pod.
+func (s *StatefulSetScheduler) RunFilterPlugins(ctx context.Context, states *st.State, vpod scheduler.VPod, podID int32, policy *scheduler.SchedulerPolicy) st.PluginToStatus {
+	logger := s.logger.Named("run all filter plugins")
+
+	statuses := make(st.PluginToStatus)
+	for _, plugin := range policy.Predicates {
+		pl, err := factory.GetFilterPlugin(plugin.Name)
+		if err != nil {
+			logger.Error("Could not find filter plugin in Registry: ", plugin.Name)
+			continue
+		}
+
+		//logger.Infof("Going to run filter plugin: %s using state: %v ", pl.Name(), states)
+		pluginStatus := s.runFilterPlugin(ctx, pl, plugin.Args, states, vpod, podID)
+		if !pluginStatus.IsSuccess() {
+			if !pluginStatus.IsUnschedulable() {
+				errStatus := st.NewStatus(st.Error, fmt.Sprintf("running %q filter plugin for pod %q failed with: %v", pl.Name(), podID, pluginStatus.Message()))
+				return map[string]*st.Status{pl.Name(): errStatus} //TODO: if one plugin fails, then no more plugins are run
+			}
+			statuses[pl.Name()] = pluginStatus
+			return statuses
+		}
+	}
+
+	return statuses
+}
+
+func (s *StatefulSetScheduler) runFilterPlugin(ctx context.Context, pl st.FilterPlugin, args interface{}, states *st.State, vpod scheduler.VPod, podID int32) *st.Status {
+	status := pl.Filter(ctx, args, states, vpod.GetKey(), podID)
+	return status
+}
+
+// RunScorePlugins runs the set of configured scoring plugins. It returns a list that stores for each scoring plugin name the corresponding PodScoreList(s).
+// It also returns *Status, which is set to non-success if any of the plugins returns a non-success status.
+func (s *StatefulSetScheduler) RunScorePlugins(ctx context.Context, states *st.State, vpod scheduler.VPod, feasiblePods []int32, policy *scheduler.SchedulerPolicy) (st.PluginToPodScores, *st.Status) {
+	logger := s.logger.Named("run all score plugins")
+
+	pluginToPodScores := make(st.PluginToPodScores, len(policy.Priorities))
+	for _, plugin := range policy.Priorities {
+		pl, err := factory.GetScorePlugin(plugin.Name)
+		if err != nil {
+			logger.Error("Could not find score plugin in registry: ", plugin.Name)
+			continue
+		}
+
+		//logger.Infof("Going to run score plugin: %s using state: %v ", pl.Name(), states)
+		pluginToPodScores[pl.Name()] = make(st.PodScoreList, len(feasiblePods))
+		for index, podID := range feasiblePods {
+			score, pluginStatus := s.runScorePlugin(ctx, pl, plugin.Args, states, feasiblePods, vpod, podID)
+			if !pluginStatus.IsSuccess() {
+				errStatus := st.NewStatus(st.Error, fmt.Sprintf("running %q scoring plugin for pod %q failed with: %v", pl.Name(), podID, pluginStatus.AsError()))
+				return pluginToPodScores, errStatus //TODO: if one plugin fails, then no more plugins are run
+			}
+
+			score = score * plugin.Weight //WEIGHED SCORE VALUE
+			//logger.Infof("scoring plugin %q produced score %v for pod %q: %v", pl.Name(), score, podID, pluginStatus)
+			pluginToPodScores[pl.Name()][index] = st.PodScore{
+				ID:    podID,
+				Score: score,
+			}
+		}
+
+		status := pl.ScoreExtensions().NormalizeScore(ctx, states, pluginToPodScores[pl.Name()]) //NORMALIZE SCORES FOR ALL FEASIBLE PODS
+		if !status.IsSuccess() {
+			errStatus := st.NewStatus(st.Error, fmt.Sprintf("running %q scoring plugin failed with: %v", pl.Name(), status.AsError()))
+			return pluginToPodScores, errStatus
+		}
+	}
+
+	return pluginToPodScores, st.NewStatus(st.Success)
+}
+
+func (s *StatefulSetScheduler) runScorePlugin(ctx context.Context, pl st.ScorePlugin, args interface{}, states *st.State, feasiblePods []int32, vpod scheduler.VPod, podID int32) (uint64, *st.Status) {
+	score, status := pl.Score(ctx, args, states, feasiblePods, vpod.GetKey(), podID)
+	return score, status
+}
+
+// HasScorePlugins returns true if at least one score plugin is defined.
+func (s *StatefulSetScheduler) HasScorePlugins(state *st.State, policy *scheduler.SchedulerPolicy) bool {
+	return len(policy.Priorities) > 0
 }
 
 func (s *StatefulSetScheduler) removeReplicas(diff int32, placements []duckv1alpha1.Placement) []duckv1alpha1.Placement {
@@ -245,72 +616,17 @@ func (s *StatefulSetScheduler) removeReplicas(diff int32, placements []duckv1alp
 	return newPlacements
 }
 
-func (s *StatefulSetScheduler) removeReplicasEvenSpread(diff int32, placements []duckv1alpha1.Placement, evenSpread int32) []duckv1alpha1.Placement {
-	newPlacements := make([]duckv1alpha1.Placement, 0, len(placements))
-	logger := s.logger.Named("remove replicas")
-
-	placementsByZone := getPlacementsByZoneKey(placements)
-	zoneNames := make([]string, 0, len(placementsByZone))
-	for zoneName := range placementsByZone {
-		zoneNames = append(zoneNames, zoneName)
-	}
-	sort.Strings(zoneNames) //for ordered accessing of map
-
-	for i := 0; i < len(zoneNames); i++ { //iterate through each zone
-		totalInZone := getTotalVReplicasInZone(placements, zoneNames[i])
-		logger.Info(zap.String("zoneName", zoneNames[i]), zap.Int32("totalInZone", totalInZone))
-
-		placementOrdinals := placementsByZone[zoneNames[i]]
-		for j := len(placementOrdinals) - 1; j >= 0; j-- { //iterating through all existing pods belonging to a single zone from larger cardinal to smaller
-			ordinal := placementOrdinals[j]
-			placement := s.getPlacementFromPodOrdinal(placements, ordinal)
-
-			if diff > 0 && totalInZone >= evenSpread {
-				deallocation := integer.Int32Min(diff, integer.Int32Min(placement.VReplicas, totalInZone-evenSpread))
-				logger.Info(zap.Int32("diff", diff), zap.Int32("ordinal", ordinal), zap.Int32("deallocation", deallocation))
-
-				if deallocation > 0 && deallocation < placement.VReplicas {
-					newPlacements = append(newPlacements, duckv1alpha1.Placement{
-						PodName:   placement.PodName,
-						ZoneName:  placement.ZoneName,
-						VReplicas: placement.VReplicas - deallocation,
-					})
-					diff -= deallocation
-					totalInZone -= deallocation
-				} else if deallocation >= placement.VReplicas {
-					diff -= placement.VReplicas
-					totalInZone -= placement.VReplicas
-				} else {
-					newPlacements = append(newPlacements, duckv1alpha1.Placement{
-						PodName:   placement.PodName,
-						ZoneName:  placement.ZoneName,
-						VReplicas: placement.VReplicas,
-					})
-				}
-			} else {
-				newPlacements = append(newPlacements, duckv1alpha1.Placement{
-					PodName:   placement.PodName,
-					ZoneName:  placement.ZoneName,
-					VReplicas: placement.VReplicas,
-				})
-
-			}
-		}
-	}
-	return newPlacements
-}
-
-func (s *StatefulSetScheduler) addReplicas(state *state, diff int32, placements []duckv1alpha1.Placement) ([]duckv1alpha1.Placement, int32) {
+func (s *StatefulSetScheduler) addReplicas(states *st.State, diff int32, placements []duckv1alpha1.Placement) ([]duckv1alpha1.Placement, int32) {
 	// Pod affinity algorithm: prefer adding replicas to existing pods before considering other replicas
 	newPlacements := make([]duckv1alpha1.Placement, 0, len(placements))
 
 	// Add to existing
 	for i := 0; i < len(placements); i++ {
 		podName := placements[i].PodName
-		ordinal := ordinalFromPodName(podName)
+		ordinal := st.OrdinalFromPodName(podName)
 
 		// Is there space in PodName?
-		f := state.Free(ordinal)
+		f := states.Free(ordinal)
 		if diff >= 0 && f > 0 {
 			allocation := integer.Int32Min(f, diff)
 			newPlacements = append(newPlacements, duckv1alpha1.Placement{
@@ -319,7 +635,7 @@ func (s *StatefulSetScheduler) addReplicas(state *state, diff int32, placements 
 			})
 
 			diff -= allocation
-			state.SetFree(ordinal, f-allocation)
+			states.SetFree(ordinal, f-allocation)
 		} else {
 			newPlacements = append(newPlacements, placements[i])
 		}
@@ -328,16 +644,16 @@ func (s *StatefulSetScheduler) addReplicas(state *state, diff int32, placements 
 	if diff > 0 {
 		// Needs to allocate replicas to additional pods
 		for ordinal := int32(0); ordinal < s.replicas; ordinal++ {
-			f := state.Free(ordinal)
+			f := states.Free(ordinal)
 			if f > 0 {
 				allocation := integer.Int32Min(f, diff)
 				newPlacements = append(newPlacements, duckv1alpha1.Placement{
-					PodName:   podNameFromOrdinal(s.statefulSetName, ordinal),
+					PodName:   st.PodNameFromOrdinal(s.statefulSetName, ordinal),
 					VReplicas: allocation,
 				})
 
 				diff -= allocation
-				state.SetFree(ordinal, f-allocation)
+				states.SetFree(ordinal, f-allocation)
 			}
 
 			if diff == 0 {
@@ -347,129 +663,6 @@ func (s *StatefulSetScheduler) addReplicas(state *state, diff int32, placements 
 	}
 
 	return newPlacements, diff
-}
-
-func (s *StatefulSetScheduler) addReplicasEvenSpread(state *state, diff int32, placements []duckv1alpha1.Placement, evenSpread int32) ([]duckv1alpha1.Placement, int32) {
-	// Pod affinity MAXFILLUP algorithm prefer adding replicas to existing pods to fill them up before adding to new pods
-	// Pod affinity EVENSPREAD algorithm spread replicas across pods in different regions for HA
-	newPlacements := make([]duckv1alpha1.Placement, 0, len(placements))
-	logger := s.logger.Named("add replicas")
-
-	placementsByZone := getPlacementsByZoneKey(placements)
-	zoneNames := make([]string, 0, len(placementsByZone))
-	for zoneName := range placementsByZone {
-		zoneNames = append(zoneNames, zoneName)
-	}
-	sort.Strings(zoneNames) //for ordered accessing of map
-
-	for i := 0; i < len(zoneNames); i++ { //iterate through each zone
-		totalInZone := getTotalVReplicasInZone(placements, zoneNames[i])
-		logger.Info(zap.String("zoneName", zoneNames[i]), zap.Int32("totalInZone", totalInZone))
-
-		placementOrdinals := placementsByZone[zoneNames[i]]
-		for j := 0; j < len(placementOrdinals); j++ { //iterating through all existing pods belonging to a single zone
-			ordinal := placementOrdinals[j]
-			placement := s.getPlacementFromPodOrdinal(placements, ordinal)
-
-			// Is there space in Pod?
-			f := state.Free(ordinal)
-			if diff >= 0 && f > 0 && totalInZone < evenSpread {
-				allocation := integer.Int32Min(diff, integer.Int32Min(f, (evenSpread-totalInZone)))
-				logger.Info(zap.Int32("diff", diff), zap.Int32("allocation", allocation))
-
-				newPlacements = append(newPlacements, duckv1alpha1.Placement{
-					PodName:   placement.PodName,
-					ZoneName:  placement.ZoneName,
-					VReplicas: placement.VReplicas + allocation,
-				})
-
-				diff -= allocation
-				state.SetFree(ordinal, f-allocation)
-				totalInZone += allocation
-			} else {
-				newPlacements = append(newPlacements, placement)
-			}
-		}
-	}
-
-	if diff > 0 {
-		for ordinal := int32(0); ordinal < s.replicas; ordinal++ {
-			f := state.Free(ordinal)
-			if f > 0 { //here it is possible to hit pods that are in existing placements
-				podName := podNameFromOrdinal(s.statefulSetName, ordinal)
-				zoneName, err := s.getZoneNameFromPod(state, podName)
-				if err != nil {
-					logger.Errorw("Error getting zone info from pod", zap.Error(err))
-					continue //TODO: not continue?
-				}
-
-				totalInZone := getTotalVReplicasInZone(newPlacements, zoneName)
-				if totalInZone >= evenSpread {
-					continue //since current zone that pod belongs to is already at max spread
-				}
-				logger.Info("Need to schedule on a new pod", zap.Int32("ordinal", ordinal), zap.Int32("free", f), zap.String("zoneName", zoneName), zap.Int32("totalInZone", totalInZone))
-
-				allocation := integer.Int32Min(diff, integer.Int32Min(f, (evenSpread-totalInZone)))
-				logger.Info(zap.Int32("diff", diff), zap.Int32("allocation", allocation))
-
-				newPlacements = append(newPlacements, duckv1alpha1.Placement{
-					PodName:   podName,
-					ZoneName:  zoneName,
-					VReplicas: allocation, //TODO could there be existing vreplicas already?
-				})
-
-				diff -= allocation
-				state.SetFree(ordinal, f-allocation)
-				placementsByZone[zoneName] = append(placementsByZone[zoneName], ordinal)
-			}
-
-			if diff == 0 {
-				break
-			}
-		}
-	}
-	return newPlacements, diff
-}
-
-func (s *StatefulSetScheduler) getZoneNameFromPod(state *state, podName string) (zoneName string, err error) {
-	pod, err := s.podLister.Get(podName)
-	if err != nil {
-		return zoneName, err
-	}
-
-	zoneName, ok := state.nodeToZoneMap[pod.Spec.NodeName]
-	if !ok {
-		return zoneName, errors.New("Could not find zone")
-	}
-	return zoneName, nil
-}
-
-func getPlacementsByZoneKey(placements []duckv1alpha1.Placement) map[string][]int32 {
-	placementsByZone := make(map[string][]int32)
-	for i := 0; i < len(placements); i++ {
-		zoneName := placements[i].ZoneName
-		placementsByZone[zoneName] = append(placementsByZone[zoneName], ordinalFromPodName(placements[i].PodName))
-	}
-	return placementsByZone
-}
-
-func getTotalVReplicasInZone(placements []duckv1alpha1.Placement, zoneName string) int32 {
-	var totalReplicasInZone int32
-	for i := 0; i < len(placements); i++ {
-		if placements[i].ZoneName == zoneName {
-			totalReplicasInZone += placements[i].VReplicas
-		}
-	}
-	return totalReplicasInZone
-}
-
-func (s *StatefulSetScheduler) getPlacementFromPodOrdinal(placements []duckv1alpha1.Placement, ordinal int32) (placement duckv1alpha1.Placement) {
-	for i := 0; i < len(placements); i++ {
-		if placements[i].PodName == podNameFromOrdinal(s.statefulSetName, ordinal) {
-			return placements[i]
-		}
-	}
-	return placement
 }
 
 // pendingReplicas returns the total number of vreplicas
@@ -512,15 +705,17 @@ func (s *StatefulSetScheduler) reservePlacements(vpod scheduler.VPod, placements
 
 		// Only record placements exceeding existing ones, since the
 		// goal is to prevent pods to be overcommitted.
-		if p.VReplicas > placed {
+		// When less than existing ones, recording is done to help with
+		// for removal of vreps with descheduling policies
+		// note: track all vreplicas, not only the new ones since
+		// the next time `state()` is called some vreplicas might
+		// have been committed.
+		if placed != p.VReplicas {
 			if _, ok := s.reserved[vpod.GetKey()]; !ok {
 				s.reserved[vpod.GetKey()] = make(map[string]int32)
 			}
-
-			// note: track all vreplicas, not only the new ones since
-			// the next time `state()` is called some vreplicas might
-			// have been committed.
 			s.reserved[vpod.GetKey()][p.PodName] = p.VReplicas
 		}
 	}
+
 }

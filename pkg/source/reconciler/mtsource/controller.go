@@ -25,6 +25,7 @@ import (
 
 	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/apis/duck"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
@@ -41,17 +42,20 @@ import (
 	kafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client"
 	kafkainformer "knative.dev/eventing-kafka/pkg/client/injection/informers/sources/v1beta1/kafkasource"
 	"knative.dev/eventing-kafka/pkg/client/injection/reconciler/sources/v1beta1/kafkasource"
+	"knative.dev/eventing-kafka/pkg/common/constants"
 	scheduler "knative.dev/eventing-kafka/pkg/common/scheduler"
 	stsscheduler "knative.dev/eventing-kafka/pkg/common/scheduler/statefulset"
 	nodeinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/node"
 )
 
 type envConfig struct {
-	SchedulerRefreshPeriod        int64                            `envconfig:"AUTOSCALER_REFRESH_PERIOD" required:"true"`
-	PodCapacity                   int32                            `envconfig:"POD_CAPACITY" required:"true"`
-	VReplicaMPS                   int32                            `envconfig:"VREPLICA_LIMITS_MPS" required:"false" default:"-1"`
-	MaxEventPerSecondPerPartition int32                            `envconfig:"MAX_MPS_PER_PARTITION" required:"false" default:"-1"`
-	SchedulerPolicy               stsscheduler.SchedulerPolicyType `envconfig:"SCHEDULER_POLICY_TYPE" required:"true"`
+	SchedulerRefreshPeriod        int64                         `envconfig:"AUTOSCALER_REFRESH_PERIOD" required:"true"`
+	PodCapacity                   int32                         `envconfig:"POD_CAPACITY" required:"true"`
+	VReplicaMPS                   int32                         `envconfig:"VREPLICA_LIMITS_MPS" required:"false" default:"-1"`
+	MaxEventPerSecondPerPartition int32                         `envconfig:"MAX_MPS_PER_PARTITION" required:"false" default:"-1"`
+	SchedulerPolicyType           scheduler.SchedulerPolicyType `envconfig:"SCHEDULER_POLICY_TYPE" required:"true"`
+	SchedulerPolicyConfigMap      string                        `envconfig:"SCHEDULER_CONFIG" required:"true"`
+	DeSchedulerPolicyConfigMap    string                        `envconfig:"DESCHEDULER_CONFIG" required:"true"`
 }
 
 func NewController(
@@ -85,7 +89,23 @@ func NewController(
 	sourcesv1beta1.RegisterAlternateKafkaConditionSet(sourcesv1beta1.KafkaMTSourceCondSet)
 
 	rp := time.Duration(env.SchedulerRefreshPeriod) * time.Second
-	evictor := func(vpod scheduler.VPod, from *duckv1alpha1.Placement) error {
+	evictor := func(pod *corev1.Pod, vpod scheduler.VPod, from *duckv1alpha1.Placement) error {
+		//First, annotate pod as unschedulable
+		newPod := pod.DeepCopy()
+		annots := newPod.ObjectMeta.Annotations
+		if annots == nil {
+			annots = make(map[string]string)
+		}
+		annots[constants.PodAnnotationKey] = "true" //scheduling disabled
+		newPod.ObjectMeta.Annotations = annots
+
+		updated, err := kubeclient.Get(ctx).CoreV1().Pods(newPod.ObjectMeta.Namespace).Update(ctx, newPod, metav1.UpdateOptions{})
+		if err != nil {
+			return err
+		}
+		logging.FromContext(ctx).Debugw("Updated pod to be unschedulable", zap.Any("updated", updated))
+
+		//Second, remove placements on that pod for this vpod
 		key := vpod.GetKey()
 		sources := kafkaclient.Get(ctx).SourcesV1beta1().KafkaSources(key.Namespace)
 
@@ -94,44 +114,62 @@ func NewController(
 			return err
 		}
 
-		after := before.DeepCopy()
+		statusCond := before.Status.GetCondition(sourcesv1beta1.KafkaConditionScheduled)
+		if statusCond.Status == corev1.ConditionTrue && statusCond.Type == sourcesv1beta1.KafkaConditionScheduled { //do not evict when scheduling is in-progress
+			logger.Info("evicting vreplica(s)", zap.String("name", key.Name), zap.String("namespace", key.Namespace), zap.String("podname", from.PodName), zap.Int("vreplicas", int(from.VReplicas)))
 
-		bp := after.GetPlacements()
-		ap := make([]duckv1alpha1.Placement, 0, len(bp)-1)
-		for _, p := range bp {
-			if p.PodName != from.PodName {
-				ap = append(ap, p)
+			after := before.DeepCopy()
+
+			bp := after.GetPlacements()
+			ap := make([]duckv1alpha1.Placement, 0, len(bp)-1)
+			for _, p := range bp {
+				if p.PodName != from.PodName {
+					ap = append(ap, p)
+				}
 			}
-		}
-		after.Status.Placement = ap
+			after.Status.Placement = ap
 
-		jsonPatch, err := duck.CreatePatch(before, after)
-		if err != nil {
-			return err
-		}
+			jsonPatch, err := duck.CreatePatch(before, after)
+			if err != nil {
+				return err
+			}
 
-		// If there is nothing to patch, we are good, just return.
-		// Empty patch is [], hence we check for that.
-		if len(jsonPatch) == 0 {
-			return nil
-		}
+			// If there is nothing to patch, we are good, just return.
+			// Empty patch is [], hence we check for that.
+			if len(jsonPatch) == 0 {
+				return nil
+			}
 
-		patch, err := jsonPatch.MarshalJSON()
-		if err != nil {
-			return fmt.Errorf("marshaling JSON patch: %w", err)
-		}
+			patch, err := jsonPatch.MarshalJSON()
+			if err != nil {
+				return fmt.Errorf("marshaling JSON patch: %w", err)
+			}
 
-		patched, err := kafkaclient.Get(ctx).SourcesV1beta1().KafkaSources(key.Namespace).Patch(ctx, key.Name, types.JSONPatchType, patch, metav1.PatchOptions{}, "status")
-		if err != nil {
-			return fmt.Errorf("Failed patching: %w", err)
+			patched, err := kafkaclient.Get(ctx).SourcesV1beta1().KafkaSources(key.Namespace).Patch(ctx, key.Name, types.JSONPatchType, patch, metav1.PatchOptions{}, "status")
+			if err != nil {
+				return fmt.Errorf("failed patching: %w", err)
+			}
+			logging.FromContext(ctx).Debugw("Patched resource", zap.Any("patch", patch), zap.Any("patched", patched))
 		}
-		logging.FromContext(ctx).Debugw("Patched resource", zap.Any("patch", patch), zap.Any("patched", patched))
 		return nil
 	}
 
-	c.scheduler = stsscheduler.NewScheduler(ctx,
-		system.Namespace(), mtadapterName, c.vpodLister, rp, env.PodCapacity, env.SchedulerPolicy,
-		nodeInformer.Lister(), evictor)
+	policy := &scheduler.SchedulerPolicy{}
+	if env.SchedulerPolicyConfigMap != "" {
+		if err := initPolicyFromConfigMap(ctx, env.SchedulerPolicyConfigMap, policy); err != nil {
+			panic(err)
+		}
+	}
+
+	removalpolicy := &scheduler.SchedulerPolicy{}
+	if env.DeSchedulerPolicyConfigMap != "" {
+		if err := initPolicyFromConfigMap(ctx, env.DeSchedulerPolicyConfigMap, removalpolicy); err != nil {
+			panic(err)
+		}
+	}
+
+	logging.FromContext(ctx).Debugw("Scheduler Policy Config Map read", zap.Any("policy", policy))
+	c.scheduler = stsscheduler.NewScheduler(ctx, system.Namespace(), mtadapterName, c.vpodLister, rp, env.PodCapacity, env.SchedulerPolicyType, nodeInformer.Lister(), evictor, policy, removalpolicy)
 
 	logging.FromContext(ctx).Info("Setting up kafka event handlers")
 	kafkaInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
