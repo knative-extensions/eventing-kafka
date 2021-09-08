@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/eventing-kafka/pkg/common/scheduler"
 )
 
@@ -35,14 +36,6 @@ func OrdinalFromPodName(podName string) int32 {
 		return math.MaxInt32
 	}
 	return int32(ordinal)
-}
-
-func Retry(f func() error) error {
-	if err := f(); err != nil {
-		time.Sleep(2 * time.Second)
-		return Retry(f)
-	}
-	return nil
 }
 
 // Get retrieves the VPod from the vpods lister for a given namespace and name.
@@ -60,20 +53,13 @@ func SatisfyZoneAvailability(feasiblePods []int32, states *State) bool {
 	var zoneName string
 	var err error
 	for _, podID := range feasiblePods {
-		Retry(func() error {
+		wait.PollImmediate(50*time.Millisecond, 5*time.Second, func() (bool, error) {
 			zoneName, _, err = states.GetPodInfo(PodNameFromOrdinal(states.StatefulSetName, podID))
-			if err != nil {
-				// This error will result in a retry
-				return err
-			}
-			return nil
+			return err == nil, nil
 		})
 		zoneMap[zoneName] = struct{}{}
 	}
-	if len(zoneMap) == int(states.NumZones) {
-		return true
-	}
-	return false
+	return len(zoneMap) == int(states.NumZones)
 }
 
 func SatisfyNodeAvailability(feasiblePods []int32, states *State) bool {
@@ -81,18 +67,11 @@ func SatisfyNodeAvailability(feasiblePods []int32, states *State) bool {
 	var nodeName string
 	var err error
 	for _, podID := range feasiblePods {
-		Retry(func() error {
+		wait.PollImmediate(50*time.Millisecond, 5*time.Second, func() (bool, error) {
 			_, nodeName, err = states.GetPodInfo(PodNameFromOrdinal(states.StatefulSetName, podID))
-			if err != nil {
-				// This error will result in a retry
-				return err
-			}
-			return nil
+			return err == nil, nil
 		})
 		nodeMap[nodeName] = struct{}{}
 	}
-	if len(nodeMap) == int(states.NumNodes) {
-		return true
-	}
-	return false
+	return len(nodeMap) == int(states.NumNodes)
 }

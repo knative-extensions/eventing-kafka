@@ -70,7 +70,7 @@ func (pl *RemoveWithAvailabilityNodePriority) Score(ctx context.Context, args in
 		return 0, state.NewStatus(state.Unschedulable, ErrReasonInvalidArg)
 	}
 
-	if states.Replicas > 0 { //need atleast a pod to compute spread
+	if states.Replicas > 0 { //need at least a pod to compute spread
 		var skew int32
 		_, nodeName, err := states.GetPodInfo(state.PodNameFromOrdinal(states.StatefulSetName, podID))
 		if err != nil {

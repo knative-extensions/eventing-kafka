@@ -69,7 +69,7 @@ func (pl *RemoveWithEvenPodSpreadPriority) Score(ctx context.Context, args inter
 		return 0, state.NewStatus(state.Unschedulable, ErrReasonInvalidArg)
 	}
 
-	if states.Replicas > 0 { //need atleast a pod to compute spread
+	if states.Replicas > 0 { //need at least a pod to compute spread
 		currentReps := states.PodSpread[key][state.PodNameFromOrdinal(states.StatefulSetName, podID)] //get #vreps on this podID
 		var skew int32
 		for _, otherPodID := range states.SchedulablePods { //compare with #vreps on other pods

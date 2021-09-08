@@ -71,11 +71,11 @@ func (pl *AvailabilityNodePriority) Score(ctx context.Context, args interface{},
 		return 0, state.NewStatus(state.Unschedulable, ErrReasonInvalidArg)
 	}
 
-	if states.Replicas > 0 { //need atleast a pod to compute spread
+	if states.Replicas > 0 { //need at least a pod to compute spread
 		var skew int32
 
 		//Need to check if there is at least one pod in every node to satisfy HA
-		if !state.SatisfyNodeAvailability(feasiblePods, states) {
+		if !state.SatisfyNodeAvailability(states.SchedulablePods, states) {
 			return 0, state.NewStatus(state.Unschedulable, ErrReasonNotEnoughPods)
 		}
 

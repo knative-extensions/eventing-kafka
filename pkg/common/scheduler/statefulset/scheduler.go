@@ -27,7 +27,6 @@ import (
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/sets"
 	clientappsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -102,13 +101,6 @@ type StatefulSetScheduler struct {
 	// reserved tracks vreplicas that have been placed (ie. scheduled) but haven't been
 	// committed yet (ie. not appearing in vpodLister)
 	reserved map[types.NamespacedName]map[string]int32
-
-	// predicates that will always be configured.
-	mandatoryPredicates sets.String
-
-	// predicates and priorities that will be used if either was set to nil in the config map
-	defaultPredicates sets.String
-	defaultPriorities map[string]int64
 }
 
 func NewStatefulSetScheduler(ctx context.Context,
@@ -129,19 +121,6 @@ func NewStatefulSetScheduler(ctx context.Context,
 		stateAccessor:     stateAccessor,
 		reserved:          make(map[types.NamespacedName]map[string]int32),
 		autoscaler:        autoscaler,
-		mandatoryPredicates: sets.NewString(
-			st.PodFitsResources,
-		),
-		defaultPredicates: sets.NewString(
-			st.PodFitsResources,
-			st.NoMaxResourceCount,
-			st.EvenPodSpread,
-		),
-		defaultPriorities: map[string]int64{
-			st.AvailabilityNodePriority: 1,
-			st.AvailabilityZonePriority: 1,
-			st.LowestOrdinalPriority:    1,
-		},
 	}
 
 	// Monitor our statefulset

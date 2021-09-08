@@ -327,9 +327,9 @@ func TestStatefulsetScheduler(t *testing.T) {
 			},
 		},
 		{
-			name:      "one replica, one vreplicas, with two Predicates and two Priorities",
+			name:      "three replicas, one vreplica, with two Predicates and two Priorities (HA)",
 			vreplicas: 1,
-			replicas:  int32(1),
+			replicas:  int32(3),
 			expected:  []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 1}},
 			schedulerPolicy: &scheduler.SchedulerPolicy{
 				Predicates: []scheduler.PredicatePolicy{
@@ -343,10 +343,14 @@ func TestStatefulsetScheduler(t *testing.T) {
 			},
 		},
 		{
-			name:      "one replica, 3 vreplicas, with two Predicates and two Priorities",
+			name:      "three replicas, three vreplicas, with two Predicates and two Priorities (HA)",
 			vreplicas: 3,
-			replicas:  int32(1),
-			expected:  []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 3}},
+			replicas:  int32(3),
+			expected: []duckv1alpha1.Placement{
+				{PodName: "statefulset-name-0", VReplicas: 1},
+				{PodName: "statefulset-name-1", VReplicas: 1},
+				{PodName: "statefulset-name-2", VReplicas: 1},
+			},
 			schedulerPolicy: &scheduler.SchedulerPolicy{
 				Predicates: []scheduler.PredicatePolicy{
 					{Name: "PodFitsResources"},
@@ -359,11 +363,11 @@ func TestStatefulsetScheduler(t *testing.T) {
 			},
 		},
 		{
-			name:      "one replica, 15 vreplicas, with two Predicates and two Priorities",
+			name:      "one replica, 15 vreplicas, with two Predicates and two Priorities (HA)",
 			vreplicas: 15,
 			replicas:  int32(1),
 			err:       scheduler.ErrNotEnoughReplicas,
-			expected:  []duckv1alpha1.Placement{{PodName: "statefulset-name-0", VReplicas: 10}},
+			expected:  []duckv1alpha1.Placement{},
 			schedulerPolicy: &scheduler.SchedulerPolicy{
 				Predicates: []scheduler.PredicatePolicy{
 					{Name: "PodFitsResources"},
@@ -376,12 +380,13 @@ func TestStatefulsetScheduler(t *testing.T) {
 			},
 		},
 		{
-			name:      "two replicas, 15 vreplicas, scheduled, with two Predicates and two Priorities",
+			name:      "three replicas, 15 vreplicas, scheduled, with two Predicates and two Priorities (HA)",
 			vreplicas: 15,
-			replicas:  int32(2),
+			replicas:  int32(3),
 			expected: []duckv1alpha1.Placement{
-				{PodName: "statefulset-name-0", VReplicas: 8},
-				{PodName: "statefulset-name-1", VReplicas: 7},
+				{PodName: "statefulset-name-0", VReplicas: 5},
+				{PodName: "statefulset-name-1", VReplicas: 5},
+				{PodName: "statefulset-name-2", VReplicas: 5},
 			},
 			schedulerPolicy: &scheduler.SchedulerPolicy{
 				Predicates: []scheduler.PredicatePolicy{
@@ -395,9 +400,9 @@ func TestStatefulsetScheduler(t *testing.T) {
 			},
 		},
 		{
-			name:      "two replicas, 15 vreplicas, already scheduled, with two Predicates and two Priorities",
+			name:      "three replicas, 15 vreplicas, already scheduled, with two Predicates and two Priorities (HA)",
 			vreplicas: 15,
-			replicas:  int32(2),
+			replicas:  int32(3),
 			placements: []duckv1alpha1.Placement{
 				{PodName: "statefulset-name-0", VReplicas: 10},
 				{PodName: "statefulset-name-1", VReplicas: 5},
@@ -418,7 +423,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 			},
 		},
 		{
-			name:      "three replicas, 30 vreplicas, with two Predicates and two Priorities",
+			name:      "three replicas, 30 vreplicas, with two Predicates and two Priorities (HA)",
 			vreplicas: 30,
 			replicas:  int32(3),
 			placements: []duckv1alpha1.Placement{
@@ -443,7 +448,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 			},
 		},
 		{
-			name:      "three replicas, 15 vreplicas, with two Predicates and two Priorities",
+			name:      "three replicas, 15 vreplicas, with two Predicates and two Priorities (HA)",
 			vreplicas: 15,
 			replicas:  int32(3),
 			expected: []duckv1alpha1.Placement{
@@ -463,7 +468,7 @@ func TestStatefulsetScheduler(t *testing.T) {
 			},
 		},
 		{
-			name:      "three replicas, 20 vreplicas, with two Predicates and two Priorities",
+			name:      "three replicas, 20 vreplicas, with two Predicates and two Priorities (HA)",
 			vreplicas: 20,
 			replicas:  int32(3),
 			expected: []duckv1alpha1.Placement{

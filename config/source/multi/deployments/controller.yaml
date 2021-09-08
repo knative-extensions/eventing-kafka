@@ -61,13 +61,13 @@ spec:
 
         # The scheduling policy type for placing vreplicas on pods (see type SchedulerPolicyType for enum list)
         - name: SCHEDULER_POLICY_TYPE
-          value: ''
+          value: 'MAXFILLUP'
 
         - name: SCHEDULER_CONFIG
-          value: config-scheduler
+          value: ''
 
         - name: DESCHEDULER_CONFIG
-          value: config-descheduler
+          value: ''
 
         resources:
           requests:

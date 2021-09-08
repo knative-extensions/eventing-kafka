@@ -21,12 +21,14 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"time"
 
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	clientappsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 	corev1 "k8s.io/client-go/listers/core/v1"
 
@@ -228,13 +230,9 @@ func (s *stateBuilder) State(reserved map[types.NamespacedName]map[string]int32)
 
 	for podId := int32(0); podId < scale.Spec.Replicas && s.podLister != nil; podId++ {
 		var pod *v1.Pod
-		Retry(func() error {
+		wait.PollImmediate(50*time.Millisecond, 5*time.Second, func() (bool, error) {
 			pod, err = s.podLister.Get(PodNameFromOrdinal(s.statefulSetName, podId))
-			if err != nil {
-				// This error will result in a retry
-				return err
-			}
-			return nil
+			return err == nil, nil
 		})
 
 		var unschedulable bool
@@ -279,13 +277,9 @@ func (s *stateBuilder) State(reserved map[types.NamespacedName]map[string]int32)
 			withPlacement[vpod.GetKey()][podName] = true
 
 			var pod *v1.Pod
-			Retry(func() error {
+			wait.PollImmediate(50*time.Millisecond, 5*time.Second, func() (bool, error) {
 				pod, err = s.podLister.Get(podName)
-				if err != nil {
-					// This error will result in a retry
-					return err
-				}
-				return nil
+				return err == nil, nil
 			})
 
 			nodeName := pod.Spec.NodeName       //node name for this pod
@@ -306,13 +300,9 @@ func (s *stateBuilder) State(reserved map[types.NamespacedName]map[string]int32)
 				}
 
 				var pod *v1.Pod
-				Retry(func() error {
+				wait.PollImmediate(50*time.Millisecond, 5*time.Second, func() (bool, error) {
 					pod, err = s.podLister.Get(podName)
-					if err != nil {
-						// This error will result in a retry
-						return err
-					}
-					return nil
+					return err == nil, nil
 				})
 
 				nodeName := pod.Spec.NodeName       //node name for this pod
@@ -387,11 +377,9 @@ func withReserved(key types.NamespacedName, podName string, committed int32, res
 }
 
 func contains(taints []v1.Taint, taint *v1.Taint) bool {
-	if taints != nil {
-		for _, v := range taints {
-			if v.MatchTaint(taint) {
-				return true
-			}
+	for _, v := range taints {
+		if v.MatchTaint(taint) {
+			return true
 		}
 	}
 

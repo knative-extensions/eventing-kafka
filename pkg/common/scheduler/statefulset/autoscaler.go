@@ -240,15 +240,11 @@ func (a *autoscaler) compact(s *st.State, scaleUpFactor int32) error {
 				ordinal := st.OrdinalFromPodName(placements[i].PodName)
 
 				if ordinal == s.LastOrdinal-j {
-					st.Retry(func() error {
+					wait.PollImmediate(50*time.Millisecond, 5*time.Second, func() (bool, error) {
 						if s.PodLister != nil {
 							pod, err = s.PodLister.Get(placements[i].PodName)
-							if err != nil {
-								// This error will result in a retry
-								return err
-							}
 						}
-						return nil
+						return err == nil, nil
 					})
 
 					err = a.evictor(pod, vpod, &placements[i])
@@ -263,18 +259,14 @@ func (a *autoscaler) compact(s *st.State, scaleUpFactor int32) error {
 }
 
 func contains(preds []scheduler.PredicatePolicy, priors []scheduler.PriorityPolicy, name string) bool {
-	if preds != nil {
-		for _, v := range preds {
-			if v.Name == name {
-				return true
-			}
+	for _, v := range preds {
+		if v.Name == name {
+			return true
 		}
 	}
-	if priors != nil {
-		for _, v := range priors {
-			if v.Name == name {
-				return true
-			}
+	for _, v := range priors {
+		if v.Name == name {
+			return true
 		}
 	}
 

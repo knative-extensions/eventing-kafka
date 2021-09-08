@@ -155,13 +155,17 @@ func NewController(
 	}
 
 	policy := &scheduler.SchedulerPolicy{}
-	if err := initPolicyFromConfigMap(ctx, env.SchedulerPolicyConfigMap, policy); err != nil {
-		panic(err)
+	if env.SchedulerPolicyConfigMap != "" {
+		if err := initPolicyFromConfigMap(ctx, env.SchedulerPolicyConfigMap, policy); err != nil {
+			panic(err)
+		}
 	}
 
 	removalpolicy := &scheduler.SchedulerPolicy{}
-	if err := initPolicyFromConfigMap(ctx, env.DeSchedulerPolicyConfigMap, removalpolicy); err != nil {
-		panic(err)
+	if env.DeSchedulerPolicyConfigMap != "" {
+		if err := initPolicyFromConfigMap(ctx, env.DeSchedulerPolicyConfigMap, removalpolicy); err != nil {
+			panic(err)
+		}
 	}
 
 	logging.FromContext(ctx).Debugw("Scheduler Policy Config Map read", zap.Any("policy", policy))

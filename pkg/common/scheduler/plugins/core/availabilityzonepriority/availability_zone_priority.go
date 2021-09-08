@@ -71,7 +71,7 @@ func (pl *AvailabilityZonePriority) Score(ctx context.Context, args interface{},
 		return 0, state.NewStatus(state.Unschedulable, ErrReasonInvalidArg)
 	}
 
-	if states.Replicas > 0 { //need atleast a pod to compute spread
+	if states.Replicas > 0 { //need at least a pod to compute spread
 		var skew int32
 		zoneMap := make(map[string]struct{})
 		for _, zoneName := range states.NodeToZoneMap {
@@ -79,7 +79,7 @@ func (pl *AvailabilityZonePriority) Score(ctx context.Context, args interface{},
 		}
 
 		//Need to check if there is at least one pod in every zone to satisfy HA
-		if !state.SatisfyZoneAvailability(feasiblePods, states) {
+		if !state.SatisfyZoneAvailability(states.SchedulablePods, states) {
 			return 0, state.NewStatus(state.Unschedulable, ErrReasonNotEnoughPods)
 		}
 
