@@ -25,70 +25,105 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
 	"k8s.io/utils/pointer"
+	"knative.dev/eventing-kafka/pkg/apis/sources/config"
 )
 
+type assertFnType func(t *testing.T, ks KafkaSource, expected interface{})
+
 type defaultKafkaTestArgs struct {
-	Name       string
-	Initial    KafkaSource
-	Expected   string
-	AssertFunc func(t *testing.T, ks KafkaSource, expected string)
+	Name        string
+	Defaults    config.KafkaSourceDefaults
+	Initial     KafkaSource
+	Expected    interface{}
+	AssertFuncs []assertFnType
 }
 
 func TestSetDefaults(t *testing.T) {
-	assertUUID := func(t *testing.T, ks KafkaSource, expected string) {
+	assertUUID := func(t *testing.T, ks KafkaSource, expected interface{}) {
 		consumerGroup := strings.Split(ks.Spec.ConsumerGroup, uuidPrefix)
 		_, err := uuid.Parse(consumerGroup[len(consumerGroup)-1])
 		if err != nil {
 			t.Fatalf("Error Parsing UUID value: %s", err)
 		}
 	}
-	assertGivenGroup := func(t *testing.T, ks KafkaSource, expected string) {
+	assertGivenGroup := func(t *testing.T, ks KafkaSource, expected interface{}) {
 		if diff := cmp.Diff(ks.Spec.ConsumerGroup, expected); diff != "" {
 			t.Fatalf("Unexpected consumerGroup Set (-want, +got): %s", diff)
 		}
 	}
-	assertConsumers := func(t *testing.T, ks KafkaSource, expected string) {
-		i, _ := strconv.Atoi(expected)
+	assertConsumers := func(t *testing.T, ks KafkaSource, expected interface{}) {
+		i, _ := strconv.Atoi(expected.(string))
 		i32 := int32(i)
 		if diff := cmp.Diff(ks.Spec.Consumers, &i32); diff != "" {
 			t.Fatalf("Unexpected consumers (-want, +got): %s", diff)
 		}
 	}
+
+	assertNoAnnotations := func(t *testing.T, ks KafkaSource, expected interface{}) {
+		if len(ks.Annotations) != 0 {
+			t.Fatalf("Unexpected annotations: %v", ks.Annotations)
+		}
+	}
+	assertAnnotations := func(t *testing.T, ks KafkaSource, expected interface{}) {
+		if diff := cmp.Diff(ks.Annotations, expected); diff != "" {
+			t.Fatalf("Unexpected annotations (-want, +got): %s", diff)
+		}
+	}
 	testCases := []defaultKafkaTestArgs{
 		{
-			Name:       "nil spec",
-			Initial:    KafkaSource{},
-			AssertFunc: assertUUID,
-		},
-		{
+			Name:        "nil spec",
+			Initial:     KafkaSource{},
+			AssertFuncs: []assertFnType{assertUUID, assertNoAnnotations},
+		}, {
 			Name: "Set consumerGroup",
 			Initial: KafkaSource{
 				Spec: KafkaSourceSpec{
 					ConsumerGroup: "foo",
 				},
 			},
-			Expected:   "foo",
-			AssertFunc: assertGivenGroup,
+
+			Expected:    "foo",
+			AssertFuncs: []assertFnType{assertGivenGroup, assertNoAnnotations},
 		},
 		{
-			Name:       "consumers not set",
-			Initial:    KafkaSource{},
-			Expected:   "1",
-			AssertFunc: assertConsumers,
-		},
-		{
-			Name:       "consumers set",
-			Initial:    KafkaSource{Spec: KafkaSourceSpec{Consumers: pointer.Int32Ptr(4)}},
-			Expected:   "4",
-			AssertFunc: assertConsumers,
+			Name:        "consumers not set",
+			Initial:     KafkaSource{},
+			Expected:    "1",
+			AssertFuncs: []assertFnType{assertConsumers, assertNoAnnotations},
+		}, {
+			Name:        "consumers set",
+			Initial:     KafkaSource{Spec: KafkaSourceSpec{Consumers: pointer.Int32Ptr(4)}},
+			Expected:    "4",
+			AssertFuncs: []assertFnType{assertConsumers, assertNoAnnotations},
+		}, {
+			Name: "autoscaling config",
+			Defaults: config.KafkaSourceDefaults{
+				AutoscalingClass:  "keda.autoscaling.knative.dev",
+				MinScale:          40,
+				MaxScale:          60,
+				PollingInterval:   500,
+				CooldownPeriod:    4000,
+				KafkaLagThreshold: 100,
+			},
+			Initial: KafkaSource{},
+			Expected: map[string]string{
+				classAnnotation:             "keda.autoscaling.knative.dev",
+				minScaleAnnotation:          "40",
+				maxScaleAnnotation:          "60",
+				pollingIntervalAnnotation:   "500",
+				cooldownPeriodAnnotation:    "4000",
+				kafkaLagThresholdAnnotation: "100",
+			},
+			AssertFuncs: []assertFnType{assertAnnotations},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			tc.Initial.SetDefaults(context.TODO())
-			if tc.AssertFunc != nil {
-				tc.AssertFunc(t, tc.Initial, tc.Expected)
+			ctx := config.ToContext(context.Background(), &config.Config{KafkaSourceDefaults: &tc.Defaults})
+			tc.Initial.SetDefaults(ctx)
+			for _, assertFunc := range tc.AssertFuncs {
+				assertFunc(t, tc.Initial, tc.Expected)
 			}
 		})
 	}
