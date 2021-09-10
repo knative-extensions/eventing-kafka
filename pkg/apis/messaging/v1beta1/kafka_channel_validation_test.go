@@ -22,11 +22,11 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/pkg/webhook/resourcesemantics"
-
+	"k8s.io/apimachinery/pkg/types"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/apis/eventing"
 	"knative.dev/pkg/apis"
+	"knative.dev/pkg/webhook/resourcesemantics"
 )
 
 func TestKafkaChannelValidation(t *testing.T) {
@@ -197,6 +197,143 @@ func TestKafkaChannelValidation(t *testing.T) {
 	for n, test := range testCases {
 		t.Run(n, func(t *testing.T) {
 			got := test.cr.Validate(context.Background())
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+				t.Errorf("%s: validate (-want, +got) = %v", n, diff)
+			}
+		})
+	}
+}
+
+func TestKafkaChannelImmutability(t *testing.T) {
+
+	retry := int32(4)
+	backoffPolicy := eventingduck.BackoffPolicyExponential
+	backoffDelay := "PT0.5S"
+	uid := types.UID("123")
+	url, _ := apis.ParseURL("http://foo.bar.svc.cluster.local")
+
+	testCases := map[string]struct {
+		original resourcesemantics.GenericCRD
+		updated  resourcesemantics.GenericCRD
+		want     *apis.FieldError
+	}{
+		"updating mutable delivery": {
+			original: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     1,
+					ReplicationFactor: 1,
+					RetentionDuration: "P1D",
+				},
+			},
+			updated: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     1,
+					ReplicationFactor: 1,
+					RetentionDuration: "P1D",
+					ChannelableSpec: eventingduck.ChannelableSpec{
+						Delivery: &eventingduck.DeliverySpec{
+							Retry:         &retry,
+							BackoffPolicy: &backoffPolicy,
+							BackoffDelay:  &backoffDelay,
+						},
+					},
+				},
+			},
+		},
+		"updating mutable subscribers": {
+			original: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     1,
+					ReplicationFactor: 1,
+					RetentionDuration: "P1D",
+				},
+			},
+			updated: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     1,
+					ReplicationFactor: 1,
+					RetentionDuration: "P1D",
+					ChannelableSpec: eventingduck.ChannelableSpec{
+						SubscribableSpec: eventingduck.SubscribableSpec{Subscribers: []eventingduck.SubscriberSpec{{UID: uid, SubscriberURI: url}}},
+					},
+				},
+			},
+		},
+		"updating immutable numPartitions": {
+			original: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     1,
+					ReplicationFactor: 1,
+					RetentionDuration: "P1D",
+				},
+			},
+			updated: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     2,
+					ReplicationFactor: 1,
+					RetentionDuration: "P1D",
+				},
+			},
+			want: func() *apis.FieldError {
+				return &apis.FieldError{
+					Message: "Immutable fields changed (-old +new)",
+					Paths:   []string{"spec"},
+					Details: "{v1beta1.KafkaChannelSpec}.NumPartitions:\n\t-: \"1\"\n\t+: \"2\"\n",
+				}
+			}(),
+		},
+		"updating immutable replicationFactor": {
+			original: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     1,
+					ReplicationFactor: 1,
+					RetentionDuration: "P1D",
+				},
+			},
+			updated: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     1,
+					ReplicationFactor: 2,
+					RetentionDuration: "P1D",
+				},
+			},
+			want: func() *apis.FieldError {
+				return &apis.FieldError{
+					Message: "Immutable fields changed (-old +new)",
+					Paths:   []string{"spec"},
+					Details: "{v1beta1.KafkaChannelSpec}.ReplicationFactor:\n\t-: \"1\"\n\t+: \"2\"\n",
+				}
+			}(),
+		},
+		"updating immutable retentionDuration": {
+			original: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     1,
+					ReplicationFactor: 1,
+					RetentionDuration: "P1D",
+				},
+			},
+			updated: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     1,
+					ReplicationFactor: 1,
+					RetentionDuration: "P2D",
+				},
+			},
+			want: func() *apis.FieldError {
+				return &apis.FieldError{
+					Message: "Immutable fields changed (-old +new)",
+					Paths:   []string{"spec"},
+					Details: "{v1beta1.KafkaChannelSpec}.RetentionDuration:\n\t-: \"P1D\"\n\t+: \"P2D\"\n",
+				}
+			}(),
+		},
+	}
+
+	for n, test := range testCases {
+		t.Run(n, func(t *testing.T) {
+			ctx := apis.WithinUpdate(context.Background(), test.original)
+			got := test.updated.Validate(ctx)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("%s: validate (-want, +got) = %v", n, diff)
 			}

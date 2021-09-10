@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -27,15 +28,17 @@ import (
 	"knative.dev/pkg/webhook/resourcesemantics"
 )
 
+var (
+	refAPIVersion = "messaging.knative.dev/v1beta1"
+	refKind       = "Subscription"
+	refNamespace  = "ref-namespace"
+	refName       = "ref-name"
+
+	futureTime = time.Now().Add(1 * time.Hour).Format(time.RFC3339)
+	pastTime   = time.Now().Add(-1 * time.Hour).Format(time.RFC3339)
+)
+
 func TestResetOffset_Validate(t *testing.T) {
-
-	refAPIVersion := "messaging.knative.dev/v1beta1"
-	refKind := "Subscription"
-	refNamespace := "ref-namespace"
-	refName := "ref-name"
-
-	futureTime := time.Now().Add(1 * time.Hour).Format(time.RFC3339)
-	pastTime := time.Now().Add(-1 * time.Hour).Format(time.RFC3339)
 
 	reference := duckv1.KReference{
 		APIVersion: refAPIVersion,
@@ -171,6 +174,90 @@ func TestResetOffset_Validate(t *testing.T) {
 				}
 			} else if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("validate (-want, +got) = %v", diff)
+			}
+		})
+	}
+}
+
+func TestResetOffsetImmutability(t *testing.T) {
+	tests := []struct {
+		name     string
+		original resourcesemantics.GenericCRD
+		updated  resourcesemantics.GenericCRD
+		want     *apis.FieldError
+	}{
+		{
+			name: "updating immutable offset.time",
+			original: &ResetOffset{
+				Spec: ResetOffsetSpec{
+					Offset: OffsetSpec{Time: OffsetEarliest},
+					Ref: duckv1.KReference{
+						APIVersion: refAPIVersion,
+						Kind:       refKind,
+						Namespace:  refNamespace,
+						Name:       refName,
+					},
+				},
+			},
+			updated: &ResetOffset{
+				Spec: ResetOffsetSpec{
+					Offset: OffsetSpec{Time: OffsetLatest},
+					Ref: duckv1.KReference{
+						APIVersion: refAPIVersion,
+						Kind:       refKind,
+						Namespace:  refNamespace,
+						Name:       refName,
+					},
+				},
+			},
+			want: func() *apis.FieldError {
+				return &apis.FieldError{
+					Message: "Immutable fields changed (-old +new)",
+					Paths:   []string{"spec"},
+					Details: fmt.Sprintf("{v1alpha1.ResetOffsetSpec}.Offset.Time:\n\t-: \"%s\"\n\t+: \"%s\"\n", OffsetEarliest, OffsetLatest),
+				}
+			}(),
+		},
+		{
+			name: "updating immutable ref.name",
+			original: &ResetOffset{
+				Spec: ResetOffsetSpec{
+					Offset: OffsetSpec{Time: OffsetEarliest},
+					Ref: duckv1.KReference{
+						APIVersion: refAPIVersion,
+						Kind:       refKind,
+						Namespace:  refNamespace,
+						Name:       refName,
+					},
+				},
+			},
+			updated: &ResetOffset{
+				Spec: ResetOffsetSpec{
+					Offset: OffsetSpec{Time: OffsetEarliest},
+					Ref: duckv1.KReference{
+						APIVersion: refAPIVersion,
+						Kind:       refKind,
+						Namespace:  refNamespace,
+						Name:       "FOO",
+					},
+				},
+			},
+			want: func() *apis.FieldError {
+				return &apis.FieldError{
+					Message: "Immutable fields changed (-old +new)",
+					Paths:   []string{"spec"},
+					Details: fmt.Sprintf("{v1alpha1.ResetOffsetSpec}.Ref.Name:\n\t-: \"%s\"\n\t+: \"%s\"\n", refName, "FOO"),
+				}
+			}(),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := apis.WithinUpdate(context.Background(), test.original)
+			got := test.updated.Validate(ctx)
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+				t.Errorf("%s: validate (-want, +got) = %v", test.name, diff)
 			}
 		})
 	}
