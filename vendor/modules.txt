@@ -1110,7 +1110,7 @@ knative.dev/control-protocol/pkg/message
 knative.dev/control-protocol/pkg/network
 knative.dev/control-protocol/pkg/reconciler
 knative.dev/control-protocol/pkg/service
-# knative.dev/eventing v0.25.1-0.20210909163359-316e14d7fbc2
+# knative.dev/eventing v0.25.1-0.20210913151933-7266621523e3
 ## explicit
 knative.dev/eventing/pkg/adapter/v2
 knative.dev/eventing/pkg/adapter/v2/test
