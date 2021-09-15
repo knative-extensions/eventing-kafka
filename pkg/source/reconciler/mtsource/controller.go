@@ -21,14 +21,16 @@ import (
 	"fmt"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/eventing-kafka/pkg/source/reconciler/common"
+
 	"knative.dev/pkg/apis/duck"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
+	nodeinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/node"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -43,9 +45,8 @@ import (
 	kafkainformer "knative.dev/eventing-kafka/pkg/client/injection/informers/sources/v1beta1/kafkasource"
 	"knative.dev/eventing-kafka/pkg/client/injection/reconciler/sources/v1beta1/kafkasource"
 	"knative.dev/eventing-kafka/pkg/common/constants"
-	scheduler "knative.dev/eventing-kafka/pkg/common/scheduler"
+	"knative.dev/eventing-kafka/pkg/common/scheduler"
 	stsscheduler "knative.dev/eventing-kafka/pkg/common/scheduler/statefulset"
-	nodeinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/node"
 )
 
 type envConfig struct {
@@ -73,6 +74,7 @@ func NewController(
 	nodeInformer := nodeinformer.Get(ctx)
 
 	c := &Reconciler{
+		BoundedFinalizer:              common.BoundedFinalizer{FinalizerAttempts: map[string]int{}},
 		KubeClientSet:                 kubeclient.Get(ctx),
 		kafkaClientSet:                kafkaclient.Get(ctx),
 		kafkaLister:                   kafkaInformer.Lister(),
