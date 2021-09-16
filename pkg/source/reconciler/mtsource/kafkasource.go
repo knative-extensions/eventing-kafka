@@ -163,7 +163,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 }
 
 func (r *Reconciler) FinalizeKind(ctx context.Context, src *v1beta1.KafkaSource) reconciler.Event {
-	return common.FinalizeKind(ctx, &r.BoundedFinalizer, src)
+	return common.FinalizeKind(ctx, r.KubeClientSet, &r.BoundedFinalizer, src)
 }
 
 func (r *Reconciler) reconcileMTReceiveAdapter(src *v1beta1.KafkaSource) error {

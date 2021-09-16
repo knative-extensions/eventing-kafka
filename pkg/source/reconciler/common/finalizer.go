@@ -18,11 +18,12 @@ package common
 
 import (
 	"context"
+	"errors"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
+	"k8s.io/client-go/kubernetes"
 
-	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/reconciler"
 
@@ -31,7 +32,7 @@ import (
 )
 
 const (
-	maxFinalizerAttempts = 10
+	maxFinalizerAttempts = 50
 )
 
 // BoundedFinalizer limits the number of time a finalizer can run, due to too many errors.
@@ -39,7 +40,7 @@ type BoundedFinalizer struct {
 	FinalizerAttempts map[string]int
 }
 
-func FinalizeKind(ctx context.Context, r *BoundedFinalizer, src *v1beta1.KafkaSource) reconciler.Event {
+func FinalizeKind(ctx context.Context, kubeClient kubernetes.Interface, r *BoundedFinalizer, src *v1beta1.KafkaSource) reconciler.Event {
 	key := src.Namespace + "/" + src.Name
 
 	// Consumer group is an external resource that may not be available anymore so limit the
@@ -51,7 +52,11 @@ func FinalizeKind(ctx context.Context, r *BoundedFinalizer, src *v1beta1.KafkaSo
 	}
 	r.FinalizerAttempts[key]++
 
-	bs, config, err := client.NewConfigFromSpec(ctx, kubeclient.Get(ctx), src)
+	bs, config, err := client.NewConfigFromSpec(ctx, kubeClient, src)
+
+	// Version must be at least 1.1
+	config.Version = sarama.V1_1_0_0
+
 	c, err := sarama.NewClusterAdmin(bs, config)
 	if err != nil {
 		logging.FromContext(ctx).Errorw("unable to create a kafka client", zap.Error(err))
@@ -59,7 +64,7 @@ func FinalizeKind(ctx context.Context, r *BoundedFinalizer, src *v1beta1.KafkaSo
 	}
 	defer c.Close()
 
-	if err := c.DeleteConsumerGroup(src.Spec.ConsumerGroup); err != nil {
+	if err := c.DeleteConsumerGroup(src.Spec.ConsumerGroup); err != nil && !errors.Is(sarama.ErrGroupIDNotFound, err) {
 		logging.FromContext(ctx).Errorw("unable to delete the consumer group", zap.Error(err))
 		return err
 	}

@@ -283,7 +283,7 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, src *v1beta1.KafkaSource)
 		Name:      src.Name,
 	})
 
-	return common.FinalizeKind(ctx, &r.BoundedFinalizer, src)
+	return common.FinalizeKind(ctx, r.KubeClientSet, &r.BoundedFinalizer, src)
 }
 
 func (r *Reconciler) createReceiveAdapter(ctx context.Context, src *v1beta1.KafkaSource, sinkURI *apis.URL) (*appsv1.Deployment, error) {
