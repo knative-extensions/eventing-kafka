@@ -35,9 +35,9 @@ require (
 	k8s.io/client-go v0.21.4
 	k8s.io/utils v0.0.0-20201110183641-67b214c5f920
 	knative.dev/control-protocol v0.0.0-20210916135140-1d339f445c6e
-	knative.dev/eventing v0.25.1-0.20210916210831-9e66fc9bdb12
+	knative.dev/eventing v0.25.1-0.20210917075131-dcb0aea20724
 	knative.dev/hack v0.0.0-20210806075220-815cd312d65c
-	knative.dev/networking v0.0.0-20210914225408-69ad45454096
-	knative.dev/pkg v0.0.0-20210914164111-4857ab6939e3
+	knative.dev/networking v0.0.0-20210916065741-5e884aff221e
+	knative.dev/pkg v0.0.0-20210916151640-7d6d325b8b87
 	knative.dev/reconciler-test v0.0.0-20210915181908-49fac7555086
 )
