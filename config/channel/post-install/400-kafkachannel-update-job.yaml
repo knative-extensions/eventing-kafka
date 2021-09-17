@@ -26,7 +26,7 @@ spec:
     metadata:
       labels:
         app: "kafkachannel-v0.26-post-install"
-        eventing.knative.dev/release: devel
+        kafka.eventing.knative.dev/release: devel
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
