@@ -235,24 +235,26 @@ func (s *stateBuilder) State(reserved map[types.NamespacedName]map[string]int32)
 			return err == nil, nil
 		})
 
-		var unschedulable bool
-		annotVal, ok := pod.ObjectMeta.Annotations[constants.PodAnnotationKey] //Pod is marked for eviction - CANNOT SCHEDULE VREPS on this pod
-		if ok {
-			unschedulable, _ = strconv.ParseBool(annotVal)
-		}
+		if pod != nil {
+			var unschedulable bool
+			annotVal, ok := pod.ObjectMeta.Annotations[constants.PodAnnotationKey] //Pod is marked for eviction - CANNOT SCHEDULE VREPS on this pod
+			if ok {
+				unschedulable, _ = strconv.ParseBool(annotVal)
+			}
 
-		nodeName := pod.Spec.NodeName
-		node, err := s.nodeLister.Get(nodeName) //Node could be marked as Unschedulable - CANNOT SCHEDULE VREPS on a pod running on this node
-		if err != nil {
-			return nil, err
-		}
+			nodeName := pod.Spec.NodeName
+			node, err := s.nodeLister.Get(nodeName) //Node could be marked as Unschedulable - CANNOT SCHEDULE VREPS on a pod running on this node
+			if err != nil {
+				return nil, err
+			}
 
-		_, okZone := node.GetLabels()[scheduler.ZoneLabel] //Node has no zone info (maybe zone is down or a control node) - CANNOT SCHEDULE VREPS on a pod running on this node
+			_, okZone := node.GetLabels()[scheduler.ZoneLabel] //Node has no zone info (maybe zone is down or a control node) - CANNOT SCHEDULE VREPS on a pod running on this node
 
-		taints := node.Spec.Taints
+			taints := node.Spec.Taints
 
-		if (!ok || !unschedulable) && !node.Spec.Unschedulable && okZone && !contains(taints, noexec) && !contains(taints, nosched) { //Pod has no annotation or not annotated as unschedulable and not on an unschedulable node, so add to feasible
-			schedulablePods = append(schedulablePods, podId)
+			if (!ok || !unschedulable) && !node.Spec.Unschedulable && okZone && !contains(taints, noexec) && !contains(taints, nosched) { //Pod has no annotation or not annotated as unschedulable and not on an unschedulable node, so add to feasible
+				schedulablePods = append(schedulablePods, podId)
+			}
 		}
 	}
 
@@ -282,11 +284,13 @@ func (s *stateBuilder) State(reserved map[types.NamespacedName]map[string]int32)
 				return err == nil, nil
 			})
 
-			nodeName := pod.Spec.NodeName       //node name for this pod
-			zoneName := nodeToZoneMap[nodeName] //zone name for this pod
-			podSpread[vpod.GetKey()][podName] = podSpread[vpod.GetKey()][podName] + vreplicas
-			nodeSpread[vpod.GetKey()][nodeName] = nodeSpread[vpod.GetKey()][nodeName] + vreplicas
-			zoneSpread[vpod.GetKey()][zoneName] = zoneSpread[vpod.GetKey()][zoneName] + vreplicas
+			if pod != nil {
+				nodeName := pod.Spec.NodeName       //node name for this pod
+				zoneName := nodeToZoneMap[nodeName] //zone name for this pod
+				podSpread[vpod.GetKey()][podName] = podSpread[vpod.GetKey()][podName] + vreplicas
+				nodeSpread[vpod.GetKey()][nodeName] = nodeSpread[vpod.GetKey()][nodeName] + vreplicas
+				zoneSpread[vpod.GetKey()][zoneName] = zoneSpread[vpod.GetKey()][zoneName] + vreplicas
+			}
 		}
 	}
 
@@ -305,11 +309,13 @@ func (s *stateBuilder) State(reserved map[types.NamespacedName]map[string]int32)
 					return err == nil, nil
 				})
 
-				nodeName := pod.Spec.NodeName       //node name for this pod
-				zoneName := nodeToZoneMap[nodeName] //zone name for this pod
-				podSpread[key][podName] = podSpread[key][podName] + rvreplicas
-				nodeSpread[key][nodeName] = nodeSpread[key][nodeName] + rvreplicas
-				zoneSpread[key][zoneName] = zoneSpread[key][zoneName] + rvreplicas
+				if pod != nil {
+					nodeName := pod.Spec.NodeName       //node name for this pod
+					zoneName := nodeToZoneMap[nodeName] //zone name for this pod
+					podSpread[key][podName] = podSpread[key][podName] + rvreplicas
+					nodeSpread[key][nodeName] = nodeSpread[key][nodeName] + rvreplicas
+					zoneSpread[key][zoneName] = zoneSpread[key][zoneName] + rvreplicas
+				}
 			}
 
 			free, last = s.updateFreeCapacity(free, last, podName, rvreplicas)
