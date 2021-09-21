@@ -20,7 +20,7 @@ metadata:
   labels:
     kafka.eventing.knative.dev/release: devel
 spec:
-  replicas: 0
+  #replicas field removed so that a kafka upgrade doesn't modify the number of replicas after placements have been made
   selector:
     matchLabels: &labels
       control-plane: kafkasource-mt-adapter
