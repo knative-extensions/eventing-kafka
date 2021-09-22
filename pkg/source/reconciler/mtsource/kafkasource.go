@@ -128,7 +128,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 	}
 	defer kafkaAdminClient.Close()
 
-	totalPartitions, err := offset.InitOffsets(ctx, c, kafkaAdminClient, src.Spec.Topics, src.Spec.ConsumerGroup)
+	_, err = offset.InitOffsets(ctx, c, kafkaAdminClient, src.Spec.Topics, src.Spec.ConsumerGroup)
 	if err != nil {
 		logging.FromContext(ctx).Errorw("unable to initialize consumergroup offsets", zap.Error(err))
 		src.Status.MarkInitialOffsetNotCommitted("OffsetsNotCommitted", "Unable to initialize consumergroup offsets: %v", err)
