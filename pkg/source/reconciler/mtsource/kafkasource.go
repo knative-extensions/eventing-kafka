@@ -163,7 +163,14 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 }
 
 func (r *Reconciler) FinalizeKind(ctx context.Context, src *v1beta1.KafkaSource) reconciler.Event {
-	return common.FinalizeKind(ctx, r.KubeClientSet, &r.BoundedFinalizer, src)
+	if src.Status.Placement != nil {
+		src.Status.Placement = nil
+
+		// return an error to 1. update the status. 2. not clear the finalizer
+		return errors.New("placement list was not empty")
+	}
+
+	return common.FinalizeKind(ctx, r.KubeClientSet, src)
 }
 
 func (r *Reconciler) reconcileMTReceiveAdapter(src *v1beta1.KafkaSource) error {

@@ -95,8 +95,6 @@ func newDeploymentFailed(namespace, name string, err error) pkgreconciler.Event 
 }
 
 type Reconciler struct {
-	common.BoundedFinalizer
-
 	// KubeClientSet allows us to talk to the k8s for core APIs
 	KubeClientSet kubernetes.Interface
 
@@ -283,7 +281,11 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, src *v1beta1.KafkaSource)
 		Name:      src.Name,
 	})
 
-	return common.FinalizeKind(ctx, r.KubeClientSet, &r.BoundedFinalizer, src)
+	if err := r.deleteReceiveAdapter(ctx, src); !apierrors.IsNotFound(err) {
+		return err
+	}
+
+	return common.FinalizeKind(ctx, r.KubeClientSet, src)
 }
 
 func (r *Reconciler) createReceiveAdapter(ctx context.Context, src *v1beta1.KafkaSource, sinkURI *apis.URL) (*appsv1.Deployment, error) {

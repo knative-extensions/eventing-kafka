@@ -26,8 +26,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"knative.dev/eventing-kafka/pkg/source/reconciler/common"
-
 	"knative.dev/pkg/apis/duck"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	nodeinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/node"
@@ -74,7 +72,6 @@ func NewController(
 	nodeInformer := nodeinformer.Get(ctx)
 
 	c := &Reconciler{
-		BoundedFinalizer:              common.BoundedFinalizer{FinalizerAttempts: map[string]int{}},
 		KubeClientSet:                 kubeclient.Get(ctx),
 		kafkaClientSet:                kafkaclient.Get(ctx),
 		kafkaLister:                   kafkaInformer.Lister(),

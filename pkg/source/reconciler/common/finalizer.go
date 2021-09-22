@@ -31,28 +31,11 @@ import (
 	"knative.dev/eventing-kafka/pkg/source/client"
 )
 
-const (
-	maxFinalizerAttempts = 50
-)
-
-// BoundedFinalizer limits the number of time a finalizer can run, due to too many errors.
-type BoundedFinalizer struct {
-	FinalizerAttempts map[string]int
-}
-
-func FinalizeKind(ctx context.Context, kubeClient kubernetes.Interface, r *BoundedFinalizer, src *v1beta1.KafkaSource) reconciler.Event {
-	key := src.Namespace + "/" + src.Name
-
-	// Consumer group is an external resource that may not be available anymore so limit the
-	// number of times trying to delete it
-	if r.FinalizerAttempts[key] > maxFinalizerAttempts {
-		logging.FromContext(ctx).Infow("giving up trying to delete consumer group (too many attempts)", zap.String("id", src.Spec.ConsumerGroup))
-		delete(r.FinalizerAttempts, key)
-		return nil
-	}
-	r.FinalizerAttempts[key]++
-
+func FinalizeKind(ctx context.Context, kubeClient kubernetes.Interface, src *v1beta1.KafkaSource) reconciler.Event {
 	bs, config, err := client.NewConfigFromSpec(ctx, kubeClient, src)
+	if err != nil {
+		return err
+	}
 
 	// Version must be at least 1.1
 	config.Version = sarama.V1_1_0_0
@@ -70,6 +53,5 @@ func FinalizeKind(ctx context.Context, kubeClient kubernetes.Interface, r *Bound
 	}
 
 	logging.FromContext(ctx).Infow("consumer group deleted", zap.String("id", src.Spec.ConsumerGroup))
-	delete(r.FinalizerAttempts, key)
 	return nil
 }

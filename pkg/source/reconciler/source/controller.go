@@ -37,7 +37,6 @@ import (
 	kafkainformer "knative.dev/eventing-kafka/pkg/client/injection/informers/sources/v1beta1/kafkasource"
 	"knative.dev/eventing-kafka/pkg/client/injection/reconciler/sources/v1beta1/kafkasource"
 	kafkasourcecontrol "knative.dev/eventing-kafka/pkg/source/control"
-	"knative.dev/eventing-kafka/pkg/source/reconciler/common"
 )
 
 func NewController(
@@ -56,7 +55,6 @@ func NewController(
 	podInformer := podinformer.Get(ctx)
 
 	c := &Reconciler{
-		BoundedFinalizer:    common.BoundedFinalizer{FinalizerAttempts: map[string]int{}},
 		KubeClientSet:       kubeclient.Get(ctx),
 		kafkaClientSet:      kafkaclient.Get(ctx),
 		kafkaLister:         kafkaInformer.Lister(),

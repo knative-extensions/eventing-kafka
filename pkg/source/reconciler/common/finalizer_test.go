@@ -51,7 +51,6 @@ func TestFinalizer(t *testing.T) {
 	ctx := logtesting.TestContextWithLogger(t)
 	ctx, _ = fakekubeclient.With(ctx)
 
-	bf := &BoundedFinalizer{FinalizerAttempts: map[string]int{}}
 	src := &v1beta1.KafkaSource{
 		Spec: v1beta1.KafkaSourceSpec{
 			KafkaAuthSpec: bindingsv1beta1.KafkaAuthSpec{
@@ -61,7 +60,7 @@ func TestFinalizer(t *testing.T) {
 			ConsumerGroup: group,
 		},
 	}
-	err := FinalizeKind(ctx, fakekubeclient.Get(ctx), bf, src)
+	err := FinalizeKind(ctx, fakekubeclient.Get(ctx), src)
 	if err != nil {
 		t.Error("unexpected error: ", err)
 	}
