@@ -328,15 +328,19 @@ func TestAllCases(t *testing.T) {
 	}
 
 	table.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
-
+		saramaConfig := &sarama.Config{}
 		r := &Reconciler{
 			systemNamespace:          testNS,
 			dispatcherImage:          testDispatcherImage,
 			dispatcherServiceAccount: testDispatcherserviceAccount,
 			kafkaConfigMapHash:       testConfigMapHash,
 			kafkaConfig: &KafkaConfig{
-				Brokers:       []string{brokerName},
-				EventingKafka: &config.EventingKafkaConfig{},
+				Brokers: []string{brokerName},
+				EventingKafka: &config.EventingKafkaConfig{
+					Sarama: config.EKSaramaConfig{
+						Config: saramaConfig,
+					},
+				},
 			},
 			kafkachannelLister: listers.GetKafkaChannelLister(),
 			// TODO fix
@@ -345,6 +349,7 @@ func TestAllCases(t *testing.T) {
 			serviceLister:        listers.GetServiceLister(),
 			endpointsLister:      listers.GetEndpointsLister(),
 			kafkaClusterAdmin:    &mockClusterAdmin{},
+			kafkaClient:          &mockKafkaClient{saramaConfig},
 			kafkaClientSet:       fakekafkaclient.Get(ctx),
 			KubeClientSet:        kubeclient.Get(ctx),
 			EventingClientSet:    eventingClient.Get(ctx),
@@ -388,15 +393,19 @@ func TestTopicExists(t *testing.T) {
 	}
 
 	row.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
-
+		saramaConfig := &sarama.Config{}
 		r := &Reconciler{
 			systemNamespace:          testNS,
 			dispatcherImage:          testDispatcherImage,
 			dispatcherServiceAccount: testDispatcherserviceAccount,
 			kafkaConfigMapHash:       testConfigMapHash,
 			kafkaConfig: &KafkaConfig{
-				Brokers:       []string{brokerName},
-				EventingKafka: &config.EventingKafkaConfig{},
+				Brokers: []string{brokerName},
+				EventingKafka: &config.EventingKafkaConfig{
+					Sarama: config.EKSaramaConfig{
+						Config: saramaConfig,
+					},
+				},
 			},
 			kafkachannelLister: listers.GetKafkaChannelLister(),
 			// TODO fix
@@ -413,6 +422,7 @@ func TestTopicExists(t *testing.T) {
 					}
 				},
 			},
+			kafkaClient:       &mockKafkaClient{saramaConfig},
 			kafkaClientSet:    fakekafkaclient.Get(ctx),
 			KubeClientSet:     kubeclient.Get(ctx),
 			EventingClientSet: eventingClient.Get(ctx),
@@ -460,15 +470,19 @@ func TestDeploymentUpdatedOnImageChange(t *testing.T) {
 	}
 
 	row.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
-
+		saramaConfig := &sarama.Config{}
 		r := &Reconciler{
 			systemNamespace:          testNS,
 			dispatcherImage:          testDispatcherImage,
 			dispatcherServiceAccount: testDispatcherserviceAccount,
 			kafkaConfigMapHash:       testConfigMapHash,
 			kafkaConfig: &KafkaConfig{
-				Brokers:       []string{brokerName},
-				EventingKafka: &config.EventingKafkaConfig{},
+				Brokers: []string{brokerName},
+				EventingKafka: &config.EventingKafkaConfig{
+					Sarama: config.EKSaramaConfig{
+						Config: saramaConfig,
+					},
+				},
 			},
 			kafkachannelLister: listers.GetKafkaChannelLister(),
 			// TODO fix
@@ -485,6 +499,7 @@ func TestDeploymentUpdatedOnImageChange(t *testing.T) {
 					}
 				},
 			},
+			kafkaClient:       &mockKafkaClient{saramaConfig},
 			kafkaClientSet:    fakekafkaclient.Get(ctx),
 			KubeClientSet:     kubeclient.Get(ctx),
 			EventingClientSet: eventingClient.Get(ctx),
@@ -532,15 +547,19 @@ func TestDeploymentZeroReplicas(t *testing.T) {
 	}
 
 	row.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
-
+		saramaConfig := &sarama.Config{}
 		r := &Reconciler{
 			systemNamespace:          testNS,
 			dispatcherImage:          testDispatcherImage,
 			dispatcherServiceAccount: testDispatcherserviceAccount,
 			kafkaConfigMapHash:       testConfigMapHash,
 			kafkaConfig: &KafkaConfig{
-				Brokers:       []string{brokerName},
-				EventingKafka: &config.EventingKafkaConfig{},
+				Brokers: []string{brokerName},
+				EventingKafka: &config.EventingKafkaConfig{
+					Sarama: config.EKSaramaConfig{
+						Config: saramaConfig,
+					},
+				},
 			},
 			kafkachannelLister: listers.GetKafkaChannelLister(),
 			// TODO fix
@@ -557,6 +576,7 @@ func TestDeploymentZeroReplicas(t *testing.T) {
 					}
 				},
 			},
+			kafkaClient:       &mockKafkaClient{saramaConfig},
 			kafkaClientSet:    fakekafkaclient.Get(ctx),
 			KubeClientSet:     kubeclient.Get(ctx),
 			EventingClientSet: eventingClient.Get(ctx),
@@ -600,15 +620,19 @@ func TestDeploymentMoreThanOneReplicas(t *testing.T) {
 	}
 
 	row.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
-
+		saramaConfig := &sarama.Config{}
 		r := &Reconciler{
 			systemNamespace:          testNS,
 			dispatcherImage:          testDispatcherImage,
 			dispatcherServiceAccount: testDispatcherserviceAccount,
 			kafkaConfigMapHash:       testConfigMapHash,
 			kafkaConfig: &KafkaConfig{
-				Brokers:       []string{brokerName},
-				EventingKafka: &config.EventingKafkaConfig{},
+				Brokers: []string{brokerName},
+				EventingKafka: &config.EventingKafkaConfig{
+					Sarama: config.EKSaramaConfig{
+						Config: saramaConfig,
+					},
+				},
 			},
 			kafkachannelLister: listers.GetKafkaChannelLister(),
 			// TODO fix
@@ -625,6 +649,7 @@ func TestDeploymentMoreThanOneReplicas(t *testing.T) {
 					}
 				},
 			},
+			kafkaClient:       &mockKafkaClient{saramaConfig},
 			kafkaClientSet:    fakekafkaclient.Get(ctx),
 			KubeClientSet:     kubeclient.Get(ctx),
 			EventingClientSet: eventingClient.Get(ctx),
@@ -672,15 +697,19 @@ func TestDeploymentUpdatedOnConfigMapHashChange(t *testing.T) {
 	}
 
 	row.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
-
+		saramaConfig := &sarama.Config{}
 		r := &Reconciler{
 			systemNamespace:          testNS,
 			dispatcherImage:          testDispatcherImage,
 			dispatcherServiceAccount: testDispatcherserviceAccount,
 			kafkaConfigMapHash:       testConfigMapHash,
 			kafkaConfig: &KafkaConfig{
-				Brokers:       []string{brokerName},
-				EventingKafka: &config.EventingKafkaConfig{},
+				Brokers: []string{brokerName},
+				EventingKafka: &config.EventingKafkaConfig{
+					Sarama: config.EKSaramaConfig{
+						Config: saramaConfig,
+					},
+				},
 			},
 			kafkachannelLister: listers.GetKafkaChannelLister(),
 			// TODO fix
@@ -697,6 +726,7 @@ func TestDeploymentUpdatedOnConfigMapHashChange(t *testing.T) {
 					}
 				},
 			},
+			kafkaClient:       &mockKafkaClient{saramaConfig},
 			kafkaClientSet:    fakekafkaclient.Get(ctx),
 			KubeClientSet:     kubeclient.Get(ctx),
 			EventingClientSet: eventingClient.Get(ctx),
@@ -811,6 +841,90 @@ func (ca *mockClusterAdmin) DescribeCluster() (brokers []*sarama.Broker, control
 // Delete a consumer group.
 func (ca *mockClusterAdmin) DeleteConsumerGroup(group string) error {
 	return nil
+}
+
+type mockKafkaClient struct {
+	saramaConfig *sarama.Config
+}
+
+func (c mockKafkaClient) Config() *sarama.Config {
+	return c.saramaConfig
+}
+
+func (c mockKafkaClient) Controller() (*sarama.Broker, error) {
+	return nil, nil
+}
+
+func (c mockKafkaClient) RefreshController() (*sarama.Broker, error) {
+	return nil, nil
+}
+
+func (c mockKafkaClient) Brokers() []*sarama.Broker {
+	return nil
+}
+
+func (c mockKafkaClient) Broker(brokerID int32) (*sarama.Broker, error) {
+	return nil, nil
+}
+
+func (c mockKafkaClient) Topics() ([]string, error) {
+	return nil, nil
+}
+
+func (c mockKafkaClient) Partitions(topic string) ([]int32, error) {
+	return nil, nil
+}
+
+func (c mockKafkaClient) WritablePartitions(topic string) ([]int32, error) {
+	return nil, nil
+}
+
+func (c mockKafkaClient) Leader(topic string, partitionID int32) (*sarama.Broker, error) {
+	return nil, nil
+}
+
+func (c mockKafkaClient) Replicas(topic string, partitionID int32) ([]int32, error) {
+	return nil, nil
+}
+
+func (c mockKafkaClient) InSyncReplicas(topic string, partitionID int32) ([]int32, error) {
+	return nil, nil
+}
+
+func (c mockKafkaClient) OfflineReplicas(topic string, partitionID int32) ([]int32, error) {
+	return nil, nil
+}
+
+func (c mockKafkaClient) RefreshBrokers(addrs []string) error {
+	return nil
+}
+
+func (c mockKafkaClient) RefreshMetadata(topics ...string) error {
+	return nil
+}
+
+func (c mockKafkaClient) GetOffset(topic string, partitionID int32, time int64) (int64, error) {
+	return 0, nil
+}
+
+func (c mockKafkaClient) Coordinator(consumerGroup string) (*sarama.Broker, error) {
+	return nil, nil
+}
+
+func (c mockKafkaClient) RefreshCoordinator(consumerGroup string) error {
+	return nil
+}
+
+func (c mockKafkaClient) InitProducerID() (*sarama.InitProducerIDResponse, error) {
+	return nil, nil
+}
+
+func (c mockKafkaClient) Close() error {
+	return nil
+}
+
+func (c mockKafkaClient) Closed() bool {
+	return false
 }
 
 var _ sarama.ClusterAdmin = (*mockClusterAdmin)(nil)
