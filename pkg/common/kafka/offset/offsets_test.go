@@ -14,12 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package client
+package offset
 
 import (
 	"testing"
 
 	"github.com/Shopify/sarama"
+	"github.com/stretchr/testify/assert"
 
 	logtesting "knative.dev/pkg/logging/testing"
 )
@@ -137,9 +138,20 @@ func TestInitOffsets(t *testing.T) {
 				t.Errorf("unexpected error: %v", err)
 			}
 			defer sc.Close()
-			ctx := logtesting.TestContextWithLogger(t)
-			err = InitOffsets(ctx, sc, tc.topics, group)
 
+			kac, err := sarama.NewClusterAdminFromClient(sc)
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+			defer kac.Close()
+
+			ctx := logtesting.TestContextWithLogger(t)
+			partitionCt, err := InitOffsets(ctx, sc, kac, tc.topics, group)
+			total := 0
+			for _, partitions := range tc.topicOffsets {
+				total += len(partitions)
+			}
+			assert.Equal(t, int(partitionCt), total)
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}
