@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/kubernetes"
+	"knative.dev/eventing-kafka/pkg/common/kafka/offset"
 	"knative.dev/eventing/pkg/reconciler/source"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
@@ -128,7 +129,14 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 	defer c.Close()
 	src.Status.MarkConnectionEstablished()
 
-	totalPartitions, err := client.InitOffsets(ctx, c, src.Spec.Topics, src.Spec.ConsumerGroup)
+	kafkaAdminClient, err := sarama.NewClusterAdminFromClient(c)
+	if err != nil {
+		src.Status.MarkInitialOffsetNotCommitted("OffsetsNotCommitted", "Unable to initialize consumergroup offsets: %v", err)
+		return fmt.Errorf("failed to create a Kafka admin client: %w", err)
+	}
+	defer kafkaAdminClient.Close()
+
+	totalPartitions, err := offset.InitOffsets(ctx, c, kafkaAdminClient, src.Spec.Topics, src.Spec.ConsumerGroup)
 	if err != nil {
 		logging.FromContext(ctx).Errorw("unable to initialize consumergroup offsets", zap.Error(err))
 		src.Status.MarkInitialOffsetNotCommitted("OffsetsNotCommitted", "Unable to initialize consumergroup offsets: %v", err)
