@@ -43,10 +43,6 @@ import (
 	"knative.dev/eventing-kafka/pkg/common/tracing"
 )
 
-const (
-	dispatcherReadySubHeader = "K-Subscriber-Status"
-)
-
 type TopicFunc func(separator, namespace, name string) string
 
 type KafkaDispatcherArgs struct {
@@ -94,15 +90,6 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 		logger:               logging.FromContext(ctx),
 		topicFunc:            args.TopicFunc,
 	}
-
-	// initialize and start the subscription endpoint server
-	subscriptionEndpoint := &subscriptionEndpoint{
-		dispatcher: dispatcher,
-		logger:     logging.FromContext(ctx),
-	}
-	go func() {
-		subscriptionEndpoint.start()
-	}()
 
 	podName, err := env.GetRequiredConfigValue(logging.FromContext(ctx).Desugar(), env.PodNameEnvVarKey)
 	if err != nil {
