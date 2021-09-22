@@ -49,7 +49,6 @@ import (
 
 	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/reconciler/controller/resources"
-	"knative.dev/eventing-kafka/pkg/channel/consolidated/status"
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
 	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	kafkaScheme "knative.dev/eventing-kafka/pkg/client/clientset/versioned/scheme"
@@ -135,7 +134,6 @@ type Reconciler struct {
 	endpointsLister      corev1listers.EndpointsLister
 	serviceAccountLister corev1listers.ServiceAccountLister
 	roleBindingLister    rbacv1listers.RoleBindingLister
-	statusManager        status.Manager
 	controllerRef        metav1.OwnerReference
 }
 
@@ -634,10 +632,6 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, kc *v1beta1.KafkaChannel)
 			logger.Errorw("Error deleting Kafka channel topic", zap.String("channel", channel), zap.Error(err))
 			return err
 		}
-	}
-	for _, s := range kc.Spec.Subscribers {
-		logger.Debugw("Canceling probing", zap.String("channel", channel), zap.Any("subscription", s))
-		r.statusManager.CancelProbing(s)
 	}
 	return newReconciledNormal(kc.Namespace, kc.Name) //ok to remove finalizer
 }

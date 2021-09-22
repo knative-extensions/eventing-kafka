@@ -348,12 +348,6 @@ func TestAllCases(t *testing.T) {
 			kafkaClientSet:       fakekafkaclient.Get(ctx),
 			KubeClientSet:        kubeclient.Get(ctx),
 			EventingClientSet:    eventingClient.Get(ctx),
-			statusManager: &fakeStatusManager{
-				FakeIsReady: func(ctx context.Context, ch v1beta1.KafkaChannel,
-					sub eventingduckv1.SubscriberSpec) (bool, error) {
-					return true, nil
-				},
-			},
 		}
 		return kafkachannel.NewReconciler(ctx, logging.FromContext(ctx), r.kafkaClientSet, listers.GetKafkaChannelLister(), controller.GetEventRecorder(ctx), r)
 	}, zap.L()))
@@ -422,12 +416,6 @@ func TestTopicExists(t *testing.T) {
 			kafkaClientSet:    fakekafkaclient.Get(ctx),
 			KubeClientSet:     kubeclient.Get(ctx),
 			EventingClientSet: eventingClient.Get(ctx),
-			statusManager: &fakeStatusManager{
-				FakeIsReady: func(ctx context.Context, channel v1beta1.KafkaChannel,
-					spec eventingduckv1.SubscriberSpec) (bool, error) {
-					return true, nil
-				},
-			},
 		}
 		return kafkachannel.NewReconciler(ctx, logging.FromContext(ctx), r.kafkaClientSet, listers.GetKafkaChannelLister(), controller.GetEventRecorder(ctx), r)
 	}, zap.L()))
@@ -500,12 +488,6 @@ func TestDeploymentUpdatedOnImageChange(t *testing.T) {
 			kafkaClientSet:    fakekafkaclient.Get(ctx),
 			KubeClientSet:     kubeclient.Get(ctx),
 			EventingClientSet: eventingClient.Get(ctx),
-			statusManager: &fakeStatusManager{
-				FakeIsReady: func(ctx context.Context, channel v1beta1.KafkaChannel,
-					spec eventingduckv1.SubscriberSpec) (bool, error) {
-					return true, nil
-				},
-			},
 		}
 		return kafkachannel.NewReconciler(ctx, logging.FromContext(ctx), r.kafkaClientSet, listers.GetKafkaChannelLister(), controller.GetEventRecorder(ctx), r)
 	}, zap.L()))
@@ -578,12 +560,6 @@ func TestDeploymentZeroReplicas(t *testing.T) {
 			kafkaClientSet:    fakekafkaclient.Get(ctx),
 			KubeClientSet:     kubeclient.Get(ctx),
 			EventingClientSet: eventingClient.Get(ctx),
-			statusManager: &fakeStatusManager{
-				FakeIsReady: func(ctx context.Context, channel v1beta1.KafkaChannel,
-					spec eventingduckv1.SubscriberSpec) (bool, error) {
-					return true, nil
-				},
-			},
 		}
 		return kafkachannel.NewReconciler(ctx, logging.FromContext(ctx), r.kafkaClientSet, listers.GetKafkaChannelLister(), controller.GetEventRecorder(ctx), r)
 	}, zap.L()))
@@ -652,12 +628,6 @@ func TestDeploymentMoreThanOneReplicas(t *testing.T) {
 			kafkaClientSet:    fakekafkaclient.Get(ctx),
 			KubeClientSet:     kubeclient.Get(ctx),
 			EventingClientSet: eventingClient.Get(ctx),
-			statusManager: &fakeStatusManager{
-				FakeIsReady: func(ctx context.Context, channel v1beta1.KafkaChannel,
-					spec eventingduckv1.SubscriberSpec) (bool, error) {
-					return true, nil
-				},
-			},
 		}
 		return kafkachannel.NewReconciler(ctx, logging.FromContext(ctx), r.kafkaClientSet, listers.GetKafkaChannelLister(), controller.GetEventRecorder(ctx), r)
 	}, zap.L()))
@@ -730,12 +700,6 @@ func TestDeploymentUpdatedOnConfigMapHashChange(t *testing.T) {
 			kafkaClientSet:    fakekafkaclient.Get(ctx),
 			KubeClientSet:     kubeclient.Get(ctx),
 			EventingClientSet: eventingClient.Get(ctx),
-			statusManager: &fakeStatusManager{
-				FakeIsReady: func(ctx context.Context, channel v1beta1.KafkaChannel,
-					spec eventingduckv1.SubscriberSpec) (bool, error) {
-					return true, nil
-				},
-			},
 		}
 		return kafkachannel.NewReconciler(ctx, logging.FromContext(ctx), r.kafkaClientSet, listers.GetKafkaChannelLister(), controller.GetEventRecorder(ctx), r)
 	}, zap.L()))
@@ -968,22 +932,6 @@ func subscribers() []eventingduckv1.SubscriberSpec {
 		SubscriberURI: apis.HTTP("call2"),
 		ReplyURI:      apis.HTTP("sink2"),
 	}}
-}
-
-type fakeStatusManager struct {
-	FakeIsReady func(context.Context, v1beta1.KafkaChannel, eventingduckv1.SubscriberSpec) (bool, error)
-}
-
-func (m *fakeStatusManager) IsReady(ctx context.Context, ch v1beta1.KafkaChannel, sub eventingduckv1.SubscriberSpec) (bool, error) {
-	return m.FakeIsReady(ctx, ch, sub)
-}
-
-func (m *fakeStatusManager) CancelProbing(sub eventingduckv1.SubscriberSpec) {
-	//do nothing
-}
-
-func (m *fakeStatusManager) CancelPodProbing(pod corev1.Pod) {
-	//do nothing
 }
 
 func makePatch(namespace, name, patch string) clientgotesting.PatchActionImpl {
