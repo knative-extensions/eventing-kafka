@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package client
+package offset
 
 import (
 	"testing"
@@ -138,8 +138,15 @@ func TestInitOffsets(t *testing.T) {
 				t.Errorf("unexpected error: %v", err)
 			}
 			defer sc.Close()
+
+			kac, err := sarama.NewClusterAdminFromClient(sc)
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+			defer kac.Close()
+
 			ctx := logtesting.TestContextWithLogger(t)
-			partitionCt, err := InitOffsets(ctx, sc, tc.topics, group)
+			partitionCt, err := InitOffsets(ctx, sc, kac, tc.topics, group)
 			total := 0
 			for _, partitions := range tc.topicOffsets {
 				total += len(partitions)
