@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package client
+package offset
 
 import (
 	"context"
@@ -28,29 +28,24 @@ import (
 )
 
 // We want to make sure that ALL consumer group offsets are set before marking
-// the source as ready, to avoid "losing" events in case the consumer group session
+// the resource as ready, to avoid "losing" events in case the consumer group session
 // is closed before at least one message is consumed from ALL partitions.
 // Without InitOffsets, an event sent to a partition with an uninitialized offset
 // will not be forwarded when the session is closed (or a rebalancing is in progress).
-func InitOffsets(ctx context.Context, kafkaClient sarama.Client, topics []string, consumerGroup string) error {
+func InitOffsets(ctx context.Context, kafkaClient sarama.Client, kafkaAdminClient sarama.ClusterAdmin, topics []string, consumerGroup string) (int32, error) {
+	totalPartitions := 0
 	offsetManager, err := sarama.NewOffsetManagerFromClient(consumerGroup, kafkaClient)
 	if err != nil {
-		return err
+		return -1, err
 	}
-
-	kafkaAdminClient, err := sarama.NewClusterAdminFromClient(kafkaClient)
-	if err != nil {
-		return fmt.Errorf("failed to create a Kafka admin client: %w", err)
-	}
-	defer kafkaAdminClient.Close()
 
 	// Retrieve all partitions
 	topicPartitions := make(map[string][]int32)
 	for _, topic := range topics {
 		partitions, err := kafkaClient.Partitions(topic)
-
+		totalPartitions += len(partitions)
 		if err != nil {
-			return fmt.Errorf("failed to get partitions for topic %s: %w", topic, err)
+			return -1, fmt.Errorf("failed to get partitions for topic %s: %w", topic, err)
 		}
 
 		topicPartitions[topic] = partitions
@@ -59,13 +54,13 @@ func InitOffsets(ctx context.Context, kafkaClient sarama.Client, topics []string
 	// Fetch topic offsets
 	topicOffsets, err := knsarama.GetOffsets(kafkaClient, topicPartitions, sarama.OffsetNewest)
 	if err != nil {
-		return fmt.Errorf("failed to get the topic offsets: %w", err)
+		return -1, fmt.Errorf("failed to get the topic offsets: %w", err)
 	}
 
 	// Look for uninitialized offset (-1)
 	offsets, err := kafkaAdminClient.ListConsumerGroupOffsets(consumerGroup, topicPartitions)
 	if err != nil {
-		return err
+		return -1, err
 	}
 
 	dirty := false
@@ -88,7 +83,7 @@ func InitOffsets(ctx context.Context, kafkaClient sarama.Client, topics []string
 
 				pm, err := offsetManager.ManagePartition(topic, partitionID)
 				if err != nil {
-					return fmt.Errorf("failed to create the partition manager for topic %s and partition %d: %w", topic, partitionID, err)
+					return -1, fmt.Errorf("failed to create the partition manager for topic %s and partition %d: %w", topic, partitionID, err)
 				}
 
 				pm.MarkOffset(offset, "")
@@ -102,7 +97,7 @@ func InitOffsets(ctx context.Context, kafkaClient sarama.Client, topics []string
 		logging.FromContext(ctx).Infow("consumer group offsets committed", zap.String("consumergroup", consumerGroup))
 	}
 
-	// At this stage the KafkaSource instance is considered Ready
-	return nil
+	// At this stage the resource is considered Ready
+	return int32(totalPartitions), nil
 
 }
