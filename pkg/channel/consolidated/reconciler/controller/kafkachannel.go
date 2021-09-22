@@ -271,14 +271,12 @@ func (r *Reconciler) reconcileSubscribers(ctx context.Context, ch *v1beta1.Kafka
 		}
 		logger.Debugw("Reconciled initial offset for subscription", zap.Any("subscription", s))
 
-		if r, _ := r.statusManager.IsReady(ctx, *ch, s); r {
-			logger.Debugw("marking subscription", zap.Any("subscription", s))
-			after.Status.Subscribers = append(after.Status.Subscribers, v1.SubscriberStatus{
-				UID:                s.UID,
-				ObservedGeneration: s.Generation,
-				Ready:              corev1.ConditionTrue,
-			})
-		}
+		logger.Debugw("marking subscription", zap.Any("subscription", s))
+		after.Status.Subscribers = append(after.Status.Subscribers, v1.SubscriberStatus{
+			UID:                s.UID,
+			ObservedGeneration: s.Generation,
+			Ready:              corev1.ConditionTrue,
+		})
 	}
 
 	jsonPatch, err := duck.CreatePatch(ch, after)
