@@ -258,7 +258,9 @@ func (r *Reconciler) reconcileSubscribers(ctx context.Context, ch *v1beta1.Kafka
 	logger := logging.FromContext(ctx)
 	for _, s := range ch.Spec.Subscribers {
 		logger.Debugw("Reconciling initial offset for subscription", zap.Any("subscription", s))
-		if err := r.reconcileInitialOffset(ctx, ch, s, kafkaClient, kafkaClusterAdmin); err != nil {
+		err := r.reconcileInitialOffset(ctx, ch, s, kafkaClient, kafkaClusterAdmin)
+
+		if err != nil {
 			logger.Errorw("Reconcile failed fo initial offset for subscription", zap.Any("subscription", s), zap.Error(err))
 			logger.Errorw("marking subscription unready", zap.Any("subscription", s))
 			after.Status.Subscribers = append(after.Status.Subscribers, v1.SubscriberStatus{
@@ -267,16 +269,15 @@ func (r *Reconciler) reconcileSubscribers(ctx context.Context, ch *v1beta1.Kafka
 				Ready:              corev1.ConditionFalse,
 				Message:            fmt.Sprintf("Initial offset cannot be committed: %v", err),
 			})
-			continue
+		} else {
+			logger.Debugw("Reconciled initial offset for subscription", zap.Any("subscription", s))
+			logger.Debugw("marking subscription", zap.Any("subscription", s))
+			after.Status.Subscribers = append(after.Status.Subscribers, v1.SubscriberStatus{
+				UID:                s.UID,
+				ObservedGeneration: s.Generation,
+				Ready:              corev1.ConditionTrue,
+			})
 		}
-		logger.Debugw("Reconciled initial offset for subscription", zap.Any("subscription", s))
-
-		logger.Debugw("marking subscription", zap.Any("subscription", s))
-		after.Status.Subscribers = append(after.Status.Subscribers, v1.SubscriberStatus{
-			UID:                s.UID,
-			ObservedGeneration: s.Generation,
-			Ready:              corev1.ConditionTrue,
-		})
 	}
 
 	jsonPatch, err := duck.CreatePatch(ch, after)
