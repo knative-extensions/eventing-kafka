@@ -18,12 +18,20 @@ package consumer
 
 import (
 	"context"
+	"fmt"
 	"sync"
+	"time"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/wait"
+
+	"knative.dev/eventing-kafka/pkg/common/kafka/offset"
 	"knative.dev/pkg/logging"
 )
+
+const OffsetInitRetryTimeout = 60 * time.Second
+const OffsetInitRetryInterval = 5 * time.Second
 
 // newConsumerGroup is a wrapper for the Sarama NewConsumerGroup function, to facilitate unit testing
 var newConsumerGroup = sarama.NewConsumerGroup
@@ -70,10 +78,60 @@ func (c kafkaConsumerGroupFactoryImpl) StartConsumerGroup(ctx context.Context, g
 
 	consumerGroup, err := c.createConsumerGroup(groupID)
 	if err != nil {
+		logger.Errorw("Unable to create consumer group", zap.Error(err))
 		return nil, err
 	}
+
+	client, err := sarama.NewClient(c.addrs, c.config)
+	if err != nil {
+		logger.Errorw("Unable to create Kafka client", zap.Error(err))
+		return nil, err
+	}
+	defer client.Close()
+
+	clusterAdmin, err := sarama.NewClusterAdmin(c.addrs, c.config)
+	if err != nil {
+		logger.Errorw("Unable to create Kafka cluster admin client", zap.Error(err))
+		return nil, err
+	}
+	defer clusterAdmin.Close()
+
+	// this is a blocking func
+	// do not proceed until the check is done
+	err = checkOffsetsInitialized(ctx, groupID, topics, logger, client, clusterAdmin, err)
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Infow("All offsets are initialized", zap.Any("topics", topics), zap.Any("groupID", groupID))
+
 	// Start the consumerGroup.Consume function in a separate goroutine
 	return c.startExistingConsumerGroup(consumerGroup, consumerGroup.Consume, topics, logger, handler, options...), nil
+}
+
+func checkOffsetsInitialized(ctx context.Context, groupID string, topics []string, logger *zap.SugaredLogger, client sarama.Client, clusterAdmin sarama.ClusterAdmin, err error) error {
+	logger.Infow("Checking if all offsets are initialized", zap.Any("topics", topics), zap.Any("groupID", groupID))
+
+	check := func() (bool, error) {
+		if initialized, err := offset.CheckIfAllOffsetsInitialized(client, clusterAdmin, topics, groupID); err == nil {
+			if initialized {
+				return true, nil
+			} else {
+				logger.Infow("Offsets not yet initialized, going to try again")
+				return false, nil
+			}
+		} else {
+			return true, fmt.Errorf("error checking if offsets are initialized. stopping trying. %w", err)
+		}
+	}
+	pollCtx, pollCtxCancel := context.WithTimeout(ctx, OffsetInitRetryTimeout)
+	err = wait.PollUntil(OffsetInitRetryInterval, check, pollCtx.Done())
+	defer pollCtxCancel()
+
+	if err != nil {
+		return fmt.Errorf("failed to check if offsets are initialized %w", err)
+	}
+	return nil
 }
 
 // createConsumerGroup creates a Sarama ConsumerGroup using the newConsumerGroup wrapper, with the
