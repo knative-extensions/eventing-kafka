@@ -33,22 +33,14 @@ import (
 // Without InitOffsets, an event sent to a partition with an uninitialized offset
 // will not be forwarded when the session is closed (or a rebalancing is in progress).
 func InitOffsets(ctx context.Context, kafkaClient sarama.Client, kafkaAdminClient sarama.ClusterAdmin, topics []string, consumerGroup string) (int32, error) {
-	totalPartitions := 0
 	offsetManager, err := sarama.NewOffsetManagerFromClient(consumerGroup, kafkaClient)
 	if err != nil {
 		return -1, err
 	}
 
-	// Retrieve all partitions
-	topicPartitions := make(map[string][]int32)
-	for _, topic := range topics {
-		partitions, err := kafkaClient.Partitions(topic)
-		totalPartitions += len(partitions)
-		if err != nil {
-			return -1, fmt.Errorf("failed to get partitions for topic %s: %w", topic, err)
-		}
-
-		topicPartitions[topic] = partitions
+	totalPartitions, topicPartitions, err := retrieveAllPartitions(topics, kafkaClient)
+	if err != nil {
+		return -1, err
 	}
 
 	// Fetch topic offsets
@@ -100,4 +92,21 @@ func InitOffsets(ctx context.Context, kafkaClient sarama.Client, kafkaAdminClien
 	// At this stage the resource is considered Ready
 	return int32(totalPartitions), nil
 
+}
+
+func retrieveAllPartitions(topics []string, kafkaClient sarama.Client) (int, map[string][]int32, error) {
+	totalPartitions := 0
+
+	// Retrieve all partitions
+	topicPartitions := make(map[string][]int32)
+	for _, topic := range topics {
+		partitions, err := kafkaClient.Partitions(topic)
+		totalPartitions += len(partitions)
+		if err != nil {
+			return -1, nil, fmt.Errorf("failed to get partitions for topic %s: %w", topic, err)
+		}
+
+		topicPartitions[topic] = partitions
+	}
+	return totalPartitions, topicPartitions, nil
 }
