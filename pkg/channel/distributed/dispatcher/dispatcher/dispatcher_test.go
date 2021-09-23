@@ -349,7 +349,7 @@ func TestUpdateSubscriptions(t *testing.T) {
 			}
 
 			// Perform The Test
-			result := dispatcher.UpdateSubscriptions(testCase.args.subscriberSpecs)
+			result := dispatcher.UpdateSubscriptions(ctx, testCase.args.subscriberSpecs)
 
 			close(errorSource)
 

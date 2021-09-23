@@ -107,6 +107,7 @@ func TestStartConsumerGroup(t *testing.T) {
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
+			ctx := context.TODO()
 			manager := NewConsumerGroupManager(logtesting.TestLogger(t).Desugar(), getMockServerHandler(), []string{}, &sarama.Config{})
 			mockGroup := kafkatesting.NewMockConsumerGroup()
 			newConsumerGroup = func(addrs []string, groupID string, config *sarama.Config) (sarama.ConsumerGroup, error) {
@@ -116,7 +117,7 @@ func TestStartConsumerGroup(t *testing.T) {
 				mockGroup.On("Errors").Return(mockGroup.ErrorChan)
 				return mockGroup, nil
 			}
-			err := manager.StartConsumerGroup("testid", []string{}, nil, nil)
+			err := manager.StartConsumerGroup(ctx, "testid", []string{}, nil, nil)
 			assert.Equal(t, testCase.factoryErr, err != nil)
 			time.Sleep(5 * time.Millisecond) // Give the transferErrors routine a chance to call Errors()
 			mockGroup.AssertExpectations(t)

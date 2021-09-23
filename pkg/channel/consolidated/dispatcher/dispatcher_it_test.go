@@ -55,6 +55,8 @@ func TestDispatcher(t *testing.T) {
 		t.Skipf("This test can't run in CI")
 	}
 
+	ctx := context.TODO()
+
 	logger, err := zap.NewDevelopment(zap.AddStacktrace(zap.WarnLevel))
 	if err != nil {
 		t.Fatal(err)
@@ -179,7 +181,7 @@ func TestDispatcher(t *testing.T) {
 		},
 	}
 	require.NoError(t, dispatcher.RegisterChannelHost(channelAConfig))
-	require.NoError(t, dispatcher.ReconcileConsumers(channelAConfig))
+	require.NoError(t, dispatcher.ReconcileConsumers(ctx, channelAConfig))
 
 	channelBConfig := &ChannelConfig{
 		Namespace: "default",
@@ -195,7 +197,7 @@ func TestDispatcher(t *testing.T) {
 		},
 	}
 	require.NoError(t, dispatcher.RegisterChannelHost(channelBConfig))
-	require.NoError(t, dispatcher.ReconcileConsumers(channelBConfig))
+	require.NoError(t, dispatcher.ReconcileConsumers(ctx, channelBConfig))
 
 	time.Sleep(5 * time.Second)
 

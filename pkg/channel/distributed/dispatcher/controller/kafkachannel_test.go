@@ -214,7 +214,7 @@ func NewMockDispatcher(t *testing.T) MockDispatcher {
 func (m MockDispatcher) Shutdown() {
 }
 
-func (m MockDispatcher) UpdateSubscriptions(_ []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error {
+func (m MockDispatcher) UpdateSubscriptions(_ context.Context, _ []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error {
 	return nil
 }
 
