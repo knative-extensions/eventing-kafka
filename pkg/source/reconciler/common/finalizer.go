@@ -34,7 +34,8 @@ import (
 func FinalizeKind(ctx context.Context, kubeClient kubernetes.Interface, src *v1beta1.KafkaSource) reconciler.Event {
 	bs, config, err := client.NewConfigFromSpec(ctx, kubeClient, src)
 	if err != nil {
-		return err
+		// Secrets are no longer valid. Not automatically recoverable.
+		return nil
 	}
 
 	// Version must be at least 1.1
@@ -43,7 +44,9 @@ func FinalizeKind(ctx context.Context, kubeClient kubernetes.Interface, src *v1b
 	c, err := sarama.NewClusterAdmin(bs, config)
 	if err != nil {
 		logging.FromContext(ctx).Errorw("unable to create a kafka client", zap.Error(err))
-		return err
+
+		// not a recoverable error.
+		return nil
 	}
 	defer c.Close()
 
