@@ -144,8 +144,6 @@ spec:
             status:
               description: Status represents the current state of the KafkaChannel. This data may be out of date.
               type: object
-              required:
-                - address
               properties:
                 address:
                   type: object
