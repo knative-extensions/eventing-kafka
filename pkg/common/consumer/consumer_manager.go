@@ -42,6 +42,7 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	ctrlservice "knative.dev/control-protocol/pkg/service"
+	"knative.dev/pkg/logging"
 
 	"knative.dev/eventing-kafka/pkg/common/controlprotocol"
 	"knative.dev/eventing-kafka/pkg/common/controlprotocol/commands"
@@ -57,7 +58,7 @@ var GroupLockedError = fmt.Errorf("managed group lock failed: locked by a differ
 // KafkaConsumerGroupManager keeps track of Sarama consumer groups and handles messages from control-protocol clients
 type KafkaConsumerGroupManager interface {
 	Reconfigure(brokers []string, config *sarama.Config) error
-	StartConsumerGroup(groupId string, topics []string, logger *zap.SugaredLogger, handler KafkaConsumerHandler, options ...SaramaConsumerHandlerOption) error
+	StartConsumerGroup(ctx context.Context, groupId string, topics []string, handler KafkaConsumerHandler, options ...SaramaConsumerHandlerOption) error
 	CloseConsumerGroup(groupId string) error
 	Errors(groupId string) <-chan error
 	IsManaged(groupId string) bool
@@ -161,7 +162,9 @@ func getInternalLockCommand(lock bool) *commands.CommandLock {
 
 // StartConsumerGroup uses the consumer factory to create a new ConsumerGroup, add it to the list
 // of managed groups (for start/stop functionality) and start the Consume loop.
-func (m *kafkaConsumerGroupManagerImpl) StartConsumerGroup(groupId string, topics []string, logger *zap.SugaredLogger, handler KafkaConsumerHandler, options ...SaramaConsumerHandlerOption) error {
+func (m *kafkaConsumerGroupManagerImpl) StartConsumerGroup(ctx context.Context, groupId string, topics []string, handler KafkaConsumerHandler, options ...SaramaConsumerHandlerOption) error {
+	logger := logging.FromContext(ctx)
+
 	groupLogger := m.logger.With(zap.String("GroupId", groupId))
 	groupLogger.Info("Creating New Managed ConsumerGroup")
 	group, err := m.factory.createConsumerGroup(groupId)

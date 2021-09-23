@@ -23,7 +23,6 @@ import (
 	"testing"
 
 	"github.com/Shopify/sarama"
-	"go.uber.org/zap"
 )
 
 //------ Mocks
@@ -88,6 +87,7 @@ func mockedNewConsumerGroupFromClient(mockInputMessageCh chan *sarama.ConsumerMe
 //------ Tests
 
 func TestErrorPropagationCustomConsumerGroup(t *testing.T) {
+	ctx := context.TODO()
 
 	newConsumerGroup = mockedNewConsumerGroupFromClient(nil, true, true, false, false)
 
@@ -96,7 +96,7 @@ func TestErrorPropagationCustomConsumerGroup(t *testing.T) {
 		addrs:  []string{"b1", "b2"},
 	}
 
-	consumerGroup, err := factory.StartConsumerGroup("bla", []string{}, zap.NewNop().Sugar(), nil)
+	consumerGroup, err := factory.StartConsumerGroup(ctx, "bla", []string{}, nil)
 	if err != nil {
 		t.Errorf("Should not throw error %v", err)
 	}
@@ -137,14 +137,14 @@ func assertContainsError(t *testing.T, collection []error, errorStr string) {
 }
 
 func TestErrorWhileCreatingNewConsumerGroup(t *testing.T) {
-
+	ctx := context.TODO()
 	newConsumerGroup = mockedNewConsumerGroupFromClient(nil, true, true, false, true)
 
 	factory := kafkaConsumerGroupFactoryImpl{
 		config: sarama.NewConfig(),
 		addrs:  []string{"b1", "b2"},
 	}
-	_, err := factory.StartConsumerGroup("bla", []string{}, zap.L().Sugar(), nil)
+	_, err := factory.StartConsumerGroup(ctx, "bla", []string{}, nil)
 
 	if err == nil || err.Error() != "failed" {
 		t.Errorf("Should contain an error with message failed. Got %v", err)
@@ -152,14 +152,14 @@ func TestErrorWhileCreatingNewConsumerGroup(t *testing.T) {
 }
 
 func TestErrorWhileNewConsumerGroup(t *testing.T) {
-
+	ctx := context.TODO()
 	newConsumerGroup = mockedNewConsumerGroupFromClient(nil, false, false, true, false)
 
 	factory := kafkaConsumerGroupFactoryImpl{
 		config: sarama.NewConfig(),
 		addrs:  []string{"b1", "b2"},
 	}
-	consumerGroup, _ := factory.StartConsumerGroup("bla", []string{}, zap.L().Sugar(), nil)
+	consumerGroup, _ := factory.StartConsumerGroup(ctx, "bla", []string{}, nil)
 
 	consumerGroup.(*customConsumerGroup).cancel() // Stop the consume loop from spinning after the error is generated
 	err := <-consumerGroup.Errors()

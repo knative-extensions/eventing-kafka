@@ -158,7 +158,7 @@ func (k UpdateError) Error() string {
 }
 
 // ReconcileConsumers will be called by new CRD based kafka channel dispatcher controller.
-func (d *KafkaDispatcher) ReconcileConsumers(config *ChannelConfig) error {
+func (d *KafkaDispatcher) ReconcileConsumers(ctx context.Context, config *ChannelConfig) error {
 	channelNamespacedName := types.NamespacedName{
 		Namespace: config.Namespace,
 		Name:      config.Name,
@@ -202,7 +202,7 @@ func (d *KafkaDispatcher) ReconcileConsumers(config *ChannelConfig) error {
 
 	failedToSubscribe := make(UpdateError)
 	for subUid, subSpec := range toAddSubs {
-		if err := d.subscribe(channelNamespacedName, subSpec); err != nil {
+		if err := d.subscribe(ctx, channelNamespacedName, subSpec); err != nil {
 			failedToSubscribe[subUid] = err
 		}
 	}
@@ -273,7 +273,7 @@ func (d *KafkaDispatcher) CleanupChannel(name, namespace, hostname string) error
 
 // subscribe reads kafkaConsumers which gets updated in UpdateConfig in a separate go-routine.
 // subscribe must be called under updateLock.
-func (d *KafkaDispatcher) subscribe(channelRef types.NamespacedName, sub Subscription) error {
+func (d *KafkaDispatcher) subscribe(ctx context.Context, channelRef types.NamespacedName, sub Subscription) error {
 	d.logger.Infow("Subscribing to Kafka Channel", zap.Any("channelRef", channelRef), zap.Any("subscription", sub.UID))
 
 	topicName := d.topicFunc(utils.KafkaChannelSeparator, channelRef.Namespace, channelRef.Name)
@@ -297,7 +297,7 @@ func (d *KafkaDispatcher) subscribe(channelRef types.NamespacedName, sub Subscri
 	}
 	d.logger.Debugw("Starting consumer group", zap.Any("channelRef", channelRef),
 		zap.Any("subscription", sub.UID), zap.String("topic", topicName), zap.String("consumer group", groupID))
-	consumerGroup, err := d.kafkaConsumerFactory.StartConsumerGroup(groupID, []string{topicName}, d.logger, handler)
+	consumerGroup, err := d.kafkaConsumerFactory.StartConsumerGroup(ctx, groupID, []string{topicName}, handler)
 
 	if err != nil {
 		// we can not create a consumer - logging that, with reason

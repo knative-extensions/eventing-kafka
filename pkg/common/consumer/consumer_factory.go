@@ -22,6 +22,7 @@ import (
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
+	"knative.dev/pkg/logging"
 )
 
 // newConsumerGroup is a wrapper for the Sarama NewConsumerGroup function, to facilitate unit testing
@@ -32,7 +33,7 @@ type consumeFunc func(ctx context.Context, topics []string, handler sarama.Consu
 
 // KafkaConsumerGroupFactory creates the ConsumerGroup and start consuming the specified topic
 type KafkaConsumerGroupFactory interface {
-	StartConsumerGroup(groupID string, topics []string, logger *zap.SugaredLogger, handler KafkaConsumerHandler, options ...SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error)
+	StartConsumerGroup(ctx context.Context, groupID string, topics []string, handler KafkaConsumerHandler, options ...SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error)
 }
 
 type kafkaConsumerGroupFactoryImpl struct {
@@ -64,7 +65,9 @@ func (c *customConsumerGroup) Close() error {
 var _ sarama.ConsumerGroup = (*customConsumerGroup)(nil)
 
 // StartConsumerGroup creates a new customConsumerGroup and starts a Consume goroutine on it
-func (c kafkaConsumerGroupFactoryImpl) StartConsumerGroup(groupID string, topics []string, logger *zap.SugaredLogger, handler KafkaConsumerHandler, options ...SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error) {
+func (c kafkaConsumerGroupFactoryImpl) StartConsumerGroup(ctx context.Context, groupID string, topics []string, handler KafkaConsumerHandler, options ...SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error) {
+	logger := logging.FromContext(ctx)
+
 	consumerGroup, err := c.createConsumerGroup(groupID)
 	if err != nil {
 		return nil, err

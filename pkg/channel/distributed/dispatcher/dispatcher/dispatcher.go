@@ -66,7 +66,7 @@ func NewSubscriberWrapper(subscriberSpec eventingduck.SubscriberSpec, groupId st
 type Dispatcher interface {
 	SecretChanged(ctx context.Context, secret *corev1.Secret)
 	Shutdown()
-	UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error
+	UpdateSubscriptions(ctx context.Context, subscriberSpecs []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error
 }
 
 // DispatcherImpl Is A Struct With Configuration & ConsumerGroup State
@@ -121,7 +121,7 @@ func (d *DispatcherImpl) Shutdown() {
 }
 
 // UpdateSubscriptions manages the Dispatcher's Subscriptions to align with new state
-func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error {
+func (d *DispatcherImpl) UpdateSubscriptions(ctx context.Context, subscriberSpecs []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error {
 
 	if d.SaramaConfig == nil {
 		d.Logger.Error("Dispatcher has no config!")
@@ -150,7 +150,7 @@ func (d *DispatcherImpl) UpdateSubscriptions(subscriberSpecs []eventingduck.Subs
 
 			// Create/Start A New ConsumerGroup With Custom Handler
 			handler := NewHandler(logger, groupId, &subscriberSpec)
-			err := d.consumerMgr.StartConsumerGroup(groupId, []string{d.Topic}, d.Logger.Sugar(), handler)
+			err := d.consumerMgr.StartConsumerGroup(ctx, groupId, []string{d.Topic}, handler)
 			if err != nil {
 
 				// Log & Return Failure

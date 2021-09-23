@@ -50,7 +50,7 @@ type mockKafkaConsumerFactory struct {
 	createErr bool
 }
 
-func (c mockKafkaConsumerFactory) StartConsumerGroup(groupID string, topics []string, logger *zap.SugaredLogger, handler consumer.KafkaConsumerHandler, options ...consumer.SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error) {
+func (c mockKafkaConsumerFactory) StartConsumerGroup(ctx context.Context, groupID string, topics []string, handler consumer.KafkaConsumerHandler, options ...consumer.SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error) {
 	if c.createErr {
 		return nil, errors.New("error creating consumer")
 	}
@@ -267,9 +267,11 @@ func TestDispatcher_UpdateConsumers(t *testing.T) {
 				logger:               zaptest.NewLogger(t).Sugar(),
 			}
 
+			ctx := context.TODO()
+
 			// Initialize using oldConfig
 			require.NoError(t, d.RegisterChannelHost(tc.oldConfig))
-			require.NoError(t, d.ReconcileConsumers(tc.oldConfig))
+			require.NoError(t, d.ReconcileConsumers(ctx, tc.oldConfig))
 
 			oldSubscribers := sets.NewString()
 			for _, sub := range d.subscriptions {
@@ -283,7 +285,7 @@ func TestDispatcher_UpdateConsumers(t *testing.T) {
 			}
 
 			// Update with new config
-			err := d.ReconcileConsumers(tc.newConfig)
+			err := d.ReconcileConsumers(ctx, tc.newConfig)
 			if tc.createErr != "" {
 				if err == nil {
 					t.Errorf("Expected UpdateConfig error: '%v'. Actual nil", tc.createErr)
@@ -363,6 +365,8 @@ func TestDispatcher_MultipleChannelsInParallel(t *testing.T) {
 		logger:               zaptest.NewLogger(t).Sugar(),
 	}
 
+	ctx := context.TODO()
+
 	// Let's register channel configs first
 	for _, c := range configs {
 		require.NoError(t, d.RegisterChannelHost(c))
@@ -374,7 +378,7 @@ func TestDispatcher_MultipleChannelsInParallel(t *testing.T) {
 			wg.Add(1)
 			go func(c *ChannelConfig) {
 				defer wg.Done()
-				assert.NoError(t, d.ReconcileConsumers(c))
+				assert.NoError(t, d.ReconcileConsumers(ctx, c))
 			}(c)
 		}
 	}
@@ -418,6 +422,8 @@ func TestKafkaDispatcher_CleanupChannel(t *testing.T) {
 		logger:               zaptest.NewLogger(t).Sugar(),
 	}
 
+	ctx := context.TODO()
+
 	channelConfig := &ChannelConfig{
 		Namespace: "default",
 		Name:      "test-channel",
@@ -438,7 +444,7 @@ func TestKafkaDispatcher_CleanupChannel(t *testing.T) {
 		},
 	}
 	require.NoError(t, d.RegisterChannelHost(channelConfig))
-	require.NoError(t, d.ReconcileConsumers(channelConfig))
+	require.NoError(t, d.ReconcileConsumers(ctx, channelConfig))
 
 	require.NoError(t, d.CleanupChannel(channelConfig.Name, channelConfig.Namespace, channelConfig.HostName))
 	require.NotContains(t, d.subscriptions, "subscription-1")
@@ -461,6 +467,8 @@ func TestSubscribeError(t *testing.T) {
 		channelSubscriptions: map[types.NamespacedName]*KafkaSubscription{},
 	}
 
+	ctx := context.TODO()
+
 	channelRef := types.NamespacedName{
 		Name:      "test-channel",
 		Namespace: "test-ns",
@@ -470,7 +478,7 @@ func TestSubscribeError(t *testing.T) {
 		UID:          "test-sub",
 		Subscription: fanout.Subscription{},
 	}
-	err := d.subscribe(channelRef, subRef)
+	err := d.subscribe(ctx, channelRef, subRef)
 	if err == nil {
 		t.Errorf("Expected error want %s, got %s", "error creating consumer", err)
 	}
