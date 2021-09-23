@@ -94,6 +94,47 @@ func InitOffsets(ctx context.Context, kafkaClient sarama.Client, kafkaAdminClien
 
 }
 
+func CheckIfAllOffsetsInitialized(kafkaClient sarama.Client, kafkaAdminClient sarama.ClusterAdmin, topics []string, consumerGroup string) (bool, error) {
+	_, topicPartitions, err := retrieveAllPartitions(topics, kafkaClient)
+	if err != nil {
+		return false, err
+	}
+
+	// Fetch topic offsets
+	topicOffsets, err := knsarama.GetOffsets(kafkaClient, topicPartitions, sarama.OffsetNewest)
+	if err != nil {
+		return false, fmt.Errorf("failed to get the topic offsets: %w", err)
+	}
+
+	// Look for uninitialized offset (-1)
+	offsets, err := kafkaAdminClient.ListConsumerGroupOffsets(consumerGroup, topicPartitions)
+	if err != nil {
+		return false, err
+	}
+
+	for topic, partitions := range offsets.Blocks {
+		for partitionID, block := range partitions {
+			if block.Offset == -1 { // not initialized?
+				partitionsOffsets, ok := topicOffsets[topic]
+				if !ok {
+					// topic may have been deleted. ignore.
+					continue
+				}
+
+				_, ok = partitionsOffsets[partitionID]
+				if !ok {
+					// partition may have been deleted. ignore.
+					continue
+				}
+
+				return false, nil
+			}
+		}
+	}
+
+	return true, nil
+}
+
 func retrieveAllPartitions(topics []string, kafkaClient sarama.Client) (int, map[string][]int32, error) {
 	totalPartitions := 0
 
