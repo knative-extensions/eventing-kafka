@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	clientgotesting "k8s.io/client-go/testing"
 	"knative.dev/eventing-kafka/pkg/common/config"
+	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
@@ -348,11 +349,19 @@ func TestAllCases(t *testing.T) {
 			deploymentLister:     listers.GetDeploymentLister(),
 			serviceLister:        listers.GetServiceLister(),
 			endpointsLister:      listers.GetEndpointsLister(),
-			kafkaClusterAdmin:    &mockClusterAdmin{},
-			kafkaClient:          &mockKafkaClient{saramaConfig},
-			kafkaClientSet:       fakekafkaclient.Get(ctx),
-			KubeClientSet:        kubeclient.Get(ctx),
-			EventingClientSet:    eventingClient.Get(ctx),
+			kafkaClusterAdmin: &commontesting.MockClusterAdmin{
+				MockListConsumerGroupsFunc: func() (map[string]string, error) {
+					cgs := map[string]string{
+						fmt.Sprintf("kafka.%s.%s.%s", kcName, testNS, sub1UID): "consumer",
+						fmt.Sprintf("kafka.%s.%s.%s", kcName, testNS, sub2UID): "consumer",
+					}
+					return cgs, nil
+				},
+			},
+			kafkaClient:       &mockKafkaClient{saramaConfig},
+			kafkaClientSet:    fakekafkaclient.Get(ctx),
+			KubeClientSet:     kubeclient.Get(ctx),
+			EventingClientSet: eventingClient.Get(ctx),
 		}
 		return kafkachannel.NewReconciler(ctx, logging.FromContext(ctx), r.kafkaClientSet, listers.GetKafkaChannelLister(), controller.GetEventRecorder(ctx), r)
 	}, zap.L()))
@@ -413,13 +422,20 @@ func TestTopicExists(t *testing.T) {
 			deploymentLister:     listers.GetDeploymentLister(),
 			serviceLister:        listers.GetServiceLister(),
 			endpointsLister:      listers.GetEndpointsLister(),
-			kafkaClusterAdmin: &mockClusterAdmin{
-				mockCreateTopicFunc: func(topic string, detail *sarama.TopicDetail, validateOnly bool) error {
+			kafkaClusterAdmin: &commontesting.MockClusterAdmin{
+				MockCreateTopicFunc: func(topic string, detail *sarama.TopicDetail, validateOnly bool) error {
 					errMsg := sarama.ErrTopicAlreadyExists.Error()
 					return &sarama.TopicError{
 						Err:    sarama.ErrTopicAlreadyExists,
 						ErrMsg: &errMsg,
 					}
+				},
+				MockListConsumerGroupsFunc: func() (map[string]string, error) {
+					cgs := map[string]string{
+						fmt.Sprintf("kafka.%s.%s.%s", kcName, testNS, sub1UID): "consumer",
+						fmt.Sprintf("kafka.%s.%s.%s", kcName, testNS, sub2UID): "consumer",
+					}
+					return cgs, nil
 				},
 			},
 			kafkaClient:       &mockKafkaClient{saramaConfig},
@@ -490,13 +506,20 @@ func TestDeploymentUpdatedOnImageChange(t *testing.T) {
 			deploymentLister:     listers.GetDeploymentLister(),
 			serviceLister:        listers.GetServiceLister(),
 			endpointsLister:      listers.GetEndpointsLister(),
-			kafkaClusterAdmin: &mockClusterAdmin{
-				mockCreateTopicFunc: func(topic string, detail *sarama.TopicDetail, validateOnly bool) error {
+			kafkaClusterAdmin: &commontesting.MockClusterAdmin{
+				MockCreateTopicFunc: func(topic string, detail *sarama.TopicDetail, validateOnly bool) error {
 					errMsg := sarama.ErrTopicAlreadyExists.Error()
 					return &sarama.TopicError{
 						Err:    sarama.ErrTopicAlreadyExists,
 						ErrMsg: &errMsg,
 					}
+				},
+				MockListConsumerGroupsFunc: func() (map[string]string, error) {
+					cgs := map[string]string{
+						fmt.Sprintf("kafka.%s.%s.%s", kcName, testNS, sub1UID): "consumer",
+						fmt.Sprintf("kafka.%s.%s.%s", kcName, testNS, sub2UID): "consumer",
+					}
+					return cgs, nil
 				},
 			},
 			kafkaClient:       &mockKafkaClient{saramaConfig},
@@ -567,13 +590,20 @@ func TestDeploymentZeroReplicas(t *testing.T) {
 			deploymentLister:     listers.GetDeploymentLister(),
 			serviceLister:        listers.GetServiceLister(),
 			endpointsLister:      listers.GetEndpointsLister(),
-			kafkaClusterAdmin: &mockClusterAdmin{
-				mockCreateTopicFunc: func(topic string, detail *sarama.TopicDetail, validateOnly bool) error {
+			kafkaClusterAdmin: &commontesting.MockClusterAdmin{
+				MockCreateTopicFunc: func(topic string, detail *sarama.TopicDetail, validateOnly bool) error {
 					errMsg := sarama.ErrTopicAlreadyExists.Error()
 					return &sarama.TopicError{
 						Err:    sarama.ErrTopicAlreadyExists,
 						ErrMsg: &errMsg,
 					}
+				},
+				MockListConsumerGroupsFunc: func() (map[string]string, error) {
+					cgs := map[string]string{
+						fmt.Sprintf("kafka.%s.%s.%s", kcName, testNS, sub1UID): "consumer",
+						fmt.Sprintf("kafka.%s.%s.%s", kcName, testNS, sub2UID): "consumer",
+					}
+					return cgs, nil
 				},
 			},
 			kafkaClient:       &mockKafkaClient{saramaConfig},
@@ -640,13 +670,20 @@ func TestDeploymentMoreThanOneReplicas(t *testing.T) {
 			deploymentLister:     listers.GetDeploymentLister(),
 			serviceLister:        listers.GetServiceLister(),
 			endpointsLister:      listers.GetEndpointsLister(),
-			kafkaClusterAdmin: &mockClusterAdmin{
-				mockCreateTopicFunc: func(topic string, detail *sarama.TopicDetail, validateOnly bool) error {
+			kafkaClusterAdmin: &commontesting.MockClusterAdmin{
+				MockCreateTopicFunc: func(topic string, detail *sarama.TopicDetail, validateOnly bool) error {
 					errMsg := sarama.ErrTopicAlreadyExists.Error()
 					return &sarama.TopicError{
 						Err:    sarama.ErrTopicAlreadyExists,
 						ErrMsg: &errMsg,
 					}
+				},
+				MockListConsumerGroupsFunc: func() (map[string]string, error) {
+					cgs := map[string]string{
+						fmt.Sprintf("kafka.%s.%s.%s", kcName, testNS, sub1UID): "consumer",
+						fmt.Sprintf("kafka.%s.%s.%s", kcName, testNS, sub2UID): "consumer",
+					}
+					return cgs, nil
 				},
 			},
 			kafkaClient:       &mockKafkaClient{saramaConfig},
@@ -717,13 +754,20 @@ func TestDeploymentUpdatedOnConfigMapHashChange(t *testing.T) {
 			deploymentLister:     listers.GetDeploymentLister(),
 			serviceLister:        listers.GetServiceLister(),
 			endpointsLister:      listers.GetEndpointsLister(),
-			kafkaClusterAdmin: &mockClusterAdmin{
-				mockCreateTopicFunc: func(topic string, detail *sarama.TopicDetail, validateOnly bool) error {
+			kafkaClusterAdmin: &commontesting.MockClusterAdmin{
+				MockCreateTopicFunc: func(topic string, detail *sarama.TopicDetail, validateOnly bool) error {
 					errMsg := sarama.ErrTopicAlreadyExists.Error()
 					return &sarama.TopicError{
 						Err:    sarama.ErrTopicAlreadyExists,
 						ErrMsg: &errMsg,
 					}
+				},
+				MockListConsumerGroupsFunc: func() (map[string]string, error) {
+					cgs := map[string]string{
+						fmt.Sprintf("kafka.%s.%s.%s", kcName, testNS, sub1UID): "consumer",
+						fmt.Sprintf("kafka.%s.%s.%s", kcName, testNS, sub2UID): "consumer",
+					}
+					return cgs, nil
 				},
 			},
 			kafkaClient:       &mockKafkaClient{saramaConfig},
@@ -733,114 +777,6 @@ func TestDeploymentUpdatedOnConfigMapHashChange(t *testing.T) {
 		}
 		return kafkachannel.NewReconciler(ctx, logging.FromContext(ctx), r.kafkaClientSet, listers.GetKafkaChannelLister(), controller.GetEventRecorder(ctx), r)
 	}, zap.L()))
-}
-
-type mockClusterAdmin struct {
-	mockCreateTopicFunc func(topic string, detail *sarama.TopicDetail, validateOnly bool) error
-	mockDeleteTopicFunc func(topic string) error
-}
-
-func (ca *mockClusterAdmin) AlterPartitionReassignments(topic string, assignment [][]int32) error {
-	return nil
-}
-
-func (ca *mockClusterAdmin) ListPartitionReassignments(topics string, partitions []int32) (topicStatus map[string]map[int32]*sarama.PartitionReplicaReassignmentsStatus, err error) {
-	return nil, nil
-}
-
-func (ca *mockClusterAdmin) DescribeLogDirs(brokers []int32) (map[int32][]sarama.DescribeLogDirsResponseDirMetadata, error) {
-	return nil, nil
-}
-
-func (ca *mockClusterAdmin) DescribeUserScramCredentials(users []string) ([]*sarama.DescribeUserScramCredentialsResult, error) {
-	return nil, nil
-}
-
-func (ca *mockClusterAdmin) DeleteUserScramCredentials(delete []sarama.AlterUserScramCredentialsDelete) ([]*sarama.AlterUserScramCredentialsResult, error) {
-	return nil, nil
-}
-
-func (ca *mockClusterAdmin) UpsertUserScramCredentials(upsert []sarama.AlterUserScramCredentialsUpsert) ([]*sarama.AlterUserScramCredentialsResult, error) {
-	return nil, nil
-}
-
-func (ca *mockClusterAdmin) CreateTopic(topic string, detail *sarama.TopicDetail, validateOnly bool) error {
-	if ca.mockCreateTopicFunc != nil {
-		return ca.mockCreateTopicFunc(topic, detail, validateOnly)
-	}
-	return nil
-}
-
-func (ca *mockClusterAdmin) Close() error {
-	return nil
-}
-
-func (ca *mockClusterAdmin) DeleteTopic(topic string) error {
-	if ca.mockDeleteTopicFunc != nil {
-		return ca.mockDeleteTopicFunc(topic)
-	}
-	return nil
-}
-
-func (ca *mockClusterAdmin) DescribeTopics(topics []string) (metadata []*sarama.TopicMetadata, err error) {
-	return nil, nil
-}
-
-func (ca *mockClusterAdmin) ListTopics() (map[string]sarama.TopicDetail, error) {
-	return nil, nil
-}
-
-func (ca *mockClusterAdmin) CreatePartitions(topic string, count int32, assignment [][]int32, validateOnly bool) error {
-	return nil
-}
-
-func (ca *mockClusterAdmin) DeleteRecords(topic string, partitionOffsets map[int32]int64) error {
-	return nil
-}
-
-func (ca *mockClusterAdmin) DescribeConfig(resource sarama.ConfigResource) ([]sarama.ConfigEntry, error) {
-	return nil, nil
-}
-
-func (ca *mockClusterAdmin) AlterConfig(resourceType sarama.ConfigResourceType, name string, entries map[string]*string, validateOnly bool) error {
-	return nil
-}
-
-func (ca *mockClusterAdmin) CreateACL(resource sarama.Resource, acl sarama.Acl) error {
-	return nil
-}
-
-func (ca *mockClusterAdmin) ListAcls(filter sarama.AclFilter) ([]sarama.ResourceAcls, error) {
-	return nil, nil
-}
-
-func (ca *mockClusterAdmin) DeleteACL(filter sarama.AclFilter, validateOnly bool) ([]sarama.MatchingAcl, error) {
-	return nil, nil
-}
-
-func (ca *mockClusterAdmin) ListConsumerGroups() (map[string]string, error) {
-	cgs := map[string]string{
-		fmt.Sprintf("kafka.%s.%s.%s", kcName, testNS, sub1UID): "consumer",
-		fmt.Sprintf("kafka.%s.%s.%s", kcName, testNS, sub2UID): "consumer",
-	}
-	return cgs, nil
-}
-
-func (ca *mockClusterAdmin) DescribeConsumerGroups(groups []string) ([]*sarama.GroupDescription, error) {
-	return nil, nil
-}
-
-func (ca *mockClusterAdmin) ListConsumerGroupOffsets(group string, topicPartitions map[string][]int32) (*sarama.OffsetFetchResponse, error) {
-	return &sarama.OffsetFetchResponse{}, nil
-}
-
-func (ca *mockClusterAdmin) DescribeCluster() (brokers []*sarama.Broker, controllerID int32, err error) {
-	return nil, 0, nil
-}
-
-// Delete a consumer group.
-func (ca *mockClusterAdmin) DeleteConsumerGroup(group string) error {
-	return nil
 }
 
 type mockKafkaClient struct {
@@ -926,8 +862,6 @@ func (c mockKafkaClient) Close() error {
 func (c mockKafkaClient) Closed() bool {
 	return false
 }
-
-var _ sarama.ClusterAdmin = (*mockClusterAdmin)(nil)
 
 func makeDeploymentWithParams(image string, replicas int32, configMapHash string) *appsv1.Deployment {
 	args := resources.DispatcherArgs{
