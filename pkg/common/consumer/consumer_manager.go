@@ -89,7 +89,7 @@ func NewConsumerGroupManager(logger *zap.Logger, serverHandler controlprotocol.S
 		logger:    logger,
 		server:    serverHandler,
 		groups:    make(groupMap),
-		factory:   &kafkaConsumerGroupFactoryImpl{addrs: brokers, config: config},
+		factory:   &kafkaConsumerGroupFactoryImpl{addrs: brokers, config: config, kcoi: &kafkaConsumerOffsetInitializer{}},
 		groupLock: sync.RWMutex{},
 	}
 
@@ -136,7 +136,7 @@ func (m *kafkaConsumerGroupManagerImpl) Reconfigure(brokers []string, config *sa
 		}
 	}
 
-	m.factory = &kafkaConsumerGroupFactoryImpl{addrs: brokers, config: config}
+	m.factory = &kafkaConsumerGroupFactoryImpl{addrs: brokers, config: config, kcoi: &kafkaConsumerOffsetInitializer{}}
 
 	// Restart any groups this function stopped
 	m.logger.Info("Reconfigure Consumer Group Manager - Starting All Managed Consumer Groups")
