@@ -150,6 +150,8 @@ jobs:
         SERVING_VERSION: v0.26.0
         KOURIER_VERSION: v0.26.0
       run: |
+        set -x
+        
         # Prerequisites
         sudo pip install yq
 
