@@ -147,8 +147,8 @@ jobs:
 
     - name: Install Knative
       env:
-        SERVING_VERSION: v0.18.0
-        KOURIER_VERSION: v0.18.0
+        SERVING_VERSION: v0.26.0
+        KOURIER_VERSION: v0.26.0
       run: |
         # Prerequisites
         sudo pip install yq
