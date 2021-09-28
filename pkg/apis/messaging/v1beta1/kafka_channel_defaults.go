@@ -19,8 +19,11 @@ package v1beta1
 import (
 	"context"
 
-	"knative.dev/eventing-kafka/pkg/common/constants"
+	"knative.dev/pkg/apis"
+
 	"knative.dev/eventing/pkg/apis/messaging"
+
+	"knative.dev/eventing-kafka/pkg/common/constants"
 )
 
 func (c *KafkaChannel) SetDefaults(ctx context.Context) {
@@ -37,6 +40,7 @@ func (c *KafkaChannel) SetDefaults(ctx context.Context) {
 		c.Annotations[messaging.SubscribableDuckVersionAnnotation] = "v1"
 	}
 
+	ctx = apis.WithinParent(ctx, c.ObjectMeta)
 	c.Spec.SetDefaults(ctx)
 }
 
@@ -47,4 +51,5 @@ func (cs *KafkaChannelSpec) SetDefaults(ctx context.Context) {
 	if cs.ReplicationFactor == 0 {
 		cs.ReplicationFactor = constants.DefaultReplicationFactor
 	}
+	cs.Delivery.SetDefaults(ctx)
 }
