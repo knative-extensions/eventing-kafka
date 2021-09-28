@@ -18,13 +18,6 @@ limitations under the License.
 
 package e2e
 
-import (
-	"context"
-	"testing"
-
-	"knative.dev/eventing/test/e2e/helpers"
-)
-
-func TestChannelChain(t *testing.T) {
-	helpers.ChannelChainTestHelper(context.Background(), t, helpers.SubscriptionV1, channelTestRunner)
-}
+//func TestChannelChain(t *testing.T) {
+//	helpers.ChannelChainTestHelper(context.Background(), t, helpers.SubscriptionV1, channelTestRunner)
+//}

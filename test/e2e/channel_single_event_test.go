@@ -18,18 +18,10 @@ limitations under the License.
 
 package e2e
 
-import (
-	"context"
-	"testing"
-
-	cloudevents "github.com/cloudevents/sdk-go/v2"
-	"knative.dev/eventing/test/e2e/helpers"
-)
-
-func TestSingleBinaryEventForChannel(t *testing.T) {
-	helpers.SingleEventForChannelTestHelper(context.Background(), t, cloudevents.EncodingBinary, helpers.SubscriptionV1, "", channelTestRunner)
-}
-
-func TestSingleStructuredEventForChannel(t *testing.T) {
-	helpers.SingleEventForChannelTestHelper(context.Background(), t, cloudevents.EncodingStructured, helpers.SubscriptionV1, "", channelTestRunner)
-}
+//func TestSingleBinaryEventForChannel(t *testing.T) {
+//	helpers.SingleEventForChannelTestHelper(context.Background(), t, cloudevents.EncodingBinary, helpers.SubscriptionV1, "", channelTestRunner)
+//}
+//
+//func TestSingleStructuredEventForChannel(t *testing.T) {
+//	helpers.SingleEventForChannelTestHelper(context.Background(), t, cloudevents.EncodingStructured, helpers.SubscriptionV1, "", channelTestRunner)
+//}
