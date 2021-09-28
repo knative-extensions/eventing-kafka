@@ -18,7 +18,7 @@ metadata:
   name: config-kafka-source-defaults
   namespace: knative-eventing
   labels:
-    eventing.knative.dev/release: devel
+    kafka.eventing.knative.dev/release: devel
   annotations:
     knative.dev/example-checksum: "b6ed351d"
 data:
