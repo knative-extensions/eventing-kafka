@@ -188,7 +188,7 @@ func (m *kafkaConsumerGroupManagerImpl) StartConsumerGroup(ctx context.Context, 
 	}
 
 	// The only thing we really want from the factory is the cancel function for the customConsumerGroup
-	customGroup := m.factory.startExistingConsumerGroup(group, consume, topics, logger, handler, options...)
+	customGroup := m.factory.startExistingConsumerGroup(groupId, group, consume, topics, logger, handler, options...)
 	managedGrp.cancelConsume = customGroup.cancel
 
 	// Add the Sarama ConsumerGroup we obtained from the factory to the managed group map,
