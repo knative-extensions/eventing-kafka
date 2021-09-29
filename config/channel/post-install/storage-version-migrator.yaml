@@ -15,10 +15,10 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  generateName: storage-version-migration-eventing-kafka-
+  generateName: storage-version-migration-eventing-kafka-channel-
   namespace: knative-eventing
   labels:
-    app: "storage-version-migration-eventing-kafka"
+    app: "storage-version-migration-eventing-kafka-channel"
     kafka.eventing.knative.dev/release: devel
 spec:
   ttlSecondsAfterFinished: 600
@@ -26,12 +26,12 @@ spec:
   template:
     metadata:
       labels:
-        app: "storage-version-migration-eventing-kafka"
+        app: "storage-version-migration-eventing-kafka-channel"
         kafka.eventing.knative.dev/release: devel
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
-      serviceAccountName: knative-eventing-kafka-post-install-job
+      serviceAccountName: knative-eventing-kafka-channel-post-install-job
       restartPolicy: OnFailure
       containers:
         - name: migrate
