@@ -181,7 +181,7 @@ func TestDispatcher(t *testing.T) {
 		},
 	}
 	require.NoError(t, dispatcher.RegisterChannelHost(channelAConfig))
-	require.NoError(t, dispatcher.ReconcileConsumers(ctx, channelAConfig))
+	require.NoError(t, dispatcher.ReconcileConsumers(ctx, channelAConfig, nil))
 
 	channelBConfig := &ChannelConfig{
 		Namespace: "default",
@@ -197,7 +197,7 @@ func TestDispatcher(t *testing.T) {
 		},
 	}
 	require.NoError(t, dispatcher.RegisterChannelHost(channelBConfig))
-	require.NoError(t, dispatcher.ReconcileConsumers(ctx, channelBConfig))
+	require.NoError(t, dispatcher.ReconcileConsumers(ctx, channelBConfig, nil))
 
 	time.Sleep(5 * time.Second)
 

@@ -27,9 +27,11 @@ import (
 	"github.com/google/uuid"
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/eventing-kafka/pkg/common/config"
+	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/pkg/logging"
 
 	eventingchannels "knative.dev/eventing/pkg/channel"
@@ -158,7 +160,7 @@ func (k UpdateError) Error() string {
 }
 
 // ReconcileConsumers will be called by new CRD based kafka channel dispatcher controller.
-func (d *KafkaDispatcher) ReconcileConsumers(ctx context.Context, config *ChannelConfig) error {
+func (d *KafkaDispatcher) ReconcileConsumers(ctx context.Context, config *ChannelConfig, subscriberStatuses []eventingduck.SubscriberStatus) error {
 	channelNamespacedName := types.NamespacedName{
 		Namespace: config.Namespace,
 		Name:      config.Name,
@@ -202,6 +204,11 @@ func (d *KafkaDispatcher) ReconcileConsumers(ctx context.Context, config *Channe
 
 	failedToSubscribe := make(UpdateError)
 	for subUid, subSpec := range toAddSubs {
+		if !isSubscriberReady(subscriberStatuses, subUid) {
+			d.logger.Errorw("XXXXXXXXXXX: Subscription not ready", zap.Any("subid", subUid))
+			continue
+		}
+		d.logger.Errorw("XXXXXXXXXXX: Subscription ready", zap.Any("subid", subUid))
 		if err := d.subscribe(ctx, channelNamespacedName, subSpec); err != nil {
 			failedToSubscribe[subUid] = err
 		}
@@ -219,6 +226,15 @@ func (d *KafkaDispatcher) ReconcileConsumers(ctx context.Context, config *Channe
 		return nil
 	}
 	return failedToSubscribe
+}
+
+func isSubscriberReady(subscriberStatuses []eventingduck.SubscriberStatus, subUid types.UID) bool {
+	for _, subscriberStatus := range subscriberStatuses {
+		if subscriberStatus.UID == subUid {
+			return subscriberStatus.Ready == corev1.ConditionTrue
+		}
+	}
+	return false
 }
 
 // RegisterChannelHost adds a new channel to the host-channel mapping.

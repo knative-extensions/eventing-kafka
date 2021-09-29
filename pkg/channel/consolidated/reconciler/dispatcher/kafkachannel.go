@@ -183,7 +183,7 @@ func (r *Reconciler) syncChannel(ctx context.Context, kc *v1beta1.KafkaChannel) 
 	}
 
 	// Update dispatcher side
-	err := r.kafkaDispatcher.ReconcileConsumers(ctx, config)
+	err := r.kafkaDispatcher.ReconcileConsumers(ctx, config, kc.Status.Subscribers)
 	if err != nil {
 		logging.FromContext(ctx).Errorw("Some kafka subscriptions failed to subscribe", zap.Error(err))
 		return fmt.Errorf("some kafka subscriptions failed to subscribe: %v", err)

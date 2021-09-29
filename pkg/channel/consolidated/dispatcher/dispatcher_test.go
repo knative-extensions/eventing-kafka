@@ -271,7 +271,7 @@ func TestDispatcher_UpdateConsumers(t *testing.T) {
 
 			// Initialize using oldConfig
 			require.NoError(t, d.RegisterChannelHost(tc.oldConfig))
-			require.NoError(t, d.ReconcileConsumers(ctx, tc.oldConfig))
+			require.NoError(t, d.ReconcileConsumers(ctx, tc.oldConfig, nil))
 
 			oldSubscribers := sets.NewString()
 			for _, sub := range d.subscriptions {
@@ -285,7 +285,7 @@ func TestDispatcher_UpdateConsumers(t *testing.T) {
 			}
 
 			// Update with new config
-			err := d.ReconcileConsumers(ctx, tc.newConfig)
+			err := d.ReconcileConsumers(ctx, tc.newConfig, nil)
 			if tc.createErr != "" {
 				if err == nil {
 					t.Errorf("Expected UpdateConfig error: '%v'. Actual nil", tc.createErr)
@@ -378,7 +378,7 @@ func TestDispatcher_MultipleChannelsInParallel(t *testing.T) {
 			wg.Add(1)
 			go func(c *ChannelConfig) {
 				defer wg.Done()
-				assert.NoError(t, d.ReconcileConsumers(ctx, c))
+				assert.NoError(t, d.ReconcileConsumers(ctx, c, nil))
 			}(c)
 		}
 	}
@@ -444,7 +444,7 @@ func TestKafkaDispatcher_CleanupChannel(t *testing.T) {
 		},
 	}
 	require.NoError(t, d.RegisterChannelHost(channelConfig))
-	require.NoError(t, d.ReconcileConsumers(ctx, channelConfig))
+	require.NoError(t, d.ReconcileConsumers(ctx, channelConfig, nil))
 
 	require.NoError(t, d.CleanupChannel(channelConfig.Name, channelConfig.Namespace, channelConfig.HostName))
 	require.NotContains(t, d.subscriptions, "subscription-1")
