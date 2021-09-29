@@ -95,12 +95,12 @@ func (c kafkaConsumerGroupFactoryImpl) StartConsumerGroup(ctx context.Context, g
 	}
 	defer clusterAdmin.Close()
 
-	// this is a blocking func
-	// do not proceed until the check is done
-	err = c.kcoi.checkOffsetsInitialized(ctx, groupID, topics, logger, client, clusterAdmin)
-	if err != nil {
-		return nil, err
-	}
+	//// this is a blocking func
+	//// do not proceed until the check is done
+	//err = c.kcoi.checkOffsetsInitialized(ctx, groupID, topics, logger, client, clusterAdmin)
+	//if err != nil {
+	//	return nil, err
+	//}
 
 	logger.Infow("All offsets are initialized", zap.Any("topics", topics), zap.Any("groupID", groupID))
 
