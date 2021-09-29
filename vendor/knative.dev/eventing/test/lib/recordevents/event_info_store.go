@@ -36,7 +36,7 @@ import (
 const (
 	// The interval and timeout used for checking events
 	retryInterval = 4 * time.Second
-	retryTimeout  = 4 * time.Minute
+	retryTimeout  = 10 * time.Minute
 )
 
 // Deploys a new recordevents pod and start the associated EventInfoStore
