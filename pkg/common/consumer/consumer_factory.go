@@ -19,15 +19,11 @@ package consumer
 import (
 	"context"
 	"sync"
-	"time"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
 	"knative.dev/pkg/logging"
 )
-
-const OffsetInitRetryTimeout = 60 * time.Second
-const OffsetInitRetryInterval = 5 * time.Second
 
 // wrapper functions for the Sarama functions, to facilitate unit testing
 var newConsumerGroup = sarama.NewConsumerGroup

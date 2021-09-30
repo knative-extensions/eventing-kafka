@@ -3,11 +3,17 @@ package consumer
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/eventing-kafka/pkg/common/kafka/offset"
+)
+
+const (
+	OffsetInitRetryTimeout  = 60 * time.Second
+	OffsetInitRetryInterval = 5 * time.Second
 )
 
 // wrapper functions for the Sarama functions, to facilitate unit testing
