@@ -1,40 +1,35 @@
-# Knative Eventing Multi-Tenant Scheduler
+# Knative Eventing Multi-Tenant Scheduler with High-Availability
 
-[![LICENSE](https://img.shields.io/github/license/knative-sandbox/eventing-kafka.svg)](https://github.com/knative-sandbox/eventing-kafka/blob/master/LICENSE)
-[![Slack](https://img.shields.io/badge/Signup-Knative_Slack-white.svg?logo=slack)](https://slack.knative.dev)
-[![Slack](https://img.shields.io/badge/%23eventing-white.svg?logo=slack&color=522a5e)](https://knative.slack.com/archives/C9JP909F0)
+An eventing source instance (for example, [KafkaSource](https://github.com/knative-sandbox/eventing-kafka/tree/main/pkg/source), [RedisStreamSource](https://github.com/knative-sandbox/eventing-redis/tree/main/source), etc) gets materialized as a virtual pod (**vpod**) and can be scaled up and down by increasing or decreasing the number of virtual pod replicas (**vreplicas**).  A vreplica corresponds to a resource in the source that can replicated for maximum distributed processing (for example, number of consumers running in a consumer group).
 
-## Scheduler with High-Availability
+The vpod multi-tenant [scheduler](#1scheduler) is responsible for placing vreplicas onto real Kubernetes pods. Each pod is limited in capacity and can hold a maximum number of vreplicas. The scheduler takes a list of (source, # of vreplicas) tuples and computes a set of Placements. Placement info are added to the source status.
 
-The [scheduler](#scheduler) is responsible for placing virtual replicas (vreplicas) onto real pods. It takes a list of (source, # of vreplicas) tuples and computes a set of Placements.
-Placement info are added to the source status.
+Scheduling strategies rely on pods having a sticky identity (StatefulSet replicas) and the current [State](#4state-collector) of the cluster.
 
-Scheduling strategies rely on pods having a sticky identity (see StatefulSet) and the current [State](#state-collector) of the cluster.
-
-When a vreplica cannot be scheduled it is added to the list of pending vreplicas. The [Autoscaler](#autoscaler) monitors this list and allocates more pods for placing it.
+When a vreplica cannot be scheduled it is added to the list of pending vreplicas. The [Autoscaler](#3autoscaler) monitors this list and allocates more pods for placing it.
 
 To support high-availability the scheduler distributes vreplicas uniformly across failure domains such as zones/nodes/pods containing replicas from a StatefulSet.
 
-### Current Requirements
+## General Scheduler Requirements
 
 1. High Availability: Vreplicas for a source must be evenly spread across domains to reduce impact of failure when a zone/node/pod goes unavailable for scheduling.*
 
-2. Equal message consumption: Vreplicas for a source must be evenly spread across adapter pods to provide an equal rate of processing messages. For example, Kafka spreads partitions equally across pods so if vreplicas aren’t equally spread, pods with fewer replicas will consume messages slower than others.
+2. Equal message consumption: Vreplicas for a source must be evenly spread across adapter pods to provide an equal rate of processing messages. For example, Kafka broker spreads partitions equally across pods so if vreplicas aren’t equally spread, pods with fewer vreplicas will consume messages slower than others.
 
-3. Spread not more than partition size: Vreplicas for a Kafka source must be evenly spread across pods such that the total number of pods with placements does not exceed the number of Kafka partitions for the topic it's consuming from. Else, the additional pods have no partitions to consume messages from and waste K8s resources.
+3. Pod spread not more than available resources: Vreplicas for a source must be evenly spread across pods such that the total number of pods with placements does not exceed the number of resources available from the source (for example, number of Kafka partitions for the topic it's consuming from). Else, the additional pods have no resources (Kafka partitions) to consume messages from and could waste Kubernetes resources.
 
 * Note: StatefulSet anti-affinity rules guarantee new pods to be scheduled on a new zone and node.
 
-### Components:
+## Components:
 
-#### 1. Scheduler
+### 1.Scheduler
 The scheduling framework has a pluggable architecture where plugins are registered and compiled into the scheduler. It allows many scheduling features to be implemented as plugins, while keeping the scheduling "core" simple and maintainable.
 
 Scheduling happens in a series of stages:
 
-**Filter**: These plugins (predicaates) are used to filter out pods where a vreplica cannot be placed. If any filter plugin marks the pod as infeasible, the remaining plugins will not be called for that pod. A vreplica is marked as unschedulable if no pods pass all the filters.
+  1. **Filter**: These plugins (predicates) are used to filter out pods where a vreplica cannot be placed. If any filter plugin marks the pod as infeasible, the remaining plugins will not be called for that pod. A vreplica is marked as unschedulable if no pods pass all the filters.
 
-**Score**: These plugins (priorities) provide a score to each pod that has passed the filtering phase. Scheduler will then select the pod with the highest weighted scores sum.
+  2. **Score**: These plugins (priorities) provide a score to each pod that has passed the filtering phase. Scheduler will then select the pod with the highest weighted scores sum.
 
 Scheduler must be Knative generic with its core functionality implemented as core plugins. Anything specific to an eventing source will be implemented as separate plugins (for example, number of Kafka partitions)
 
@@ -42,29 +37,29 @@ It allocates one vreplica at a time by filtering and scoring schedulable pods.
 
 A vreplica can be unschedulable for several reasons such as pods not having enough capacity, constraints cannot be fulfilled, etc.
 
-#### 2. Descheduler
+### 2.Descheduler
 
 Similar to scheduler but has its own set of priorities (no predicates today).
 
-#### 3. Autoscaler
+### 3.Autoscaler
 
 The autoscaler scales up pod replicas of the statefulset adapter when there are vreplicas pending to be scheduled, and scales down if there are unused pods. It takes into consideration a scaling factor that is based on number of domains for HA.
 
-#### 4. State Collector
+### 4.State Collector
 
 Current state information about the cluster is collected after placing each vreplica and during intervals. Cluster information include computing the free capacity for each pod, list of schedulable pods (unschedulable pods are pods that are marked for eviction for compacting, and pods that are on unschedulable nodes (cordoned or unreachable nodes), number of pods (stateful set replicas), number of available nodes, number of zones, a node to zone map, total number of vreplicas in each pod for each vpod (spread), total number of vreplicas in each node for each vpod (spread),  total number of vreplicas in each zone for each vpod (spread), etc.
 
-#### 5. Reservation
+### 5.Reservation
 
 Scheduler also tracks vreplicas that have been placed (ie. scheduled) but haven't been committed yet to its vpod status. These reserved veplicas are taken into consideration when computing cluster's state for scheduling the next vreplica.
 
-#### 6. Evictor
+### 6.Evictor
 
 Autoscaler periodically attempts to compact veplicas into a smaller number of free replicas with lower ordinals. Vreplicas placed on higher ordinal pods are evicted and rescheduled to pods with a lower ordinal using the same scheduling strategies.
 
-### Scheduler Profile
+## Scheduler Profile
 
-#### Predicates:
+### Predicates:
 
 1. **PodFitsResources**: check if a pod has enough capacity [CORE]
 
@@ -72,7 +67,7 @@ Autoscaler periodically attempts to compact veplicas into a smaller number of fr
 
 3. **EvenPodSpread**: check if resources are evenly spread across pods [CORE]. It has an argument `MaxSkew` to configure the plugin with an allowed skew factor.
 
-#### Priorities:
+### Priorities:
 
 1. **AvailabilityNodePriority**: make sure resources are evenly spread across nodes [CORE]. It has an argument `MaxSkew` to configure the plugin with an allowed skew factor.
 
@@ -80,7 +75,7 @@ Autoscaler periodically attempts to compact veplicas into a smaller number of fr
 
 3. **LowestOrdinalPriority**: make sure vreplicas are placed on free smaller ordinal pods to minimize resource usage [CORE]
 
-**Example profile:**
+**Example ConfigMap for config-scheduler:**
 
 ```
 data:
@@ -102,9 +97,9 @@ data:
                   ]
 ```
 
-### Descheduler Profile:
+## Descheduler Profile:
 
-#### Priorities:
+### Priorities:
 
 1. **RemoveWithAvailabilityNodePriority**: make sure resources are evenly spread across nodes [CORE]
 
@@ -112,7 +107,7 @@ data:
 
 3. **HighestOrdinalPriority**: make sure vreps are removed from higher ordinal pods to minimize resource usage [CORE]
 
-**Example profile:**
+**Example ConfigMap for config-descheduler:**
 
 ```
 data:
@@ -129,24 +124,39 @@ data:
                   ]
 ```
 
-### Recovery
+## Normal Operation
+
+1. **Busy scheduler**:
+
+Scheduler can be very busy allocating the best placements for multiple eventing sources at a time using the scheduler predicates and priorities configured. During this time, the cluster could see statefulset replicas increasing (as the autoscaler computes how many more pods are needed to complete scheduling) or replicas decreasing during idle time (as eviction kicks in to attempt compacting the vreplicas into a smaller number of pods or as KEDA lowers the number of vreplicas). The current placements are stored in the eventing source's status field for observability.
+
+2. **Software upgrades**:
+
+We can expect periodic software version upgrades or fixes to be performed on the Kubernetes cluster running the scheduler or on the Knative framework installed. Either of these scenarios could involve graceful rebooting of nodes and/or reapplying of controllers, adapters and other resources.
+
+All existing vreplica placements will still be valid and no rebalancing will be done by the vreplica scheduler.
+(For Kafka, its broker may trigger a rebalancing of partitions due to consumer group member changes.)
+
+TODO: Measure latencies in message processing using a performance tool (KPerf eventing).
+
+3. **No more cluster resources**:
+
+When there are no resources available on existing nodes in the cluster to schedule more pods and the autoscaler continues to scale up replicas, the new pods are left in a Pending state till cluster size is increased. Nothing to do for the scheduler until then.
+
+## Disaster Recovery
 
 Some failure scenarios are described below:
 
 1. **Pod failure**:
+
 When a pod/replica in a StatefulSet goes down due to some reason (but its node and zone are healthy), a new replica is spun up by the StatefulSet with the same pod identity (pod can come up on a different node) almost immediately.
 
 All existing vreplica placements will still be valid and no rebalancing will be done by the vreplica scheduler.
-On the other hand, Kafka broker may trigger a rebalancing of partitions due to consumer group member changes.
+(For Kafka, its broker may trigger a rebalancing of partitions due to consumer group member changes.)
 
-TODO: Measure latencies in Kafka message processing using a performance tool (KPerf eventing).
+TODO: Measure latencies in message processing using a performance tool (KPerf eventing).
 
-2. **Pod in pending state**:
-
-When there are no resources available on existing nodes and autoscaler scales up replicas → cluster is too small.
-Nothing to do for the scheduler.
-
-3. **Node failure (graceful)**:
+2. **Node failure (graceful)**:
 
 When a node is rebooted for upgrades etc, running pods on the node will be evicted (drained), gracefully terminated and rescheduled on a different node. The drained node will be marked as unschedulable by K8 (`node.Spec.Unschedulable` = True) after its cordoning.
 
@@ -159,13 +169,13 @@ Unschedulable:      true
 ```
 
 All existing vreplica placements will still be valid and no rebalancing will be done by the vreplica scheduler.
-On the other hand, Kafka broker may trigger a rebalancing of partitions due to consumer group member changes.
+(For Kafka, its broker may trigger a rebalancing of partitions due to consumer group member changes.)
 
-TODO: Measure latencies in Kafka message processing using a performance tool (KPerf eventing).
+TODO: Measure latencies in message processing using a performance tool (KPerf eventing).
 
 New vreplicas will not be scheduled on pods running on this cordoned node.
 
-4. **Node failure (abrupt)**:
+3. **Node failure (abrupt)**:
 
 When a node goes down unexpectedly due to some physical machine failure (network isolation/ loss, CPU issue, power loss, etc), the node controller does the following few steps
 
@@ -220,13 +230,12 @@ Since statefulset now has a `terminationGracePeriodSeconds: 0` setting, the term
 
 During the time period of the failing node being unreachable (~5mins), vreplicas placed on that pod aren’t available to process work from the eventing source. (Theory) Consumption rate goes down and Kafka eventually triggers rebalancing of partitions. Also, KEDA will scale up the number of consumers to resolve the processing lag. A scale up will cause the Eventing scheduler to rebalance the total vreplicas for that source on available running pods.
 
-5. **Zone failure**:
+4. **Zone failure**:
 
 All nodes running in the failing zone will be unavailable for scheduling. Nodes will either be tainted with `unreachable` or Spec’ed as `Unschedulable`
 See node failure scenarios above for what happens to vreplica placements.
 
-
-### References:
+## References:
 
 * https://kubernetes.io/docs/concepts/scheduling-eviction/scheduling-framework/
 * https://github.com/kubernetes-sigs/descheduler
