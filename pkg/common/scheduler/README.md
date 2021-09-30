@@ -14,9 +14,9 @@ To support high-availability the scheduler distributes vreplicas uniformly acros
 
 1. High Availability: Vreplicas for a source must be evenly spread across domains to reduce impact of failure when a zone/node/pod goes unavailable for scheduling.*
 
-2. Equal message consumption: Vreplicas for a source must be evenly spread across adapter pods to provide an equal rate of processing messages. For example, Kafka broker spreads partitions equally across pods so if vreplicas aren’t equally spread, pods with fewer vreplicas will consume messages slower than others.
+2. Equal event consumption: Vreplicas for a source must be evenly spread across adapter pods to provide an equal rate of processing events. For example, Kafka broker spreads partitions equally across pods so if vreplicas aren’t equally spread, pods with fewer vreplicas will consume events slower than others.
 
-3. Pod spread not more than available resources: Vreplicas for a source must be evenly spread across pods such that the total number of pods with placements does not exceed the number of resources available from the source (for example, number of Kafka partitions for the topic it's consuming from). Else, the additional pods have no resources (Kafka partitions) to consume messages from and could waste Kubernetes resources.
+3. Pod spread not more than available resources: Vreplicas for a source must be evenly spread across pods such that the total number of pods with placements does not exceed the number of resources available from the source (for example, number of Kafka partitions for the topic it's consuming from). Else, the additional pods have no resources (Kafka partitions) to consume events from and could waste Kubernetes resources.
 
 * Note: StatefulSet anti-affinity rules guarantee new pods to be scheduled on a new zone and node.
 
@@ -128,7 +128,7 @@ data:
 
 1. **Busy scheduler**:
 
-Scheduler can be very busy allocating the best placements for multiple eventing sources at a time using the scheduler predicates and priorities configured. During this time, the cluster could see statefulset replicas increasing (as the autoscaler computes how many more pods are needed to complete scheduling) or replicas decreasing during idle time (as eviction kicks in to attempt compacting the vreplicas into a smaller number of pods or as KEDA lowers the number of vreplicas). The current placements are stored in the eventing source's status field for observability.
+Scheduler can be very busy allocating the best placements for multiple eventing sources at a time using the scheduler predicates and priorities configured. During this time, the cluster could see statefulset replicas increasing, as the autoscaler computes how many more pods are needed to complete scheduling successfully. Also, the replicas could be decreasing during idle time, either caused by less events flowing through the system, or the evictor compacting vreplicas placements into a smaller number of pods or the deletion of event sources. The current placements are stored in the eventing source's status field for observability.
 
 2. **Software upgrades**:
 
@@ -137,7 +137,7 @@ We can expect periodic software version upgrades or fixes to be performed on the
 All existing vreplica placements will still be valid and no rebalancing will be done by the vreplica scheduler.
 (For Kafka, its broker may trigger a rebalancing of partitions due to consumer group member changes.)
 
-TODO: Measure latencies in message processing using a performance tool (KPerf eventing).
+TODO: Measure latencies in events processing using a performance tool (KPerf eventing).
 
 3. **No more cluster resources**:
 
@@ -154,7 +154,7 @@ When a pod/replica in a StatefulSet goes down due to some reason (but its node a
 All existing vreplica placements will still be valid and no rebalancing will be done by the vreplica scheduler.
 (For Kafka, its broker may trigger a rebalancing of partitions due to consumer group member changes.)
 
-TODO: Measure latencies in message processing using a performance tool (KPerf eventing).
+TODO: Measure latencies in events processing using a performance tool (KPerf eventing).
 
 2. **Node failure (graceful)**:
 
@@ -171,7 +171,7 @@ Unschedulable:      true
 All existing vreplica placements will still be valid and no rebalancing will be done by the vreplica scheduler.
 (For Kafka, its broker may trigger a rebalancing of partitions due to consumer group member changes.)
 
-TODO: Measure latencies in message processing using a performance tool (KPerf eventing).
+TODO: Measure latencies in events processing using a performance tool (KPerf eventing).
 
 New vreplicas will not be scheduled on pods running on this cordoned node.
 
