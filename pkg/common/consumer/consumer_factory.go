@@ -37,9 +37,9 @@ type KafkaConsumerGroupFactory interface {
 }
 
 type kafkaConsumerGroupFactoryImpl struct {
-	config *sarama.Config
-	addrs  []string
-	kcoi   ConsumerOffsetInitializer
+	config         *sarama.Config
+	addrs          []string
+	offsetsChecker ConsumerGroupOffsetsChecker
 }
 
 type customConsumerGroup struct {
@@ -103,7 +103,7 @@ func (c kafkaConsumerGroupFactoryImpl) startExistingConsumerGroup(
 	go func() {
 		// this is a blocking func
 		// do not proceed until the check is done
-		err := c.kcoi.WaitForOffsetsInitialization(ctx, groupID, topics, logger, c.addrs, c.config)
+		err := c.offsetsChecker.WaitForOffsetsInitialization(ctx, groupID, topics, logger, c.addrs, c.config)
 		if err != nil {
 			logger.Errorw("Error while checking if offsets are initialized", zap.Error(err))
 			errorCh <- err
@@ -136,8 +136,8 @@ func (c kafkaConsumerGroupFactoryImpl) startExistingConsumerGroup(
 	return &customConsumerGroup{cancel, errorCh, saramaGroup, releasedCh}
 }
 
-func NewConsumerGroupFactory(addrs []string, config *sarama.Config, offsetInitializer ConsumerOffsetInitializer) KafkaConsumerGroupFactory {
-	return kafkaConsumerGroupFactoryImpl{addrs: addrs, config: config, kcoi: offsetInitializer}
+func NewConsumerGroupFactory(addrs []string, config *sarama.Config, offsetsChecker ConsumerGroupOffsetsChecker) KafkaConsumerGroupFactory {
+	return kafkaConsumerGroupFactoryImpl{addrs: addrs, config: config, offsetsChecker: offsetsChecker}
 }
 
 var _ KafkaConsumerGroupFactory = (*kafkaConsumerGroupFactoryImpl)(nil)

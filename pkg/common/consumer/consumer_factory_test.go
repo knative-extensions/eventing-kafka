@@ -113,10 +113,10 @@ func mockedNewSaramaClusterAdmin(clusterAdmin sarama.ClusterAdmin, mustFail bool
 
 //------ Tests
 
-type mockConsumerOffsetInitializer struct {
+type mockConsumerGroupOffsetsChecker struct {
 }
 
-func (m mockConsumerOffsetInitializer) WaitForOffsetsInitialization(ctx context.Context, groupID string, topics []string, logger *zap.SugaredLogger, addrs []string, config *sarama.Config) error {
+func (m mockConsumerGroupOffsetsChecker) WaitForOffsetsInitialization(ctx context.Context, groupID string, topics []string, logger *zap.SugaredLogger, addrs []string, config *sarama.Config) error {
 	return nil
 }
 
@@ -133,9 +133,9 @@ func TestErrorPropagationCustomConsumerGroup(t *testing.T) {
 	newSaramaClusterAdmin = mockedNewSaramaClusterAdmin(clusterAdmin, false)
 
 	factory := kafkaConsumerGroupFactoryImpl{
-		config: sarama.NewConfig(),
-		addrs:  []string{"b1", "b2"},
-		kcoi:   &mockConsumerOffsetInitializer{},
+		config:         sarama.NewConfig(),
+		addrs:          []string{"b1", "b2"},
+		offsetsChecker: &mockConsumerGroupOffsetsChecker{},
 	}
 
 	consumerGroup, err := factory.StartConsumerGroup(ctx, "bla", []string{}, nil)
@@ -183,9 +183,9 @@ func TestErrorWhileCreatingNewConsumerGroup(t *testing.T) {
 	newConsumerGroup = mockedNewConsumerGroupFromClient(nil, true, true, false, true)
 
 	factory := kafkaConsumerGroupFactoryImpl{
-		config: sarama.NewConfig(),
-		addrs:  []string{"b1", "b2"},
-		kcoi:   &mockConsumerOffsetInitializer{},
+		config:         sarama.NewConfig(),
+		addrs:          []string{"b1", "b2"},
+		offsetsChecker: &mockConsumerGroupOffsetsChecker{},
 	}
 	_, err := factory.StartConsumerGroup(ctx, "bla", []string{}, nil)
 
@@ -199,9 +199,9 @@ func TestErrorWhileNewConsumerGroup(t *testing.T) {
 	newConsumerGroup = mockedNewConsumerGroupFromClient(nil, false, false, true, false)
 
 	factory := kafkaConsumerGroupFactoryImpl{
-		config: sarama.NewConfig(),
-		addrs:  []string{"b1", "b2"},
-		kcoi:   &mockConsumerOffsetInitializer{},
+		config:         sarama.NewConfig(),
+		addrs:          []string{"b1", "b2"},
+		offsetsChecker: &mockConsumerGroupOffsetsChecker{},
 	}
 	consumerGroup, _ := factory.StartConsumerGroup(ctx, "bla", []string{}, nil)
 

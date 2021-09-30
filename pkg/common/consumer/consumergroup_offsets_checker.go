@@ -12,29 +12,29 @@ import (
 )
 
 const (
-	OffsetInitRetryTimeout  = 60 * time.Second
-	OffsetInitRetryInterval = 5 * time.Second
+	OffsetCheckRetryTimeout  = 60 * time.Second
+	OffsetCheckRetryInterval = 5 * time.Second
 )
 
 // wrapper functions for the Sarama functions, to facilitate unit testing
 var newSaramaClient = sarama.NewClient
 var newSaramaClusterAdmin = sarama.NewClusterAdmin
 
-type ConsumerOffsetInitializer interface {
+type ConsumerGroupOffsetsChecker interface {
 	WaitForOffsetsInitialization(ctx context.Context, groupID string, topics []string, logger *zap.SugaredLogger, addrs []string, config *sarama.Config) error
 }
 
-type NoopConsumerOffsetInitializer struct {
+type NoopConsumerGroupOffsetsChecker struct {
 }
 
-func (coi *NoopConsumerOffsetInitializer) WaitForOffsetsInitialization(ctx context.Context, groupID string, topics []string, logger *zap.SugaredLogger, addrs []string, config *sarama.Config) error {
+func (c *NoopConsumerGroupOffsetsChecker) WaitForOffsetsInitialization(ctx context.Context, groupID string, topics []string, logger *zap.SugaredLogger, addrs []string, config *sarama.Config) error {
 	return nil
 }
 
-type KafkaConsumerOffsetInitializer struct {
+type KafkaConsumerGroupOffsetsChecker struct {
 }
 
-func (kcoi *KafkaConsumerOffsetInitializer) WaitForOffsetsInitialization(ctx context.Context, groupID string, topics []string, logger *zap.SugaredLogger, addrs []string, config *sarama.Config) error {
+func (k *KafkaConsumerGroupOffsetsChecker) WaitForOffsetsInitialization(ctx context.Context, groupID string, topics []string, logger *zap.SugaredLogger, addrs []string, config *sarama.Config) error {
 	logger.Infow("Checking if all offsets are initialized", zap.Any("topics", topics), zap.Any("groupID", groupID))
 
 	client, err := newSaramaClient(addrs, config)
@@ -63,8 +63,8 @@ func (kcoi *KafkaConsumerOffsetInitializer) WaitForOffsetsInitialization(ctx con
 			return true, fmt.Errorf("error checking if offsets are initialized. stopping trying. %w", err)
 		}
 	}
-	pollCtx, pollCtxCancel := context.WithTimeout(ctx, OffsetInitRetryTimeout)
-	err = wait.PollUntil(OffsetInitRetryInterval, check, pollCtx.Done())
+	pollCtx, pollCtxCancel := context.WithTimeout(ctx, OffsetCheckRetryTimeout)
+	err = wait.PollUntil(OffsetCheckRetryInterval, check, pollCtx.Done())
 	defer pollCtxCancel()
 
 	if err != nil {

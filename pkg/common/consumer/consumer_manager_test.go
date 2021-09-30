@@ -37,7 +37,7 @@ import (
 
 func TestNewConsumerGroupManager(t *testing.T) {
 	server := getMockServerHandler()
-	manager := NewConsumerGroupManager(logtesting.TestLogger(t).Desugar(), server, []string{}, &sarama.Config{}, &NoopConsumerOffsetInitializer{})
+	manager := NewConsumerGroupManager(logtesting.TestLogger(t).Desugar(), server, []string{}, &sarama.Config{}, &NoopConsumerGroupOffsetsChecker{})
 	assert.NotNil(t, manager)
 	assert.NotNil(t, server.Router[commands.StopConsumerGroupOpCode])
 	assert.NotNil(t, server.Router[commands.StartConsumerGroupOpCode])
@@ -108,7 +108,7 @@ func TestStartConsumerGroup(t *testing.T) {
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			ctx := context.TODO()
-			manager := NewConsumerGroupManager(logtesting.TestLogger(t).Desugar(), getMockServerHandler(), []string{}, &sarama.Config{}, &NoopConsumerOffsetInitializer{})
+			manager := NewConsumerGroupManager(logtesting.TestLogger(t).Desugar(), getMockServerHandler(), []string{}, &sarama.Config{}, &NoopConsumerGroupOffsetsChecker{})
 			mockGroup := kafkatesting.NewMockConsumerGroup()
 			newConsumerGroup = func(addrs []string, groupID string, config *sarama.Config) (sarama.ConsumerGroup, error) {
 				if testCase.factoryErr {
@@ -562,7 +562,7 @@ func getManagerWithMockGroup(t *testing.T, groupId string, factoryErr bool) (Kaf
 		}
 		return kafkatesting.NewMockConsumerGroup(), nil
 	}
-	manager := NewConsumerGroupManager(logtesting.TestLogger(t).Desugar(), serverHandler, []string{}, &sarama.Config{}, &NoopConsumerOffsetInitializer{})
+	manager := NewConsumerGroupManager(logtesting.TestLogger(t).Desugar(), serverHandler, []string{}, &sarama.Config{}, &NoopConsumerGroupOffsetsChecker{})
 	if groupId != "" {
 		mockGrp, managedGrp := createTestGroup(t)
 		manager.(*kafkaConsumerGroupManagerImpl).groups[groupId] = managedGrp

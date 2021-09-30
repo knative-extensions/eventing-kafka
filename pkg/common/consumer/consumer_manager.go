@@ -72,27 +72,27 @@ type groupMap map[string]*managedGroup
 // kafkaConsumerGroupManagerImpl is the primary implementation of a KafkaConsumerGroupManager, which
 // handles control protocol messages and stopping/starting ("pausing/resuming") of ConsumerGroups.
 type kafkaConsumerGroupManagerImpl struct {
-	logger            *zap.Logger
-	server            controlprotocol.ServerHandler
-	factory           *kafkaConsumerGroupFactoryImpl
-	groups            groupMap
-	groupLock         sync.RWMutex // Synchronizes write access to the groupMap
-	offsetInitializer ConsumerOffsetInitializer
+	logger         *zap.Logger
+	server         controlprotocol.ServerHandler
+	factory        *kafkaConsumerGroupFactoryImpl
+	groups         groupMap
+	groupLock      sync.RWMutex // Synchronizes write access to the groupMap
+	offsetsChecker ConsumerGroupOffsetsChecker
 }
 
 // Verify that the kafkaConsumerGroupManagerImpl satisfies the KafkaConsumerGroupManager interface
 var _ KafkaConsumerGroupManager = (*kafkaConsumerGroupManagerImpl)(nil)
 
 // NewConsumerGroupManager returns a new kafkaConsumerGroupManagerImpl as a KafkaConsumerGroupManager interface
-func NewConsumerGroupManager(logger *zap.Logger, serverHandler controlprotocol.ServerHandler, brokers []string, config *sarama.Config, offsetInitializer ConsumerOffsetInitializer) KafkaConsumerGroupManager {
+func NewConsumerGroupManager(logger *zap.Logger, serverHandler controlprotocol.ServerHandler, brokers []string, config *sarama.Config, offsetsChecker ConsumerGroupOffsetsChecker) KafkaConsumerGroupManager {
 
 	manager := &kafkaConsumerGroupManagerImpl{
-		logger:            logger,
-		server:            serverHandler,
-		groups:            make(groupMap),
-		factory:           &kafkaConsumerGroupFactoryImpl{addrs: brokers, config: config, kcoi: offsetInitializer},
-		groupLock:         sync.RWMutex{},
-		offsetInitializer: offsetInitializer,
+		logger:         logger,
+		server:         serverHandler,
+		groups:         make(groupMap),
+		factory:        &kafkaConsumerGroupFactoryImpl{addrs: brokers, config: config, offsetsChecker: offsetsChecker},
+		groupLock:      sync.RWMutex{},
+		offsetsChecker: offsetsChecker,
 	}
 
 	logger.Info("Registering Consumer Group Manager Control-Protocol Handlers")
@@ -138,7 +138,7 @@ func (m *kafkaConsumerGroupManagerImpl) Reconfigure(brokers []string, config *sa
 		}
 	}
 
-	m.factory = &kafkaConsumerGroupFactoryImpl{addrs: brokers, config: config, kcoi: m.offsetInitializer}
+	m.factory = &kafkaConsumerGroupFactoryImpl{addrs: brokers, config: config, offsetsChecker: m.offsetsChecker}
 
 	// Restart any groups this function stopped
 	m.logger.Info("Reconfigure Consumer Group Manager - Starting All Managed Consumer Groups")
