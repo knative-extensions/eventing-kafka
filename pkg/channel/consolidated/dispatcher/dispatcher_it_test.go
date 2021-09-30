@@ -33,6 +33,7 @@ import (
 	"github.com/cloudevents/sdk-go/v2/test"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/eventing/pkg/channel/fanout"
 	"knative.dev/eventing/pkg/kncloudevents"
 	"knative.dev/pkg/apis"
@@ -54,6 +55,8 @@ func TestDispatcher(t *testing.T) {
 	if os.Getenv("CI") == "true" {
 		t.Skipf("This test can't run in CI")
 	}
+
+	ctx := context.TODO()
 
 	logger, err := zap.NewDevelopment(zap.AddStacktrace(zap.WarnLevel))
 	if err != nil {
@@ -80,7 +83,7 @@ func TestDispatcher(t *testing.T) {
 	}
 
 	// Create the dispatcher. At this point, if Kafka is not up, this thing fails
-	dispatcher, err := NewDispatcher(context.Background(), &dispatcherArgs)
+	dispatcher, err := NewDispatcher(context.Background(), &dispatcherArgs, func(ref types.NamespacedName) {})
 	if err != nil {
 		t.Skipf("no dispatcher: %v", err)
 	}
@@ -179,7 +182,7 @@ func TestDispatcher(t *testing.T) {
 		},
 	}
 	require.NoError(t, dispatcher.RegisterChannelHost(channelAConfig))
-	require.NoError(t, dispatcher.ReconcileConsumers(channelAConfig))
+	require.NoError(t, dispatcher.ReconcileConsumers(ctx, channelAConfig))
 
 	channelBConfig := &ChannelConfig{
 		Namespace: "default",
@@ -195,7 +198,7 @@ func TestDispatcher(t *testing.T) {
 		},
 	}
 	require.NoError(t, dispatcher.RegisterChannelHost(channelBConfig))
-	require.NoError(t, dispatcher.ReconcileConsumers(channelBConfig))
+	require.NoError(t, dispatcher.ReconcileConsumers(ctx, channelBConfig))
 
 	time.Sleep(5 * time.Second)
 

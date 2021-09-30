@@ -17,9 +17,11 @@ limitations under the License.
 package testing
 
 import (
+	"context"
+
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/mock"
-	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/types"
 
 	"knative.dev/eventing-kafka/pkg/common/consumer"
 )
@@ -33,8 +35,8 @@ type MockKafkaConsumerGroupFactory struct {
 	mock.Mock
 }
 
-func (c *MockKafkaConsumerGroupFactory) StartConsumerGroup(groupId string, topics []string, logger *zap.SugaredLogger, handler consumer.KafkaConsumerHandler, options ...consumer.SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error) {
-	args := c.Called(groupId, topics, logger, handler, options)
+func (c *MockKafkaConsumerGroupFactory) StartConsumerGroup(ctx context.Context, groupId string, topics []string, handler consumer.KafkaConsumerHandler, ref types.NamespacedName, options ...consumer.SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error) {
+	args := c.Called(ctx, groupId, topics, handler, ref, options)
 	return args.Get(0).(sarama.ConsumerGroup), args.Error(1)
 }
 
@@ -60,9 +62,9 @@ func (m *MockConsumerGroupManager) Reconfigure(brokers []string, config *sarama.
 	return m.Called(brokers, config).Get(0).(*consumer.ReconfigureError)
 }
 
-func (m *MockConsumerGroupManager) StartConsumerGroup(groupId string, topics []string, logger *zap.SugaredLogger,
-	handler consumer.KafkaConsumerHandler, options ...consumer.SaramaConsumerHandlerOption) error {
-	return m.Called(groupId, topics, logger, handler, options).Error(0)
+func (m *MockConsumerGroupManager) StartConsumerGroup(ctx context.Context, groupId string, topics []string,
+	handler consumer.KafkaConsumerHandler, channelRef types.NamespacedName, options ...consumer.SaramaConsumerHandlerOption) error {
+	return m.Called(ctx, groupId, topics, handler, channelRef, options).Error(0)
 }
 
 func (m *MockConsumerGroupManager) CloseConsumerGroup(groupId string) error {

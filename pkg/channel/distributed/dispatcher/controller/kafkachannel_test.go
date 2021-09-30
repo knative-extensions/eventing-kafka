@@ -317,7 +317,7 @@ func TestAllCases(t *testing.T) {
 		status consumer.SubscriberStatusMap,
 	) controller.Reconciler {
 		mockDispatcher := &MockDispatcher{}
-		mockDispatcher.On("UpdateSubscriptions", mock.Anything).Return(status)
+		mockDispatcher.On("UpdateSubscriptions", mock.Anything, mock.Anything, mock.Anything).Return(status)
 		return &Reconciler{
 			logger:               logtesting.TestLogger(t).Desugar(),
 			channelKey:           kcKey,
@@ -365,8 +365,8 @@ func (m *MockDispatcher) Shutdown() {
 	m.Called()
 }
 
-func (m *MockDispatcher) UpdateSubscriptions(subscriberSpecs []eventingduck.SubscriberSpec) consumer.SubscriberStatusMap {
-	args := m.Called(subscriberSpecs)
+func (m *MockDispatcher) UpdateSubscriptions(ctx context.Context, ref types.NamespacedName, subscriberSpecs []eventingduck.SubscriberSpec) consumer.SubscriberStatusMap {
+	args := m.Called(ctx, ref, subscriberSpecs)
 	return args.Get(0).(consumer.SubscriberStatusMap)
 }
 
