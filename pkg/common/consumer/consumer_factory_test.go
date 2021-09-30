@@ -116,7 +116,7 @@ func mockedNewSaramaClusterAdmin(clusterAdmin sarama.ClusterAdmin, mustFail bool
 type mockConsumerOffsetInitializer struct {
 }
 
-func (m mockConsumerOffsetInitializer) checkOffsetsInitialized(ctx context.Context, groupID string, topics []string, logger *zap.SugaredLogger, addrs []string, config *sarama.Config) error {
+func (m mockConsumerOffsetInitializer) WaitForOffsetsInitialization(ctx context.Context, groupID string, topics []string, logger *zap.SugaredLogger, addrs []string, config *sarama.Config) error {
 	return nil
 }
 

@@ -21,20 +21,20 @@ var newSaramaClient = sarama.NewClient
 var newSaramaClusterAdmin = sarama.NewClusterAdmin
 
 type ConsumerOffsetInitializer interface {
-	checkOffsetsInitialized(ctx context.Context, groupID string, topics []string, logger *zap.SugaredLogger, addrs []string, config *sarama.Config) error
+	WaitForOffsetsInitialization(ctx context.Context, groupID string, topics []string, logger *zap.SugaredLogger, addrs []string, config *sarama.Config) error
 }
 
 type NoopConsumerOffsetInitializer struct {
 }
 
-func (coi *NoopConsumerOffsetInitializer) checkOffsetsInitialized(ctx context.Context, groupID string, topics []string, logger *zap.SugaredLogger, addrs []string, config *sarama.Config) error {
+func (coi *NoopConsumerOffsetInitializer) WaitForOffsetsInitialization(ctx context.Context, groupID string, topics []string, logger *zap.SugaredLogger, addrs []string, config *sarama.Config) error {
 	return nil
 }
 
 type KafkaConsumerOffsetInitializer struct {
 }
 
-func (kcoi *KafkaConsumerOffsetInitializer) checkOffsetsInitialized(ctx context.Context, groupID string, topics []string, logger *zap.SugaredLogger, addrs []string, config *sarama.Config) error {
+func (kcoi *KafkaConsumerOffsetInitializer) WaitForOffsetsInitialization(ctx context.Context, groupID string, topics []string, logger *zap.SugaredLogger, addrs []string, config *sarama.Config) error {
 	logger.Infow("Checking if all offsets are initialized", zap.Any("topics", topics), zap.Any("groupID", groupID))
 
 	client, err := newSaramaClient(addrs, config)
