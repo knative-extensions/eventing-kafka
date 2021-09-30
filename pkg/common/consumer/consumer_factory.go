@@ -31,8 +31,6 @@ const OffsetInitRetryInterval = 5 * time.Second
 
 // wrapper functions for the Sarama functions, to facilitate unit testing
 var newConsumerGroup = sarama.NewConsumerGroup
-var newSaramaClient = sarama.NewClient
-var newSaramaClusterAdmin = sarama.NewClusterAdmin
 
 // consumeFunc is a function type that matches the Sarama ConsumerGroup's Consume function
 type consumeFunc func(ctx context.Context, topics []string, handler sarama.ConsumerGroupHandler) error
@@ -45,7 +43,7 @@ type KafkaConsumerGroupFactory interface {
 type kafkaConsumerGroupFactoryImpl struct {
 	config *sarama.Config
 	addrs  []string
-	kcoi   consumerOffsetInitializer
+	kcoi   ConsumerOffsetInitializer
 }
 
 type customConsumerGroup struct {
@@ -81,31 +79,8 @@ func (c kafkaConsumerGroupFactoryImpl) StartConsumerGroup(ctx context.Context, g
 		return nil, err
 	}
 
-	client, err := newSaramaClient(c.addrs, c.config)
-	if err != nil {
-		logger.Errorw("Unable to create Kafka client", zap.Error(err))
-		return nil, err
-	}
-	defer client.Close()
-
-	clusterAdmin, err := newSaramaClusterAdmin(c.addrs, c.config)
-	if err != nil {
-		logger.Errorw("Unable to create Kafka cluster admin client", zap.Error(err))
-		return nil, err
-	}
-	defer clusterAdmin.Close()
-
-	// this is a blocking func
-	// do not proceed until the check is done
-	err = c.kcoi.checkOffsetsInitialized(ctx, groupID, topics, logger, client, clusterAdmin)
-	if err != nil {
-		return nil, err
-	}
-
-	logger.Infow("All offsets are initialized", zap.Any("topics", topics), zap.Any("groupID", groupID))
-
 	// Start the consumerGroup.Consume function in a separate goroutine
-	return c.startExistingConsumerGroup(consumerGroup, consumerGroup.Consume, topics, logger, handler, options...), nil
+	return c.startExistingConsumerGroup(groupID, consumerGroup, consumerGroup.Consume, topics, logger, handler, options...), nil
 }
 
 // createConsumerGroup creates a Sarama ConsumerGroup using the newConsumerGroup wrapper, with the
@@ -117,6 +92,7 @@ func (c kafkaConsumerGroupFactoryImpl) createConsumerGroup(groupID string) (sara
 // startExistingConsumerGroup creates a goroutine that begins a custom Consume loop on the provided ConsumerGroup
 // This loop is cancelable via the function provided in the returned customConsumerGroup.
 func (c kafkaConsumerGroupFactoryImpl) startExistingConsumerGroup(
+	groupID string,
 	saramaGroup sarama.ConsumerGroup,
 	consume consumeFunc,
 	topics []string,
@@ -129,6 +105,16 @@ func (c kafkaConsumerGroupFactoryImpl) startExistingConsumerGroup(
 	ctx, cancel := context.WithCancel(context.Background())
 
 	go func() {
+		// this is a blocking func
+		// do not proceed until the check is done
+		err := c.kcoi.checkOffsetsInitialized(ctx, groupID, topics, logger, c.addrs, c.config)
+		if err != nil {
+			logger.Errorw("Error while checking if offsets are initialized", zap.Error(err))
+			errorCh <- err
+		}
+
+		logger.Infow("All offsets are initialized", zap.Any("topics", topics), zap.Any("groupID", groupID))
+
 		defer func() {
 			close(errorCh)
 			releasedCh <- true
@@ -154,8 +140,8 @@ func (c kafkaConsumerGroupFactoryImpl) startExistingConsumerGroup(
 	return &customConsumerGroup{cancel, errorCh, saramaGroup, releasedCh}
 }
 
-func NewConsumerGroupFactory(addrs []string, config *sarama.Config) KafkaConsumerGroupFactory {
-	return kafkaConsumerGroupFactoryImpl{addrs: addrs, config: config, kcoi: &kafkaConsumerOffsetInitializer{}}
+func NewConsumerGroupFactory(addrs []string, config *sarama.Config, offsetInitializer ConsumerOffsetInitializer) KafkaConsumerGroupFactory {
+	return kafkaConsumerGroupFactoryImpl{addrs: addrs, config: config, kcoi: offsetInitializer}
 }
 
 var _ KafkaConsumerGroupFactory = (*kafkaConsumerGroupFactoryImpl)(nil)

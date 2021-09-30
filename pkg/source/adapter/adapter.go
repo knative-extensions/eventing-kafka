@@ -128,7 +128,7 @@ func (a *Adapter) Start(ctx context.Context) (err error) {
 	a.saramaConfig = config
 
 	options := []consumer.SaramaConsumerHandlerOption{consumer.WithSaramaConsumerLifecycleListener(a)}
-	consumerGroupFactory := consumer.NewConsumerGroupFactory(addrs, config)
+	consumerGroupFactory := consumer.NewConsumerGroupFactory(addrs, config, &consumer.NoopConsumerOffsetInitializer{})
 	group, err := consumerGroupFactory.StartConsumerGroup(
 		ctx,
 		a.config.ConsumerGroup,
