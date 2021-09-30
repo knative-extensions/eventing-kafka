@@ -43,7 +43,6 @@ import (
 	knativeReconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 
-	kafkamessagingv1beta1 "knative.dev/eventing-kafka/pkg/client/informers/externalversions/messaging/v1beta1"
 	kafkaChannelClient "knative.dev/eventing-kafka/pkg/client/injection/client"
 	"knative.dev/eventing-kafka/pkg/client/injection/informers/messaging/v1beta1/kafkachannel"
 	kafkaChannelReconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
@@ -152,33 +151,15 @@ func NewController(
 		FilterFunc: filterFn,
 		Handler:    controller.HandleAll(grCh),
 	})
-
 	podInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: knativeReconciler.ChainFilterFuncs(
 			knativeReconciler.LabelFilterFunc(channelLabelKey, channelLabelValue, false),
 			knativeReconciler.LabelFilterFunc(roleLabelKey, dispatcherRoleLabelValue, false),
 		),
-		Handler: cache.ResourceEventHandlerFuncs{
-			// TODO: do we still need this?
-			// Global sync when a Pod is deleted or added
-			DeleteFunc: getPodInformerEventHandler(ctx, logger, impl, kafkaChannelInformer, "Delete"),
-			AddFunc:    getPodInformerEventHandler(ctx, logger, impl, kafkaChannelInformer, "Add"),
-		},
+		Handler: controller.HandleAll(grCh),
 	})
 
 	return impl
-}
-
-func getPodInformerEventHandler(ctx context.Context, logger *zap.SugaredLogger, impl *controller.Impl, kafkaChannelInformer kafkamessagingv1beta1.KafkaChannelInformer, handlerType string) func(obj interface{}) {
-	return func(obj interface{}) {
-		pod, ok := obj.(*corev1.Pod)
-		if ok && pod != nil {
-			logger.Debugw("%s pods. Refreshing pod probing.", handlerType,
-				zap.String("pod", pod.GetName()))
-			// TODO: do we still need this? see above!
-			impl.GlobalResync(kafkaChannelInformer.Informer())
-		}
-	}
 }
 
 func getControllerOwnerRef(ctx context.Context) (*metav1.OwnerReference, error) {
