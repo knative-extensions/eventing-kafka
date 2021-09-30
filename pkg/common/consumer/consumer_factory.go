@@ -113,7 +113,7 @@ func (c kafkaConsumerGroupFactoryImpl) startExistingConsumerGroup(
 			errorCh <- err
 		}
 
-		logger.Infow("All offsets are initialized", zap.Any("topics", topics), zap.Any("groupID", groupID))
+		logger.Debugw("All offsets are initialized", zap.Any("topics", topics), zap.Any("groupID", groupID))
 
 		defer func() {
 			close(errorCh)
