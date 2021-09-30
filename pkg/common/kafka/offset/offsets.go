@@ -129,7 +129,11 @@ func retrieveAllPartitions(topics []string, kafkaClient sarama.Client) (int, map
 			return -1, nil, fmt.Errorf("failed to get partitions for topic %s: %w", topic, err)
 		}
 
-		topicPartitions[topic] = partitions
+		// return a copy of the partitions array in the map
+		// Sarama is caching this array and we don't want nobody to mess with it
+		clone := make([]int32, len(partitions))
+		copy(clone, partitions)
+		topicPartitions[topic] = clone
 	}
 	return totalPartitions, topicPartitions, nil
 }
