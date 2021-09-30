@@ -26,11 +26,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/pointer"
-	eventingduckv1 "knative.dev/eventing/pkg/apis/duck/v1"
 	eventingClient "knative.dev/eventing/pkg/client/injection/client"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	deploymentinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
@@ -45,9 +43,6 @@ import (
 	knativeReconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 
-	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
-	"knative.dev/eventing-kafka/pkg/channel/consolidated/status"
-	kafkamessagingv1beta1 "knative.dev/eventing-kafka/pkg/client/informers/externalversions/messaging/v1beta1"
 	kafkaChannelClient "knative.dev/eventing-kafka/pkg/client/injection/client"
 	"knative.dev/eventing-kafka/pkg/client/injection/informers/messaging/v1beta1/kafkachannel"
 	kafkaChannelReconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
@@ -110,17 +105,6 @@ func NewController(
 
 	impl := kafkaChannelReconciler.NewImpl(ctx, r)
 
-	statusProber := status.NewProber(
-		logger.Named("status-manager"),
-		NewProbeTargetLister(logger, endpointsInformer.Lister()),
-		func(c v1beta1.KafkaChannel, s eventingduckv1.SubscriberSpec) {
-			logger.Debugf("Ready callback triggered for channel: %s/%s subscription: %s", c.Namespace, c.Name, string(s.UID))
-			impl.EnqueueKey(types.NamespacedName{Namespace: c.Namespace, Name: c.Name})
-		},
-	)
-	r.statusManager = statusProber
-	statusProber.Start(ctx.Done())
-
 	// Call GlobalResync on kafkachannels.
 	grCh := func(obj interface{}) {
 		logger.Debug("Changes detected, doing global resync")
@@ -167,32 +151,15 @@ func NewController(
 		FilterFunc: filterFn,
 		Handler:    controller.HandleAll(grCh),
 	})
-
 	podInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: knativeReconciler.ChainFilterFuncs(
 			knativeReconciler.LabelFilterFunc(channelLabelKey, channelLabelValue, false),
 			knativeReconciler.LabelFilterFunc(roleLabelKey, dispatcherRoleLabelValue, false),
 		),
-		Handler: cache.ResourceEventHandlerFuncs{
-			// Cancel probing when a Pod is deleted
-			DeleteFunc: getPodInformerEventHandler(ctx, logger, statusProber, impl, kafkaChannelInformer, "Delete"),
-			AddFunc:    getPodInformerEventHandler(ctx, logger, statusProber, impl, kafkaChannelInformer, "Add"),
-		},
+		Handler: controller.HandleAll(grCh),
 	})
 
 	return impl
-}
-
-func getPodInformerEventHandler(ctx context.Context, logger *zap.SugaredLogger, statusProber *status.Prober, impl *controller.Impl, kafkaChannelInformer kafkamessagingv1beta1.KafkaChannelInformer, handlerType string) func(obj interface{}) {
-	return func(obj interface{}) {
-		pod, ok := obj.(*corev1.Pod)
-		if ok && pod != nil {
-			logger.Debugw("%s pods. Refreshing pod probing.", handlerType,
-				zap.String("pod", pod.GetName()))
-			statusProber.RefreshPodProbing(ctx)
-			impl.GlobalResync(kafkaChannelInformer.Informer())
-		}
-	}
 }
 
 func getControllerOwnerRef(ctx context.Context) (*metav1.OwnerReference, error) {

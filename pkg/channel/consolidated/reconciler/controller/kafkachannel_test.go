@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	clientgotesting "k8s.io/client-go/testing"
 	"knative.dev/eventing-kafka/pkg/common/config"
+	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
@@ -328,15 +329,19 @@ func TestAllCases(t *testing.T) {
 	}
 
 	table.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
-
+		saramaConfig := &sarama.Config{}
 		r := &Reconciler{
 			systemNamespace:          testNS,
 			dispatcherImage:          testDispatcherImage,
 			dispatcherServiceAccount: testDispatcherserviceAccount,
 			kafkaConfigMapHash:       testConfigMapHash,
 			kafkaConfig: &KafkaConfig{
-				Brokers:       []string{brokerName},
-				EventingKafka: &config.EventingKafkaConfig{},
+				Brokers: []string{brokerName},
+				EventingKafka: &config.EventingKafkaConfig{
+					Sarama: config.EKSaramaConfig{
+						Config: saramaConfig,
+					},
+				},
 			},
 			kafkachannelLister: listers.GetKafkaChannelLister(),
 			// TODO fix
@@ -344,16 +349,19 @@ func TestAllCases(t *testing.T) {
 			deploymentLister:     listers.GetDeploymentLister(),
 			serviceLister:        listers.GetServiceLister(),
 			endpointsLister:      listers.GetEndpointsLister(),
-			kafkaClusterAdmin:    &mockClusterAdmin{},
-			kafkaClientSet:       fakekafkaclient.Get(ctx),
-			KubeClientSet:        kubeclient.Get(ctx),
-			EventingClientSet:    eventingClient.Get(ctx),
-			statusManager: &fakeStatusManager{
-				FakeIsReady: func(ctx context.Context, ch v1beta1.KafkaChannel,
-					sub eventingduckv1.SubscriberSpec) (bool, error) {
-					return true, nil
+			kafkaClusterAdmin: &commontesting.MockClusterAdmin{
+				MockListConsumerGroupsFunc: func() (map[string]string, error) {
+					cgs := map[string]string{
+						fmt.Sprintf("kafka.%s.%s.%s", kcName, testNS, sub1UID): "consumer",
+						fmt.Sprintf("kafka.%s.%s.%s", kcName, testNS, sub2UID): "consumer",
+					}
+					return cgs, nil
 				},
 			},
+			kafkaClient:       &mockKafkaClient{saramaConfig},
+			kafkaClientSet:    fakekafkaclient.Get(ctx),
+			KubeClientSet:     kubeclient.Get(ctx),
+			EventingClientSet: eventingClient.Get(ctx),
 		}
 		return kafkachannel.NewReconciler(ctx, logging.FromContext(ctx), r.kafkaClientSet, listers.GetKafkaChannelLister(), controller.GetEventRecorder(ctx), r)
 	}, zap.L()))
@@ -394,15 +402,19 @@ func TestTopicExists(t *testing.T) {
 	}
 
 	row.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
-
+		saramaConfig := &sarama.Config{}
 		r := &Reconciler{
 			systemNamespace:          testNS,
 			dispatcherImage:          testDispatcherImage,
 			dispatcherServiceAccount: testDispatcherserviceAccount,
 			kafkaConfigMapHash:       testConfigMapHash,
 			kafkaConfig: &KafkaConfig{
-				Brokers:       []string{brokerName},
-				EventingKafka: &config.EventingKafkaConfig{},
+				Brokers: []string{brokerName},
+				EventingKafka: &config.EventingKafkaConfig{
+					Sarama: config.EKSaramaConfig{
+						Config: saramaConfig,
+					},
+				},
 			},
 			kafkachannelLister: listers.GetKafkaChannelLister(),
 			// TODO fix
@@ -410,24 +422,26 @@ func TestTopicExists(t *testing.T) {
 			deploymentLister:     listers.GetDeploymentLister(),
 			serviceLister:        listers.GetServiceLister(),
 			endpointsLister:      listers.GetEndpointsLister(),
-			kafkaClusterAdmin: &mockClusterAdmin{
-				mockCreateTopicFunc: func(topic string, detail *sarama.TopicDetail, validateOnly bool) error {
+			kafkaClusterAdmin: &commontesting.MockClusterAdmin{
+				MockCreateTopicFunc: func(topic string, detail *sarama.TopicDetail, validateOnly bool) error {
 					errMsg := sarama.ErrTopicAlreadyExists.Error()
 					return &sarama.TopicError{
 						Err:    sarama.ErrTopicAlreadyExists,
 						ErrMsg: &errMsg,
 					}
 				},
+				MockListConsumerGroupsFunc: func() (map[string]string, error) {
+					cgs := map[string]string{
+						fmt.Sprintf("kafka.%s.%s.%s", kcName, testNS, sub1UID): "consumer",
+						fmt.Sprintf("kafka.%s.%s.%s", kcName, testNS, sub2UID): "consumer",
+					}
+					return cgs, nil
+				},
 			},
+			kafkaClient:       &mockKafkaClient{saramaConfig},
 			kafkaClientSet:    fakekafkaclient.Get(ctx),
 			KubeClientSet:     kubeclient.Get(ctx),
 			EventingClientSet: eventingClient.Get(ctx),
-			statusManager: &fakeStatusManager{
-				FakeIsReady: func(ctx context.Context, channel v1beta1.KafkaChannel,
-					spec eventingduckv1.SubscriberSpec) (bool, error) {
-					return true, nil
-				},
-			},
 		}
 		return kafkachannel.NewReconciler(ctx, logging.FromContext(ctx), r.kafkaClientSet, listers.GetKafkaChannelLister(), controller.GetEventRecorder(ctx), r)
 	}, zap.L()))
@@ -472,15 +486,19 @@ func TestDeploymentUpdatedOnImageChange(t *testing.T) {
 	}
 
 	row.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
-
+		saramaConfig := &sarama.Config{}
 		r := &Reconciler{
 			systemNamespace:          testNS,
 			dispatcherImage:          testDispatcherImage,
 			dispatcherServiceAccount: testDispatcherserviceAccount,
 			kafkaConfigMapHash:       testConfigMapHash,
 			kafkaConfig: &KafkaConfig{
-				Brokers:       []string{brokerName},
-				EventingKafka: &config.EventingKafkaConfig{},
+				Brokers: []string{brokerName},
+				EventingKafka: &config.EventingKafkaConfig{
+					Sarama: config.EKSaramaConfig{
+						Config: saramaConfig,
+					},
+				},
 			},
 			kafkachannelLister: listers.GetKafkaChannelLister(),
 			// TODO fix
@@ -488,24 +506,26 @@ func TestDeploymentUpdatedOnImageChange(t *testing.T) {
 			deploymentLister:     listers.GetDeploymentLister(),
 			serviceLister:        listers.GetServiceLister(),
 			endpointsLister:      listers.GetEndpointsLister(),
-			kafkaClusterAdmin: &mockClusterAdmin{
-				mockCreateTopicFunc: func(topic string, detail *sarama.TopicDetail, validateOnly bool) error {
+			kafkaClusterAdmin: &commontesting.MockClusterAdmin{
+				MockCreateTopicFunc: func(topic string, detail *sarama.TopicDetail, validateOnly bool) error {
 					errMsg := sarama.ErrTopicAlreadyExists.Error()
 					return &sarama.TopicError{
 						Err:    sarama.ErrTopicAlreadyExists,
 						ErrMsg: &errMsg,
 					}
 				},
+				MockListConsumerGroupsFunc: func() (map[string]string, error) {
+					cgs := map[string]string{
+						fmt.Sprintf("kafka.%s.%s.%s", kcName, testNS, sub1UID): "consumer",
+						fmt.Sprintf("kafka.%s.%s.%s", kcName, testNS, sub2UID): "consumer",
+					}
+					return cgs, nil
+				},
 			},
+			kafkaClient:       &mockKafkaClient{saramaConfig},
 			kafkaClientSet:    fakekafkaclient.Get(ctx),
 			KubeClientSet:     kubeclient.Get(ctx),
 			EventingClientSet: eventingClient.Get(ctx),
-			statusManager: &fakeStatusManager{
-				FakeIsReady: func(ctx context.Context, channel v1beta1.KafkaChannel,
-					spec eventingduckv1.SubscriberSpec) (bool, error) {
-					return true, nil
-				},
-			},
 		}
 		return kafkachannel.NewReconciler(ctx, logging.FromContext(ctx), r.kafkaClientSet, listers.GetKafkaChannelLister(), controller.GetEventRecorder(ctx), r)
 	}, zap.L()))
@@ -550,15 +570,19 @@ func TestDeploymentZeroReplicas(t *testing.T) {
 	}
 
 	row.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
-
+		saramaConfig := &sarama.Config{}
 		r := &Reconciler{
 			systemNamespace:          testNS,
 			dispatcherImage:          testDispatcherImage,
 			dispatcherServiceAccount: testDispatcherserviceAccount,
 			kafkaConfigMapHash:       testConfigMapHash,
 			kafkaConfig: &KafkaConfig{
-				Brokers:       []string{brokerName},
-				EventingKafka: &config.EventingKafkaConfig{},
+				Brokers: []string{brokerName},
+				EventingKafka: &config.EventingKafkaConfig{
+					Sarama: config.EKSaramaConfig{
+						Config: saramaConfig,
+					},
+				},
 			},
 			kafkachannelLister: listers.GetKafkaChannelLister(),
 			// TODO fix
@@ -566,24 +590,26 @@ func TestDeploymentZeroReplicas(t *testing.T) {
 			deploymentLister:     listers.GetDeploymentLister(),
 			serviceLister:        listers.GetServiceLister(),
 			endpointsLister:      listers.GetEndpointsLister(),
-			kafkaClusterAdmin: &mockClusterAdmin{
-				mockCreateTopicFunc: func(topic string, detail *sarama.TopicDetail, validateOnly bool) error {
+			kafkaClusterAdmin: &commontesting.MockClusterAdmin{
+				MockCreateTopicFunc: func(topic string, detail *sarama.TopicDetail, validateOnly bool) error {
 					errMsg := sarama.ErrTopicAlreadyExists.Error()
 					return &sarama.TopicError{
 						Err:    sarama.ErrTopicAlreadyExists,
 						ErrMsg: &errMsg,
 					}
 				},
+				MockListConsumerGroupsFunc: func() (map[string]string, error) {
+					cgs := map[string]string{
+						fmt.Sprintf("kafka.%s.%s.%s", kcName, testNS, sub1UID): "consumer",
+						fmt.Sprintf("kafka.%s.%s.%s", kcName, testNS, sub2UID): "consumer",
+					}
+					return cgs, nil
+				},
 			},
+			kafkaClient:       &mockKafkaClient{saramaConfig},
 			kafkaClientSet:    fakekafkaclient.Get(ctx),
 			KubeClientSet:     kubeclient.Get(ctx),
 			EventingClientSet: eventingClient.Get(ctx),
-			statusManager: &fakeStatusManager{
-				FakeIsReady: func(ctx context.Context, channel v1beta1.KafkaChannel,
-					spec eventingduckv1.SubscriberSpec) (bool, error) {
-					return true, nil
-				},
-			},
 		}
 		return kafkachannel.NewReconciler(ctx, logging.FromContext(ctx), r.kafkaClientSet, listers.GetKafkaChannelLister(), controller.GetEventRecorder(ctx), r)
 	}, zap.L()))
@@ -624,15 +650,19 @@ func TestDeploymentMoreThanOneReplicas(t *testing.T) {
 	}
 
 	row.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
-
+		saramaConfig := &sarama.Config{}
 		r := &Reconciler{
 			systemNamespace:          testNS,
 			dispatcherImage:          testDispatcherImage,
 			dispatcherServiceAccount: testDispatcherserviceAccount,
 			kafkaConfigMapHash:       testConfigMapHash,
 			kafkaConfig: &KafkaConfig{
-				Brokers:       []string{brokerName},
-				EventingKafka: &config.EventingKafkaConfig{},
+				Brokers: []string{brokerName},
+				EventingKafka: &config.EventingKafkaConfig{
+					Sarama: config.EKSaramaConfig{
+						Config: saramaConfig,
+					},
+				},
 			},
 			kafkachannelLister: listers.GetKafkaChannelLister(),
 			// TODO fix
@@ -640,24 +670,26 @@ func TestDeploymentMoreThanOneReplicas(t *testing.T) {
 			deploymentLister:     listers.GetDeploymentLister(),
 			serviceLister:        listers.GetServiceLister(),
 			endpointsLister:      listers.GetEndpointsLister(),
-			kafkaClusterAdmin: &mockClusterAdmin{
-				mockCreateTopicFunc: func(topic string, detail *sarama.TopicDetail, validateOnly bool) error {
+			kafkaClusterAdmin: &commontesting.MockClusterAdmin{
+				MockCreateTopicFunc: func(topic string, detail *sarama.TopicDetail, validateOnly bool) error {
 					errMsg := sarama.ErrTopicAlreadyExists.Error()
 					return &sarama.TopicError{
 						Err:    sarama.ErrTopicAlreadyExists,
 						ErrMsg: &errMsg,
 					}
 				},
+				MockListConsumerGroupsFunc: func() (map[string]string, error) {
+					cgs := map[string]string{
+						fmt.Sprintf("kafka.%s.%s.%s", kcName, testNS, sub1UID): "consumer",
+						fmt.Sprintf("kafka.%s.%s.%s", kcName, testNS, sub2UID): "consumer",
+					}
+					return cgs, nil
+				},
 			},
+			kafkaClient:       &mockKafkaClient{saramaConfig},
 			kafkaClientSet:    fakekafkaclient.Get(ctx),
 			KubeClientSet:     kubeclient.Get(ctx),
 			EventingClientSet: eventingClient.Get(ctx),
-			statusManager: &fakeStatusManager{
-				FakeIsReady: func(ctx context.Context, channel v1beta1.KafkaChannel,
-					spec eventingduckv1.SubscriberSpec) (bool, error) {
-					return true, nil
-				},
-			},
 		}
 		return kafkachannel.NewReconciler(ctx, logging.FromContext(ctx), r.kafkaClientSet, listers.GetKafkaChannelLister(), controller.GetEventRecorder(ctx), r)
 	}, zap.L()))
@@ -702,15 +734,19 @@ func TestDeploymentUpdatedOnConfigMapHashChange(t *testing.T) {
 	}
 
 	row.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
-
+		saramaConfig := &sarama.Config{}
 		r := &Reconciler{
 			systemNamespace:          testNS,
 			dispatcherImage:          testDispatcherImage,
 			dispatcherServiceAccount: testDispatcherserviceAccount,
 			kafkaConfigMapHash:       testConfigMapHash,
 			kafkaConfig: &KafkaConfig{
-				Brokers:       []string{brokerName},
-				EventingKafka: &config.EventingKafkaConfig{},
+				Brokers: []string{brokerName},
+				EventingKafka: &config.EventingKafkaConfig{
+					Sarama: config.EKSaramaConfig{
+						Config: saramaConfig,
+					},
+				},
 			},
 			kafkachannelLister: listers.GetKafkaChannelLister(),
 			// TODO fix
@@ -718,138 +754,114 @@ func TestDeploymentUpdatedOnConfigMapHashChange(t *testing.T) {
 			deploymentLister:     listers.GetDeploymentLister(),
 			serviceLister:        listers.GetServiceLister(),
 			endpointsLister:      listers.GetEndpointsLister(),
-			kafkaClusterAdmin: &mockClusterAdmin{
-				mockCreateTopicFunc: func(topic string, detail *sarama.TopicDetail, validateOnly bool) error {
+			kafkaClusterAdmin: &commontesting.MockClusterAdmin{
+				MockCreateTopicFunc: func(topic string, detail *sarama.TopicDetail, validateOnly bool) error {
 					errMsg := sarama.ErrTopicAlreadyExists.Error()
 					return &sarama.TopicError{
 						Err:    sarama.ErrTopicAlreadyExists,
 						ErrMsg: &errMsg,
 					}
 				},
+				MockListConsumerGroupsFunc: func() (map[string]string, error) {
+					cgs := map[string]string{
+						fmt.Sprintf("kafka.%s.%s.%s", kcName, testNS, sub1UID): "consumer",
+						fmt.Sprintf("kafka.%s.%s.%s", kcName, testNS, sub2UID): "consumer",
+					}
+					return cgs, nil
+				},
 			},
+			kafkaClient:       &mockKafkaClient{saramaConfig},
 			kafkaClientSet:    fakekafkaclient.Get(ctx),
 			KubeClientSet:     kubeclient.Get(ctx),
 			EventingClientSet: eventingClient.Get(ctx),
-			statusManager: &fakeStatusManager{
-				FakeIsReady: func(ctx context.Context, channel v1beta1.KafkaChannel,
-					spec eventingduckv1.SubscriberSpec) (bool, error) {
-					return true, nil
-				},
-			},
 		}
 		return kafkachannel.NewReconciler(ctx, logging.FromContext(ctx), r.kafkaClientSet, listers.GetKafkaChannelLister(), controller.GetEventRecorder(ctx), r)
 	}, zap.L()))
 }
 
-type mockClusterAdmin struct {
-	mockCreateTopicFunc func(topic string, detail *sarama.TopicDetail, validateOnly bool) error
-	mockDeleteTopicFunc func(topic string) error
+type mockKafkaClient struct {
+	saramaConfig *sarama.Config
 }
 
-func (ca *mockClusterAdmin) AlterPartitionReassignments(topic string, assignment [][]int32) error {
+func (c mockKafkaClient) Config() *sarama.Config {
+	return c.saramaConfig
+}
+
+func (c mockKafkaClient) Controller() (*sarama.Broker, error) {
+	return nil, nil
+}
+
+func (c mockKafkaClient) RefreshController() (*sarama.Broker, error) {
+	return nil, nil
+}
+
+func (c mockKafkaClient) Brokers() []*sarama.Broker {
 	return nil
 }
 
-func (ca *mockClusterAdmin) ListPartitionReassignments(topics string, partitions []int32) (topicStatus map[string]map[int32]*sarama.PartitionReplicaReassignmentsStatus, err error) {
+func (c mockKafkaClient) Broker(brokerID int32) (*sarama.Broker, error) {
 	return nil, nil
 }
 
-func (ca *mockClusterAdmin) DescribeLogDirs(brokers []int32) (map[int32][]sarama.DescribeLogDirsResponseDirMetadata, error) {
+func (c mockKafkaClient) Topics() ([]string, error) {
 	return nil, nil
 }
 
-func (ca *mockClusterAdmin) DescribeUserScramCredentials(users []string) ([]*sarama.DescribeUserScramCredentialsResult, error) {
+func (c mockKafkaClient) Partitions(topic string) ([]int32, error) {
 	return nil, nil
 }
 
-func (ca *mockClusterAdmin) DeleteUserScramCredentials(delete []sarama.AlterUserScramCredentialsDelete) ([]*sarama.AlterUserScramCredentialsResult, error) {
+func (c mockKafkaClient) WritablePartitions(topic string) ([]int32, error) {
 	return nil, nil
 }
 
-func (ca *mockClusterAdmin) UpsertUserScramCredentials(upsert []sarama.AlterUserScramCredentialsUpsert) ([]*sarama.AlterUserScramCredentialsResult, error) {
+func (c mockKafkaClient) Leader(topic string, partitionID int32) (*sarama.Broker, error) {
 	return nil, nil
 }
 
-func (ca *mockClusterAdmin) CreateTopic(topic string, detail *sarama.TopicDetail, validateOnly bool) error {
-	if ca.mockCreateTopicFunc != nil {
-		return ca.mockCreateTopicFunc(topic, detail, validateOnly)
-	}
+func (c mockKafkaClient) Replicas(topic string, partitionID int32) ([]int32, error) {
+	return nil, nil
+}
+
+func (c mockKafkaClient) InSyncReplicas(topic string, partitionID int32) ([]int32, error) {
+	return nil, nil
+}
+
+func (c mockKafkaClient) OfflineReplicas(topic string, partitionID int32) ([]int32, error) {
+	return nil, nil
+}
+
+func (c mockKafkaClient) RefreshBrokers(addrs []string) error {
 	return nil
 }
 
-func (ca *mockClusterAdmin) Close() error {
+func (c mockKafkaClient) RefreshMetadata(topics ...string) error {
 	return nil
 }
 
-func (ca *mockClusterAdmin) DeleteTopic(topic string) error {
-	if ca.mockDeleteTopicFunc != nil {
-		return ca.mockDeleteTopicFunc(topic)
-	}
-	return nil
+func (c mockKafkaClient) GetOffset(topic string, partitionID int32, time int64) (int64, error) {
+	return 0, nil
 }
 
-func (ca *mockClusterAdmin) DescribeTopics(topics []string) (metadata []*sarama.TopicMetadata, err error) {
+func (c mockKafkaClient) Coordinator(consumerGroup string) (*sarama.Broker, error) {
 	return nil, nil
 }
 
-func (ca *mockClusterAdmin) ListTopics() (map[string]sarama.TopicDetail, error) {
-	return nil, nil
-}
-
-func (ca *mockClusterAdmin) CreatePartitions(topic string, count int32, assignment [][]int32, validateOnly bool) error {
+func (c mockKafkaClient) RefreshCoordinator(consumerGroup string) error {
 	return nil
 }
 
-func (ca *mockClusterAdmin) DeleteRecords(topic string, partitionOffsets map[int32]int64) error {
-	return nil
-}
-
-func (ca *mockClusterAdmin) DescribeConfig(resource sarama.ConfigResource) ([]sarama.ConfigEntry, error) {
+func (c mockKafkaClient) InitProducerID() (*sarama.InitProducerIDResponse, error) {
 	return nil, nil
 }
 
-func (ca *mockClusterAdmin) AlterConfig(resourceType sarama.ConfigResourceType, name string, entries map[string]*string, validateOnly bool) error {
+func (c mockKafkaClient) Close() error {
 	return nil
 }
 
-func (ca *mockClusterAdmin) CreateACL(resource sarama.Resource, acl sarama.Acl) error {
-	return nil
+func (c mockKafkaClient) Closed() bool {
+	return false
 }
-
-func (ca *mockClusterAdmin) ListAcls(filter sarama.AclFilter) ([]sarama.ResourceAcls, error) {
-	return nil, nil
-}
-
-func (ca *mockClusterAdmin) DeleteACL(filter sarama.AclFilter, validateOnly bool) ([]sarama.MatchingAcl, error) {
-	return nil, nil
-}
-
-func (ca *mockClusterAdmin) ListConsumerGroups() (map[string]string, error) {
-	cgs := map[string]string{
-		fmt.Sprintf("kafka.%s.%s.%s", kcName, testNS, sub1UID): "consumer",
-		fmt.Sprintf("kafka.%s.%s.%s", kcName, testNS, sub2UID): "consumer",
-	}
-	return cgs, nil
-}
-
-func (ca *mockClusterAdmin) DescribeConsumerGroups(groups []string) ([]*sarama.GroupDescription, error) {
-	return nil, nil
-}
-
-func (ca *mockClusterAdmin) ListConsumerGroupOffsets(group string, topicPartitions map[string][]int32) (*sarama.OffsetFetchResponse, error) {
-	return &sarama.OffsetFetchResponse{}, nil
-}
-
-func (ca *mockClusterAdmin) DescribeCluster() (brokers []*sarama.Broker, controllerID int32, err error) {
-	return nil, 0, nil
-}
-
-// Delete a consumer group.
-func (ca *mockClusterAdmin) DeleteConsumerGroup(group string) error {
-	return nil
-}
-
-var _ sarama.ClusterAdmin = (*mockClusterAdmin)(nil)
 
 func makeDeploymentWithParams(image string, replicas int32, configMapHash string) *appsv1.Deployment {
 	args := resources.DispatcherArgs{
@@ -968,22 +980,6 @@ func subscribers() []eventingduckv1.SubscriberSpec {
 		SubscriberURI: apis.HTTP("call2"),
 		ReplyURI:      apis.HTTP("sink2"),
 	}}
-}
-
-type fakeStatusManager struct {
-	FakeIsReady func(context.Context, v1beta1.KafkaChannel, eventingduckv1.SubscriberSpec) (bool, error)
-}
-
-func (m *fakeStatusManager) IsReady(ctx context.Context, ch v1beta1.KafkaChannel, sub eventingduckv1.SubscriberSpec) (bool, error) {
-	return m.FakeIsReady(ctx, ch, sub)
-}
-
-func (m *fakeStatusManager) CancelProbing(sub eventingduckv1.SubscriberSpec) {
-	//do nothing
-}
-
-func (m *fakeStatusManager) CancelPodProbing(pod corev1.Pod) {
-	//do nothing
 }
 
 func makePatch(namespace, name, patch string) clientgotesting.PatchActionImpl {
