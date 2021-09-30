@@ -36,6 +36,8 @@ rules:
       - "sources.knative.dev"
     resources:
       - "kafkasources"
+      - "kafkasources/finalizers"
+      - "kafkasources/status"
     verbs:
       - "get"
       - "list"
