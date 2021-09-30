@@ -99,7 +99,7 @@ func NewConsumerHandler(logger *zap.SugaredLogger, handler KafkaConsumerHandler,
 
 // Setup is run at the beginning of a new session, before ConsumeClaim
 func (consumer *SaramaConsumerHandler) Setup(session sarama.ConsumerGroupSession) error {
-	consumer.logger.Info("setting up handler")
+	consumer.logger.Info("setting up handler", zap.Any("claims", session.Claims()))
 	consumer.lifecycleListener.Setup(session)
 	return nil
 }

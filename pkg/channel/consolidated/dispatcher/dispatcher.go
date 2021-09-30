@@ -18,6 +18,7 @@ package dispatcher
 import (
 	"context"
 	"fmt"
+	nethttp "net/http"
 	"strings"
 	"sync"
 
@@ -29,13 +30,12 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/pkg/logging"
+
+	"knative.dev/eventing-kafka/pkg/common/config"
 
 	eventingchannels "knative.dev/eventing/pkg/channel"
 	"knative.dev/pkg/kmeta"
-
-	nethttp "net/http"
 
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
@@ -73,7 +73,7 @@ type KafkaDispatcher struct {
 	logger    *zap.SugaredLogger
 }
 
-func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispatcher, error) {
+func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs, enqueue func(ref types.NamespacedName)) (*KafkaDispatcher, error) {
 
 	producer, err := sarama.NewSyncProducer(args.Brokers, args.Config.Sarama.Config)
 	if err != nil {
@@ -82,7 +82,7 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs) (*KafkaDispat
 
 	dispatcher := &KafkaDispatcher{
 		dispatcher:           eventingchannels.NewMessageDispatcher(logging.FromContext(ctx).Desugar()),
-		kafkaConsumerFactory: consumer.NewConsumerGroupFactory(args.Brokers, args.Config.Sarama.Config, &consumer.KafkaConsumerGroupOffsetsChecker{}),
+		kafkaConsumerFactory: consumer.NewConsumerGroupFactory(args.Brokers, args.Config.Sarama.Config, &consumer.KafkaConsumerGroupOffsetsChecker{}, enqueue),
 		channelSubscriptions: make(map[types.NamespacedName]*KafkaSubscription),
 		subsConsumerGroups:   make(map[types.UID]sarama.ConsumerGroup),
 		subscriptions:        make(map[types.UID]Subscription),
@@ -297,7 +297,7 @@ func (d *KafkaDispatcher) subscribe(ctx context.Context, channelRef types.Namesp
 	}
 	d.logger.Debugw("Starting consumer group", zap.Any("channelRef", channelRef),
 		zap.Any("subscription", sub.UID), zap.String("topic", topicName), zap.String("consumer group", groupID))
-	consumerGroup, err := d.kafkaConsumerFactory.StartConsumerGroup(ctx, groupID, []string{topicName}, handler)
+	consumerGroup, err := d.kafkaConsumerFactory.StartConsumerGroup(ctx, groupID, []string{topicName}, handler, channelRef)
 
 	if err != nil {
 		// we can not create a consumer - logging that, with reason

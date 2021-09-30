@@ -24,6 +24,8 @@ import (
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/types"
+
 	controllertesting "knative.dev/eventing-kafka/pkg/common/commands/resetoffset/controller/testing"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 )
@@ -99,13 +101,13 @@ func mockedNewSaramaClient(client *controllertesting.MockClient, mustFail bool) 
 	}
 }
 
-func mockedNewSaramaClusterAdmin(clusterAdmin sarama.ClusterAdmin, mustFail bool) func(addrs []string, config *sarama.Config) (sarama.ClusterAdmin, error) {
+func mockedNewSaramaClusterAdminFromClient(clusterAdmin sarama.ClusterAdmin, mustFail bool) func(client sarama.Client) (sarama.ClusterAdmin, error) {
 	if !mustFail {
-		return func(addrs []string, config *sarama.Config) (sarama.ClusterAdmin, error) {
+		return func(client sarama.Client) (sarama.ClusterAdmin, error) {
 			return clusterAdmin, nil
 		}
 	} else {
-		return func(addrs []string, config *sarama.Config) (sarama.ClusterAdmin, error) {
+		return func(client sarama.Client) (sarama.ClusterAdmin, error) {
 			return nil, errors.New("failed")
 		}
 	}
@@ -130,7 +132,7 @@ func TestErrorPropagationCustomConsumerGroup(t *testing.T) {
 	// override some functions
 	newConsumerGroup = mockedNewConsumerGroupFromClient(nil, true, true, false, false)
 	newSaramaClient = mockedNewSaramaClient(client, false)
-	newSaramaClusterAdmin = mockedNewSaramaClusterAdmin(clusterAdmin, false)
+	newClusterAdminFromClient = mockedNewSaramaClusterAdminFromClient(clusterAdmin, false)
 
 	factory := kafkaConsumerGroupFactoryImpl{
 		config:         sarama.NewConfig(),
@@ -138,7 +140,7 @@ func TestErrorPropagationCustomConsumerGroup(t *testing.T) {
 		offsetsChecker: &mockConsumerGroupOffsetsChecker{},
 	}
 
-	consumerGroup, err := factory.StartConsumerGroup(ctx, "bla", []string{}, nil)
+	consumerGroup, err := factory.StartConsumerGroup(ctx, "bla", []string{}, nil, types.NamespacedName{})
 	if err != nil {
 		t.Errorf("Should not throw error %v", err)
 	}
@@ -187,7 +189,7 @@ func TestErrorWhileCreatingNewConsumerGroup(t *testing.T) {
 		addrs:          []string{"b1", "b2"},
 		offsetsChecker: &mockConsumerGroupOffsetsChecker{},
 	}
-	_, err := factory.StartConsumerGroup(ctx, "bla", []string{}, nil)
+	_, err := factory.StartConsumerGroup(ctx, "bla", []string{}, nil, types.NamespacedName{})
 
 	if err == nil || err.Error() != "failed" {
 		t.Errorf("Should contain an error with message failed. Got %v", err)
@@ -203,7 +205,7 @@ func TestErrorWhileNewConsumerGroup(t *testing.T) {
 		addrs:          []string{"b1", "b2"},
 		offsetsChecker: &mockConsumerGroupOffsetsChecker{},
 	}
-	consumerGroup, _ := factory.StartConsumerGroup(ctx, "bla", []string{}, nil)
+	consumerGroup, _ := factory.StartConsumerGroup(ctx, "bla", []string{}, nil, types.NamespacedName{})
 
 	consumerGroup.(*customConsumerGroup).cancel() // Stop the consume loop from spinning after the error is generated
 	err := <-consumerGroup.Errors()
