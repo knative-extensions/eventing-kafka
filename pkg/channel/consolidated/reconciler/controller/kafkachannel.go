@@ -255,12 +255,11 @@ func (r *Reconciler) reconcileSubscribers(ctx context.Context, ch *v1beta1.Kafka
 	after.Status.Subscribers = make([]v1.SubscriberStatus, 0)
 	logger := logging.FromContext(ctx)
 	for _, s := range ch.Spec.Subscribers {
-		logger.Debugw("Reconciling initial offset for subscription", zap.Any("subscription", s))
+		logger.Debugw("Reconciling initial offset for subscription", zap.Any("subscription", s), zap.Any("channel", ch))
 		err := r.reconcileInitialOffset(ctx, ch, s, kafkaClient, kafkaClusterAdmin)
 
 		if err != nil {
-			logger.Errorw("Reconcile failed fo initial offset for subscription", zap.Any("subscription", s), zap.Error(err))
-			logger.Errorw("marking subscription unready", zap.Any("subscription", s))
+			logger.Errorw("reconcile failed to initial offset for subscription. Marking the subscription not ready", zap.String("channel", fmt.Sprintf("%s.%s", ch.Namespace, ch.Name)), zap.Any("subscription", s), zap.Error(err))
 			after.Status.Subscribers = append(after.Status.Subscribers, v1.SubscriberStatus{
 				UID:                s.UID,
 				ObservedGeneration: s.Generation,
@@ -268,8 +267,7 @@ func (r *Reconciler) reconcileSubscribers(ctx context.Context, ch *v1beta1.Kafka
 				Message:            fmt.Sprintf("Initial offset cannot be committed: %v", err),
 			})
 		} else {
-			logger.Debugw("Reconciled initial offset for subscription", zap.Any("subscription", s))
-			logger.Debugw("marking subscription", zap.Any("subscription", s))
+			logger.Debugw("Reconciled initial offset for subscription. Marking the subscription ready", zap.String("channel", fmt.Sprintf("%s.%s", ch.Namespace, ch.Name)), zap.Any("subscription", s))
 			after.Status.Subscribers = append(after.Status.Subscribers, v1.SubscriberStatus{
 				UID:                s.UID,
 				ObservedGeneration: s.Generation,
@@ -561,7 +559,7 @@ func (r *Reconciler) reconcileInitialOffset(ctx context.Context, channel *v1beta
 	_, err := offset.InitOffsets(ctx, kafkaClient, kafkaClusterAdmin, []string{topicName}, groupID)
 	if err != nil {
 		logger := logging.FromContext(ctx)
-		logger.Errorw("Error reconciling initial offset", zap.Error(err))
+		logger.Errorw("error reconciling initial offset", zap.String("channel", fmt.Sprintf("%s.%s", channel.Namespace, channel.Name)), zap.Any("subscription", sub), zap.Error(err))
 	}
 	return err
 }
@@ -622,10 +620,11 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, kc *v1beta1.KafkaChannel)
 	logger := logging.FromContext(ctx)
 	channel := fmt.Sprintf("%s/%s", kc.GetNamespace(), kc.GetName())
 	logger.Debugw("FinalizeKind", zap.String("channel", channel))
-	_, kafkaClusterAdmin, err := r.createClients(ctx)
+	kafkaClient, kafkaClusterAdmin, err := r.createClients(ctx)
 	if err != nil || r.kafkaConfig == nil {
 		logger.Errorw("Can't obtain Kafka Client", zap.String("channel", channel), zap.Error(err))
 	} else {
+		defer kafkaClient.Close()
 		defer kafkaClusterAdmin.Close()
 		logger.Debugw("Got client, about to delete topic")
 		if err := r.deleteTopic(ctx, kc, kafkaClusterAdmin); err != nil {
