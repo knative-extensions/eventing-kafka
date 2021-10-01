@@ -71,7 +71,7 @@ func (c kafkaConsumerGroupFactoryImpl) StartConsumerGroup(ctx context.Context, g
 
 	consumerGroup, err := c.createConsumerGroup(groupID)
 	if err != nil {
-		logger.Errorw("Unable to create consumer group", zap.Error(err))
+		logger.Errorw("unable to create consumer group", zap.String("groupId", groupID), zap.Error(err))
 		return nil, err
 	}
 
@@ -105,11 +105,11 @@ func (c kafkaConsumerGroupFactoryImpl) startExistingConsumerGroup(
 		// do not proceed until the check is done
 		err := c.offsetsChecker.WaitForOffsetsInitialization(ctx, groupID, topics, logger, c.addrs, c.config)
 		if err != nil {
-			logger.Errorw("Error while checking if offsets are initialized", zap.Error(err))
+			logger.Errorw("error while checking if offsets are initialized", zap.Any("topics", topics), zap.String("groupId", groupID), zap.Error(err))
 			errorCh <- err
 		}
 
-		logger.Debugw("All offsets are initialized", zap.Any("topics", topics), zap.Any("groupID", groupID))
+		logger.Debugw("all offsets are initialized", zap.Any("topics", topics), zap.Any("groupID", groupID))
 
 		defer func() {
 			close(errorCh)

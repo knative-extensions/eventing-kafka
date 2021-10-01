@@ -35,18 +35,18 @@ type KafkaConsumerGroupOffsetsChecker struct {
 }
 
 func (k *KafkaConsumerGroupOffsetsChecker) WaitForOffsetsInitialization(ctx context.Context, groupID string, topics []string, logger *zap.SugaredLogger, addrs []string, config *sarama.Config) error {
-	logger.Infow("Checking if all offsets are initialized", zap.Any("topics", topics), zap.Any("groupID", groupID))
+	logger.Debugw("checking if all offsets are initialized", zap.Any("topics", topics), zap.Any("groupID", groupID))
 
 	client, err := newSaramaClient(addrs, config)
 	if err != nil {
-		logger.Errorw("Unable to create Kafka client", zap.Error(err))
+		logger.Errorw("unable to create Kafka client", zap.Any("topics", topics), zap.String("groupId", groupID), zap.Error(err))
 		return err
 	}
 	defer client.Close()
 
 	clusterAdmin, err := newSaramaClusterAdmin(addrs, config)
 	if err != nil {
-		logger.Errorw("Unable to create Kafka cluster admin client", zap.Error(err))
+		logger.Errorw("unable to create Kafka cluster admin client", zap.Any("topics", topics), zap.String("groupId", groupID), zap.Error(err))
 		return err
 	}
 	defer clusterAdmin.Close()
@@ -56,11 +56,11 @@ func (k *KafkaConsumerGroupOffsetsChecker) WaitForOffsetsInitialization(ctx cont
 			if initialized {
 				return true, nil
 			} else {
-				logger.Infow("Offsets not yet initialized, going to try again")
+				logger.Debugw("offsets not yet initialized, going to try again")
 				return false, nil
 			}
 		} else {
-			return true, fmt.Errorf("error checking if offsets are initialized. stopping trying. %w", err)
+			return false, fmt.Errorf("error checking if offsets are initialized. stopping trying. %w", err)
 		}
 	}
 	pollCtx, pollCtxCancel := context.WithTimeout(ctx, OffsetCheckRetryTimeout)
