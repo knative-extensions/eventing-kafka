@@ -29,21 +29,25 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/kubernetes"
-	"knative.dev/eventing-kafka/pkg/common/kafka/offset"
-	"knative.dev/eventing/pkg/reconciler/source"
+
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
+	"knative.dev/pkg/reconciler"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/resolver"
 	"knative.dev/pkg/system"
+
+	"knative.dev/eventing/pkg/reconciler/source"
 
 	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 	"knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	reconcilerkafkasource "knative.dev/eventing-kafka/pkg/client/injection/reconciler/sources/v1beta1/kafkasource"
 	listers "knative.dev/eventing-kafka/pkg/client/listers/sources/v1beta1"
+	"knative.dev/eventing-kafka/pkg/common/kafka/offset"
 	"knative.dev/eventing-kafka/pkg/common/scheduler"
 	"knative.dev/eventing-kafka/pkg/source/client"
+	"knative.dev/eventing-kafka/pkg/source/reconciler/common"
 )
 
 const (
@@ -156,6 +160,17 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 	src.Status.CloudEventAttributes = r.createCloudEventAttributes(src)
 
 	return nil
+}
+
+func (r *Reconciler) FinalizeKind(ctx context.Context, src *v1beta1.KafkaSource) reconciler.Event {
+	if src.Status.Placement != nil {
+		src.Status.Placement = nil
+
+		// return an error to 1. update the status. 2. not clear the finalizer
+		return errors.New("placement list was not empty")
+	}
+
+	return common.FinalizeKind(ctx, r.KubeClientSet, src)
 }
 
 func (r *Reconciler) reconcileMTReceiveAdapter(src *v1beta1.KafkaSource) error {

@@ -19,9 +19,10 @@ package mtadapter
 import (
 	"context"
 
+	"go.uber.org/zap"
 	"k8s.io/client-go/tools/cache"
-
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 
 	"knative.dev/eventing/pkg/adapter/v2"
@@ -37,7 +38,7 @@ type MTAdapter interface {
 	Update(ctx context.Context, source *v1beta1.KafkaSource) error
 
 	// Remove is called when the source has been deleted.
-	Remove(source *v1beta1.KafkaSource)
+	Remove(name, namespace string)
 }
 
 // NewController initializes the controller and
@@ -64,10 +65,28 @@ func NewController(ctx context.Context, adapter adapter.Adapter) *controller.Imp
 	kafkasourceInformer := kakfasourceinformer.Get(ctx)
 	kafkasourceInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
-			AddFunc:    impl.Enqueue,
-			UpdateFunc: controller.PassNew(impl.Enqueue),
+			AddFunc: impl.Enqueue,
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				object, err := kmeta.DeletionHandlingAccessor(newObj)
+
+				if err != nil {
+					r.logger.Errorw("UpdateFunc", zap.Error(err))
+					return
+				}
+
+				if !object.GetDeletionTimestamp().IsZero() {
+					// Stopping the adapter might take a while, so run this in a goroutine to
+					// not block the informer
+					go func() {
+						r.mtadapter.Remove(object.GetName(), object.GetNamespace())
+					}()
+
+					return
+				}
+
+				impl.Enqueue(newObj)
+			},
 			DeleteFunc: r.deleteFunc,
 		})
-
 	return impl
 }

@@ -222,17 +222,17 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) error {
 	return nil
 }
 
-func (a *Adapter) Remove(obj *v1beta1.KafkaSource) {
+func (a *Adapter) Remove(name, namespace string) {
 	a.sourcesMu.Lock()
 	defer a.sourcesMu.Unlock()
-	a.logger.Infow("removing source", "name", obj.Name)
+	a.logger.Infow("removing source", "name", name)
 
-	key := obj.Namespace + "/" + obj.Name
+	key := namespace + "/" + name
 
 	cancel, ok := a.sources[key]
 
 	if !ok {
-		a.logger.Infow("source was not running. removed.", "name", obj.Name)
+		a.logger.Infow("source was not running. removed.", "name", name)
 		return
 	}
 
@@ -241,7 +241,7 @@ func (a *Adapter) Remove(obj *v1beta1.KafkaSource) {
 
 	delete(a.sources, key)
 
-	a.logger.Infow("source removed", "name", obj.Name, "remaining", len(a.sources))
+	a.logger.Infow("source removed", "name", name, "remaining", len(a.sources))
 }
 
 // partitionFetchSize determines what should be the default fetch size (in bytes)

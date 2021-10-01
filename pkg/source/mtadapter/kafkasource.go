@@ -54,9 +54,6 @@ func (r *Reconciler) deleteFunc(obj interface{}) {
 	if err != nil {
 		return
 	}
-	source, ok := acc.(*v1beta1.KafkaSource)
-	if !ok || source == nil {
-		return
-	}
-	r.mtadapter.Remove(source)
+
+	r.mtadapter.Remove(acc.GetName(), acc.GetNamespace())
 }

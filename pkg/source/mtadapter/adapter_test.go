@@ -131,14 +131,7 @@ func TestUpdateRemoveSources(t *testing.T) {
 		t.Error("sub-adapter failed to start after 100 ms")
 	}
 
-	mtadapter.Remove(&sourcesv1beta1.KafkaSource{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-name",
-			Namespace: "test-ns",
-		},
-		Spec:   sourcesv1beta1.KafkaSourceSpec{},
-		Status: sourcesv1beta1.KafkaSourceStatus{},
-	})
+	mtadapter.Remove("test-name", "test-ns")
 
 	select {
 	case a := <-stoppingAdapterChan:
@@ -153,14 +146,7 @@ func TestUpdateRemoveSources(t *testing.T) {
 		t.Error(`Expected adapter to not contain "test-ns/test-name"`)
 	}
 
-	mtadapter.Remove(&sourcesv1beta1.KafkaSource{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-name-badBroker",
-			Namespace: "test-ns",
-		},
-		Spec:   sourcesv1beta1.KafkaSourceSpec{},
-		Status: sourcesv1beta1.KafkaSourceStatus{},
-	})
+	mtadapter.Remove("test-name-badBroker", "test-ns")
 
 	select {
 	case a := <-stoppingAdapterChan:

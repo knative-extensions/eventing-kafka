@@ -586,7 +586,7 @@ function test_mt_source() {
     progress="${progress}."
     iterations=$((iterations + 1))
     kubectl get kafkasources --all-namespaces -oyaml
-    sleep 3
+    sleep 5
   done
 
   uninstall_mt_source || return 1

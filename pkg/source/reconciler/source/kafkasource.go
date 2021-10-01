@@ -57,6 +57,7 @@ import (
 	"knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	reconcilerkafkasource "knative.dev/eventing-kafka/pkg/client/injection/reconciler/sources/v1beta1/kafkasource"
 	listers "knative.dev/eventing-kafka/pkg/client/listers/sources/v1beta1"
+	"knative.dev/eventing-kafka/pkg/source/reconciler/common"
 )
 
 const (
@@ -279,7 +280,12 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, src *v1beta1.KafkaSource)
 		Namespace: src.Namespace,
 		Name:      src.Name,
 	})
-	return nil
+
+	if err := r.deleteReceiveAdapter(ctx, src); !apierrors.IsNotFound(err) {
+		return err
+	}
+
+	return common.FinalizeKind(ctx, r.KubeClientSet, src)
 }
 
 func (r *Reconciler) createReceiveAdapter(ctx context.Context, src *v1beta1.KafkaSource, sinkURI *apis.URL) (*appsv1.Deployment, error) {
