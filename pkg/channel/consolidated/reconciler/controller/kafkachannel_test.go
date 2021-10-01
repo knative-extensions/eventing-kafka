@@ -146,6 +146,9 @@ func TestAllCases(t *testing.T) {
 				makeService(),
 			},
 			OtherTestData: map[string]interface{}{"configEventingKafka": config.EventingKafkaConfig{
+				Sarama: config.EKSaramaConfig{
+					Config: &sarama.Config{},
+				},
 				Channel: config.EKChannelConfig{
 					Dispatcher: config.EKDispatcherConfig{
 						EKKubernetesConfig: config.EKKubernetesConfig{
@@ -414,13 +417,13 @@ func TestAllCases(t *testing.T) {
 	}
 
 	table.Test(t, reconcilertesting.MakeFactory(func(ctx context.Context, listers *reconcilertesting.Listers, cmw configmap.Watcher, options map[string]interface{}) controller.Reconciler {
-		saramaConfig := &sarama.Config{}
-
 		// Optional Customization Of KafkaConfig.EventingKafka - Defaults To Empty
 		configEventingKafkaInterface, ok := options["configEventingKafka"]
 		if !ok || configEventingKafkaInterface == nil {
 			configEventingKafkaInterface = config.EventingKafkaConfig{}
 		}
+
+		configEventingKafka := configEventingKafkaInterface.(config.EventingKafkaConfig)
 
 		r := &Reconciler{
 			systemNamespace:          testNS,
@@ -428,12 +431,8 @@ func TestAllCases(t *testing.T) {
 			dispatcherServiceAccount: testDispatcherserviceAccount,
 			kafkaConfigMapHash:       testConfigMapHash,
 			kafkaConfig: &KafkaConfig{
-				Brokers: []string{brokerName},
-				EventingKafka: &config.EventingKafkaConfig{
-					Sarama: config.EKSaramaConfig{
-						Config: saramaConfig,
-					},
-				},
+				Brokers:       []string{brokerName},
+				EventingKafka: &configEventingKafka,
 			},
 			kafkachannelLister: listers.GetKafkaChannelLister(),
 			// TODO fix
@@ -450,7 +449,7 @@ func TestAllCases(t *testing.T) {
 					return cgs, nil
 				},
 			},
-			kafkaClient:       &mockKafkaClient{saramaConfig},
+			kafkaClient:       &mockKafkaClient{&sarama.Config{}},
 			kafkaClientSet:    fakekafkaclient.Get(ctx),
 			KubeClientSet:     kubeclient.Get(ctx),
 			EventingClientSet: eventingClient.Get(ctx),
