@@ -163,13 +163,21 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel
 		return r.kafkaConfigError
 	}
 
-	kafkaClient, kafkaClusterAdmin, err := r.createClients(ctx)
+	kafkaClient, err := r.createKafkaClient()
 	if err != nil {
-		kc.Status.MarkConfigFailed("InvalidConfiguration", "Unable to build Kafka admin and normal clients for channel %s: %v", kc.Name, err)
+		logger.Errorw("Can't obtain Kafka Client", zap.Any("channel", kc), zap.Error(err))
+		kc.Status.MarkConfigFailed("InvalidConfiguration", "Unable to build Kafka client for channel %s: %v", kc.Name, err)
+		return err
+	}
+	defer kafkaClient.Close()
+
+	kafkaClusterAdmin, err := r.createClusterAdmin()
+	if err != nil {
+		logger.Errorw("Can't obtain Kafka cluster admin", zap.Any("channel", kc), zap.Error(err))
+		kc.Status.MarkConfigFailed("InvalidConfiguration", "Unable to build Kafka admin client for channel %s: %v", kc.Name, err)
 		return err
 	}
 	defer kafkaClusterAdmin.Close()
-	defer kafkaClient.Close()
 
 	kc.Status.MarkConfigTrue()
 
@@ -490,20 +498,24 @@ func (r *Reconciler) reconcileChannelService(ctx context.Context, dispatcherName
 	return svc, nil
 }
 
-func (r *Reconciler) createClients(ctx context.Context) (sarama.Client, sarama.ClusterAdmin, error) {
+func (r *Reconciler) createKafkaClient() (sarama.Client, error) {
 	kafkaClient := r.kafkaClient
 	if kafkaClient == nil {
 		var err error
 
 		if r.kafkaConfig.EventingKafka.Sarama.Config == nil {
-			return nil, nil, fmt.Errorf("error creating Kafka client: Sarama config is nil")
+			return nil, fmt.Errorf("error creating Kafka client: Sarama config is nil")
 		}
 		kafkaClient, err = sarama.NewClient(r.kafkaConfig.Brokers, r.kafkaConfig.EventingKafka.Sarama.Config)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 	}
 
+	return kafkaClient, nil
+}
+
+func (r *Reconciler) createClusterAdmin() (sarama.ClusterAdmin, error) {
 	// We don't currently initialize r.kafkaClusterAdmin, hence we end up creating the cluster admin client every time.
 	// This is because of an issue with Shopify/sarama. See https://github.com/Shopify/sarama/issues/1162.
 	// Once the issue is fixed we should use a shared cluster admin client. Also, r.kafkaClusterAdmin is currently
@@ -513,14 +525,14 @@ func (r *Reconciler) createClients(ctx context.Context) (sarama.Client, sarama.C
 		var err error
 
 		if r.kafkaConfig.EventingKafka.Sarama.Config == nil {
-			return nil, nil, fmt.Errorf("error creating admin client: Sarama config is nil")
+			return nil, fmt.Errorf("error creating admin client: Sarama config is nil")
 		}
 		kafkaClusterAdmin, err = sarama.NewClusterAdmin(r.kafkaConfig.Brokers, r.kafkaConfig.EventingKafka.Sarama.Config)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 	}
-	return kafkaClient, kafkaClusterAdmin, nil
+	return kafkaClusterAdmin, nil
 }
 
 func (r *Reconciler) reconcileTopic(ctx context.Context, channel *v1beta1.KafkaChannel, kafkaClusterAdmin sarama.ClusterAdmin) error {
@@ -620,17 +632,20 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, kc *v1beta1.KafkaChannel)
 	logger := logging.FromContext(ctx)
 	channel := fmt.Sprintf("%s/%s", kc.GetNamespace(), kc.GetName())
 	logger.Debugw("FinalizeKind", zap.String("channel", channel))
-	kafkaClient, kafkaClusterAdmin, err := r.createClients(ctx)
+
+	kafkaClusterAdmin, err := r.createClusterAdmin()
 	if err != nil || r.kafkaConfig == nil {
-		logger.Errorw("Can't obtain Kafka Client", zap.String("channel", channel), zap.Error(err))
-	} else {
-		defer kafkaClient.Close()
-		defer kafkaClusterAdmin.Close()
-		logger.Debugw("Got client, about to delete topic")
-		if err := r.deleteTopic(ctx, kc, kafkaClusterAdmin); err != nil {
-			logger.Errorw("Error deleting Kafka channel topic", zap.String("channel", channel), zap.Error(err))
-			return err
-		}
+		logger.Errorw("cannot obtain Kafka cluster admin", zap.String("channel", channel), zap.Error(err))
+		// even in error case, we return `normal`, since we are fine with leaving the
+		// topic undeleted e.g. when we lose connection
+		return newReconciledNormal(kc.Namespace, kc.Name)
+	}
+	defer kafkaClusterAdmin.Close()
+
+	logger.Debugw("got client, about to delete topic")
+	if err := r.deleteTopic(ctx, kc, kafkaClusterAdmin); err != nil {
+		logger.Errorw("error deleting Kafka channel topic", zap.String("channel", channel), zap.Error(err))
+		return err
 	}
 	return newReconciledNormal(kc.Namespace, kc.Name) //ok to remove finalizer
 }
