@@ -36,6 +36,7 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
+	"knative.dev/eventing-kafka/pkg/common/kafka/offset"
 	v1 "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/apis/eventing"
 	eventingclientset "knative.dev/eventing/pkg/client/clientset/versioned"
@@ -48,7 +49,6 @@ import (
 
 	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/reconciler/controller/resources"
-	"knative.dev/eventing-kafka/pkg/channel/consolidated/status"
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
 	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	kafkaScheme "knative.dev/eventing-kafka/pkg/client/clientset/versioned/scheme"
@@ -123,6 +123,7 @@ type Reconciler struct {
 	kafkaAuthConfig    *client.KafkaAuthConfig
 	kafkaConfigError   error
 	kafkaClientSet     kafkaclientset.Interface
+	kafkaClient        sarama.Client
 	// Using a shared kafkaClusterAdmin does not work currently because of an issue with
 	// Shopify/sarama, see https://github.com/Shopify/sarama/issues/1162.
 	kafkaClusterAdmin    sarama.ClusterAdmin
@@ -133,7 +134,6 @@ type Reconciler struct {
 	endpointsLister      corev1listers.EndpointsLister
 	serviceAccountLister corev1listers.ServiceAccountLister
 	roleBindingLister    rbacv1listers.RoleBindingLister
-	statusManager        status.Manager
 	controllerRef        metav1.OwnerReference
 }
 
@@ -163,8 +163,17 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel
 		return r.kafkaConfigError
 	}
 
-	kafkaClusterAdmin, err := r.createClient(ctx)
+	kafkaClient, err := r.createKafkaClient()
 	if err != nil {
+		logger.Errorw("Can't obtain Kafka Client", zap.Any("channel", kc), zap.Error(err))
+		kc.Status.MarkConfigFailed("InvalidConfiguration", "Unable to build Kafka client for channel %s: %v", kc.Name, err)
+		return err
+	}
+	defer kafkaClient.Close()
+
+	kafkaClusterAdmin, err := r.createClusterAdmin()
+	if err != nil {
+		logger.Errorw("Can't obtain Kafka cluster admin", zap.Any("channel", kc), zap.Error(err))
 		kc.Status.MarkConfigFailed("InvalidConfiguration", "Unable to build Kafka admin client for channel %s: %v", kc.Name, err)
 		return err
 	}
@@ -239,7 +248,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel
 		Scheme: "http",
 		Host:   network.GetServiceHostname(svc.Name, svc.Namespace),
 	})
-	err = r.reconcileSubscribers(ctx, kc)
+	err = r.reconcileSubscribers(ctx, kc, kafkaClient, kafkaClusterAdmin)
 	if err != nil {
 		return fmt.Errorf("error reconciling subscribers %v", err)
 	}
@@ -249,12 +258,24 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel
 	return newReconciledNormal(kc.Namespace, kc.Name)
 }
 
-func (r *Reconciler) reconcileSubscribers(ctx context.Context, ch *v1beta1.KafkaChannel) error {
+func (r *Reconciler) reconcileSubscribers(ctx context.Context, ch *v1beta1.KafkaChannel, kafkaClient sarama.Client, kafkaClusterAdmin sarama.ClusterAdmin) error {
 	after := ch.DeepCopy()
 	after.Status.Subscribers = make([]v1.SubscriberStatus, 0)
+	logger := logging.FromContext(ctx)
 	for _, s := range ch.Spec.Subscribers {
-		if r, _ := r.statusManager.IsReady(ctx, *ch, s); r {
-			logging.FromContext(ctx).Debugw("marking subscription", zap.Any("subscription", s))
+		logger.Debugw("Reconciling initial offset for subscription", zap.Any("subscription", s), zap.Any("channel", ch))
+		err := r.reconcileInitialOffset(ctx, ch, s, kafkaClient, kafkaClusterAdmin)
+
+		if err != nil {
+			logger.Errorw("reconcile failed to initial offset for subscription. Marking the subscription not ready", zap.String("channel", fmt.Sprintf("%s.%s", ch.Namespace, ch.Name)), zap.Any("subscription", s), zap.Error(err))
+			after.Status.Subscribers = append(after.Status.Subscribers, v1.SubscriberStatus{
+				UID:                s.UID,
+				ObservedGeneration: s.Generation,
+				Ready:              corev1.ConditionFalse,
+				Message:            fmt.Sprintf("Initial offset cannot be committed: %v", err),
+			})
+		} else {
+			logger.Debugw("Reconciled initial offset for subscription. Marking the subscription ready", zap.String("channel", fmt.Sprintf("%s.%s", ch.Namespace, ch.Name)), zap.Any("subscription", s))
 			after.Status.Subscribers = append(after.Status.Subscribers, v1.SubscriberStatus{
 				UID:                s.UID,
 				ObservedGeneration: s.Generation,
@@ -281,7 +302,7 @@ func (r *Reconciler) reconcileSubscribers(ctx context.Context, ch *v1beta1.Kafka
 	if err != nil {
 		return fmt.Errorf("Failed patching: %w", err)
 	}
-	logging.FromContext(ctx).Debugw("Patched resource", zap.Any("patch", patch), zap.Any("patched", patched))
+	logger.Debugw("Patched resource", zap.Any("patch", patch), zap.Any("patched", patched))
 	return nil
 }
 
@@ -477,7 +498,24 @@ func (r *Reconciler) reconcileChannelService(ctx context.Context, dispatcherName
 	return svc, nil
 }
 
-func (r *Reconciler) createClient(ctx context.Context) (sarama.ClusterAdmin, error) {
+func (r *Reconciler) createKafkaClient() (sarama.Client, error) {
+	kafkaClient := r.kafkaClient
+	if kafkaClient == nil {
+		var err error
+
+		if r.kafkaConfig.EventingKafka.Sarama.Config == nil {
+			return nil, fmt.Errorf("error creating Kafka client: Sarama config is nil")
+		}
+		kafkaClient, err = sarama.NewClient(r.kafkaConfig.Brokers, r.kafkaConfig.EventingKafka.Sarama.Config)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return kafkaClient, nil
+}
+
+func (r *Reconciler) createClusterAdmin() (sarama.ClusterAdmin, error) {
 	// We don't currently initialize r.kafkaClusterAdmin, hence we end up creating the cluster admin client every time.
 	// This is because of an issue with Shopify/sarama. See https://github.com/Shopify/sarama/issues/1162.
 	// Once the issue is fixed we should use a shared cluster admin client. Also, r.kafkaClusterAdmin is currently
@@ -527,6 +565,23 @@ func (r *Reconciler) reconcileTopic(ctx context.Context, channel *v1beta1.KafkaC
 	return err
 }
 
+func (r *Reconciler) reconcileInitialOffset(ctx context.Context, channel *v1beta1.KafkaChannel, sub v1.SubscriberSpec, kafkaClient sarama.Client, kafkaClusterAdmin sarama.ClusterAdmin) error {
+	subscriptionStatus := findSubscriptionStatus(channel, sub.UID)
+	if subscriptionStatus != nil && subscriptionStatus.Ready == corev1.ConditionTrue {
+		// subscription is ready, the offsets must have been initialized already
+		return nil
+	}
+
+	topicName := utils.TopicName(utils.KafkaChannelSeparator, channel.Namespace, channel.Name)
+	groupID := fmt.Sprintf("kafka.%s.%s.%s", channel.Namespace, channel.Name, string(sub.UID))
+	_, err := offset.InitOffsets(ctx, kafkaClient, kafkaClusterAdmin, []string{topicName}, groupID)
+	if err != nil {
+		logger := logging.FromContext(ctx)
+		logger.Errorw("error reconciling initial offset", zap.String("channel", fmt.Sprintf("%s.%s", channel.Namespace, channel.Name)), zap.Any("subscription", sub), zap.Error(err))
+	}
+	return err
+}
+
 func (r *Reconciler) deleteTopic(ctx context.Context, channel *v1beta1.KafkaChannel, kafkaClusterAdmin sarama.ClusterAdmin) error {
 	logger := logging.FromContext(ctx)
 
@@ -564,6 +619,11 @@ func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.Co
 		return
 	}
 
+	// Manually commit the offsets in KafkaChannel controller.
+	// That's because we want to make sure we initialize the offsets within the controller
+	// before dispatcher actually starts consuming messages.
+	kafkaConfig.EventingKafka.Sarama.Config.Consumer.Offsets.AutoCommit.Enable = false
+
 	r.kafkaAuthConfig = kafkaConfig.EventingKafka.Auth
 	// For now just override the previous config.
 	// Eventually the previous config should be snapshotted to delete Kafka topics
@@ -578,20 +638,29 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, kc *v1beta1.KafkaChannel)
 	logger := logging.FromContext(ctx)
 	channel := fmt.Sprintf("%s/%s", kc.GetNamespace(), kc.GetName())
 	logger.Debugw("FinalizeKind", zap.String("channel", channel))
-	kafkaClusterAdmin, err := r.createClient(ctx)
+
+	kafkaClusterAdmin, err := r.createClusterAdmin()
 	if err != nil || r.kafkaConfig == nil {
-		logger.Errorw("Can't obtain Kafka Client", zap.String("channel", channel), zap.Error(err))
-	} else {
-		defer kafkaClusterAdmin.Close()
-		logger.Debugw("Got client, about to delete topic")
-		if err := r.deleteTopic(ctx, kc, kafkaClusterAdmin); err != nil {
-			logger.Errorw("Error deleting Kafka channel topic", zap.String("channel", channel), zap.Error(err))
-			return err
-		}
+		logger.Errorw("cannot obtain Kafka cluster admin", zap.String("channel", channel), zap.Error(err))
+		// even in error case, we return `normal`, since we are fine with leaving the
+		// topic undeleted e.g. when we lose connection
+		return newReconciledNormal(kc.Namespace, kc.Name)
 	}
-	for _, s := range kc.Spec.Subscribers {
-		logger.Debugw("Canceling probing", zap.String("channel", channel), zap.Any("subscription", s))
-		r.statusManager.CancelProbing(s)
+	defer kafkaClusterAdmin.Close()
+
+	logger.Debugw("got client, about to delete topic")
+	if err := r.deleteTopic(ctx, kc, kafkaClusterAdmin); err != nil {
+		logger.Errorw("error deleting Kafka channel topic", zap.String("channel", channel), zap.Error(err))
+		return err
 	}
 	return newReconciledNormal(kc.Namespace, kc.Name) //ok to remove finalizer
+}
+
+func findSubscriptionStatus(kc *v1beta1.KafkaChannel, subUID types.UID) *v1.SubscriberStatus {
+	for _, subStatus := range kc.Status.Subscribers {
+		if subStatus.UID == subUID {
+			return &subStatus
+		}
+	}
+	return nil
 }

@@ -338,7 +338,7 @@ func TestUpdateSubscriptions(t *testing.T) {
 			}
 
 			for _, id := range testCase.expectStarted {
-				mockManager.On("StartConsumerGroup", "kafka."+id, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(testCase.createErr)
+				mockManager.On("StartConsumerGroup", mock.Anything, "kafka."+id, mock.Anything, mock.Anything, mock.Anything).Return(testCase.createErr)
 			}
 			for _, id := range testCase.expectErrors {
 				mockManager.On("Errors", "kafka."+id).Return((<-chan error)(errorSource))
@@ -349,7 +349,7 @@ func TestUpdateSubscriptions(t *testing.T) {
 			}
 
 			// Perform The Test
-			result := dispatcher.UpdateSubscriptions(testCase.args.subscriberSpecs)
+			result := dispatcher.UpdateSubscriptions(ctx, testCase.args.subscriberSpecs)
 
 			close(errorSource)
 

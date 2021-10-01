@@ -692,7 +692,6 @@ github.com/rogpeppe/fastuuid v0.0.0-20150106093220-6724a57986af/go.mod h1:XWv6So
 github.com/rogpeppe/fastuuid v1.2.0 h1:Ppwyp6VYCF1nvBTXL3trRso7mXMlRrw9ooo375wvi2s=
 github.com/rogpeppe/fastuuid v1.2.0/go.mod h1:jVj6XXZzXRy/MSR5jhDC/2q6DgLz+nrA6LYCDYWNEvQ=
 github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
-github.com/rs/dnscache v0.0.0-20210201191234-295bba877686/go.mod h1:qe5TWALJ8/a1Lqznoc5BDHpYX/8HU60Hm2AwRmqzxqA=
 github.com/russross/blackfriday v1.5.2/go.mod h1:JO/DiYxRf+HjHt06OyowR9PTA263kcR/rfWxYHBV53g=
 github.com/russross/blackfriday/v2 v2.0.1/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
 github.com/ryanuber/columnize v0.0.0-20160712163229-9b3edd62028f/go.mod h1:sm1tb6uqfes/u+d4ooFouqFdy9/2g9QGwK3SQygK0Ts=
@@ -1274,8 +1273,6 @@ knative.dev/eventing v0.24.2/go.mod h1:9xo0SWkIfpXrx0lvGQO7MUlPF8cu+QCMd2gGxj6wx
 knative.dev/hack v0.0.0-20210622141627-e28525d8d260 h1:f2eMtOubAOc/Q7JlvFPDKXiPlJVK+VpX2Cot8hRzCgQ=
 knative.dev/hack v0.0.0-20210622141627-e28525d8d260/go.mod h1:PHt8x8yX5Z9pPquBEfIj0X66f8iWkWfR0S/sarACJrI=
 knative.dev/hack/schema v0.0.0-20210622141627-e28525d8d260/go.mod h1:ffjwmdcrH5vN3mPhO8RrF2KfNnbHeCE2C60A+2cv3U0=
-knative.dev/networking v0.0.0-20210903191258-4ee76ca89d62 h1:ijcsotBvv74AcuMopX1gdMWi28+hDOra8M9wzHxgEDA=
-knative.dev/networking v0.0.0-20210903191258-4ee76ca89d62/go.mod h1:zlhSWauSM+fg+pjiL75R0TStzTCONKosKbA3Z94uox4=
 knative.dev/pkg v0.0.0-20210622173328-dd0db4b05c80/go.mod h1:kGegTnbZ+ljFjAE3E1+8wgaH2LMv8qYi+72o3F3cbdc=
 knative.dev/pkg v0.0.0-20210902173607-953af0138c75 h1:U9Im5Wp0oKV2ZWP+V9RZSDgRqv4IhfnzObMrgzWdDRQ=
 knative.dev/pkg v0.0.0-20210902173607-953af0138c75/go.mod h1:kGegTnbZ+ljFjAE3E1+8wgaH2LMv8qYi+72o3F3cbdc=
