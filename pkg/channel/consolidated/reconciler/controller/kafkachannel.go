@@ -499,19 +499,20 @@ func (r *Reconciler) reconcileChannelService(ctx context.Context, dispatcherName
 }
 
 func (r *Reconciler) createKafkaClient() (sarama.Client, error) {
-	if r.kafkaClient == nil {
+	kafkaClient := r.kafkaClient
+	if kafkaClient == nil {
+		var err error
+
 		if r.kafkaConfig.EventingKafka.Sarama.Config == nil {
 			return nil, fmt.Errorf("error creating Kafka client: Sarama config is nil")
 		}
-		kafkaClient, err := sarama.NewClient(r.kafkaConfig.Brokers, r.kafkaConfig.EventingKafka.Sarama.Config)
+		kafkaClient, err = sarama.NewClient(r.kafkaConfig.Brokers, r.kafkaConfig.EventingKafka.Sarama.Config)
 		if err != nil {
 			return nil, err
 		}
-
-		r.kafkaClient = kafkaClient
 	}
 
-	return r.kafkaClient, nil
+	return kafkaClient, nil
 }
 
 func (r *Reconciler) createClusterAdmin() (sarama.ClusterAdmin, error) {
