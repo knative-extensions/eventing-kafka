@@ -401,7 +401,6 @@ go.opentelemetry.io/otel/label
 go.opentelemetry.io/otel/propagation
 go.opentelemetry.io/otel/trace
 # go.uber.org/atomic v1.9.0
-## explicit
 go.uber.org/atomic
 # go.uber.org/automaxprocs v1.4.0
 go.uber.org/automaxprocs/internal/cgroups
@@ -1173,9 +1172,6 @@ knative.dev/eventing/test/upgrade/prober/wathola/sender
 ## explicit
 knative.dev/hack
 knative.dev/hack/shell
-# knative.dev/networking v0.0.0-20210803181815-acdfd41c575c
-## explicit
-knative.dev/networking/pkg/prober
 # knative.dev/pkg v0.0.0-20210902173607-844a6bc45596
 ## explicit
 knative.dev/pkg/apiextensions/storageversion

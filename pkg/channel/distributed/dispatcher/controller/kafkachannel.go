@@ -194,7 +194,7 @@ func (r Reconciler) Reconcile(ctx context.Context, key string) error {
 	channel := original.DeepCopy()
 
 	// Perform the reconciliation (will update KafkaChannel.Status)
-	reconcileError := r.reconcile(channel)
+	reconcileError := r.reconcile(ctx, channel)
 	if reconcileError != nil {
 		r.logger.Error("Error Reconciling KafkaChannel", zap.Error(reconcileError))
 		r.recorder.Eventf(channel, corev1.EventTypeWarning, channelReconcileFailed, "KafkaChannel Reconciliation Failed: %v", reconcileError)
@@ -218,7 +218,7 @@ func (r Reconciler) Reconcile(ctx context.Context, key string) error {
 }
 
 // Reconcile The Specified KafkaChannel
-func (r Reconciler) reconcile(channel *kafkav1beta1.KafkaChannel) error {
+func (r Reconciler) reconcile(ctx context.Context, channel *kafkav1beta1.KafkaChannel) error {
 
 	// The KafkaChannel's Subscribers
 	var subscribers []eventingduck.SubscriberSpec
@@ -231,7 +231,7 @@ func (r Reconciler) reconcile(channel *kafkav1beta1.KafkaChannel) error {
 	}
 
 	// Update The ConsumerGroups To Align With Current KafkaChannel Subscribers
-	subscriptions := r.dispatcher.UpdateSubscriptions(subscribers)
+	subscriptions := r.dispatcher.UpdateSubscriptions(ctx, subscribers)
 
 	// Update The KafkaChannel Subscribable Status Based On ConsumerGroup Creation Status
 	channel.Status.SubscribableStatus = r.createSubscribableStatus(channel.Spec.Subscribers, subscriptions)

@@ -24,7 +24,6 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/xdg/scram v1.0.3
 	go.opencensus.io v0.23.0
-	go.uber.org/atomic v1.9.0
 	go.uber.org/multierr v1.6.0
 	go.uber.org/zap v1.18.1
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
@@ -37,7 +36,6 @@ require (
 	knative.dev/control-protocol v0.0.0-20210803191615-72cde96b9f5a
 	knative.dev/eventing v0.25.0
 	knative.dev/hack v0.0.0-20210622141627-e28525d8d260
-	knative.dev/networking v0.0.0-20210803181815-acdfd41c575c
 	knative.dev/pkg v0.0.0-20210902173607-844a6bc45596
 	knative.dev/reconciler-test v0.0.0-20210803183715-b61cc77c06f6
 )
