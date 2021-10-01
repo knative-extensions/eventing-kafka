@@ -566,6 +566,12 @@ func (r *Reconciler) reconcileTopic(ctx context.Context, channel *v1beta1.KafkaC
 }
 
 func (r *Reconciler) reconcileInitialOffset(ctx context.Context, channel *v1beta1.KafkaChannel, sub v1.SubscriberSpec, kafkaClient sarama.Client, kafkaClusterAdmin sarama.ClusterAdmin) error {
+	subscriptionStatus := findSubscriptionStatus(channel, sub.UID)
+	if subscriptionStatus != nil && subscriptionStatus.Ready == corev1.ConditionTrue {
+		// subscription is ready, the offsets must have been initialized already
+		return nil
+	}
+
 	topicName := utils.TopicName(utils.KafkaChannelSeparator, channel.Namespace, channel.Name)
 	groupID := fmt.Sprintf("kafka.%s.%s.%s", channel.Namespace, channel.Name, string(sub.UID))
 	_, err := offset.InitOffsets(ctx, kafkaClient, kafkaClusterAdmin, []string{topicName}, groupID)
@@ -648,4 +654,13 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, kc *v1beta1.KafkaChannel)
 		return err
 	}
 	return newReconciledNormal(kc.Namespace, kc.Name) //ok to remove finalizer
+}
+
+func findSubscriptionStatus(kc *v1beta1.KafkaChannel, subUID types.UID) *v1.SubscriberStatus {
+	for _, subStatus := range kc.Status.Subscribers {
+		if subStatus.UID == subUID {
+			return &subStatus
+		}
+	}
+	return nil
 }
