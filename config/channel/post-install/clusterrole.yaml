@@ -36,6 +36,8 @@ rules:
       - "messaging.knative.dev"
     resources:
       - "kafkachannels"
+      - "kafkachannels/finalizers"
+      - "kafkachannels/status"
     verbs:
       - "get"
       - "list"
