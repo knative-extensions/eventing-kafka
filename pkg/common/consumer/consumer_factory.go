@@ -101,16 +101,6 @@ func (c kafkaConsumerGroupFactoryImpl) startExistingConsumerGroup(
 	ctx, cancel := context.WithCancel(context.Background())
 
 	go func() {
-		// this is a blocking func
-		// do not proceed until the check is done
-		err := c.offsetsChecker.WaitForOffsetsInitialization(ctx, groupID, topics, logger, c.addrs, c.config)
-		if err != nil {
-			logger.Errorw("error while checking if offsets are initialized", zap.Any("topics", topics), zap.String("groupId", groupID), zap.Error(err))
-			errorCh <- err
-		}
-
-		logger.Debugw("all offsets are initialized", zap.Any("topics", topics), zap.Any("groupID", groupID))
-
 		defer func() {
 			close(errorCh)
 			releasedCh <- true
