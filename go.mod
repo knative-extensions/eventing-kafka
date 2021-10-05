@@ -32,6 +32,7 @@ require (
 	google.golang.org/protobuf v1.27.1
 	k8s.io/api v0.21.4
 	k8s.io/apimachinery v0.21.4
+	k8s.io/apiserver v0.21.4
 	k8s.io/client-go v0.21.4
 	k8s.io/utils v0.0.0-20201110183641-67b214c5f920
 	knative.dev/control-protocol v0.0.0-20210929151023-4b73baddb22a

@@ -38,7 +38,7 @@ import (
 )
 
 const (
-	kafkaBootstrapUrlPlain = "my-cluster-kafka-bootstrap.kafka.svc:9092"
+	KafkaBootstrapUrlPlain = "my-cluster-kafka-bootstrap.kafka.svc:9092"
 	kafkaBootstrapUrlTLS   = "my-cluster-kafka-bootstrap.kafka.svc:9093"
 	kafkaBootstrapUrlSASL  = "my-cluster-kafka-bootstrap.kafka.svc:9094"
 
@@ -71,7 +71,7 @@ var (
 	// All auth configurations
 	auths = map[string]auth{
 		"plain": {
-			bootstrapServer: kafkaBootstrapUrlPlain,
+			bootstrapServer: KafkaBootstrapUrlPlain,
 			SASLEnabled:     false,
 			TLSEnabled:      false,
 		},
@@ -310,7 +310,7 @@ func sinkReceiveEvent(name string, matchers EventMatcher) func(ctx context.Conte
 
 		// Install kafkacat
 		kcopts := []manifest.CfgFn{
-			kafkacat.WithBootstrapServer(kafkaBootstrapUrlPlain),
+			kafkacat.WithBootstrapServer(KafkaBootstrapUrlPlain),
 			kafkacat.WithTopic(topicName),
 			kafkacat.WithKey(message.Key),
 			kafkacat.WithHeaders(message.Headers),

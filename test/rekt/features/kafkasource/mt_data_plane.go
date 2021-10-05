@@ -111,7 +111,7 @@ func sourcesPlaced(name string, matchers EventMatcher) func(ctx context.Context,
 		}
 
 		kcopts := []manifest.CfgFn{
-			kafkacat.WithBootstrapServer(kafkaBootstrapUrlPlain),
+			kafkacat.WithBootstrapServer(KafkaBootstrapUrlPlain),
 			kafkacat.WithTopic(topicName),
 			kafkacat.WithKey(message.Key),
 			kafkacat.WithHeaders(message.Headers),

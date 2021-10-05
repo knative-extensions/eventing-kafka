@@ -1,0 +1,10 @@
+# This file is required to trigger ko resolve in upload-test-images.sh
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kafka-offset-checker
+spec:
+  containers:
+  - name: kafka-offset-checker
+    image: ko://knative.dev/eventing-kafka/test/test_images/kafka-offset-checker
