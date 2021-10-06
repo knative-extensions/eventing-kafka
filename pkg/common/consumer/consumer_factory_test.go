@@ -24,6 +24,7 @@ import (
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
+
 	controllertesting "knative.dev/eventing-kafka/pkg/common/commands/resetoffset/controller/testing"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 )
@@ -111,6 +112,18 @@ func mockedNewSaramaClusterAdmin(clusterAdmin sarama.ClusterAdmin, mustFail bool
 	}
 }
 
+func mockedNewSaramaClusterAdminFromClient(clusterAdmin sarama.ClusterAdmin, mustFail bool) func(client sarama.Client) (sarama.ClusterAdmin, error) {
+	if !mustFail {
+		return func(client sarama.Client) (sarama.ClusterAdmin, error) {
+			return clusterAdmin, nil
+		}
+	} else {
+		return func(client sarama.Client) (sarama.ClusterAdmin, error) {
+			return nil, errors.New("failed")
+		}
+	}
+}
+
 //------ Tests
 
 type mockConsumerGroupOffsetsChecker struct {
@@ -130,7 +143,7 @@ func TestErrorPropagationCustomConsumerGroup(t *testing.T) {
 	// override some functions
 	newConsumerGroup = mockedNewConsumerGroupFromClient(nil, true, true, false, false)
 	newSaramaClient = mockedNewSaramaClient(client, false)
-	newSaramaClusterAdmin = mockedNewSaramaClusterAdmin(clusterAdmin, false)
+	newClusterAdminFromClient = mockedNewSaramaClusterAdminFromClient(clusterAdmin, false)
 
 	factory := kafkaConsumerGroupFactoryImpl{
 		config:         sarama.NewConfig(),
