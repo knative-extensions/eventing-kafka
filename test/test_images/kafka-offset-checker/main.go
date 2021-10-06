@@ -24,12 +24,12 @@ import (
 	"k8s.io/apiserver/pkg/storage/names"
 	"knative.dev/pkg/logging"
 
-	"knative.dev/eventing-kafka/pkg/common/consumer"
-	"knative.dev/eventing-kafka/pkg/common/kafka/offset"
-
 	"github.com/Shopify/sarama"
 	"github.com/kelseyhightower/envconfig"
 	"knative.dev/pkg/signals"
+
+	"knative.dev/eventing-kafka/pkg/common/consumer"
+	"knative.dev/eventing-kafka/pkg/common/kafka/offset"
 )
 
 type EnvConfig struct {
@@ -71,7 +71,9 @@ func main() {
 		names.SimpleNameGenerator.GenerateName("tp"),
 		names.SimpleNameGenerator.GenerateName("tp"),
 	}
-	group := names.SimpleNameGenerator.GenerateName("group")
+	groups := []string{
+		names.SimpleNameGenerator.GenerateName("group"),
+	}
 	nPartitions := int32(100)
 
 	for _, t := range topics {
@@ -82,20 +84,25 @@ func main() {
 		}
 	}
 
-	log.Println("topics", topics, "group", group)
+	log.Println("topics", topics, "groups", groups)
 
-	tp, err := offset.InitOffsets(ctx, c, admin, topics, group)
-	if err != nil {
-		log.Fatal("Failed to init offsets", err)
-	}
+	for _, group := range groups {
+		for _, topic := range topics {
+			topics := []string{topic}
+			tp, err := offset.InitOffsets(ctx, c, admin, topics, group)
+			if err != nil {
+				log.Fatal("Failed to init offsets", err)
+			}
 
-	expectedInitializedTp := nPartitions * int32(len(topics))
-	if tp != expectedInitializedTp {
-		log.Fatalf("Failed to init the correct number of offsets, got %d expected %d", tp, expectedInitializedTp)
-	}
+			expectedInitializedTp := nPartitions * int32(len(topics))
+			if tp != expectedInitializedTp {
+				log.Fatalf("Failed to init the correct number of offsets, got %d expected %d", tp, expectedInitializedTp)
+			}
 
-	checker := consumer.KafkaConsumerGroupOffsetsChecker{}
-	if err := checker.WaitForOffsetsInitialization(ctx, group, topics, logging.FromContext(ctx), addr, cfg); err != nil {
-		log.Fatalf("Failed to wait for offsets initialization, topics %v group %s: %v", topics, group, err)
+			checker := consumer.KafkaConsumerGroupOffsetsChecker{}
+			if err := checker.WaitForOffsetsInitialization(ctx, group, topics, logging.FromContext(ctx), addr, cfg); err != nil {
+				log.Fatalf("Failed to wait for offsets initialization, topics %v group %s: %v", topics, group, err)
+			}
+		}
 	}
 }
