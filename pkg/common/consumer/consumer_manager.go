@@ -41,6 +41,7 @@ import (
 	"github.com/Shopify/sarama"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/types"
 	ctrlservice "knative.dev/control-protocol/pkg/service"
 	"knative.dev/pkg/logging"
 
@@ -190,7 +191,7 @@ func (m *kafkaConsumerGroupManagerImpl) StartConsumerGroup(ctx context.Context, 
 	}
 
 	// The only thing we really want from the factory is the cancel function for the customConsumerGroup
-	customGroup := m.factory.startExistingConsumerGroup(groupId, group, consume, topics, logger, handler, options...)
+	customGroup := m.factory.startExistingConsumerGroup(ctx, types.NamespacedName{}, "", groupId, group, consume, topics, logger, handler, options...)
 	managedGrp.cancelConsume = customGroup.cancel
 
 	// Add the Sarama ConsumerGroup we obtained from the factory to the managed group map,

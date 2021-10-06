@@ -50,7 +50,7 @@ type mockKafkaConsumerFactory struct {
 	createErr bool
 }
 
-func (c mockKafkaConsumerFactory) StartConsumerGroup(ctx context.Context, groupID string, topics []string, handler consumer.KafkaConsumerHandler, options ...consumer.SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error) {
+func (c mockKafkaConsumerFactory) StartConsumerGroup(ctx context.Context, channelRef types.NamespacedName, subID types.UID, groupID string, topics []string, handler consumer.KafkaConsumerHandler, options ...consumer.SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error) {
 	if c.createErr {
 		return nil, errors.New("error creating consumer")
 	}

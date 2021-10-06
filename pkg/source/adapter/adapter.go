@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"golang.org/x/time/rate"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "knative.dev/control-protocol/pkg"
 	ctrlnetwork "knative.dev/control-protocol/pkg/network"
 
@@ -131,6 +132,8 @@ func (a *Adapter) Start(ctx context.Context) (err error) {
 	consumerGroupFactory := consumer.NewConsumerGroupFactory(addrs, config, &consumer.NoopConsumerGroupOffsetsChecker{})
 	group, err := consumerGroupFactory.StartConsumerGroup(
 		ctx,
+		types.NamespacedName{},
+		"asd",
 		a.config.ConsumerGroup,
 		a.config.Topics,
 		a,

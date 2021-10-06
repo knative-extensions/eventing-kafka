@@ -2,13 +2,10 @@ package consumer
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"knative.dev/eventing-kafka/pkg/common/kafka/offset"
 )
 
 const (
@@ -37,38 +34,40 @@ type KafkaConsumerGroupOffsetsChecker struct {
 func (k *KafkaConsumerGroupOffsetsChecker) WaitForOffsetsInitialization(ctx context.Context, groupID string, topics []string, logger *zap.SugaredLogger, addrs []string, config *sarama.Config) error {
 	logger.Debugw("checking if all offsets are initialized", zap.Any("topics", topics), zap.Any("groupID", groupID))
 
-	client, err := newSaramaClient(addrs, config)
-	if err != nil {
-		logger.Errorw("unable to create Kafka client", zap.Any("topics", topics), zap.String("groupId", groupID), zap.Error(err))
-		return err
-	}
-	defer client.Close()
+	//client, err := newSaramaClient(addrs, config)
+	//if err != nil {
+	//	logger.Errorw("unable to create Kafka client", zap.Any("topics", topics), zap.String("groupId", groupID), zap.Error(err))
+	//	return err
+	//}
+	//defer client.Close()
+	//
+	//clusterAdmin, err := newSaramaClusterAdmin(addrs, config)
+	//if err != nil {
+	//	logger.Errorw("unable to create Kafka cluster admin client", zap.Any("topics", topics), zap.String("groupId", groupID), zap.Error(err))
+	//	return err
+	//}
+	//defer clusterAdmin.Close()
 
-	clusterAdmin, err := newSaramaClusterAdmin(addrs, config)
-	if err != nil {
-		logger.Errorw("unable to create Kafka cluster admin client", zap.Any("topics", topics), zap.String("groupId", groupID), zap.Error(err))
-		return err
-	}
-	defer clusterAdmin.Close()
-
-	check := func() (bool, error) {
-		if initialized, err := offset.CheckIfAllOffsetsInitialized(client, clusterAdmin, topics, groupID); err == nil {
-			if initialized {
-				return true, nil
-			} else {
-				logger.Debugw("offsets not yet initialized, going to try again")
-				return false, nil
-			}
-		} else {
-			return false, fmt.Errorf("error checking if offsets are initialized. stopping trying. %w", err)
-		}
-	}
-	pollCtx, pollCtxCancel := context.WithTimeout(ctx, OffsetCheckRetryTimeout)
-	err = wait.PollUntil(OffsetCheckRetryInterval, check, pollCtx.Done())
-	defer pollCtxCancel()
-
-	if err != nil {
-		return fmt.Errorf("failed to check if offsets are initialized %w", err)
-	}
+	//check := func() (bool, error) {
+	//	client := kafkaclient.Get(ctx)
+	//	client.MessagingV1beta1().KafkaChannels().Get()
+	//	//if initialized, err := offset.CheckIfAllOffsetsInitialized(client, clusterAdmin, topics, groupID); err == nil {
+	//	//	if initialized {
+	//	//		return true, nil
+	//	//	} else {
+	//	//		logger.Debugw("offsets not yet initialized, going to try again")
+	//	//		return false, nil
+	//	//	}
+	//	//} else {
+	//	//	return false, fmt.Errorf("error checking if offsets are initialized. stopping trying. %w", err)
+	//	//}
+	//}
+	//pollCtx, pollCtxCancel := context.WithTimeout(ctx, OffsetCheckRetryTimeout)
+	//err = wait.PollUntil(OffsetCheckRetryInterval, check, pollCtx.Done())
+	//defer pollCtxCancel()
+	//
+	//if err != nil {
+	//	return fmt.Errorf("failed to check if offsets are initialized %w", err)
+	//}
 	return nil
 }
