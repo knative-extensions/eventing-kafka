@@ -8,6 +8,7 @@ import (
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
+
 	"knative.dev/eventing-kafka/pkg/common/kafka/offset"
 )
 
@@ -18,7 +19,7 @@ const (
 
 // wrapper functions for the Sarama functions, to facilitate unit testing
 var newSaramaClient = sarama.NewClient
-var newSaramaClusterAdmin = sarama.NewClusterAdmin
+var newClusterAdminFromClient = sarama.NewClusterAdminFromClient
 
 type ConsumerGroupOffsetsChecker interface {
 	WaitForOffsetsInitialization(ctx context.Context, groupID string, topics []string, logger *zap.SugaredLogger, addrs []string, config *sarama.Config) error
@@ -44,7 +45,7 @@ func (k *KafkaConsumerGroupOffsetsChecker) WaitForOffsetsInitialization(ctx cont
 	}
 	defer client.Close()
 
-	clusterAdmin, err := newSaramaClusterAdmin(addrs, config)
+	clusterAdmin, err := newClusterAdminFromClient(client)
 	if err != nil {
 		logger.Errorw("unable to create Kafka cluster admin client", zap.Any("topics", topics), zap.String("groupId", groupID), zap.Error(err))
 		return err
@@ -63,10 +64,7 @@ func (k *KafkaConsumerGroupOffsetsChecker) WaitForOffsetsInitialization(ctx cont
 			return false, fmt.Errorf("error checking if offsets are initialized. stopping trying. %w", err)
 		}
 	}
-	pollCtx, pollCtxCancel := context.WithTimeout(ctx, OffsetCheckRetryTimeout)
-	err = wait.PollUntil(OffsetCheckRetryInterval, check, pollCtx.Done())
-	defer pollCtxCancel()
-
+	err = wait.PollImmediate(OffsetCheckRetryInterval, OffsetCheckRetryTimeout, check)
 	if err != nil {
 		return fmt.Errorf("failed to check if offsets are initialized %w", err)
 	}
