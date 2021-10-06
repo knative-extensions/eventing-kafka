@@ -73,6 +73,7 @@ func main() {
 	}
 	groups := []string{
 		names.SimpleNameGenerator.GenerateName("group"),
+		names.SimpleNameGenerator.GenerateName("group"),
 	}
 	nPartitions := int32(100)
 
