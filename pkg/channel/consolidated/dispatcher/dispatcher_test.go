@@ -35,12 +35,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
-	"knative.dev/eventing-kafka/pkg/common/consumer"
 	eventingchannels "knative.dev/eventing/pkg/channel"
 	"knative.dev/eventing/pkg/channel/fanout"
 	klogtesting "knative.dev/pkg/logging/testing"
 	_ "knative.dev/pkg/system/testing"
+
+	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
+	"knative.dev/eventing-kafka/pkg/common/consumer"
 )
 
 // ----- Mocks
@@ -50,7 +51,7 @@ type mockKafkaConsumerFactory struct {
 	createErr bool
 }
 
-func (c mockKafkaConsumerFactory) StartConsumerGroup(ctx context.Context, groupID string, topics []string, handler consumer.KafkaConsumerHandler, options ...consumer.SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error) {
+func (c mockKafkaConsumerFactory) StartConsumerGroup(ctx context.Context, groupID string, topics []string, handler consumer.KafkaConsumerHandler, ref types.NamespacedName, options ...consumer.SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error) {
 	if c.createErr {
 		return nil, errors.New("error creating consumer")
 	}
@@ -519,7 +520,7 @@ func TestNewDispatcher(t *testing.T) {
 		Brokers:   []string{"localhost:10000"},
 		TopicFunc: utils.TopicName,
 	}
-	_, err := NewDispatcher(context.TODO(), args)
+	_, err := NewDispatcher(context.TODO(), args, func(ref types.NamespacedName) {})
 	if err == nil {
 		t.Errorf("Expected error want %s, got %s", "message receiver is not set", err)
 	}

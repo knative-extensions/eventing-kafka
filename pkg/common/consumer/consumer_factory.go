@@ -22,6 +22,7 @@ import (
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/logging"
 )
 
@@ -33,13 +34,14 @@ type consumeFunc func(ctx context.Context, topics []string, handler sarama.Consu
 
 // KafkaConsumerGroupFactory creates the ConsumerGroup and start consuming the specified topic
 type KafkaConsumerGroupFactory interface {
-	StartConsumerGroup(ctx context.Context, groupID string, topics []string, handler KafkaConsumerHandler, options ...SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error)
+	StartConsumerGroup(ctx context.Context, groupID string, topics []string, handler KafkaConsumerHandler, channelRef types.NamespacedName, options ...SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error)
 }
 
 type kafkaConsumerGroupFactoryImpl struct {
 	config         *sarama.Config
 	addrs          []string
 	offsetsChecker ConsumerGroupOffsetsChecker
+	enqueue        func(ref types.NamespacedName)
 }
 
 type customConsumerGroup struct {
@@ -66,7 +68,7 @@ func (c *customConsumerGroup) Close() error {
 var _ sarama.ConsumerGroup = (*customConsumerGroup)(nil)
 
 // StartConsumerGroup creates a new customConsumerGroup and starts a Consume goroutine on it
-func (c kafkaConsumerGroupFactoryImpl) StartConsumerGroup(ctx context.Context, groupID string, topics []string, handler KafkaConsumerHandler, options ...SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error) {
+func (c kafkaConsumerGroupFactoryImpl) StartConsumerGroup(ctx context.Context, groupID string, topics []string, handler KafkaConsumerHandler, channelRef types.NamespacedName, options ...SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error) {
 	logger := logging.FromContext(ctx)
 
 	consumerGroup, err := c.createConsumerGroup(groupID)
@@ -76,7 +78,7 @@ func (c kafkaConsumerGroupFactoryImpl) StartConsumerGroup(ctx context.Context, g
 	}
 
 	// Start the consumerGroup.Consume function in a separate goroutine
-	return c.startExistingConsumerGroup(groupID, consumerGroup, consumerGroup.Consume, topics, logger, handler, options...), nil
+	return c.startExistingConsumerGroup(groupID, consumerGroup, consumerGroup.Consume, topics, logger, handler, channelRef, options...), nil
 }
 
 // createConsumerGroup creates a Sarama ConsumerGroup using the newConsumerGroup wrapper, with the
@@ -87,14 +89,7 @@ func (c kafkaConsumerGroupFactoryImpl) createConsumerGroup(groupID string) (sara
 
 // startExistingConsumerGroup creates a goroutine that begins a custom Consume loop on the provided ConsumerGroup
 // This loop is cancelable via the function provided in the returned customConsumerGroup.
-func (c kafkaConsumerGroupFactoryImpl) startExistingConsumerGroup(
-	groupID string,
-	saramaGroup sarama.ConsumerGroup,
-	consume consumeFunc,
-	topics []string,
-	logger *zap.SugaredLogger,
-	handler KafkaConsumerHandler,
-	options ...SaramaConsumerHandlerOption) *customConsumerGroup {
+func (c kafkaConsumerGroupFactoryImpl) startExistingConsumerGroup(groupID string, saramaGroup sarama.ConsumerGroup, consume consumeFunc, topics []string, logger *zap.SugaredLogger, handler KafkaConsumerHandler, channelRef types.NamespacedName, options ...SaramaConsumerHandlerOption) *customConsumerGroup {
 
 	errorCh := make(chan error, 10)
 	releasedCh := make(chan bool)
@@ -105,8 +100,15 @@ func (c kafkaConsumerGroupFactoryImpl) startExistingConsumerGroup(
 		// do not proceed until the check is done
 		err := c.offsetsChecker.WaitForOffsetsInitialization(ctx, groupID, topics, logger, c.addrs, c.config)
 		if err != nil {
-			logger.Errorw("error while checking if offsets are initialized", zap.Any("topics", topics), zap.String("groupId", groupID), zap.Error(err))
+			logger.Errorw("error while checking if offsets are initialized",
+				zap.Any("topics", topics),
+				zap.String("groupId", groupID),
+				zap.String("channel", channelRef.String()),
+				zap.Error(err),
+			)
 			errorCh <- err
+			c.enqueue(channelRef)
+			return
 		}
 
 		logger.Debugw("all offsets are initialized", zap.Any("topics", topics), zap.Any("groupID", groupID))
@@ -136,8 +138,8 @@ func (c kafkaConsumerGroupFactoryImpl) startExistingConsumerGroup(
 	return &customConsumerGroup{cancel, errorCh, saramaGroup, releasedCh}
 }
 
-func NewConsumerGroupFactory(addrs []string, config *sarama.Config, offsetsChecker ConsumerGroupOffsetsChecker) KafkaConsumerGroupFactory {
-	return kafkaConsumerGroupFactoryImpl{addrs: addrs, config: config, offsetsChecker: offsetsChecker}
+func NewConsumerGroupFactory(addrs []string, config *sarama.Config, offsetsChecker ConsumerGroupOffsetsChecker, enqueue func(ref types.NamespacedName)) KafkaConsumerGroupFactory {
+	return kafkaConsumerGroupFactoryImpl{addrs: addrs, config: config, offsetsChecker: offsetsChecker, enqueue: enqueue}
 }
 
 var _ KafkaConsumerGroupFactory = (*kafkaConsumerGroupFactoryImpl)(nil)

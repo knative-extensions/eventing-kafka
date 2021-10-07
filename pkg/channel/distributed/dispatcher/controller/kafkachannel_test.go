@@ -365,7 +365,7 @@ func (m *MockDispatcher) Shutdown() {
 	m.Called()
 }
 
-func (m *MockDispatcher) UpdateSubscriptions(_ context.Context, subscriberSpecs []eventingduck.SubscriberSpec) consumer.SubscriberStatusMap {
+func (m *MockDispatcher) UpdateSubscriptions(_ context.Context, ref types.NamespacedName, subscriberSpecs []eventingduck.SubscriberSpec) consumer.SubscriberStatusMap {
 	args := m.Called(subscriberSpecs)
 	return args.Get(0).(consumer.SubscriberStatusMap)
 }
