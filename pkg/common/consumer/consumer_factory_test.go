@@ -101,18 +101,6 @@ func mockedNewSaramaClient(client *controllertesting.MockClient, mustFail bool) 
 	}
 }
 
-func mockedNewSaramaClusterAdmin(clusterAdmin sarama.ClusterAdmin, mustFail bool) func(addrs []string, config *sarama.Config) (sarama.ClusterAdmin, error) {
-	if !mustFail {
-		return func(addrs []string, config *sarama.Config) (sarama.ClusterAdmin, error) {
-			return clusterAdmin, nil
-		}
-	} else {
-		return func(addrs []string, config *sarama.Config) (sarama.ClusterAdmin, error) {
-			return nil, errors.New("failed")
-		}
-	}
-}
-
 func mockedNewSaramaClusterAdminFromClient(clusterAdmin sarama.ClusterAdmin, mustFail bool) func(client sarama.Client) (sarama.ClusterAdmin, error) {
 	if !mustFail {
 		return func(client sarama.Client) (sarama.ClusterAdmin, error) {
