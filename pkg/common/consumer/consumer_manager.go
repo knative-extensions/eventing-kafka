@@ -41,6 +41,7 @@ import (
 	"github.com/Shopify/sarama"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/types"
 	ctrlservice "knative.dev/control-protocol/pkg/service"
 	"knative.dev/pkg/logging"
 
@@ -58,7 +59,7 @@ var GroupLockedError = fmt.Errorf("managed group lock failed: locked by a differ
 // KafkaConsumerGroupManager keeps track of Sarama consumer groups and handles messages from control-protocol clients
 type KafkaConsumerGroupManager interface {
 	Reconfigure(brokers []string, config *sarama.Config) error
-	StartConsumerGroup(ctx context.Context, groupId string, topics []string, handler KafkaConsumerHandler, options ...SaramaConsumerHandlerOption) error
+	StartConsumerGroup(ctx context.Context, groupId string, topics []string, handler KafkaConsumerHandler, ref types.NamespacedName, options ...SaramaConsumerHandlerOption) error
 	CloseConsumerGroup(groupId string) error
 	Errors(groupId string) <-chan error
 	IsManaged(groupId string) bool
@@ -84,13 +85,13 @@ type kafkaConsumerGroupManagerImpl struct {
 var _ KafkaConsumerGroupManager = (*kafkaConsumerGroupManagerImpl)(nil)
 
 // NewConsumerGroupManager returns a new kafkaConsumerGroupManagerImpl as a KafkaConsumerGroupManager interface
-func NewConsumerGroupManager(logger *zap.Logger, serverHandler controlprotocol.ServerHandler, brokers []string, config *sarama.Config, offsetsChecker ConsumerGroupOffsetsChecker) KafkaConsumerGroupManager {
+func NewConsumerGroupManager(logger *zap.Logger, serverHandler controlprotocol.ServerHandler, brokers []string, config *sarama.Config, offsetsChecker ConsumerGroupOffsetsChecker, enqueue func(ref types.NamespacedName)) KafkaConsumerGroupManager {
 
 	manager := &kafkaConsumerGroupManagerImpl{
 		logger:         logger,
 		server:         serverHandler,
 		groups:         make(groupMap),
-		factory:        &kafkaConsumerGroupFactoryImpl{addrs: brokers, config: config, offsetsChecker: offsetsChecker},
+		factory:        &kafkaConsumerGroupFactoryImpl{addrs: brokers, config: config, offsetsChecker: offsetsChecker, enqueue: enqueue},
 		groupLock:      sync.RWMutex{},
 		offsetsChecker: offsetsChecker,
 	}
@@ -164,7 +165,7 @@ func getInternalLockCommand(lock bool) *commands.CommandLock {
 
 // StartConsumerGroup uses the consumer factory to create a new ConsumerGroup, add it to the list
 // of managed groups (for start/stop functionality) and start the Consume loop.
-func (m *kafkaConsumerGroupManagerImpl) StartConsumerGroup(ctx context.Context, groupId string, topics []string, handler KafkaConsumerHandler, options ...SaramaConsumerHandlerOption) error {
+func (m *kafkaConsumerGroupManagerImpl) StartConsumerGroup(ctx context.Context, groupId string, topics []string, handler KafkaConsumerHandler, ref types.NamespacedName, options ...SaramaConsumerHandlerOption) error {
 	logger := logging.FromContext(ctx)
 
 	groupLogger := m.logger.With(zap.String("GroupId", groupId))
@@ -190,7 +191,7 @@ func (m *kafkaConsumerGroupManagerImpl) StartConsumerGroup(ctx context.Context, 
 	}
 
 	// The only thing we really want from the factory is the cancel function for the customConsumerGroup
-	customGroup := m.factory.startExistingConsumerGroup(groupId, group, consume, topics, logger, handler, options...)
+	customGroup := m.factory.startExistingConsumerGroup(groupId, group, consume, topics, logger, handler, ref, options...)
 	managedGrp.cancelConsume = customGroup.cancel
 
 	// Add the Sarama ConsumerGroup we obtained from the factory to the managed group map,

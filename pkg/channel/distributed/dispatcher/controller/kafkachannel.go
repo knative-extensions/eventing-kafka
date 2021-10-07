@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -180,7 +181,11 @@ func (r Reconciler) reconcile(ctx context.Context, channel *kafkav1beta1.KafkaCh
 	}
 
 	// Update The ConsumerGroups To Align With Current KafkaChannel Subscribers
-	failedSubscriptions := r.dispatcher.UpdateSubscriptions(ctx, subscribers)
+	channelRef := types.NamespacedName{
+		Namespace: channel.GetNamespace(),
+		Name:      channel.GetName(),
+	}
+	failedSubscriptions := r.dispatcher.UpdateSubscriptions(ctx, channelRef, subscribers)
 
 	// Update The KafkaChannel Subscribable Status Based On ConsumerGroup Creation Status
 	channel.Status.SubscribableStatus = r.createSubscribableStatus(channel.Spec.Subscribers, failedSubscriptions)

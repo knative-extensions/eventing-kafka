@@ -349,7 +349,7 @@ func TestUpdateSubscriptions(t *testing.T) {
 			}
 
 			// Perform The Test
-			result := dispatcher.UpdateSubscriptions(ctx, testCase.args.subscriberSpecs)
+			result := dispatcher.UpdateSubscriptions(ctx, types.NamespacedName{}, testCase.args.subscriberSpecs)
 
 			close(errorSource)
 
@@ -530,7 +530,7 @@ func createTestDispatcher(t *testing.T, brokers []string, config *sarama.Config)
 	serverHandler.Service.On("SendAndWaitForAck", mock.Anything, mock.Anything).Return(nil)
 
 	// Create The Dispatcher
-	dispatcher := NewDispatcher(dispatcherConfig, serverHandler)
+	dispatcher := NewDispatcher(dispatcherConfig, serverHandler, func(ref types.NamespacedName) {})
 	serverHandler.AssertExpectations(t)
 
 	// Verify State
