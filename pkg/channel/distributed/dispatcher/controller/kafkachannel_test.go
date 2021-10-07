@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/apimachinery/pkg/types"
 	commonenv "knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
 
 	"github.com/stretchr/testify/assert"
@@ -214,7 +215,7 @@ func NewMockDispatcher(t *testing.T) MockDispatcher {
 func (m MockDispatcher) Shutdown() {
 }
 
-func (m MockDispatcher) UpdateSubscriptions(_ context.Context, _ []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error {
+func (m MockDispatcher) UpdateSubscriptions(_ context.Context, ref types.NamespacedName, _ []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error {
 	return nil
 }
 

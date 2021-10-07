@@ -66,7 +66,7 @@ func NewSubscriberWrapper(subscriberSpec eventingduck.SubscriberSpec, groupId st
 type Dispatcher interface {
 	SecretChanged(ctx context.Context, secret *corev1.Secret)
 	Shutdown()
-	UpdateSubscriptions(ctx context.Context, subscriberSpecs []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error
+	UpdateSubscriptions(ctx context.Context, channelRef types.NamespacedName, subscriberSpecs []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error
 }
 
 // DispatcherImpl Is A Struct With Configuration & ConsumerGroup State
@@ -84,9 +84,9 @@ type DispatcherImpl struct {
 var _ Dispatcher = &DispatcherImpl{}
 
 // NewDispatcher Is The Dispatcher Constructor
-func NewDispatcher(dispatcherConfig DispatcherConfig, controlServer controlprotocol.ServerHandler) Dispatcher {
+func NewDispatcher(dispatcherConfig DispatcherConfig, controlServer controlprotocol.ServerHandler, enqueue func(ref types.NamespacedName)) Dispatcher {
 
-	consumerGroupManager := commonconsumer.NewConsumerGroupManager(dispatcherConfig.Logger, controlServer, dispatcherConfig.Brokers, dispatcherConfig.SaramaConfig, &commonconsumer.NoopConsumerGroupOffsetsChecker{})
+	consumerGroupManager := commonconsumer.NewConsumerGroupManager(dispatcherConfig.Logger, controlServer, dispatcherConfig.Brokers, dispatcherConfig.SaramaConfig, &commonconsumer.NoopConsumerGroupOffsetsChecker{}, enqueue)
 
 	// Create The DispatcherImpl With Specified Configuration
 	dispatcher := &DispatcherImpl{
@@ -121,7 +121,7 @@ func (d *DispatcherImpl) Shutdown() {
 }
 
 // UpdateSubscriptions manages the Dispatcher's Subscriptions to align with new state
-func (d *DispatcherImpl) UpdateSubscriptions(ctx context.Context, subscriberSpecs []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error {
+func (d *DispatcherImpl) UpdateSubscriptions(ctx context.Context, channelRef types.NamespacedName, subscriberSpecs []eventingduck.SubscriberSpec) map[eventingduck.SubscriberSpec]error {
 
 	if d.SaramaConfig == nil {
 		d.Logger.Error("Dispatcher has no config!")
@@ -150,7 +150,7 @@ func (d *DispatcherImpl) UpdateSubscriptions(ctx context.Context, subscriberSpec
 
 			// Create/Start A New ConsumerGroup With Custom Handler
 			handler := NewHandler(logger, groupId, &subscriberSpec)
-			err := d.consumerMgr.StartConsumerGroup(ctx, groupId, []string{d.Topic}, handler)
+			err := d.consumerMgr.StartConsumerGroup(ctx, groupId, []string{d.Topic}, handler, channelRef)
 			if err != nil {
 
 				// Log & Return Failure

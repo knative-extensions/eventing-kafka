@@ -33,6 +33,7 @@ import (
 	"github.com/cloudevents/sdk-go/v2/test"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/eventing/pkg/channel/fanout"
 	"knative.dev/eventing/pkg/kncloudevents"
 	"knative.dev/pkg/apis"
@@ -82,7 +83,7 @@ func TestDispatcher(t *testing.T) {
 	}
 
 	// Create the dispatcher. At this point, if Kafka is not up, this thing fails
-	dispatcher, err := NewDispatcher(context.Background(), &dispatcherArgs)
+	dispatcher, err := NewDispatcher(context.Background(), &dispatcherArgs, func(ref types.NamespacedName) {})
 	if err != nil {
 		t.Skipf("no dispatcher: %v", err)
 	}

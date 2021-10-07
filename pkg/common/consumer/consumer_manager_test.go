@@ -26,6 +26,7 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "knative.dev/control-protocol/pkg"
 	ctrlservice "knative.dev/control-protocol/pkg/service"
 	logtesting "knative.dev/pkg/logging/testing"
@@ -37,7 +38,7 @@ import (
 
 func TestNewConsumerGroupManager(t *testing.T) {
 	server := getMockServerHandler()
-	manager := NewConsumerGroupManager(logtesting.TestLogger(t).Desugar(), server, []string{}, &sarama.Config{}, &NoopConsumerGroupOffsetsChecker{})
+	manager := NewConsumerGroupManager(logtesting.TestLogger(t).Desugar(), server, []string{}, &sarama.Config{}, &NoopConsumerGroupOffsetsChecker{}, func(ref types.NamespacedName) {})
 	assert.NotNil(t, manager)
 	assert.NotNil(t, server.Router[commands.StopConsumerGroupOpCode])
 	assert.NotNil(t, server.Router[commands.StartConsumerGroupOpCode])
@@ -108,7 +109,7 @@ func TestStartConsumerGroup(t *testing.T) {
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			ctx := context.TODO()
-			manager := NewConsumerGroupManager(logtesting.TestLogger(t).Desugar(), getMockServerHandler(), []string{}, &sarama.Config{}, &NoopConsumerGroupOffsetsChecker{})
+			manager := NewConsumerGroupManager(logtesting.TestLogger(t).Desugar(), getMockServerHandler(), []string{}, &sarama.Config{}, &NoopConsumerGroupOffsetsChecker{}, func(ref types.NamespacedName) {})
 			mockGroup := kafkatesting.NewMockConsumerGroup()
 			newConsumerGroup = func(addrs []string, groupID string, config *sarama.Config) (sarama.ConsumerGroup, error) {
 				if testCase.factoryErr {
@@ -117,7 +118,7 @@ func TestStartConsumerGroup(t *testing.T) {
 				mockGroup.On("Errors").Return(mockGroup.ErrorChan)
 				return mockGroup, nil
 			}
-			err := manager.StartConsumerGroup(ctx, "testid", []string{}, nil, nil)
+			err := manager.StartConsumerGroup(ctx, "testid", []string{}, nil, types.NamespacedName{})
 			assert.Equal(t, testCase.factoryErr, err != nil)
 			time.Sleep(5 * time.Millisecond) // Give the transferErrors routine a chance to call Errors()
 			mockGroup.AssertExpectations(t)
@@ -562,7 +563,7 @@ func getManagerWithMockGroup(t *testing.T, groupId string, factoryErr bool) (Kaf
 		}
 		return kafkatesting.NewMockConsumerGroup(), nil
 	}
-	manager := NewConsumerGroupManager(logtesting.TestLogger(t).Desugar(), serverHandler, []string{}, &sarama.Config{}, &NoopConsumerGroupOffsetsChecker{})
+	manager := NewConsumerGroupManager(logtesting.TestLogger(t).Desugar(), serverHandler, []string{}, &sarama.Config{}, &NoopConsumerGroupOffsetsChecker{}, func(ref types.NamespacedName) {})
 	if groupId != "" {
 		mockGrp, managedGrp := createTestGroup(t)
 		manager.(*kafkaConsumerGroupManagerImpl).groups[groupId] = managedGrp
