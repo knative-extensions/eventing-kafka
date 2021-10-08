@@ -232,7 +232,11 @@ func (r Reconciler) reconcile(ctx context.Context, channel *kafkav1beta1.KafkaCh
 	}
 
 	// Update The ConsumerGroups To Align With Current KafkaChannel Subscribers
-	subscriptions := r.dispatcher.UpdateSubscriptions(ctx, subscribers)
+	channelRef := types.NamespacedName{
+		Namespace: channel.GetNamespace(),
+		Name:      channel.GetName(),
+	}
+	subscriptions := r.dispatcher.UpdateSubscriptions(ctx, channelRef, subscribers)
 
 	// Update The KafkaChannel Subscribable Status Based On ConsumerGroup Creation Status
 	channel.Status.SubscribableStatus = r.createSubscribableStatus(channel.Spec.Subscribers, subscriptions)
