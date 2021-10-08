@@ -18,6 +18,7 @@ package dispatcher
 import (
 	"context"
 	"fmt"
+	nethttp "net/http"
 	"strings"
 	"sync"
 
@@ -29,13 +30,12 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"knative.dev/eventing-kafka/pkg/common/config"
 	"knative.dev/pkg/logging"
+
+	"knative.dev/eventing-kafka/pkg/common/config"
 
 	eventingchannels "knative.dev/eventing/pkg/channel"
 	"knative.dev/pkg/kmeta"
-
-	nethttp "net/http"
 
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/env"

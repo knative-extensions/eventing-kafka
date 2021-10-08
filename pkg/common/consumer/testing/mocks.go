@@ -22,6 +22,7 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/mock"
 	"k8s.io/apimachinery/pkg/types"
+
 	"knative.dev/eventing-kafka/pkg/common/consumer"
 )
 

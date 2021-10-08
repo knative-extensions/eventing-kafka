@@ -29,8 +29,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	clientgotesting "k8s.io/client-go/testing"
-	"knative.dev/pkg/apis"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
+	eventingduckv1 "knative.dev/eventing/pkg/apis/duck/v1"
+	eventingClient "knative.dev/eventing/pkg/client/injection/client"
+	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/configmap"
@@ -416,10 +418,13 @@ func TestAllCases(t *testing.T) {
 		// Optional Customization Of KafkaConfig.EventingKafka - Defaults To Empty
 		configEventingKafkaInterface, ok := options["configEventingKafka"]
 		if !ok || configEventingKafkaInterface == nil {
-			configEventingKafkaInterface = config.EventingKafkaConfig{}
+			configEventingKafkaInterface = config.EventingKafkaConfig{
+				Sarama: config.EKSaramaConfig{
+					Config: saramaConfig,
+				},
+			}
 		}
 		configEventingKafka := configEventingKafkaInterface.(config.EventingKafkaConfig)
-		configEventingKafka.Sarama.Config = saramaConfig
 
 		r := &Reconciler{
 			systemNamespace:          testNS,
@@ -427,7 +432,7 @@ func TestAllCases(t *testing.T) {
 			dispatcherServiceAccount: testDispatcherserviceAccount,
 			kafkaConfigMapHash:       testConfigMapHash,
 			kafkaConfig: &KafkaConfig{
-				Brokers:	   []string{brokerName},
+				Brokers:       []string{brokerName},
 				EventingKafka: &configEventingKafka,
 			},
 			kafkachannelLister: listers.GetKafkaChannelLister(),
@@ -446,9 +451,9 @@ func TestAllCases(t *testing.T) {
 				},
 			},
 			kafkaClient:       &mockKafkaClient{saramaConfig},
-			kafkaClientSet:       fakekafkaclient.Get(ctx),
-			KubeClientSet:        kubeclient.Get(ctx),
-			EventingClientSet:    eventingClient.Get(ctx),
+			kafkaClientSet:    fakekafkaclient.Get(ctx),
+			KubeClientSet:     kubeclient.Get(ctx),
+			EventingClientSet: eventingClient.Get(ctx),
 		}
 		return kafkachannel.NewReconciler(ctx, logging.FromContext(ctx), r.kafkaClientSet, listers.GetKafkaChannelLister(), controller.GetEventRecorder(ctx), r)
 	}, zap.L()))
