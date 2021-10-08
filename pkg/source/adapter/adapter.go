@@ -51,6 +51,7 @@ const (
 
 type AdapterConfig struct {
 	adapter.EnvConfig
+	
 	client.KafkaEnvConfig
 
 	Topics        []string `envconfig:"KAFKA_TOPICS" required:"true"`
