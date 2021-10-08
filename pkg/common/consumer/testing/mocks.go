@@ -36,7 +36,7 @@ type MockKafkaConsumerGroupFactory struct {
 }
 
 func (c *MockKafkaConsumerGroupFactory) StartConsumerGroup(ctx context.Context, groupId string, topics []string, handler consumer.KafkaConsumerHandler, ref types.NamespacedName, options ...consumer.SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error) {
-	args := c.Called(ctx, groupId, topics, handler, options)
+	args := c.Called(ctx, groupId, topics, handler, ref, options)
 	return args.Get(0).(sarama.ConsumerGroup), args.Error(1)
 }
 
@@ -63,8 +63,8 @@ func (m *MockConsumerGroupManager) Reconfigure(brokers []string, config *sarama.
 }
 
 func (m *MockConsumerGroupManager) StartConsumerGroup(ctx context.Context, groupId string, topics []string,
-	handler consumer.KafkaConsumerHandler, _ types.NamespacedName, options ...consumer.SaramaConsumerHandlerOption) error {
-	return m.Called(ctx, groupId, topics, handler, options).Error(0)
+	handler consumer.KafkaConsumerHandler, channelRef types.NamespacedName, options ...consumer.SaramaConsumerHandlerOption) error {
+	return m.Called(ctx, groupId, topics, handler, channelRef, options).Error(0)
 }
 
 func (m *MockConsumerGroupManager) CloseConsumerGroup(groupId string) error {

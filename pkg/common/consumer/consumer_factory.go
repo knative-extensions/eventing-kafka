@@ -89,7 +89,15 @@ func (c kafkaConsumerGroupFactoryImpl) createConsumerGroup(groupID string) (sara
 
 // startExistingConsumerGroup creates a goroutine that begins a custom Consume loop on the provided ConsumerGroup
 // This loop is cancelable via the function provided in the returned customConsumerGroup.
-func (c kafkaConsumerGroupFactoryImpl) startExistingConsumerGroup(groupID string, saramaGroup sarama.ConsumerGroup, consume consumeFunc, topics []string, logger *zap.SugaredLogger, handler KafkaConsumerHandler, channelRef types.NamespacedName, options ...SaramaConsumerHandlerOption) *customConsumerGroup {
+func (c kafkaConsumerGroupFactoryImpl) startExistingConsumerGroup(
+	groupID string,
+	saramaGroup sarama.ConsumerGroup,
+	consume consumeFunc,
+	topics []string,
+	logger *zap.SugaredLogger,
+	handler KafkaConsumerHandler,
+	channelRef types.NamespacedName,
+	options ...SaramaConsumerHandlerOption) *customConsumerGroup {
 
 	errorCh := make(chan error, 10)
 	releasedCh := make(chan bool)
@@ -100,12 +108,7 @@ func (c kafkaConsumerGroupFactoryImpl) startExistingConsumerGroup(groupID string
 		// do not proceed until the check is done
 		err := c.offsetsChecker.WaitForOffsetsInitialization(ctx, groupID, topics, logger, c.addrs, c.config)
 		if err != nil {
-			logger.Errorw("error while checking if offsets are initialized",
-				zap.Any("topics", topics),
-				zap.String("groupId", groupID),
-				zap.String("channel", channelRef.String()),
-				zap.Error(err),
-			)
+			logger.Errorw("error while checking if offsets are initialized", zap.Any("topics", topics), zap.String("groupId", groupID), zap.String("channel", channelRef.String()), zap.Error(err))
 			errorCh <- err
 			c.enqueue(channelRef)
 			return

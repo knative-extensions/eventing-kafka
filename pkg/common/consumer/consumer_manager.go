@@ -147,7 +147,7 @@ func NewConsumerGroupManager(logger *zap.Logger, serverHandler controlprotocol.S
 		logger:         logger,
 		server:         serverHandler,
 		groups:         make(groupMap),
-		factory:        &kafkaConsumerGroupFactoryImpl{addrs: brokers, config: config, enqueue: enqueue, offsetsChecker: offsetsChecker},
+		factory:        &kafkaConsumerGroupFactoryImpl{addrs: brokers, config: config, offsetsChecker: offsetsChecker, enqueue: enqueue},
 		groupLock:      sync.RWMutex{},
 		eventLock:      sync.Mutex{},
 		offsetsChecker: offsetsChecker,
