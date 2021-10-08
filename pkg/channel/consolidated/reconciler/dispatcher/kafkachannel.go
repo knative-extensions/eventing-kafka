@@ -106,15 +106,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		Config:    kafkaConfig.EventingKafka,
 		TopicFunc: utils.TopicName,
 	}
-	kafkaDispatcher, err := dispatcher.NewDispatcher(ctx, args)
-	if err != nil {
-		logger.Fatalw("Unable to create kafka dispatcher", zap.Error(err))
-	}
-	logger.Info("Starting the Kafka dispatcher")
-	logger.Infow("Kafka broker configuration", zap.Strings("Brokers", kafkaConfig.Brokers))
-
 	r := &Reconciler{
-		kafkaDispatcher:      kafkaDispatcher,
 		kafkaClientSet:       kafkaclientsetinjection.Get(ctx),
 		kafkachannelLister:   kafkaChannelInformer.Lister(),
 		kafkachannelInformer: kafkaChannelInformer.Informer(),
@@ -122,6 +114,15 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 	r.impl = kafkachannelreconciler.NewImpl(ctx, r, func(impl *controller.Impl) controller.Options {
 		return controller.Options{SkipStatusUpdates: true}
 	})
+
+	kafkaDispatcher, err := dispatcher.NewDispatcher(ctx, args, r.impl.EnqueueKey)
+	if err != nil {
+		logger.Fatalw("Unable to create kafka dispatcher", zap.Error(err))
+	}
+	logger.Info("Starting the Kafka dispatcher")
+	logger.Infow("Kafka broker configuration", zap.Strings("Brokers", kafkaConfig.Brokers))
+
+	r.kafkaDispatcher = kafkaDispatcher
 
 	logger.Info("Setting up event handlers")
 

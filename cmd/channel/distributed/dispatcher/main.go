@@ -153,7 +153,7 @@ func main() {
 		MetricsRegistry: ekConfig.Sarama.Config.MetricRegistry,
 		SaramaConfig:    ekConfig.Sarama.Config,
 	}
-	dispatcher, managerEvents := dispatch.NewDispatcher(dispatcherConfig, controlProtocolServer)
+	dispatcher, managerEvents := dispatch.NewDispatcher(dispatcherConfig, controlProtocolServer, func(ref types.NamespacedName) {})
 
 	// Create KafkaChannel Informer
 	kafkaClient := kafkaclientset.NewForConfigOrDie(k8sConfig)

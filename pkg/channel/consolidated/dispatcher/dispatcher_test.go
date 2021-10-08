@@ -50,7 +50,7 @@ type mockKafkaConsumerFactory struct {
 	createErr bool
 }
 
-func (c mockKafkaConsumerFactory) StartConsumerGroup(ctx context.Context, groupID string, topics []string, handler consumer.KafkaConsumerHandler, options ...consumer.SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error) {
+func (c mockKafkaConsumerFactory) StartConsumerGroup(ctx context.Context, groupID string, topics []string, handler consumer.KafkaConsumerHandler, ref types.NamespacedName, options ...consumer.SaramaConsumerHandlerOption) (sarama.ConsumerGroup, error) {
 	if c.createErr {
 		return nil, errors.New("error creating consumer")
 	}
@@ -519,7 +519,7 @@ func TestNewDispatcher(t *testing.T) {
 		Brokers:   []string{"localhost:10000"},
 		TopicFunc: utils.TopicName,
 	}
-	_, err := NewDispatcher(context.TODO(), args)
+	_, err := NewDispatcher(context.TODO(), args, func(ref types.NamespacedName) {})
 	if err == nil {
 		t.Errorf("Expected error want %s, got %s", "message receiver is not set", err)
 	}
