@@ -1,4 +1,4 @@
-# Kafka Eventing Components
+# Kafka Eventing Components 
 
 [![go.dev reference](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go&logoColor=white)](https://pkg.go.dev/knative.dev/eventing-kafka)
 [![Go Report Card](https://goreportcard.com/badge/knative-sandbox/eventing-kafka)](https://goreportcard.com/report/knative-sandbox/eventing-kafka)
