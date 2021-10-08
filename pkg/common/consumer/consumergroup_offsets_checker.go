@@ -8,6 +8,7 @@ import (
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
+
 	"knative.dev/eventing-kafka/pkg/common/kafka/offset"
 )
 

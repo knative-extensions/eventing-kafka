@@ -106,7 +106,6 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		Config:    kafkaConfig.EventingKafka,
 		TopicFunc: utils.TopicName,
 	}
-
 	r := &Reconciler{
 		kafkaClientSet:       kafkaclientsetinjection.Get(ctx),
 		kafkachannelLister:   kafkaChannelInformer.Lister(),

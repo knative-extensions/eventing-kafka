@@ -35,13 +35,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
+	"knative.dev/eventing-kafka/pkg/common/consumer"
 	eventingchannels "knative.dev/eventing/pkg/channel"
 	"knative.dev/eventing/pkg/channel/fanout"
 	klogtesting "knative.dev/pkg/logging/testing"
 	_ "knative.dev/pkg/system/testing"
-
-	"knative.dev/eventing-kafka/pkg/channel/consolidated/utils"
-	"knative.dev/eventing-kafka/pkg/common/consumer"
 )
 
 // ----- Mocks

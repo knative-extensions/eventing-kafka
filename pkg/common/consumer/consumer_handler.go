@@ -24,6 +24,7 @@ import (
 	"github.com/Shopify/sarama"
 
 	"go.uber.org/zap"
+
 	kafkasarama "knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 )
 
