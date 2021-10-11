@@ -26,7 +26,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
-
 	testlib "knative.dev/eventing/test/lib"
 	"knative.dev/eventing/test/lib/resources"
 	"knative.dev/pkg/apis"
@@ -109,10 +108,10 @@ func testKafkaSourceReconciler(c *testlib.Client, name string, doAction func(c *
 }
 
 func createKafkaSourceWithSinkMissing(c *testlib.Client) {
-	helpers.MustCreateTopic(c, kafkaClusterName, kafkaClusterNamespace, rtKafkaTopicName, 10)
+	helpers.MustCreateTopic(c, helpers.KafkaClusterName, helpers.KafkaClusterNamespace, rtKafkaTopicName, 10)
 
 	contribtestlib.CreateKafkaSourceV1Beta1OrFail(c, contribresources.KafkaSourceV1Beta1(
-		kafkaBootstrapUrlPlain,
+		helpers.KafkaBootstrapUrlPlain,
 		rtKafkaTopicName,
 		pkgTest.CoreV1ObjectReference(resources.InMemoryChannelKind, resources.MessagingAPIVersion, rtChannelName),
 		contribresources.WithNameV1Beta1(rtKafkaSourceName),
