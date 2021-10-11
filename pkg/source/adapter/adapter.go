@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"golang.org/x/time/rate"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "knative.dev/control-protocol/pkg"
 	ctrlnetwork "knative.dev/control-protocol/pkg/network"
 
@@ -140,12 +141,13 @@ func (a *Adapter) Start(ctx context.Context) (err error) {
 	a.saramaConfig = config
 
 	options := []consumer.SaramaConsumerHandlerOption{consumer.WithSaramaConsumerLifecycleListener(a)}
-	consumerGroupFactory := consumer.NewConsumerGroupFactory(addrs, config)
+	consumerGroupFactory := consumer.NewConsumerGroupFactory(addrs, config, &consumer.NoopConsumerGroupOffsetsChecker{}, func(ref types.NamespacedName) {})
 	group, err := consumerGroupFactory.StartConsumerGroup(
+		ctx,
 		a.config.ConsumerGroup,
 		a.config.Topics,
-		a.logger,
 		a,
+		types.NamespacedName{Namespace: a.config.Namespace, Name: a.config.Name},
 		options...,
 	)
 	if err != nil {

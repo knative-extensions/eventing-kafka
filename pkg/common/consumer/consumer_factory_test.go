@@ -24,6 +24,10 @@ import (
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/types"
+
+	controllertesting "knative.dev/eventing-kafka/pkg/common/commands/resetoffset/controller/testing"
+	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 )
 
 //------ Mocks
@@ -85,18 +89,58 @@ func mockedNewConsumerGroupFromClient(mockInputMessageCh chan *sarama.ConsumerMe
 	}
 }
 
+func mockedNewSaramaClient(client *controllertesting.MockClient, mustFail bool) func(addrs []string, config *sarama.Config) (sarama.Client, error) {
+	if !mustFail {
+		return func(addrs []string, config *sarama.Config) (sarama.Client, error) {
+			return client, nil
+		}
+	} else {
+		return func(addrs []string, config *sarama.Config) (sarama.Client, error) {
+			return nil, errors.New("failed")
+		}
+	}
+}
+
+func mockedNewSaramaClusterAdminFromClient(clusterAdmin sarama.ClusterAdmin, mustFail bool) func(client sarama.Client) (sarama.ClusterAdmin, error) {
+	if !mustFail {
+		return func(client sarama.Client) (sarama.ClusterAdmin, error) {
+			return clusterAdmin, nil
+		}
+	} else {
+		return func(client sarama.Client) (sarama.ClusterAdmin, error) {
+			return nil, errors.New("failed")
+		}
+	}
+}
+
 //------ Tests
 
-func TestErrorPropagationCustomConsumerGroup(t *testing.T) {
+type mockConsumerGroupOffsetsChecker struct {
+}
 
+func (m mockConsumerGroupOffsetsChecker) WaitForOffsetsInitialization(ctx context.Context, groupID string, topics []string, logger *zap.SugaredLogger, addrs []string, config *sarama.Config) error {
+	return nil
+}
+
+func TestErrorPropagationCustomConsumerGroup(t *testing.T) {
+	ctx := context.TODO()
+	client := controllertesting.NewMockClient(
+		controllertesting.WithClientMockClosed(false),
+		controllertesting.WithClientMockClose(nil))
+	clusterAdmin := &commontesting.MockClusterAdmin{}
+
+	// override some functions
 	newConsumerGroup = mockedNewConsumerGroupFromClient(nil, true, true, false, false)
+	newSaramaClient = mockedNewSaramaClient(client, false)
+	newClusterAdminFromClient = mockedNewSaramaClusterAdminFromClient(clusterAdmin, false)
 
 	factory := kafkaConsumerGroupFactoryImpl{
-		config: sarama.NewConfig(),
-		addrs:  []string{"b1", "b2"},
+		config:         sarama.NewConfig(),
+		addrs:          []string{"b1", "b2"},
+		offsetsChecker: &mockConsumerGroupOffsetsChecker{},
 	}
 
-	consumerGroup, err := factory.StartConsumerGroup("bla", []string{}, zap.NewNop().Sugar(), nil)
+	consumerGroup, err := factory.StartConsumerGroup(ctx, "bla", []string{}, nil, types.NamespacedName{})
 	if err != nil {
 		t.Errorf("Should not throw error %v", err)
 	}
@@ -137,14 +181,15 @@ func assertContainsError(t *testing.T, collection []error, errorStr string) {
 }
 
 func TestErrorWhileCreatingNewConsumerGroup(t *testing.T) {
-
+	ctx := context.TODO()
 	newConsumerGroup = mockedNewConsumerGroupFromClient(nil, true, true, false, true)
 
 	factory := kafkaConsumerGroupFactoryImpl{
-		config: sarama.NewConfig(),
-		addrs:  []string{"b1", "b2"},
+		config:         sarama.NewConfig(),
+		addrs:          []string{"b1", "b2"},
+		offsetsChecker: &mockConsumerGroupOffsetsChecker{},
 	}
-	_, err := factory.StartConsumerGroup("bla", []string{}, zap.L().Sugar(), nil)
+	_, err := factory.StartConsumerGroup(ctx, "bla", []string{}, nil, types.NamespacedName{})
 
 	if err == nil || err.Error() != "failed" {
 		t.Errorf("Should contain an error with message failed. Got %v", err)
@@ -152,14 +197,15 @@ func TestErrorWhileCreatingNewConsumerGroup(t *testing.T) {
 }
 
 func TestErrorWhileNewConsumerGroup(t *testing.T) {
-
+	ctx := context.TODO()
 	newConsumerGroup = mockedNewConsumerGroupFromClient(nil, false, false, true, false)
 
 	factory := kafkaConsumerGroupFactoryImpl{
-		config: sarama.NewConfig(),
-		addrs:  []string{"b1", "b2"},
+		config:         sarama.NewConfig(),
+		addrs:          []string{"b1", "b2"},
+		offsetsChecker: &mockConsumerGroupOffsetsChecker{},
 	}
-	consumerGroup, _ := factory.StartConsumerGroup("bla", []string{}, zap.L().Sugar(), nil)
+	consumerGroup, _ := factory.StartConsumerGroup(ctx, "bla", []string{}, nil, types.NamespacedName{})
 
 	consumerGroup.(*customConsumerGroup).cancel() // Stop the consume loop from spinning after the error is generated
 	err := <-consumerGroup.Errors()

@@ -365,7 +365,7 @@ func TestUpdateSubscriptions(t *testing.T) {
 			if !testCase.wantFailure {
 				mockManager.On("ClearNotifications").Return()
 				for _, id := range testCase.expectStarted {
-					mockManager.On("StartConsumerGroup", "kafka."+id, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(testCase.createErr)
+					mockManager.On("StartConsumerGroup", mock.Anything, "kafka."+id, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(testCase.createErr)
 				}
 				for _, id := range testCase.expectErrors {
 					mockManager.On("Errors", "kafka."+id).Return((<-chan error)(errorSource))
@@ -380,7 +380,7 @@ func TestUpdateSubscriptions(t *testing.T) {
 			}
 
 			// Perform The Test
-			result := dispatcher.UpdateSubscriptions(testCase.args.subscriberSpecs)
+			result := dispatcher.UpdateSubscriptions(ctx, types.NamespacedName{}, testCase.args.subscriberSpecs)
 
 			close(errorSource)
 
@@ -572,7 +572,7 @@ func createTestDispatcher(t *testing.T, brokers []string, config *sarama.Config)
 	serverHandler.Service.On("SendAndWaitForAck", mock.Anything, mock.Anything).Return(nil)
 
 	// Create The Dispatcher
-	dispatcher, events := NewDispatcher(dispatcherConfig, serverHandler)
+	dispatcher, events := NewDispatcher(dispatcherConfig, serverHandler, func(ref types.NamespacedName) {})
 	assert.NotNil(t, events)
 	serverHandler.AssertExpectations(t)
 
