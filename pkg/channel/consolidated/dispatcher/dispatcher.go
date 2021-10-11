@@ -72,7 +72,8 @@ type KafkaDispatcher struct {
 	topicFunc TopicFunc
 	logger    *zap.SugaredLogger
 }
-
+// NewDispatcher creates a new dispatcher struct. enqueue argument is a function that is used to
+// requeue a KafkaChannel instance via the reconciler which is used when creating the consumer.
 func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs, enqueue func(ref types.NamespacedName)) (*KafkaDispatcher, error) {
 
 	producer, err := sarama.NewSyncProducer(args.Brokers, args.Config.Sarama.Config)

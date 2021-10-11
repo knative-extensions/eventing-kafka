@@ -52,7 +52,7 @@ func (k *KafkaConsumerGroupOffsetsChecker) WaitForOffsetsInitialization(ctx cont
 	}
 	defer clusterAdmin.Close()
 
-	check := func() (bool, error) {
+	checkIfAllOffsetsInitialized := func() (bool, error) {
 		if initialized, err := offset.CheckIfAllOffsetsInitialized(client, clusterAdmin, topics, groupID); err == nil {
 			if initialized {
 				return true, nil
@@ -64,7 +64,7 @@ func (k *KafkaConsumerGroupOffsetsChecker) WaitForOffsetsInitialization(ctx cont
 			return false, fmt.Errorf("error checking if offsets are initialized. stopping trying. %w", err)
 		}
 	}
-	err = wait.PollImmediate(OffsetCheckRetryInterval, OffsetCheckRetryTimeout, check)
+	err = wait.PollImmediate(OffsetCheckRetryInterval, OffsetCheckRetryTimeout, checkIfAllOffsetsInitialized)
 	if err != nil {
 		return fmt.Errorf("failed to check if offsets are initialized %w", err)
 	}
