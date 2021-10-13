@@ -163,8 +163,8 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 }
 
 func (r *Reconciler) FinalizeKind(ctx context.Context, src *v1beta1.KafkaSource) reconciler.Event {
-	if src.Status.Placement != nil {
-		src.Status.Placement = nil
+	if src.Status.Placements != nil {
+		src.Status.Placements = nil
 
 		// return an error to 1. update the status. 2. not clear the finalizer
 		return errors.New("placement list was not empty")
@@ -178,7 +178,7 @@ func (r *Reconciler) reconcileMTReceiveAdapter(src *v1beta1.KafkaSource) error {
 
 	// Update placements, even partial ones.
 	if placements != nil {
-		src.Status.Placement = placements
+		src.Status.Placements = placements
 	}
 
 	if err != nil {

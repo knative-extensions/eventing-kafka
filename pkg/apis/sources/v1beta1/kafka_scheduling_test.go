@@ -52,7 +52,7 @@ func TestScheduling(t *testing.T) {
 					Consumers: pointer.Int32Ptr(4),
 				},
 				Status: KafkaSourceStatus{
-					Placeable: v1alpha1.Placeable{Placement: []v1alpha1.Placement{
+					Placeable: v1alpha1.Placeable{Placements: []v1alpha1.Placement{
 						{PodName: "apod", VReplicas: 4},
 					}},
 				},
