@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package e2e
+package helpers
 
 import (
 	"context"
@@ -36,17 +36,17 @@ import (
 	"knative.dev/eventing/test/lib/recordevents"
 	"knative.dev/eventing/test/lib/resources"
 
-	"knative.dev/eventing-kafka/test/e2e/helpers"
 	contribtestlib "knative.dev/eventing-kafka/test/lib"
 	contribresources "knative.dev/eventing-kafka/test/lib/resources"
 )
 
 const (
-	kafkaBootstrapUrlPlain = "my-cluster-kafka-bootstrap.kafka.svc:9092"
+	KafkaBootstrapUrlPlain = "my-cluster-kafka-bootstrap.kafka.svc:9092"
 	kafkaBootstrapUrlTLS   = "my-cluster-kafka-bootstrap.kafka.svc:9093"
 	kafkaBootstrapUrlSASL  = "my-cluster-kafka-bootstrap.kafka.svc:9094"
-	kafkaClusterName       = "my-cluster"
-	kafkaClusterNamespace  = "kafka"
+
+	KafkaClusterName      = "my-cluster"
+	KafkaClusterNamespace = "kafka"
 
 	kafkaSASLSecret = "strimzi-sasl-secret"
 	kafkaTLSSecret  = "strimzi-tls-secret"
@@ -65,7 +65,7 @@ func AssureKafkaSourceIsOperational(t *testing.T, scope SourceTestScope) {
 	}{
 		"plain": {
 			auth: authSetup{
-				bootStrapServer: kafkaBootstrapUrlPlain,
+				bootStrapServer: KafkaBootstrapUrlPlain,
 				SASLEnabled:     false,
 				TLSEnabled:      false,
 			},
@@ -368,7 +368,7 @@ func testKafkaSource(t *testing.T,
 			t.Fatalf("could not copy secret(%s): %v", kafkaTLSSecret, err)
 		}
 	}
-	helpers.MustCreateTopic(client, kafkaClusterName, kafkaClusterNamespace, kafkaTopicName, 10)
+	MustCreateTopic(client, KafkaClusterName, KafkaClusterNamespace, kafkaTopicName, 10)
 	if len(recordEventPodName) > 63 {
 		recordEventPodName = recordEventPodName[:63]
 	}
@@ -399,7 +399,7 @@ func testKafkaSource(t *testing.T,
 
 	client.WaitForAllTestResourcesReadyOrFail(context.Background())
 
-	helpers.MustPublishKafkaMessage(client, kafkaBootstrapUrlPlain, kafkaTopicName, messageKey, messageHeaders, messagePayload)
+	MustPublishKafkaMessage(client, KafkaBootstrapUrlPlain, kafkaTopicName, messageKey, messageHeaders, messagePayload)
 
 	eventTracker.AssertExact(1, recordevents.MatchEvent(matcherGen(cloudEventsSourceName, cloudEventsEventType)))
 }

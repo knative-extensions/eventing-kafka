@@ -21,8 +21,10 @@ import (
 	"testing"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
-	"knative.dev/eventing-kafka/test/e2e"
-	"knative.dev/eventing/test/e2e/helpers"
+
+	"knative.dev/eventing-kafka/test/e2e/helpers"
+
+	eventinghelpers "knative.dev/eventing/test/e2e/helpers"
 )
 
 func runChannelSmokeTest(t *testing.T) {
@@ -31,7 +33,7 @@ func runChannelSmokeTest(t *testing.T) {
 	for i := range cases {
 		tt := cases[i]
 		t.Run(tt.name, func(t *testing.T) {
-			helpers.SingleEventForChannelTestHelper(
+			eventinghelpers.SingleEventForChannelTestHelper(
 				ctx, t, tt.encoding, tt.version,
 				"", channelTestRunner,
 			)
@@ -40,7 +42,7 @@ func runChannelSmokeTest(t *testing.T) {
 }
 
 func runSourceSmokeTest(t *testing.T) {
-	e2e.AssureKafkaSourceIsOperational(t, func(auth, testCase, version string) bool {
+	helpers.AssureKafkaSourceIsOperational(t, func(auth, testCase, version string) bool {
 		return auth == "plain" && (testCase == "structured" || testCase == "binary")
 	})
 }
@@ -48,17 +50,17 @@ func runSourceSmokeTest(t *testing.T) {
 type smokeTestCase struct {
 	name     string
 	encoding cloudevents.Encoding
-	version  helpers.SubscriptionVersion
+	version  eventinghelpers.SubscriptionVersion
 }
 
 func smokeTestCases() []smokeTestCase {
 	return []smokeTestCase{{
 		name:     "BinaryV1",
 		encoding: cloudevents.EncodingBinary,
-		version:  helpers.SubscriptionV1,
+		version:  eventinghelpers.SubscriptionV1,
 	}, {
 		name:     "StructuredV1",
 		encoding: cloudevents.EncodingStructured,
-		version:  helpers.SubscriptionV1,
+		version:  eventinghelpers.SubscriptionV1,
 	}}
 }
