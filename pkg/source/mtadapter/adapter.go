@@ -139,7 +139,7 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) error {
 	// Enforce memory limits
 	if a.memLimit > 0 {
 		// TODO: periodically enforce limits as the number of partitions can dynamically change
-		fetchSizePerVReplica, err := a.partitionFetchSize(ctx, logger, &kafkaEnvConfig, obj.Spec.Topics, scheduler.GetPodCount(obj.Status.Placement))
+		fetchSizePerVReplica, err := a.partitionFetchSize(ctx, logger, &kafkaEnvConfig, obj.Spec.Topics, scheduler.GetPodCount(obj.Status.Placements))
 		if err != nil {
 			return err
 		}

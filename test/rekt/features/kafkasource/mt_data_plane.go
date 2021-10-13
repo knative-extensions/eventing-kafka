@@ -132,7 +132,7 @@ func sourcesPlaced(name string, matchers EventMatcher) func(ctx context.Context,
 					return fmt.Errorf("Error when getting Kafka source2")
 				}
 
-				if source1.Status.Placement[0].PodName != source2.Status.Placement[0].PodName && len(source2.Status.Placement[0].PodName) != 0 {
+				if source1.Status.Placements[0].PodName != source2.Status.Placements[0].PodName && len(source2.Status.Placements[0].PodName) != 0 {
 					return fmt.Errorf("Two Kafka source do not belong to the same pod")
 				}
 

@@ -126,7 +126,7 @@ func NewController(
 					ap = append(ap, p)
 				}
 			}
-			after.Status.Placement = ap
+			after.Status.Placements = ap
 
 			jsonPatch, err := duck.CreatePatch(before, after)
 			if err != nil {

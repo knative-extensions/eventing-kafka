@@ -73,7 +73,7 @@ func TestUpdateRemoveSources(t *testing.T) {
 		Spec: sourcesv1beta1.KafkaSourceSpec{},
 		Status: sourcesv1beta1.KafkaSourceStatus{
 			Placeable: duckv1alpha1.Placeable{
-				Placement: []duckv1alpha1.Placement{
+				Placements: []duckv1alpha1.Placement{
 					{PodName: podName, VReplicas: int32(1)},
 				}},
 		},
@@ -108,7 +108,7 @@ func TestUpdateRemoveSources(t *testing.T) {
 		},
 		Status: sourcesv1beta1.KafkaSourceStatus{
 			Placeable: duckv1alpha1.Placeable{
-				Placement: []duckv1alpha1.Placement{
+				Placements: []duckv1alpha1.Placement{
 					{PodName: podName, VReplicas: int32(1)},
 				}},
 		},
@@ -219,7 +219,7 @@ func TestSourceMTAdapter(t *testing.T) {
 				},
 				Status: sourcesv1beta1.KafkaSourceStatus{
 					Placeable: duckv1alpha1.Placeable{
-						Placement: []duckv1alpha1.Placement{
+						Placements: []duckv1alpha1.Placement{
 							{PodName: podName, VReplicas: int32(1)},
 						}},
 				},
@@ -261,7 +261,7 @@ func TestSourceMTAdapter(t *testing.T) {
 				},
 				Status: sourcesv1beta1.KafkaSourceStatus{
 					Placeable: duckv1alpha1.Placeable{
-						Placement: []duckv1alpha1.Placement{
+						Placements: []duckv1alpha1.Placement{
 							{PodName: podName, VReplicas: int32(1)},
 						}},
 				},
@@ -291,7 +291,7 @@ func TestSourceMTAdapter(t *testing.T) {
 				},
 				Status: sourcesv1beta1.KafkaSourceStatus{
 					Placeable: duckv1alpha1.Placeable{
-						Placement: []duckv1alpha1.Placement{
+						Placements: []duckv1alpha1.Placement{
 							{PodName: podName, VReplicas: int32(1)},
 						}},
 				},
@@ -321,7 +321,7 @@ func TestSourceMTAdapter(t *testing.T) {
 				},
 				Status: sourcesv1beta1.KafkaSourceStatus{
 					Placeable: duckv1alpha1.Placeable{
-						Placement: []duckv1alpha1.Placement{
+						Placements: []duckv1alpha1.Placement{
 							{PodName: podName, VReplicas: int32(1)},
 						}},
 				},
