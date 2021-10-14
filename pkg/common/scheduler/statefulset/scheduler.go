@@ -277,15 +277,8 @@ func (s *StatefulSetScheduler) removeReplicasWithPolicy(vpod scheduler.VPod, dif
 			return placements
 		}
 
-		feasiblePods, err := s.findFeasiblePods(s.ctx, state, vpod, state.DeschedPolicy)
-		if err != nil {
-			logger.Info("error while filtering pods using predicates", zap.Error(err))
-			s.reservePlacements(vpod, placements)
-			break
-		}
-
+		feasiblePods := s.findFeasiblePods(s.ctx, state, vpod, state.DeschedPolicy)
 		feasiblePods = s.removePodsNotInPlacement(vpod, feasiblePods)
-
 		if len(feasiblePods) == 1 { //nothing to score, remove vrep from that pod
 			placementPodID := feasiblePods[0]
 			logger.Infof("Selected pod #%v to remove vreplica #%v from", placementPodID, i)
@@ -360,14 +353,7 @@ func (s *StatefulSetScheduler) addReplicasWithPolicy(vpod scheduler.VPod, diff i
 			break               //end the iteration for all vreps since there are not pods
 		}
 
-		feasiblePods, err := s.findFeasiblePods(s.ctx, state, vpod, state.SchedPolicy)
-		if err != nil {
-			logger.Info("error while filtering pods using predicates", zap.Error(err))
-			s.reservePlacements(vpod, placements)
-			diff = numVreps - i //for autoscaling up and possible rebalancing
-			break
-		}
-
+		feasiblePods := s.findFeasiblePods(s.ctx, state, vpod, state.SchedPolicy)
 		if len(feasiblePods) == 0 { //no pods available to schedule this vreplica
 			logger.Info("no feasible pods available to schedule this vreplica")
 			s.reservePlacements(vpod, placements)
@@ -430,7 +416,7 @@ func (s *StatefulSetScheduler) addSelectionToPlacements(placementPodID int32, pl
 }
 
 // findFeasiblePods finds the pods that fit the filter plugins
-func (s *StatefulSetScheduler) findFeasiblePods(ctx context.Context, state *st.State, vpod scheduler.VPod, policy *scheduler.SchedulerPolicy) ([]int32, error) {
+func (s *StatefulSetScheduler) findFeasiblePods(ctx context.Context, state *st.State, vpod scheduler.VPod, policy *scheduler.SchedulerPolicy) []int32 {
 	feasiblePods := make([]int32, 0)
 	for _, podId := range state.SchedulablePods {
 		statusMap := s.RunFilterPlugins(ctx, state, vpod, podId, policy)
@@ -440,7 +426,7 @@ func (s *StatefulSetScheduler) findFeasiblePods(ctx context.Context, state *st.S
 		}
 	}
 
-	return feasiblePods, nil
+	return feasiblePods
 }
 
 // removePodsNotInPlacement removes pods that do not have vreplicas placed

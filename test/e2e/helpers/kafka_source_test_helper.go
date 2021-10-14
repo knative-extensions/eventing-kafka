@@ -142,10 +142,9 @@ func testKafkaSourceUpdate(t *testing.T, name string, test updateTest) {
 }
 
 type message struct {
-	cloudEventType string
-	payload        []byte
-	headers        map[string]string
-	key            string
+	payload []byte
+	headers map[string]string
+	key     string
 }
 
 type updateTest struct {
