@@ -37,14 +37,13 @@ import (
 
 	"knative.dev/eventing/pkg/reconciler/source"
 
-	duckv1alpha1 "knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
 	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 	kafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client"
 	kafkainformer "knative.dev/eventing-kafka/pkg/client/injection/informers/sources/v1beta1/kafkasource"
 	"knative.dev/eventing-kafka/pkg/client/injection/reconciler/sources/v1beta1/kafkasource"
-	"knative.dev/eventing-kafka/pkg/common/constants"
-	"knative.dev/eventing-kafka/pkg/common/scheduler"
-	stsscheduler "knative.dev/eventing-kafka/pkg/common/scheduler/statefulset"
+	duckv1alpha1 "knative.dev/eventing/pkg/apis/duck/v1alpha1"
+	scheduler "knative.dev/eventing/pkg/scheduler"
+	stsscheduler "knative.dev/eventing/pkg/scheduler/statefulset"
 )
 
 type envConfig struct {
@@ -95,7 +94,7 @@ func NewController(
 		if annots == nil {
 			annots = make(map[string]string)
 		}
-		annots[constants.PodAnnotationKey] = "true" //scheduling disabled
+		annots[scheduler.PodAnnotationKey] = "true" //scheduling disabled
 		newPod.ObjectMeta.Annotations = annots
 
 		updated, err := kubeclient.Get(ctx).CoreV1().Pods(newPod.ObjectMeta.Namespace).Update(ctx, newPod, metav1.UpdateOptions{})

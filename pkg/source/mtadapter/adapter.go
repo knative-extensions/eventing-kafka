@@ -36,9 +36,9 @@ import (
 	"knative.dev/pkg/logging"
 
 	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
-	"knative.dev/eventing-kafka/pkg/common/scheduler"
 	stadapter "knative.dev/eventing-kafka/pkg/source/adapter"
 	"knative.dev/eventing-kafka/pkg/source/client"
+	"knative.dev/eventing/pkg/scheduler"
 )
 
 type AdapterConfig struct {

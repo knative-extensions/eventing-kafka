@@ -23,7 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
-	"knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
+	"knative.dev/eventing/pkg/apis/duck/v1alpha1"
 )
 
 func TestScheduling(t *testing.T) {

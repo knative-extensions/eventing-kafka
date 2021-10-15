@@ -34,8 +34,8 @@ import (
 	"knative.dev/eventing/pkg/kncloudevents"
 
 	bindingsv1beta1 "knative.dev/eventing-kafka/pkg/apis/bindings/v1beta1"
-	duckv1alpha1 "knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
 	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
+	duckv1alpha1 "knative.dev/eventing/pkg/apis/duck/v1alpha1"
 )
 
 var (

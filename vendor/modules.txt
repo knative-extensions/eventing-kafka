@@ -1127,6 +1127,7 @@ knative.dev/eventing/pkg/adapter/v2/util/crstatusevent
 knative.dev/eventing/pkg/apis/config
 knative.dev/eventing/pkg/apis/duck
 knative.dev/eventing/pkg/apis/duck/v1
+knative.dev/eventing/pkg/apis/duck/v1alpha1
 knative.dev/eventing/pkg/apis/duck/v1beta1
 knative.dev/eventing/pkg/apis/eventing
 knative.dev/eventing/pkg/apis/eventing/v1
@@ -1194,6 +1195,20 @@ knative.dev/eventing/pkg/reconciler/sugar
 knative.dev/eventing/pkg/reconciler/testing
 knative.dev/eventing/pkg/reconciler/testing/scheme
 knative.dev/eventing/pkg/reconciler/testing/v1
+knative.dev/eventing/pkg/scheduler
+knative.dev/eventing/pkg/scheduler/factory
+knative.dev/eventing/pkg/scheduler/plugins/core/availabilitynodepriority
+knative.dev/eventing/pkg/scheduler/plugins/core/availabilityzonepriority
+knative.dev/eventing/pkg/scheduler/plugins/core/evenpodspread
+knative.dev/eventing/pkg/scheduler/plugins/core/lowestordinalpriority
+knative.dev/eventing/pkg/scheduler/plugins/core/podfitsresources
+knative.dev/eventing/pkg/scheduler/plugins/core/removewithavailabilitynodepriority
+knative.dev/eventing/pkg/scheduler/plugins/core/removewithavailabilityzonepriority
+knative.dev/eventing/pkg/scheduler/plugins/core/removewithevenpodspreadpriority
+knative.dev/eventing/pkg/scheduler/plugins/core/removewithhighestordinalpriority
+knative.dev/eventing/pkg/scheduler/plugins/kafka/nomaxresourcecount
+knative.dev/eventing/pkg/scheduler/state
+knative.dev/eventing/pkg/scheduler/statefulset
 knative.dev/eventing/pkg/tracing
 knative.dev/eventing/pkg/utils
 knative.dev/eventing/test
@@ -1273,7 +1288,6 @@ knative.dev/pkg/client/injection/kube/informers/admissionregistration/v1/validat
 knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment
 knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment/fake
 knative.dev/pkg/client/injection/kube/informers/apps/v1/statefulset
-knative.dev/pkg/client/injection/kube/informers/apps/v1/statefulset/fake
 knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints
 knative.dev/pkg/client/injection/kube/informers/core/v1/namespace
 knative.dev/pkg/client/injection/kube/informers/core/v1/node
