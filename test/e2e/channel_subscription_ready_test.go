@@ -1,5 +1,5 @@
-// +build e2e
-// +build consolidated
+//go:build e2e && consolidated
+// +build e2e,consolidated
 
 /*
 Copyright 2021 The Knative Authors
