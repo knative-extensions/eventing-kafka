@@ -24,7 +24,10 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
+
 	"knative.dev/eventing-kafka/pkg/apis/sources/config"
 )
 
@@ -73,6 +76,11 @@ func TestSetDefaults(t *testing.T) {
 			t.Fatalf("Unexpected annotations (-want, +got): %s", diff)
 		}
 	}
+	assertSink := func(t *testing.T, ks KafkaSource, expected interface{}) {
+		if diff := cmp.Diff(ks.Spec.Sink, expected); diff != "" {
+			t.Fatalf("Unexpected sink (-want, +got): %s", diff)
+		}
+	}
 	testCases := []defaultKafkaTestArgs{
 		{
 			Name:        "nil spec",
@@ -87,6 +95,32 @@ func TestSetDefaults(t *testing.T) {
 			},
 			Expected:    "foo",
 			AssertFuncs: []assertFnType{assertGivenGroup, assertNoAnnotations},
+		}, {
+			Name: "Set sink namespace",
+			Initial: KafkaSource{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "ks",
+					Namespace: "ns-test",
+				},
+				Spec: KafkaSourceSpec{
+					SourceSpec: duckv1.SourceSpec{
+						Sink: duckv1.Destination{
+							Ref: &duckv1.KReference{
+								Kind:       "Service",
+								Name:       "svc",
+								APIVersion: "v1",
+							},
+						},
+					},
+				},
+			},
+			Expected: duckv1.Destination{Ref: &duckv1.KReference{
+				Kind:       "Service",
+				Name:       "svc",
+				APIVersion: "v1",
+				Namespace:  "ns-test",
+			}},
+			AssertFuncs: []assertFnType{assertSink},
 		}, {
 			Name:        "consumers not set",
 			Initial:     KafkaSource{},
