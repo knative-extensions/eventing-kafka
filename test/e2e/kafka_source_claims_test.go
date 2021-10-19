@@ -1,5 +1,6 @@
-//+build e2e !mtsource
-//+build source
+//go:build (e2e || !mtsource) && source
+// +build e2e !mtsource
+// +build source
 
 /*
 Copyright 2021 The Knative Authors

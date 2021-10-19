@@ -1,3 +1,4 @@
+//go:build e2e && (source || mtsource)
 // +build e2e
 // +build source mtsource
 
