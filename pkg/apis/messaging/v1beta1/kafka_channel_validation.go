@@ -19,6 +19,7 @@ package v1beta1
 import (
 	"context"
 	"fmt"
+	"knative.dev/eventing-kafka/pkg/common/constants"
 
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"knative.dev/eventing/pkg/apis/eventing"
@@ -90,6 +91,12 @@ func (kc *KafkaChannel) CheckImmutableFields(_ context.Context, original *KafkaC
 			Details: err.Error(),
 		}
 	} else if diff != "" {
+		// Check the specific case of RetentionDuration being "updated" from the empty string to the default ("PT168H")
+		// This particular change needs to be allowed, otherwise upgrading old channels will fail.
+		if kc.Spec.RetentionDuration == constants.DefaultRetentionISO8601Duration &&
+			original.Spec.RetentionDuration == "" {
+			return nil
+		}
 		return &apis.FieldError{
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},

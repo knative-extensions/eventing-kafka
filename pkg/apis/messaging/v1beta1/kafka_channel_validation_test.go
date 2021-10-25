@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"context"
+	"knative.dev/eventing-kafka/pkg/common/constants"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -325,6 +326,68 @@ func TestKafkaChannelImmutability(t *testing.T) {
 					Message: "Immutable fields changed (-old +new)",
 					Paths:   []string{"spec"},
 					Details: "{v1beta1.KafkaChannelSpec}.RetentionDuration:\n\t-: \"P1D\"\n\t+: \"P2D\"\n",
+				}
+			}(),
+		},
+		"updating immutable retentionDuration (empty to default, exception to rule)": {
+			original: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     1,
+					ReplicationFactor: 1,
+					RetentionDuration: "",
+				},
+			},
+			updated: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     1,
+					ReplicationFactor: 1,
+					RetentionDuration: constants.DefaultRetentionISO8601Duration,
+				},
+			},
+		},
+		"updating immutable retentionDuration (non-empty to default)": {
+			original: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     1,
+					ReplicationFactor: 1,
+					RetentionDuration: "PT1H",
+				},
+			},
+			updated: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     1,
+					ReplicationFactor: 1,
+					RetentionDuration: constants.DefaultRetentionISO8601Duration,
+				},
+			},
+			want: func() *apis.FieldError {
+				return &apis.FieldError{
+					Message: "Immutable fields changed (-old +new)",
+					Paths:   []string{"spec"},
+					Details: "{v1beta1.KafkaChannelSpec}.RetentionDuration:\n\t-: \"PT1H\"\n\t+: \"PT168H\"\n",
+				}
+			}(),
+		},
+		"updating immutable retentionDuration (empty to non-default)": {
+			original: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     1,
+					ReplicationFactor: 1,
+					RetentionDuration: "",
+				},
+			},
+			updated: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     1,
+					ReplicationFactor: 1,
+					RetentionDuration: "PT100H",
+				},
+			},
+			want: func() *apis.FieldError {
+				return &apis.FieldError{
+					Message: "Immutable fields changed (-old +new)",
+					Paths:   []string{"spec"},
+					Details: "{v1beta1.KafkaChannelSpec}.RetentionDuration:\n\t-: \"\"\n\t+: \"PT100H\"\n",
 				}
 			}(),
 		},
