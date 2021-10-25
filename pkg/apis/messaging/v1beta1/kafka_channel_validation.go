@@ -19,6 +19,7 @@ package v1beta1
 import (
 	"context"
 	"fmt"
+	"github.com/rickb777/date/period"
 	"knative.dev/eventing-kafka/pkg/common/constants"
 
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -92,10 +93,13 @@ func (kc *KafkaChannel) CheckImmutableFields(_ context.Context, original *KafkaC
 		}
 	} else if diff != "" {
 		// Check the specific case of RetentionDuration being "updated" from the empty string to the default ("PT168H")
+		// or to the explicit canonical zero, "P0D" (which is an empty Period struct).
 		// This particular change needs to be allowed, otherwise upgrading old channels will fail.
-		if kc.Spec.RetentionDuration == constants.DefaultRetentionISO8601Duration &&
-			original.Spec.RetentionDuration == "" {
-			return nil
+		if original.Spec.RetentionDuration == "" {
+			if kc.Spec.RetentionDuration == constants.DefaultRetentionISO8601Duration ||
+				kc.Spec.RetentionDuration == period.Period.String(period.Period{}) {
+				return nil
+			}
 		}
 		return &apis.FieldError{
 			Message: "Immutable fields changed (-old +new)",

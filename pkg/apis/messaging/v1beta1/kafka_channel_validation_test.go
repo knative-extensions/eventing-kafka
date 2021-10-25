@@ -345,6 +345,22 @@ func TestKafkaChannelImmutability(t *testing.T) {
 				},
 			},
 		},
+		"updating immutable retentionDuration (empty to canonical zero P0D, exception to rule)": {
+			original: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     1,
+					ReplicationFactor: 1,
+					RetentionDuration: "",
+				},
+			},
+			updated: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     1,
+					ReplicationFactor: 1,
+					RetentionDuration: "P0D",
+				},
+			},
+		},
 		"updating immutable retentionDuration (non-empty to default)": {
 			original: &KafkaChannel{
 				Spec: KafkaChannelSpec{
