@@ -19,10 +19,11 @@ package v1beta1
 import (
 	"context"
 	"fmt"
-	"github.com/rickb777/date/period"
-	"knative.dev/eventing-kafka/pkg/common/constants"
 
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/rickb777/date/period"
+
+	"knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/eventing/pkg/apis/eventing"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/kmp"
