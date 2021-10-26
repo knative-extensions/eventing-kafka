@@ -18,8 +18,9 @@ package v1beta1
 
 import (
 	"context"
-	"knative.dev/eventing-kafka/pkg/common/constants"
 	"testing"
+
+	"knative.dev/eventing-kafka/pkg/common/constants"
 
 	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
