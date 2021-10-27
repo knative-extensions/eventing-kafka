@@ -27,6 +27,8 @@ import (
 	"knative.dev/eventing/pkg/apis/eventing"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/webhook/resourcesemantics"
+
+	"knative.dev/eventing-kafka/pkg/common/constants"
 )
 
 func TestKafkaChannelValidation(t *testing.T) {
@@ -325,6 +327,123 @@ func TestKafkaChannelImmutability(t *testing.T) {
 					Message: "Immutable fields changed (-old +new)",
 					Paths:   []string{"spec"},
 					Details: "{v1beta1.KafkaChannelSpec}.RetentionDuration:\n\t-: \"P1D\"\n\t+: \"P2D\"\n",
+				}
+			}(),
+		},
+		"updating immutable retentionDuration (empty to default, immutability exception)": {
+			original: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     1,
+					ReplicationFactor: 1,
+					RetentionDuration: "",
+				},
+			},
+			updated: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     1,
+					ReplicationFactor: 1,
+					RetentionDuration: constants.DefaultRetentionISO8601Duration,
+				},
+			},
+		},
+		"updating immutable retentionDuration (empty to canonical zero P0D, immutability exception)": {
+			original: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     1,
+					ReplicationFactor: 1,
+					RetentionDuration: "",
+				},
+			},
+			updated: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     1,
+					ReplicationFactor: 1,
+					RetentionDuration: "P0D",
+				},
+			},
+		},
+		"updating immutable retentionDuration (non-empty to default)": {
+			original: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     1,
+					ReplicationFactor: 1,
+					RetentionDuration: "PT1H",
+				},
+			},
+			updated: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     1,
+					ReplicationFactor: 1,
+					RetentionDuration: constants.DefaultRetentionISO8601Duration,
+				},
+			},
+			want: func() *apis.FieldError {
+				return &apis.FieldError{
+					Message: "Immutable fields changed (-old +new)",
+					Paths:   []string{"spec"},
+					Details: "{v1beta1.KafkaChannelSpec}.RetentionDuration:\n\t-: \"PT1H\"\n\t+: \"PT168H\"\n",
+				}
+			}(),
+		},
+		"updating immutable retentionDuration (empty to non-default, immutability exception)": {
+			original: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     1,
+					ReplicationFactor: 1,
+					RetentionDuration: "",
+				},
+			},
+			updated: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     1,
+					ReplicationFactor: 1,
+					RetentionDuration: "PT100H",
+				},
+			},
+		},
+		"updating immutable retentionDuration (immutability exception) and numPartitions": {
+			original: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     1,
+					ReplicationFactor: 1,
+					RetentionDuration: "",
+				},
+			},
+			updated: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     2,
+					ReplicationFactor: 1,
+					RetentionDuration: "PT100H",
+				},
+			},
+			want: func() *apis.FieldError {
+				return &apis.FieldError{
+					Message: "Immutable fields changed (-old +new)",
+					Paths:   []string{"spec"},
+					Details: "{v1beta1.KafkaChannelSpec}.NumPartitions:\n\t-: \"1\"\n\t+: \"2\"\n",
+				}
+			}(),
+		},
+		"updating immutable retentionDuration (immutability exception) and numPartitions and replicationFactor": {
+			original: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     1,
+					ReplicationFactor: 1,
+					RetentionDuration: "",
+				},
+			},
+			updated: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     2,
+					ReplicationFactor: 3,
+					RetentionDuration: "PT100H",
+				},
+			},
+			want: func() *apis.FieldError {
+				return &apis.FieldError{
+					Message: "Immutable fields changed (-old +new)",
+					Paths:   []string{"spec"},
+					Details: "{v1beta1.KafkaChannelSpec}.NumPartitions:\n\t-: \"1\"\n\t+: \"2\"\n{v1beta1.KafkaChannelSpec}.ReplicationFactor:\n\t-: \"1\"\n\t+: \"3\"\n",
 				}
 			}(),
 		},
