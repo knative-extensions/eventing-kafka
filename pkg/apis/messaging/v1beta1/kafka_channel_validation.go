@@ -90,7 +90,7 @@ func (kc *KafkaChannel) CheckImmutableFields(_ context.Context, original *KafkaC
 			Details: err.Error(),
 		}
 	} else if diff != "" {
-		if original.Spec.RetentionDuration == "" {
+		if original.Spec.RetentionDuration == "" && kc.Spec.RetentionDuration != "" {
 			// In the specific case of the original RetentionDuration being an empty string, allow it
 			// as an exception to the immutability requirement.
 			//
@@ -98,7 +98,12 @@ func (kc *KafkaChannel) CheckImmutableFields(_ context.Context, original *KafkaC
 			// string), and in v0.26 there is a post-install job that updates this to its proper value.
 			// This immutability check was added after the post-install job, and without this exception
 			// it will fail attempting to upgrade those pre-v0.26 channels.
-			return nil
+
+			// However, attempting to change any other immutable fields along with the RetentionDuration
+			// is still forbidden, so check again without the RetentionDuration.
+			copyWithEmptyRetention := kc.DeepCopy()
+			copyWithEmptyRetention.Spec.RetentionDuration = ""
+			return copyWithEmptyRetention.CheckImmutableFields(nil, original)
 		}
 		return &apis.FieldError{
 			Message: "Immutable fields changed (-old +new)",

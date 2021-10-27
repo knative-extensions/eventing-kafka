@@ -401,7 +401,52 @@ func TestKafkaChannelImmutability(t *testing.T) {
 				},
 			},
 		},
-	}
+		"updating immutable retentionDuration (immutability exception) and numPartitions": {
+			original: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     1,
+					ReplicationFactor: 1,
+					RetentionDuration: "",
+				},
+			},
+			updated: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     2,
+					ReplicationFactor: 1,
+					RetentionDuration: "PT100H",
+				},
+			},
+			want: func() *apis.FieldError {
+				return &apis.FieldError{
+					Message: "Immutable fields changed (-old +new)",
+					Paths:   []string{"spec"},
+					Details: "{v1beta1.KafkaChannelSpec}.NumPartitions:\n\t-: \"1\"\n\t+: \"2\"\n",
+				}
+			}(),
+		},
+		"updating immutable retentionDuration (immutability exception) and numPartitions and replicationFactor": {
+			original: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     1,
+					ReplicationFactor: 1,
+					RetentionDuration: "",
+				},
+			},
+			updated: &KafkaChannel{
+				Spec: KafkaChannelSpec{
+					NumPartitions:     2,
+					ReplicationFactor: 3,
+					RetentionDuration: "PT100H",
+				},
+			},
+			want: func() *apis.FieldError {
+				return &apis.FieldError{
+					Message: "Immutable fields changed (-old +new)",
+					Paths:   []string{"spec"},
+					Details: "{v1beta1.KafkaChannelSpec}.NumPartitions:\n\t-: \"1\"\n\t+: \"2\"\n{v1beta1.KafkaChannelSpec}.ReplicationFactor:\n\t-: \"1\"\n\t+: \"3\"\n",
+				}
+			}(),
+		},	}
 
 	for n, test := range testCases {
 		t.Run(n, func(t *testing.T) {
