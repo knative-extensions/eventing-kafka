@@ -77,7 +77,7 @@ func (kcs *KafkaChannelSpec) Validate(ctx context.Context) *apis.FieldError {
 	return errs
 }
 
-func (kc *KafkaChannel) CheckImmutableFields(_ context.Context, original *KafkaChannel) *apis.FieldError {
+func (kc *KafkaChannel) CheckImmutableFields(ctx context.Context, original *KafkaChannel) *apis.FieldError {
 	if original == nil {
 		return nil
 	}
@@ -103,7 +103,7 @@ func (kc *KafkaChannel) CheckImmutableFields(_ context.Context, original *KafkaC
 			// is still forbidden, so check again without the RetentionDuration.
 			copyWithEmptyRetention := kc.DeepCopy()
 			copyWithEmptyRetention.Spec.RetentionDuration = ""
-			return copyWithEmptyRetention.CheckImmutableFields(nil, original)
+			return copyWithEmptyRetention.CheckImmutableFields(ctx, original)
 		}
 		return &apis.FieldError{
 			Message: "Immutable fields changed (-old +new)",
