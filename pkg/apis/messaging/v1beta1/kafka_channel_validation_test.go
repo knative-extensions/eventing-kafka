@@ -446,7 +446,8 @@ func TestKafkaChannelImmutability(t *testing.T) {
 					Details: "{v1beta1.KafkaChannelSpec}.NumPartitions:\n\t-: \"1\"\n\t+: \"2\"\n{v1beta1.KafkaChannelSpec}.ReplicationFactor:\n\t-: \"1\"\n\t+: \"3\"\n",
 				}
 			}(),
-		},	}
+		},
+	}
 
 	for n, test := range testCases {
 		t.Run(n, func(t *testing.T) {
