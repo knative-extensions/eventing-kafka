@@ -19,6 +19,7 @@ package v1beta1
 import (
 	"context"
 	"fmt"
+
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -83,7 +84,7 @@ func (kc *KafkaChannel) CheckImmutableFields(_ context.Context, original *KafkaC
 		return nil
 	}
 
-	ignoreArguments :=	[]cmp.Option{cmpopts.IgnoreFields(KafkaChannelSpec{}, "ChannelableSpec")}
+	ignoreArguments := []cmp.Option{cmpopts.IgnoreFields(KafkaChannelSpec{}, "ChannelableSpec")}
 
 	// In the specific case of the original RetentionDuration being an empty string, allow it
 	// as an exception to the immutability requirement.
