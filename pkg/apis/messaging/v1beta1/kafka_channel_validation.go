@@ -19,6 +19,7 @@ package v1beta1
 import (
 	"context"
 	"fmt"
+	"github.com/google/go-cmp/cmp"
 
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"knative.dev/eventing/pkg/apis/eventing"
@@ -77,34 +78,31 @@ func (kcs *KafkaChannelSpec) Validate(ctx context.Context) *apis.FieldError {
 	return errs
 }
 
-func (kc *KafkaChannel) CheckImmutableFields(ctx context.Context, original *KafkaChannel) *apis.FieldError {
+func (kc *KafkaChannel) CheckImmutableFields(_ context.Context, original *KafkaChannel) *apis.FieldError {
 	if original == nil {
 		return nil
 	}
 
-	ignoreArguments := cmpopts.IgnoreFields(KafkaChannelSpec{}, "ChannelableSpec")
-	if diff, err := kmp.ShortDiff(original.Spec, kc.Spec, ignoreArguments); err != nil {
+	ignoreArguments :=	[]cmp.Option{cmpopts.IgnoreFields(KafkaChannelSpec{}, "ChannelableSpec")}
+
+	// In the specific case of the original RetentionDuration being an empty string, allow it
+	// as an exception to the immutability requirement.
+	//
+	// KafkaChannels created pre-v0.26 will not have a RetentionDuration field (thus an empty
+	// string), and in v0.26 there is a post-install job that updates this to its proper value.
+	// This immutability check was added after the post-install job, and without this exception
+	// it will fail attempting to upgrade those pre-v0.26 channels.
+	if original.Spec.RetentionDuration == "" && kc.Spec.RetentionDuration != "" {
+		ignoreArguments = append(ignoreArguments, cmpopts.IgnoreFields(KafkaChannelSpec{}, "RetentionDuration"))
+	}
+
+	if diff, err := kmp.ShortDiff(original.Spec, kc.Spec, ignoreArguments...); err != nil {
 		return &apis.FieldError{
 			Message: "Failed to diff KafkaChannel",
 			Paths:   []string{"spec"},
 			Details: err.Error(),
 		}
 	} else if diff != "" {
-		if original.Spec.RetentionDuration == "" && kc.Spec.RetentionDuration != "" {
-			// In the specific case of the original RetentionDuration being an empty string, allow it
-			// as an exception to the immutability requirement.
-			//
-			// KafkaChannels created pre-v0.26 will not have a RetentionDuration field (thus an empty
-			// string), and in v0.26 there is a post-install job that updates this to its proper value.
-			// This immutability check was added after the post-install job, and without this exception
-			// it will fail attempting to upgrade those pre-v0.26 channels.
-
-			// However, attempting to change any other immutable fields along with the RetentionDuration
-			// is still forbidden, so check again without the RetentionDuration.
-			copyWithEmptyRetention := kc.DeepCopy()
-			copyWithEmptyRetention.Spec.RetentionDuration = ""
-			return copyWithEmptyRetention.CheckImmutableFields(ctx, original)
-		}
 		return &apis.FieldError{
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
