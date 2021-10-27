@@ -22,11 +22,11 @@ import (
 
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/rickb777/date/period"
-
-	"knative.dev/eventing-kafka/pkg/common/constants"
 	"knative.dev/eventing/pkg/apis/eventing"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/kmp"
+
+	"knative.dev/eventing-kafka/pkg/common/constants"
 )
 
 func (kc *KafkaChannel) Validate(ctx context.Context) *apis.FieldError {
