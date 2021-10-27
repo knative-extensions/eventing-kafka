@@ -330,7 +330,7 @@ func TestKafkaChannelImmutability(t *testing.T) {
 				}
 			}(),
 		},
-		"updating immutable retentionDuration (empty to default, exception to rule)": {
+		"updating immutable retentionDuration (empty to default, immutability exception)": {
 			original: &KafkaChannel{
 				Spec: KafkaChannelSpec{
 					NumPartitions:     1,
@@ -346,7 +346,7 @@ func TestKafkaChannelImmutability(t *testing.T) {
 				},
 			},
 		},
-		"updating immutable retentionDuration (empty to canonical zero P0D, exception to rule)": {
+		"updating immutable retentionDuration (empty to canonical zero P0D, immutability exception)": {
 			original: &KafkaChannel{
 				Spec: KafkaChannelSpec{
 					NumPartitions:     1,
@@ -385,7 +385,7 @@ func TestKafkaChannelImmutability(t *testing.T) {
 				}
 			}(),
 		},
-		"updating immutable retentionDuration (empty to non-default)": {
+		"updating immutable retentionDuration (empty to non-default, immutability exception)": {
 			original: &KafkaChannel{
 				Spec: KafkaChannelSpec{
 					NumPartitions:     1,
@@ -400,13 +400,6 @@ func TestKafkaChannelImmutability(t *testing.T) {
 					RetentionDuration: "PT100H",
 				},
 			},
-			want: func() *apis.FieldError {
-				return &apis.FieldError{
-					Message: "Immutable fields changed (-old +new)",
-					Paths:   []string{"spec"},
-					Details: "{v1beta1.KafkaChannelSpec}.RetentionDuration:\n\t-: \"\"\n\t+: \"PT100H\"\n",
-				}
-			}(),
 		},
 	}
 
