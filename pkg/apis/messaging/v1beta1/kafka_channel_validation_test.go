@@ -20,8 +20,6 @@ import (
 	"context"
 	"testing"
 
-	"knative.dev/eventing-kafka/pkg/common/constants"
-
 	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -29,6 +27,8 @@ import (
 	"knative.dev/eventing/pkg/apis/eventing"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/webhook/resourcesemantics"
+
+	"knative.dev/eventing-kafka/pkg/common/constants"
 )
 
 func TestKafkaChannelValidation(t *testing.T) {
