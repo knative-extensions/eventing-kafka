@@ -29,3 +29,38 @@ kubectl port-forward svc/<service> -n <namespace> 8081:8081
 telepresence
 curl http://<service>.<namespace>.svc.cluster.local:8081/metrics
 ```
+
+## Prometheus Alerts
+
+The following are sample Prometheus alerts based on the distributed KafkaChannel
+metrics and are provided only as a starting point for creating your own alerts.
+
+```yaml
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  labels:
+    prometheus: kube-prometheus
+    role: alert-rules
+  name: eventing-kafka-channel.rules
+spec:
+  groups:
+  - name: eventing-kafka-channel.rules
+    rules:
+    - alert: EventingKafkaReceiverBrokerLatencyWarning
+      annotations:
+        summary: "Receiver Kafka broker request latency is excessively high."
+        description: "{{`Kafka broker request latency ({{ $value }}ms) has exceeded 200ms for more than 5 minutes.`}}"
+      expr: eventing_kafka_request_latency_in_ms{job="eventing-kafka-channels", percentile="95%"} > 200
+      for: 5m
+      labels:
+        severity: warning
+    - alert: EventingKafkaDispatcherBrokerLatencyWarning
+      annotations:
+        summary: "Dispatcher Kafka broker request latency is excessively high."
+        description: "{{`Kafka broker request latency ({{ $value }}ms) has exceeded 400ms for more than 5 minutes.`}}"
+      expr: eventing_kafka_request_latency_in_ms{job="eventing-kafka-dispatchers", percentile="95%"} > 400
+      for: 5m
+      labels:
+        severity: warning
+```

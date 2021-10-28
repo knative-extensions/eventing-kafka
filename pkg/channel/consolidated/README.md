@@ -6,7 +6,7 @@ topics.
 ## Deployment steps
 
 1. Setup
-   [Knative Eventing](https://knative.dev/docs/install/any-kubernetes-cluster/#installing-the-eventing-component)
+   [Knative Eventing](https://knative.dev/docs/admin/install/eventing/install-eventing-with-yaml/)
 1. Install an Apache Kafka cluster, if you have not done so already.
 
    For Kubernetes a simple installation is done using the
@@ -52,12 +52,13 @@ topics.
    spec:
      numPartitions: 1
      replicationFactor: 1
+     retentionDuration: PT168H
    ```
 
    You can configure the number of partitions with `numPartitions`, as well as
-   the replication factor with `replicationFactor`. If not set, both will
-   default to the values provided in the `eventing-kafka.kafka.topic` section of
-   the `config-kafka` ConfigMap.
+   the replication factor with `replicationFactor`, and the Kafka message
+   retention with `retentionDuration`. If not set, these will be defaulted by
+   the WebHook to `1`, `1`, and `PT168H` respectively.
 
 ## Components
 
@@ -88,9 +89,9 @@ objects:
 kubectl get deployment -n knative-eventing kafka-webhook
 ```
 
-The Kafka Config Map is used to configure the `brokers` of your Apache
-Kafka installation, as well as other settings.  Note that not all settings are
-applicable to the consolidated channel type.  In particular, the `receiver` and
+The Kafka Config Map is used to configure the `brokers` of your Apache Kafka
+installation, as well as other settings. Note that not all settings are
+applicable to the consolidated channel type. In particular, the `receiver` and
 `admintype` fields of the `eventing-kafka.channel` section are only used by the
 distributed channel type.
 
@@ -101,9 +102,9 @@ kubectl get configmap -n knative-eventing config-kafka
 ### Namespace Dispatchers
 
 By default, events are received and dispatched by a single cluster-scoped
-dispatcher component. You can also specify whether events should be received
-and dispatched by the dispatcher in the same namespace as the channel definition
-by adding the `eventing.knative.dev/scope: namespace` annotation.
+dispatcher component. You can also specify whether events should be received and
+dispatched by the dispatcher in the same namespace as the channel definition by
+adding the `eventing.knative.dev/scope: namespace` annotation.
 
 First, you need to create the configMap `config-kafka` in the same namespace as
 the KafkaChannel.
@@ -188,8 +189,8 @@ Also, some Sarama settings are required for the channel to work, such as
 `Consumer.Return.Errors` and `Producer.Return.Successes`, so the value for these
 in the `config-kafka` is ignored.
 
-Value of the `sarama.config` key must be valid YAML string. The string is marshalled
-into a
+Value of the `sarama.config` key must be valid YAML string. The string is
+marshalled into a
 [Sarama config struct](https://github.com/Shopify/sarama/blob/master/config.go),
 with a few exceptions (`Version` and certificates).
 

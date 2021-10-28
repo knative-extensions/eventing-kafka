@@ -1,9 +1,10 @@
 # Distributed KafkaChannel Config
 
 The YAML files in this directory represent the
-[ko](https://github.com/google/ko) development level configuration use to work
-on the distributed kafka channel source. They will install into the existing
-Kubernetes cluster which should have Knative Eventing installed. It is also
+[ko](https://github.com/google/ko) development level configuration used to work
+on the distributed KafkaChannel implementation. They also form the basis for the
+official Release artifacts. They will install into an existing Kubernetes
+cluster, which should already have Knative Eventing installed. It is also
 expected that the user will provide a viable Kafka cluster and associated
 configuration.
 
@@ -11,10 +12,11 @@ configuration.
 
 As mentioned above these YAML files are to be installed with `ko`. Thus, you
 need to set the `$KO_DOCKER_REPO` environment variable as desired. If using
-`ko.local` then you'll need to change the `ImagePullPolicy` to `IfNotPresent`.
+`ko.local` or `kind.local` you will also need to ensure the `ImagePullPolicy`
+is `IfNotPresent`.
 
 The **data** values of the [kafka-secret.yaml](300-kafka-secret.yaml) should be
-correctly populated for the user provided Kafka cluster. Similarly the **data**
+correctly populated for the user provided Kafka cluster. Similarly, the **data**
 values of the [eventing-kafka-configmap.yaml](300-eventing-kafka-configmap.yaml)
 file should be configured for your particular use case.
 
@@ -42,12 +44,12 @@ one of `kafka`, `azure`, or `custom` as follows...
   sidecar Container with the expected HTTP endpoints. They will need to add
   their sidecar Container to the
   [deployment.yaml](500-controller-deployment.yaml). Details for implementing
-  such a solution can be found in the
-  [Kafka README](../../../pkg/channel/distributed/common/kafka/README.md).
+  such a solution can be found in this
+  [README](../../../pkg/channel/distributed/common/kafka/README.md).
 
 > Note: This setting only alters the mechanism by which Kafka Topics are managed
 > (Create & Delete). In all cases the same Sarama SyncProducer and ConsumerGroup
-> implementation is used to actually produce and consume to/from Kafka.
+> implementation is used to actually produce and consume to/from Kafka Topics.
 
 ## Credentials
 
