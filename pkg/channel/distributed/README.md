@@ -14,6 +14,90 @@ which provides a more granular architecture as an alternative to what the
 original "[consolidated](../consolidated)" implementation offers. Specifically
 it deploys a single/separate Receiver, and one Dispatcher per KafkaChannel.
 
+## Deployment
+
+1. Setup
+   [Knative Eventing](https://knative.dev/docs/install/any-kubernetes-cluster/#installing-the-eventing-component)
+
+
+2. Install an Apache Kafka cluster:
+
+   A simple in-cluster Kafka installation can be setup using the
+   [Strimzi Kafka Operator](http://strimzi.io). Its installation
+   [guides](http://strimzi.io/quickstarts/) provide content for Kubernetes and
+   Openshift. The `KafkaChannel` is not limited to Apache Kafka installations on
+   Kubernetes, and it is also possible to use an off-cluster Apache Kafka
+   installation as long as the Kafka broker networking is in place.
+
+
+3. Point the KafkaChannel at your Kafka cluster (brokers):
+
+   Now that Apache Kafka is installed, you need to configure the
+   `brokers` value in the `config-kafka` ConfigMap, located inside the
+   `config/300-eventing-kafka-config.yaml` file.
+
+   ```yaml
+   apiVersion: v1
+   kind: ConfigMap
+   metadata:
+     name: config-kafka
+     namespace: knative-eventing
+   data:
+     eventing-kafka: |
+      kafka:
+        brokers: <kafka-brokers-urls-csv>
+   ```
+
+   **Note:** Additional Kafka client configuration, such as TLS, SASL and other
+   Kafka behaviors, is possible via the `sarama` section of
+   the `config-kafka` [ConfigMap](../../../config/channel/distributed/300-eventing-kafka-configmap.yaml)
+   which is detailed in the
+   configuration [README](../../../config/channel/distributed/README.md).
+
+
+4. Apply the KafkaChannel configuration:
+
+   ```sh
+   ko apply -f config/channel/distributed
+   ```
+
+5. Create a `KafkaChannel` custom object:
+
+   ```yaml
+   apiVersion: messaging.knative.dev/v1beta1
+   kind: KafkaChannel
+   metadata:
+     name: my-kafka-channel
+   spec:
+     numPartitions: 1
+     replicationFactor: 1
+     retentionDuration: PT168H
+   ```
+
+   You can configure the number of partitions with `numPartitions`, as well as
+   the replication factor with `replicationFactor`, and the Kafka message
+   retention with `retentionDuration`. If not set, these will be defaulted by
+   the WebHook to `1`, `1`, and `PT168H` respectively.
+
+
+6. Create a `Subscription` to the `KafkaChannel`:
+
+   ```yaml
+   apiVersion: messaging.knative.dev/v1
+   kind: Subscription
+   spec:
+     channel:
+       apiVersion: messaging.knative.dev/v1beta1
+       kind: KafkaChannel
+       name: my-kafka-channel
+   delivery:
+     backoffDelay: PT0.5S
+     backoffPolicy: exponential
+     retry: 5
+   subscriber:
+     uri: <subscriber-uri>
+   ```
+
 ## Rationale
 
 The Knative "consolidated" KafkaChannel already provides a Kafka backed Channel
@@ -44,8 +128,8 @@ implementation that can deploy either runtime architecture as desired.
 As mentioned in the "Rationale" section above, the desire was to implement
 different levels of granularity to achieve improved segregation and scaling
 characteristics. Our original implementation was extremely granular in that
-there was a separate Channel/Producer Deployment for every `KafkaChannel` (Kafka
-Topic), and a separate Dispatcher/Consumer Deployment for every Knative
+there was a separate Receiver/Producer Deployment for every `KafkaChannel` (
+Kafka Topic), and a separate Dispatcher/Consumer Deployment for every Knative
 Subscription. This allowed the highest level of segregation and the ability to
 tweak K8S resources at the finest level.
 
@@ -54,8 +138,9 @@ related to the sheer number of Deployments in the K8S cluster, as well as the
 inherent inefficiencies of low traffic rate Channels / Subscriptions being
 underutilized. Adding in a service-mesh (such as Istio) further exacerbates the
 problem by adding side-cars to every Deployment. Therefore, we've taken a step
-back and aggregated the Channels/Producers together into a single Deployment per
-Kafka authorization, and the Dispatchers/Consumers into a single Deployment per
+back and aggregated the Receivers/Producers together into a single Deployment
+per Kafka authorization, and the Dispatchers/Consumers into a single Deployment
+per
 `KafkaChannel` (Topic). The implementations of each are horizontally scalable
 which provides a reasonable compromise between resource consumption and
 segregation / scaling.
@@ -66,10 +151,13 @@ The "distributed" KafkaChannel consists of three distinct runtime K8S
 deployments as follows...
 
 - [controller](controller/README.md) - This component implements the
-  `KafkaChannel` Controller. It is using the current knative-eventing "Shared
-  Main" approach based directly on K8S informers / listers. The controller is
-  using the shared `KafkaChannel` CRD, [apis/](../../../pkg/apis), and
-  [client](../../../pkg/client) implementations in this repository.
+  `KafkaChannel` Controller, and is using the current knative-eventing "Shared
+  Main" approach based directly on K8S informers / listers. The controller
+  utilizes the shared `KafkaChannel` CRD, [apis/](../../../pkg/apis), and
+  [client](../../../pkg/client) implementations in this repository. This
+  component also implements the `ResetOffset` Controller in order to support the
+  ability to reposition the ConsumerGroup Offsets of a particular Subscription
+  to a specific timestamp.
 
 - [dispatcher](dispatcher/README.md) - This component runs the Kafka
   ConsumerGroups responsible for processing messages from the corresponding
@@ -86,6 +174,9 @@ deployments as follows...
 
 - [config](../../../config/channel/distributed/README.md) - Eventing-kafka
   **ko** installable YAML files for installation.
+
+- [webhook](../../../cmd/webhook) - Eventing-Kafka Webhook will set defaults and
+  perform validation of KafkaChannels.
 
 ### Control Plane
 
@@ -106,15 +197,15 @@ Kafka-like)
 ### Data Plane
 
 The data plane for all `KafkaChannels` runs in the knative-eventing namespace.
-There is a single deployment for the receiver side of all channels which accepts
-CloudEvents and writes them to Kafka Topics. Each `KafkaChannel` uses one Kafka
-Topic. This deployment supports horizontal scaling with linearly increasing
-performance characteristics through specifying the number of replicas.
+There is a single Deployment for the receiver side of all channels which accepts
+CloudEvents and writes them to Kafka Topics. Each `KafkaChannel` is backed by a
+separate Kafka Topic. This Deployment supports horizontal scaling with linearly
+increasing performance characteristics.
 
-Each `KafkaChannel` has one deployment for the dispatcher side which reads from
-the Kafka Topic and sends to subscribers. Each subscriber has its own Kafka
-consumer group. This deployment can be scaled up to a replica count equalling
-the number of partitions in the Kafka Topic.
+Each `KafkaChannel` has a separate Deployment for the dispatcher side which
+reads from the Kafka Topic and sends to subscribers. Each subscriber has its own
+Kafka consumer group. This Deployment can be scaled up to a replica count
+equalling the number of partitions in the Kafka Topic.
 
 ### Messaging Guarantees
 
