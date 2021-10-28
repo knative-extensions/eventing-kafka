@@ -17,7 +17,7 @@ it deploys a single/separate Receiver, and one Dispatcher per KafkaChannel.
 ## Deployment
 
 1. Setup
-   [Knative Eventing](https://knative.dev/docs/install/any-kubernetes-cluster/#installing-the-eventing-component)
+   [Knative Eventing](https://knative.dev/docs/admin/install/eventing/install-eventing-with-yaml/)
 
 
 2. Install an Apache Kafka cluster:

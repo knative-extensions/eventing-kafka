@@ -6,7 +6,7 @@ topics.
 ## Deployment steps
 
 1. Setup
-   [Knative Eventing](https://knative.dev/docs/install/any-kubernetes-cluster/#installing-the-eventing-component)
+   [Knative Eventing](https://knative.dev/docs/admin/install/eventing/install-eventing-with-yaml/)
 1. Install an Apache Kafka cluster, if you have not done so already.
 
    For Kubernetes a simple installation is done using the
