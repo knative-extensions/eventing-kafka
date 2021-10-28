@@ -34,7 +34,8 @@ it deploys a single/separate Receiver, and one Dispatcher per KafkaChannel.
 
    Now that Apache Kafka is installed, you need to configure the
    `brokers` value in the `config-kafka` ConfigMap, located inside the
-   `config/300-eventing-kafka-config.yaml` file.
+   [300-eventing-kafka-config.yaml](../../../config/channel/distributed/300-eventing-kafka-configmap.yaml)
+   file.
 
    ```yaml
    apiVersion: v1
@@ -128,8 +129,8 @@ implementation that can deploy either runtime architecture as desired.
 As mentioned in the "Rationale" section above, the desire was to implement
 different levels of granularity to achieve improved segregation and scaling
 characteristics. Our original implementation was extremely granular in that
-there was a separate Receiver/Producer Deployment for every `KafkaChannel` (
-Kafka Topic), and a separate Dispatcher/Consumer Deployment for every Knative
+there was a separate Receiver/Producer Deployment for every `KafkaChannel`
+(Kafka Topic), and a separate Dispatcher/Consumer Deployment for every Knative
 Subscription. This allowed the highest level of segregation and the ability to
 tweak K8S resources at the finest level.
 
