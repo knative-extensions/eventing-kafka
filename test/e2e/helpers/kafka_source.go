@@ -250,7 +250,6 @@ func AssureKafkaSourceIsOperational(t *testing.T, scope SourceTestScope) {
 			matcherGen: func(cloudEventsSourceName, cloudEventsEventType string) EventMatcher {
 				return AllOf(
 					HasSpecVersion(cloudevents.VersionV1),
-					HasType("my.own.type"), // TODO: this is wrong (bug in CloudEvent SDK)
 					HasSource("https://github.com/cloudevents/spec/pull"),
 					HasExtension("comexampleothervalue", "5"),
 				)
