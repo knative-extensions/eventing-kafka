@@ -45,9 +45,9 @@ import (
 	reconcilerkafkasource "knative.dev/eventing-kafka/pkg/client/injection/reconciler/sources/v1beta1/kafkasource"
 	listers "knative.dev/eventing-kafka/pkg/client/listers/sources/v1beta1"
 	"knative.dev/eventing-kafka/pkg/common/kafka/offset"
-	"knative.dev/eventing-kafka/pkg/common/scheduler"
 	"knative.dev/eventing-kafka/pkg/source/client"
 	"knative.dev/eventing-kafka/pkg/source/reconciler/common"
+	"knative.dev/eventing/pkg/scheduler"
 )
 
 const (
