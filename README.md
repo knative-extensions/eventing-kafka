@@ -1,5 +1,7 @@
 # Contributed Kafka Channel implementation
 
+**[These components are GA](https://github.com/knative/community/tree/main/mechanics/MATURITY-LEVELS.md)**
+
 This is a Kafka Channel implementation, contributed by
 [SAP's Kyma project](https://github.com/kyma-incubator/knative-kafka).
 
