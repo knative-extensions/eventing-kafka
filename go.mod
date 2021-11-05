@@ -35,7 +35,10 @@ require (
 	k8s.io/utils v0.0.0-20201110183641-67b214c5f920
 	knative.dev/control-protocol v0.0.0-20211101215039-a32569595694
 	knative.dev/eventing v0.27.0
-	knative.dev/hack v0.0.0-20211101195839-11d193bf617b
+	knative.dev/hack v0.0.0-20211104075903-0f69979bbb7d
 	knative.dev/pkg v0.0.0-20211101212339-96c0204a70dc
 	knative.dev/reconciler-test v0.0.0-20211101214439-9839937c9b13
 )
+
+// Stick to v1.29.1 to avoid eventing e2e from upgrading.
+replace github.com/Shopify/sarama => github.com/Shopify/sarama v1.29.1

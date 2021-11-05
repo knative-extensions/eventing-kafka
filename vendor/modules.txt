@@ -61,7 +61,7 @@ github.com/Azure/go-autorest/tracing
 github.com/PuerkitoBio/purell
 # github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578
 github.com/PuerkitoBio/urlesc
-# github.com/Shopify/sarama v1.29.1
+# github.com/Shopify/sarama v1.29.1 => github.com/Shopify/sarama v1.29.1
 ## explicit
 github.com/Shopify/sarama
 # github.com/beorn7/perks v1.0.1
@@ -1257,7 +1257,7 @@ knative.dev/eventing/test/upgrade/prober/wathola/fetcher
 knative.dev/eventing/test/upgrade/prober/wathola/forwarder
 knative.dev/eventing/test/upgrade/prober/wathola/receiver
 knative.dev/eventing/test/upgrade/prober/wathola/sender
-# knative.dev/hack v0.0.0-20211101195839-11d193bf617b
+# knative.dev/hack v0.0.0-20211104075903-0f69979bbb7d
 ## explicit
 knative.dev/hack
 knative.dev/hack/shell
@@ -1397,3 +1397,4 @@ sigs.k8s.io/structured-merge-diff/v4/typed
 sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.3.0
 sigs.k8s.io/yaml
+# github.com/Shopify/sarama => github.com/Shopify/sarama v1.29.1
