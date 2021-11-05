@@ -187,6 +187,8 @@ func configureMockBroker(t *testing.T, group string, topicOffsets map[string]map
 		}
 	}
 
+	apiVersionResponse := sarama.NewMockApiVersionsResponse(t)
+
 	broker.SetHandlerByMap(map[string]sarama.MockResponse{
 		"OffsetRequest":       offsetResponse,
 		"OffsetFetchRequest":  offsetFetchResponse,
@@ -196,5 +198,7 @@ func configureMockBroker(t *testing.T, group string, topicOffsets map[string]map
 			SetCoordinator(sarama.CoordinatorGroup, group, broker),
 
 		"MetadataRequest": metadataResponse,
+
+		"ApiVersionsRequest": apiVersionResponse,
 	})
 }

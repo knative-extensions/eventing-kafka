@@ -74,9 +74,12 @@ func TestGetOffset(t *testing.T) {
 				}
 			}
 
+			apiVersionResponse := sarama.NewMockApiVersionsResponse(t)
+
 			broker.SetHandlerByMap(map[string]sarama.MockResponse{
-				"OffsetRequest":   offsetResponse,
-				"MetadataRequest": metadataResponse,
+				"OffsetRequest":      offsetResponse,
+				"MetadataRequest":    metadataResponse,
+				"ApiVersionsRequest": apiVersionResponse,
 			})
 
 			config := sarama.NewConfig()
