@@ -39,3 +39,6 @@ require (
 	knative.dev/pkg v0.0.0-20211101212339-96c0204a70dc
 	knative.dev/reconciler-test v0.0.0-20211101214439-9839937c9b13
 )
+
+// Stick to v1.29.1 to avoid eventing e2e from upgrading.
+replace github.com/Shopify/sarama => github.com/Shopify/sarama v1.29.1
