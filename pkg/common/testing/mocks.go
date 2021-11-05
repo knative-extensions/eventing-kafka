@@ -34,6 +34,18 @@ func (ca *MockClusterAdmin) UpsertUserScramCredentials(upsert []sarama.AlterUser
 	return nil, nil
 }
 
+func (ca *MockClusterAdmin) DescribeClientQuotas(components []sarama.QuotaFilterComponent, strict bool) ([]sarama.DescribeClientQuotasEntry, error) {
+	return nil, nil
+}
+
+func (ca *MockClusterAdmin) AlterClientQuotas(entity []sarama.QuotaEntityComponent, op sarama.ClientQuotasOp, validateOnly bool) error {
+	return nil
+}
+
+func (ca *MockClusterAdmin) Controller() (*sarama.Broker, error) {
+	return nil, nil
+}
+
 func (ca *MockClusterAdmin) CreateTopic(topic string, detail *sarama.TopicDetail, validateOnly bool) error {
 	if ca.MockCreateTopicFunc != nil {
 		return ca.MockCreateTopicFunc(topic, detail, validateOnly)
@@ -101,6 +113,10 @@ func (ca *MockClusterAdmin) DescribeConsumerGroups(groups []string) ([]*sarama.G
 
 func (ca *MockClusterAdmin) ListConsumerGroupOffsets(group string, topicPartitions map[string][]int32) (*sarama.OffsetFetchResponse, error) {
 	return &sarama.OffsetFetchResponse{}, nil
+}
+
+func (ca *MockClusterAdmin) DeleteConsumerGroupOffset(group string, topic string, partition int32) error {
+	return nil
 }
 
 func (ca *MockClusterAdmin) DescribeCluster() (brokers []*sarama.Broker, controllerID int32, err error) {
