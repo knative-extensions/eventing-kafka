@@ -30,6 +30,8 @@ COMPONENTS=(
   ["source.yaml"]="config/source/single"
   ["mt-source.yaml"]="config/source/multi"
   ["source-crds.yaml"]="config/source/common/resources"
+  ["source-crd.yaml"]="config/source/common/resources/source"
+  ["binding-crd.yaml"]="config/source/common/resources/binding"
 )
 readonly COMPONENTS
 
