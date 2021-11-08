@@ -7,7 +7,7 @@ require (
 	github.com/Azure/azure-sdk-for-go v47.1.0+incompatible // indirect
 	github.com/Azure/go-autorest/autorest/to v0.4.0 // indirect
 	github.com/Azure/go-autorest/autorest/validation v0.3.0 // indirect
-	github.com/Shopify/sarama v1.29.1
+	github.com/Shopify/sarama v1.30.0
 	github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.4.1
 	github.com/cloudevents/sdk-go/v2 v2.4.1
 	github.com/davecgh/go-spew v1.1.1
@@ -39,6 +39,3 @@ require (
 	knative.dev/pkg v0.0.0-20211101212339-96c0204a70dc
 	knative.dev/reconciler-test v0.0.0-20211101214439-9839937c9b13
 )
-
-// Stick to v1.29.1 to avoid eventing e2e from upgrading.
-replace github.com/Shopify/sarama => github.com/Shopify/sarama v1.29.1

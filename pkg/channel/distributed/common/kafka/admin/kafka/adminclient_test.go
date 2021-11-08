@@ -24,9 +24,10 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
+
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 )
 
 // Test The NewAdminClient() Functionality
@@ -328,6 +329,10 @@ func (m *MockClusterAdmin) ListConsumerGroupOffsets(group string, topicPartition
 	panic("implement me")
 }
 
+func (m *MockClusterAdmin) DeleteConsumerGroupOffset(group string, topic string, partition int32) error {
+	panic("implement me")
+}
+
 func (m *MockClusterAdmin) DeleteConsumerGroup(group string) error {
 	panic("implement me")
 }
@@ -345,6 +350,18 @@ func (m *MockClusterAdmin) DeleteUserScramCredentials(delete []sarama.AlterUserS
 }
 
 func (m *MockClusterAdmin) UpsertUserScramCredentials(upsert []sarama.AlterUserScramCredentialsUpsert) ([]*sarama.AlterUserScramCredentialsResult, error) {
+	panic("implement me")
+}
+
+func (m *MockClusterAdmin) DescribeClientQuotas(components []sarama.QuotaFilterComponent, strict bool) ([]sarama.DescribeClientQuotasEntry, error) {
+	panic("implement me")
+}
+
+func (m *MockClusterAdmin) AlterClientQuotas(entity []sarama.QuotaEntityComponent, op sarama.ClientQuotasOp, validateOnly bool) error {
+	panic("implement me")
+}
+
+func (m *MockClusterAdmin) Controller() (*sarama.Broker, error) {
 	panic("implement me")
 }
 
