@@ -31,6 +31,5 @@ func TestKafkaSource(t *testing.T) {
 }
 
 func TestKafkaSourceUpdate(t *testing.T) {
-	t.Skip("Skip these since they're flaky")
 	helpers.TestKafkaSourceUpdate(t)
 }
