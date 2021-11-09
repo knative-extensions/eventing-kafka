@@ -107,13 +107,11 @@ func UpdateKafkaSourceV1Beta1OrFail(c *testlib.Client, kafkaSource *sourcesv1bet
 		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			latestKafkaSource := GetKafkaSourceV1Beta1OrFail(c, kafkaSource.Name)
 			kafkaSource.Spec.DeepCopyInto(&latestKafkaSource.Spec)
-			kafkaSourceClientSet, err := kafkaclientset.NewForConfig(c.Config)
+			client, err := kafkaclientset.NewForConfig(c.Config)
 			if err != nil {
 				c.T.Fatalf("Failed to create v1beta1 KafkaSource client: %v", err)
 			}
-
-			kSources := kafkaSourceClientSet.SourcesV1beta1().KafkaSources(c.Namespace)
-			_, err = kSources.Update(context.Background(), latestKafkaSource, metav1.UpdateOptions{})
+			_, err = client.SourcesV1beta1().KafkaSources(c.Namespace).Update(context.Background(), latestKafkaSource, metav1.UpdateOptions{})
 			return err
 		})
 	})
