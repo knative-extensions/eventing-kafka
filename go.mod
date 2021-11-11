@@ -39,3 +39,8 @@ require (
 	knative.dev/pkg v0.0.0-20211108064904-3cc697a3cb09
 	knative.dev/reconciler-test v0.0.0-20211101213739-c5f938aa9974
 )
+
+replace (
+	github.com/dgrijalva/jwt-go => github.com/form3tech-oss/jwt-go v0.0.0-20210511163231-5b2d2b5f6c34
+	github.com/miekg/dns v1.0.14 => github.com/miekg/dns v1.1.25
+)
