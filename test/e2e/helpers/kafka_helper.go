@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"knative.dev/reconciler-test/pkg/k8s"
 
 	"github.com/davecgh/go-spew/spew"
 	appsv1 "k8s.io/api/apps/v1"
@@ -241,6 +242,11 @@ func MustCreateTopic(client *testlib.Client, clusterName, clusterNamespace, topi
 	}
 
 	client.Tracker.Add(topicGVR.Group, topicGVR.Version, topicGVR.Resource, clusterNamespace, topicName)
+
+	// Wait for the topic to be ready
+	if err := k8s.WaitForResourceReady(context.Background(), clusterNamespace, topicName, topicGVR, interval, timeout); err != nil {
+		client.T.Fatalf("Error while creating the topic %s: %v", topicName, err)
+	}
 }
 
 //CheckKafkaSourceState waits for specified kafka source resource state
