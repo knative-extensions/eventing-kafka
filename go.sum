@@ -1329,8 +1329,8 @@ k8s.io/utils v0.0.0-20201110183641-67b214c5f920 h1:CbnUZsM497iRC5QMVkHwyl8s2tB3g
 k8s.io/utils v0.0.0-20201110183641-67b214c5f920/go.mod h1:jPW/WVKK9YHAvNhRxK0md/EJ228hCsBRufyofKtW8HA=
 knative.dev/control-protocol v0.0.0-20211108155701-88c4c1e549c4 h1:uLe8w5a8eI1B0bsKVzFTO4msANCnIsuLgA0PRsAiR2s=
 knative.dev/control-protocol v0.0.0-20211108155701-88c4c1e549c4/go.mod h1:5hOr3rdQDEBE/3LihWgyfkfowQn8V0Vur/qg+g42MXY=
-knative.dev/eventing v0.27.1-0.20211111093638-536f2b97d020 h1:G4qzDjgXDiS6U/yYbNmzDyEGBG7/8cG08JQIJ7QL80o=
-knative.dev/eventing v0.27.1-0.20211111093638-536f2b97d020/go.mod h1:3pTt6KXnOuVLB8NPnD8qb2xdcRTJREOHdIDd2sd7AjM=
+knative.dev/eventing v0.27.1-0.20211111181038-8dd3598228b4 h1:hZpuBjjSW7uZQRKJHGDgyOuySUAiuxSWEVLfRR9Mmu0=
+knative.dev/eventing v0.27.1-0.20211111181038-8dd3598228b4/go.mod h1:vznjDZtc5IjxzfrTg6jVfjvIhbnijDwvfh5FOK2s7pI=
 knative.dev/hack v0.0.0-20211101195839-11d193bf617b/go.mod h1:PHt8x8yX5Z9pPquBEfIj0X66f8iWkWfR0S/sarACJrI=
 knative.dev/hack v0.0.0-20211105231158-29f86c2653b5/go.mod h1:PHt8x8yX5Z9pPquBEfIj0X66f8iWkWfR0S/sarACJrI=
 knative.dev/hack v0.0.0-20211108170701-96aac1c30be3 h1:oSvRgnKoU308k7aXbPV3iL5Zh5kBGM2Ptar4hyeda+A=
