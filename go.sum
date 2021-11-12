@@ -1340,8 +1340,9 @@ knative.dev/pkg v0.0.0-20211101212339-96c0204a70dc/go.mod h1:SkfDk9bWIiNZD7XtILG
 knative.dev/pkg v0.0.0-20211108064904-3cc697a3cb09/go.mod h1:YiSfFDMdYHZTuO5XS8UzxSeOEmocy+Kb2YOGik9C8lw=
 knative.dev/pkg v0.0.0-20211111114938-0b0c3390a475 h1:BoZ88UHlgwRiGkkz7MQtoSlQyBRQxfu1ROOpUNDG3bU=
 knative.dev/pkg v0.0.0-20211111114938-0b0c3390a475/go.mod h1:plYIuKk6WNC9LyiG/9xBnOBYuxO0Ro6xN0z7iXWVUtk=
-knative.dev/reconciler-test v0.0.0-20211101213739-c5f938aa9974 h1:4eo67cEiDvEl1TgITT+3n1ivAcLFCQ6DBJnX855727E=
 knative.dev/reconciler-test v0.0.0-20211101213739-c5f938aa9974/go.mod h1:gTsbLk496j/M9xqMpx/liyCQ0X3bwDpRtcs2Zzws364=
+knative.dev/reconciler-test v0.0.0-20211112132536-edafe726ef8d h1:wOvyUa+LlpmyYxuTk8n3tj1vYdtEpyrSbo3i3DC82do=
+knative.dev/reconciler-test v0.0.0-20211112132536-edafe726ef8d/go.mod h1:gTsbLk496j/M9xqMpx/liyCQ0X3bwDpRtcs2Zzws364=
 pgregory.net/rapid v0.3.3 h1:jCjBsY4ln4Atz78QoBWxUEvAHaFyNDQg9+WU62aCn1U=
 pgregory.net/rapid v0.3.3/go.mod h1:UYpPVyjFHzYBGHIxLFoupi8vwk6rXNzRY9OMvVxFIOU=
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
