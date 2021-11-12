@@ -1,0 +1,12 @@
+# IDEs and editors
+*.iml
+.idea/
+.run/
+.vscode/
+
+# System Files
+.DS_Store
+Thumbs.db
+
+# Telepresence Logs
+telepresence.log

@@ -1,0 +1,20 @@
+run:
+  timeout: 5m
+
+  build-tags:
+    - e2e
+
+linters:
+  enable:
+    - asciicheck
+    - prealloc
+    - unconvert
+    - unparam
+  disable:
+    - errcheck
+
+issues:
+  exclude-rules:
+    - path: test # Excludes /test, *_test.go etc.
+      linters:
+        - unparam

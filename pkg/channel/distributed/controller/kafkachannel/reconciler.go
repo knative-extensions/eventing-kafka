@@ -1,0 +1,279 @@
+/*
+Copyright 2020 The Knative Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package kafkachannel
+
+import (
+	"context"
+	"fmt"
+	"strings"
+	"sync"
+
+	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes"
+	appsv1listers "k8s.io/client-go/listers/apps/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/tools/cache"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/reconciler"
+
+	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/types"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/event"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
+	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
+	"knative.dev/eventing-kafka/pkg/client/injection/reconciler/messaging/v1beta1/kafkachannel"
+	kafkalisters "knative.dev/eventing-kafka/pkg/client/listers/messaging/v1beta1"
+	commonconfig "knative.dev/eventing-kafka/pkg/common/config"
+	kafkasarama "knative.dev/eventing-kafka/pkg/common/kafka/sarama"
+)
+
+// Reconciler Implements controller.Reconciler for KafkaChannel Resources
+type Reconciler struct {
+	kubeClientset        kubernetes.Interface
+	kafkaClientSet       kafkaclientset.Interface
+	adminClientType      types.AdminClientType
+	adminClient          types.AdminClientInterface
+	environment          *env.Environment
+	config               *commonconfig.EventingKafkaConfig
+	kafkachannelLister   kafkalisters.KafkaChannelLister
+	kafkachannelInformer cache.SharedIndexInformer
+	deploymentLister     appsv1listers.DeploymentLister
+	serviceLister        corev1listers.ServiceLister
+	adminMutex           *sync.Mutex
+	kafkaConfigMapHash   string
+}
+
+var (
+	_ kafkachannel.Interface = (*Reconciler)(nil) // Verify Reconciler Implements Interface
+	_ kafkachannel.Finalizer = (*Reconciler)(nil) // Verify Reconciler Implements Finalizer
+)
+
+//
+// SetKafkaAdminClient Clears / Re-Sets The Kafka AdminClient On The Reconciler
+//
+// Ideally we would re-use the Kafka AdminClient but due to Issues with the Sarama ClusterAdmin we're
+// forced to recreate a new connection every time.  We were seeing "broken-pipe" failures (non-recoverable)
+// with the ClusterAdmin after periods of inactivity.
+//   https://github.com/Shopify/sarama/issues/1162
+//   https://github.com/Shopify/sarama/issues/866
+//
+// EventHub AdminClients could be reused, and this is somewhat inefficient for them, but they are very simple
+// lightweight REST clients so recreating them isn't a big deal and it simplifies the code significantly to
+// not have to support both use cases.
+//
+func (r *Reconciler) SetKafkaAdminClient(ctx context.Context) error {
+	_ = r.ClearKafkaAdminClient(ctx) // Attempt to close any lingering connections, ignore errors and continue
+	var err error
+	brokers := strings.Split(r.config.Kafka.Brokers, ",")
+	r.adminClient, err = admin.CreateAdminClient(ctx, brokers, r.config.Sarama.Config, r.adminClientType)
+	if err != nil {
+		logger := logging.FromContext(ctx)
+		logger.Error("Failed To Create Kafka AdminClient", zap.Error(err))
+	}
+	return err
+}
+
+// ClearKafkaAdminClient Clears (Closes) The Reconciler's Kafka AdminClient
+func (r *Reconciler) ClearKafkaAdminClient(ctx context.Context) error {
+	var err error
+	if r.adminClient != nil {
+		err = r.adminClient.Close()
+		if err != nil {
+			logger := logging.FromContext(ctx)
+			logger.Error("Failed To Close Kafka AdminClient", zap.Error(err))
+		}
+		r.adminClient = nil
+	}
+	return err
+}
+
+// ReconcileKind Implements The Reconciler Interface & Is Responsible For Performing The Reconciliation (Creation)
+func (r *Reconciler) ReconcileKind(ctx context.Context, channel *kafkav1beta1.KafkaChannel) reconciler.Event {
+
+	// Get The Logger Via The Context
+	logger := logging.FromContext(ctx).Desugar()
+	logger.Debug("<==========  START KAFKA-CHANNEL RECONCILIATION  ==========>")
+
+	// Verify channel is valid.
+	channel.SetDefaults(ctx)
+	if err := channel.Validate(ctx); err != nil {
+		logger.Error("Invalid kafka channel", zap.String("channel", channel.Name), zap.Error(err))
+		return err
+	}
+
+	// Add The K8S ClientSet To The Reconcile Context
+	ctx = context.WithValue(ctx, kubeclient.Key{}, r.kubeClientset)
+	// Add A Channel-Specific Logger To The Context
+	ctx = logging.WithLogger(ctx, util.ChannelLogger(logger, channel).Sugar())
+
+	// Don't let another goroutine clear out the admin client while we're using it in this one
+	r.adminMutex.Lock()
+	defer r.adminMutex.Unlock()
+
+	// Create A New Kafka AdminClient For Each Reconciliation Attempt
+	err := r.SetKafkaAdminClient(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = r.ClearKafkaAdminClient(ctx) }() // Ignore errors as nothing else can be done
+
+	// Reset The Channel's Status Conditions To Unknown (Addressable, Topic, Service, Deployment, etc...)
+	channel.Status.InitializeConditions()
+
+	// Perform The KafkaChannel Reconciliation & Handle Error Response
+	logger.Info("Channel Owned By Controller - Reconciling", zap.Any("Channel.Spec", channel.Spec))
+	err = r.reconcile(ctx, channel)
+	if err != nil {
+		logger.Error("Failed To Reconcile KafkaChannel", zap.Any("Channel", channel), zap.Error(err))
+		return err
+	}
+
+	// Return Success
+	logger.Info("Successfully Reconciled KafkaChannel", zap.Any("Channel", channel))
+	channel.Status.ObservedGeneration = channel.Generation
+	return reconciler.NewEvent(corev1.EventTypeNormal, event.KafkaChannelReconciled.String(), "KafkaChannel Reconciled Successfully: \"%s/%s\"", channel.Namespace, channel.Name)
+}
+
+// FinalizeKind Implements The Finalizer Interface & Is Responsible For Performing The Finalization (Topic Deletion)
+func (r *Reconciler) FinalizeKind(ctx context.Context, channel *kafkav1beta1.KafkaChannel) reconciler.Event {
+
+	// Get The Logger Via The Context
+	logger := logging.FromContext(ctx).Desugar()
+	logger.Debug("<==========  START KAFKA-CHANNEL FINALIZATION  ==========>")
+
+	// Add The K8S ClientSet To The Reconcile Context
+	ctx = context.WithValue(ctx, kubeclient.Key{}, r.kubeClientset)
+	// Add A Channel-Specific Logger To The Context
+	ctx = logging.WithLogger(ctx, util.ChannelLogger(logger, channel).Sugar())
+
+	// Don't let another goroutine clear out the admin client while we're using it in this one
+	r.adminMutex.Lock()
+	defer r.adminMutex.Unlock()
+
+	// Create A New Kafka AdminClient For Each Reconciliation Attempt
+	err := r.SetKafkaAdminClient(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = r.ClearKafkaAdminClient(ctx) }() // Ignore errors as nothing else can be done
+
+	// Finalize The Dispatcher (Manual Finalization Due To Cross-Namespace Ownership)
+	err = r.finalizeDispatcher(ctx, channel)
+	if err != nil {
+		logger.Info("Failed To Finalize KafkaChannel", zap.Error(err))
+		return fmt.Errorf(constants.FinalizationFailedError)
+	}
+
+	// Finalize The Kafka Topic
+	err = r.finalizeKafkaTopic(ctx, channel)
+	if err != nil {
+		logger.Error("Failed To Finalize KafkaChannel", zap.Error(err))
+		return fmt.Errorf(constants.FinalizationFailedError)
+	}
+
+	// Return Success
+	logger.Info("Successfully Finalized KafkaChannel")
+	return reconciler.NewEvent(corev1.EventTypeNormal, event.KafkaChannelFinalized.String(), "KafkaChannel Finalized Successfully: \"%s/%s\"", channel.Namespace, channel.Name)
+}
+
+// Perform The Actual Channel Reconciliation
+func (r *Reconciler) reconcile(ctx context.Context, channel *kafkav1beta1.KafkaChannel) error {
+
+	// NOTE - The sequential order of reconciliation must be "Topic" then "Channel / Dispatcher" in order for the
+	//        EventHub Cache to know the dynamically determined EventHub Namespace / Kafka Secret selected for the topic.
+
+	// Reconcile The KafkaChannel's Kafka Topic
+	err := r.reconcileKafkaTopic(ctx, channel)
+	if err != nil {
+		return fmt.Errorf(constants.ReconciliationFailedError)
+	}
+
+	//
+	// This implementation is based on the "consolidated" KafkaChannel, and thus we're using
+	// their Status tracking even though it does not align with the distributed channel's
+	// architecture.  We get our Kafka configuration from the "Kafka Secrets" and not a
+	// ConfigMap.  Therefore, we will instead check the Kafka Secret associated with the
+	// KafkaChannel here.
+	//
+	if len(r.config.Kafka.AuthSecretName) > 0 {
+		channel.Status.MarkConfigTrue()
+	} else {
+		channel.Status.MarkConfigFailed(event.KafkaSecretReconciled.String(), "No Kafka Secret For KafkaChannel")
+		return fmt.Errorf(constants.ReconciliationFailedError)
+	}
+
+	// Reconcile the Receiver Deployment/Service
+	receiverError := r.reconcileReceiver(ctx, channel)
+
+	// Reconcile The KafkaChannel's Channel & Dispatcher Deployment/Service
+	channelError := r.reconcileChannel(ctx, channel)
+
+	dispatcherError := r.reconcileDispatcher(ctx, channel)
+	if channelError != nil || dispatcherError != nil || receiverError != nil {
+		return fmt.Errorf(constants.ReconciliationFailedError)
+	}
+
+	// Reconcile The KafkaChannel Itself (MetaData, etc...)
+	err = r.reconcileKafkaChannel(ctx, channel)
+	if err != nil {
+		return fmt.Errorf(constants.ReconciliationFailedError)
+	}
+
+	// Return Success
+	return nil
+}
+
+// updateKafkaConfig is the callback function that handles changes to our ConfigMap
+func (r *Reconciler) updateKafkaConfig(ctx context.Context, configMap *corev1.ConfigMap) error {
+	logger := logging.FromContext(ctx)
+
+	if r == nil {
+		return fmt.Errorf("reconciler is nil (possible startup race condition)")
+	}
+
+	if configMap == nil {
+		return fmt.Errorf("nil configMap passed to updateKafkaConfig")
+	}
+
+	logger.Info("Reloading Kafka configuration")
+
+	// Validate The ConfigMap Data
+	if configMap.Data == nil {
+		return fmt.Errorf("configMap.Data is nil")
+	}
+
+	ekConfig, err := kafkasarama.LoadSettings(ctx, constants.Component, configMap.Data, kafkasarama.LoadAuthConfig)
+	if err != nil {
+		return err
+	} else if ekConfig == nil {
+		return fmt.Errorf("eventing-kafka config is nil")
+	}
+	// Enable Sarama Logging If Specified In ConfigMap
+	kafkasarama.EnableSaramaLogging(ekConfig.Sarama.EnableLogging)
+	logger.Debug("Updated Sarama logging", zap.Bool("Kafka.EnableSaramaLogging", ekConfig.Sarama.EnableLogging))
+
+	logger.Info("ConfigMap Changed; Updating Sarama And Eventing-Kafka Configuration")
+	r.config = ekConfig
+
+	r.kafkaConfigMapHash = commonconfig.ConfigmapDataCheckSum(configMap.Data)
+	return nil
+}

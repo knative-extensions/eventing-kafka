@@ -1,5 +1,11 @@
-# Initial set of approvers taken from eventing WG leads
+# Initial set of approvers taken from eventing WG leads, Kafka approvers and original developers of the channel added
 approvers:
-- vaikas
-- lionelvillard
-- grantr
+- technical-oversight-committee
+- knative-release-leads
+- eventing-writers
+- eventing-kafka-approvers
+
+reviewers:
+- eventing-writers
+- eventing-kafka-approvers
+
