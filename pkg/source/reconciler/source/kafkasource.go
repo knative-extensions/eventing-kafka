@@ -221,14 +221,15 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 	// Propagate deployment status
 	msg, ready, err := r.receiveAdapterStatus(ra)
 	if err != nil {
-		// Unrecoverable error
-		src.Status.MarkNotDeployed("DeploymentError", "%v", err)
-		return nil // Do not retry
+		logging.FromContext(ctx).Errorw("receive adapter is not ready", zap.Error(err))
+		src.Status.MarkNotDeployed("DeploymentError", err.Error())
+		return nil
 	}
 
 	if !ready {
+		logging.FromContext(ctx).Errorw(msg)
 		src.Status.MarkNotDeployed("DeploymentNotReady", msg)
-		return errors.New(msg)
+		return nil
 	}
 
 	src.Status.MarkDeployed(ra)
@@ -350,7 +351,7 @@ func (r *Reconciler) createReceiveAdapter(ctx context.Context, src *v1beta1.Kafk
 	return ra, nil
 }
 
-//deleteReceiveAdapter deletes the receiver adapter deployment if any
+// deleteReceiveAdapter deletes the receiver adapter deployment if any
 func (r *Reconciler) deleteReceiveAdapter(ctx context.Context, src *v1beta1.KafkaSource) error {
 	name := kmeta.ChildName(fmt.Sprintf("kafkasource-%s-", src.Name), string(src.GetUID()))
 
@@ -366,17 +367,17 @@ func (r *Reconciler) receiveAdapterStatus(deployment *appsv1.Deployment) (string
 			return "", false, fmt.Errorf("deployment %q exceeded its progress deadline", deployment.Name)
 		}
 		if deployment.Spec.Replicas != nil && deployment.Status.UpdatedReplicas < *deployment.Spec.Replicas {
-			return fmt.Sprintf("Waiting for deployment %q rollout to finish: %d out of %d new replicas have been updated...\n", deployment.Name, deployment.Status.UpdatedReplicas, *deployment.Spec.Replicas), false, nil
+			return fmt.Sprintf("Waiting for deployment %q rollout to finish: %d out of %d new replicas have been updated", deployment.Name, deployment.Status.UpdatedReplicas, *deployment.Spec.Replicas), false, nil
 		}
 		if deployment.Status.Replicas > deployment.Status.UpdatedReplicas {
-			return fmt.Sprintf("Waiting for deployment %q rollout to finish: %d old replicas are pending termination...\n", deployment.Name, deployment.Status.Replicas-deployment.Status.UpdatedReplicas), false, nil
+			return fmt.Sprintf("Waiting for deployment %q rollout to finish: %d old replicas are pending termination", deployment.Name, deployment.Status.Replicas-deployment.Status.UpdatedReplicas), false, nil
 		}
 		if deployment.Status.AvailableReplicas < deployment.Status.UpdatedReplicas {
-			return fmt.Sprintf("Waiting for deployment %q rollout to finish: %d of %d updated replicas are available...\n", deployment.Name, deployment.Status.AvailableReplicas, deployment.Status.UpdatedReplicas), false, nil
+			return fmt.Sprintf("Waiting for deployment %q rollout to finish: %d of %d updated replicas are available", deployment.Name, deployment.Status.AvailableReplicas, deployment.Status.UpdatedReplicas), false, nil
 		}
-		return fmt.Sprintf("deployment %q successfully rolled out\n", deployment.Name), true, nil
+		return fmt.Sprintf("deployment %q successfully rolled out", deployment.Name), true, nil
 	}
-	return fmt.Sprintf("Waiting for deployment spec update to be observed...\n"), false, nil
+	return "Waiting for deployment spec update to be observed", false, nil
 }
 
 func podSpecChanged(oldPodSpec corev1.PodSpec, newPodSpec corev1.PodSpec) bool {
