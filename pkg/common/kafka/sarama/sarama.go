@@ -24,7 +24,7 @@ import (
 	"os"
 
 	"github.com/Shopify/sarama"
-	"github.com/ghodss/yaml"
+	"sigs.k8s.io/yaml"
 	"knative.dev/pkg/system"
 
 	"knative.dev/eventing-kafka/pkg/common/client"

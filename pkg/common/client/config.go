@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
-	"github.com/ghodss/yaml"
+	"sigs.k8s.io/yaml"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"

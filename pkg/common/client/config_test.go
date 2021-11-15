@@ -32,7 +32,7 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
-	"github.com/ghodss/yaml"
+	"sigs.k8s.io/yaml"
 	"github.com/stretchr/testify/assert"
 	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
