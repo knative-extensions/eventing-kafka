@@ -115,10 +115,10 @@ const (
 	BackoffPolicyExponential BackoffPolicyType = "exponential"
 )
 
-// DeliveryStatus contains the Status of an object supporting delivery options. This type is intended to be embedded into a status struct.
+// DeliveryStatus contains the Status of an object supporting delivery options.
 type DeliveryStatus struct {
-	// DeadLetterSink is a KReference that is the reference to the native, platform specific channel
+	// DeadLetterChannel is a KReference that is the reference to the native, platform specific channel
 	// where failed events are sent to.
 	// +optional
-	DeadLetterSinkURI *apis.URL `json:"deadLetterSinkUri,omitempty"`
+	DeadLetterChannel *duckv1.KReference `json:"deadLetterChannel,omitempty"`
 }
