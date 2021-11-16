@@ -11,7 +11,6 @@ require (
 	github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.4.1
 	github.com/cloudevents/sdk-go/v2 v2.4.1
 	github.com/davecgh/go-spew v1.1.1
-	github.com/ghodss/yaml v1.0.0
 	github.com/google/go-cmp v0.5.6
 	github.com/google/gofuzz v1.2.0
 	github.com/google/uuid v1.3.0
@@ -38,6 +37,7 @@ require (
 	knative.dev/hack v0.0.0-20211112192837-128cf0150a69
 	knative.dev/pkg v0.0.0-20211115071955-517ef0292b53
 	knative.dev/reconciler-test v0.0.0-20211112132636-ae9e2e21972f
+	sigs.k8s.io/yaml v1.3.0
 )
 
 replace (
