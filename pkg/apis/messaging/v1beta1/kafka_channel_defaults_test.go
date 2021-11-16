@@ -19,6 +19,10 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
+	duck "knative.dev/pkg/apis/duck/v1"
+
 	"knative.dev/eventing-kafka/pkg/common/constants"
 )
 
@@ -73,6 +77,53 @@ func TestKafkaChannelDefaults(t *testing.T) {
 				Spec: KafkaChannelSpec{
 					NumPartitions:     testNumPartitions,
 					ReplicationFactor: constants.DefaultReplicationFactor,
+				},
+			},
+		},
+		"delivery.deadLetterSink.ref.namespace not set": {
+			initial: KafkaChannel{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:   "custom",
+					Name:        "ch",
+					Annotations: map[string]string{"messaging.knative.dev/subscribable": "v1"},
+				},
+				Spec: KafkaChannelSpec{
+					NumPartitions:     testNumPartitions,
+					ReplicationFactor: testReplicationFactor,
+					ChannelableSpec: eventingduck.ChannelableSpec{
+						Delivery: &eventingduck.DeliverySpec{
+							DeadLetterSink: &duck.Destination{
+								Ref: &duck.KReference{
+									APIVersion: "v1",
+									Name:       "svc",
+									Kind:       "Service",
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: KafkaChannel{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:   "custom",
+					Name:        "ch",
+					Annotations: map[string]string{"messaging.knative.dev/subscribable": "v1"},
+				},
+				Spec: KafkaChannelSpec{
+					NumPartitions:     testNumPartitions,
+					ReplicationFactor: testReplicationFactor,
+					ChannelableSpec: eventingduck.ChannelableSpec{
+						Delivery: &eventingduck.DeliverySpec{
+							DeadLetterSink: &duck.Destination{
+								Ref: &duck.KReference{
+									APIVersion: "v1",
+									Name:       "svc",
+									Namespace:  "custom",
+									Kind:       "Service",
+								},
+							},
+						},
+					},
 				},
 			},
 		},
