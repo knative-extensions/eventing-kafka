@@ -217,6 +217,21 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 			return err
 		}
 	}
+
+	// Propagate deployment status
+	msg, ready, err := r.receiveAdapterStatus(ra)
+	if err != nil {
+		logging.FromContext(ctx).Errorw("receive adapter is not ready", zap.Error(err))
+		src.Status.MarkNotDeployed("DeploymentError", err.Error())
+		return nil
+	}
+
+	if !ready {
+		logging.FromContext(ctx).Errorw(msg)
+		src.Status.MarkNotDeployed("DeploymentNotReady", msg)
+		return nil
+	}
+
 	src.Status.MarkDeployed(ra)
 	src.Status.CloudEventAttributes = r.createCloudEventAttributes(src)
 
@@ -336,11 +351,33 @@ func (r *Reconciler) createReceiveAdapter(ctx context.Context, src *v1beta1.Kafk
 	return ra, nil
 }
 
-//deleteReceiveAdapter deletes the receiver adapter deployment if any
+// deleteReceiveAdapter deletes the receiver adapter deployment if any
 func (r *Reconciler) deleteReceiveAdapter(ctx context.Context, src *v1beta1.KafkaSource) error {
 	name := kmeta.ChildName(fmt.Sprintf("kafkasource-%s-", src.Name), string(src.GetUID()))
 
 	return r.KubeClientSet.AppsV1().Deployments(src.Namespace).Delete(ctx, name, metav1.DeleteOptions{})
+}
+
+// receiveAdapterStatus returns a message describing deployment status, and a bool value indicating if the status is considered done.
+func (r *Reconciler) receiveAdapterStatus(deployment *appsv1.Deployment) (string, bool, error) {
+	// Copied from https://github.com/kubernetes/kubectl/blob/release-1.22/pkg/polymorphichelpers/rollout_status.go#L75-L91
+	if deployment.Generation <= deployment.Status.ObservedGeneration {
+		cond := GetDeploymentCondition(deployment.Status, appsv1.DeploymentProgressing)
+		if cond != nil && cond.Reason == "ProgressDeadlineExceeded" {
+			return "", false, fmt.Errorf("deployment %q exceeded its progress deadline", deployment.Name)
+		}
+		if deployment.Spec.Replicas != nil && deployment.Status.UpdatedReplicas < *deployment.Spec.Replicas {
+			return fmt.Sprintf("Waiting for deployment %q rollout to finish: %d out of %d new replicas have been updated", deployment.Name, deployment.Status.UpdatedReplicas, *deployment.Spec.Replicas), false, nil
+		}
+		if deployment.Status.Replicas > deployment.Status.UpdatedReplicas {
+			return fmt.Sprintf("Waiting for deployment %q rollout to finish: %d old replicas are pending termination", deployment.Name, deployment.Status.Replicas-deployment.Status.UpdatedReplicas), false, nil
+		}
+		if deployment.Status.AvailableReplicas < deployment.Status.UpdatedReplicas {
+			return fmt.Sprintf("Waiting for deployment %q rollout to finish: %d of %d updated replicas are available", deployment.Name, deployment.Status.AvailableReplicas, deployment.Status.UpdatedReplicas), false, nil
+		}
+		return fmt.Sprintf("deployment %q successfully rolled out", deployment.Name), true, nil
+	}
+	return "Waiting for deployment spec update to be observed", false, nil
 }
 
 func podSpecChanged(oldPodSpec corev1.PodSpec, newPodSpec corev1.PodSpec) bool {
@@ -385,4 +422,15 @@ func stringifyClaimsStatus(status map[string]interface{}) string {
 		strs = append(strs, fmt.Sprintf("Pod %s: %v", podIp, claims))
 	}
 	return strings.Join(strs, "\n")
+}
+
+// GetDeploymentCondition returns the condition with the provided type.
+func GetDeploymentCondition(status appsv1.DeploymentStatus, condType appsv1.DeploymentConditionType) *appsv1.DeploymentCondition {
+	for i := range status.Conditions {
+		c := status.Conditions[i]
+		if c.Type == condType {
+			return &c
+		}
+	}
+	return nil
 }
