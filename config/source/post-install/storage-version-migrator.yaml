@@ -37,4 +37,4 @@ spec:
         - name: migrate
           image: ko://knative.dev/pkg/apiextensions/storageversion/cmd/migrate
           args:
-            - "kafkasources.messaging.knative.dev"
+            - "kafkasources.sources.knative.dev"
