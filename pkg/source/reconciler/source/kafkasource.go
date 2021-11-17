@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "knative.dev/control-protocol/pkg"
 	"knative.dev/eventing-kafka/pkg/common/kafka/offset"
+	"knative.dev/eventing-kafka/pkg/source/client"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
 
@@ -44,7 +45,6 @@ import (
 	ctrlservice "knative.dev/control-protocol/pkg/service"
 
 	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
-	"knative.dev/eventing-kafka/pkg/source/client"
 	kafkasourcecontrol "knative.dev/eventing-kafka/pkg/source/control"
 	"knative.dev/eventing-kafka/pkg/source/reconciler/source/resources"
 
@@ -168,43 +168,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 		}
 	}
 
-	// Validate configuration and offsets
-	bs, config, err := client.NewConfigFromSpec(ctx, r.KubeClientSet, src)
-	if err != nil {
-		logging.FromContext(ctx).Errorw("unable to build Kafka configuration", zap.Error(err))
-		src.Status.MarkConnectionNotEstablished("InvalidConfiguration", err.Error())
-		return err
-	}
-
-	// InitOffsets manually commits offsets if needed (see below)
-	config.Consumer.Offsets.AutoCommit.Enable = false
-
-	c, err := sarama.NewClient(bs, config)
-	if err != nil {
-		logging.FromContext(ctx).Errorw("unable to create a kafka client", zap.Error(err))
-		src.Status.MarkConnectionNotEstablished("ClientCreationFailed", err.Error())
-		return err
-	}
-	defer c.Close()
-	src.Status.MarkConnectionEstablished()
-
-	kafkaAdminClient, err := sarama.NewClusterAdminFromClient(c)
-	if err != nil {
-		src.Status.MarkInitialOffsetNotCommitted("OffsetsNotCommitted", "Unable to initialize consumergroup offsets: %v", err)
-		return fmt.Errorf("failed to create a Kafka admin client: %w", err)
-	}
-	defer kafkaAdminClient.Close()
-
-	_, err = offset.InitOffsets(ctx, c, kafkaAdminClient, src.Spec.Topics, src.Spec.ConsumerGroup)
-	if err != nil {
-		logging.FromContext(ctx).Errorw("unable to initialize consumergroup offsets", zap.Error(err))
-		src.Status.MarkInitialOffsetNotCommitted("OffsetsNotCommitted", "Unable to initialize consumergroup offsets: %v", err)
-		return err
-	}
-	src.Status.MarkInitialOffsetCommitted()
-
-	// TODO(mattmoor): create KafkaBinding for the receive adapter.
-
+	// Create or update the receive adapter
 	ra, err := r.createReceiveAdapter(ctx, src, sinkURI)
 	if err != nil {
 		var event *pkgreconciler.ReconcilerEvent
@@ -218,7 +182,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 		}
 	}
 
-	// Propagate deployment status
+	// Propagate the receive adapter status
 	msg, ready, err := r.receiveAdapterStatus(ra)
 	if err != nil {
 		logging.FromContext(ctx).Errorw("receive adapter is not ready", zap.Error(err))
@@ -233,7 +197,6 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 	}
 
 	src.Status.MarkDeployed(ra)
-	src.Status.CloudEventAttributes = r.createCloudEventAttributes(src)
 
 	logging.FromContext(ctx).Debugf("we have a RA deployment")
 
@@ -283,6 +246,42 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 	if ok {
 		src.Status.UpdateConsumerGroupStatus(stringifyClaimsStatus(lastClaimStatus))
 	}
+
+	// Finally, validate configuration and offsets.
+	bs, config, err := client.NewConfigFromSpec(ctx, r.KubeClientSet, src)
+	if err != nil {
+		logging.FromContext(ctx).Errorw("unable to build Kafka configuration", zap.Error(err))
+		src.Status.MarkConnectionNotEstablished("InvalidConfiguration", err.Error())
+		return err
+	}
+
+	// InitOffsets manually commits offsets if needed (see below)
+	config.Consumer.Offsets.AutoCommit.Enable = false
+
+	c, err := sarama.NewClient(bs, config)
+	if err != nil {
+		logging.FromContext(ctx).Errorw("unable to create a kafka client", zap.Error(err))
+		src.Status.MarkConnectionNotEstablished("ClientCreationFailed", err.Error())
+		return err
+	}
+	defer c.Close()
+	src.Status.MarkConnectionEstablished()
+
+	kafkaAdminClient, err := sarama.NewClusterAdminFromClient(c)
+	if err != nil {
+		src.Status.MarkInitialOffsetNotCommitted("OffsetsNotCommitted", "Unable to initialize consumergroup offsets: %v", err)
+		return fmt.Errorf("failed to create a Kafka admin client: %w", err)
+	}
+	defer kafkaAdminClient.Close()
+
+	_, err = offset.InitOffsets(ctx, c, kafkaAdminClient, src.Spec.Topics, src.Spec.ConsumerGroup)
+	if err != nil {
+		logging.FromContext(ctx).Errorw("unable to initialize consumergroup offsets", zap.Error(err))
+		src.Status.MarkInitialOffsetNotCommitted("OffsetsNotCommitted", "Unable to initialize consumergroup offsets: %v", err)
+		return err
+	}
+	src.Status.MarkInitialOffsetCommitted()
+	src.Status.CloudEventAttributes = r.createCloudEventAttributes(src)
 
 	return nil
 }
