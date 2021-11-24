@@ -182,7 +182,7 @@ func flush(logger *zap.Logger) {
 }
 
 // CloudEvent Message Handler - Converts To KafkaMessage And Produces To Channel's Kafka Topic
-func handleMessage(ctx context.Context, channelReference eventingchannel.ChannelReference, message binding.Message, transformers []binding.Transformer, _ http.Header) error {
+func handleMessage(ctx context.Context, channelReference eventingchannel.ChannelReference, message binding.Message, transformers []binding.Transformer, httpHeader http.Header) error {
 
 	// Get The Logger From The Context
 	logger := logging.FromContext(ctx).Desugar()
@@ -205,7 +205,7 @@ func handleMessage(ctx context.Context, channelReference eventingchannel.Channel
 	}
 
 	// Produce The CloudEvent Binding Message (Send To The Appropriate Kafka Topic)
-	err = kafkaProducer.ProduceKafkaMessage(ctx, channelReference, message, transformers...)
+	err = kafkaProducer.ProduceKafkaMessage(ctx, channelReference, message, httpHeader, transformers...)
 	if err != nil {
 		logger.Error("Failed To Produce Kafka Message", zap.Error(err))
 		return err

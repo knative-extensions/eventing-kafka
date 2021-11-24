@@ -18,14 +18,16 @@ package tracing
 
 import (
 	"context"
+	"net/http"
 	"testing"
 
+	"github.com/Shopify/sarama"
 	protocolkafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
-	logtesting "knative.dev/pkg/logging/testing"
-
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opencensus.io/trace"
 	"go.opencensus.io/trace/tracestate"
+	logtesting "knative.dev/pkg/logging/testing"
 )
 
 var (
@@ -101,4 +103,148 @@ func TestStartTraceFromMessage(t *testing.T) {
 	ctx, span = StartTraceFromMessage(logger, context.TODO(), &protocolkafka.Message{Headers: headers}, "testTopic")
 	require.NotNil(t, ctx)
 	require.NotNil(t, span)
+}
+
+func TestConvertHttpHeaderToRecordHeaders(t *testing.T) {
+
+	key1 := "K1"
+	value1 := "V1"
+
+	key2 := "K2"
+	value2A := "V2A"
+	value2B := "V2B"
+
+	testCases := []struct {
+		name   string
+		header http.Header
+		want   []sarama.RecordHeader
+	}{
+		{
+			name:   "nil http header",
+			header: nil,
+			want:   []sarama.RecordHeader{},
+		},
+		{
+			name:   "empty http header",
+			header: http.Header{},
+			want:   []sarama.RecordHeader{},
+		},
+		{
+			name:   "single http header",
+			header: http.Header{key1: []string{value1}},
+			want:   []sarama.RecordHeader{{Key: []byte(key1), Value: []byte(value1)}},
+		},
+		{
+			name:   "multiple http header",
+			header: http.Header{key1: []string{value1}, key2: []string{value2A, value2B}},
+			want: []sarama.RecordHeader{
+				{Key: []byte(key1), Value: []byte(value1)},
+				{Key: []byte(key2), Value: []byte(value2A)},
+				{Key: []byte(key2), Value: []byte(value2B)},
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			actual := ConvertHttpHeaderToRecordHeaders(testCase.header)
+			assert.Equal(t, testCase.want, actual)
+		})
+	}
+}
+
+func TestConvertRecordHeadersToHttpHeader(t *testing.T) {
+
+	key1 := "K1"
+	value1 := "V1"
+
+	key2 := "K2"
+	value2A := "V2A"
+	value2B := "V2B"
+
+	testCases := []struct {
+		name          string
+		recordHeaders []*sarama.RecordHeader
+		want          http.Header
+	}{
+		{
+			name:          "no headers",
+			recordHeaders: []*sarama.RecordHeader{},
+			want:          http.Header{},
+		},
+		{
+			name: "single header",
+			recordHeaders: []*sarama.RecordHeader{
+				{Key: []byte(key1), Value: []byte(value1)},
+			},
+			want: http.Header{key1: []string{value1}},
+		},
+		{
+			name: "multiple headers",
+			recordHeaders: []*sarama.RecordHeader{
+				{Key: []byte(key1), Value: []byte(value1)},
+				{Key: []byte(key2), Value: []byte(value2A)},
+				{Key: []byte(key2), Value: []byte(value2B)},
+			},
+			want: http.Header{
+				key1: []string{value1},
+				key2: []string{value2A, value2B},
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			actual := ConvertRecordHeadersToHttpHeader(testCase.recordHeaders)
+			assert.Equal(t, testCase.want, actual)
+		})
+	}
+}
+
+func TestFilterCeRecordHeaders(t *testing.T) {
+
+	nonCeRecordHeader1 := &sarama.RecordHeader{Key: []byte("non_ce_key_1"), Value: []byte("non_ce_value_1")}
+	nonCeRecordHeader2 := &sarama.RecordHeader{Key: []byte("non_ce_key_2"), Value: []byte("non_ce_value_2")}
+
+	ceRecordHeader1 := &sarama.RecordHeader{Key: []byte("ce_key_1"), Value: []byte("ce_value_1")}
+	ceRecordHeader2 := &sarama.RecordHeader{Key: []byte("ce_key_2"), Value: []byte("ce_value_2")}
+
+	testCases := []struct {
+		name          string
+		recordHeaders []*sarama.RecordHeader
+		want          []*sarama.RecordHeader
+	}{
+		{
+			name:          "nil headers",
+			recordHeaders: nil,
+			want:          []*sarama.RecordHeader{},
+		},
+		{
+			name:          "empty headers",
+			recordHeaders: []*sarama.RecordHeader{},
+			want:          []*sarama.RecordHeader{},
+		},
+		{
+			name:          "no filtered headers",
+			recordHeaders: []*sarama.RecordHeader{nonCeRecordHeader1, nonCeRecordHeader2},
+			want:          []*sarama.RecordHeader{nonCeRecordHeader1, nonCeRecordHeader2},
+		},
+		{
+			name:          "some filtered headers",
+			recordHeaders: []*sarama.RecordHeader{ceRecordHeader1, nonCeRecordHeader1, ceRecordHeader2, nonCeRecordHeader2},
+			want:          []*sarama.RecordHeader{nonCeRecordHeader1, nonCeRecordHeader2},
+		},
+		{
+			name:          "all filtered headers",
+			recordHeaders: []*sarama.RecordHeader{ceRecordHeader1, ceRecordHeader2},
+			want:          []*sarama.RecordHeader{},
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			actual := FilterCeRecordHeaders(testCase.recordHeaders)
+			assert.Equal(t, testCase.want, actual)
+		})
+	}
 }

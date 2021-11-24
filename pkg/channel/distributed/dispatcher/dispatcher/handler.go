@@ -122,6 +122,11 @@ func (h *Handler) Handle(ctx context.Context, consumerMessage *sarama.ConsumerMe
 			zap.Int64("Offset", consumerMessage.Offset))
 	}
 
+	// Convert ConsumerMessage.Headers Into HTTP Header Struct For Dispatching (Passing-Through of "Additional Headers")
+	// Using Sarama RecordHeaders instead of CloudEvent Message.Headers to support multi-value HTTP Headers without
+	// serialization.  Also, filtering CloudEvent "ce" headers which are already taken from the Message.
+	httpHeader := tracing.ConvertRecordHeadersToHttpHeader(tracing.FilterCeRecordHeaders(consumerMessage.Headers))
+
 	// Convert The Sarama ConsumerMessage Into A CloudEvents Message
 	message := kafkasaramaprotocol.NewMessageFromConsumerMessage(consumerMessage)
 	if message.ReadEncoding() == binding.EncodingUnknown {
@@ -134,7 +139,7 @@ func (h *Handler) Handle(ctx context.Context, consumerMessage *sarama.ConsumerMe
 	defer span.End()
 
 	// Dispatch The Message With Configured Retries, DLQ, etc
-	info, err := h.MessageDispatcher.DispatchMessageWithRetries(ctx, message, nil, h.destinationURL, h.replyURL, h.deadLetterURL, &h.retryConfig)
+	info, err := h.MessageDispatcher.DispatchMessageWithRetries(ctx, message, httpHeader, h.destinationURL, h.replyURL, h.deadLetterURL, &h.retryConfig)
 	h.Logger.Debug("Received Response", zap.Any("ExecutionInfo", executionInfoWrapper{info}))
 
 	//

@@ -19,6 +19,7 @@ package producer
 import (
 	"context"
 	"errors"
+	"net/http"
 	"time"
 
 	"github.com/Shopify/sarama"
@@ -28,6 +29,8 @@ import (
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	eventingChannel "knative.dev/eventing/pkg/channel"
+
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/producer"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/health"
@@ -37,7 +40,6 @@ import (
 	kafkasarama "knative.dev/eventing-kafka/pkg/common/kafka/sarama"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
 	"knative.dev/eventing-kafka/pkg/common/tracing"
-	eventingChannel "knative.dev/eventing/pkg/channel"
 )
 
 // Producer Struct
@@ -53,7 +55,7 @@ type Producer struct {
 	brokers            []string
 }
 
-// Initialize The Producer
+// NewProducer returns a new Producer instance with specified configuration.
 func NewProducer(logger *zap.Logger,
 	config *sarama.Config,
 	brokers []string,
@@ -94,8 +96,8 @@ func NewProducer(logger *zap.Logger,
 	return newProducer, nil
 }
 
-// Produce A KafkaMessage From The Specified CloudEvent To The Specified Topic And Wait For The Delivery Report
-func (p *Producer) ProduceKafkaMessage(ctx context.Context, channelReference eventingChannel.ChannelReference, message binding.Message, transformers ...binding.Transformer) error {
+// ProduceKafkaMessage creates and sends a Sarama ProducerMessage to the specified Topic and waits for the delivery confirmation.
+func (p *Producer) ProduceKafkaMessage(ctx context.Context, channelReference eventingChannel.ChannelReference, message binding.Message, httpHeader http.Header, transformers ...binding.Transformer) error {
 
 	// Validate The Kafka Producer (Must Be Pre-Initialized)
 	if p.kafkaProducer == nil {
@@ -120,6 +122,9 @@ func (p *Producer) ProduceKafkaMessage(ctx context.Context, channelReference eve
 	// Add The "traceparent" And "tracestate" Headers To The Message (Helps Tie Related Messages Together In Traces)
 	producerMessage.Headers = append(producerMessage.Headers, tracing.SerializeTrace(trace.FromContext(ctx).SpanContext())...)
 
+	// Add any additional headers ("x-b3", etc)
+	producerMessage.Headers = append(producerMessage.Headers, tracing.ConvertHttpHeaderToRecordHeaders(httpHeader)...)
+
 	// Produce The Kafka Message To The Kafka Topic
 	if logger.Core().Enabled(zap.DebugLevel) {
 		// Checked Logging Level First To Avoid Calling StringifyHeaders and Encode Functions In Production
@@ -139,7 +144,7 @@ func (p *Producer) ProduceKafkaMessage(ctx context.Context, channelReference eve
 	}
 }
 
-// Async Process For Observing Kafka Metrics
+// ObserveMetrics is an async process for observing Kafka metrics.
 func (p *Producer) ObserveMetrics(interval time.Duration) {
 
 	// Fork A New Process To Run Async Metrics Collection
@@ -221,7 +226,7 @@ func (p *Producer) SecretChanged(ctx context.Context, secret *corev1.Secret) *Pr
 	return reconfiguredKafkaProducer
 }
 
-// Close The Producer (Stop Processing)
+// Close gracefully stops all Producer processing.
 func (p *Producer) Close() {
 
 	// Mark The Producer As No Longer Ready

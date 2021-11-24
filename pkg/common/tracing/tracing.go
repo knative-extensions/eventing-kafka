@@ -18,6 +18,8 @@ package tracing
 
 import (
 	"context"
+	"net/http"
+	"strings"
 
 	"github.com/Shopify/sarama"
 	protocolkafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
@@ -85,4 +87,48 @@ func ParseSpanContext(headers map[string][]byte) (sc trace.SpanContext, ok bool)
 	}
 
 	return format.SpanContextFromHeaders(traceParent, traceState)
+}
+
+// ConvertHttpHeaderToRecordHeaders converts the specified HTTP Header to Sarama RecordHeaders
+// It returns an array of RecordHeaders as is used in the Sarama ProducerMessage.
+// Multi-value HTTP Headers are decomposed into separate RecordHeader instances rather
+// than serializing as JSON or similar.
+func ConvertHttpHeaderToRecordHeaders(httpHeader http.Header) []sarama.RecordHeader {
+	recordHeaders := make([]sarama.RecordHeader, 0)
+	for headerKey, headerValues := range httpHeader {
+		for _, headerValue := range headerValues {
+			recordHeader := sarama.RecordHeader{
+				Key:   []byte(headerKey),
+				Value: []byte(headerValue),
+			}
+			recordHeaders = append(recordHeaders, recordHeader)
+		}
+	}
+	return recordHeaders
+}
+
+// ConvertRecordHeadersToHttpHeader converts the specified Sarama RecordHeaders to an HTTP Header.
+// It expects an array of RecordHeader pointers as is used in the Sarama ConsumerMessage.
+// Multi-value HTTP Headers are re-composed form RecordHeader instances sharing the same
+// Key rather than de-serializing JSON or similar.
+func ConvertRecordHeadersToHttpHeader(recordHeaders []*sarama.RecordHeader) http.Header {
+	httpHeader := make(http.Header)
+	for _, recordHeader := range recordHeaders {
+		if recordHeader != nil {
+			httpHeader.Add(string(recordHeader.Key), string(recordHeader.Value))
+		}
+	}
+	return httpHeader
+}
+
+// FilterCeRecordHeaders returns a new array of RecordHeader pointers including only
+// instances with non "ce_" Keys.
+func FilterCeRecordHeaders(recordHeaders []*sarama.RecordHeader) []*sarama.RecordHeader {
+	filteredRecordHeaders := make([]*sarama.RecordHeader, 0)
+	for _, recordHeader := range recordHeaders {
+		if recordHeader != nil && !strings.HasPrefix(string(recordHeader.Key), "ce_") {
+			filteredRecordHeaders = append(filteredRecordHeaders, recordHeader)
+		}
+	}
+	return filteredRecordHeaders
 }

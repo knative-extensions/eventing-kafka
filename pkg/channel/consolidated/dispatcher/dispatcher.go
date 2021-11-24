@@ -104,7 +104,7 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs, enqueue func(
 	reporter := eventingchannels.NewStatsReporter(containerName, kmeta.ChildName(podName, uuid.New().String()))
 	dispatcher.reporter = reporter
 	receiverFunc, err := eventingchannels.NewMessageReceiver(
-		func(ctx context.Context, channel eventingchannels.ChannelReference, message binding.Message, transformers []binding.Transformer, _ nethttp.Header) error {
+		func(ctx context.Context, channel eventingchannels.ChannelReference, message binding.Message, transformers []binding.Transformer, httpHeader nethttp.Header) error {
 			kafkaProducerMessage := sarama.ProducerMessage{
 				Topic: dispatcher.topicFunc(utils.KafkaChannelSeparator, channel.Namespace, channel.Name),
 			}
@@ -116,6 +116,7 @@ func NewDispatcher(ctx context.Context, args *KafkaDispatcherArgs, enqueue func(
 			}
 
 			kafkaProducerMessage.Headers = append(kafkaProducerMessage.Headers, tracing.SerializeTrace(trace.FromContext(ctx).SpanContext())...)
+			kafkaProducerMessage.Headers = append(kafkaProducerMessage.Headers, tracing.ConvertHttpHeaderToRecordHeaders(httpHeader)...)
 
 			partition, offset, err := dispatcher.kafkaSyncProducer.SendMessage(&kafkaProducerMessage)
 

@@ -24,11 +24,12 @@ import (
 	protocolkafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"github.com/cloudevents/sdk-go/v2/binding"
 	"go.uber.org/zap"
-	"knative.dev/eventing-kafka/pkg/common/consumer"
-	"knative.dev/eventing-kafka/pkg/common/tracing"
 	eventingchannels "knative.dev/eventing/pkg/channel"
 	fanout "knative.dev/eventing/pkg/channel/fanout"
 	"knative.dev/eventing/pkg/kncloudevents"
+
+	"knative.dev/eventing-kafka/pkg/common/consumer"
+	"knative.dev/eventing-kafka/pkg/common/tracing"
 )
 
 type consumerMessageHandler struct {
@@ -70,6 +71,8 @@ func (c consumerMessageHandler) Handle(ctx context.Context, consumerMessage *sar
 		zap.String("subscription", c.sub.String()),
 	)
 
+	httpHeader := tracing.ConvertRecordHeadersToHttpHeader(tracing.FilterCeRecordHeaders(consumerMessage.Headers))
+
 	ctx, span := tracing.StartTraceFromMessage(c.logger, ctx, message, consumerMessage.Topic)
 	defer span.End()
 
@@ -78,7 +81,7 @@ func (c consumerMessageHandler) Handle(ctx context.Context, consumerMessage *sar
 	dispatchExecutionInfo, err := c.dispatcher.DispatchMessageWithRetries(
 		ctx,
 		message,
-		nil,
+		httpHeader,
 		c.sub.Subscriber,
 		c.sub.Reply,
 		c.sub.DeadLetter,

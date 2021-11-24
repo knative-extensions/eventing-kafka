@@ -24,6 +24,9 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+	"knative.dev/pkg/logging"
+	logtesting "knative.dev/pkg/logging/testing"
+
 	producertesting "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/producer/testing"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/constants"
 	channelhealth "knative.dev/eventing-kafka/pkg/channel/distributed/receiver/health"
@@ -33,8 +36,6 @@ import (
 	configtesting "knative.dev/eventing-kafka/pkg/common/config/testing"
 	"knative.dev/eventing-kafka/pkg/common/metrics"
 	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
-	"knative.dev/pkg/logging"
-	logtesting "knative.dev/pkg/logging/testing"
 )
 
 // Test The NewProducer Constructor
@@ -66,6 +67,11 @@ func TestProduceKafkaMessage(t *testing.T) {
 	config := sarama.NewConfig()
 	channelReference := receivertesting.CreateChannelReference(receivertesting.ChannelName, receivertesting.ChannelNamespace)
 	bindingMessage := receivertesting.CreateBindingMessage(cloudevents.VersionV1)
+	httpHeader := map[string][]string{
+		"x-request-id": {"TestRequestId"},
+		"x-b3-traceid": {"TestB3TraceId"},
+		"x-foo":        {"TestFoo"},
+	}
 
 	// Create A Mock Kafka SyncProducer
 	mockSyncProducer := producertesting.NewMockSyncProducer()
@@ -78,7 +84,7 @@ func TestProduceKafkaMessage(t *testing.T) {
 	producer := createTestProducer(t, brokers, config, mockSyncProducer)
 
 	// Perform The Test & Verify Results
-	err := producer.ProduceKafkaMessage(context.Background(), channelReference, bindingMessage)
+	err := producer.ProduceKafkaMessage(context.Background(), channelReference, bindingMessage, httpHeader)
 	assert.Nil(t, err)
 
 	// Verify Message Was Produced Correctly
@@ -99,6 +105,11 @@ func TestProduceKafkaMessage(t *testing.T) {
 	receivertesting.ValidateProducerMessageHeader(t, producerMessage.Headers, constants.CeKafkaHeaderKeySubject, receivertesting.EventSubject)
 	receivertesting.ValidateProducerMessageHeader(t, producerMessage.Headers, constants.CeKafkaHeaderKeyDataSchema, receivertesting.EventDataSchema)
 	receivertesting.ValidateProducerMessageHeader(t, producerMessage.Headers, constants.CeKafkaHeaderKeyPartitionKey, receivertesting.PartitionKey)
+	for headerKey, headerValues := range httpHeader {
+		for _, headerValue := range headerValues {
+			receivertesting.ValidateProducerMessageHeader(t, producerMessage.Headers, headerKey, headerValue)
+		}
+	}
 }
 
 // Test The Producer's SecretChanged Functionality
