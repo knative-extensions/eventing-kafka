@@ -25,7 +25,7 @@ import (
 	"github.com/cloudevents/sdk-go/v2/binding"
 	"go.uber.org/zap"
 	eventingchannels "knative.dev/eventing/pkg/channel"
-	fanout "knative.dev/eventing/pkg/channel/fanout"
+	"knative.dev/eventing/pkg/channel/fanout"
 	"knative.dev/eventing/pkg/kncloudevents"
 
 	"knative.dev/eventing-kafka/pkg/common/consumer"
@@ -71,6 +71,9 @@ func (c consumerMessageHandler) Handle(ctx context.Context, consumerMessage *sar
 		zap.String("subscription", c.sub.String()),
 	)
 
+	// Convert ConsumerMessage.Headers Into HTTP Header Struct For Dispatching (Passing-Through of "Additional Headers")
+	// Using Sarama RecordHeaders instead of CloudEvent Message.Headers to support multi-value HTTP Headers without
+	// serialization.  Also, filtering CloudEvent "ce" headers which are already taken from the Message.
 	httpHeader := tracing.ConvertRecordHeadersToHttpHeader(tracing.FilterCeRecordHeaders(consumerMessage.Headers))
 
 	ctx, span := tracing.StartTraceFromMessage(c.logger, ctx, message, consumerMessage.Topic)
