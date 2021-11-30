@@ -16,6 +16,7 @@ package dispatcher
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 	"testing"
@@ -55,6 +56,7 @@ const (
 	testMsgEventTypeVersion  = "TestMsgEventTypeVersion"
 	testMsgKnativeHistory    = "TestKnativeHistory"
 	testMsgJsonContentString = "{\"content\": \"Test Message 1\"}"
+	testB3TraceId            = "TestB3TraceId"
 )
 
 var (
@@ -175,6 +177,12 @@ func TestGetConsumerGroup(t *testing.T) {
 // Test One Permutation Of The Handler's Handle() Functionality
 func performHandleTest(t *testing.T, testCase HandleTestCase) {
 
+	// Create The Expected Headers
+	headers := http.Header{
+		"Content-Type": []string{testMsgContentType},
+		"X-B3-Traceid": []string{testB3TraceId},
+	}
+
 	// Initialize Destination As Specified
 	var destinationUrl *url.URL
 	if testCase.destinationUri != nil {
@@ -206,7 +214,7 @@ func performHandleTest(t *testing.T, testCase HandleTestCase) {
 	}
 
 	// Create Mocks For Testing
-	mockMessageDispatcher := dispatchertesting.NewMockMessageDispatcher(t, nil, destinationUrl, replyUrl, deadLetterUrl, &retryConfig, testCase.dispatchErr)
+	mockMessageDispatcher := dispatchertesting.NewMockMessageDispatcher(t, headers, destinationUrl, replyUrl, deadLetterUrl, &retryConfig, testCase.dispatchErr)
 
 	// Mock The newMessageDispatcherWrapper Function (And Restore Post-Test)
 	newMessageDispatcherWrapperPlaceholder := newMessageDispatcherWrapper
@@ -335,6 +343,10 @@ func createConsumerMessage(t *testing.T) *sarama.ConsumerMessage {
 			{
 				Key:   []byte("ce_knativehistory"),
 				Value: []byte(testMsgKnativeHistory),
+			},
+			{
+				Key:   []byte("x-b3-traceid"),
+				Value: []byte(testB3TraceId),
 			},
 		},
 		Timestamp:      time.Now(),
