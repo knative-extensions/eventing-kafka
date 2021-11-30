@@ -1328,8 +1328,8 @@ k8s.io/utils v0.0.0-20201110183641-67b214c5f920 h1:CbnUZsM497iRC5QMVkHwyl8s2tB3g
 k8s.io/utils v0.0.0-20201110183641-67b214c5f920/go.mod h1:jPW/WVKK9YHAvNhRxK0md/EJ228hCsBRufyofKtW8HA=
 knative.dev/control-protocol v0.0.0-20211115173555-0910714d1183 h1:0Rvhwk9dfIqNGBkZWmxFNvcwYVrnphHZRXolSc5UDsw=
 knative.dev/control-protocol v0.0.0-20211115173555-0910714d1183/go.mod h1:h/Ac2W8Db0pgTo4baEfzRhn+MPpxJnkSQTBTZjthwXY=
-knative.dev/eventing v0.27.1-0.20211123205351-820db20be4b2 h1:QwyD6phsrqx5hDplMkFZ6NJPLMSnxN3YjAw+Qnnrbpg=
-knative.dev/eventing v0.27.1-0.20211123205351-820db20be4b2/go.mod h1:fnBpTKtPOxC7WOaQY6WUiUAVBXTb44njuhTi7LXHGVc=
+knative.dev/eventing v0.27.1-0.20211126120551-7fc053b79089 h1:CxTQ4uk9BpwWzXARM/20uENtwGwxOyS11ankbuz9GDE=
+knative.dev/eventing v0.27.1-0.20211126120551-7fc053b79089/go.mod h1:gGQdsi8sNQKIfCFJ58CngPFBrnO5Oqn8pNjZNFMDg88=
 knative.dev/hack v0.0.0-20211101195839-11d193bf617b/go.mod h1:PHt8x8yX5Z9pPquBEfIj0X66f8iWkWfR0S/sarACJrI=
 knative.dev/hack v0.0.0-20211112192837-128cf0150a69/go.mod h1:PHt8x8yX5Z9pPquBEfIj0X66f8iWkWfR0S/sarACJrI=
 knative.dev/hack v0.0.0-20211122162614-813559cefdda h1:WBfGcmu5pN+RCxDotKVYtWlJVI2V4Hvah+XD9mcSR/o=
@@ -1337,9 +1337,9 @@ knative.dev/hack v0.0.0-20211122162614-813559cefdda/go.mod h1:PHt8x8yX5Z9pPquBEf
 knative.dev/hack/schema v0.0.0-20211122162614-813559cefdda/go.mod h1:ffjwmdcrH5vN3mPhO8RrF2KfNnbHeCE2C60A+2cv3U0=
 knative.dev/pkg v0.0.0-20211101212339-96c0204a70dc/go.mod h1:SkfDk9bWIiNZD7XtILGkG7AKVyF/M6M0bGxLgl0SYL8=
 knative.dev/pkg v0.0.0-20211115071955-517ef0292b53/go.mod h1:VqUp1KWJqpTDNoiSI/heaX3uMdubImslJE2tBkP+Bbw=
-knative.dev/pkg v0.0.0-20211120133512-d016976f2567/go.mod h1:VqUp1KWJqpTDNoiSI/heaX3uMdubImslJE2tBkP+Bbw=
-knative.dev/pkg v0.0.0-20211123135150-787aec59e70a h1:mgE9GdkjfPJc7KpgBox52dSy1GsQmsFTWXy+1HjEn9I=
-knative.dev/pkg v0.0.0-20211123135150-787aec59e70a/go.mod h1:fZUlVceKtVNyFU6LokWGk2a9QFQXeSTtnbKOjjkQ690=
+knative.dev/pkg v0.0.0-20211125172117-608fc877e946/go.mod h1:fZUlVceKtVNyFU6LokWGk2a9QFQXeSTtnbKOjjkQ690=
+knative.dev/pkg v0.0.0-20211129195804-438776b3c87c h1:TcVqa/i/E/KcusxjroLEaMB2bDV42lYzN2Z+4soudE8=
+knative.dev/pkg v0.0.0-20211129195804-438776b3c87c/go.mod h1:AKPae1Cmj+k0GWXWnF2tKY7q5qPa1mTD7oCP4OeMvEM=
 knative.dev/reconciler-test v0.0.0-20211112132636-ae9e2e21972f h1:bSdsp5av09LqSF4iXo8LCCDEENJ+JEbzzdgHBoJdf2w=
 knative.dev/reconciler-test v0.0.0-20211112132636-ae9e2e21972f/go.mod h1:gTsbLk496j/M9xqMpx/liyCQ0X3bwDpRtcs2Zzws364=
 pgregory.net/rapid v0.3.3 h1:jCjBsY4ln4Atz78QoBWxUEvAHaFyNDQg9+WU62aCn1U=
