@@ -78,8 +78,6 @@ spec:
                         password:
                           description: Password is the Kubernetes secret containing the SASL password.
                           type: object
-                          required:
-                            - secretKeyRef
                           properties:
                             secretKeyRef:
                               description: The Secret key to select from.
@@ -97,8 +95,6 @@ spec:
                         type:
                           description: Type of saslType, defaults to plain (vs SCRAM-SHA-512 or SCRAM-SHA-256)
                           type: object
-                          required:
-                            - secretKeyRef
                           properties:
                             secretKeyRef:
                               description: The Secret key to select from.
@@ -116,8 +112,6 @@ spec:
                         user:
                           description: User is the Kubernetes secret containing the SASL username.
                           type: object
-                          required:
-                            - secretKeyRef
                           properties:
                             secretKeyRef:
                               description: The Secret key to select from.
@@ -138,8 +132,6 @@ spec:
                         caCert:
                           description: CACert is the Kubernetes secret containing the server CA cert.
                           type: object
-                          required:
-                            - secretKeyRef
                           properties:
                             secretKeyRef:
                               description: The Secret key to select from.
@@ -157,8 +149,6 @@ spec:
                         cert:
                           description: Cert is the Kubernetes secret containing the client certificate.
                           type: object
-                          required:
-                            - secretKeyRef
                           properties:
                             secretKeyRef:
                               description: The Secret key to select from.
@@ -178,8 +168,6 @@ spec:
                         key:
                           description: Key is the Kubernetes secret containing the client key.
                           type: object
-                          required:
-                            - secretKeyRef
                           properties:
                             secretKeyRef:
                               description: The Secret key to select from.
