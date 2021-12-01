@@ -148,7 +148,7 @@ func TestConvertHttpHeaderToRecordHeaders(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			actual := ConvertHttpHeaderToRecordHeaders(testCase.header)
-			assert.Equal(t, testCase.want, actual)
+			assert.ElementsMatch(t, testCase.want, actual)
 		})
 	}
 }
@@ -196,7 +196,9 @@ func TestConvertRecordHeadersToHttpHeader(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			actual := ConvertRecordHeadersToHttpHeader(testCase.recordHeaders)
-			assert.Equal(t, testCase.want, actual)
+			for wantKey, wantValues := range testCase.want {
+				assert.ElementsMatch(t, wantValues, actual[wantKey])
+			}
 		})
 	}
 }
@@ -244,7 +246,7 @@ func TestFilterCeRecordHeaders(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			actual := FilterCeRecordHeaders(testCase.recordHeaders)
-			assert.Equal(t, testCase.want, actual)
+			assert.ElementsMatch(t, testCase.want, actual)
 		})
 	}
 }
