@@ -43,6 +43,12 @@ rules:
   - update
   - patch
 
+- apiGroups:
+    - eventing.knative.dev
+  resources:
+    - eventtypes
+    - eventtypes/status
+  verbs: *everything
 
 - apiGroups:
   - bindings.knative.dev

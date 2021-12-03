@@ -1243,6 +1243,7 @@ knative.dev/eventing/pkg/client/informers/externalversions/sources/v1beta2
 knative.dev/eventing/pkg/client/injection/client
 knative.dev/eventing/pkg/client/injection/client/fake
 knative.dev/eventing/pkg/client/injection/informers/eventing/v1/broker
+knative.dev/eventing/pkg/client/injection/informers/eventing/v1beta1/eventtype
 knative.dev/eventing/pkg/client/injection/informers/factory
 knative.dev/eventing/pkg/client/injection/informers/factory/fake
 knative.dev/eventing/pkg/client/injection/informers/messaging/v1/subscription
@@ -1259,6 +1260,9 @@ knative.dev/eventing/pkg/kncloudevents
 knative.dev/eventing/pkg/metrics
 knative.dev/eventing/pkg/metrics/source
 knative.dev/eventing/pkg/reconciler/source
+knative.dev/eventing/pkg/reconciler/source/crd
+knative.dev/eventing/pkg/reconciler/source/duck
+knative.dev/eventing/pkg/reconciler/source/duck/resources
 knative.dev/eventing/pkg/reconciler/sugar
 knative.dev/eventing/pkg/reconciler/testing
 knative.dev/eventing/pkg/reconciler/testing/scheme
@@ -1347,8 +1351,10 @@ knative.dev/pkg/client/injection/apiextensions/client
 knative.dev/pkg/client/injection/apiextensions/client/fake
 knative.dev/pkg/client/injection/apiextensions/informers/apiextensions/v1/customresourcedefinition
 knative.dev/pkg/client/injection/apiextensions/informers/factory
+knative.dev/pkg/client/injection/apiextensions/reconciler/apiextensions/v1/customresourcedefinition
 knative.dev/pkg/client/injection/ducks/duck/v1/addressable
 knative.dev/pkg/client/injection/ducks/duck/v1/podspecable
+knative.dev/pkg/client/injection/ducks/duck/v1/source
 knative.dev/pkg/client/injection/kube/client
 knative.dev/pkg/client/injection/kube/client/fake
 knative.dev/pkg/client/injection/kube/informers/admissionregistration/v1/mutatingwebhookconfiguration

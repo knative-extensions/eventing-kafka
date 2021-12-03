@@ -39,6 +39,8 @@ import (
 	"knative.dev/eventing-kafka/pkg/apis/bindings"
 	bindingsv1beta1 "knative.dev/eventing-kafka/pkg/apis/bindings/v1beta1"
 	"knative.dev/eventing-kafka/pkg/apis/sources"
+	sourcecrd "knative.dev/eventing/pkg/reconciler/source/crd"
+
 	kafkasourcedefaultconfig "knative.dev/eventing-kafka/pkg/apis/sources/config"
 	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 	"knative.dev/eventing-kafka/pkg/source/reconciler/binding"
@@ -196,5 +198,8 @@ func main() {
 		binding.NewController, NewKafkaBindingWebhook(kfkSelector),
 
 		source.NewController,
+
+		// Sources CRD
+		sourcecrd.NewController,
 	)
 }
