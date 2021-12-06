@@ -57,7 +57,7 @@ func IsSucceeded(name string, timings ...time.Duration) feature.StepFn {
 	return func(ctx context.Context, t feature.T) {
 		interval, timeout := k8s.PollTimings(ctx, timings)
 		env := environment.FromContext(ctx)
-		if err := k8s.WaitForResourceReady(ctx, env.Namespace(), name, GVR(), interval, timeout); err != nil {
+		if err := k8s.WaitForResourceReady(ctx, t, env.Namespace(), name, GVR(), interval, timeout); err != nil {
 			t.Error(GVR(), "did not become succeeded", err)
 		}
 	}
