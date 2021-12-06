@@ -63,7 +63,7 @@ func Install(name string, opts ...manifest.CfgFn) feature.StepFn {
 func IsReady(name string, timings ...time.Duration) feature.StepFn {
 	return func(ctx context.Context, t feature.T) {
 		interval, timeout := k8s.PollTimings(ctx, timings)
-		if err := k8s.WaitForResourceReady(ctx, kafkaNamespace, name, GVR(), interval, timeout); err != nil {
+		if err := k8s.WaitForResourceReady(ctx, t, kafkaNamespace, name, GVR(), interval, timeout); err != nil {
 			t.Error(GVR(), "did not become ready,", err)
 		}
 	}
