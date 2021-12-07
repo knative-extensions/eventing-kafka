@@ -221,7 +221,7 @@ fall-back to random partitioning.
 
 Events in each partition are processed in order, with an **at-least-once**
 guarantee. If a full cycle of retries for a given subscription fails, the event
-is ignored, or sent to the DLQ according to the Subscription's `DeliverySpec`
+is ignored, or sent to the _Dead-Letter-Sink_ according to the Subscription's `DeliverySpec`
 and processing continues with the next event.
 
 ## Offset Repositioning
