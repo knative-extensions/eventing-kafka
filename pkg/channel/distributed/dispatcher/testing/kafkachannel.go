@@ -21,9 +21,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/pkg/apis"
+
+	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 )
 
 // KafkaChannelOption enables further configuration of a KafkaChannel.
@@ -52,9 +53,10 @@ func WithKafkaChannelReady(kafkachannel *v1beta1.KafkaChannel) {
 	kafkachannel.Status.MarkConfigTrue()
 	kafkachannel.Status.MarkTopicTrue()
 	kafkachannel.Status.MarkChannelServiceTrue()
-	kafkachannel.Status.MarkServiceTrue()
-	kafkachannel.Status.MarkEndpointsTrue()
-	kafkachannel.Status.PropagateDispatcherStatus(&appsv1.DeploymentStatus{
+	kafkachannel.Status.MarkReceiverServiceTrue()
+	kafkachannel.Status.MarkReceiverDeploymentTrue()
+	kafkachannel.Status.MarkDispatcherServiceTrue()
+	kafkachannel.Status.PropagateDispatcherDeploymentStatus(&appsv1.DeploymentStatus{
 		Conditions: []appsv1.DeploymentCondition{
 			{
 				Type:   appsv1.DeploymentAvailable,

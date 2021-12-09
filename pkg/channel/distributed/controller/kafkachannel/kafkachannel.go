@@ -20,17 +20,17 @@ import (
 	"context"
 	"fmt"
 
+	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/equality"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/eventing/pkg/apis/messaging"
+	"knative.dev/pkg/logging"
 	"knative.dev/pkg/reconciler"
 
-	"go.uber.org/zap"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	commonk8s "knative.dev/eventing-kafka/pkg/channel/distributed/common/k8s"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
-	"knative.dev/eventing/pkg/apis/messaging"
-	"knative.dev/pkg/logging"
 )
 
 // Reconcile The KafkaChannel Itself - After Channel Reconciliation (Add MetaData)
@@ -143,8 +143,8 @@ func (r *Reconciler) reconcileLabels(channel *kafkav1beta1.KafkaChannel) bool {
 // KafkaChannel Status Reconciliation
 //
 
-//Update A Single KafkaChannel's Status To Reflect The Specified Channel Service/Deployment State
-func (r *Reconciler) updateKafkaChannelStatus(ctx context.Context, originalChannel *kafkav1beta1.KafkaChannel,
+// updateKafkaChannelReceiverStatus updates a KafkaChannel's Status to reflect the Receiver Service/Deployment state.
+func (r *Reconciler) updateKafkaChannelReceiverStatus(ctx context.Context, originalChannel *kafkav1beta1.KafkaChannel,
 	serviceValid bool, serviceReason string, serviceMessage string,
 	deploymentValid bool, deploymentReason string, deploymentMessage string) error {
 
@@ -170,22 +170,16 @@ func (r *Reconciler) updateKafkaChannelStatus(ctx context.Context, originalChann
 
 		// Update Service Status Based On Specified State
 		if serviceValid {
-			updatedChannel.Status.MarkServiceTrue()
+			updatedChannel.Status.MarkReceiverServiceTrue()
 		} else {
-			updatedChannel.Status.MarkServiceFailed(serviceReason, serviceMessage)
+			updatedChannel.Status.MarkReceiverServiceFailed(serviceReason, serviceMessage)
 		}
 
-		//
 		// Update Deployment Status Based On Specified State
-		//
-		// TODO - As part of the conversion to the eventing-contrib KafkaChannel CRD and its associated
-		//        Status, we've not yet implemented Endpoint tracking.  Until this is done we'll track
-		//        the Deployments As Endpoints (since they will result in the Endpoints being up anyway).
-		//
 		if deploymentValid {
-			updatedChannel.Status.MarkEndpointsTrue()
+			updatedChannel.Status.MarkReceiverDeploymentTrue()
 		} else {
-			updatedChannel.Status.MarkEndpointsFailed(deploymentReason, deploymentMessage)
+			updatedChannel.Status.MarkReceiverDeploymentFailed(deploymentReason, deploymentMessage)
 		}
 
 		// If The KafkaChannel Status Changed

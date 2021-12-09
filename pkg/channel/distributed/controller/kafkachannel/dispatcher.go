@@ -138,16 +138,20 @@ func (r *Reconciler) reconcileDispatcherService(ctx context.Context, logger *zap
 			_, err = r.kubeClientset.CoreV1().Services(newService.Namespace).Create(ctx, newService, metav1.CreateOptions{})
 			if err != nil {
 				logger.Error("Failed To Create Dispatcher Service", zap.Error(err))
+				channel.Status.MarkDispatcherServiceFailed(event.DispatcherServiceReconciliationFailed.String(), "Failed To Create Dispatcher Service: %v", err)
 				return err
 			} else {
 				logger.Info("Successfully Created Dispatcher Service")
+				channel.Status.MarkDispatcherServiceTrue()
 				return nil
 			}
 		} else {
-			logger.Error("Failed To Get Dispatcher Service For Reconciliation", zap.Error(err))
+			logger.Error("Failed To Get Dispatcher Service", zap.Error(err))
+			channel.Status.MarkDispatcherServiceUnknown(event.DispatcherServiceReconciliationFailed.String(), "Failed To Get Dispatcher Service: %v", err)
 			return err
 		}
-	} else {
+
+	} else { // Dispatcher Service Found
 
 		// Log Deletion Timestamp & Finalizer State
 		if existingService.DeletionTimestamp.IsZero() {
@@ -172,11 +176,14 @@ func (r *Reconciler) reconcileDispatcherService(ctx context.Context, logger *zap
 				logger.Info("Dispatcher Service Changed - Patch Applied")
 			} else {
 				controller.GetEventRecorder(ctx).Event(channel, corev1.EventTypeWarning, event.DispatcherServicePatchFailed.String(), "Dispatcher Service Patch Failed")
-				channel.Status.MarkDispatcherFailed(event.DispatcherServicePatchFailed.String(), "Failed To Patch Dispatcher Service: %v", err)
+				channel.Status.MarkDispatcherServiceFailed(event.DispatcherServicePatchFailed.String(), "Failed To Patch Dispatcher Service: %v", err)
 				logger.Error("Dispatcher Service Patch Failed", zap.Error(err))
 				return err
 			}
 		}
+
+		// Mark Dispatcher Status
+		channel.Status.MarkDispatcherServiceTrue()
 	}
 	return nil
 }
@@ -297,7 +304,7 @@ func (r *Reconciler) reconcileDispatcherDeployment(ctx context.Context, logger *
 	newDeployment, err := r.newDispatcherDeployment(logger, channel)
 	if err != nil {
 		logger.Error("Failed To Create Dispatcher Deployment YAML", zap.Error(err))
-		channel.Status.MarkDispatcherFailed(event.DispatcherDeploymentReconciliationFailed.String(), "Failed To Generate Dispatcher Deployment: %v", err)
+		channel.Status.MarkDispatcherDeploymentFailed(event.DispatcherDeploymentReconciliationFailed.String(), "Failed To Generate Dispatcher Deployment: %v", err)
 		return err
 	}
 
@@ -305,28 +312,29 @@ func (r *Reconciler) reconcileDispatcherDeployment(ctx context.Context, logger *
 	existingDeployment, err := r.getDispatcherDeployment(channel)
 	if existingDeployment == nil || err != nil {
 
-		// If The Dispatcher Deployment Was Not Found - Then Create A New Deployment For The Channel
+		// If The Dispatcher Deployment Was Not Found
 		if errors.IsNotFound(err) {
 
-			// Then Create The New Deployment
+			// Then Create The New Deployment For The Channel
 			logger.Info("Dispatcher Deployment Not Found - Creating New One")
 			newDeployment, err = r.kubeClientset.AppsV1().Deployments(newDeployment.Namespace).Create(ctx, newDeployment, metav1.CreateOptions{})
 			if err != nil {
 				logger.Error("Failed To Create Dispatcher Deployment", zap.Error(err))
-				channel.Status.MarkDispatcherFailed(event.DispatcherDeploymentReconciliationFailed.String(), "Failed To Create Dispatcher Deployment: %v", err)
+				channel.Status.MarkDispatcherDeploymentFailed(event.DispatcherDeploymentReconciliationFailed.String(), "Failed To Create Dispatcher Deployment: %v", err)
 				return err
 			} else {
 				logger.Info("Successfully Created Dispatcher Deployment")
-				channel.Status.PropagateDispatcherStatus(&newDeployment.Status)
+				channel.Status.PropagateDispatcherDeploymentStatus(&newDeployment.Status)
 				return nil
 			}
 		} else {
 			// Failed In Attempt To Get Deployment From K8S
 			logger.Error("Failed To Get Dispatcher Deployment", zap.Error(err))
-			channel.Status.MarkDispatcherUnknown(event.DispatcherDeploymentReconciliationFailed.String(), "Failed To Get Dispatcher Deployment: %v", err)
+			channel.Status.MarkDispatcherDeploymentUnknown(event.DispatcherDeploymentReconciliationFailed.String(), "Failed To Get Dispatcher Deployment: %v", err)
 			return err
 		}
-	} else {
+
+	} else { // Dispatcher Deployment Found
 
 		// Log Deletion Timestamp & Finalizer State
 		if existingDeployment.DeletionTimestamp.IsZero() {
@@ -352,13 +360,14 @@ func (r *Reconciler) reconcileDispatcherDeployment(ctx context.Context, logger *
 				logger.Info("Dispatcher Deployment Changed - Update Applied")
 			} else {
 				controller.GetEventRecorder(ctx).Event(channel, corev1.EventTypeWarning, event.DispatcherDeploymentUpdateFailed.String(), "Dispatcher Deployment Update Failed")
-				channel.Status.MarkDispatcherFailed(event.DispatcherDeploymentUpdateFailed.String(), "Failed To Update Dispatcher Deployment: %v", err)
+				channel.Status.MarkDispatcherDeploymentFailed(event.DispatcherDeploymentUpdateFailed.String(), "Failed To Update Dispatcher Deployment: %v", err)
 				logger.Info("Dispatcher Deployment Failed", zap.Error(err))
 				return err
 			}
 		}
+
 		// Propagate Status & Return Success
-		channel.Status.PropagateDispatcherStatus(&updatedDeployment.Status)
+		channel.Status.PropagateDispatcherDeploymentStatus(&updatedDeployment.Status)
 		return nil
 	}
 }

@@ -25,11 +25,16 @@ import (
 	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/signals"
 
+	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	controller "knative.dev/eventing-kafka/pkg/channel/consolidated/reconciler/dispatcher"
 	"knative.dev/eventing-kafka/pkg/common/configmaploader"
 )
 
 const component = "kafkachannel-dispatcher"
+
+func init() {
+	v1beta1.RegisterConsolidatedKafkaChannelConditionSet()
+}
 
 func main() {
 	ctx := signals.NewContext()

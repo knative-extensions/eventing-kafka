@@ -57,9 +57,18 @@ var ignoreAllButTypeAndStatus = cmpopts.IgnoreFields(
 	apis.Condition{},
 	"LastTransitionTime", "Message", "Reason", "Severity")
 
-func TestKafkaChannelGetConditionSet(t *testing.T) {
-	r := &KafkaChannel{}
+func TestConsolidatedKafkaChannelGetConditionSet(t *testing.T) {
+	RegisterConsolidatedKafkaChannelConditionSet()
+	performGetConditionSetTest(t)
+}
 
+func TestDistributedKafkaChannelGetConditionSet(t *testing.T) {
+	RegisterDistributedKafkaChannelConditionSet()
+	performGetConditionSetTest(t)
+}
+
+func performGetConditionSetTest(t *testing.T) {
+	r := &KafkaChannel{}
 	if got, want := r.GetConditionSet().GetTopLevelConditionType(), apis.ConditionReady; got != want {
 		t.Errorf("GetTopLevelCondition=%v, want=%v", got, want)
 	}
@@ -109,12 +118,14 @@ func TestChannelGetCondition(t *testing.T) {
 	}
 }
 
-func TestChannelInitializeConditions(t *testing.T) {
-	tests := []struct {
-		name string
-		cs   *KafkaChannelStatus
-		want *KafkaChannelStatus
-	}{{
+type InitializeConditionsTestCase struct {
+	name string              // TestCase Name
+	cs   *KafkaChannelStatus // Starting ConditionSet
+	want *KafkaChannelStatus // Expected ConditionSet
+}
+
+func TestConsolidatedChannelInitializeConditions(t *testing.T) {
+	testCases := []InitializeConditionsTestCase{{
 		name: "empty",
 		cs:   &KafkaChannelStatus{},
 		want: &KafkaChannelStatus{
@@ -236,17 +247,159 @@ func TestChannelInitializeConditions(t *testing.T) {
 		},
 	}}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			test.cs.InitializeConditions()
-			if diff := cmp.Diff(test.want, test.cs, ignoreAllButTypeAndStatus); diff != "" {
+	RegisterConsolidatedKafkaChannelConditionSet()
+	performInitializeConditionsTest(t, testCases)
+}
+
+func TestDistributedChannelInitializeConditions(t *testing.T) {
+	testCases := []InitializeConditionsTestCase{{
+		name: "empty",
+		cs:   &KafkaChannelStatus{},
+		want: &KafkaChannelStatus{
+			ChannelableStatus: eventingduckv1.ChannelableStatus{
+				Status: duckv1.Status{
+					Conditions: []apis.Condition{{
+						Type:   KafkaChannelConditionAddressable,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   KafkaChannelConditionChannelServiceReady,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   KafkaChannelConditionConfigReady,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   KafkaChannelConditionDispatcherDeploymentReady,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   KafkaChannelConditionDispatcherServiceReady,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   KafkaChannelConditionReady,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   KafkaChannelConditionReceiverDeploymentReady,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   KafkaChannelConditionReceiverServiceReady,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   KafkaChannelConditionTopicReady,
+						Status: corev1.ConditionUnknown,
+					}},
+				},
+			},
+		},
+	}, {
+		name: "one false",
+		cs: &KafkaChannelStatus{
+			ChannelableStatus: eventingduckv1.ChannelableStatus{
+				Status: duckv1.Status{
+					Conditions: []apis.Condition{{
+						Type:   KafkaChannelConditionReceiverServiceReady,
+						Status: corev1.ConditionFalse,
+					}},
+				},
+			},
+		},
+		want: &KafkaChannelStatus{
+			ChannelableStatus: eventingduckv1.ChannelableStatus{
+				Status: duckv1.Status{
+					Conditions: []apis.Condition{{
+						Type:   KafkaChannelConditionAddressable,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   KafkaChannelConditionChannelServiceReady,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   KafkaChannelConditionConfigReady,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   KafkaChannelConditionDispatcherDeploymentReady,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   KafkaChannelConditionDispatcherServiceReady,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   KafkaChannelConditionReady,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   KafkaChannelConditionReceiverDeploymentReady,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   KafkaChannelConditionReceiverServiceReady,
+						Status: corev1.ConditionFalse,
+					}, {
+						Type:   KafkaChannelConditionTopicReady,
+						Status: corev1.ConditionUnknown,
+					}},
+				},
+			},
+		},
+	}, {
+		name: "one true",
+		cs: &KafkaChannelStatus{
+			ChannelableStatus: eventingduckv1.ChannelableStatus{
+				Status: duckv1.Status{
+					Conditions: []apis.Condition{{
+						Type:   KafkaChannelConditionReceiverServiceReady,
+						Status: corev1.ConditionTrue,
+					}},
+				},
+			},
+		},
+		want: &KafkaChannelStatus{
+			ChannelableStatus: eventingduckv1.ChannelableStatus{
+				Status: duckv1.Status{
+					Conditions: []apis.Condition{{
+						Type:   KafkaChannelConditionAddressable,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   KafkaChannelConditionChannelServiceReady,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   KafkaChannelConditionConfigReady,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   KafkaChannelConditionDispatcherDeploymentReady,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   KafkaChannelConditionDispatcherServiceReady,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   KafkaChannelConditionReady,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   KafkaChannelConditionReceiverDeploymentReady,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   KafkaChannelConditionReceiverServiceReady,
+						Status: corev1.ConditionTrue,
+					}, {
+						Type:   KafkaChannelConditionTopicReady,
+						Status: corev1.ConditionUnknown,
+					}},
+				},
+			},
+		},
+	}}
+
+	RegisterDistributedKafkaChannelConditionSet()
+	performInitializeConditionsTest(t, testCases)
+}
+
+func performInitializeConditionsTest(t *testing.T, testCases []InitializeConditionsTestCase) {
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			testCase.cs.InitializeConditions()
+			if diff := cmp.Diff(testCase.want, testCase.cs, ignoreAllButTypeAndStatus); diff != "" {
 				t.Errorf("unexpected conditions (-want, +got) = %v", diff)
 			}
 		})
 	}
 }
 
-func TestChannelIsReady(t *testing.T) {
+func TestConsolidatedChannelIsReady(t *testing.T) {
+	RegisterConsolidatedKafkaChannelConditionSet()
 	tests := []struct {
 		name                    string
 		markServiceReady        bool
@@ -359,6 +512,169 @@ func TestChannelIsReady(t *testing.T) {
 				cs.PropagateDispatcherStatus(test.dispatcherStatus)
 			} else {
 				cs.MarkDispatcherFailed("NotReadyDispatcher", "testing")
+			}
+			if test.markTopicReady {
+				cs.MarkTopicTrue()
+			} else {
+				cs.MarkTopicFailed("NotReadyTopic", "testing")
+			}
+			got := cs.IsReady()
+			if test.wantReady != got {
+				t.Errorf("unexpected readiness: want %v, got %v", test.wantReady, got)
+			}
+		})
+	}
+}
+
+func TestDistributedChannelIsReady(t *testing.T) {
+	RegisterDistributedKafkaChannelConditionSet()
+	tests := []struct {
+		name                        string
+		setAddress                  bool
+		markChannelServiceReady     bool
+		markConfigurationReady      bool
+		markDispatcherServiceReady  bool
+		dispatcherStatus            *appsv1.DeploymentStatus
+		markReceiverServiceReady    bool
+		markReceiverDeploymentReady bool
+		markTopicReady              bool
+		wantReady                   bool
+	}{{
+		name:                        "all happy",
+		setAddress:                  true,
+		markChannelServiceReady:     true,
+		markConfigurationReady:      true,
+		dispatcherStatus:            deploymentStatusReady,
+		markDispatcherServiceReady:  true,
+		markReceiverDeploymentReady: true,
+		markReceiverServiceReady:    true,
+		markTopicReady:              true,
+		wantReady:                   true,
+	}, {
+		name:                        "address not ready",
+		setAddress:                  false,
+		markChannelServiceReady:     true,
+		markConfigurationReady:      true,
+		dispatcherStatus:            deploymentStatusReady,
+		markDispatcherServiceReady:  true,
+		markReceiverDeploymentReady: true,
+		markReceiverServiceReady:    true,
+		markTopicReady:              true,
+		wantReady:                   false,
+	}, {
+		name:                        "channel service not ready",
+		setAddress:                  true,
+		markChannelServiceReady:     false,
+		markConfigurationReady:      true,
+		dispatcherStatus:            deploymentStatusReady,
+		markDispatcherServiceReady:  true,
+		markReceiverDeploymentReady: true,
+		markReceiverServiceReady:    true,
+		markTopicReady:              true,
+		wantReady:                   false,
+	}, {
+		name:                        "configuration not ready",
+		setAddress:                  true,
+		markChannelServiceReady:     true,
+		markConfigurationReady:      false,
+		dispatcherStatus:            deploymentStatusReady,
+		markDispatcherServiceReady:  true,
+		markReceiverDeploymentReady: true,
+		markReceiverServiceReady:    true,
+		markTopicReady:              true,
+		wantReady:                   false,
+	}, {
+		name:                        "dispatcher deployment not ready",
+		setAddress:                  true,
+		markChannelServiceReady:     true,
+		markConfigurationReady:      true,
+		dispatcherStatus:            deploymentStatusNotReady,
+		markDispatcherServiceReady:  true,
+		markReceiverDeploymentReady: true,
+		markReceiverServiceReady:    true,
+		markTopicReady:              true,
+		wantReady:                   false,
+	}, {
+		name:                        "dispatcher service not ready",
+		setAddress:                  true,
+		markChannelServiceReady:     true,
+		markConfigurationReady:      true,
+		dispatcherStatus:            deploymentStatusReady,
+		markDispatcherServiceReady:  false,
+		markReceiverDeploymentReady: true,
+		markReceiverServiceReady:    true,
+		markTopicReady:              true,
+		wantReady:                   false,
+	}, {
+		name:                        "receiver deployment not ready",
+		setAddress:                  true,
+		markChannelServiceReady:     true,
+		markConfigurationReady:      true,
+		dispatcherStatus:            deploymentStatusReady,
+		markDispatcherServiceReady:  true,
+		markReceiverDeploymentReady: false,
+		markReceiverServiceReady:    true,
+		markTopicReady:              true,
+		wantReady:                   false,
+	}, {
+		name:                        "receiver service not ready",
+		setAddress:                  true,
+		markChannelServiceReady:     true,
+		markConfigurationReady:      true,
+		dispatcherStatus:            deploymentStatusReady,
+		markDispatcherServiceReady:  true,
+		markReceiverDeploymentReady: true,
+		markReceiverServiceReady:    false,
+		markTopicReady:              true,
+		wantReady:                   false,
+	}, {
+		name:                        "topic not ready",
+		setAddress:                  true,
+		markChannelServiceReady:     true,
+		markConfigurationReady:      true,
+		dispatcherStatus:            deploymentStatusReady,
+		markDispatcherServiceReady:  true,
+		markReceiverDeploymentReady: true,
+		markReceiverServiceReady:    true,
+		markTopicReady:              false,
+		wantReady:                   false,
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cs := &KafkaChannelStatus{}
+			cs.InitializeConditions()
+			if test.setAddress {
+				cs.SetAddress(&apis.URL{Scheme: "http", Host: "foo.bar"})
+			}
+			if test.markChannelServiceReady {
+				cs.MarkChannelServiceTrue()
+			} else {
+				cs.MarkChannelServiceFailed("NotReadyChannelService", "testing")
+			}
+			if test.markConfigurationReady {
+				cs.MarkConfigTrue()
+			} else {
+				cs.MarkConfigFailed("NotReadyConfiguration", "testing")
+			}
+			if test.dispatcherStatus != nil {
+				cs.PropagateDispatcherDeploymentStatus(test.dispatcherStatus)
+			} else {
+				cs.MarkDispatcherDeploymentFailed("NotReadyDispatcherDeployment", "testing")
+			}
+			if test.markDispatcherServiceReady {
+				cs.MarkDispatcherServiceTrue()
+			} else {
+				cs.MarkDispatcherServiceFailed("NotReadyDispatcherService", "testing")
+			}
+			if test.markReceiverDeploymentReady {
+				cs.MarkReceiverDeploymentTrue()
+			} else {
+				cs.MarkReceiverDeploymentFailed("NotReadyReceiverDeployment", "testing")
+			}
+			if test.markReceiverServiceReady {
+				cs.MarkReceiverServiceTrue()
+			} else {
+				cs.MarkReceiverServiceFailed("NotReadyReceiverService", "testing")
 			}
 			if test.markTopicReady {
 				cs.MarkTopicTrue()

@@ -19,11 +19,12 @@ package testing
 import (
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	eventingChannel "knative.dev/eventing/pkg/channel"
 	knativeapis "knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+
+	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 )
 
 // Utility Function For Creating A Test ChannelReference (Knative)
@@ -53,7 +54,9 @@ func CreateKafkaChannel(name string, namespace string, ready corev1.ConditionSta
 			ChannelableStatus: eventingduck.ChannelableStatus{
 				Status: duckv1.Status{
 					Conditions: []knativeapis.Condition{
-						{Type: knativeapis.ConditionReady, Status: ready},
+						{Type: kafkav1beta1.KafkaChannelConditionTopicReady, Status: ready},
+						{Type: kafkav1beta1.KafkaChannelConditionReceiverServiceReady, Status: ready},
+						{Type: kafkav1beta1.KafkaChannelConditionReceiverDeploymentReady, Status: ready},
 					},
 				},
 				AddressStatus:      duckv1.AddressStatus{},
