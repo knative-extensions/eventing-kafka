@@ -50,8 +50,14 @@ var deploymentConditionNotReady = appsv1.DeploymentCondition{
 	Status: corev1.ConditionFalse,
 }
 
+var deploymentConditionUnknown = appsv1.DeploymentCondition{
+	Type:   appsv1.DeploymentAvailable,
+	Status: corev1.ConditionUnknown,
+}
+
 var deploymentStatusReady = &appsv1.DeploymentStatus{Conditions: []appsv1.DeploymentCondition{deploymentConditionReady}}
 var deploymentStatusNotReady = &appsv1.DeploymentStatus{Conditions: []appsv1.DeploymentCondition{deploymentConditionNotReady}}
+var deploymentStatusUnknown = &appsv1.DeploymentStatus{Conditions: []appsv1.DeploymentCondition{deploymentConditionUnknown}}
 
 var ignoreAllButTypeAndStatus = cmpopts.IgnoreFields(
 	apis.Condition{},
@@ -403,6 +409,7 @@ func TestConsolidatedChannelIsReady(t *testing.T) {
 	tests := []struct {
 		name                    string
 		markServiceReady        bool
+		markServiceUnknown      bool
 		markChannelServiceReady bool
 		markConfigurationReady  bool
 		setAddress              bool
@@ -421,9 +428,20 @@ func TestConsolidatedChannelIsReady(t *testing.T) {
 		markTopicReady:          true,
 		wantReady:               true,
 	}, {
+		name:                    "service unknown",
+		markServiceReady:        false,
+		markServiceUnknown:      true,
+		markChannelServiceReady: false,
+		markConfigurationReady:  true,
+		markEndpointsReady:      true,
+		dispatcherStatus:        deploymentStatusReady,
+		setAddress:              true,
+		markTopicReady:          true,
+		wantReady:               false,
+	}, {
 		name:                    "service not ready",
 		markServiceReady:        false,
-		markChannelServiceReady: false,
+		markChannelServiceReady: true,
 		markConfigurationReady:  true,
 		markEndpointsReady:      true,
 		dispatcherStatus:        deploymentStatusReady,
@@ -433,10 +451,20 @@ func TestConsolidatedChannelIsReady(t *testing.T) {
 	}, {
 		name:                    "endpoints not ready",
 		markServiceReady:        true,
-		markChannelServiceReady: false,
+		markChannelServiceReady: true,
 		markConfigurationReady:  true,
 		markEndpointsReady:      false,
 		dispatcherStatus:        deploymentStatusReady,
+		setAddress:              true,
+		markTopicReady:          true,
+		wantReady:               false,
+	}, {
+		name:                    "deployment unknown",
+		markServiceReady:        true,
+		markConfigurationReady:  true,
+		markEndpointsReady:      true,
+		markChannelServiceReady: false,
+		dispatcherStatus:        deploymentStatusUnknown,
 		setAddress:              true,
 		markTopicReady:          true,
 		wantReady:               false,
@@ -445,7 +473,7 @@ func TestConsolidatedChannelIsReady(t *testing.T) {
 		markServiceReady:        true,
 		markConfigurationReady:  true,
 		markEndpointsReady:      true,
-		markChannelServiceReady: false,
+		markChannelServiceReady: true,
 		dispatcherStatus:        deploymentStatusNotReady,
 		setAddress:              true,
 		markTopicReady:          true,
@@ -454,7 +482,7 @@ func TestConsolidatedChannelIsReady(t *testing.T) {
 		name:                    "address not set",
 		markServiceReady:        true,
 		markConfigurationReady:  true,
-		markChannelServiceReady: false,
+		markChannelServiceReady: true,
 		markEndpointsReady:      true,
 		dispatcherStatus:        deploymentStatusReady,
 		setAddress:              false,
@@ -488,7 +516,11 @@ func TestConsolidatedChannelIsReady(t *testing.T) {
 			if test.markServiceReady {
 				cs.MarkServiceTrue()
 			} else {
-				cs.MarkServiceFailed("NotReadyService", "testing")
+				if test.markServiceUnknown {
+					cs.MarkServiceUnknown("UnknownService", "testing")
+				} else {
+					cs.MarkServiceFailed("NotReadyService", "testing")
+				}
 			}
 			if test.markChannelServiceReady {
 				cs.MarkChannelServiceTrue()
@@ -529,16 +561,17 @@ func TestConsolidatedChannelIsReady(t *testing.T) {
 func TestDistributedChannelIsReady(t *testing.T) {
 	RegisterDistributedKafkaChannelConditionSet()
 	tests := []struct {
-		name                        string
-		setAddress                  bool
-		markChannelServiceReady     bool
-		markConfigurationReady      bool
-		markDispatcherServiceReady  bool
-		dispatcherStatus            *appsv1.DeploymentStatus
-		markReceiverServiceReady    bool
-		markReceiverDeploymentReady bool
-		markTopicReady              bool
-		wantReady                   bool
+		name                         string
+		setAddress                   bool
+		markChannelServiceReady      bool
+		markConfigurationReady       bool
+		markDispatcherServiceReady   bool
+		markDispatcherServiceUnknown bool
+		dispatcherStatus             *appsv1.DeploymentStatus
+		markReceiverServiceReady     bool
+		markReceiverDeploymentReady  bool
+		markTopicReady               bool
+		wantReady                    bool
 	}{{
 		name:                        "all happy",
 		setAddress:                  true,
@@ -584,6 +617,17 @@ func TestDistributedChannelIsReady(t *testing.T) {
 		markTopicReady:              true,
 		wantReady:                   false,
 	}, {
+		name:                        "dispatcher deployment unknown",
+		setAddress:                  true,
+		markChannelServiceReady:     true,
+		markConfigurationReady:      true,
+		dispatcherStatus:            deploymentStatusUnknown,
+		markDispatcherServiceReady:  true,
+		markReceiverDeploymentReady: false,
+		markReceiverServiceReady:    true,
+		markTopicReady:              true,
+		wantReady:                   false,
+	}, {
 		name:                        "dispatcher deployment not ready",
 		setAddress:                  true,
 		markChannelServiceReady:     true,
@@ -594,6 +638,18 @@ func TestDistributedChannelIsReady(t *testing.T) {
 		markReceiverServiceReady:    true,
 		markTopicReady:              true,
 		wantReady:                   false,
+	}, {
+		name:                         "dispatcher service unknown",
+		setAddress:                   true,
+		markChannelServiceReady:      true,
+		markConfigurationReady:       true,
+		dispatcherStatus:             deploymentStatusReady,
+		markDispatcherServiceReady:   false,
+		markDispatcherServiceUnknown: true,
+		markReceiverDeploymentReady:  true,
+		markReceiverServiceReady:     true,
+		markTopicReady:               true,
+		wantReady:                    false,
 	}, {
 		name:                        "dispatcher service not ready",
 		setAddress:                  true,
@@ -664,7 +720,11 @@ func TestDistributedChannelIsReady(t *testing.T) {
 			if test.markDispatcherServiceReady {
 				cs.MarkDispatcherServiceTrue()
 			} else {
-				cs.MarkDispatcherServiceFailed("NotReadyDispatcherService", "testing")
+				if test.markDispatcherServiceUnknown {
+					cs.MarkDispatcherServiceUnknown("UnknownDispatcherService", "testing")
+				} else {
+					cs.MarkDispatcherServiceFailed("NotReadyDispatcherService", "testing")
+				}
 			}
 			if test.markReceiverDeploymentReady {
 				cs.MarkReceiverDeploymentTrue()
