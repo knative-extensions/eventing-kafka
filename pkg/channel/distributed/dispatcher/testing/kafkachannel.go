@@ -25,6 +25,7 @@ import (
 	"knative.dev/pkg/apis"
 
 	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
+	distributedmessaging "knative.dev/eventing-kafka/pkg/channel/distributed/apis/messaging"
 )
 
 // KafkaChannelOption enables further configuration of a KafkaChannel.
@@ -53,10 +54,10 @@ func WithKafkaChannelReady(kafkachannel *v1beta1.KafkaChannel) {
 	kafkachannel.Status.MarkConfigTrue()
 	kafkachannel.Status.MarkTopicTrue()
 	kafkachannel.Status.MarkChannelServiceTrue()
-	kafkachannel.Status.MarkReceiverServiceTrue()
-	kafkachannel.Status.MarkReceiverDeploymentTrue()
-	kafkachannel.Status.MarkDispatcherServiceTrue()
-	kafkachannel.Status.PropagateDispatcherDeploymentStatus(&appsv1.DeploymentStatus{
+	distributedmessaging.MarkReceiverServiceTrue(&kafkachannel.Status)
+	distributedmessaging.MarkReceiverDeploymentTrue(&kafkachannel.Status)
+	distributedmessaging.MarkDispatcherServiceTrue(&kafkachannel.Status)
+	distributedmessaging.PropagateDispatcherDeploymentStatus(&kafkachannel.Status, &appsv1.DeploymentStatus{
 		Conditions: []appsv1.DeploymentCondition{
 			{
 				Type:   appsv1.DeploymentAvailable,

@@ -30,7 +30,7 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/signals"
 
-	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
+	distributedmessaging "knative.dev/eventing-kafka/pkg/channel/distributed/apis/messaging"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/env"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/kafkachannel"
@@ -42,7 +42,7 @@ import (
 
 // Initialize The KafkaChannel Status Conditions
 func init() {
-	v1beta1.RegisterDistributedKafkaChannelConditionSet()
+	distributedmessaging.RegisterDistributedKafkaChannelConditionSet()
 }
 
 // Eventing-Kafka Distributed KafkaChannel Controller Entry Point

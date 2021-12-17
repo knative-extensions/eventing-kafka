@@ -35,7 +35,6 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
-	"knative.dev/eventing-kafka/pkg/common/kafka/offset"
 	v1 "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/eventing/pkg/apis/eventing"
 	eventingclientset "knative.dev/eventing/pkg/client/clientset/versioned"
@@ -45,6 +44,9 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/network"
 	pkgreconciler "knative.dev/pkg/reconciler"
+
+	consolidatedmessaging "knative.dev/eventing-kafka/pkg/channel/consolidated/apis/messaging"
+	"knative.dev/eventing-kafka/pkg/common/kafka/offset"
 
 	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/reconciler/controller/resources"
@@ -227,20 +229,20 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel
 	e, err := r.endpointsLister.Endpoints(dispatcherNamespace).Get(dispatcherName)
 	if err != nil {
 		if apierrs.IsNotFound(err) {
-			kc.Status.MarkEndpointsFailed("DispatcherEndpointsDoesNotExist", "Dispatcher Endpoints does not exist")
+			consolidatedmessaging.MarkEndpointsFailed(&kc.Status, "DispatcherEndpointsDoesNotExist", "Dispatcher Endpoints does not exist")
 		} else {
 			logger.Errorw("Unable to get the dispatcher endpoints", zap.Error(err))
-			kc.Status.MarkEndpointsFailed("DispatcherEndpointsGetFailed", "Failed to get dispatcher endpoints")
+			consolidatedmessaging.MarkEndpointsFailed(&kc.Status, "DispatcherEndpointsGetFailed", "Failed to get dispatcher endpoints")
 		}
 		return err
 	}
 
 	if len(e.Subsets) == 0 {
 		logger.Errorw("No endpoints found for Dispatcher service", zap.Error(err))
-		kc.Status.MarkEndpointsFailed("DispatcherEndpointsNotReady", "There are no endpoints ready for Dispatcher service")
+		consolidatedmessaging.MarkEndpointsFailed(&kc.Status, "DispatcherEndpointsNotReady", "There are no endpoints ready for Dispatcher service")
 		return fmt.Errorf("there are no endpoints ready for Dispatcher service %s", dispatcherName)
 	}
-	kc.Status.MarkEndpointsTrue()
+	consolidatedmessaging.MarkEndpointsTrue(&kc.Status)
 
 	// Reconcile the k8s service representing the actual Channel. It points to the Dispatcher service via ExternalName
 	svc, err := r.reconcileChannelService(ctx, dispatcherNamespace, kc)
@@ -354,17 +356,17 @@ func (r *Reconciler) reconcileDispatcher(ctx context.Context, scope string, disp
 			d, err := r.KubeClientSet.AppsV1().Deployments(dispatcherNamespace).Create(ctx, want, metav1.CreateOptions{})
 			if err == nil {
 				controller.GetEventRecorder(ctx).Event(kc, corev1.EventTypeNormal, dispatcherDeploymentCreated, "Dispatcher deployment created")
-				kc.Status.PropagateDispatcherStatus(&d.Status)
+				consolidatedmessaging.PropagateDispatcherStatus(&kc.Status, &d.Status)
 				return err
 			} else {
 				logger.Errorw("error while creating dispatcher deployment", zap.Error(err), zap.String("namespace", dispatcherNamespace), zap.Any("deployment", want))
-				kc.Status.MarkDispatcherFailed(dispatcherDeploymentFailed, "Failed to create the dispatcher deployment: %v", err)
+				consolidatedmessaging.MarkDispatcherFailed(&kc.Status, dispatcherDeploymentFailed, "Failed to create the dispatcher deployment: %v", err)
 				return newDeploymentWarn(err)
 			}
 		}
 		logger.Errorw("can't get dispatcher deployment", zap.Error(err), zap.String("namespace", dispatcherNamespace),
 			zap.String("dispatcher-name", dispatcherName))
-		kc.Status.MarkDispatcherUnknown("DispatcherDeploymentFailed", "Failed to get dispatcher deployment: %v", err)
+		consolidatedmessaging.MarkDispatcherUnknown(&kc.Status, "DispatcherDeploymentFailed", "Failed to get dispatcher deployment: %v", err)
 		return err
 	} else {
 		// scale up the dispatcher to 1, otherwise keep the existing number in case the user has scaled it up.
@@ -380,13 +382,13 @@ func (r *Reconciler) reconcileDispatcher(ctx context.Context, scope string, disp
 			logger.Infof("Dispatcher deployment changed; reconciling: ObjectMeta=\n%s, Spec=\n%s", cmp.Diff(want.ObjectMeta, d.ObjectMeta), cmp.Diff(want.Spec, d.Spec))
 			if d, err = r.KubeClientSet.AppsV1().Deployments(dispatcherNamespace).Update(ctx, want, metav1.UpdateOptions{}); err != nil {
 				logger.Errorw("error while updating dispatcher deployment", zap.Error(err), zap.String("namespace", dispatcherNamespace), zap.Any("deployment", want))
-				kc.Status.MarkServiceFailed("DispatcherDeploymentUpdateFailed", "Failed to update the dispatcher deployment: %v", err)
+				consolidatedmessaging.MarkServiceFailed(&kc.Status, "DispatcherDeploymentUpdateFailed", "Failed to update the dispatcher deployment: %v", err)
 				return newDeploymentWarn(err)
 			} else {
 				controller.GetEventRecorder(ctx).Event(kc, corev1.EventTypeNormal, dispatcherDeploymentUpdated, "Dispatcher deployment updated")
 			}
 		}
-		kc.Status.PropagateDispatcherStatus(&d.Status)
+		consolidatedmessaging.PropagateDispatcherStatus(&kc.Status, &d.Status)
 		return nil
 	}
 }
@@ -401,12 +403,12 @@ func (r *Reconciler) reconcileServiceAccount(ctx context.Context, dispatcherName
 				controller.GetEventRecorder(ctx).Event(kc, corev1.EventTypeNormal, dispatcherServiceAccountCreated, "Dispatcher service account created")
 				return sa, nil
 			} else {
-				kc.Status.MarkDispatcherFailed("DispatcherDeploymentFailed", "Failed to create the dispatcher service account: %v", err)
+				consolidatedmessaging.MarkDispatcherFailed(&kc.Status, "DispatcherDeploymentFailed", "Failed to create the dispatcher service account: %v", err)
 				return sa, newServiceAccountWarn(err)
 			}
 		}
 
-		kc.Status.MarkDispatcherUnknown("DispatcherServiceAccountFailed", "Failed to get dispatcher service account: %v", err)
+		consolidatedmessaging.MarkDispatcherUnknown(&kc.Status, "DispatcherServiceAccountFailed", "Failed to get dispatcher service account: %v", err)
 		return nil, newServiceAccountWarn(err)
 	}
 	return sa, err
@@ -422,11 +424,11 @@ func (r *Reconciler) reconcileRoleBinding(ctx context.Context, name string, ns s
 				controller.GetEventRecorder(ctx).Event(kc, corev1.EventTypeNormal, dispatcherRoleBindingCreated, "Dispatcher role binding created")
 				return nil
 			} else {
-				kc.Status.MarkDispatcherFailed("DispatcherDeploymentFailed", "Failed to create the dispatcher role binding: %v", err)
+				consolidatedmessaging.MarkDispatcherFailed(&kc.Status, "DispatcherDeploymentFailed", "Failed to create the dispatcher role binding: %v", err)
 				return newRoleBindingWarn(err)
 			}
 		}
-		kc.Status.MarkDispatcherUnknown("DispatcherRoleBindingFailed", "Failed to get dispatcher role binding: %v", err)
+		consolidatedmessaging.MarkDispatcherUnknown(&kc.Status, "DispatcherRoleBindingFailed", "Failed to get dispatcher role binding: %v", err)
 		return newRoleBindingWarn(err)
 	}
 	return err
@@ -449,17 +451,17 @@ func (r *Reconciler) reconcileDispatcherService(ctx context.Context, dispatcherN
 			_, err := r.KubeClientSet.CoreV1().Services(dispatcherNamespace).Create(ctx, want, metav1.CreateOptions{})
 			if err == nil {
 				controller.GetEventRecorder(ctx).Event(kc, corev1.EventTypeNormal, dispatcherServiceCreated, "Dispatcher service created")
-				kc.Status.MarkServiceTrue()
+				consolidatedmessaging.MarkServiceTrue(&kc.Status)
 			} else {
 				logger.Errorw("Unable to create the dispatcher service", zap.Error(err))
 				controller.GetEventRecorder(ctx).Eventf(kc, corev1.EventTypeWarning, dispatcherServiceFailed, "Failed to create the dispatcher service: %v", err)
-				kc.Status.MarkServiceFailed("DispatcherServiceFailed", "Failed to create the dispatcher service: %v", err)
+				consolidatedmessaging.MarkServiceFailed(&kc.Status, "DispatcherServiceFailed", "Failed to create the dispatcher service: %v", err)
 				return err
 			}
 			return err
 		}
 		logger.Errorw("can't get dispatcher service", zap.Error(err), zap.String("namespace", dispatcherNamespace), zap.String("dispatcher-name", dispatcherName))
-		kc.Status.MarkServiceUnknown("DispatcherServiceFailed", "Failed to get dispatcher service: %v", err)
+		consolidatedmessaging.MarkServiceUnknown(&kc.Status, "DispatcherServiceFailed", "Failed to get dispatcher service: %v", err)
 		return newDispatcherServiceWarn(err)
 	} else {
 		want = resources.NewDispatcherServiceBuilderFromService(svc.DeepCopy()).WithArgs(&args).Build()
@@ -467,13 +469,13 @@ func (r *Reconciler) reconcileDispatcherService(ctx context.Context, dispatcherN
 			logger.Infof("Dispatcher service changed; reconciling: ObjectMeta=\n%s, Spec=\n%s", cmp.Diff(want.ObjectMeta, svc.ObjectMeta), cmp.Diff(want.Spec, svc.Spec))
 			if _, err = r.KubeClientSet.CoreV1().Services(dispatcherNamespace).Update(ctx, want, metav1.UpdateOptions{}); err != nil {
 				logger.Errorw("error while updating dispatcher service", zap.Error(err), zap.String("namespace", dispatcherNamespace), zap.Any("service", want))
-				kc.Status.MarkServiceFailed("DispatcherServiceUpdateFailed", "Failed to update the dispatcher service: %v", err)
+				consolidatedmessaging.MarkServiceFailed(&kc.Status, "DispatcherServiceUpdateFailed", "Failed to update the dispatcher service: %v", err)
 				return newServiceWarn(err)
 			} else {
 				controller.GetEventRecorder(ctx).Event(kc, corev1.EventTypeNormal, dispatcherServiceUpdated, "Dispatcher service updated")
 			}
 		}
-		kc.Status.MarkServiceTrue()
+		consolidatedmessaging.MarkServiceTrue(&kc.Status)
 		return nil
 	}
 }

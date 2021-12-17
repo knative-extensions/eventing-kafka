@@ -36,7 +36,7 @@ import (
 	eventingmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/signals"
 
-	"knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
+	distributedmessaging "knative.dev/eventing-kafka/pkg/channel/distributed/apis/messaging"
 	distributedcommonconfig "knative.dev/eventing-kafka/pkg/channel/distributed/common/config"
 	commonk8s "knative.dev/eventing-kafka/pkg/channel/distributed/common/k8s"
 	kafkautil "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/util"
@@ -57,7 +57,7 @@ var kafkaProducer *producer.Producer
 
 // Initialize The KafkaChannel Status Conditions
 func init() {
-	v1beta1.RegisterDistributedKafkaChannelConditionSet()
+	distributedmessaging.RegisterDistributedKafkaChannelConditionSet()
 }
 
 // The Main Function (Go Command)

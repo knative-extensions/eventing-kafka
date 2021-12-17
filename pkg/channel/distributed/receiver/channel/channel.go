@@ -28,6 +28,7 @@ import (
 	"knative.dev/pkg/logging"
 
 	messaging "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
+	distributedmessaging "knative.dev/eventing-kafka/pkg/channel/distributed/apis/messaging"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/health"
 	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	kafkainformers "knative.dev/eventing-kafka/pkg/client/informers/externalversions"
@@ -96,13 +97,13 @@ func ValidateKafkaChannel(channelReference eventingChannel.ChannelReference) err
 
 	// Verify The Topic And Receiver Status Indicates Ingress Is READY
 	if !kafkaChannel.Status.GetCondition(messaging.KafkaChannelConditionTopicReady).IsTrue() ||
-		!kafkaChannel.Status.GetCondition(messaging.KafkaChannelConditionReceiverServiceReady).IsTrue() ||
-		!kafkaChannel.Status.GetCondition(messaging.KafkaChannelConditionReceiverDeploymentReady).IsTrue() {
+		!kafkaChannel.Status.GetCondition(distributedmessaging.KafkaChannelConditionReceiverServiceReady).IsTrue() ||
+		!kafkaChannel.Status.GetCondition(distributedmessaging.KafkaChannelConditionReceiverDeploymentReady).IsTrue() {
 		logger.Info("Invalid KafkaChannel - Ingress (Topic / Receiver) Not READY")
 		return fmt.Errorf("ingress not READY: Kafka Topic=%t, Receiver Service=%t, Receiver Deployment=%t",
 			kafkaChannel.Status.GetCondition(messaging.KafkaChannelConditionTopicReady).IsTrue(),
-			kafkaChannel.Status.GetCondition(messaging.KafkaChannelConditionReceiverServiceReady).IsTrue(),
-			kafkaChannel.Status.GetCondition(messaging.KafkaChannelConditionReceiverServiceReady).IsTrue())
+			kafkaChannel.Status.GetCondition(distributedmessaging.KafkaChannelConditionReceiverServiceReady).IsTrue(),
+			kafkaChannel.Status.GetCondition(distributedmessaging.KafkaChannelConditionReceiverServiceReady).IsTrue())
 	}
 
 	// Return Valid KafkaChannel

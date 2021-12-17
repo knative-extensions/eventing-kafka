@@ -28,6 +28,7 @@ import (
 	"knative.dev/pkg/reconciler"
 
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
+	distributedmessaging "knative.dev/eventing-kafka/pkg/channel/distributed/apis/messaging"
 	commonk8s "knative.dev/eventing-kafka/pkg/channel/distributed/common/k8s"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
@@ -170,16 +171,16 @@ func (r *Reconciler) updateKafkaChannelReceiverStatus(ctx context.Context, origi
 
 		// Update Service Status Based On Specified State
 		if serviceValid {
-			updatedChannel.Status.MarkReceiverServiceTrue()
+			distributedmessaging.MarkReceiverServiceTrue(&updatedChannel.Status)
 		} else {
-			updatedChannel.Status.MarkReceiverServiceFailed(serviceReason, serviceMessage)
+			distributedmessaging.MarkReceiverServiceFailed(&updatedChannel.Status, serviceReason, serviceMessage)
 		}
 
 		// Update Deployment Status Based On Specified State
 		if deploymentValid {
-			updatedChannel.Status.MarkReceiverDeploymentTrue()
+			distributedmessaging.MarkReceiverDeploymentTrue(&updatedChannel.Status)
 		} else {
-			updatedChannel.Status.MarkReceiverDeploymentFailed(deploymentReason, deploymentMessage)
+			distributedmessaging.MarkReceiverDeploymentFailed(&updatedChannel.Status, deploymentReason, deploymentMessage)
 		}
 
 		// If The KafkaChannel Status Changed
