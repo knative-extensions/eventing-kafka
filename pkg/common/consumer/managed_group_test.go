@@ -86,6 +86,8 @@ func TestManagedGroup(t *testing.T) {
 				cancel()
 			}
 			waitGroup.Wait() // Let the waitForStart function finish
+			close(errorChannel)
+			time.Sleep(shortTimeout)	// Let the transferErrors goroutine finish
 		})
 	}
 
@@ -190,6 +192,9 @@ func TestProcessLock(t *testing.T) {
 			assert.Equal(t, testCase.expectUnlock, managedGrp.lockedBy.Load())
 			assert.Equal(t, testCase.expectErrBefore, errBefore)
 			assert.Equal(t, testCase.expectErrAfter, errAfter)
+
+			close(managedGrp.errors())
+			time.Sleep(shortTimeout)	// Let the transferErrors goroutine finish
 		})
 	}
 }
@@ -281,6 +286,8 @@ func TestResetLockTimer(t *testing.T) {
 				time.Sleep(2 * testCase.timeout)
 				assert.Equal(t, "", managedGrp.lockedBy.Load())
 			}
+			close(managedGrp.errors())
+			time.Sleep(shortTimeout)	// Let the transferErrors goroutine finish
 		})
 	}
 }
@@ -403,7 +410,8 @@ func TestStopStart(t *testing.T) {
 			assert.Equal(t, testCase.errStopping, err != nil)
 
 			mockGroup.AssertExpectations(t)
-
+			close(mgdGroup.errors())
+			time.Sleep(shortTimeout)	// Let the transferErrors goroutine finish
 		})
 	}
 }
@@ -440,6 +448,8 @@ func TestClose(t *testing.T) {
 			assert.Nil(t, err)
 			assert.Equal(t, testCase.cancel, cancelConsumeCalled)
 			assert.Equal(t, testCase.cancel, cancelErrorsCalled)
+			close(mgdGroup.errors())
+			time.Sleep(shortTimeout)	// Let the transferErrors goroutine finish
 		})
 	}
 }
@@ -481,11 +491,9 @@ func TestTransferErrors(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			managedGrp := createManagedGroup(ctx, logtesting.TestLogger(t).Desugar(), mockGrp, make(chan error), func() {}, func() {})
+			// Call the transferErrors function (via createManagedGroup) with the simulated customConsumerGroup error channel
+			managedGrp := createManagedGroup(ctx, logtesting.TestLogger(t).Desugar(), mockGrp, errorChan, func() {}, func() {})
 			managedGrpImpl := managedGrp.(*managedGroupImpl)
-
-			// Call the transferErrors function with the simulated customConsumerGroup error channel
-			managedGrpImpl.transferErrors(ctx, errorChan)
 
 			// Send an error to the simulated customConsumerGroup error channel
 			errorChan <- fmt.Errorf("test-error")
@@ -517,11 +525,10 @@ func TestTransferErrors(t *testing.T) {
 				err = <-managedGrp.errors()
 				assert.NotNil(t, err)
 				assert.Equal(t, "test-error-2", err.Error())
-				close(errorChan)
 				mockGrp.AssertExpectations(t)
-			} else {
-				close(errorChan)
 			}
+			close(managedGrp.errors())
+			time.Sleep(shortTimeout)	// Let the transferErrors goroutine finish
 		})
 	}
 }
