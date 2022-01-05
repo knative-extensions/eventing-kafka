@@ -320,7 +320,7 @@ func (m *managedGroupImpl) waitForStart(ctx context.Context) bool {
 func (m *managedGroupImpl) transferErrors(ctx context.Context, errors <- chan error) {
 	go func() {
 		for {
-			m.logger.Debug("Starting managed group error transfer")
+			m.logger.Info("Starting managed group error transfer")
 			for groupErr := range errors {
 				m.transferredErrors <- groupErr
 			}
@@ -333,9 +333,10 @@ func (m *managedGroupImpl) transferErrors(ctx context.Context, errors <- chan er
 				return
 			}
 			// Wait for the manager to restart the Consumer Group before calling m.group.Errors() again
-			m.logger.Debug("Error transfer is waiting for managed group restart")
+			m.logger.Info("Error transfer is waiting for managed group restart")
 			if !m.waitForStart(ctx) {
 				// Abort if the context was canceled
+				m.logger.Info("Wait for managed group restart was canceled")
 				return
 			}
 		}

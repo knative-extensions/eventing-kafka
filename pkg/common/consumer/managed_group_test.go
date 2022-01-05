@@ -62,8 +62,9 @@ func TestManagedGroup(t *testing.T) {
 			defer cancel()
 
 			mockGroup := kafkatesting.NewMockConsumerGroup()
-			mockGroup.On("Errors").Return(make(chan error))
-			group := createManagedGroup(ctx, logtesting.TestLogger(t).Desugar(), mockGroup, cancel, func() {}).(*managedGroupImpl)
+			errorChannel := make(chan error)
+			mockGroup.On("Errors").Return(errorChannel)
+			group := createManagedGroup(ctx, logtesting.TestLogger(t).Desugar(), mockGroup, errorChannel, cancel, func() {}).(*managedGroupImpl)
 			waitGroup := sync.WaitGroup{}
 			assert.False(t, group.isStopped())
 
@@ -471,50 +472,55 @@ func TestTransferErrors(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			time.Sleep(time.Millisecond)
 
-			mockGrp := kafkatesting.NewMockConsumerGroup()
-			managedGrp := managedGroupImpl{
-				logger:            logtesting.TestLogger(t).Desugar(),
-				saramaGroup:       mockGrp,
-				transferredErrors: make(chan error),
-				groupMutex:        sync.RWMutex{},
-			}
-			managedGrp.lockedBy.Store("")
-			managedGrp.stopped.Store(false)
+			// errorChan simulates the merged error channel usually provided via customConsumerGroup.handlerErrorChannel
+			errorChan := make(chan error)
 
-			mockGrp.On("Errors").Return(mockGrp.ErrorChan)
+			// mockGrp represents the internal Sarama ConsumerGroup
+			mockGrp := kafkatesting.NewMockConsumerGroup()
+
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			managedGrp.transferErrors(ctx)
 
-			mockGrp.ErrorChan <- fmt.Errorf("test-error")
+			managedGrp := createManagedGroup(ctx, logtesting.TestLogger(t).Desugar(), mockGrp, make(chan error), func() {}, func() {})
+			managedGrpImpl := managedGrp.(*managedGroupImpl)
+
+			// Call the transferErrors function with the simulated customConsumerGroup error channel
+			managedGrpImpl.transferErrors(ctx, errorChan)
+
+			// Send an error to the simulated customConsumerGroup error channel
+			errorChan <- fmt.Errorf("test-error")
+
+			// Verify that the error appears in the managed group's error channel
 			err := <-managedGrp.errors()
 			assert.NotNil(t, err)
 			assert.Equal(t, "test-error", err.Error())
+
 			if testCase.stopGroup {
-				managedGrp.createRestartChannel()
+				managedGrpImpl.createRestartChannel()
 			}
 			if testCase.cancel {
 				cancel()
 			}
-			close(mockGrp.ErrorChan)
 			mockGrp.AssertExpectations(t)
 
 			time.Sleep(shortTimeout) // Let the error handling loop move forward
 			if testCase.startGroup {
 				// Simulate the effects of startConsumerGroup (new ConsumerGroup, same managedConsumerGroup)
 				mockGrp = kafkatesting.NewMockConsumerGroup()
-				mockGrp.On("Errors").Return(mockGrp.ErrorChan)
-				managedGrp.saramaGroup = mockGrp
-				managedGrp.closeRestartChannel()
+				managedGrpImpl.saramaGroup = mockGrp
+				managedGrpImpl.closeRestartChannel()
 
 				time.Sleep(shortTimeout) // Let the waitForStart function finish
-				// Verify that errors work again after restart
-				mockGrp.ErrorChan <- fmt.Errorf("test-error-2")
+
+				// Verify that error transfer continues to work after the restart
+				errorChan <- fmt.Errorf("test-error-2")
 				err = <-managedGrp.errors()
 				assert.NotNil(t, err)
 				assert.Equal(t, "test-error-2", err.Error())
-				close(mockGrp.ErrorChan)
+				close(errorChan)
 				mockGrp.AssertExpectations(t)
+			} else {
+				close(errorChan)
 			}
 		})
 	}
