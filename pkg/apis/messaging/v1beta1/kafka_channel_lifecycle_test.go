@@ -29,6 +29,15 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
+func init() {
+	// Initialize A Default ConditionSet For Testing
+	RegisterAlternateKafkaChannelConditionSet(apis.NewLivingConditionSet(
+		KafkaChannelConditionAddressable,
+		KafkaChannelConditionConfigReady,
+		KafkaChannelConditionTopicReady,
+		KafkaChannelConditionChannelServiceReady))
+}
+
 var condReady = apis.Condition{
 	Type:   KafkaChannelConditionReady,
 	Status: corev1.ConditionTrue,

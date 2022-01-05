@@ -23,17 +23,12 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
-// A default ConditionSet containing base configuration only for testing.
 // The consolidated and distributed KafkaChannel implementations require
 // differentiated ConditionSets in order to accurately reflect their varied
 // runtime architectures.  One of the channel specific "Register..." functions
 // in pkg/channel/<type>/apis/messaging/kafka_channel_lifecycle.go should be
 // called via an init() in the main() of associated components.
-var kc = apis.NewLivingConditionSet(
-	KafkaChannelConditionAddressable,
-	KafkaChannelConditionConfigReady,
-	KafkaChannelConditionTopicReady,
-	KafkaChannelConditionChannelServiceReady)
+var kc apis.ConditionSet
 var channelCondSetLock = sync.RWMutex{}
 
 // Shared / Common Conditions Used By All Channel Implementations
