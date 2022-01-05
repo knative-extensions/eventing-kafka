@@ -63,7 +63,7 @@ type managedGroupImpl struct {
 // createManagedGroup associates a Sarama ConsumerGroup and cancel function (usually from the factory)
 // inside a new managedGroup struct.  If a timeout is given (nonzero), the lockId will be reset to an
 // empty string (i.e. "unlocked") after that time has passed.
-func createManagedGroup(ctx context.Context, logger *zap.Logger, group sarama.ConsumerGroup, errors <- chan error, cancelErrors func(), cancelConsume func()) managedGroup {
+func createManagedGroup(ctx context.Context, logger *zap.Logger, group sarama.ConsumerGroup, errors <-chan error, cancelErrors func(), cancelConsume func()) managedGroup {
 
 	managedGrp := &managedGroupImpl{
 		logger:            logger,
@@ -317,7 +317,7 @@ func (m *managedGroupImpl) waitForStart(ctx context.Context) bool {
 // channel.  Typically, this provided channel comes from the merged errors channel created in the KafkaConsumerGroupFactory
 // This is done so that when the group.Errors() channel is closed during a stop ("pause") of the group, the m.errors
 // channel can remain open (so that users of the manager do not receive a closed error channel during stop/start events).
-func (m *managedGroupImpl) transferErrors(ctx context.Context, errors <- chan error) {
+func (m *managedGroupImpl) transferErrors(ctx context.Context, errors <-chan error) {
 	go func() {
 		for {
 			m.logger.Info("Starting managed group error transfer")
