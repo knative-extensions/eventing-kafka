@@ -87,7 +87,7 @@ func TestManagedGroup(t *testing.T) {
 			}
 			waitGroup.Wait() // Let the waitForStart function finish
 			close(errorChannel)
-			time.Sleep(shortTimeout)	// Let the transferErrors goroutine finish
+			time.Sleep(shortTimeout) // Let the transferErrors goroutine finish
 		})
 	}
 
@@ -194,7 +194,7 @@ func TestProcessLock(t *testing.T) {
 			assert.Equal(t, testCase.expectErrAfter, errAfter)
 
 			close(managedGrp.errors())
-			time.Sleep(shortTimeout)	// Let the transferErrors goroutine finish
+			time.Sleep(shortTimeout) // Let the transferErrors goroutine finish
 		})
 	}
 }
@@ -287,7 +287,7 @@ func TestResetLockTimer(t *testing.T) {
 				assert.Equal(t, "", managedGrp.lockedBy.Load())
 			}
 			close(managedGrp.errors())
-			time.Sleep(shortTimeout)	// Let the transferErrors goroutine finish
+			time.Sleep(shortTimeout) // Let the transferErrors goroutine finish
 		})
 	}
 }
@@ -411,7 +411,7 @@ func TestStopStart(t *testing.T) {
 
 			mockGroup.AssertExpectations(t)
 			close(mgdGroup.errors())
-			time.Sleep(shortTimeout)	// Let the transferErrors goroutine finish
+			time.Sleep(shortTimeout) // Let the transferErrors goroutine finish
 		})
 	}
 }
@@ -449,7 +449,7 @@ func TestClose(t *testing.T) {
 			assert.Equal(t, testCase.cancel, cancelConsumeCalled)
 			assert.Equal(t, testCase.cancel, cancelErrorsCalled)
 			close(mgdGroup.errors())
-			time.Sleep(shortTimeout)	// Let the transferErrors goroutine finish
+			time.Sleep(shortTimeout) // Let the transferErrors goroutine finish
 		})
 	}
 }
@@ -528,7 +528,7 @@ func TestTransferErrors(t *testing.T) {
 				mockGrp.AssertExpectations(t)
 			}
 			close(managedGrp.errors())
-			time.Sleep(shortTimeout)	// Let the transferErrors goroutine finish
+			time.Sleep(shortTimeout) // Let the transferErrors goroutine finish
 		})
 	}
 }
