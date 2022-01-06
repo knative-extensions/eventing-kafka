@@ -102,19 +102,20 @@ func (c kafkaConsumerGroupFactoryImpl) startExistingConsumerGroup(
 	errorCh := make(chan error, 10)
 	releasedCh := make(chan bool)
 	ctx, cancel := context.WithCancel(context.Background())
+	groupLogger := logger.With(zap.Any("topics", topics), zap.String("groupId", groupID), zap.String("channel", channelRef.String()))
 
 	go func() {
 		// this is a blocking func
 		// do not proceed until the check is done
 		err := c.offsetsChecker.WaitForOffsetsInitialization(ctx, groupID, topics, logger, c.addrs, c.config)
 		if err != nil {
-			logger.Errorw("error while checking if offsets are initialized", zap.Any("topics", topics), zap.String("groupId", groupID), zap.String("channel", channelRef.String()), zap.Error(err))
+			groupLogger.Errorw("error while checking if offsets are initialized", zap.Error(err))
 			errorCh <- err
 			c.enqueue(channelRef)
 			return
 		}
 
-		logger.Debugw("all offsets are initialized", zap.Any("topics", topics), zap.Any("groupID", groupID))
+		groupLogger.Debugw("all offsets are initialized")
 
 		defer func() {
 			close(errorCh)
@@ -123,8 +124,9 @@ func (c kafkaConsumerGroupFactoryImpl) startExistingConsumerGroup(
 		for {
 			consumerHandler := NewConsumerHandler(logger, handler, errorCh, options...)
 
-			err := consume(ctx, topics, &consumerHandler)
+			err = consume(ctx, topics, &consumerHandler)
 			if err == sarama.ErrClosedConsumerGroup {
+				groupLogger.Infow("consumer group was closed", zap.Error(err))
 				return
 			}
 			if err != nil {
@@ -133,6 +135,7 @@ func (c kafkaConsumerGroupFactoryImpl) startExistingConsumerGroup(
 
 			select {
 			case <-ctx.Done():
+				groupLogger.Info("consumer group terminated gracefully")
 				return
 			default:
 			}
