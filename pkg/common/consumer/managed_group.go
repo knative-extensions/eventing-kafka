@@ -63,7 +63,7 @@ type managedGroupImpl struct {
 // createManagedGroup associates a Sarama ConsumerGroup and cancel function (usually from the factory)
 // inside a new managedGroup struct.  If a timeout is given (nonzero), the lockId will be reset to an
 // empty string (i.e. "unlocked") after that time has passed.
-func createManagedGroup(ctx context.Context, logger *zap.Logger, group sarama.ConsumerGroup, cancelErrors func(), cancelConsume func()) managedGroup {
+func createManagedGroup(ctx context.Context, logger *zap.Logger, group sarama.ConsumerGroup, errors <-chan error, cancelErrors func(), cancelConsume func()) managedGroup {
 
 	managedGrp := &managedGroupImpl{
 		logger:            logger,
@@ -79,8 +79,8 @@ func createManagedGroup(ctx context.Context, logger *zap.Logger, group sarama.Co
 	managedGrp.lockedBy.Store("")   // Empty token string indicates "unlocked"
 	managedGrp.stopped.Store(false) // A managed group defaults to "started" when created
 
-	// Begin listening on the group's Errors() channel and write them to the managedGroup's errors channel
-	managedGrp.transferErrors(ctx)
+	// Begin listening on the provided errors channel and write them to the managedGroup's errors channel
+	managedGrp.transferErrors(ctx, errors)
 
 	return managedGrp
 }
@@ -142,7 +142,7 @@ func (m *managedGroupImpl) consume(ctx context.Context, topics []string, handler
 		// Call the internal sarama ConsumerGroup's Consume function directly
 		err := m.getSaramaGroup().Consume(ctx, topics, handler)
 		if !m.isStopped() {
-			m.logger.Debug("Managed Consume Finished Without Stop", zap.Error(err))
+			m.logger.Warn("Managed Consume Finished Without Stop", zap.Error(err))
 			// This ConsumerGroup wasn't stopped by the manager, so pass the error along to the caller
 			return err
 		}
@@ -313,28 +313,30 @@ func (m *managedGroupImpl) waitForStart(ctx context.Context) bool {
 	}
 }
 
-// transferErrors starts a goroutine that reads errors from the managedGroup's internal group.Errors() channel
-// and sends them to the m.errors channel.  This is done so that when the group.Errors() channel is closed during
-// a stop ("pause") of the group, the m.errors channel can remain open (so that users of the manager do not
-// receive a closed error channel during stop/start events).
-func (m *managedGroupImpl) transferErrors(ctx context.Context) {
+// transferErrors starts a goroutine that reads errors from the provided errors channel and sends them to the m.errors
+// channel.  Typically, this provided channel comes from the merged errors channel created in the KafkaConsumerGroupFactory
+// This is done so that when the group.Errors() channel is closed during a stop ("pause") of the group, the m.errors
+// channel can remain open (so that users of the manager do not receive a closed error channel during stop/start events).
+func (m *managedGroupImpl) transferErrors(ctx context.Context, errors <-chan error) {
 	go func() {
 		for {
-			m.logger.Debug("Starting managed group error transfer")
-			for groupErr := range m.getSaramaGroup().Errors() {
+			m.logger.Info("Starting managed group error transfer")
+			for groupErr := range errors {
 				m.transferredErrors <- groupErr
 			}
 			if !m.isStopped() {
 				// If the error channel was closed without the consumergroup being marked as stopped,
 				// or if we were unable to wait for the group to be restarted, that is outside
-				// of the manager's responsibility, so we are finished transferring errors.
+				// the manager's responsibility, so we are finished transferring errors.
+				m.logger.Warn("Consumer group's error channel was closed unexpectedly")
 				close(m.transferredErrors)
 				return
 			}
 			// Wait for the manager to restart the Consumer Group before calling m.group.Errors() again
-			m.logger.Debug("Error transfer is waiting for managed group restart")
+			m.logger.Info("Error transfer is waiting for managed group restart")
 			if !m.waitForStart(ctx) {
 				// Abort if the context was canceled
+				m.logger.Info("Wait for managed group restart was canceled")
 				return
 			}
 		}
