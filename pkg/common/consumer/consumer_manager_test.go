@@ -633,10 +633,7 @@ func getManagerWithMockGroup(t *testing.T, groupId string, factoryErr bool) (Kaf
 
 func createMockAndManagedGroups(t *testing.T) (*kafkatesting.MockConsumerGroup, *managedGroupImpl) {
 	mockGroup := kafkatesting.NewMockConsumerGroup()
-	mockGroup.On("Errors").Return(make(chan error))
-	managedGrp := createManagedGroup(context.Background(), logtesting.TestLogger(t).Desugar(), mockGroup, func() {}, func() {})
-	// let the transferErrors function start (otherwise AssertExpectations will randomly fail because Errors() isn't called)
-	time.Sleep(shortTimeout)
+	managedGrp := createManagedGroup(context.Background(), logtesting.TestLogger(t).Desugar(), mockGroup, make(chan error), func() {}, func() {})
 	return mockGroup, managedGrp.(*managedGroupImpl)
 }
 
