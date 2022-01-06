@@ -511,8 +511,8 @@ func TestTransferErrors(t *testing.T) {
 			}
 			mockGrp.AssertExpectations(t)
 
-			time.Sleep(shortTimeout) // Let the error handling loop move forward
 			if testCase.startGroup {
+				time.Sleep(shortTimeout) // Let the error handling loop move forward
 				// Simulate the effects of startConsumerGroup (new ConsumerGroup, same managedConsumerGroup)
 				mockGrp = kafkatesting.NewMockConsumerGroup()
 				managedGrpImpl.saramaGroup = mockGrp
