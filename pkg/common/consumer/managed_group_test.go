@@ -348,6 +348,8 @@ func TestManagedGroupConsume(t *testing.T) {
 				assert.Nil(t, mgdGroup.saramaGroup.Close()) // Stops the MockConsumerGroup's Consume() call
 			}
 			waitGroup.Wait() // Allows the goroutine with the consume call to finish
+			close(mgdGroup.errors())
+			time.Sleep(shortTimeout) // Let the transferErrors goroutine finish
 		})
 	}
 }
