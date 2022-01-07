@@ -37,6 +37,7 @@ import (
 	"knative.dev/pkg/system"
 
 	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
+	distributedmessaging "knative.dev/eventing-kafka/pkg/channel/distributed/apis/messaging"
 	commonenv "knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/health"
 	kafkaconstants "knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
@@ -651,64 +652,72 @@ func WithKafkaChannelServiceFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
 
 // WithReceiverServiceReady Sets The KafkaChannel's Receiver Service As READY ("ChannelServiceReady")
 func WithReceiverServiceReady(kafkachannel *kafkav1beta1.KafkaChannel) {
-	kafkachannel.Status.MarkServiceTrue()
+	distributedmessaging.MarkReceiverServiceTrue(&kafkachannel.Status)
 }
 
 // WithReceiverServiceFailed Sets The KafkaChannel's Receiver Service As Failed
 func WithReceiverServiceFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
-	kafkachannel.Status.MarkServiceFailed(event.ReceiverServiceReconciliationFailed.String(), "Receiver Service Failed: inducing failure for create services")
+	distributedmessaging.MarkReceiverServiceFailed(&kafkachannel.Status, event.ReceiverServiceReconciliationFailed.String(), "Receiver Service Failed: inducing failure for create services")
 }
 
 // WithReceiverServiceFailedNoSecret Sets The KafkaChannel's Receiver Service As Failed ("no secret found")
 func WithReceiverServiceFailedNoSecret(kafkachannel *kafkav1beta1.KafkaChannel) {
-	kafkachannel.Status.MarkServiceFailed(event.ReceiverServiceReconciliationFailed.String(), "Receiver Service Failed: no secret found")
+	distributedmessaging.MarkReceiverServiceFailed(&kafkachannel.Status, event.ReceiverServiceReconciliationFailed.String(), "Receiver Service Failed: no secret found")
 }
 
 // WithReceiverServiceFailedTimestamp Sets The KafkaChannel's Receiver Service As Failed ("encountered Receiver Service with DeletionTimestamp" ...)
 func WithReceiverServiceFailedTimestamp(kafkachannel *kafkav1beta1.KafkaChannel) {
-	kafkachannel.Status.MarkServiceFailed(event.ReceiverServiceReconciliationFailed.String(), "Receiver Service Failed: encountered Receiver Service with DeletionTimestamp eventing-test-ns/kafkasecret-name-b9176d5f-receiver - potential race condition")
+	distributedmessaging.MarkReceiverServiceFailed(&kafkachannel.Status, event.ReceiverServiceReconciliationFailed.String(), "Receiver Service Failed: encountered Receiver Service with DeletionTimestamp eventing-test-ns/kafkasecret-name-b9176d5f-receiver - potential race condition")
 }
 
 // WithReceiverDeploymentFailedTimestamp Sets The KafkaChannel's Receiver Deployment As Failed ("encountered Receiver Deployment with DeletionTimestamp" ...)
 func WithReceiverDeploymentFailedTimestamp(kafkachannel *kafkav1beta1.KafkaChannel) {
-	kafkachannel.Status.MarkEndpointsFailed(event.ReceiverDeploymentReconciliationFailed.String(), "Receiver Deployment Failed: encountered Receiver Deployment with DeletionTimestamp eventing-test-ns/kafkasecret-name-b9176d5f-receiver - potential race condition")
+	distributedmessaging.MarkReceiverDeploymentFailed(&kafkachannel.Status, event.ReceiverDeploymentReconciliationFailed.String(), "Receiver Deployment Failed: encountered Receiver Deployment with DeletionTimestamp eventing-test-ns/kafkasecret-name-b9176d5f-receiver - potential race condition")
 }
 
 // WithReceiverDeploymentReady Sets The KafkaChannel's Receiver Deployment As READY  ("EndpointsReady")
 func WithReceiverDeploymentReady(kafkachannel *kafkav1beta1.KafkaChannel) {
-	kafkachannel.Status.MarkEndpointsTrue()
+	distributedmessaging.MarkReceiverDeploymentTrue(&kafkachannel.Status)
 }
 
 // WithReceiverDeploymentFailed Sets The KafkaChannel's Receiver Deployment As Failed
 func WithReceiverDeploymentFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
-	kafkachannel.Status.MarkEndpointsFailed(event.ReceiverDeploymentReconciliationFailed.String(), "Receiver Deployment Failed: inducing failure for create deployments")
+	distributedmessaging.MarkReceiverDeploymentFailed(&kafkachannel.Status, event.ReceiverDeploymentReconciliationFailed.String(), "Receiver Deployment Failed: inducing failure for create deployments")
 }
 
 // WithReceiverDeploymentFailedNoSecret Sets The KafkaChannel's Receiver Deployment As Failed ("no secret found")
 func WithReceiverDeploymentFailedNoSecret(kafkachannel *kafkav1beta1.KafkaChannel) {
-	kafkachannel.Status.MarkEndpointsFailed(event.ReceiverDeploymentReconciliationFailed.String(), "Receiver Deployment Failed: no secret found")
+	distributedmessaging.MarkReceiverDeploymentFailed(&kafkachannel.Status, event.ReceiverDeploymentReconciliationFailed.String(), "Receiver Deployment Failed: no secret found")
 }
 
 // WithDispatcherDeploymentReady Sets The KafkaChannel's Dispatcher Deployment As READY
 func WithDispatcherDeploymentReady(_ *kafkav1beta1.KafkaChannel) {
 	// TODO - This is unnecessary since the testing framework doesn't return any Status Conditions from the K8S commands (Create, Get)
 	//        which means the propagate function doesn't do anything.  This is a testing gap with the framework and propagateDispatcherStatus()
-	// kafkachannel.Status.PropagateDispatcherStatus()
+	// distributedmessaging.PropagateDispatcherDeploymentStatus(&kafkachannel.Status)
 }
 
-// WithDispatcherFailed Sets The KafkaChannel's Dispatcher Deployment As Failed
-func WithDispatcherFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
-	kafkachannel.Status.MarkDispatcherFailed(event.DispatcherDeploymentReconciliationFailed.String(), "Failed To Create Dispatcher Deployment: inducing failure for create deployments")
+// WithDispatcherDeploymentFailed Sets The KafkaChannel's Dispatcher Deployment As Failed
+func WithDispatcherDeploymentFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
+	distributedmessaging.MarkDispatcherDeploymentFailed(&kafkachannel.Status, event.DispatcherDeploymentReconciliationFailed.String(), "Failed To Create Dispatcher Deployment: inducing failure for create deployments")
 }
 
 // WithDispatcherUpdateFailed Sets The KafkaChannel's Dispatcher Update As Failed
 func WithDispatcherUpdateFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
-	kafkachannel.Status.MarkDispatcherFailed(event.DispatcherDeploymentUpdateFailed.String(), "Failed To Update Dispatcher Deployment: inducing failure for update deployments")
+	distributedmessaging.MarkDispatcherDeploymentFailed(&kafkachannel.Status, event.DispatcherDeploymentUpdateFailed.String(), "Failed To Update Dispatcher Deployment: inducing failure for update deployments")
 }
 
 // WithDispatcherServicePatchFailed Sets The KafkaChannel's Dispatcher Patch As Failed
 func WithDispatcherServicePatchFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
-	kafkachannel.Status.MarkDispatcherFailed(event.DispatcherServicePatchFailed.String(), "Failed To Patch Dispatcher Service: inducing failure for patch services")
+	distributedmessaging.MarkDispatcherServiceFailed(&kafkachannel.Status, event.DispatcherServicePatchFailed.String(), "Failed To Patch Dispatcher Service: inducing failure for patch services")
+}
+
+func WithDispatcherServiceReady(kafkachannel *kafkav1beta1.KafkaChannel) {
+	distributedmessaging.MarkDispatcherServiceTrue(&kafkachannel.Status)
+}
+
+func WithDispatcherServiceFailed(kafkachannel *kafkav1beta1.KafkaChannel) {
+	distributedmessaging.MarkDispatcherServiceFailed(&kafkachannel.Status, event.DispatcherServiceReconciliationFailed.String(), "Failed To Create Dispatcher Service: inducing failure for create services")
 }
 
 // WithTopicReady Sets The KafkaChannel's Topic READY

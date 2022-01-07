@@ -247,12 +247,10 @@ func TestReconcile(t *testing.T) {
 		newStableSystemTest("Reconcile Missing Dispatcher Service Success", withoutDispatcherService, wantCreateDispatcherService()),
 
 		newStableSystemTest("Reconcile Missing Dispatcher Service Error(Create)", withoutDispatcherService, wantCreateDispatcherService(),
-			// Note - Not currently tracking status for the Dispatcher Service since it is only for Prometheus
+			replaceStatusUpdates(getReadyKafkaChannel(controllertesting.WithDispatcherServiceFailed)),
 			withFinalEventAndFailures(
 				controllertesting.NewKafkaChannelFailedReconciliationEvent(),
 				failure{"create", "Services", event.DispatcherServiceReconciliationFailed.String(), "Failed To Reconcile Dispatcher Service"})),
-
-		newStableSystemTest("Reconcile Missing Dispatcher Service Success", withoutDispatcherService, wantCreateDispatcherService()),
 
 		newStableSystemTest("Reconcile Dispatcher Service With Deletion Timestamp And Finalizer",
 			withDispatcherService(controllertesting.WithDeletionTimestampService)),
@@ -267,7 +265,7 @@ func TestReconcile(t *testing.T) {
 		newStableSystemTest("Reconcile Missing Dispatcher Deployment Success", withoutDispatcherDeployment, wantCreateDispatcherDeployment()),
 
 		newStableSystemTest("Reconcile Missing Dispatcher Deployment Error(Create)", withoutDispatcherDeployment, wantCreateDispatcherDeployment(),
-			replaceStatusUpdates(getReadyKafkaChannel(controllertesting.WithDispatcherFailed)),
+			replaceStatusUpdates(getReadyKafkaChannel(controllertesting.WithDispatcherDeploymentFailed)),
 			withFinalEventAndFailures(
 				controllertesting.NewKafkaChannelFailedReconciliationEvent(),
 				failure{"create", "Deployments", event.DispatcherDeploymentReconciliationFailed.String(), "Failed To Reconcile Dispatcher Deployment"})),
@@ -792,6 +790,7 @@ func getReceiverOnlyKafkaChannel(options ...controllertesting.KafkaChannelOption
 func getReadyKafkaChannel(options ...controllertesting.KafkaChannelOption) *kafkav1beta1.KafkaChannel {
 	channel := getReceiverOnlyKafkaChannel(
 		controllertesting.WithDispatcherDeploymentReady,
+		controllertesting.WithDispatcherServiceReady,
 	)
 
 	for _, option := range options {
@@ -1092,6 +1091,7 @@ func newReconciliationTest(name string, options ...testOption) TableRow {
 					controllertesting.WithInitializedConditions,
 					controllertesting.WithKafkaChannelServiceReady,
 					controllertesting.WithDispatcherDeploymentReady,
+					controllertesting.WithDispatcherServiceReady,
 					controllertesting.WithTopicReady,
 				),
 			},
@@ -1105,6 +1105,7 @@ func newReconciliationTest(name string, options ...testOption) TableRow {
 					controllertesting.WithInitializedConditions,
 					controllertesting.WithKafkaChannelServiceReady,
 					controllertesting.WithDispatcherDeploymentReady,
+					controllertesting.WithDispatcherServiceReady,
 					controllertesting.WithTopicReady,
 				),
 			),

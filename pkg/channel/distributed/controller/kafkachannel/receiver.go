@@ -88,8 +88,8 @@ func (r *Reconciler) reconcileReceiver(ctx context.Context, channel *v1beta1.Kaf
 		deploymentErr = fmt.Errorf("no secret found")
 	}
 
-	// Reconcile Channel's KafkaChannel Status
-	statusErr := r.updateKafkaChannelStatus(ctx,
+	// Update  KafkaChannel's Receiver Status
+	statusErr := r.updateKafkaChannelReceiverStatus(ctx,
 		channel,
 		serviceErr == nil, event.ReceiverServiceReconciliationFailed.String(), fmt.Sprintf("Receiver Service Failed: %v", serviceErr),
 		deploymentErr == nil, event.ReceiverDeploymentReconciliationFailed.String(), fmt.Sprintf("Receiver Deployment Failed: %v", deploymentErr))

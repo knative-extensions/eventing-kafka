@@ -19,16 +19,20 @@ package channel
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"go.uber.org/zap"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	eventingChannel "knative.dev/eventing/pkg/channel"
+	"knative.dev/pkg/logging"
+
+	messaging "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
+	distributedmessaging "knative.dev/eventing-kafka/pkg/channel/distributed/apis/messaging"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/receiver/health"
 	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 	kafkainformers "knative.dev/eventing-kafka/pkg/client/informers/externalversions"
 	kafkalisters "knative.dev/eventing-kafka/pkg/client/listers/messaging/v1beta1"
-	eventingChannel "knative.dev/eventing/pkg/channel"
-	"knative.dev/pkg/logging"
 )
 
 // Package Variables
@@ -38,7 +42,7 @@ var (
 	stopChan           chan struct{}
 )
 
-// Initialize The KafkaChannel Lister Singleton
+// InitializeKafkaChannelLister initializes the KafkaChannel Lister singleton.
 func InitializeKafkaChannelLister(ctx context.Context, client kafkaclientset.Interface, healthServer *health.Server, resyncDuration time.Duration) error {
 	// Get The Logger From The Provided Context
 	logger = logging.FromContext(ctx).Desugar()
@@ -64,7 +68,10 @@ func InitializeKafkaChannelLister(ctx context.Context, client kafkaclientset.Int
 	return nil
 }
 
-// Validate The Specified ChannelReference Is For A Valid (Existing / READY) KafkaChannel
+// ValidateKafkaChannel verifies the specified ChannelReference refers to a KafkaChannel capable of receiving events.
+// This ensures the KafkaChannel exists and has Status indicating the Kafka Topic has been created and the shared
+// Receiver Service and Deployment are READY.  The KafkaChannel's overall Status might not be READY depending on
+// Dispatcher state, but the ingress pathway is viable.
 func ValidateKafkaChannel(channelReference eventingChannel.ChannelReference) error {
 
 	// Enhance Logger With ChannelReference
@@ -88,10 +95,15 @@ func ValidateKafkaChannel(channelReference eventingChannel.ChannelReference) err
 		}
 	}
 
-	// Check KafkaChannel READY Status
-	if !kafkaChannel.Status.IsReady() {
-		logger.Info("Invalid KafkaChannel - Not READY")
-		return errors.New("channel status not READY")
+	// Verify The Topic And Receiver Status Indicates Ingress Is READY
+	if !kafkaChannel.Status.GetCondition(messaging.KafkaChannelConditionTopicReady).IsTrue() ||
+		!kafkaChannel.Status.GetCondition(distributedmessaging.KafkaChannelConditionReceiverServiceReady).IsTrue() ||
+		!kafkaChannel.Status.GetCondition(distributedmessaging.KafkaChannelConditionReceiverDeploymentReady).IsTrue() {
+		logger.Info("Invalid KafkaChannel - Ingress (Topic / Receiver) Not READY")
+		return fmt.Errorf("ingress not READY: Kafka Topic=%t, Receiver Service=%t, Receiver Deployment=%t",
+			kafkaChannel.Status.GetCondition(messaging.KafkaChannelConditionTopicReady).IsTrue(),
+			kafkaChannel.Status.GetCondition(distributedmessaging.KafkaChannelConditionReceiverServiceReady).IsTrue(),
+			kafkaChannel.Status.GetCondition(distributedmessaging.KafkaChannelConditionReceiverServiceReady).IsTrue())
 	}
 
 	// Return Valid KafkaChannel

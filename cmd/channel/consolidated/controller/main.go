@@ -19,10 +19,15 @@ package main
 import (
 	"knative.dev/pkg/injection/sharedmain"
 
+	consolidatedmessaging "knative.dev/eventing-kafka/pkg/channel/consolidated/apis/messaging"
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/reconciler/controller"
 )
 
 const component = "kafkachannel-controller"
+
+func init() {
+	consolidatedmessaging.RegisterConsolidatedKafkaChannelConditionSet()
+}
 
 func main() {
 	sharedmain.Main(component, controller.NewController)
