@@ -21,7 +21,7 @@ data:
   # eventing-kafka.kafka.authSecretNamespace: namespace-of-your-secret-for-kafka-auth
   eventing-kafka: |
     kafka:
-      brokers: REPLACE_WITH_CLUSTER_URL
+      brokers: my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092
 kind: ConfigMap
 metadata:
   name: config-kafka
