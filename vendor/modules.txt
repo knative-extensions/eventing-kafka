@@ -64,6 +64,8 @@ github.com/PuerkitoBio/urlesc
 # github.com/Shopify/sarama v1.30.1
 ## explicit
 github.com/Shopify/sarama
+# github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20211221011931-643d94fcab96
+github.com/antlr/antlr4/runtime/Go/antlr
 # github.com/beorn7/perks v1.0.1
 github.com/beorn7/perks/quantile
 # github.com/blang/semver/v4 v4.0.0
@@ -88,7 +90,15 @@ github.com/cloudevents/sdk-go/observability/opencensus/v2/http
 # github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.4.1
 ## explicit
 github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2
-# github.com/cloudevents/sdk-go/v2 v2.7.0
+# github.com/cloudevents/sdk-go/sql/v2 v2.8.0
+github.com/cloudevents/sdk-go/sql/v2
+github.com/cloudevents/sdk-go/sql/v2/expression
+github.com/cloudevents/sdk-go/sql/v2/function
+github.com/cloudevents/sdk-go/sql/v2/gen
+github.com/cloudevents/sdk-go/sql/v2/parser
+github.com/cloudevents/sdk-go/sql/v2/runtime
+github.com/cloudevents/sdk-go/sql/v2/utils
+# github.com/cloudevents/sdk-go/v2 v2.8.0
 ## explicit
 github.com/cloudevents/sdk-go/v2
 github.com/cloudevents/sdk-go/v2/binding
@@ -1192,7 +1202,7 @@ knative.dev/control-protocol/pkg/message
 knative.dev/control-protocol/pkg/network
 knative.dev/control-protocol/pkg/reconciler
 knative.dev/control-protocol/pkg/service
-# knative.dev/eventing v0.28.1-0.20220105073332-4348c292392a
+# knative.dev/eventing v0.28.1-0.20220107145225-eb4c06c8009d
 ## explicit
 knative.dev/eventing/pkg/adapter/v2
 knative.dev/eventing/pkg/adapter/v2/test
@@ -1263,6 +1273,8 @@ knative.dev/eventing/pkg/duck
 knative.dev/eventing/pkg/kncloudevents
 knative.dev/eventing/pkg/metrics
 knative.dev/eventing/pkg/metrics/source
+knative.dev/eventing/pkg/observability
+knative.dev/eventing/pkg/observability/client
 knative.dev/eventing/pkg/reconciler/source
 knative.dev/eventing/pkg/reconciler/sugar
 knative.dev/eventing/pkg/reconciler/testing
@@ -1334,7 +1346,7 @@ knative.dev/eventing/test/upgrade/prober/wathola/sender
 ## explicit
 knative.dev/hack
 knative.dev/hack/shell
-# knative.dev/pkg v0.0.0-20220104185830-52e42b760b54
+# knative.dev/pkg v0.0.0-20220105211333-96f18522d78d
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
