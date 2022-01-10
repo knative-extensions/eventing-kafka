@@ -62,8 +62,9 @@ func TestManagedGroup(t *testing.T) {
 			defer cancel()
 
 			mockGroup := kafkatesting.NewMockConsumerGroup()
-			mockGroup.On("Errors").Return(make(chan error))
-			group := createManagedGroup(ctx, logtesting.TestLogger(t).Desugar(), mockGroup, cancel, func() {}).(*managedGroupImpl)
+			errorChannel := make(chan error)
+			mockGroup.On("Errors").Return(errorChannel)
+			group := createManagedGroup(ctx, logtesting.TestLogger(t).Desugar(), mockGroup, errorChannel, cancel, func() {}).(*managedGroupImpl)
 			waitGroup := sync.WaitGroup{}
 			assert.False(t, group.isStopped())
 
@@ -85,6 +86,8 @@ func TestManagedGroup(t *testing.T) {
 				cancel()
 			}
 			waitGroup.Wait() // Let the waitForStart function finish
+			close(errorChannel)
+			time.Sleep(shortTimeout) // Let the transferErrors goroutine finish
 		})
 	}
 
@@ -189,6 +192,9 @@ func TestProcessLock(t *testing.T) {
 			assert.Equal(t, testCase.expectUnlock, managedGrp.lockedBy.Load())
 			assert.Equal(t, testCase.expectErrBefore, errBefore)
 			assert.Equal(t, testCase.expectErrAfter, errAfter)
+
+			close(managedGrp.errors())
+			time.Sleep(shortTimeout) // Let the transferErrors goroutine finish
 		})
 	}
 }
@@ -280,6 +286,8 @@ func TestResetLockTimer(t *testing.T) {
 				time.Sleep(2 * testCase.timeout)
 				assert.Equal(t, "", managedGrp.lockedBy.Load())
 			}
+			close(managedGrp.errors())
+			time.Sleep(shortTimeout) // Let the transferErrors goroutine finish
 		})
 	}
 }
@@ -340,6 +348,8 @@ func TestManagedGroupConsume(t *testing.T) {
 				assert.Nil(t, mgdGroup.saramaGroup.Close()) // Stops the MockConsumerGroup's Consume() call
 			}
 			waitGroup.Wait() // Allows the goroutine with the consume call to finish
+			close(mgdGroup.errors())
+			time.Sleep(shortTimeout) // Let the transferErrors goroutine finish
 		})
 	}
 }
@@ -402,7 +412,8 @@ func TestStopStart(t *testing.T) {
 			assert.Equal(t, testCase.errStopping, err != nil)
 
 			mockGroup.AssertExpectations(t)
-
+			close(mgdGroup.errors())
+			time.Sleep(shortTimeout) // Let the transferErrors goroutine finish
 		})
 	}
 }
@@ -439,6 +450,8 @@ func TestClose(t *testing.T) {
 			assert.Nil(t, err)
 			assert.Equal(t, testCase.cancel, cancelConsumeCalled)
 			assert.Equal(t, testCase.cancel, cancelErrorsCalled)
+			close(mgdGroup.errors())
+			time.Sleep(shortTimeout) // Let the transferErrors goroutine finish
 		})
 	}
 }
@@ -471,51 +484,53 @@ func TestTransferErrors(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			time.Sleep(time.Millisecond)
 
-			mockGrp := kafkatesting.NewMockConsumerGroup()
-			managedGrp := managedGroupImpl{
-				logger:            logtesting.TestLogger(t).Desugar(),
-				saramaGroup:       mockGrp,
-				transferredErrors: make(chan error),
-				groupMutex:        sync.RWMutex{},
-			}
-			managedGrp.lockedBy.Store("")
-			managedGrp.stopped.Store(false)
+			// errorChan simulates the merged error channel usually provided via customConsumerGroup.handlerErrorChannel
+			errorChan := make(chan error)
 
-			mockGrp.On("Errors").Return(mockGrp.ErrorChan)
+			// mockGrp represents the internal Sarama ConsumerGroup
+			mockGrp := kafkatesting.NewMockConsumerGroup()
+
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			managedGrp.transferErrors(ctx)
 
-			mockGrp.ErrorChan <- fmt.Errorf("test-error")
+			// Call the transferErrors function (via createManagedGroup) with the simulated customConsumerGroup error channel
+			managedGrp := createManagedGroup(ctx, logtesting.TestLogger(t).Desugar(), mockGrp, errorChan, func() {}, func() {})
+			managedGrpImpl := managedGrp.(*managedGroupImpl)
+
+			// Send an error to the simulated customConsumerGroup error channel
+			errorChan <- fmt.Errorf("test-error")
+
+			// Verify that the error appears in the managed group's error channel
 			err := <-managedGrp.errors()
 			assert.NotNil(t, err)
 			assert.Equal(t, "test-error", err.Error())
+
 			if testCase.stopGroup {
-				managedGrp.createRestartChannel()
+				managedGrpImpl.createRestartChannel()
 			}
 			if testCase.cancel {
 				cancel()
 			}
-			close(mockGrp.ErrorChan)
 			mockGrp.AssertExpectations(t)
 
-			time.Sleep(shortTimeout) // Let the error handling loop move forward
 			if testCase.startGroup {
+				time.Sleep(shortTimeout) // Let the error handling loop move forward
 				// Simulate the effects of startConsumerGroup (new ConsumerGroup, same managedConsumerGroup)
 				mockGrp = kafkatesting.NewMockConsumerGroup()
-				mockGrp.On("Errors").Return(mockGrp.ErrorChan)
-				managedGrp.saramaGroup = mockGrp
-				managedGrp.closeRestartChannel()
+				managedGrpImpl.saramaGroup = mockGrp
+				managedGrpImpl.closeRestartChannel()
 
 				time.Sleep(shortTimeout) // Let the waitForStart function finish
-				// Verify that errors work again after restart
-				mockGrp.ErrorChan <- fmt.Errorf("test-error-2")
+
+				// Verify that error transfer continues to work after the restart
+				errorChan <- fmt.Errorf("test-error-2")
 				err = <-managedGrp.errors()
 				assert.NotNil(t, err)
 				assert.Equal(t, "test-error-2", err.Error())
-				close(mockGrp.ErrorChan)
 				mockGrp.AssertExpectations(t)
 			}
+			close(managedGrp.errors())
+			time.Sleep(shortTimeout) // Let the transferErrors goroutine finish
 		})
 	}
 }

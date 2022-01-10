@@ -77,7 +77,7 @@ func TestReconfigure(t *testing.T) {
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			manager, group, _, server := getManagerWithMockGroup(t, testCase.groupId, testCase.factoryErr)
+			manager, group, mgdGroup, server := getManagerWithMockGroup(t, testCase.groupId, testCase.factoryErr)
 			if group != nil {
 				group.On("Close").Return(testCase.closeErr)
 			}
@@ -91,6 +91,10 @@ func TestReconfigure(t *testing.T) {
 				assert.Equal(t, testCase.groupId, err.GroupIds[0])
 			}
 			server.AssertExpectations(t)
+			if mgdGroup != nil {
+				close(mgdGroup.errors())
+				time.Sleep(shortTimeout) // Allow transferErrors routine to exit
+			}
 		})
 	}
 }
@@ -199,7 +203,7 @@ func TestCloseConsumerGroup(t *testing.T) {
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			manager, group, _, server := getManagerWithMockGroup(t, testCase.groupId, false)
+			manager, group, mgdGroup, server := getManagerWithMockGroup(t, testCase.groupId, false)
 			if group != nil {
 				group.On("Close").Return(testCase.closeErr)
 				group.On("Errors").Return(make(chan error))
@@ -207,6 +211,10 @@ func TestCloseConsumerGroup(t *testing.T) {
 			err := manager.CloseConsumerGroup(testCase.groupId)
 			assert.Equal(t, testCase.expectErr, err != nil)
 			server.AssertExpectations(t)
+			if mgdGroup != nil {
+				close(mgdGroup.errors())
+				time.Sleep(shortTimeout) // Allow transferErrors routine to exit
+			}
 		})
 	}
 }
@@ -293,7 +301,7 @@ func TestErrors(t *testing.T) {
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			manager, _, _, server := getManagerWithMockGroup(t, testCase.groupId, false)
+			manager, _, mgdGroup, server := getManagerWithMockGroup(t, testCase.groupId, false)
 			valid := manager.IsManaged(testCase.groupId)
 			stopped := manager.IsStopped(testCase.groupId)
 			mgrErrors := manager.Errors(testCase.groupId)
@@ -301,6 +309,10 @@ func TestErrors(t *testing.T) {
 			assert.Equal(t, !testCase.expectErr, valid)
 			assert.False(t, stopped) // Not actually using a stopped group in this test
 			server.AssertExpectations(t)
+			if mgdGroup != nil {
+				close(mgdGroup.errors())
+				time.Sleep(shortTimeout) // Allow transferErrors routine to exit
+			}
 		})
 	}
 }
@@ -501,6 +513,10 @@ func TestNotifications(t *testing.T) {
 				group.AssertExpectations(t)
 			}
 			serverHandler.AssertExpectations(t)
+			if managedGrp != nil {
+				close(managedGrp.errors())
+				time.Sleep(shortTimeout) // Allow transferErrors routine to exit
+			}
 		})
 	}
 }
@@ -550,7 +566,7 @@ func TestManagerEvents(t *testing.T) {
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			manager, _, _, _ := getManagerWithMockGroup(t, "", false)
+			manager, _, mgdGroup, _ := getManagerWithMockGroup(t, "", false)
 			impl := manager.(*kafkaConsumerGroupManagerImpl)
 
 			var notifyChannels []<-chan ManagerEvent
@@ -592,6 +608,10 @@ func TestManagerEvents(t *testing.T) {
 			manager.ClearNotifications()
 			waitGroup.Wait()
 			assert.Equal(t, testCase.expectClose, count)
+			if mgdGroup != nil {
+				close(mgdGroup.errors())
+				time.Sleep(shortTimeout) // Allow transferErrors routine to exit
+			}
 		})
 	}
 }
@@ -633,10 +653,7 @@ func getManagerWithMockGroup(t *testing.T, groupId string, factoryErr bool) (Kaf
 
 func createMockAndManagedGroups(t *testing.T) (*kafkatesting.MockConsumerGroup, *managedGroupImpl) {
 	mockGroup := kafkatesting.NewMockConsumerGroup()
-	mockGroup.On("Errors").Return(make(chan error))
-	managedGrp := createManagedGroup(context.Background(), logtesting.TestLogger(t).Desugar(), mockGroup, func() {}, func() {})
-	// let the transferErrors function start (otherwise AssertExpectations will randomly fail because Errors() isn't called)
-	time.Sleep(shortTimeout)
+	managedGrp := createManagedGroup(context.Background(), logtesting.TestLogger(t).Desugar(), mockGroup, make(chan error), func() {}, func() {})
 	return mockGroup, managedGrp.(*managedGroupImpl)
 }
 
