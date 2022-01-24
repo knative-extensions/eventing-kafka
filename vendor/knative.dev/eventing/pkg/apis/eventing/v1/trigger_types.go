@@ -169,10 +169,13 @@ type SubscriptionsAPIFilter struct {
 	// +optional
 	Suffix map[string]string `json:"suffix,omitempty"`
 
-	// SQL is a CloudEvents SQL expression that will be evaluated to true or false against each CloudEvent.
+	// Extensions includes the list of additional filter dialects supported by
+	// specific broker implementations. Check out the documentation of the
+	// broker implementation you're using to know about what additional filters
+	// are supported.
 	//
 	// +optional
-	SQL string `json:"sql,omitempty"`
+	Extensions map[string]*runtime.RawExtension `json:",inline"`
 }
 
 // TriggerFilterAttributes is a map of context attribute names to values for

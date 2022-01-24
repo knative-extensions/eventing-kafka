@@ -87,7 +87,6 @@ func (c *Client) WaitForResourcesReadyOrFail(typemeta *metav1.TypeMeta) {
 	namespace := c.Namespace
 	metaResourceList := resources.NewMetaResourceList(namespace, typemeta)
 	if err := duck.WaitForResourcesReady(c.Dynamic, metaResourceList); err != nil {
-		c.dumpResources()
 		c.T.Fatalf("Failed to get all %v resources ready: %+v", *typemeta, errors.WithStack(err))
 	}
 }
@@ -98,7 +97,6 @@ func (c *Client) WaitForAllTestResourcesReady(ctx context.Context) error {
 	err := c.RetryWebhookErrors(func(attempts int) (err error) {
 		e := c.Tracker.WaitForKResourcesReady()
 		if e != nil {
-			c.dumpResources()
 			c.T.Logf("Failed to get all KResources ready %v", e)
 		}
 		return e

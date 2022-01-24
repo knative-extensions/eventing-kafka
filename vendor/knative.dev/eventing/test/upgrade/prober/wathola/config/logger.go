@@ -17,7 +17,6 @@ package config
 
 import (
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 // Log is a default logger for wathola
@@ -25,8 +24,6 @@ var Log = newLogger()
 var logConfig = zap.NewProductionConfig()
 
 func newLogger() *zap.SugaredLogger {
-	// Get timestamps readable and comparable with wathola-fetcher
-	logConfig.EncoderConfig.EncodeTime = zapcore.RFC3339NanoTimeEncoder
 	z, err := logConfig.Build()
 	if err != nil {
 		panic(err)

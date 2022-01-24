@@ -172,7 +172,7 @@ func (c *Client) CreateBrokerConfigMapOrFail(name string, channel *metav1.TypeMe
 			Namespace: c.Namespace,
 		},
 		Data: map[string]string{
-			"channel-template-spec": fmt.Sprintf(`
+			"channelTemplateSpec": fmt.Sprintf(`
       apiVersion: %q
       kind: %q
 `, channel.APIVersion, channel.Kind),
