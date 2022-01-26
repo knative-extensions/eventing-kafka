@@ -51,6 +51,8 @@ spec:
           value: "8443"
         - name: RESETOFFSET_SUPPORT
           value: "true"
+        - name: CONFIG_LEADERELECTION_NAME
+          value: config-leader-election-kafkachannel
         ports:
         - name: https-webhook
           containerPort: 8443

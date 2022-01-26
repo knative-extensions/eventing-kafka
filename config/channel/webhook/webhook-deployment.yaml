@@ -49,6 +49,8 @@ spec:
           value: kafka-webhook
         - name: WEBHOOK_PORT
           value: "8443"
+        - name: CONFIG_LEADERELECTION_NAME
+          value: config-leader-election-kafkachannel
         ports:
         - name: https-webhook
           containerPort: 8443
