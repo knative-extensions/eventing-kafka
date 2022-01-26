@@ -70,9 +70,9 @@ spec:
             cpu: 20m
             memory: 25Mi
         volumeMounts:
-        - name: config-kafka
-          mountPath: /etc/config-kafka
+          - name: config-kafka
+            mountPath: /etc/config-kafka
       volumes:
-      - name: config-kafka
-        configMap:
-          name: config-kafka
+        - name: config-kafka
+          configMap:
+            name: config-kafka
