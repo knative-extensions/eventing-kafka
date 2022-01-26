@@ -52,7 +52,7 @@ spec:
         - name: CONFIG_LOGGING_NAME
           value: config-logging
         - name: CONFIG_LEADERELECTION_NAME
-          value: config-leader-election
+          value: config-leader-election-kafkachannel
         - name: SERVICE_ACCOUNT
           valueFrom:
             fieldRef:
@@ -70,9 +70,9 @@ spec:
             cpu: 20m
             memory: 25Mi
         volumeMounts:
-          - name: config-kafka
-            mountPath: /etc/config-kafka
-      volumes:
         - name: config-kafka
-          configMap:
-            name: config-kafka
+          mountPath: /etc/config-kafka
+      volumes:
+      - name: config-kafka
+        configMap:
+          name: config-kafka
