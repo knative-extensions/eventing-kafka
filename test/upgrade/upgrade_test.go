@@ -27,7 +27,8 @@ import (
 )
 
 func TestUpgrades(t *testing.T) {
-	upgrade.Suite().Execute(pkgupgrade.Configuration{T: t})
+	suite := upgrade.Suite()
+	suite.Execute(pkgupgrade.Configuration{T: t})
 }
 
 func TestMain(m *testing.M) {
