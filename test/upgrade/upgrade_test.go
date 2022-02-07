@@ -22,22 +22,12 @@ package upgrade_test
 import (
 	"testing"
 
-	"go.uber.org/zap"
 	"knative.dev/eventing-kafka/test/upgrade"
 	pkgupgrade "knative.dev/pkg/test/upgrade"
 )
 
 func TestUpgrades(t *testing.T) {
-	suite := upgrade.Suite()
-	suite.Execute(newUpgradeConfig(t))
-}
-
-func newUpgradeConfig(t *testing.T) pkgupgrade.Configuration {
-	log, err := zap.NewDevelopment()
-	if err != nil {
-		t.Fatal(err)
-	}
-	return pkgupgrade.Configuration{T: t, Log: log}
+	upgrade.Suite().Execute(pkgupgrade.Configuration{T: t})
 }
 
 func TestMain(m *testing.M) {
