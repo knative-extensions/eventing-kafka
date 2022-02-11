@@ -64,6 +64,22 @@ var (
 
 // KafkaChannelSpec defines the specification for a KafkaChannel.
 type KafkaChannelSpec struct {
+	// BootstrapServers is the Kafka Channel bootstrap servers. When not provided, the implementation will
+	// fall back to the configmap in the config field. If there are also no bootstrapServers defined in that,
+	// implementation will fall back to the global config.
+	// +optional
+	BootstrapServers []string `json:"bootstrapServers,omitempty"`
+
+	// Auth configurations.
+	// +optional
+	Auth *Auth `json:"auth,omitempty"`
+
+	// Config is a KReference to the configuration that specifies
+	// configuration options for this Channel. For example, this could be
+	// a pointer to a ConfigMap.
+	// +optional
+	Config *duckv1.KReference `json:"config,omitempty"`
+
 	// NumPartitions is the number of partitions of a Kafka topic. By default, it is set to 1.
 	NumPartitions int32 `json:"numPartitions"`
 
@@ -79,6 +95,21 @@ type KafkaChannelSpec struct {
 
 	// Channel conforms to Duck type Channelable.
 	eventingduck.ChannelableSpec `json:",inline"`
+}
+
+type Auth struct {
+	// Secret is the secret for SASL and SSL configurations.
+	Secret *Secret `json:"secret,omitempty"`
+}
+
+type Secret struct {
+	// Ref is the secret reference for SASL and SSL configurations.
+	Ref *SecretReference `json:"ref,omitempty"`
+}
+
+type SecretReference struct {
+	// Name is the name of the secret.
+	Name string `json:"name"`
 }
 
 // ParseRetentionDuration returns the parsed Offset Time if valid (RFC3339 format) or an error for invalid content.
