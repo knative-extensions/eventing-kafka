@@ -135,7 +135,7 @@ func (h *Handler) Handle(ctx context.Context, consumerMessage *sarama.ConsumerMe
 	}
 
 	// Start Tracing
-	ctx, span := tracing.StartTraceFromMessage(h.Logger.Sugar(), ctx, message, consumerMessage.Topic)
+	ctx, span := tracing.StartTraceFromMessage(h.Logger.Sugar(), ctx, message, "kafkachannel-"+consumerMessage.Topic)
 	defer span.End()
 
 	// Dispatch The Message With Configured Retries, DLQ, etc

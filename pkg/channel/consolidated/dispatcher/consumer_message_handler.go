@@ -76,7 +76,7 @@ func (c consumerMessageHandler) Handle(ctx context.Context, consumerMessage *sar
 	// serialization.  Also, filtering CloudEvent "ce" headers which are already taken from the Message.
 	httpHeader := tracing.ConvertRecordHeadersToHttpHeader(tracing.FilterCeRecordHeaders(consumerMessage.Headers))
 
-	ctx, span := tracing.StartTraceFromMessage(c.logger, ctx, message, consumerMessage.Topic)
+	ctx, span := tracing.StartTraceFromMessage(c.logger, ctx, message, "kafkachannel-"+consumerMessage.Topic)
 	defer span.End()
 
 	te := kncloudevents.TypeExtractorTransformer("")
