@@ -27,6 +27,5 @@ import (
 )
 
 func TestChannelStatus(t *testing.T) {
-	t.Skip()
 	eventingconformancehelpers.ChannelStatusTestHelperWithChannelTestRunner(t, channelTestRunner, testlib.SetupClientOptionNoop)
 }
