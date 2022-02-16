@@ -67,11 +67,14 @@ func Install(name string, options ...EventsHubOption) feature.StepFn {
 		// Install ServiceAccount, Role, RoleBinding
 		eventshubrbac.Install()(ctx, t)
 
+		isReceiver := strings.Contains(envs["EVENT_GENERATORS"], "receiver")
+
 		// Deploy
 		if _, err := manifest.InstallYamlFS(ctx, templates, map[string]interface{}{
-			"name":  name,
-			"envs":  envs,
-			"image": ImageFromContext(ctx),
+			"name":          name,
+			"envs":          envs,
+			"image":         ImageFromContext(ctx),
+			"withReadiness": isReceiver,
 		}); err != nil {
 			t.Fatal(err)
 		}
@@ -80,7 +83,7 @@ func Install(name string, options ...EventsHubOption) feature.StepFn {
 		k8s.WaitForReadyOrDoneOrFail(ctx, t, k8s.PodReference(namespace, name))
 
 		// If the eventhubs starts an event receiver, we need to wait for the service endpoint to be synced
-		if strings.Contains(envs["EVENT_GENERATORS"], "receiver") {
+		if isReceiver {
 			k8s.WaitForServiceEndpointsOrFail(ctx, t, name, 1)
 			k8s.WaitForServiceReadyOrFail(ctx, t, name, "/health/ready")
 		}
