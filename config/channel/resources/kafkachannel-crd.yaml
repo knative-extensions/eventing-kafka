@@ -39,15 +39,15 @@ spec:
               type: object
               properties:
                 numPartitions:
-                  description: NumPartitions is the number of partitions of a Kafka topic. By default, it is set to 1.
+                  description: NumPartitions is the number of partitions of a Kafka topic. By default, it is set to 10.
                   type: integer
                   format: int32
-                  default: 1
+                  default: 10
                 replicationFactor:
-                  description: ReplicationFactor is the replication factor of a Kafka topic. By default, it is set to 1.
+                  description: ReplicationFactor is the replication factor of a Kafka topic. By default, it is set to 3.
                   type: integer
                   maximum: 32767
-                  default: 1
+                  default: 3
                 retentionDuration:
                   description: RetentionDuration is the retention time for events in a Kafka Topic represented as an ISO-8601 Duration.  By default it is set to 168 hours, which is the precise form of 7 days.
                   type: string

@@ -64,10 +64,10 @@ var (
 
 // KafkaChannelSpec defines the specification for a KafkaChannel.
 type KafkaChannelSpec struct {
-	// NumPartitions is the number of partitions of a Kafka topic. By default, it is set to 1.
+	// NumPartitions is the number of partitions of a Kafka topic. By default, it is set to 10.
 	NumPartitions int32 `json:"numPartitions"`
 
-	// ReplicationFactor is the replication factor of a Kafka topic. By default, it is set to 1.
+	// ReplicationFactor is the replication factor of a Kafka topic. By default, it is set to 3.
 	ReplicationFactor int16 `json:"replicationFactor"`
 
 	// RetentionDuration is the duration for which events will be retained in the Kafka Topic.
