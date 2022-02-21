@@ -24,6 +24,7 @@ import (
 
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 	"knative.dev/eventing/pkg/adapter/v2"
@@ -116,7 +117,16 @@ func MakeReceiveAdapter(args *ReceiveAdapterArgs) *v1.Deployment {
 							Name:  "receive-adapter",
 							Image: args.Image,
 							Env:   env,
-							Ports: []corev1.ContainerPort{
+							Resources: corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("125m"),
+									corev1.ResourceMemory: resource.MustParse("64Mi"),
+								},
+								Limits: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("2200m"),
+									corev1.ResourceMemory: resource.MustParse("2048Mi"),
+								},
+							}, Ports: []corev1.ContainerPort{
 								{Name: "metrics", ContainerPort: 9090},
 								{Name: "profiling", ContainerPort: 8008},
 								{Name: "control", ContainerPort: 9000},
