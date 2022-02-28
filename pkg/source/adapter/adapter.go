@@ -26,13 +26,14 @@ import (
 	"strings"
 	"time"
 
+	protocolkafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"golang.org/x/time/rate"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "knative.dev/control-protocol/pkg"
 	ctrlnetwork "knative.dev/control-protocol/pkg/network"
+	"knative.dev/eventing-kafka/pkg/common/tracing"
 
 	"github.com/Shopify/sarama"
-	"go.opencensus.io/trace"
 	"go.uber.org/zap"
 
 	"knative.dev/eventing/pkg/metrics/source"
@@ -179,7 +180,8 @@ func (a *Adapter) Handle(ctx context.Context, msg *sarama.ConsumerMessage) (bool
 		a.rateLimiter.Wait(ctx)
 	}
 
-	ctx, span := trace.StartSpan(ctx, "kafka-source")
+	message := protocolkafka.NewMessageFromConsumerMessage(msg)
+	ctx, span := tracing.StartTraceFromMessage(a.logger, ctx, message, "kafka-source-"+msg.Topic)
 	defer span.End()
 
 	req, err := a.httpMessageSender.NewCloudEventRequest(ctx)

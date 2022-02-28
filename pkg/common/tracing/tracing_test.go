@@ -83,7 +83,7 @@ func TestStartTraceFromMessage(t *testing.T) {
 	logger := logtesting.TestLogger(t)
 
 	// Verify that "message without headers" starts a new span without errors
-	ctx, span := StartTraceFromMessage(logger, context.TODO(), &protocolkafka.Message{}, "testTopic")
+	ctx, span := StartTraceFromMessage(logger, context.TODO(), &protocolkafka.Message{}, "kafkachannel-testTopic")
 	require.NotNil(t, ctx)
 	require.NotNil(t, span)
 
@@ -100,7 +100,7 @@ func TestStartTraceFromMessage(t *testing.T) {
 	}
 
 	// Verify that a span can be generated from existing span headers
-	ctx, span = StartTraceFromMessage(logger, context.TODO(), &protocolkafka.Message{Headers: headers}, "testTopic")
+	ctx, span = StartTraceFromMessage(logger, context.TODO(), &protocolkafka.Message{Headers: headers}, "kafkachannel-testTopic")
 	require.NotNil(t, ctx)
 	require.NotNil(t, span)
 }
