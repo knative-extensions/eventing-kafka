@@ -23,7 +23,6 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/google/go-cmp/cmp"
-	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -267,9 +266,6 @@ func (r *Reconciler) reconcileSubscribers(ctx context.Context, ch *v1beta1.Kafka
 	after := ch.DeepCopy()
 	after.Status.Subscribers = make([]v1.SubscriberStatus, 0)
 	logger := logging.FromContext(ctx)
-
-	var globalErr error
-
 	for _, s := range ch.Spec.Subscribers {
 		logger.Debugw("Reconciling initial offset for subscription", zap.Any("subscription", s), zap.Any("channel", ch))
 		err := r.reconcileInitialOffset(ctx, ch, s, kafkaClient, kafkaClusterAdmin)
@@ -282,7 +278,6 @@ func (r *Reconciler) reconcileSubscribers(ctx context.Context, ch *v1beta1.Kafka
 				Ready:              corev1.ConditionFalse,
 				Message:            fmt.Sprintf("Initial offset cannot be committed: %v", err),
 			})
-			globalErr = multierr.Append(globalErr, err)
 		} else {
 			logger.Debugw("Reconciled initial offset for subscription. Marking the subscription ready", zap.String("channel", fmt.Sprintf("%s.%s", ch.Namespace, ch.Name)), zap.Any("subscription", s))
 			after.Status.Subscribers = append(after.Status.Subscribers, v1.SubscriberStatus{
@@ -312,8 +307,7 @@ func (r *Reconciler) reconcileSubscribers(ctx context.Context, ch *v1beta1.Kafka
 		return fmt.Errorf("Failed patching: %w", err)
 	}
 	logger.Debugw("Patched resource", zap.Any("patch", patch), zap.Any("patched", patched))
-
-	return globalErr
+	return nil
 }
 
 func (r *Reconciler) reconcileDispatcher(ctx context.Context, scope string, dispatcherNamespace string, kc *v1beta1.KafkaChannel) error {
