@@ -567,7 +567,7 @@ function test_mt_source() {
   export TEST_MT_SOURCE
 
   echo "Run rekt tests"
-  go_test_e2e -tags=e2e -timeout=20m -test.parallel=${TEST_PARALLEL} -run "^TestKafkaSource*" ./test/rekt/... || fail_test
+  go_test_e2e -tags=e2e -timeout=80m -test.parallel=${TEST_PARALLEL} -run "^TestKafkaSource*" ./test/rekt/... || fail_test
 
   # still run those since some test cases are still missing
   echo "Run classic tests"
