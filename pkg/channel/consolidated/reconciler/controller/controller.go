@@ -41,6 +41,7 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	knativeReconciler "knative.dev/pkg/reconciler"
+	"knative.dev/pkg/resolver"
 	"knative.dev/pkg/system"
 
 	kafkaChannelClient "knative.dev/eventing-kafka/pkg/client/injection/client"
@@ -104,6 +105,7 @@ func NewController(
 	r.controllerRef = *ownerRef
 
 	impl := kafkaChannelReconciler.NewImpl(ctx, r)
+	r.resolver = resolver.NewURIResolverFromTracker(ctx, impl.Tracker)
 
 	// Call GlobalResync on kafkachannels.
 	grCh := func(interface{}) {

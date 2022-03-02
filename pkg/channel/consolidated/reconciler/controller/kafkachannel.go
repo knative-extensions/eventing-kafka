@@ -45,6 +45,7 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/network"
 	pkgreconciler "knative.dev/pkg/reconciler"
+	"knative.dev/pkg/resolver"
 
 	consolidatedmessaging "knative.dev/eventing-kafka/pkg/channel/consolidated/apis/messaging"
 	"knative.dev/eventing-kafka/pkg/common/kafka/offset"
@@ -142,6 +143,7 @@ type Reconciler struct {
 	serviceAccountLister corev1listers.ServiceAccountLister
 	roleBindingLister    rbacv1listers.RoleBindingLister
 	controllerRef        metav1.OwnerReference
+	resolver             *resolver.URIResolver
 }
 
 type envConfig struct {
@@ -258,6 +260,10 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, kc *v1beta1.KafkaChannel
 	err = r.reconcileSubscribers(ctx, kc, kafkaClient, kafkaClusterAdmin)
 	if err != nil {
 		return fmt.Errorf("error reconciling subscribers %v", err)
+	}
+
+	if err := r.reconcileDeadLetterSink(ctx, kc); err != nil {
+		return fmt.Errorf("failed to reconcile deadLetterSink: %w", err)
 	}
 
 	// Ok, so now the Dispatcher Deployment & Service have been created, we're golden since the
@@ -690,6 +696,18 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, kc *v1beta1.KafkaChannel)
 		return err
 	}
 	return newReconciledNormal(kc.Namespace, kc.Name) //ok to remove finalizer
+}
+
+func (r *Reconciler) reconcileDeadLetterSink(ctx context.Context, kc *v1beta1.KafkaChannel) error {
+	if kc.Spec.Delivery == nil || kc.Spec.Delivery.DeadLetterSink == nil {
+		return nil
+	}
+	dls, err := r.resolver.URIFromDestinationV1(ctx, *kc.Spec.Delivery.DeadLetterSink, kc)
+	if err != nil {
+		return fmt.Errorf("failed to resolve spec.delivery.deadLetterSink: %w", err)
+	}
+	kc.Status.DeadLetterSinkURI = dls
+	return nil
 }
 
 func findSubscriptionStatus(kc *v1beta1.KafkaChannel, subUID types.UID) *v1.SubscriberStatus {
