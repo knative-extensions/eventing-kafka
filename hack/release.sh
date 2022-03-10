@@ -49,21 +49,21 @@ function build_release() {
   for yaml in "${!COMPONENTS[@]}"; do
     local config="${COMPONENTS[${yaml}]}"
     echo "Building Knative Eventing Kafka - ${config}"
-    ko resolve ${KO_FLAGS} -f ${config}/ | "${LABEL_YAML_CMD[@]}" > ${yaml}
+    ko resolve -j 1 ${KO_FLAGS} -f ${config}/ | "${LABEL_YAML_CMD[@]}" > ${yaml}
     all_yamls+=(${yaml})
   done
 
   if [ -d "${REPO_ROOT_DIR}/config/channel/post-install" ]; then
     echo "Resolving channel post-install manifests"
     local yaml="channel-post-install.yaml"
-    ko resolve ${KO_FLAGS} -f config/channel/post-install | "${LABEL_YAML_CMD[@]}" > ${yaml}
+    ko resolve -j 1 ${KO_FLAGS} -f config/channel/post-install | "${LABEL_YAML_CMD[@]}" > ${yaml}
     all_yamls+=(${yaml})
   fi
 
   if [ -d "${REPO_ROOT_DIR}/config/source/post-install" ]; then
     echo "Resolving source post-install manifests"
     local yaml="source-post-install.yaml"
-    ko resolve ${KO_FLAGS} -f config/source/post-install | "${LABEL_YAML_CMD[@]}" > ${yaml}
+    ko resolve -j 1 ${KO_FLAGS} -f config/source/post-install | "${LABEL_YAML_CMD[@]}" > ${yaml}
     all_yamls+=(${yaml})
   fi
 
