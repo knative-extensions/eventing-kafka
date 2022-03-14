@@ -37,7 +37,7 @@ const (
 type ServiceOption func(*corev1.Service) error
 
 func MakeChannelServiceName(name string) string {
-	return fmt.Sprintf("%s-kn-channel", name)
+	return fmt.Sprintf("%s-kn-kafka-channel", name)
 }
 
 // ExternalService is a functional option for MakeK8sService to create a K8s service of type ExternalName

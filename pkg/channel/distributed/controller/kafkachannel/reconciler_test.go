@@ -238,7 +238,7 @@ func TestReconcile(t *testing.T) {
 			withKafkaChannelService(controllertesting.WithDeletionTimestampService),
 			withErrorEvent(controllertesting.NewKafkaChannelFailedReconciliationEvent(),
 				event.KafkaChannelServiceReconciliationFailed.String(),
-				"Failed To Reconcile KafkaChannel Service: encountered KafkaChannel Service with DeletionTimestamp kafkachannel-namespace/kafkachannel-name-kn-channel - potential race condition")),
+				"Failed To Reconcile KafkaChannel Service: encountered KafkaChannel Service with DeletionTimestamp kafkachannel-namespace/kafkachannel-name-kn-kafka-channel - potential race condition")),
 
 		//
 		// KafkaChannel Dispatcher Service

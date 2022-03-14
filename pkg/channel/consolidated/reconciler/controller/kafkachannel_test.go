@@ -57,7 +57,7 @@ const (
 	testConfigMapHash            = "deadbeef"
 	kcName                       = "test-kc"
 	testDispatcherImage          = "test-image"
-	channelServiceAddress        = "test-kc-kn-channel.test-namespace.svc.cluster.local"
+	channelServiceAddress        = "test-kc-kn-kafka-channel.test-namespace.svc.cluster.local"
 	brokerName                   = "test-broker"
 	finalizerName                = "kafkachannels.messaging.knative.dev"
 	sub1UID                      = "2f9b5e8e-deb6-11e8-9f32-f2801f1b9fd1"
@@ -371,11 +371,11 @@ func TestAllCases(t *testing.T) {
 					reconcilertesting.WithKafkaChannelDeploymentReady(),
 					reconcilertesting.WithKafkaChannelServiceReady(),
 					reconcilertesting.WithKafkaChannelEndpointsReady(),
-					reconcilertesting.WithKafkaChannelChannelServicetNotReady("ChannelServiceFailed", "Channel Service failed: kafkachannel: test-namespace/test-kc does not own Service: \"test-kc-kn-channel\""),
+					reconcilertesting.WithKafkaChannelChannelServicetNotReady("ChannelServiceFailed", "Channel Service failed: kafkachannel: test-namespace/test-kc does not own Service: \"test-kc-kn-kafka-channel\""),
 				),
 			}},
 			WantEvents: []string{
-				Eventf(corev1.EventTypeWarning, "InternalError", `kafkachannel: test-namespace/test-kc does not own Service: "test-kc-kn-channel"`),
+				Eventf(corev1.EventTypeWarning, "InternalError", `kafkachannel: test-namespace/test-kc does not own Service: "test-kc-kn-kafka-channel"`),
 			},
 		}, {
 			Name: "channel does not exist, fails to create",
@@ -1021,7 +1021,7 @@ func makeChannelService(nc *v1beta1.KafkaChannel) *corev1.Service {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNS,
-			Name:      fmt.Sprintf("%s-kn-channel", kcName),
+			Name:      fmt.Sprintf("%s-kn-kafka-channel", kcName),
 			Labels: map[string]string{
 				resources.MessagingRoleLabel: resources.MessagingRole,
 			},
@@ -1044,7 +1044,7 @@ func makeChannelServiceNotOwnedByUs() *corev1.Service {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNS,
-			Name:      fmt.Sprintf("%s-kn-channel", kcName),
+			Name:      fmt.Sprintf("%s-kn-kafka-channel", kcName),
 			Labels: map[string]string{
 				resources.MessagingRoleLabel: resources.MessagingRole,
 			},

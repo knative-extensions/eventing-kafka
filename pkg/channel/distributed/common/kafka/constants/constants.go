@@ -35,7 +35,7 @@ const (
 	EventHubErrorCodeConflict      = 409
 
 	// KafkaChannelServiceNameSuffix Is The Specific Service Name Suffix For Use With Knative E2E Tests
-	KafkaChannelServiceNameSuffix = "kn-channel"
+	KafkaChannelServiceNameSuffix = "kn-kafka-channel"
 )
 
 // Non-Constant Constants ;)
