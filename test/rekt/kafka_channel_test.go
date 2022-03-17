@@ -23,12 +23,17 @@ import (
 	"testing"
 	"time"
 
+	"knative.dev/eventing/test/rekt/resources/subscription"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/system"
 	"knative.dev/reconciler-test/pkg/environment"
 	"knative.dev/reconciler-test/pkg/feature"
 	"knative.dev/reconciler-test/pkg/k8s"
 	"knative.dev/reconciler-test/pkg/knative"
+	"knative.dev/reconciler-test/pkg/manifest"
 	"knative.dev/reconciler-test/pkg/state"
+
+	"knative.dev/eventing/test/rekt/features/channel"
 
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/util"
 	"knative.dev/eventing-kafka/test/rekt/features/kafkachannel"
@@ -100,4 +105,23 @@ func TestKafkaChannelEvents(t *testing.T) {
 	env.Test(ctx, t, kafkachannel.ConfigureDataPlane(ctx, t))
 	env.Test(ctx, t, kafkachannel.SendEvents(ctx, t, 10, 1, 10))               // 10 Events with IDs 1-10
 	env.Test(ctx, t, kafkachannel.ReplayEvents(ctx, t, offsetTime, 20, 1, 10)) // 20 Events with IDs 1-10
+}
+
+func TestChannelDeadLetterSink(t *testing.T) {
+	t.Parallel()
+
+	ctx, env := global.Environment(
+		knative.WithKnativeNamespace(system.Namespace()),
+		knative.WithLoggingConfig,
+		knative.WithTracingConfig,
+		k8s.WithEventListener,
+		environment.Managed(t),
+	)
+
+	createSubscriberFn := func(ref *duckv1.KReference, uri string) manifest.CfgFn {
+		return subscription.WithSubscriber(ref, uri)
+	}
+	env.Test(ctx, t, channel.DeadLetterSink(createSubscriberFn))
+	env.Test(ctx, t, channel.DeadLetterSinkGenericChannel(createSubscriberFn))
+	env.Test(ctx, t, channel.AsDeadLetterSink(createSubscriberFn))
 }
