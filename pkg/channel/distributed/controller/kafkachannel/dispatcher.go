@@ -517,7 +517,7 @@ func (r *Reconciler) newDispatcherDeployment(logger *zap.Logger, channel *kafkav
 						{
 							Name: deploymentName,
 							LivenessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Port: intstr.FromInt(constants.HealthPort),
 										Path: health.LivenessPath,
@@ -530,7 +530,7 @@ func (r *Reconciler) newDispatcherDeployment(logger *zap.Logger, channel *kafkav
 								FailureThreshold:    constants.DispatcherLivenessFailureThreshold,
 							},
 							ReadinessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Port: intstr.FromInt(constants.HealthPort),
 										Path: health.ReadinessPath,
