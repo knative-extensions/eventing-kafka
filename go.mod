@@ -16,7 +16,6 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/influxdata/tdigest v0.0.1 // indirect
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/mitchellh/mapstructure v1.3.3 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475
 	github.com/rickb777/date v1.13.0
 	github.com/slinkydeveloper/loadastic v0.0.0-20201218203601-5c69eea3b7d8
@@ -29,15 +28,15 @@ require (
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
 	google.golang.org/protobuf v1.27.1
-	k8s.io/api v0.22.5
-	k8s.io/apimachinery v0.22.5
-	k8s.io/client-go v0.22.5
-	k8s.io/utils v0.0.0-20211208161948-7d6a63dca704
-	knative.dev/control-protocol v0.0.0-20220303200406-7e6cdf939b2a
-	knative.dev/eventing v0.30.0
-	knative.dev/hack v0.0.0-20220224013837-e1785985d364
-	knative.dev/pkg v0.0.0-20220301181942-2fdd5f232e77
-	knative.dev/reconciler-test v0.0.0-20220303141206-84821d26ed1f
+	k8s.io/api v0.23.4
+	k8s.io/apimachinery v0.23.4
+	k8s.io/client-go v0.23.4
+	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9
+	knative.dev/control-protocol v0.0.0-20220321133447-b92711ba8bfd
+	knative.dev/eventing v0.30.1-0.20220322132012-a27ee9e2097c
+	knative.dev/hack v0.0.0-20220318020218-14f832e506f8
+	knative.dev/pkg v0.0.0-20220318185521-e6e3cf03d765
+	knative.dev/reconciler-test v0.0.0-20220321082547-afd9ca7f6603
 	sigs.k8s.io/yaml v1.3.0
 )
 

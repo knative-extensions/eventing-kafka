@@ -352,17 +352,17 @@ func WithDifferentVolumes(deployment *appsv1.Deployment) {
 
 // WithDifferentLivenessProbe Changes The LivenessProbe In The Container
 func WithDifferentLivenessProbe(deployment *appsv1.Deployment) {
-	deployment.Spec.Template.Spec.Containers[0].LivenessProbe = &corev1.Probe{Handler: corev1.Handler{}}
+	deployment.Spec.Template.Spec.Containers[0].LivenessProbe = &corev1.Probe{ProbeHandler: corev1.ProbeHandler{}}
 }
 
 // WithDifferentReadinessProbe Changes The WReadinessProbe In The Container
 func WithDifferentReadinessProbe(deployment *appsv1.Deployment) {
-	deployment.Spec.Template.Spec.Containers[0].ReadinessProbe = &corev1.Probe{Handler: corev1.Handler{}}
+	deployment.Spec.Template.Spec.Containers[0].ReadinessProbe = &corev1.Probe{ProbeHandler: corev1.ProbeHandler{}}
 }
 
 // WithDifferentLifecycle Changes The Lifecycle In The Container
 func WithDifferentLifecycle(deployment *appsv1.Deployment) {
-	deployment.Spec.Template.Spec.Containers[0].Lifecycle = &corev1.Lifecycle{PostStart: &corev1.Handler{}}
+	deployment.Spec.Template.Spec.Containers[0].Lifecycle = &corev1.Lifecycle{PostStart: &corev1.LifecycleHandler{}}
 }
 
 // WithDifferentTerminationPath Changes The TerminationPath In The Container
@@ -855,7 +855,7 @@ func NewKafkaChannelReceiverDeployment(options ...DeploymentOption) *appsv1.Depl
 						{
 							Name: ReceiverDeploymentName,
 							LivenessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Port: intstr.FromInt(constants.HealthPort),
 										Path: health.LivenessPath,
@@ -868,7 +868,7 @@ func NewKafkaChannelReceiverDeployment(options ...DeploymentOption) *appsv1.Depl
 								FailureThreshold:    constants.ChannelLivenessFailureThreshold,
 							},
 							ReadinessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Port: intstr.FromInt(constants.HealthPort),
 										Path: health.ReadinessPath,
@@ -1094,7 +1094,7 @@ func NewKafkaChannelDispatcherDeployment(options ...DeploymentOption) *appsv1.De
 							Name:  dispatcherName,
 							Image: DispatcherImage,
 							LivenessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Port: intstr.FromInt(constants.HealthPort),
 										Path: health.LivenessPath,
@@ -1107,7 +1107,7 @@ func NewKafkaChannelDispatcherDeployment(options ...DeploymentOption) *appsv1.De
 								FailureThreshold:    constants.DispatcherLivenessFailureThreshold,
 							},
 							ReadinessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Port: intstr.FromInt(constants.HealthPort),
 										Path: health.ReadinessPath,
