@@ -47,13 +47,12 @@ import (
 )
 
 type envConfig struct {
-	SchedulerRefreshPeriod        int64                         `envconfig:"AUTOSCALER_REFRESH_PERIOD" required:"true"`
-	PodCapacity                   int32                         `envconfig:"POD_CAPACITY" required:"true"`
-	VReplicaMPS                   int32                         `envconfig:"VREPLICA_LIMITS_MPS" required:"false" default:"-1"`
-	MaxEventPerSecondPerPartition int32                         `envconfig:"MAX_MPS_PER_PARTITION" required:"false" default:"-1"`
-	SchedulerPolicyType           scheduler.SchedulerPolicyType `envconfig:"SCHEDULER_POLICY_TYPE" required:"true"`
-	SchedulerPolicyConfigMap      string                        `envconfig:"SCHEDULER_CONFIG" required:"true"`
-	DeSchedulerPolicyConfigMap    string                        `envconfig:"DESCHEDULER_CONFIG" required:"true"`
+	SchedulerRefreshPeriod        int64  `envconfig:"AUTOSCALER_REFRESH_PERIOD" required:"true"`
+	PodCapacity                   int32  `envconfig:"POD_CAPACITY" required:"true"`
+	VReplicaMPS                   int32  `envconfig:"VREPLICA_LIMITS_MPS" required:"false" default:"-1"`
+	MaxEventPerSecondPerPartition int32  `envconfig:"MAX_MPS_PER_PARTITION" required:"false" default:"-1"`
+	SchedulerPolicyConfigMap      string `envconfig:"SCHEDULER_CONFIG" required:"true"`
+	DeSchedulerPolicyConfigMap    string `envconfig:"DESCHEDULER_CONFIG" required:"true"`
 }
 
 func NewController(
@@ -167,7 +166,17 @@ func NewController(
 	}
 
 	logging.FromContext(ctx).Debugw("Scheduler Policy Config Map read", zap.Any("policy", policy))
-	c.scheduler = stsscheduler.NewScheduler(ctx, system.Namespace(), mtadapterName, c.vpodLister, rp, env.PodCapacity, env.SchedulerPolicyType, nodeInformer.Lister(), evictor, policy, removalpolicy)
+	c.scheduler = stsscheduler.NewScheduler(ctx,
+		system.Namespace(),
+		mtadapterName,
+		c.vpodLister,
+		rp,
+		env.PodCapacity,
+		"", //  scheduler.SchedulerPolicyType field only applicable for old scheduler policy
+		nodeInformer.Lister(),
+		evictor,
+		policy,
+		removalpolicy)
 
 	logging.FromContext(ctx).Info("Setting up kafka event handlers")
 	kafkaInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
