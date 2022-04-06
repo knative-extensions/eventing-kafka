@@ -59,15 +59,11 @@ spec:
         - name: VREPLICA_LIMITS_MPS
           value: '250'
 
-        # The scheduling policy type for placing vreplicas on pods (see type SchedulerPolicyType for enum list)
-        - name: SCHEDULER_POLICY_TYPE
-          value: 'MAXFILLUP'
-
         - name: SCHEDULER_CONFIG
-          value: ''
+          value: 'config-kafka-source-scheduler'
 
         - name: DESCHEDULER_CONFIG
-          value: ''
+          value: 'config-kafka-source-descheduler'
 
         resources:
           requests:
