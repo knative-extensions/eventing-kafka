@@ -28,15 +28,15 @@ require (
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
 	google.golang.org/protobuf v1.27.1
-	k8s.io/api v0.23.4
-	k8s.io/apimachinery v0.23.4
-	k8s.io/client-go v0.23.4
+	k8s.io/api v0.23.5
+	k8s.io/apimachinery v0.23.5
+	k8s.io/client-go v0.23.5
 	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9
-	knative.dev/control-protocol v0.0.0-20220321133447-b92711ba8bfd
-	knative.dev/eventing v0.30.1-0.20220322132012-a27ee9e2097c
-	knative.dev/hack v0.0.0-20220318020218-14f832e506f8
-	knative.dev/pkg v0.0.0-20220318185521-e6e3cf03d765
-	knative.dev/reconciler-test v0.0.0-20220321082547-afd9ca7f6603
+	knative.dev/control-protocol v0.0.0-20220412172608-013cfc57d96d
+	knative.dev/eventing v0.30.1-0.20220412073008-22223245a4a4
+	knative.dev/hack v0.0.0-20220411131823-6ffd8417de7c
+	knative.dev/pkg v0.0.0-20220412134708-e325df66cb51
+	knative.dev/reconciler-test v0.0.0-20220412165608-994f0c3fab62
 	sigs.k8s.io/yaml v1.3.0
 )
 
