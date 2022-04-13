@@ -73,7 +73,7 @@ func (k *kafkaSender) SendEventWithContext(ctx context.Context, ce cloudevents.E
 		return err
 	}
 	clientID := "continualtests-kafka-sender"
-	kafkaSenderCtx, span := trace.StartSpan(ctx, clientID + "-" + endpoint.TopicName)
+	kafkaSenderCtx, span := trace.StartSpan(ctx, clientID+"-"+endpoint.TopicName)
 	defer span.End()
 	conf, err := client.NewConfigBuilder().
 		WithClientId(clientID).
