@@ -30,6 +30,6 @@ func main() {
 		panic(err)
 	}
 	es := continual.CreateKafkaSender(ctx, log.Sugar())
-	sender.RegisterEventSender(es)
+	sender.RegisterEventSenderWithContext(es)
 	sender.New().SendContinually()
 }
