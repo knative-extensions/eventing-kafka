@@ -61,14 +61,14 @@ func SerializeTrace(spanContext trace.SpanContext) []sarama.RecordHeader {
 // in order to trace the flow of a message.  Multiple spans may be part of a single trace, for
 // example, a dead letter message or a reply should be easy to match with the original message based
 // on the trace ID.  This ID is originally set in the first message header using the SerializeTrace function.
-func StartTraceFromMessage(logger *zap.SugaredLogger, inCtx context.Context, message *protocolkafka.Message, topic string) (context.Context, *trace.Span) {
+func StartTraceFromMessage(logger *zap.SugaredLogger, inCtx context.Context, message *protocolkafka.Message, spanName string) (context.Context, *trace.Span) {
 	sc, ok := ParseSpanContext(message.Headers)
 	if !ok {
 		logger.Warn("Cannot parse the spancontext, creating a new span")
-		return trace.StartSpan(inCtx, "kafkachannel-"+topic)
+		return trace.StartSpan(inCtx, spanName)
 	}
 
-	return trace.StartSpanWithRemoteParent(inCtx, "kafkachannel-"+topic, sc)
+	return trace.StartSpanWithRemoteParent(inCtx, spanName, sc)
 }
 
 // ParseSpanContext takes the "traceparent" and "tracestate" headers and regenerates the
