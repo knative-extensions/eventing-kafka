@@ -113,6 +113,9 @@ readonly KAFKA_MT_SOURCE_TEMPLATE_DIR="config/source/multi"
 # This is the namespace of knative-eventing itself
 export EVENTING_NAMESPACE="knative-eventing"
 
+# Only build linux/amd64 image by default
+export KO_FLAGS="${KO_FLAGS:---platform=linux/amd64}"
+
 # Namespace where we install eventing-kafka components (may be different than EVENTING_NAMESPACE)
 readonly SYSTEM_NAMESPACE="knative-eventing"
 export SYSTEM_NAMESPACE
