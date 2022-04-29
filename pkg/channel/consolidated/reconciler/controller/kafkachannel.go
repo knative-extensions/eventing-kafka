@@ -585,7 +585,7 @@ func (r *Reconciler) reconcileTopic(ctx context.Context, channel *v1beta1.KafkaC
 	retentionDuration, err := channel.Spec.ParseRetentionDuration()
 	if err != nil {
 		// Should never happen with webhook defaulting and validation in place.
-		logger.Errorw("Error parsing RetentionDuration, using default instead", zap.String("RetentionDuration", channel.Spec.RetentionDuration), zap.Error(err))
+		logger.Debugw("Error parsing RetentionDuration, using default instead", zap.String("RetentionDuration", channel.Spec.RetentionDuration), zap.Error(err))
 		retentionDuration = constants.DefaultRetentionDuration
 	}
 	retentionMillisString := strconv.FormatInt(retentionDuration.Milliseconds(), 10)
