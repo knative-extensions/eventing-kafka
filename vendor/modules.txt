@@ -1219,7 +1219,7 @@ k8s.io/utils/internal/third_party/forked/golang/net
 k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# knative.dev/control-protocol v0.0.0-20220427013835-46e2dc00fd97
+# knative.dev/control-protocol v0.0.0-20220428151655-bec9426db2df
 ## explicit
 knative.dev/control-protocol/pkg
 knative.dev/control-protocol/pkg/certificates
@@ -1227,7 +1227,7 @@ knative.dev/control-protocol/pkg/message
 knative.dev/control-protocol/pkg/network
 knative.dev/control-protocol/pkg/reconciler
 knative.dev/control-protocol/pkg/service
-# knative.dev/eventing v0.31.1-0.20220427080352-3abb43601181
+# knative.dev/eventing v0.31.1-0.20220428204853-01f56122bf2a
 ## explicit
 knative.dev/eventing/pkg/adapter/v2
 knative.dev/eventing/pkg/adapter/v2/test
@@ -1370,7 +1370,7 @@ knative.dev/eventing/test/upgrade/prober/wathola/sender
 ## explicit
 knative.dev/hack
 knative.dev/hack/shell
-# knative.dev/pkg v0.0.0-20220427013826-1f681e126af6
+# knative.dev/pkg v0.0.0-20220502014956-6ec9c1a62fa8
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
@@ -1478,7 +1478,7 @@ knative.dev/pkg/webhook/resourcesemantics
 knative.dev/pkg/webhook/resourcesemantics/conversion
 knative.dev/pkg/webhook/resourcesemantics/defaulting
 knative.dev/pkg/webhook/resourcesemantics/validation
-# knative.dev/reconciler-test v0.0.0-20220427013839-f0e3dfafb678
+# knative.dev/reconciler-test v0.0.0-20220428151655-74b18404decf
 ## explicit
 knative.dev/reconciler-test/cmd/eventshub
 knative.dev/reconciler-test/pkg/environment
