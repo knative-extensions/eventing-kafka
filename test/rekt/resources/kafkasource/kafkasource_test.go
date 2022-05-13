@@ -75,7 +75,7 @@ func Example_full() {
 	})(cfg)
 	WithSink(&duckv1.KReference{Kind: "Service", Name: "name", APIVersion: "v1"}, "")(cfg)
 
-	files, err := manifest.ExecuteLocalYAML(images, cfg)
+	files, err := manifest.ExecuteYAML(yaml, images, cfg)
 	if err != nil {
 		panic(err)
 	}
