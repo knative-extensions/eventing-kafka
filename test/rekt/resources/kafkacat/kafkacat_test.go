@@ -87,7 +87,7 @@ func Example_full() {
 	WithKey("akey")(cfg)
 	WithHeaders(map[string]string{"ct": "xml", "other": "head"})(cfg)
 
-	files, err := manifest.ExecuteLocalYAML(images, cfg)
+	files, err := manifest.ExecuteYAML(yaml, images, cfg)
 	if err != nil {
 		panic(err)
 	}

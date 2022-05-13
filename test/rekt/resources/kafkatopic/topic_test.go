@@ -60,7 +60,7 @@ func Example_full() {
 	WithClusterNamespace("here")(cfg)
 	WithPartitions("100")(cfg)
 
-	files, err := manifest.ExecuteLocalYAML(images, cfg)
+	files, err := manifest.ExecuteYAML(yaml, images, cfg)
 	if err != nil {
 		panic(err)
 	}
