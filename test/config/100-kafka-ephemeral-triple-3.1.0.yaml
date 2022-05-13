@@ -23,6 +23,8 @@ spec:
         tls: true
         authentication:
           type: scram-sha-512
+    authorization:
+      type: simple
     config:
       auto.create.topics.enable: false
       offsets.topic.replication.factor: 3
