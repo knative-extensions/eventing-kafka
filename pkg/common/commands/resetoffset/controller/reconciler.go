@@ -159,11 +159,7 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, resetOffset *kafkav1alpha
 	logger := logging.FromContext(ctx)
 	logger.Debug("<==========  START RESET-OFFSET FINALIZATION  ==========>")
 
-	// Clean The AsyncCommandNotificationStore
-	r.asyncCommandNotificationStore.CleanPodsNotifications(types.NamespacedName{
-		Namespace: resetOffset.Namespace,
-		Name:      resetOffset.Name,
-	})
+	// Clean The AsyncCommandNotificationStore in Connention oldServiceCb
 
 	// No-Op Finalization - Nothing To Do
 	logger.Info("No-Op Finalization Successful")

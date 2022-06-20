@@ -34,6 +34,7 @@ import (
 	"knative.dev/pkg/logging"
 
 	kafkav1alpha1 "knative.dev/eventing-kafka/pkg/apis/kafka/v1alpha1"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	"knative.dev/eventing-kafka/pkg/common/commands/resetoffset/refmappers"
 	"knative.dev/eventing-kafka/pkg/common/controlprotocol"
 	"knative.dev/eventing-kafka/pkg/common/controlprotocol/commands"
@@ -76,17 +77,17 @@ func (r *Reconciler) reconcileDataPlaneServices(ctx context.Context, resetOffset
 	logger.Debug("Detected DataPlane Services", zap.Any("Pod IPs", podIPs))
 
 	// Define Service Callback Functions To Manage The Reconciler AsyncCommandNotificationStore
-	resetOffsetNamespacedName := types.NamespacedName{
-		Namespace: resetOffset.GetNamespace(),
-		Name:      resetOffset.GetName(),
+	disaptcherNamespacedName := types.NamespacedName{
+		Namespace: refInfo.DataPlaneNamespace,
+		Name:      refInfo.DataPlaneLabels[constants.AppLabel],
 	}
 	newServiceCallbackFn := func(newHost string, service ctrl.Service) {
 		logger.Debug("New Control-Protocol Service Callback", zap.String("Host", newHost))
-		service.MessageHandler(r.asyncCommandNotificationStore.MessageHandler(resetOffsetNamespacedName, newHost))
+		service.MessageHandler(r.asyncCommandNotificationStore.MessageHandler(disaptcherNamespacedName, newHost))
 	}
 	oldServiceCallbackFn := func(oldHost string) {
 		logger.Debug("Old Control-Protocol Service Callback", zap.String("Host", oldHost))
-		r.asyncCommandNotificationStore.CleanPodNotification(resetOffsetNamespacedName, oldHost)
+		r.asyncCommandNotificationStore.CleanPodNotification(disaptcherNamespacedName, oldHost)
 	}
 
 	// Reconcile The Services/Connections For Specified Key / Pods
@@ -193,24 +194,24 @@ func (r *Reconciler) sendConsumerGroupAsyncCommand(ctx context.Context,
 	}
 
 	// Wait For The AsyncCommand Result & Return Results
-	return r.waitForAsyncCommandResult(resetOffset, podIP, consumerGroupAsyncCommand)
+	return r.waitForAsyncCommandResult(resetOffset, podIP, refInfo, consumerGroupAsyncCommand)
 }
 
 // waitForAsyncCommandResult polls the Reconciler AsyncCommandNotificationStore waiting for the
 // AsyncCommandResult corresponding to the specified AsyncCommand.  The ConsumerGroupAsyncCommands
 // are inherently asynchronous so that they can be used in other scenarios (Pause/Resume), but the
 // ResetOffset implementation treats them as Synchronous to facilitate single-pass reconciliation.
-func (r *Reconciler) waitForAsyncCommandResult(resetOffset *kafkav1alpha1.ResetOffset, podIP string, asyncCommand ctrlmessage.AsyncCommand) error {
+func (r *Reconciler) waitForAsyncCommandResult(resetOffset *kafkav1alpha1.ResetOffset, podIP string, refInfo *refmappers.RefInfo, asyncCommand ctrlmessage.AsyncCommand) error {
 
-	// Create A NamespacedName For The ResetOffset
-	resetOffsetNamespacedName := types.NamespacedName{
-		Namespace: resetOffset.GetNamespace(),
-		Name:      resetOffset.GetName(),
+	// Create A NamespacedName For The Dispatcher
+	dispatcherNamespacedName := types.NamespacedName{
+		Namespace: refInfo.DataPlaneNamespace,
+		Name:      refInfo.DataPlaneLabels[constants.AppLabel],
 	}
 
 	// Poll The AsyncCommandNotificationStore For AsyncCommandResult
 	err := wait.Poll(asyncCommandResultPollDuration, asyncCommandResultTimeoutDuration, func() (done bool, err error) {
-		asyncCommandResult := r.asyncCommandNotificationStore.GetCommandResult(resetOffsetNamespacedName, podIP, asyncCommand)
+		asyncCommandResult := r.asyncCommandNotificationStore.GetCommandResult(dispatcherNamespacedName, podIP, asyncCommand)
 		if asyncCommandResult != nil {
 			if asyncCommandResult.IsFailed() {
 				return true, fmt.Errorf("AsyncCommand ID '%x' resulted in error: %s", asyncCommand.SerializedId(), asyncCommandResult.Error)
