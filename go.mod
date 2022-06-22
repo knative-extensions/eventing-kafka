@@ -9,7 +9,7 @@ require (
 	github.com/Azure/go-autorest/autorest/validation v0.3.0 // indirect
 	github.com/Shopify/sarama v1.30.1
 	github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.4.1
-	github.com/cloudevents/sdk-go/v2 v2.8.0
+	github.com/cloudevents/sdk-go/v2 v2.10.1
 	github.com/davecgh/go-spew v1.1.1
 	github.com/google/go-cmp v0.5.6
 	github.com/google/gofuzz v1.2.0
@@ -23,20 +23,20 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/xdg-go/scram v1.0.2
 	go.opencensus.io v0.23.0
-	go.uber.org/multierr v1.6.0
-	go.uber.org/zap v1.19.1
+	go.uber.org/multierr v1.8.0
+	go.uber.org/zap v1.21.0
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
 	google.golang.org/protobuf v1.27.1
-	k8s.io/api v0.23.5
-	k8s.io/apimachinery v0.23.5
-	k8s.io/client-go v0.23.5
+	k8s.io/api v0.23.8
+	k8s.io/apimachinery v0.23.8
+	k8s.io/client-go v0.23.8
 	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9
-	knative.dev/control-protocol v0.0.0-20220524211303-ae90d72c2d70
-	knative.dev/eventing v0.32.0
-	knative.dev/hack v0.0.0-20220524153203-12d3e2a7addc
-	knative.dev/pkg v0.0.0-20220524202603-19adf798efb8
-	knative.dev/reconciler-test v0.0.0-20220524205904-f750f80bfc7e
+	knative.dev/control-protocol v0.0.0-20220610133426-4a1c8e84039f
+	knative.dev/eventing v0.32.1-0.20220622112123-0866e62ec48e
+	knative.dev/hack v0.0.0-20220610014127-dc6c287516dc
+	knative.dev/pkg v0.0.0-20220621173822-9c5a7317fa9d
+	knative.dev/reconciler-test v0.0.0-20220622130523-57e43ca43bda
 	sigs.k8s.io/yaml v1.3.0
 )
 
