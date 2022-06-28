@@ -164,7 +164,7 @@ func (s *StatefulSetScheduler) Schedule(vpod scheduler.VPod) ([]duckv1alpha1.Pla
 
 func (s *StatefulSetScheduler) scheduleVPod(vpod scheduler.VPod) ([]duckv1alpha1.Placement, error) {
 	logger := s.logger.With("key", vpod.GetKey())
-	logger.Info("scheduling")
+	logger.Info("Starting to schedule: Reserved = ", s.reserved)
 
 	// Get the current placements state
 	// Quite an expensive operation but safe and simple.
@@ -282,7 +282,7 @@ func (s *StatefulSetScheduler) removeReplicasWithPolicy(vpod scheduler.VPod, dif
 			placementPodID := feasiblePods[0]
 			logger.Infof("Selected pod #%v to remove vreplica #%v from", placementPodID, i)
 			placements = s.removeSelectionFromPlacements(placementPodID, placements)
-			//state.SetFree(placementPodID, state.Free(placementPodID)+1)
+			state.SetFree(placementPodID, state.Free(placementPodID)+1)
 			s.reservePlacements(vpod, placements)
 			continue
 		}
@@ -303,7 +303,7 @@ func (s *StatefulSetScheduler) removeReplicasWithPolicy(vpod scheduler.VPod, dif
 
 		logger.Infof("Selected pod #%v to remove vreplica #%v from", placementPodID, i)
 		placements = s.removeSelectionFromPlacements(placementPodID, placements)
-		//state.SetFree(placementPodID, state.Free(placementPodID)+1)
+		state.SetFree(placementPodID, state.Free(placementPodID)+1)
 		s.reservePlacements(vpod, placements)
 	}
 	return placements
@@ -388,7 +388,7 @@ func (s *StatefulSetScheduler) addReplicasWithPolicy(vpod scheduler.VPod, diff i
 
 		logger.Infof("Selected pod #%v for vreplica #%v", placementPodID, i)
 		placements = s.addSelectionToPlacements(placementPodID, placements)
-		//state.SetFree(placementPodID, state.Free(placementPodID)-1)
+		state.SetFree(placementPodID, state.Free(placementPodID)-1)
 		s.reservePlacements(vpod, placements)
 		diff--
 	}

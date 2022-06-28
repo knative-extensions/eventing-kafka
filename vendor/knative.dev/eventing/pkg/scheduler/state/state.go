@@ -280,6 +280,7 @@ func (s *stateBuilder) State(reserved map[types.NamespacedName]map[string]int32)
 			}
 		}
 	}
+	s.logger.Infow("debug info", zap.String("FreeCap", fmt.Sprint(free)), zap.String("LastOrdinal", fmt.Sprint(last)), zap.String("Reserved", fmt.Sprint(reserved)))
 
 	// Account for reserved vreplicas with no prior placements
 	for key, ps := range reserved {
@@ -309,7 +310,7 @@ func (s *stateBuilder) State(reserved map[types.NamespacedName]map[string]int32)
 		}
 	}
 
-	s.logger.Infow("cluster state info", zap.String("NumPods", fmt.Sprint(scale.Spec.Replicas)), zap.String("NumZones", fmt.Sprint(len(zoneMap))), zap.String("NumNodes", fmt.Sprint(len(nodeToZoneMap))), zap.String("Schedulable", fmt.Sprint(schedulablePods)))
+	s.logger.Infow("cluster state info", zap.String("NumPods", fmt.Sprint(scale.Spec.Replicas)), zap.String("NumZones", fmt.Sprint(len(zoneMap))), zap.String("NumNodes", fmt.Sprint(len(nodeToZoneMap))), zap.String("Schedulable", fmt.Sprint(schedulablePods)), zap.String("FreeCap", fmt.Sprint(free)), zap.String("LastOrdinal", fmt.Sprint(last)))
 	return &State{FreeCap: free, SchedulablePods: schedulablePods, LastOrdinal: last, Capacity: s.capacity, Replicas: scale.Spec.Replicas, NumZones: int32(len(zoneMap)), NumNodes: int32(len(nodeToZoneMap)),
 		SchedulerPolicy: s.schedulerPolicy, SchedPolicy: s.schedPolicy, DeschedPolicy: s.deschedPolicy, NodeToZoneMap: nodeToZoneMap, StatefulSetName: s.statefulSetName, PodLister: s.podLister,
 		PodSpread: podSpread, NodeSpread: nodeSpread, ZoneSpread: zoneSpread}, nil
