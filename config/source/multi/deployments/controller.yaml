@@ -65,6 +65,9 @@ spec:
         - name: DESCHEDULER_CONFIG
           value: 'config-kafka-source-descheduler'
 
+        - name: VREPLICA_DESCHEDULE
+          value: "false"
+
         resources:
           requests:
             cpu: 20m

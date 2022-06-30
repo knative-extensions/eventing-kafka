@@ -21,6 +21,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 
 	"github.com/Shopify/sarama"
@@ -39,6 +41,7 @@ import (
 	"knative.dev/pkg/resolver"
 	"knative.dev/pkg/system"
 
+	"knative.dev/eventing/pkg/apis/duck/v1alpha1"
 	"knative.dev/eventing/pkg/reconciler/source"
 
 	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
@@ -164,8 +167,17 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 }
 
 func (r *Reconciler) FinalizeKind(ctx context.Context, src *v1beta1.KafkaSource) reconciler.Event {
-	src.Spec.Consumers = pointer.Int32Ptr(0)
-	placements, err := r.scheduler.Schedule(src) //de-schedule placements
+	var err error = nil
+	var placements []v1alpha1.Placement
+
+	vrepDeschedule, _ := strconv.ParseBool(os.Getenv("VREPLICA_DESCHEDULE"))
+
+	if vrepDeschedule {
+		src.Spec.Consumers = pointer.Int32Ptr(0)
+		placements, err = r.scheduler.Schedule(src) //de-schedule placements
+	} else {
+		placements = src.Status.Placements
+	}
 
 	if placements != nil || err != nil {
 		src.Status.Placements = nil

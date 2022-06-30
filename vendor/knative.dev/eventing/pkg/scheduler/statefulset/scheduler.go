@@ -21,7 +21,9 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
+	"os"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 
@@ -269,6 +271,8 @@ func (s *StatefulSetScheduler) removeReplicasWithPolicy(vpod scheduler.VPod, dif
 	logger := s.logger.Named("remove replicas with policy")
 	numVreps := diff
 
+	vrepDeschedule, _ := strconv.ParseBool(os.Getenv("VREPLICA_DESCHEDULE"))
+
 	for i := int32(0); i < numVreps; i++ { //deschedule one vreplica at a time
 		state, err := s.stateAccessor.State(s.reserved)
 		if err != nil {
@@ -282,7 +286,9 @@ func (s *StatefulSetScheduler) removeReplicasWithPolicy(vpod scheduler.VPod, dif
 			placementPodID := feasiblePods[0]
 			logger.Infof("Selected pod #%v to remove vreplica #%v from", placementPodID, i)
 			placements = s.removeSelectionFromPlacements(placementPodID, placements)
-			state.SetFree(placementPodID, state.Free(placementPodID)+1)
+			if vrepDeschedule {
+				state.SetFree(placementPodID, state.Free(placementPodID)+1)
+			}
 			s.reservePlacements(vpod, placements)
 			continue
 		}
@@ -303,7 +309,9 @@ func (s *StatefulSetScheduler) removeReplicasWithPolicy(vpod scheduler.VPod, dif
 
 		logger.Infof("Selected pod #%v to remove vreplica #%v from", placementPodID, i)
 		placements = s.removeSelectionFromPlacements(placementPodID, placements)
-		state.SetFree(placementPodID, state.Free(placementPodID)+1)
+		if vrepDeschedule {
+			state.SetFree(placementPodID, state.Free(placementPodID)+1)
+		}
 		s.reservePlacements(vpod, placements)
 	}
 	return placements
@@ -337,6 +345,8 @@ func (s *StatefulSetScheduler) addReplicasWithPolicy(vpod scheduler.VPod, diff i
 	logger := s.logger.Named("add replicas with policy")
 
 	numVreps := diff
+	vrepDeschedule, _ := strconv.ParseBool(os.Getenv("VREPLICA_DESCHEDULE"))
+
 	for i := int32(0); i < numVreps; i++ { //schedule one vreplica at a time (find most suitable pod placement satisying predicates with high score)
 		// Get the current placements state
 		state, err := s.stateAccessor.State(s.reserved)
@@ -388,7 +398,9 @@ func (s *StatefulSetScheduler) addReplicasWithPolicy(vpod scheduler.VPod, diff i
 
 		logger.Infof("Selected pod #%v for vreplica #%v", placementPodID, i)
 		placements = s.addSelectionToPlacements(placementPodID, placements)
-		state.SetFree(placementPodID, state.Free(placementPodID)-1)
+		if vrepDeschedule {
+			state.SetFree(placementPodID, state.Free(placementPodID)-1)
+		}
 		s.reservePlacements(vpod, placements)
 		diff--
 	}
