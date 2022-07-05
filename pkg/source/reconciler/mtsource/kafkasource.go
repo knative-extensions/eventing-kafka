@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/utils/pointer"
 
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
@@ -163,7 +164,10 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 }
 
 func (r *Reconciler) FinalizeKind(ctx context.Context, src *v1beta1.KafkaSource) reconciler.Event {
-	if src.Status.Placements != nil {
+	src.Spec.Consumers = pointer.Int32Ptr(0)
+	placements, err := r.scheduler.Schedule(src) //de-schedule placements
+
+	if placements != nil || err != nil {
 		src.Status.Placements = nil
 
 		// return an error to 1. update the status. 2. not clear the finalizer
