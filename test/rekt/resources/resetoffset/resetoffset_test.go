@@ -20,11 +20,12 @@ import (
 	"os"
 
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+	testlog "knative.dev/reconciler-test/pkg/logging"
 	"knative.dev/reconciler-test/pkg/manifest"
 )
 
 func Example() {
-
+	ctx := testlog.NewContext()
 	images := map[string]string{}
 
 	cfg := map[string]interface{}{
@@ -40,7 +41,7 @@ func Example() {
 		Name:       "baz",
 	})(cfg)
 
-	files, err := manifest.ExecuteYAML(yaml, images, cfg)
+	files, err := manifest.ExecuteYAML(ctx, yaml, images, cfg)
 	if err != nil {
 		panic(err)
 	}
