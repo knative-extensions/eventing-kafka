@@ -1227,7 +1227,7 @@ knative.dev/control-protocol/pkg/message
 knative.dev/control-protocol/pkg/network
 knative.dev/control-protocol/pkg/reconciler
 knative.dev/control-protocol/pkg/service
-# knative.dev/eventing v0.33.0 => github.com/cardil/knative-eventing v0.11.1-0.20220718191420-28d8469b82bf
+# knative.dev/eventing v0.33.1-0.20220722122720-c8435ed74ba8
 ## explicit
 knative.dev/eventing/pkg/adapter/v2
 knative.dev/eventing/pkg/adapter/v2/test
@@ -1478,7 +1478,7 @@ knative.dev/pkg/webhook/resourcesemantics
 knative.dev/pkg/webhook/resourcesemantics/conversion
 knative.dev/pkg/webhook/resourcesemantics/defaulting
 knative.dev/pkg/webhook/resourcesemantics/validation
-# knative.dev/reconciler-test v0.0.0-20220705155206-f05db88effbe => github.com/cardil/knative-reconciler-test v0.0.0-20220720101506-5051d7685fba
+# knative.dev/reconciler-test v0.0.0-20220722111920-0cfde63b455a
 ## explicit
 knative.dev/reconciler-test/cmd/eventshub
 knative.dev/reconciler-test/pkg/environment
@@ -1514,5 +1514,3 @@ sigs.k8s.io/structured-merge-diff/v4/value
 sigs.k8s.io/yaml
 # github.com/dgrijalva/jwt-go => github.com/form3tech-oss/jwt-go v0.0.0-20210511163231-5b2d2b5f6c34
 # github.com/miekg/dns v1.0.14 => github.com/miekg/dns v1.1.25
-# knative.dev/eventing => github.com/cardil/knative-eventing v0.11.1-0.20220718191420-28d8469b82bf
-# knative.dev/reconciler-test => github.com/cardil/knative-reconciler-test v0.0.0-20220720101506-5051d7685fba
