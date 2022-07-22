@@ -1195,8 +1195,6 @@ k8s.io/gengo/generator
 k8s.io/gengo/namer
 k8s.io/gengo/parser
 k8s.io/gengo/types
-# k8s.io/klog v1.0.0
-k8s.io/klog
 # k8s.io/klog/v2 v2.60.1-0.20220317184644-43cc75f9ae89
 k8s.io/klog/v2
 k8s.io/klog/v2/internal/buffer
@@ -1229,7 +1227,7 @@ knative.dev/control-protocol/pkg/message
 knative.dev/control-protocol/pkg/network
 knative.dev/control-protocol/pkg/reconciler
 knative.dev/control-protocol/pkg/service
-# knative.dev/eventing v0.33.0
+# knative.dev/eventing v0.33.1-0.20220722122720-c8435ed74ba8
 ## explicit
 knative.dev/eventing/pkg/adapter/v2
 knative.dev/eventing/pkg/adapter/v2/test
@@ -1480,7 +1478,7 @@ knative.dev/pkg/webhook/resourcesemantics
 knative.dev/pkg/webhook/resourcesemantics/conversion
 knative.dev/pkg/webhook/resourcesemantics/defaulting
 knative.dev/pkg/webhook/resourcesemantics/validation
-# knative.dev/reconciler-test v0.0.0-20220705155206-f05db88effbe
+# knative.dev/reconciler-test v0.0.0-20220722111920-0cfde63b455a
 ## explicit
 knative.dev/reconciler-test/cmd/eventshub
 knative.dev/reconciler-test/pkg/environment
@@ -1495,9 +1493,10 @@ knative.dev/reconciler-test/pkg/eventshub/receiver
 knative.dev/reconciler-test/pkg/eventshub/recorder_vent
 knative.dev/reconciler-test/pkg/eventshub/sender
 knative.dev/reconciler-test/pkg/feature
-knative.dev/reconciler-test/pkg/images
+knative.dev/reconciler-test/pkg/images/ko
 knative.dev/reconciler-test/pkg/k8s
 knative.dev/reconciler-test/pkg/knative
+knative.dev/reconciler-test/pkg/logging
 knative.dev/reconciler-test/pkg/manifest
 knative.dev/reconciler-test/pkg/milestone
 knative.dev/reconciler-test/pkg/state

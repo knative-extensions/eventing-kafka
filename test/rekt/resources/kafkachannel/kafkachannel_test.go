@@ -19,10 +19,12 @@ package kafkachannel
 import (
 	"os"
 
+	testlog "knative.dev/reconciler-test/pkg/logging"
 	"knative.dev/reconciler-test/pkg/manifest"
 )
 
 func Example() {
+	ctx := testlog.NewContext()
 
 	images := map[string]string{}
 
@@ -35,7 +37,7 @@ func Example() {
 	WithReplicationFactor("3")(cfg)
 	WithRetentionDuration("P1D")
 
-	files, err := manifest.ExecuteYAML(yaml, images, cfg)
+	files, err := manifest.ExecuteYAML(ctx, yaml, images, cfg)
 	if err != nil {
 		panic(err)
 	}

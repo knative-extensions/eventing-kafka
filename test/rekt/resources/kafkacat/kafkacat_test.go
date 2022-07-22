@@ -19,17 +19,19 @@ package kafkacat
 import (
 	"os"
 
+	testlog "knative.dev/reconciler-test/pkg/logging"
 	"knative.dev/reconciler-test/pkg/manifest"
 )
 
 func Example_min() {
+	ctx := testlog.NewContext()
 	images := map[string]string{}
 	cfg := map[string]interface{}{
 		"name":      "foo",
 		"namespace": "bar",
 	}
 
-	files, err := manifest.ExecuteYAML(yaml, images, cfg)
+	files, err := manifest.ExecuteYAML(ctx, yaml, images, cfg)
 	if err != nil {
 		panic(err)
 	}
@@ -75,6 +77,7 @@ func Example_min() {
 }
 
 func Example_full() {
+	ctx := testlog.NewContext()
 	images := map[string]string{}
 	cfg := map[string]interface{}{
 		"name":      "foo",
@@ -87,7 +90,7 @@ func Example_full() {
 	WithKey("akey")(cfg)
 	WithHeaders(map[string]string{"ct": "xml", "other": "head"})(cfg)
 
-	files, err := manifest.ExecuteYAML(yaml, images, cfg)
+	files, err := manifest.ExecuteYAML(ctx, yaml, images, cfg)
 	if err != nil {
 		panic(err)
 	}

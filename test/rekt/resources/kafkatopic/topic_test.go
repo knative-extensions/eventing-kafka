@@ -19,10 +19,12 @@ package kafkatopic
 import (
 	"os"
 
+	testlog "knative.dev/reconciler-test/pkg/logging"
 	"knative.dev/reconciler-test/pkg/manifest"
 )
 
 func Example_min() {
+	ctx := testlog.NewContext()
 	images := map[string]string{}
 	cfg := map[string]interface{}{
 		"name":             "foo",
@@ -31,7 +33,7 @@ func Example_min() {
 		"clusterNamespace": "there",
 	}
 
-	files, err := manifest.ExecuteYAML(yaml, images, cfg)
+	files, err := manifest.ExecuteYAML(ctx, yaml, images, cfg)
 	if err != nil {
 		panic(err)
 	}
@@ -51,6 +53,7 @@ func Example_min() {
 }
 
 func Example_full() {
+	ctx := testlog.NewContext()
 	images := map[string]string{}
 	cfg := map[string]interface{}{
 		"name": "foo",
@@ -60,7 +63,7 @@ func Example_full() {
 	WithClusterNamespace("here")(cfg)
 	WithPartitions("100")(cfg)
 
-	files, err := manifest.ExecuteYAML(yaml, images, cfg)
+	files, err := manifest.ExecuteYAML(ctx, yaml, images, cfg)
 	if err != nil {
 		panic(err)
 	}
