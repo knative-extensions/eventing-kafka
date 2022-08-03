@@ -28,14 +28,14 @@ require (
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
 	google.golang.org/protobuf v1.27.1
-	k8s.io/api v0.23.8
-	k8s.io/apimachinery v0.23.8
-	k8s.io/client-go v0.23.8
+	k8s.io/api v0.23.9
+	k8s.io/apimachinery v0.23.9
+	k8s.io/client-go v0.23.9
 	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9
 	knative.dev/control-protocol v0.0.0-20220728062837-75cf857da76a
 	knative.dev/eventing v0.33.1-0.20220728144837-15dd7ca8c811
 	knative.dev/hack v0.0.0-20220728013938-9dabf7cf62e3
-	knative.dev/pkg v0.0.0-20220728013737-449f7e6dab63
+	knative.dev/pkg v0.0.0-20220802185824-a01dfedb0486
 	knative.dev/reconciler-test v0.0.0-20220728013938-124ae0741d42
 	sigs.k8s.io/yaml v1.3.0
 )
