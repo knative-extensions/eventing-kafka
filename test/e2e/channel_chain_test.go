@@ -27,5 +27,6 @@ import (
 )
 
 func TestChannelChain(t *testing.T) {
+	t.Skip("deprecated")
 	helpers.ChannelChainTestHelper(context.Background(), t, helpers.SubscriptionV1, channelTestRunner)
 }
