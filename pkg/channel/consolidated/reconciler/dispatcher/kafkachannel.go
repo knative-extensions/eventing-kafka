@@ -73,7 +73,7 @@ var _ kafkachannelreconciler.Interface = (*Reconciler)(nil)
 func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 	logger := logging.FromContext(ctx)
 
-	err := tracing.SetupDynamicPublishing(logger, cmw.(*configmapinformer.InformedWatcher), "kafka-ch-dispatcher", "config-tracing")
+	tracer, err := tracing.SetupPublishingWithDynamicConfig(logger, cmw.(*configmapinformer.InformedWatcher), "kafka-ch-dispatcher", "config-tracing")
 	if err != nil {
 		logger.Fatalw("unable to setup tracing", zap.Error(err))
 	}
@@ -148,6 +148,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		if err := kafkaDispatcher.Start(ctx); err != nil {
 			logger.Errorw("Cannot start dispatcher", zap.Error(err))
 		}
+		tracer.Shutdown(context.Background())
 	}()
 
 	return r.impl

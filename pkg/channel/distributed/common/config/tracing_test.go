@@ -45,7 +45,7 @@ func TestInitializeTracing(t *testing.T) {
 	// Setup Environment
 	commontesting.SetTestEnvironment(t)
 
-	// Create A Test Tracing ConfigMap For The SetupDynamicPublishing() Call To Watch
+	// Create A Test Tracing ConfigMap For The SetupPublishingWithDynamicConfig() Call To Watch
 	tracingConfigMap := &corev1.ConfigMap{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "ConfigMap",
@@ -68,7 +68,7 @@ func TestInitializeTracing(t *testing.T) {
 	assert.Nil(t, err)
 
 	// If the InitializeTracing Succeeds, it will not fatally exit
-	// (Not the best test of failure conditions but it does run through the SetupDynamicPublishing() call at least
+	// (Not the best test of failure conditions but it does run through the SetupPublishingWithDynamicConfig() call at least
 	//  and verify that the happy-path doesn't error out)
 }
 
