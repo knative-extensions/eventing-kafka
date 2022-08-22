@@ -63,12 +63,13 @@ func TestDispatcher(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tracing.SetupStaticPublishing(logger.Sugar(), "localhost", &tracingconfig.Config{
+	tracer, _ := tracing.SetupPublishingWithStaticConfig(logger.Sugar(), "localhost", &tracingconfig.Config{
 		Backend:        tracingconfig.Zipkin,
 		Debug:          true,
 		SampleRate:     1.0,
 		ZipkinEndpoint: "http://localhost:9411/api/v2/spans",
 	})
+	tracer.Shutdown(context.Background())
 
 	// Configure connection arguments - to be done exactly once per process
 	kncloudevents.ConfigureConnectionArgs(&kncloudevents.ConnectionArgs{
