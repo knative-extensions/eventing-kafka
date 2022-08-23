@@ -33,7 +33,7 @@ require (
 	k8s.io/client-go v0.23.9
 	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9
 	knative.dev/control-protocol v0.0.0-20220818153549-f18dbde7d9bd
-	knative.dev/eventing v0.33.1-0.20220818050948-6eb4c785ae43
+	knative.dev/eventing v0.33.1-0.20220823013718-cc06bab0313c
 	knative.dev/hack v0.0.0-20220815132133-e9a8475f4329
 	knative.dev/pkg v0.0.0-20220818004048-4a03844c0b15
 	knative.dev/reconciler-test v0.0.0-20220818122349-177f8264c28c
