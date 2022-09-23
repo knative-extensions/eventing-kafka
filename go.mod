@@ -19,8 +19,7 @@ require (
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475
 	github.com/rickb777/date v1.13.0
 	github.com/slinkydeveloper/loadastic v0.0.0-20201218203601-5c69eea3b7d8
-	github.com/stretchr/objx v0.2.0 // indirect
-	github.com/stretchr/testify v1.7.0
+	github.com/stretchr/testify v1.8.0
 	github.com/xdg-go/scram v1.0.2
 	go.opencensus.io v0.23.0
 	go.uber.org/multierr v1.8.0
@@ -32,11 +31,11 @@ require (
 	k8s.io/apimachinery v0.24.4
 	k8s.io/client-go v0.24.4
 	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9
-	knative.dev/control-protocol v0.0.0-20220908141222-9d1dfb4c656c
-	knative.dev/eventing v0.34.1-0.20220912074833-e46f4d509d74
-	knative.dev/hack v0.0.0-20220912134332-103cdb35f0d3
-	knative.dev/pkg v0.0.0-20220912181545-3d24b8416bb4
-	knative.dev/reconciler-test v0.0.0-20220909115625-069c951deacf
+	knative.dev/control-protocol v0.0.0-20220919144911-fce406f30830
+	knative.dev/eventing v0.34.1-0.20220923095215-b9a8451c4c76
+	knative.dev/hack v0.0.0-20220923094413-9b7638704a22
+	knative.dev/pkg v0.0.0-20220921024409-d1d5c849073b
+	knative.dev/reconciler-test v0.0.0-20220921150110-d6032c1682fd
 	sigs.k8s.io/yaml v1.3.0
 )
 
