@@ -16,6 +16,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/influxdata/tdigest v0.0.1 // indirect
 	github.com/kelseyhightower/envconfig v1.4.0
+	github.com/pelletier/go-toml v1.9.3 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475
 	github.com/rickb777/date v1.13.0
 	github.com/slinkydeveloper/loadastic v0.0.0-20201218203601-5c69eea3b7d8
@@ -31,11 +32,11 @@ require (
 	k8s.io/apimachinery v0.24.4
 	k8s.io/client-go v0.24.4
 	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9
-	knative.dev/control-protocol v0.0.0-20220919144911-fce406f30830
-	knative.dev/eventing v0.34.1-0.20220923095215-b9a8451c4c76
-	knative.dev/hack v0.0.0-20220923094413-9b7638704a22
-	knative.dev/pkg v0.0.0-20220921024409-d1d5c849073b
-	knative.dev/reconciler-test v0.0.0-20220921150110-d6032c1682fd
+	knative.dev/control-protocol v0.0.0-20220928174218-e5936c1fb647
+	knative.dev/eventing v0.34.1-0.20220929013917-e5154d307d35
+	knative.dev/hack v0.0.0-20220929014120-7dff55762a2e
+	knative.dev/pkg v0.0.0-20220929013917-2b8e4ad44f04
+	knative.dev/reconciler-test v0.0.0-20220929014120-debffa2af018
 	sigs.k8s.io/yaml v1.3.0
 )
 
