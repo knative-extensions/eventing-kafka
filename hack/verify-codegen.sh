@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright 2018 The Knative Authors
+# Copyright 2020 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ export GO111MODULE=on
 
 source $(dirname $0)/../vendor/knative.dev/hack/library.sh
 
-readonly TMP_DIFFROOT="$(mktemp -d ${REPO_ROOT_DIR}/tmpdiffroot.XXXXXX)"
+readonly TMP_DIFFROOT="$(mktemp -d "${REPO_ROOT_DIR}/../tmpdiffroot.XXXXXX")"
 
 cleanup() {
   rm -rf "${TMP_DIFFROOT}"
@@ -35,34 +35,44 @@ cleanup
 # Save working tree state
 mkdir -p "${TMP_DIFFROOT}"
 
-cp -aR \
-  "${REPO_ROOT_DIR}/go.sum" \
-  "${REPO_ROOT_DIR}/third_party" \
-  "${REPO_ROOT_DIR}/vendor" \
-  "${TMP_DIFFROOT}"
+DIRS=(
+  "/go.mod"
+  "/go.sum"
+  "/pkg/apis"
+  "/pkg/client"
+  "/vendor"
+  "/third_party"
+)
+
+for d in "${DIRS[@]}"; do
+  if [[ -f "${REPO_ROOT_DIR}${d}" ]]; then
+    mkdir -p "$(dirname "${TMP_DIFFROOT}${d}")"
+    cp -aR "${REPO_ROOT_DIR}${d}" "${TMP_DIFFROOT}${d}"
+  else
+    mkdir -p "${TMP_DIFFROOT}${d}"
+    cp -aR "${REPO_ROOT_DIR}${d}"/* "${TMP_DIFFROOT}${d}"
+  fi
+done
 
 "${REPO_ROOT_DIR}/hack/update-codegen.sh"
+
 echo "Diffing ${REPO_ROOT_DIR} against freshly generated codegen"
 ret=0
 
-diff -Naupr --no-dereference \
-  "${REPO_ROOT_DIR}/third_party" "${TMP_DIFFROOT}/third_party" || ret=1
-
-diff -Naupr --no-dereference \
-  "${REPO_ROOT_DIR}/vendor" "${TMP_DIFFROOT}/vendor" || ret=1
+for d in "${DIRS[@]}"; do
+  diff -Naupr --no-dereference "${REPO_ROOT_DIR}${d}" "${TMP_DIFFROOT}${d}" || ret=1
+done
 
 # Restore working tree state
-rm -fr \
-  "${REPO_ROOT_DIR}/go.sum" \
-  "${REPO_ROOT_DIR}/third_party" \
-  "${REPO_ROOT_DIR}/vendor"
+for d in "${DIRS[@]}"; do
+  rm -r "${REPO_ROOT_DIR}${d}"
+done
 
 cp -aR "${TMP_DIFFROOT}"/* "${REPO_ROOT_DIR}"
 
-if [[ $ret -eq 0 ]]
-then
+if [[ $ret -eq 0 ]]; then
   echo "${REPO_ROOT_DIR} up to date."
- else
+else
   echo "${REPO_ROOT_DIR} is out of date. Please run hack/update-codegen.sh"
   exit 1
 fi
