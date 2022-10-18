@@ -30,7 +30,7 @@ require (
 	k8s.io/client-go v0.25.2
 	k8s.io/utils v0.0.0-20220728103510-ee6ede2d64ed
 	knative.dev/control-protocol v0.0.0-20221017021456-3e2f8785943b
-	knative.dev/eventing v0.34.1-0.20221013172353-24adf198c60c
+	knative.dev/eventing v0.34.1-0.20221018032010-0fe923cd8a5b
 	knative.dev/hack v0.0.0-20221010154335-3fdc50b9c24a
 	knative.dev/pkg v0.0.0-20221011175852-714b7630a836
 	knative.dev/reconciler-test v0.0.0-20221017014457-090970c9ca3c
@@ -117,7 +117,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/openzipkin/zipkin-go v0.3.0 // indirect
-	github.com/pelletier/go-toml/v2 v2.0.0-beta.2 // indirect
+	github.com/pelletier/go-toml/v2 v2.0.5 // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
