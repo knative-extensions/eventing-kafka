@@ -9,6 +9,12 @@
 [![Slack](https://img.shields.io/badge/Signup-Knative_Slack-white.svg?logo=slack)](https://slack.knative.dev)
 [![Slack](https://img.shields.io/badge/%23eventing-white.svg?logo=slack&color=522a5e)](https://knative.slack.com/archives/C9JP909F0)
 
+** Deprecation Note**
+
+The `KafkaChannel` implementations in this repository are discontinued. A maintained `KafkaChannel` is available from this [repository](https://github.com/knative-sandbox/eventing-kafka-broker/blob/main/docs/channel/README.md).
+
+The _Single Tenant_ `KafkaSource is discontinued. We recommend using the `KafkaSource` from [here](https://github.com/knative-sandbox/eventing-kafka-broker).
+
 **[These components are GA](https://github.com/knative/community/tree/main/mechanics/MATURITY-LEVELS.md)**
 
 This repository contains eventing components using Kafka as the backing
