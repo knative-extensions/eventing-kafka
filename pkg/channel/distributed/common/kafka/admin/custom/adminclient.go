@@ -178,7 +178,6 @@ func (c *CustomAdminClient) sidecarTopicsUrl(topicName string) string {
 	return topicsUrl
 }
 
-//
 // Utility Function For Mapping Response Codes To Sarama TopicError Struct
 //
 // This is by definition an imperfect mapping of the custom sidecar's
@@ -186,7 +185,6 @@ func (c *CustomAdminClient) sidecarTopicsUrl(topicName string) string {
 // different types of failures in each use case.  The important thing
 // is that the controllers reconciliation of these errors are handled
 // correctly and that the error is traceable to the unique response code.
-//
 func (c *CustomAdminClient) mapHttpResponse(operation string, response *http.Response) *sarama.TopicError {
 
 	// Verify There Is A Response

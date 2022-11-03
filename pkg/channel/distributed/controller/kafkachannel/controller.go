@@ -167,7 +167,6 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 	return controllerImpl
 }
 
-//
 // FilterKafkaChannelOwnerByReferenceOrLabel - Custom Filter For Common K8S Components "Owned" By KafkaChannels
 //
 // This function is similar to, and based on, the various knative.dev/pkg/controller/FilterXYZ
@@ -175,7 +174,6 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 // KafkaChannels using either a K8S OwnerReference (preferred), or Name/Namespace marker labels.
 // This secondary support for such marker labels is necessary to work around the need for
 // Cross-Namespace OwnerReferences which are not supported by K8S.
-//
 func FilterKafkaChannelOwnerByReferenceOrLabel() func(obj interface{}) bool {
 	return func(obj interface{}) bool {
 

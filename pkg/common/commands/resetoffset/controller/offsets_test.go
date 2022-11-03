@@ -32,14 +32,12 @@ import (
 	"knative.dev/eventing-kafka/pkg/common/commands/resetoffset/refmappers"
 )
 
-//
 // Test The Kafka Offset Reconciliation
 //
 // The Knative Eventing TableTest framework traditionally used to test Reconciliation is exclusively
 // focused on verifying the pre/post state of Kubernetes resources, and does not allow for easy
 // verification of other external interactions such as the Kafka Offset management happening here.
 // Therefore we will verify the Offset Reconciliation independently from the larger Reconciler testing.
-//
 func TestReconciler_ReconcileOffsets(t *testing.T) {
 
 	// Test Data

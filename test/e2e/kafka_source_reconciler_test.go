@@ -44,8 +44,8 @@ const (
 	rtKafkaTopicName     = "e2e-rt-topic"
 )
 
-//TestKafkaSourceReconciler tests various kafka source reconciler statuses
-//RT is short for reconciler test
+// TestKafkaSourceReconciler tests various kafka source reconciler statuses
+// RT is short for reconciler test
 func TestKafkaSourceReconciler(t *testing.T) {
 	client := testlib.Setup(t, true)
 	defer testlib.TearDown(client)

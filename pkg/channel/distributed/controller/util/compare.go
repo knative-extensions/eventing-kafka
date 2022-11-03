@@ -29,12 +29,11 @@ import (
 // from the newDeployment as well as a boolean indicator of whether any changes were necessary.
 // Only specific portions of the Deployment are evaluated including...
 //
-//    - ObjectMeta Labels & Annotations
-//    - Spec.Template.ObjectMeta Labels & Annotations
-//    - Spec.Template.Spec.Containers  (excluding certain fields)
+//   - ObjectMeta Labels & Annotations
+//   - Spec.Template.ObjectMeta Labels & Annotations
+//   - Spec.Template.Spec.Containers  (excluding certain fields)
 //
 // Note - Spec.Replicas are ignored to avoid overwriting local HPA configuration.
-//
 func CheckDeploymentChanged(logger *zap.Logger, oldDeployment, newDeployment *appsv1.Deployment) (*appsv1.Deployment, bool) {
 
 	// Copy The "old" Labels & Annotations For Immutability

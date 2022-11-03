@@ -42,10 +42,8 @@ var (
 	UpdateExporterWrapper = metrics.UpdateExporter
 )
 
-//
 // Initialize The Specified Context With A Profiling Server (ConfigMap Watcher And HTTP Endpoint)
 // Much Of This Function Is Taken From The knative.dev sharedmain Package
-//
 func InitializeObservability(ctx context.Context, logger *zap.SugaredLogger, metricsDomain string, metricsPort int, namespace string) error {
 
 	// Initialize the profiling server
