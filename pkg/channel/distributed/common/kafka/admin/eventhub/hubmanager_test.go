@@ -26,14 +26,12 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-//
 // Test The NewHubManagerFromConnectionStringWrapper() Constructor
 //
 // This semi-pointless test is here to pacify the OCD Knative coverage tools,
 // which (as of this writing) only consider coverage from a file with the
 // same name and "_test" suffix instead of all tests aggregated as the Go
 // cmd line tooling does.
-//
 func TestFoo(t *testing.T) {
 	hubManager, err := NewHubManagerFromConnectionStringWrapper("foo")
 	assert.NotNil(t, err)
