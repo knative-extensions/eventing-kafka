@@ -26,11 +26,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
+	"knative.dev/pkg/logging"
+	logtesting "knative.dev/pkg/logging/testing"
+
 	bindingsv1beta1 "knative.dev/eventing-kafka/pkg/apis/bindings/v1beta1"
 	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 	"knative.dev/eventing-kafka/pkg/common/client"
-	"knative.dev/pkg/logging"
-	logtesting "knative.dev/pkg/logging/testing"
 
 	"github.com/stretchr/testify/require"
 )
@@ -423,9 +424,6 @@ sny569QyyWHk2+FZoWDfjxFZ7CvIdgLJBHc3qUXLsg==
 			if tc.src.Spec.KafkaAuthSpec.Net.TLS.Enable {
 				if len(config.Net.TLS.Config.Certificates) != 1 {
 					t.Fatalf("tls cert not found but expected")
-				}
-				if len(config.Net.TLS.Config.RootCAs.Subjects()) != 1 {
-					t.Fatalf("ca certs not found but expected")
 				}
 			}
 		})
