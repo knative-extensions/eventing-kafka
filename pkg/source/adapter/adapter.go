@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math"
 	"net/http"
 	"strings"
@@ -31,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "knative.dev/control-protocol/pkg"
 	ctrlnetwork "knative.dev/control-protocol/pkg/network"
+
 	"knative.dev/eventing-kafka/pkg/common/tracing"
 
 	"github.com/Shopify/sarama"
@@ -203,7 +203,7 @@ func (a *Adapter) Handle(ctx context.Context, msg *sarama.ConsumerMessage) (bool
 	}
 	// Always try to read and close body so the connection can be reused afterwards
 	if res.Body != nil {
-		io.Copy(ioutil.Discard, res.Body)
+		io.Copy(io.Discard, res.Body)
 		res.Body.Close()
 	}
 

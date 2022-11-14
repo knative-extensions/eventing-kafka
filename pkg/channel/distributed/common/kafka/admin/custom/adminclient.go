@@ -21,14 +21,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
+	"knative.dev/pkg/logging"
+
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/types"
 	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/admin/util"
-	"knative.dev/pkg/logging"
 )
 
 //
@@ -194,7 +195,7 @@ func (c *CustomAdminClient) mapHttpResponse(operation string, response *http.Res
 		statusCode := response.StatusCode
 
 		// Read The Response Body & Convert To String
-		responseBodyBytes, err := ioutil.ReadAll(response.Body)
+		responseBodyBytes, err := io.ReadAll(response.Body)
 		if err != nil {
 			c.logger.Warn("Failed To Parse Response Body", zap.Error(err))
 		}
