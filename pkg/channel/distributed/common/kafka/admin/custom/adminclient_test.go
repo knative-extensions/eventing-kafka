@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -29,9 +29,10 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
+
+	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 )
 
 // Test The NewAdminClient() Functionality
@@ -166,73 +167,73 @@ func TestMapHttpResponse(t *testing.T) {
 		{
 			name:      "Create 100",
 			operation: "create",
-			response:  &http.Response{StatusCode: 100, Body: ioutil.NopCloser(bytes.NewReader(bodyBytes))},
+			response:  &http.Response{StatusCode: 100, Body: io.NopCloser(bytes.NewReader(bodyBytes))},
 			expected:  &sarama.TopicError{Err: sarama.ErrInvalidRequest},
 		},
 		{
 			name:      "Delete 100",
 			operation: "delete",
-			response:  &http.Response{StatusCode: 100, Body: ioutil.NopCloser(bytes.NewReader(bodyBytes))},
+			response:  &http.Response{StatusCode: 100, Body: io.NopCloser(bytes.NewReader(bodyBytes))},
 			expected:  &sarama.TopicError{Err: sarama.ErrInvalidRequest},
 		},
 		{
 			name:      "Create 200",
 			operation: "create",
-			response:  &http.Response{StatusCode: 200, Body: ioutil.NopCloser(bytes.NewReader(bodyBytes))},
+			response:  &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewReader(bodyBytes))},
 			expected:  &sarama.TopicError{Err: sarama.ErrNoError},
 		},
 		{
 			name:      "Delete 200",
 			operation: "delete",
-			response:  &http.Response{StatusCode: 200, Body: ioutil.NopCloser(bytes.NewReader(bodyBytes))},
+			response:  &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewReader(bodyBytes))},
 			expected:  &sarama.TopicError{Err: sarama.ErrNoError},
 		},
 		{
 			name:      "Create 300",
 			operation: "create",
-			response:  &http.Response{StatusCode: 300, Body: ioutil.NopCloser(bytes.NewReader(bodyBytes))},
+			response:  &http.Response{StatusCode: 300, Body: io.NopCloser(bytes.NewReader(bodyBytes))},
 			expected:  &sarama.TopicError{Err: sarama.ErrInvalidRequest},
 		},
 		{
 			name:      "Delete 300",
 			operation: "delete",
-			response:  &http.Response{StatusCode: 300, Body: ioutil.NopCloser(bytes.NewReader(bodyBytes))},
+			response:  &http.Response{StatusCode: 300, Body: io.NopCloser(bytes.NewReader(bodyBytes))},
 			expected:  &sarama.TopicError{Err: sarama.ErrInvalidRequest},
 		},
 		{
 			name:      "Create 404",
 			operation: "create",
-			response:  &http.Response{StatusCode: 404, Body: ioutil.NopCloser(bytes.NewReader(bodyBytes))},
+			response:  &http.Response{StatusCode: 404, Body: io.NopCloser(bytes.NewReader(bodyBytes))},
 			expected:  &sarama.TopicError{Err: sarama.ErrInvalidRequest},
 		},
 		{
 			name:      "Delete 404",
 			operation: "delete",
-			response:  &http.Response{StatusCode: 404, Body: ioutil.NopCloser(bytes.NewReader(bodyBytes))},
+			response:  &http.Response{StatusCode: 404, Body: io.NopCloser(bytes.NewReader(bodyBytes))},
 			expected:  &sarama.TopicError{Err: sarama.ErrUnknownTopicOrPartition},
 		},
 		{
 			name:      "Create 409",
 			operation: "create",
-			response:  &http.Response{StatusCode: 409, Body: ioutil.NopCloser(bytes.NewReader(bodyBytes))},
+			response:  &http.Response{StatusCode: 409, Body: io.NopCloser(bytes.NewReader(bodyBytes))},
 			expected:  &sarama.TopicError{Err: sarama.ErrTopicAlreadyExists},
 		},
 		{
 			name:      "Delete 409",
 			operation: "delete",
-			response:  &http.Response{StatusCode: 409, Body: ioutil.NopCloser(bytes.NewReader(bodyBytes))},
+			response:  &http.Response{StatusCode: 409, Body: io.NopCloser(bytes.NewReader(bodyBytes))},
 			expected:  &sarama.TopicError{Err: sarama.ErrInvalidRequest},
 		},
 		{
 			name:      "Create 500",
 			operation: "create",
-			response:  &http.Response{StatusCode: 500, Body: ioutil.NopCloser(bytes.NewReader(bodyBytes))},
+			response:  &http.Response{StatusCode: 500, Body: io.NopCloser(bytes.NewReader(bodyBytes))},
 			expected:  &sarama.TopicError{Err: sarama.ErrInvalidRequest},
 		},
 		{
 			name:      "Delete 500",
 			operation: "delete",
-			response:  &http.Response{StatusCode: 500, Body: ioutil.NopCloser(bytes.NewReader(bodyBytes))},
+			response:  &http.Response{StatusCode: 500, Body: io.NopCloser(bytes.NewReader(bodyBytes))},
 			expected:  &sarama.TopicError{Err: sarama.ErrInvalidRequest},
 		},
 	}
@@ -315,7 +316,7 @@ func (s *MockSidecarServer) Close() {
 func (s *MockSidecarServer) ServeHTTP(responseWriter http.ResponseWriter, request *http.Request) {
 
 	// Read The Request Body Before Responding (It Will Otherwise Be Closed!)
-	bodyBytes, err := ioutil.ReadAll(request.Body)
+	bodyBytes, err := io.ReadAll(request.Body)
 	assert.Nil(s.t, err)
 
 	// Track The Received HTTP Request & Body For Future Validation

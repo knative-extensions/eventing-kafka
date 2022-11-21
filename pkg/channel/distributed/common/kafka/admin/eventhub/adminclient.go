@@ -169,13 +169,11 @@ func convertMillisToDays(millis int64) int32 {
 	return int32(math.Ceil(float64(millis) / float64(constants.MillisPerDay)))
 }
 
-//
 // Utility Function For Extracting Error Code From EventHub Errors
 //
 // EventHub error strings are formatted as...
 //
-//   "error code: 409, Details: SubCode=40900. Conflict. TrackingId:4d43ef4d-461f-4164-af55-3e710a561c74_G8, SystemTracker:event-hub.servicebus.windows.net:TestTopic, Timestamp:2019-08-13T13:39:56"
-//
+//	"error code: 409, Details: SubCode=40900. Conflict. TrackingId:4d43ef4d-461f-4164-af55-3e710a561c74_G8, SystemTracker:event-hub.servicebus.windows.net:TestTopic, Timestamp:2019-08-13T13:39:56"
 func getEventHubErrorCode(err error) int {
 
 	// Default Error Code (No Error)

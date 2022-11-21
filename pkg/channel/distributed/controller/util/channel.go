@@ -59,12 +59,11 @@ func NewChannelOwnerReference(channel *kafkav1beta1.KafkaChannel) metav1.OwnerRe
 	}
 }
 
-//
 // ReceiverDnsSafeName Creates A DNS Safe Name For The Receiver Deployment Using The Specified Kafka Secret
 //
 // Note - The current implementation creates a single Receiver Deployment for each
-//        Kafka Authentication (K8S Secrets) instance.
 //
+//	Kafka Authentication (K8S Secrets) instance.
 func ReceiverDnsSafeName(kafkaSecretName string) string {
 
 	// In order for the resulting name to be a valid DNS component it's length must be no more than 63 characters.

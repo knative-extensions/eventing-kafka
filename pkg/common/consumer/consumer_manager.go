@@ -322,7 +322,8 @@ func (m *kafkaConsumerGroupManagerImpl) CloseConsumerGroup(groupId string) error
 
 // Errors returns the errors channel of the managedGroup associated with the given groupId.  This channel
 // is different than using the Errors() channel of a ConsumerGroup directly, as it will remain open during
-//  a stop/start ("pause/resume") cycle
+//
+//	a stop/start ("pause/resume") cycle
 func (m *kafkaConsumerGroupManagerImpl) Errors(groupId string) <-chan error {
 	group := m.getGroup(groupId)
 	if group == nil {

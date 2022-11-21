@@ -28,10 +28,8 @@ import (
 	tracingconfig "knative.dev/pkg/tracing/config"
 )
 
-//
 // Initialize The Specified Context With A Tracer (ConfigMap Watcher)
 // Assumes ctx Has K8S Client Injected Via LoggingContext (Or Similar)
-//
 func InitializeTracing(logger *zap.SugaredLogger, ctx context.Context, service string, namespace string) error {
 	k8sClient, ok := ctx.Value(injectionclient.Key{}).(kubernetes.Interface)
 	if !ok {

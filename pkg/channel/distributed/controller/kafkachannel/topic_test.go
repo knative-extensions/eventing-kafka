@@ -43,13 +43,11 @@ type TopicTestCase struct {
 	WantDelete      bool
 }
 
-//
 // Test The Kafka Topic Reconciliation
 //
 // Ideally the Knative Eventing test runner implementation would have provided a hook for additional
 // channel-type-specific (ie Kafka, NATS, etc.) validation, but unfortunately it is solely focused
 // on the K8S objects existing/not.  Therefore, we're left to test the actual Topic handling separately.
-//
 func TestReconcileTopic(t *testing.T) {
 
 	// Define & Initialize The TopicTestCases

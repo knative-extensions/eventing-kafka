@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strconv"
 	"testing"
@@ -61,7 +61,7 @@ func BenchmarkHandle(b *testing.B) {
 			return &http.Response{
 				StatusCode: 202,
 				Header:     make(http.Header),
-				Body:       ioutil.NopCloser(bytes.NewReader([]byte{})),
+				Body:       io.NopCloser(bytes.NewReader([]byte{})),
 			}
 		}),
 		Target: sinkUrl,

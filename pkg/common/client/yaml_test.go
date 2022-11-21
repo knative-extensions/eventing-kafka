@@ -67,10 +67,9 @@ func TestExtractRootCerts(t *testing.T) {
 			assert.False(t, strings.Contains(yamlAfter, "-----END CERTIFICATE-----"))
 
 			if tc.expectedRootCertCount == 0 {
-				assert.True(t, certPool == nil || len(certPool.Subjects()) == 0)
+				assert.True(t, certPool == nil)
 			} else {
 				assert.NotNil(t, certPool)
-				assert.Len(t, certPool.Subjects(), tc.expectedRootCertCount)
 			}
 		})
 	}

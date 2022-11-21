@@ -18,12 +18,11 @@ package custom
 
 import "time"
 
-//
 // Custom REST Sidecar Constants
 //
 // NOTE - These are expected to be used by third-party implementers of
-//        custom sidecars, do not remove due to "unused" status in IDE!
 //
+//	custom sidecars, do not remove due to "unused" status in IDE!
 const (
 	SidecarHost     = "localhost"      // The Host name used when making requests to the K8S sidecar.
 	SidecarPort     = "8888"           // The HTTP port on which the sidecar must be listening for POST / DELETE requests.

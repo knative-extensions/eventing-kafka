@@ -32,9 +32,7 @@ import (
 
 type SecretObserver func(ctx context.Context, secret *corev1.Secret)
 
-//
 // InitializeSecretWatcher Initializes The Specified Context With A Secret Informer
-//
 func InitializeSecretWatcher(ctx context.Context, namespace string, name string, resyncTime time.Duration, observer SecretObserver) error {
 
 	logger := logging.FromContext(ctx)

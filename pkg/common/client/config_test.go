@@ -33,11 +33,12 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
-	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
-	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
 	"sigs.k8s.io/yaml"
+
+	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
+	commontesting "knative.dev/eventing-kafka/pkg/common/testing"
 )
 
 const (
@@ -412,7 +413,6 @@ sny569QyyWHk2+FZoWDfjxFZ7CvIdgLJBHc3qUXLsg==
 	assert.True(t, config.Net.TLS.Enable)
 	assert.True(t, config.Net.TLS.Config.InsecureSkipVerify)
 	assert.Len(t, config.Net.TLS.Config.Certificates, 1)
-	assert.Len(t, config.Net.TLS.Config.RootCAs.Subjects(), 1)
 
 	// Make sure SASL settings are untouched
 	assert.True(t, config.Net.SASL.Enable)

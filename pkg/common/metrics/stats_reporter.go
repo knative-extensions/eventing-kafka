@@ -101,9 +101,7 @@ func NewStatsReporter(log *zap.Logger) StatsReporter {
 	}
 }
 
-//
 // Report The Sarama Metrics (go-metrics) Via Knative / OpenCensus Metrics
-//
 func (r *Reporter) Report(list ReportingList) {
 
 	// Add this Reporter as an OpenCensus Producer, if it has not been done already
@@ -135,7 +133,9 @@ func (r *Reporter) Read() []*metricdata.Metric {
 }
 
 // Creates the metrics for this particular set of reporting items.  For example, the Sarama metric "batch-size":
-//   {"75%": X, "95%": X, "99%": X, "99.9%": X, "count": X, "max": X, "mean": X, "median": X, "min": X, "stddev": X}
+//
+//	{"75%": X, "95%": X, "99%": X, "99.9%": X, "count": X, "max": X, "mean": X, "median": X, "min": X, "stddev": X}
+//
 // requires a collection of TimeSeries values so that they appear in the exporter properly as "one name with different
 // tags for the percentile values".
 func (r *Reporter) recordMetric(metricKey string, item ReportingItem) {
@@ -197,12 +197,12 @@ func (r *Reporter) recordMetric(metricKey string, item ReportingItem) {
 // the metric simpler.
 //
 // Note:  There is a metric type of metricdata.TypeSummary that would be somewhat simpler to use than
-//        creating all of the TimeSeries entries manually, but it is not (as of this writing) implemented
-//        in the OpenCensus Go exporter and instead returns a nil output with no error (see
-//        contrib.go.opencensus.io/exporter/prometheus/prometheus.go::toPromMetric).  It is implemented in
-//        the parallel Java version of the code (see exporter/stats/prometheus/PrometheusExportUtils.java
-//        in the opencensus-instrumentation project) and so may be ported at some point.
 //
+//	creating all of the TimeSeries entries manually, but it is not (as of this writing) implemented
+//	in the OpenCensus Go exporter and instead returns a nil output with no error (see
+//	contrib.go.opencensus.io/exporter/prometheus/prometheus.go::toPromMetric).  It is implemented in
+//	the parallel Java version of the code (see exporter/stats/prometheus/PrometheusExportUtils.java
+//	in the opencensus-instrumentation project) and so may be ported at some point.
 func (r *Reporter) recordPercentileMetric(metricTime time.Time, metricKey string, item ReportingItem) {
 
 	info := getMetricInfo(metricKey)

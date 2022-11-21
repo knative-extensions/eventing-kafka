@@ -67,19 +67,18 @@ var (
 	_ kafkachannel.Finalizer = (*Reconciler)(nil) // Verify Reconciler Implements Finalizer
 )
 
-//
 // SetKafkaAdminClient Clears / Re-Sets The Kafka AdminClient On The Reconciler
 //
 // Ideally we would re-use the Kafka AdminClient but due to Issues with the Sarama ClusterAdmin we're
 // forced to recreate a new connection every time.  We were seeing "broken-pipe" failures (non-recoverable)
 // with the ClusterAdmin after periods of inactivity.
-//   https://github.com/Shopify/sarama/issues/1162
-//   https://github.com/Shopify/sarama/issues/866
+//
+//	https://github.com/Shopify/sarama/issues/1162
+//	https://github.com/Shopify/sarama/issues/866
 //
 // EventHub AdminClients could be reused, and this is somewhat inefficient for them, but they are very simple
 // lightweight REST clients so recreating them isn't a big deal and it simplifies the code significantly to
 // not have to support both use cases.
-//
 func (r *Reconciler) SetKafkaAdminClient(ctx context.Context) error {
 	_ = r.ClearKafkaAdminClient(ctx) // Attempt to close any lingering connections, ignore errors and continue
 	var err error
