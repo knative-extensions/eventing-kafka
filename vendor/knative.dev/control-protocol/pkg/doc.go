@@ -14,7 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-/**
+/*
+*
 Package control includes the code to implement and use the control protocol.
 
 This package and the child packages are highly EXPERIMENTAL and they might break any time. Use with CAUTION.
