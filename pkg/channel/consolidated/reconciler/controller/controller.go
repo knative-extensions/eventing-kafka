@@ -174,7 +174,7 @@ func getControllerOwnerRef(ctx context.Context) (*metav1.OwnerReference, error) 
 	ownerRef := metav1.OwnerReference{
 		APIVersion: "apps/v1",
 		Kind:       "Deployment",
-		Controller: pointer.BoolPtr(true),
+		Controller: pointer.Bool(true),
 	}
 	err := wait.PollImmediate(interval, timeout, func() (bool, error) {
 		k8sClient := kubeclient.Get(ctx)

@@ -164,7 +164,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1beta1.KafkaSource
 }
 
 func (r *Reconciler) FinalizeKind(ctx context.Context, src *v1beta1.KafkaSource) reconciler.Event {
-	src.Spec.Consumers = pointer.Int32Ptr(0)
+	src.Spec.Consumers = pointer.Int32(0)
 	placements, err := r.scheduler.Schedule(src) //de-schedule placements
 
 	if placements != nil || err != nil {

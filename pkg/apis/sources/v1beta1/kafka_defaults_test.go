@@ -128,7 +128,7 @@ func TestSetDefaults(t *testing.T) {
 			AssertFuncs: []assertFnType{assertConsumers, assertNoAnnotations},
 		}, {
 			Name:        "consumers set",
-			Initial:     KafkaSource{Spec: KafkaSourceSpec{Consumers: pointer.Int32Ptr(4)}},
+			Initial:     KafkaSource{Spec: KafkaSourceSpec{Consumers: pointer.Int32(4)}},
 			Expected:    "4",
 			AssertFuncs: []assertFnType{assertConsumers, assertNoAnnotations},
 		}, {

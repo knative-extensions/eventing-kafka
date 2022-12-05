@@ -387,7 +387,7 @@ func WithDifferentSecurityContext(deployment *appsv1.Deployment) {
 
 // WithDifferentReplicas Changes The Replicas In The Spec
 func WithDifferentReplicas(deployment *appsv1.Deployment) {
-	deployment.Spec.Replicas = pointer.Int32Ptr(10)
+	deployment.Spec.Replicas = pointer.Int32(10)
 }
 
 // WithoutLabels Clears The Labels
