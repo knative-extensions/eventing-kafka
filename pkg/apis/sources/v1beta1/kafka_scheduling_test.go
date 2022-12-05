@@ -49,7 +49,7 @@ func TestScheduling(t *testing.T) {
 					ResourceVersion: "12345",
 				},
 				Spec: KafkaSourceSpec{
-					Consumers: pointer.Int32Ptr(4),
+					Consumers: pointer.Int32(4),
 				},
 				Status: KafkaSourceStatus{
 					Placeable: v1alpha1.Placeable{Placements: []v1alpha1.Placement{
