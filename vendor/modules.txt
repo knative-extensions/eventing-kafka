@@ -1384,7 +1384,7 @@ knative.dev/control-protocol/pkg/message
 knative.dev/control-protocol/pkg/network
 knative.dev/control-protocol/pkg/reconciler
 knative.dev/control-protocol/pkg/service
-# knative.dev/eventing v0.35.1-0.20221214083955-1048c6cfe143
+# knative.dev/eventing v0.35.1-0.20221216111651-57da6ae64e79
 ## explicit; go 1.18
 knative.dev/eventing/pkg/adapter/v2
 knative.dev/eventing/pkg/adapter/v2/test
