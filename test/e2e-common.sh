@@ -483,7 +483,8 @@ function create_tls_secrets() {
   kubectl create secret --namespace "${SYSTEM_NAMESPACE}" generic strimzi-tls-secret \
     --from-literal=ca.crt="$STRIMZI_CRT" \
     --from-literal=user.crt="$TLSUSER_CRT" \
-    --from-literal=user.key="$TLSUSER_KEY"
+    --from-literal=user.key="$TLSUSER_KEY" \
+    --dry-run=client -o yaml | kubectl apply -n "${SYSTEM_NAMESPACE}" -f -
 }
 
 function create_sasl_secrets() {
@@ -495,7 +496,8 @@ function create_sasl_secrets() {
     --from-literal=ca.crt="$STRIMZI_CRT" \
     --from-literal=password="$SASL_PASSWD" \
     --from-literal=saslType="SCRAM-SHA-512" \
-    --from-literal=user="my-sasl-user"
+    --from-literal=user="my-sasl-user" \
+    --dry-run=client -o yaml | kubectl apply -n "${SYSTEM_NAMESPACE}" -f -
 }
 
 # Installs the resources necessary to test the consolidated channel, runs those tests, and then cleans up those resources
