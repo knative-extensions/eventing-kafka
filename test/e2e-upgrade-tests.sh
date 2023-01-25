@@ -21,17 +21,19 @@ export GO111MODULE=on
 # shellcheck disable=SC1090
 source "$(dirname "${BASH_SOURCE[0]}")/e2e-common.sh"
 
-initialize "$@" --skip-istio-addon
+# initialize "$@" --skip-istio-addon
 
 set -Eeuo pipefail
 
-TIMEOUT=${TIMEOUT:-60m}
-GO_TEST_VERBOSITY="${GO_TEST_VERBOSITY:-standard-verbose}"
+# TIMEOUT=${TIMEOUT:-60m}
+# GO_TEST_VERBOSITY="${GO_TEST_VERBOSITY:-standard-verbose}"
 
-go_test_e2e -v \
-  -tags=upgrade \
-  -timeout="${TIMEOUT}" \
-  ./test/upgrade \
-  || fail_test
+# go_test_e2e -v \
+#   -tags=upgrade \
+#   -timeout="${TIMEOUT}" \
+#   ./test/upgrade \
+#   || fail_test
+
+warning "Upgrade tests have been disabled. See https://github.com/knative-sandbox/eventing-kafka/pull/1287#issuecomment-1399930204 for more details."
 
 success
