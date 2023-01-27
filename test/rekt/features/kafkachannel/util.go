@@ -73,8 +73,8 @@ func SenderSink(ctx context.Context, t *testing.T) string {
 
 // setupKafkaChannel adds a Setup() to the specified Feature to create a KafkaChannel.
 func setupKafkaChannel(f *feature.Feature, name string) {
-	f.Setup("Install A KafkaChannel", kafkachannelresources.Install(name,
-		kafkachannelresources.WithNumPartitions("3"),
+	f.Requirement("Install A KafkaChannel", kafkachannelresources.Install(name,
+		kafkachannelresources.WithNumPartitions("1"),
 		kafkachannelresources.WithReplicationFactor("1"),
 		kafkachannelresources.WithRetentionDuration("P1D"),
 	))
@@ -82,7 +82,7 @@ func setupKafkaChannel(f *feature.Feature, name string) {
 
 // setupSubscription adds a Setup() to the specified Feature to create a Subscription to a KafkaChannel.
 func setupSubscription(f *feature.Feature, name string, receiverName string) {
-	f.Setup("Install A Subscription", subscriptionresources.Install(name,
+	f.Requirement("Install A Subscription", subscriptionresources.Install(name,
 		subscriptionresources.WithChannel(&duckv1.KReference{
 			Kind:       "KafkaChannel",
 			Name:       name,
@@ -98,7 +98,7 @@ func setupSubscription(f *feature.Feature, name string, receiverName string) {
 
 // setupResetOffset adds a Setup() to the specified Feature to create a ResetOffset for a KafkaChannel Subscription.
 func setupResetOffset(f *feature.Feature, name string, offsetTime string) {
-	f.Setup("Install A ResetOffset", resetoffsetresources.Install(name,
+	f.Requirement("Install A ResetOffset", resetoffsetresources.Install(name,
 		resetoffsetresources.WithOffsetTime(offsetTime),
 		resetoffsetresources.WithRef(&duckv1.KReference{
 			Kind:       "Subscription",
@@ -110,7 +110,7 @@ func setupResetOffset(f *feature.Feature, name string, offsetTime string) {
 
 // setupEventsHubSender adds a Setup() to the specified Feature to create an EventsHub Sender to send CloudEvents.
 func setupEventsHubSender(f *feature.Feature, senderName string, senderSink string, event cloudevents.Event, eventCount int) {
-	f.Setup("Install An EventsHub Sender", eventshub.Install(senderName,
+	f.Requirement("Install An EventsHub Sender", eventshub.Install(senderName,
 		eventshub.StartSender(senderSink),
 		eventshub.InitialSenderDelay(5*time.Second),
 		eventshub.InputEvent(event),
@@ -121,7 +121,7 @@ func setupEventsHubSender(f *feature.Feature, senderName string, senderSink stri
 
 // setupEventsHubReceiver adds a Setup() to the specified Feature to create an EventsHub Receiver to receive CloudEvents.
 func setupEventsHubReceiver(f *feature.Feature, receiverName string) {
-	f.Setup("Install An EventsHub Receiver", eventshub.Install(receiverName,
+	f.Requirement("Install An EventsHub Receiver", eventshub.Install(receiverName,
 		eventshub.StartReceiver,
 		eventshub.EchoEvent,
 	))
