@@ -74,7 +74,7 @@ func SenderSink(ctx context.Context, t *testing.T) string {
 // setupKafkaChannel adds a Setup() to the specified Feature to create a KafkaChannel.
 func setupKafkaChannel(f *feature.Feature, name string) {
 	f.Requirement("Install A KafkaChannel", kafkachannelresources.Install(name,
-		kafkachannelresources.WithNumPartitions("3"),
+		kafkachannelresources.WithNumPartitions("1"),
 		kafkachannelresources.WithReplicationFactor("1"),
 		kafkachannelresources.WithRetentionDuration("P1D"),
 	))
