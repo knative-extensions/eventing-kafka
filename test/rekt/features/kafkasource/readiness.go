@@ -17,10 +17,10 @@ limitations under the License.
 package kafkasource
 
 import (
-	"knative.dev/eventing/test/rekt/resources/svc"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/reconciler-test/pkg/feature"
 	"knative.dev/reconciler-test/pkg/manifest"
+	"knative.dev/reconciler-test/pkg/resources/service"
 
 	"knative.dev/eventing-kafka/test/rekt/resources/kafkasource"
 	"knative.dev/eventing-kafka/test/rekt/resources/kafkatopic"
@@ -36,7 +36,8 @@ func KafkaSourceGoesReady(name string, cfg ...manifest.CfgFn) *feature.Feature {
 	cfg = append(cfg, kafkasource.WithTopics([]string{topicName}))
 
 	sink := feature.MakeRandomK8sName("sink")
-	f.Setup("install a service", svc.Install(sink, "app", "rekt"))
+	f.Setup("install a service", service.Install(sink,
+		service.WithSelectors(map[string]string{"app": "rekt"})))
 
 	cfg = append(cfg, kafkasource.WithSink(&duckv1.KReference{
 		Kind:       "Service",
