@@ -32,8 +32,8 @@ require (
 	knative.dev/control-protocol v0.0.0-20230215015055-49f82c2e2841
 	knative.dev/eventing v0.36.1-0.20230214150651-f02203461bfb
 	knative.dev/hack v0.0.0-20230210215449-d71d569c4308
-	knative.dev/pkg v0.0.0-20230213131952-c889c5b7e128
-	knative.dev/reconciler-test v0.0.0-20230215013752-e459729bd24f
+	knative.dev/pkg v0.0.0-20230215234751-2f55fe00c5a1
+	knative.dev/reconciler-test v0.0.0-20230216013850-662cd0d42d6e
 	sigs.k8s.io/yaml v1.3.0
 )
 
