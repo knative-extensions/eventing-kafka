@@ -33,6 +33,7 @@ import (
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
 
+	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	controllertesting "knative.dev/eventing-kafka/pkg/common/commands/resetoffset/controller/testing"
 	refmapperstesting "knative.dev/eventing-kafka/pkg/common/commands/resetoffset/refmappers/testing"
 	"knative.dev/eventing-kafka/pkg/common/controlprotocol"
@@ -186,13 +187,15 @@ func performStartStopConsumerGroupAsyncCommandsTest(t *testing.T, opCode ctrl.Op
 
 			// Create A ResetOffset To Test
 			resetOffset := controllertesting.NewResetOffset()
-			resetOffsetNamespacedName := types.NamespacedName{
-				Namespace: resetOffset.GetNamespace(),
-				Name:      resetOffset.GetName(),
-			}
 
 			// Create A RefInfo To Test
 			refInfo := refmapperstesting.NewRefInfo()
+
+			// Save responses to Dispatcher
+			resetOffsetNamespacedName := types.NamespacedName{
+				Namespace: refInfo.DataPlaneNamespace,
+				Name:      refInfo.DataPlaneLabels[constants.AppLabel],
+			}
 
 			// Determine The Expected CommandIDs
 			commandId1, err := GenerateCommandId(resetOffset, podIp1, opCode)

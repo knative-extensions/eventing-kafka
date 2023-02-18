@@ -43,6 +43,7 @@ import (
 	"knative.dev/pkg/system"
 
 	kafkav1alpha1 "knative.dev/eventing-kafka/pkg/apis/kafka/v1alpha1"
+	controllerconstants "knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
 	fakekafkaclient "knative.dev/eventing-kafka/pkg/client/injection/client/fake"
 	resetoffsetreconciler "knative.dev/eventing-kafka/pkg/client/injection/reconciler/kafka/v1alpha1/resetoffset"
 	controllertesting "knative.dev/eventing-kafka/pkg/common/commands/resetoffset/controller/testing"
@@ -386,11 +387,14 @@ func TestReconcile(t *testing.T) {
 		mockResetOffsetRefMapper.On("MapRef", mock.Anything).Return(refInfo, mapRefErr)
 
 		// Create A Mock Control-Protocol AsyncCommandNotificationStore & Assign To Reconciler
-		resetOffsetNamespacedName := controllertesting.NewResetOffsetNamespacedName()
+		dataPlaneNamespacedName := types.NamespacedName{
+			Namespace: refInfo.DataPlaneNamespace,
+			Name:      refInfo.DataPlaneLabels[controllerconstants.AppLabel],
+		}
 		successResult := &ctrlmessage.AsyncCommandResult{}
 		mockAsyncCommandNotificationStore := &controlprotocoltesting.MockAsyncCommandNotificationStore{}
-		mockAsyncCommandNotificationStore.On("GetCommandResult", resetOffsetNamespacedName, podIp, stopConsumerGroupAsyncCommand).Return(successResult)
-		mockAsyncCommandNotificationStore.On("GetCommandResult", resetOffsetNamespacedName, podIp, startConsumerGroupAsyncCommand).Return(successResult)
+		mockAsyncCommandNotificationStore.On("GetCommandResult", dataPlaneNamespacedName, podIp, stopConsumerGroupAsyncCommand).Return(successResult)
+		mockAsyncCommandNotificationStore.On("GetCommandResult", dataPlaneNamespacedName, podIp, startConsumerGroupAsyncCommand).Return(successResult)
 		mockAsyncCommandNotificationStore.On("CleanPodsNotifications", types.NamespacedName{
 			Namespace: controllertesting.ResetOffsetNamespace,
 			Name:      controllertesting.ResetOffsetName,

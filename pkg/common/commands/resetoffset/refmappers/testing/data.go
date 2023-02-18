@@ -17,6 +17,10 @@ limitations under the License.
 package testing
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kafkav1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/constants"
+	"knative.dev/eventing-kafka/pkg/channel/distributed/controller/util"
 	controllertesting "knative.dev/eventing-kafka/pkg/common/commands/resetoffset/controller/testing"
 	"knative.dev/eventing-kafka/pkg/common/commands/resetoffset/refmappers"
 )
@@ -24,6 +28,8 @@ import (
 const (
 	ConnectionPoolKey    = "TestConnectionPoolKey"
 	DataPlaneNamespace   = "TestDataPlaneNamespace"
+	ChannelName          = "TestChannelName"
+	ChannelNamespace     = "TestChannelNamespace"
 	DataPlaneLabelKey1   = "TestDataPlaneLabelKey1"
 	DataPlaneLabelValue1 = "TestDataPlaneLabelValue1"
 	DataPlaneLabelKey2   = "TestDataPlaneLabelKey2"
@@ -48,6 +54,9 @@ func NewRefInfo(options ...RefInfoOption) *refmappers.RefInfo {
 		DataPlaneNamespace: DataPlaneNamespace,
 		DataPlaneLabels:    map[string]string{DataPlaneLabelKey1: DataPlaneLabelValue1, DataPlaneLabelKey2: DataPlaneLabelValue2},
 	}
+
+	channel := &kafkav1beta1.KafkaChannel{ObjectMeta: metav1.ObjectMeta{Name: ChannelName, Namespace: ChannelNamespace}}
+	refInfo.DataPlaneLabels[constants.AppLabel] = util.DispatcherDnsSafeName(channel)
 
 	// Apply The Specified Customizations
 	for _, option := range options {
