@@ -87,9 +87,24 @@ type MagicEnvironment struct {
 	teardownOnFail bool
 }
 
+var (
+	_ Environment = &MagicEnvironment{}
+)
+
 const (
 	NamespaceDeleteErrorReason = "NamespaceDeleteError"
 )
+
+type parallelKey struct{}
+
+func withParallel(ctx context.Context) context.Context {
+	return context.WithValue(ctx, parallelKey{}, true)
+}
+
+func isParallel(ctx context.Context) bool {
+	v := ctx.Value(parallelKey{})
+	return v != nil && v.(bool)
+}
 
 func (mr *MagicEnvironment) Reference(ref ...corev1.ObjectReference) {
 	mr.refsMu.Lock()
@@ -292,6 +307,21 @@ func (mr *MagicEnvironment) Prerequisite(ctx context.Context, t *testing.T, f *f
 // Test will create a new store.KVStore and set it on the feature and then
 // apply it to the Context.
 func (mr *MagicEnvironment) Test(ctx context.Context, originalT *testing.T, f *feature.Feature) {
+	mr.test(ctx, originalT, f)
+}
+
+// ParallelTest implements Environment.ParallelTest.
+// It is similar to Test with the addition of running the feature in parallel
+func (mr *MagicEnvironment) ParallelTest(ctx context.Context, originalT *testing.T, f *feature.Feature) {
+	mr.test(withParallel(ctx), originalT, f)
+}
+
+// Test implements Environment.Test.
+// In the MagicEnvironment implementation, the Store that is inside of the
+// Feature will be assigned to the context. If no Store is set on Feature,
+// Test will create a new store.KVStore and set it on the feature and then
+// apply it to the Context.
+func (mr *MagicEnvironment) test(ctx context.Context, originalT *testing.T, f *feature.Feature) {
 	originalT.Helper() // Helper marks the calling function as a test helper function.
 
 	log := logging.FromContext(ctx)
@@ -323,6 +353,10 @@ func (mr *MagicEnvironment) Test(ctx context.Context, originalT *testing.T, f *f
 	skip := false
 
 	originalT.Run(f.Name, func(t *testing.T) {
+
+		if isParallel(ctx) {
+			t.Parallel()
+		}
 
 		for _, timing := range feature.Timings() {
 			steps := feature.Steps(stepsByTiming[timing])
@@ -383,6 +417,15 @@ func (mr *MagicEnvironment) shouldFail(s *feature.Step) bool {
 
 // TestSet implements Environment.TestSet
 func (mr *MagicEnvironment) TestSet(ctx context.Context, t *testing.T, fs *feature.FeatureSet) {
+	mr.testSet(ctx, t, fs)
+}
+
+// ParallelTestSet implements Environment.ParallelTestSet
+func (mr *MagicEnvironment) ParallelTestSet(ctx context.Context, t *testing.T, fs *feature.FeatureSet) {
+	mr.testSet(withParallel(ctx), t, fs)
+}
+
+func (mr *MagicEnvironment) testSet(ctx context.Context, t *testing.T, fs *feature.FeatureSet) {
 	t.Helper() // Helper marks the calling function as a test helper function
 
 	mr.milestones.TestSetStarted(fs.Name, t)
