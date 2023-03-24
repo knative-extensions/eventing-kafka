@@ -33,7 +33,7 @@ func LoadServerTLSConfigFromFile() (*tls.Config, error) {
 		Certificates: []tls.Certificate{cert},
 		ClientCAs:    certPool,
 		ClientAuth:   tls.RequireAndVerifyClientCert,
-		ServerName:   certificates.FakeDnsName,
+		ServerName:   "knative-myns",
 	}
 
 	return conf, nil
@@ -55,7 +55,7 @@ func LoadClientTLSConfigFromFile() (*tls.Config, error) {
 	conf := &tls.Config{
 		Certificates: []tls.Certificate{cert},
 		RootCAs:      certPool,
-		ServerName:   certificates.FakeDnsName,
+		ServerName:   "knative-myns",
 	}
 
 	return conf, nil
