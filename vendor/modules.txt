@@ -1376,7 +1376,7 @@ k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
-# knative.dev/control-protocol v0.0.0-20230323205355-33b1cf01b591
+# knative.dev/control-protocol v0.0.0-20230325200056-beb066655984
 ## explicit; go 1.18
 knative.dev/control-protocol/pkg
 knative.dev/control-protocol/pkg/certificates
