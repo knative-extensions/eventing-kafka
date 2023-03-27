@@ -127,13 +127,13 @@ func CreateCACerts(ctx context.Context, expirationInterval time.Duration) (*KeyP
 }
 
 // CreateControlPlaneCert generates the certificate for the client
-func CreateControlPlaneCert(ctx context.Context, caKey *rsa.PrivateKey, caCertificate *x509.Certificate, expirationInterval time.Duration, sans ...string) (*KeyPair, error) {
-	return CreateCert(ctx, caKey, caCertificate, expirationInterval, sans...)
+func CreateControlPlaneCert(ctx context.Context, caKey *rsa.PrivateKey, caCertificate *x509.Certificate, expirationInterval time.Duration) (*KeyPair, error) {
+	return CreateCert(ctx, caKey, caCertificate, expirationInterval, LegacyFakeDnsName)
 }
 
 // CreateDataPlaneCert generates the certificate for the server
-func CreateDataPlaneCert(ctx context.Context, caKey *rsa.PrivateKey, caCertificate *x509.Certificate, expirationInterval time.Duration, sans ...string) (*KeyPair, error) {
-	return CreateCert(ctx, caKey, caCertificate, expirationInterval, sans...)
+func CreateDataPlaneCert(ctx context.Context, caKey *rsa.PrivateKey, caCertificate *x509.Certificate, expirationInterval time.Duration) (*KeyPair, error) {
+	return CreateCert(ctx, caKey, caCertificate, expirationInterval, LegacyFakeDnsName)
 }
 
 // CreateCert generates the certificate for use by client and server

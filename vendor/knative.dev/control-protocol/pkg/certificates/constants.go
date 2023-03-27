@@ -19,6 +19,7 @@ package certificates
 const (
 	Organization        = "knative.dev"
 	LegacyFakeDnsName   = "data-plane." + Organization
+	FakeDnsName         = LegacyFakeDnsName
 	DataPlaneNamePrefix = "knative-"
 
 	//These keys are meant to line up with cert-manager, see
