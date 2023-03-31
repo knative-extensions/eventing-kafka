@@ -1523,7 +1523,7 @@ knative.dev/eventing/test/upgrade/prober/wathola/fetcher
 knative.dev/eventing/test/upgrade/prober/wathola/forwarder
 knative.dev/eventing/test/upgrade/prober/wathola/receiver
 knative.dev/eventing/test/upgrade/prober/wathola/sender
-# knative.dev/hack v0.0.0-20230317131237-3b8ef01d7c4f
+# knative.dev/hack v0.0.0-20230330174700-1421f120c36b
 ## explicit; go 1.18
 knative.dev/hack
 knative.dev/hack/shell
