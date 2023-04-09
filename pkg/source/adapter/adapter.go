@@ -169,6 +169,7 @@ func (a *Adapter) Start(ctx context.Context) (err error) {
 	}()
 
 	<-ctx.Done()
+	a.logger.Info("Just for test...")
 	a.logger.Info("Shutting down...")
 	return nil
 }
