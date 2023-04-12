@@ -28,7 +28,6 @@ import (
 	protocolkafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"golang.org/x/time/rate"
 	"k8s.io/apimachinery/pkg/types"
-	ctrl "knative.dev/control-protocol/pkg"
 
 	"knative.dev/eventing-kafka/pkg/common/tracing"
 
@@ -213,13 +212,6 @@ func (a *Adapter) Handle(ctx context.Context, msg *sarama.ConsumerMessage) (bool
 // SetRateLimiter sets the global consumer rate limiter
 func (a *Adapter) SetRateLimits(r rate.Limit, b int) {
 	a.rateLimiter = rate.NewLimiter(r, b)
-}
-
-func (a *Adapter) HandleServiceMessage(ctx context.Context, message ctrl.ServiceMessage) {
-	// In this first PR, there is only the RA sending messages to control plane,
-	// there is no message the control plane should send to the RA
-	a.logger.Info("Received unexpected control message")
-	message.Ack()
 }
 
 func (a *Adapter) Setup(sess sarama.ConsumerGroupSession) {
