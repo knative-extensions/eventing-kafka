@@ -11,25 +11,16 @@
 
 **[These components are GA](https://github.com/knative/community/tree/main/mechanics/MATURITY-LEVELS.md)**
 
-This repository contains eventing components using Kafka as the backing
-implementation. It currently consists of a [Source](pkg/source/README.md)
-implementation, and a single KafkaChannel CRD with two backing Channel
-implementations ([Consolidated](pkg/channel/consolidated/README.md) &
-[Distributed](pkg/channel/distributed/README.md)). The work is sponsored by the
-[event-delivery working group](https://github.com/knative/community/blob/master/working-groups/WORKING-GROUPS.md#event-delivery).
+This repository contains a multitenant [Kafka Source](pkg/source/README.md).
+
+## Kafka Channel
+The Golang-based Kafka channel was deprecated and replaced by the `KafkaChannel`, maintained [here](https://github.com/knative-sandbox/eventing-kafka-broker).
 
 ## Nightly Artifacts
-**Note**: Replace REPLACE_WITH_CLUSTER_URL in the yaml with the URI to the Kafka Cluster (eg. `my-cluster-kafka-bootstrap.kafka:9092/`)
 
 ```shell script
 # Install the Kafka Source
-kubectl apply -f https://storage.googleapis.com/knative-nightly/eventing-kafka/latest/source.yaml
-
-# Install the Kafka "Consolidated" Channel
-kubectl apply -f https://storage.googleapis.com/knative-nightly/eventing-kafka/latest/channel-consolidated.yaml
-
-# Install the Kafka "Distributed" Channel
-kubectl apply -f https://storage.googleapis.com/knative-nightly/eventing-kafka/latest/channel-distributed.yaml
+kubectl apply -f https://storage.googleapis.com/knative-nightly/eventing-kafka/latest/mt-source.yaml
 ```
 
 ---
