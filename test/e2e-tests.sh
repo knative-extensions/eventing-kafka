@@ -47,7 +47,7 @@ source "$(dirname "$0")/e2e-common.sh"
 # Create the system namespace if it doesn't already exist (may be the same as the EVENTING_NAMESPACE)
 kubectl get namespace "${SYSTEM_NAMESPACE}" || kubectl create namespace "${SYSTEM_NAMESPACE}"
 
-TEST_MT_SOURCE=${TEST_MT_SOURCE:-0}
+TEST_MT_SOURCE=${TEST_MT_SOURCE:-1}
 
 echo "e2e-tests.sh command line: $@"
 
