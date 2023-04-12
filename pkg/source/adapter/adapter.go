@@ -29,7 +29,6 @@ import (
 	"golang.org/x/time/rate"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "knative.dev/control-protocol/pkg"
-	ctrlnetwork "knative.dev/control-protocol/pkg/network"
 
 	"knative.dev/eventing-kafka/pkg/common/tracing"
 
@@ -44,7 +43,6 @@ import (
 
 	"knative.dev/eventing-kafka/pkg/common/consumer"
 	"knative.dev/eventing-kafka/pkg/source/client"
-	kafkasourcecontrol "knative.dev/eventing-kafka/pkg/source/control"
 )
 
 const (
@@ -69,9 +67,8 @@ func NewEnvConfig() adapter.EnvConfigAccessor {
 }
 
 type Adapter struct {
-	config        *AdapterConfig
-	controlServer *ctrlnetwork.ControlServer
-	saramaConfig  *sarama.Config
+	config       *AdapterConfig
+	saramaConfig *sarama.Config
 
 	httpMessageSender *kncloudevents.HTTPMessageSender
 	reporter          source.StatsReporter
@@ -123,15 +120,6 @@ func (a *Adapter) Start(ctx context.Context) (err error) {
 		if len(ceOverrides.Extensions) > 0 {
 			a.extensions = ceOverrides.Extensions
 		}
-	}
-
-	// Init control service
-	if !a.config.DisableControlServer {
-		a.controlServer, err = ctrlnetwork.StartInsecureControlServer(ctx)
-		if err != nil {
-			return err
-		}
-		a.controlServer.MessageHandler(a)
 	}
 
 	// init consumer group
@@ -235,20 +223,9 @@ func (a *Adapter) HandleServiceMessage(ctx context.Context, message ctrl.Service
 }
 
 func (a *Adapter) Setup(sess sarama.ConsumerGroupSession) {
-	if a.controlServer != nil {
-		if err := a.controlServer.SendAndWaitForAck(kafkasourcecontrol.NotifySetupClaimsOpCode, kafkasourcecontrol.Claims(sess.Claims())); err != nil {
-			a.logger.Warnf("Cannot send the claims update: %v", err)
-		}
-	}
-
 }
 
 func (a *Adapter) Cleanup(sess sarama.ConsumerGroupSession) {
-	if a.controlServer != nil {
-		if err := a.controlServer.SendAndWaitForAck(kafkasourcecontrol.NotifyCleanupClaimsOpCode, kafkasourcecontrol.Claims(sess.Claims())); err != nil {
-			a.logger.Warnf("Cannot send the claims update: %v", err)
-		}
-	}
 }
 
 // Default retry configuration, 5 retries, exponential backoff with 50ms delay

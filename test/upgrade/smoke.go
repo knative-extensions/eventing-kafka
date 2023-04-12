@@ -17,50 +17,13 @@ limitations under the License.
 package upgrade
 
 import (
-	"context"
 	"testing"
 
-	cloudevents "github.com/cloudevents/sdk-go/v2"
-
 	"knative.dev/eventing-kafka/test/e2e/helpers"
-
-	eventinghelpers "knative.dev/eventing/test/e2e/helpers"
 )
-
-func runChannelSmokeTest(t *testing.T) {
-	cases := smokeTestCases()
-	ctx := context.Background()
-	for i := range cases {
-		tt := cases[i]
-		t.Run(tt.name, func(t *testing.T) {
-			eventinghelpers.SingleEventForChannelTestHelper(
-				ctx, t, tt.encoding, tt.version,
-				"", channelTestRunner,
-			)
-		})
-	}
-}
 
 func runSourceSmokeTest(t *testing.T) {
 	helpers.AssureKafkaSourceIsOperational(t, func(auth, testCase, version string) bool {
 		return auth == "plain" && (testCase == "structured" || testCase == "binary")
 	})
-}
-
-type smokeTestCase struct {
-	name     string
-	encoding cloudevents.Encoding
-	version  eventinghelpers.SubscriptionVersion
-}
-
-func smokeTestCases() []smokeTestCase {
-	return []smokeTestCase{{
-		name:     "BinaryV1",
-		encoding: cloudevents.EncodingBinary,
-		version:  eventinghelpers.SubscriptionV1,
-	}, {
-		name:     "StructuredV1",
-		encoding: cloudevents.EncodingStructured,
-		version:  eventinghelpers.SubscriptionV1,
-	}}
 }

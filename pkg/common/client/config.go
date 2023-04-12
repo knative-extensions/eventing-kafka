@@ -31,7 +31,6 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/kafka/constants"
 )
 
 type KafkaAuthConfig struct {
@@ -192,7 +191,7 @@ func (b *configBuilder) Build(ctx context.Context) (*sarama.Config, error) {
 	// then apply defaults, if requested
 	if b.defaults {
 		// Use Our Default Minimum Version
-		config.Version = constants.ConfigKafkaVersionDefault
+		config.Version = sarama.V1_0_0_0
 
 		// We Always Want To Know About Consumer Errors
 		config.Consumer.Return.Errors = true

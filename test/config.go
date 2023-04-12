@@ -20,22 +20,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	testlib "knative.dev/eventing/test/lib"
 
-	messagingv1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 )
-
-// ChannelFeatureMap saves the channel-features mapping.
-// Each pair means the channel support the list of features.
-var ChannelFeatureMap = map[metav1.TypeMeta][]testlib.Feature{
-	{
-		APIVersion: messagingv1beta1.SchemeGroupVersion.String(),
-		Kind:       KafkaChannelKind,
-	}: {
-		testlib.FeatureBasic,
-		testlib.FeatureRedelivery,
-		testlib.FeaturePersistence,
-	},
-}
 
 var KafkaSourceTypeMeta = metav1.TypeMeta{
 	APIVersion: sourcesv1beta1.SchemeGroupVersion.String(),

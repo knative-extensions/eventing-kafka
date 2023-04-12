@@ -20,14 +20,6 @@ import (
 	pkgupgrade "knative.dev/pkg/test/upgrade"
 )
 
-// ChannelPreUpgradeTest tests channel operations before upgrade.
-func ChannelPreUpgradeTest() pkgupgrade.Operation {
-	return pkgupgrade.NewOperation("ChannelPreUpgradeTest",
-		func(c pkgupgrade.Context) {
-			runChannelSmokeTest(c.T)
-		})
-}
-
 // SourcePreUpgradeTest tests source operations before upgrade.
 func SourcePreUpgradeTest() pkgupgrade.Operation {
 	return pkgupgrade.NewOperation("SourcePreUpgradeTest",

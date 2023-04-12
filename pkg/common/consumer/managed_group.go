@@ -23,8 +23,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"knative.dev/eventing-kafka/pkg/common/controlprotocol/commands"
-
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
 )
@@ -42,7 +40,6 @@ type managedGroup interface {
 	stop() error
 	close() error
 	errors() chan error
-	processLock(*commands.CommandLock, bool) error
 	isStopped() bool
 }
 
@@ -235,41 +232,6 @@ func (m *managedGroupImpl) removeLock() {
 		m.lockedBy.Store("")
 		m.cancelLockTimeout() // Make sure an existing timer doesn't re-clear the token later
 	}
-}
-
-// processLock handles setting and removing the managedGroup's lock status:
-// - Lock the group, if "lock" is true and cmdLock.LockBefore is true
-// - Unlock the group, if "lock" is false and cmdLock.UnlockAfter is true
-// Returns an error if the lock.Token field doesn't match the existing token (for any case even if
-// no CommandLock is provided), as this indicates that the group is locked by the other token.
-func (m *managedGroupImpl) processLock(cmdLock *commands.CommandLock, lock bool) error {
-
-	token := ""
-	if cmdLock != nil {
-		token = cmdLock.Token
-	}
-
-	if !m.canUnlock(token) {
-		m.logger.Info("Managed group access denied; already locked with a different token",
-			zap.String("Token", token))
-		return GroupLockedError // Already locked by a different command token
-	}
-
-	if cmdLock == nil {
-		return nil // If neither a lock nor unlock were requested, no need to go any further
-	}
-
-	if lock && cmdLock.LockBefore {
-		timeout := cmdLock.Timeout
-		if timeout == 0 {
-			timeout = defaultLockTimeout
-		}
-		m.resetLock(cmdLock.Token, timeout)
-	} else if !lock && cmdLock.UnlockAfter {
-		m.removeLock()
-	}
-
-	return nil // Lock succeeded
 }
 
 // isStopped is an accessor for the restartWaitChannel channel's status, which if non-nil indicates
