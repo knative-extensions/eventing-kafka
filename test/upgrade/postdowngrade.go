@@ -20,15 +20,6 @@ import (
 	pkgupgrade "knative.dev/pkg/test/upgrade"
 )
 
-// ChannelPostDowngradeTest tests channel basic channel operations after
-// downgrade.
-func ChannelPostDowngradeTest() pkgupgrade.Operation {
-	return pkgupgrade.NewOperation("ChannelPostDowngradeTest",
-		func(c pkgupgrade.Context) {
-			runChannelSmokeTest(c.T)
-		})
-}
-
 // SourcePostDowngradeTest tests source operations after downgrade.
 func SourcePostDowngradeTest() pkgupgrade.Operation {
 	return pkgupgrade.NewOperation("SourcePostDowngradeTest",

@@ -25,8 +25,6 @@ import (
 	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	bindingsv1beta1 "knative.dev/eventing-kafka/pkg/apis/bindings/v1beta1"
-	kafkav1alpha1 "knative.dev/eventing-kafka/pkg/apis/kafka/v1alpha1"
-	messagingv1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 )
 
@@ -35,8 +33,6 @@ var Codecs = serializer.NewCodecFactory(Scheme)
 var ParameterCodec = runtime.NewParameterCodec(Scheme)
 var localSchemeBuilder = runtime.SchemeBuilder{
 	bindingsv1beta1.AddToScheme,
-	kafkav1alpha1.AddToScheme,
-	messagingv1beta1.AddToScheme,
 	sourcesv1beta1.AddToScheme,
 }
 

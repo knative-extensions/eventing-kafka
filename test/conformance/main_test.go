@@ -24,12 +24,13 @@ import (
 	"os"
 	"testing"
 
-	"knative.dev/eventing-kafka/test"
-	"knative.dev/eventing-kafka/test/lib/setupclientoptions"
 	eventingTest "knative.dev/eventing/test"
 	testlib "knative.dev/eventing/test/lib"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/test/zipkin"
+
+	"knative.dev/eventing-kafka/test"
+	"knative.dev/eventing-kafka/test/lib/setupclientoptions"
 )
 
 const (
@@ -39,16 +40,11 @@ const (
 	recordEventsPodName   = "api-server-source-logger-pod"
 )
 
-var channelTestRunner testlib.ComponentsTestRunner
 var sourcesTestRunner testlib.ComponentsTestRunner
 
 func TestMain(m *testing.M) {
 	os.Exit(func() int {
 		eventingTest.InitializeEventingFlags()
-		channelTestRunner = testlib.ComponentsTestRunner{
-			ComponentFeatureMap: test.ChannelFeatureMap,
-			ComponentsToTest:    eventingTest.EventingFlags.Channels,
-		}
 		sourcesTestRunner = testlib.ComponentsTestRunner{
 			ComponentFeatureMap: test.SourcesFeatureMap,
 			ComponentsToTest:    eventingTest.EventingFlags.Sources,

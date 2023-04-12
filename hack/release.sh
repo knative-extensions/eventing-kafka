@@ -24,12 +24,7 @@ export GO111MODULE=on
 # Yaml files to generate, and the source config dir for them.
 declare -A COMPONENTS
 COMPONENTS=(
-  ["channel-consolidated.yaml"]="config/channel/consolidated"
-  ["channel-distributed.yaml"]="config/channel/distributed"
-  ["channel-crds.yaml"]="config/channel/resources"
-  ["source.yaml"]="config/source/single"
   ["mt-source.yaml"]="config/source/multi"
-  ["source-crds.yaml"]="config/source/common/resources"
   ["source-crd.yaml"]="config/source/common/resources/source"
   ["binding-crd.yaml"]="config/source/common/resources/binding"
 )

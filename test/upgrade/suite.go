@@ -17,9 +17,10 @@ limitations under the License.
 package upgrade
 
 import (
+	pkgupgrade "knative.dev/pkg/test/upgrade"
+
 	"knative.dev/eventing-kafka/test/upgrade/continual"
 	"knative.dev/eventing-kafka/test/upgrade/installation"
-	pkgupgrade "knative.dev/pkg/test/upgrade"
 )
 
 // Suite defines the whole upgrade test suite for Eventing Kafka.
@@ -27,19 +28,15 @@ func Suite() pkgupgrade.Suite {
 	return pkgupgrade.Suite{
 		Tests: pkgupgrade.Tests{
 			PreUpgrade: []pkgupgrade.Operation{
-				ChannelPreUpgradeTest(),
 				SourcePreUpgradeTest(),
 			},
 			PostUpgrade: []pkgupgrade.Operation{
-				ChannelPostUpgradeTest(),
 				SourcePostUpgradeTest(),
 			},
 			PostDowngrade: []pkgupgrade.Operation{
-				ChannelPostDowngradeTest(),
 				SourcePostDowngradeTest(),
 			},
 			Continual: merge(
-				ChannelContinualTests(continual.ChannelTestOptions{}),
 				SourceContinualTests(continual.SourceTestOptions{}),
 			),
 		},

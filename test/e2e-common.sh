@@ -51,62 +51,25 @@ readonly EVENTING_IN_MEMORY_CHANNEL_CONFIG="./config/channels/in-memory-channel"
 
 # Vendored Eventing Test Images.
 readonly VENDOR_EVENTING_TEST_IMAGES="vendor/knative.dev/eventing/test/test_images/"
-# HEAD eventing test images.
-readonly HEAD_EVENTING_TEST_IMAGES="${GOPATH}/src/knative.dev/eventing/test/test_images/"
 
 # Config tracing config.
 readonly CONFIG_TRACING_CONFIG="test/config/config-tracing.yaml"
 
 # Strimzi Kafka Cluster Brokers URL (base64 encoded value for k8s secret)
 readonly STRIMZI_KAFKA_NAMESPACE="kafka" # Installation Namespace
-readonly STRIMZI_KAFKA_CLUSTER_BROKERS="my-cluster-kafka-bootstrap.kafka.svc:9092"
-
-# Eventing Kafka main config path from HEAD.
-readonly KAFKA_CRD_CONFIG_TEMPLATE_DIR="./config/channel"
-readonly DISTRIBUTED_TEMPLATE_DIR="${KAFKA_CRD_CONFIG_TEMPLATE_DIR}/distributed"
-readonly CONSOLIDATED_TEMPLATE_DIR="${KAFKA_CRD_CONFIG_TEMPLATE_DIR}/consolidated"
-
-# Eventing Kafka Channel CRD Secret (Will be modified with Strimzi Cluster Brokers - No Authentication)
-readonly EVENTING_KAFKA_SECRET_TEMPLATE="300-kafka-secret.yaml"
-
-# Eventing Kafka Channel CRD Config Map (Will be modified with SASL/TLS disabled)
-readonly EVENTING_KAFKA_CONFIG_TEMPLATE="300-eventing-kafka-configmap.yaml"
-
 # Strimzi installation config template used for starting up Kafka clusters.
 readonly STRIMZI_INSTALLATION_CONFIG_TEMPLATE="test/config/100-strimzi-cluster-operator-0.29.0.yaml"
 # Strimzi installation config.
 readonly STRIMZI_INSTALLATION_CONFIG="$(mktemp "${ARTIFACTS}/strimzi-XXXXX.yaml")"
 # Kafka cluster CR config file.
 readonly KAFKA_INSTALLATION_CONFIG="test/config/100-kafka-ephemeral-triple-3.1.0.yaml"
-# Kafka TLS ConfigMap.
-readonly KAFKA_TLS_CONFIG="test/config/config-kafka-tls.yaml"
-# Kafka SASL ConfigMap.
-readonly KAFKA_SASL_CONFIG="test/config/config-kafka-sasl.yaml"
 # Kafka Users CR config file.
 readonly KAFKA_USERS_CONFIG="test/config/100-strimzi-users.yaml"
-# Kafka PLAIN cluster URL
-readonly KAFKA_PLAIN_CLUSTER_URL="my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
-# Kafka TLS cluster URL
-readonly KAFKA_TLS_CLUSTER_URL="my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9093"
-# Kafka SASL cluster URL
-readonly KAFKA_SASL_CLUSTER_URL="my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9094"
-# Kafka cluster URL for our installation, during tests
-KAFKA_CLUSTER_URL=${KAFKA_PLAIN_CLUSTER_URL}
-# Kafka channel CRD config template file. It needs to be modified to be the real config file.
-readonly KAFKA_CRD_CONFIG_TEMPLATE="400-kafka-config.yaml"
-
-# Real Kafka channel CRD config, generated from the template directory and
-# modified template file.
-readonly KAFKA_CRD_CONFIG_DIR="$(mktemp -d "${ARTIFACTS}/channel-crd-XXXXX")"
 # Real Kafka Source CRD config, generated from the template directory and
 # modified template file.
 readonly KAFKA_SOURCE_CRD_CONFIG_DIR="$(mktemp -d "${ARTIFACTS}/source-crd-XXXXX")"
-# A target directory where post install scripts are gets created.
-readonly KAFKA_POST_INSTALL_DIR="$(mktemp -d "${ARTIFACTS}/post-install-XXXXX")"
-readonly KAFKA_POST_INSTALL_TEMPLATE_DIR="config/post-install"
 
-# Kafka ST and MT Source CRD config template directory
-readonly KAFKA_SOURCE_TEMPLATE_DIR="config/source/single"
+# Kafka MT Source CRD config template directory
 readonly KAFKA_MT_SOURCE_TEMPLATE_DIR="config/source/multi"
 
 # Namespaces where we install Eventing components
@@ -271,87 +234,6 @@ function test_teardown() {
   kafka_teardown
 }
 
-function install_released_consolidated_channel {
-  install_consolidated_channel_crds latest-release
-}
-
-function install_head_consolidated_channel {
-  install_consolidated_channel_crds HEAD
-}
-
-function install_consolidated_channel_crds {
-  local source url ver release_yaml
-  source="${1:-HEAD}"
-  if [[ "${source}" == 'HEAD' ]]; then
-    echo "Installing consolidated Kafka Channel CRD (from HEAD)"
-    rm -rf "${KAFKA_CRD_CONFIG_DIR}" && mkdir -p "${KAFKA_CRD_CONFIG_DIR}"
-    cp "${CONSOLIDATED_TEMPLATE_DIR}/"*yaml "${KAFKA_CRD_CONFIG_DIR}"
-    sed -i "s/namespace: knative-eventing/namespace: ${SYSTEM_NAMESPACE}/g" \
-      "${KAFKA_CRD_CONFIG_DIR}/"*yaml
-    sed -i "s/REPLACE_WITH_CLUSTER_URL/${KAFKA_CLUSTER_URL}/" \
-      "${KAFKA_CRD_CONFIG_DIR}/${KAFKA_CRD_CONFIG_TEMPLATE}"
-    ko apply ${KO_FLAGS} -f "${KAFKA_CRD_CONFIG_DIR}"
-    run_postinstall_jobs
-  elif [[ "${source}" == 'latest-release' ]]; then
-    ver="${LATEST_RELEASE_VERSION}"
-    echo "Installing consolidated Kafka Channel CRD (from latest release: ${ver})"
-    # Download the latest release of Knative Eventing Kafka.
-    url="${EVENTING_KAFKA_REPO}/releases/download/${ver}/channel-consolidated.yaml"
-    release_yaml="${ARTIFACTS}/channel-consolidated-${ver}.yaml"
-
-    curl -Lo "${release_yaml}" "${url}"
-    sed -i "s/namespace: knative-eventing/namespace: ${SYSTEM_NAMESPACE}/g" \
-      "${release_yaml}"
-    sed -i "s/REPLACE_WITH_CLUSTER_URL/${KAFKA_CLUSTER_URL}/" \
-      "${release_yaml}"
-    echo "Applying: ${release_yaml}"
-    kubectl apply -f "${release_yaml}"
-  else
-    fail_test "Unsupported source of installation: ${source}"
-    return 55
-  fi
-  sleep 1 # Wait until something gets deployed
-  wait_until_pods_running "${SYSTEM_NAMESPACE}"
-}
-
-function install_released_consolidated_source {
-  install_consolidated_sources_crds latest-release
-}
-
-function install_head_consolidated_source {
-  install_consolidated_sources_crds HEAD
-}
-
-function install_consolidated_sources_crds() {
-  local source url ver release_yaml
-  source="${1:-HEAD}"
-  if [[ "${source}" == 'HEAD' ]]; then
-    echo "Installing consolidated Kafka Source CRD (from HEAD)"
-    rm -rf "${KAFKA_SOURCE_CRD_CONFIG_DIR}" && mkdir -p "${KAFKA_SOURCE_CRD_CONFIG_DIR}"
-    cp "${KAFKA_SOURCE_TEMPLATE_DIR}/"*yaml "${KAFKA_SOURCE_CRD_CONFIG_DIR}"
-    sed -i "s/namespace: knative-eventing/namespace: ${SYSTEM_NAMESPACE}/g" "${KAFKA_SOURCE_CRD_CONFIG_DIR}/"*yaml
-    ko apply ${KO_FLAGS} -f "${KAFKA_SOURCE_CRD_CONFIG_DIR}" || return $?
-  elif [[ "${source}" == 'latest-release' ]]; then
-    ver="${LATEST_RELEASE_VERSION}"
-    echo "Installing consolidated Kafka Source CRD (from latest release: ${ver})"
-    # Download the latest release of Knative Eventing Kafka.
-    url="${EVENTING_KAFKA_REPO}/releases/download/${ver}/source.yaml"
-    release_yaml="${ARTIFACTS}/source-${ver}.yaml"
-
-    curl -Lo "${release_yaml}" "${url}"
-    sed -i "s/namespace: knative-eventing/namespace: ${SYSTEM_NAMESPACE}/g" \
-      "${release_yaml}"
-    echo "Applying: ${release_yaml}"
-    kubectl apply -f "${release_yaml}"
-  else
-    fail_test "Unsupported source of installation: ${source}"
-    return 56
-  fi
-
-  run_postinstall_jobs
-  wait_until_pods_running "${EVENTING_NAMESPACE}" || fail_test "Failed to install the consolidated Kafka Source CRD"
-}
-
 function run_postinstall_jobs() {
   # There are no post-install scripts today. This needs to be enabled if any post-install script is added
 
@@ -365,56 +247,9 @@ function run_postinstall_jobs() {
   echo "No postinstall jobs to run"
 }
 
-# Uninstall The eventing-kafka KafkaChannel Implementation Via Ko
-function uninstall_channel_crds() {
-  echo "Uninstalling Kafka Channel CRD"
-  kubectl delete secret -n "${SYSTEM_NAMESPACE}" kafka-cluster
-
-  # The distributed channel controller no longer actively monitors the kafka-cluster secret,
-  # so the receiver will only be torn down if there is a change to the kafkachannels or the
-  # config-kafka configmap.  However, if the secret is missing, the global resync does not happen
-  # (the controller presumes this missing secret is an error and reacts accordingly), so this
-  # manual deletion of the receiver deployment is the easiest solution here.
-  if [[ $1 == "distributed" ]]; then
-    # Create the same value as GenerateHash() in distributed/controller/util/hash.go
-    hash=$(md5 -qs "kafka-cluster" | cut -c 1-8)
-    kubectl delete deployment -n "${SYSTEM_NAMESPACE}" kafka-cluster-${hash}-receiver
-    kubectl delete service -n "${SYSTEM_NAMESPACE}" kafka-cluster-${hash}-receiver
-  fi
-
-  echo "Current namespaces:"
-  kubectl get namespaces
-  echo "Current kafkachannels:"
-  kubectl get kafkachannel -A
-  ko delete --ignore-not-found=true --now --timeout 120s -f "${KAFKA_CRD_CONFIG_DIR}"
-}
-
 function uninstall_sources_crds() {
   echo "Uninstalling Kafka Source CRD"
   ko delete --ignore-not-found=true --now --timeout 180s -f "${KAFKA_SOURCE_CRD_CONFIG_DIR}"
-}
-
-function install_distributed_channel_crds() {
-  echo "Installing distributed Kafka Channel CRD"
-  rm -rf "${KAFKA_CRD_CONFIG_DIR}" && mkdir -p "${KAFKA_CRD_CONFIG_DIR}"
-  cp "${DISTRIBUTED_TEMPLATE_DIR}/"*yaml "${KAFKA_CRD_CONFIG_DIR}"
-  sed -i "s/namespace: knative-eventing/namespace: ${SYSTEM_NAMESPACE}/g" "${KAFKA_CRD_CONFIG_DIR}/"*yaml
-
-  # Update The ConfigMap With Strimzi Kafka Cluster Brokers (No Authentication)
-  sed -i "s/REPLACE_WITH_CLUSTER_URL/${KAFKA_CLUSTER_URL}/" ${KAFKA_CRD_CONFIG_DIR}/${EVENTING_KAFKA_CONFIG_TEMPLATE}
-
-  # Update the config-kafka configmap to disable SASL/TLS for the tests
-  sed -i '/^ *TLS:/{n;s/true/false/};/^ *SASL:/{n;s/true/false/}' "${KAFKA_CRD_CONFIG_DIR}/${EVENTING_KAFKA_CONFIG_TEMPLATE}"
-
-  # Install The eventing-kafka KafkaChannel Implementation
-  ko apply ${KO_FLAGS} -f "${KAFKA_CRD_CONFIG_DIR}" || return 1
-
-   # Add The kn-eventing-test-pull-secret (If Present) To ServiceAccount & Restart eventing-kafka Deployment
-  add_kn_eventing_test_pull_secret "${SYSTEM_NAMESPACE}" eventing-kafka-channel-controller eventing-kafka-channel-controller
-
-  run_postinstall_jobs
-
-  wait_until_pods_running "${SYSTEM_NAMESPACE}" || fail_test "Failed to install the distributed Kafka Channel CRD"
 }
 
 function install_mt_source() {
@@ -498,70 +333,6 @@ function create_sasl_secrets() {
     --from-literal=user="my-sasl-user"
 }
 
-# Installs the resources necessary to test the consolidated channel, runs those tests, and then cleans up those resources
-function test_consolidated_channel_plain() {
-  # Test the consolidated channel with no auth
-  echo "Testing the consolidated channel and source"
-  install_consolidated_channel_crds || return 1
-  install_consolidated_sources_crds || return 1
-
-  echo "Run rekt tests"
-  go_test_e2e -tags=e2e -timeout=20m -test.parallel=${TEST_PARALLEL} -run "^TestKafkaChannelReadiness$" ./test/rekt/... || fail_test
-
-  echo "Run classic tests"
-  go_test_e2e -tags=e2e,consolidated,source -timeout=40m -test.parallel=${TEST_PARALLEL} ./test/e2e -channels=messaging.knative.dev/v1beta1:KafkaChannel  || fail_test
-  go_test_e2e -tags=e2e,consolidated,source -timeout=5m -test.parallel=${TEST_PARALLEL} ./test/conformance -channels=messaging.knative.dev/v1beta1:KafkaChannel -sources=sources.knative.dev/v1beta1:KafkaSource || fail_test
-
-  uninstall_sources_crds || return 1
-  uninstall_channel_crds || return 1
-}
-
-function test_consolidated_channel_tls() {
-  # Test the consolidated channel with TLS
-  echo "Testing the consolidated channel with TLS"
-  # Set the URL to the TLS listeners config
-  sed -i "s/\${SYSTEM_NAMESPACE}/${SYSTEM_NAMESPACE}/g" ${KAFKA_TLS_CONFIG}
-  cp "${KAFKA_TLS_CONFIG}" "${CONSOLIDATED_TEMPLATE_DIR}/configmaps/kafka-config.yaml"
-  KAFKA_CLUSTER_URL=${KAFKA_TLS_CLUSTER_URL}
-
-  install_consolidated_channel_crds || return 1
-
-  go_test_e2e -tags=e2e,consolidated -timeout=40m -test.parallel=${TEST_PARALLEL} ./test/e2e -channels=messaging.knative.dev/v1beta1:KafkaChannel  || fail_test
-
-  uninstall_channel_crds || return 1
-}
-
-function test_consolidated_channel_sasl() {
-  # Test the consolidated channel with SASL
-  echo "Testing the consolidated channel with SASL"
-  # Set the URL to the SASL listeners config
-  sed -i "s/\${SYSTEM_NAMESPACE}/${SYSTEM_NAMESPACE}/g" ${KAFKA_SASL_CONFIG}
-  cp "${KAFKA_SASL_CONFIG}" "${CONSOLIDATED_TEMPLATE_DIR}/configmaps/kafka-config.yaml"
-  KAFKA_CLUSTER_URL=${KAFKA_SASL_CLUSTER_URL}
-
-  install_consolidated_channel_crds || return 1
-
-  go_test_e2e -tags=e2e,consolidated -timeout=40m -test.parallel=${TEST_PARALLEL} ./test/e2e -channels=messaging.knative.dev/v1beta1:KafkaChannel  || fail_test
-
-  uninstall_channel_crds || return 1
-}
-
-# Installs the resources necessary to test the distributed channel, runs those tests, and then cleans up those resources
-function test_distributed_channel() {
-  # Test the distributed channel
-  echo "Testing the distributed channel"
-  install_distributed_channel_crds || return 1
-
-  echo "Run rekt tests"
-  go_test_e2e -tags=e2e -timeout=20m -test.parallel=${TEST_PARALLEL} -run "^TestKafkaChannel*" ./test/rekt/... || fail_test
-
-  echo "Run classic tests"
-  go_test_e2e -tags=e2e -timeout=40m -test.parallel=${TEST_PARALLEL} ./test/e2e -channels=messaging.knative.dev/v1beta1:KafkaChannel  || fail_test
-  go_test_e2e -tags=e2e -timeout=5m -test.parallel=${TEST_PARALLEL} ./test/conformance -channels=messaging.knative.dev/v1beta1:KafkaChannel || fail_test
-
-  uninstall_channel_crds distributed || return 1
-}
-
 # Installs the resources necessary to test the multi-tenant source, runs those tests, and then cleans up those resources
 function test_mt_source() {
   echo "Testing the multi-tenant source"
@@ -590,7 +361,6 @@ function test_mt_source() {
 
   uninstall_mt_source || return 1
 }
-
 
 function parse_flags() {
   # This function will be called repeatedly by initialize() with one fewer

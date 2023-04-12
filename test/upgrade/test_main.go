@@ -21,31 +21,15 @@ import (
 	"os"
 	"testing"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/eventing-kafka/test"
 	eventingTest "knative.dev/eventing/test"
 	testlib "knative.dev/eventing/test/lib"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/test/zipkin"
 )
 
-var (
-	channelTestRunner  testlib.ComponentsTestRunner
-	defaultChannelType = metav1.TypeMeta{
-		APIVersion: "messaging.knative.dev/v1beta1",
-		Kind:       "KafkaChannel",
-	}
-)
-
 // RunMainTest is a module TestMain.
 func RunMainTest(m *testing.M) {
-	// setting a default channel
-	testlib.DefaultChannel = defaultChannelType
 	eventingTest.InitializeEventingFlags()
-	channelTestRunner = testlib.ComponentsTestRunner{
-		ComponentFeatureMap: test.ChannelFeatureMap,
-		ComponentsToTest:    eventingTest.EventingFlags.Channels,
-	}
 	os.Exit(func() int {
 		defer testlib.ExportLogs(testlib.SystemLogsDir, system.Namespace())
 		// Any tests may SetupZipkinTracing, it will only actually be done once. This should be the ONLY

@@ -17,19 +17,10 @@ limitations under the License.
 package upgrade
 
 import (
-	"knative.dev/eventing-kafka/test/upgrade/continual"
 	pkgupgrade "knative.dev/pkg/test/upgrade"
-)
 
-// ChannelContinualTests returns background operations to test channel
-// functionality in continual manner during the whole upgrade and downgrade
-// process asserting that all events are propagated well.
-func ChannelContinualTests(opts continual.ChannelTestOptions) []pkgupgrade.BackgroundOperation {
-	return []pkgupgrade.BackgroundOperation{
-		continual.ChannelTest(opts),
-		continual.BrokerBackedByChannelTest(opts),
-	}
-}
+	"knative.dev/eventing-kafka/test/upgrade/continual"
+)
 
 // SourceContinualTests tests source operation in continual manner during the
 // whole upgrade and downgrade process asserting that all events are propagated

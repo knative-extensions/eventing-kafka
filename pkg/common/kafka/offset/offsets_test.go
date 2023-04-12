@@ -126,7 +126,6 @@ func TestCheckIfAllOffsetsInitialized(t *testing.T) {
 			configureMockBroker(t, group, tc.topicOffsets, tc.cgOffsets, tc.initialized, broker)
 
 			config := sarama.NewConfig()
-			config.Version = sarama.MaxVersion
 
 			sc, err := sarama.NewClient([]string{broker.Addr()}, config)
 			if err != nil {

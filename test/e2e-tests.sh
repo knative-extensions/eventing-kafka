@@ -47,11 +47,7 @@ source "$(dirname "$0")/e2e-common.sh"
 # Create the system namespace if it doesn't already exist (may be the same as the EVENTING_NAMESPACE)
 kubectl get namespace "${SYSTEM_NAMESPACE}" || kubectl create namespace "${SYSTEM_NAMESPACE}"
 
-TEST_CONSOLIDATED_CHANNEL=${TEST_CONSOLIDATED_CHANNEL:-0}
-TEST_CONSOLIDATED_CHANNEL_TLS=${TEST_CONSOLIDATED_CHANNEL_TLS:-0}
-TEST_CONSOLIDATED_CHANNEL_SASL=${TEST_CONSOLIDATED_CHANNEL_SASL:-0}
-TEST_DISTRIBUTED_CHANNEL=${TEST_DISTRIBUTED_CHANNEL:-0}
-TEST_MT_SOURCE=${TEST_MT_SOURCE:-0}
+TEST_MT_SOURCE=${TEST_MT_SOURCE:-1}
 
 echo "e2e-tests.sh command line: $@"
 
@@ -60,7 +56,7 @@ initialize $@ --skip-istio-addon
 
 # Copy some resources if the SYSTEM_NAMESPACE is not the same as the EVENTING_NAMESPACE
 if [[ $SYSTEM_NAMESPACE != $EVENTING_NAMESPACE ]]; then
-  for configmap in config-leader-election config-logging config-observability config-kafka; do
+  for configmap in config-leader-election config-logging config-observability; do
     kubectl get configmap "${configmap}" "--namespace=${EVENTING_NAMESPACE}" -o yaml | sed "s/namespace: ${EVENTING_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/" | kubectl create -f -
   done
 fi
@@ -68,35 +64,10 @@ fi
 echo "e2e-tests.sh environment:"
 echo "EVENTING_NAMESPACE: ${EVENTING_NAMESPACE}"
 echo "SYSTEM_NAMESPACE: ${SYSTEM_NAMESPACE}"
-echo "TEST_CONSOLIDATED_CHANNEL: ${TEST_CONSOLIDATED_CHANNEL}"
-echo "TEST_DISTRIBUTED_CHANNEL: ${TEST_DISTRIBUTED_CHANNEL}"
-echo "TEST_CONSOLIDATED_CHANNEL_TLS: ${TEST_CONSOLIDATED_CHANNEL_TLS}"
-echo "TEST_CONSOLIDATED_CHANNEL_SASL: ${TEST_CONSOLIDATED_CHANNEL_SASL}"
 echo "TEST_MT_SOURCE: ${TEST_MT_SOURCE}"
-
-# If none of the tests were explicitly specified, run both plain tests
-if [[ $TEST_CONSOLIDATED_CHANNEL != 1 ]] && [[ $TEST_CONSOLIDATED_CHANNEL_TLS != 1 ]] && [[ $TEST_CONSOLIDATED_CHANNEL_SASL != 1 ]] && [[ $TEST_DISTRIBUTED_CHANNEL != 1 ]] && [[ $TEST_MT_SOURCE != 1 ]]; then
-  TEST_DISTRIBUTED_CHANNEL=1
-  TEST_CONSOLIDATED_CHANNEL=1
-fi
 
 create_tls_secrets
 create_sasl_secrets
-
-if [[ $TEST_CONSOLIDATED_CHANNEL == 1 ]]; then
-  echo "Launching the PLAIN TESTS:"
-  test_consolidated_channel_plain || exit 1
-fi
-
-if [[ $TEST_CONSOLIDATED_CHANNEL_TLS == 1 ]]; then
-  echo "Launching the TLS TESTS:"
-  test_consolidated_channel_tls || exit 1
-fi
-
-if [[ $TEST_CONSOLIDATED_CHANNEL_SASL == 1 ]]; then
-  echo "Launching the SASL TESTS:"
-  test_consolidated_channel_sasl || exit 1
-fi
 
 if ! command -v ps &> /dev/null && command -v apt-get &> /dev/null; then
     # need to install ps
@@ -106,10 +77,6 @@ fi
 
 # Terminate any zipkin port-forward processes that are still present on the system
 ps -e -o pid,command | grep 'kubectl port-forward zipkin[^*]*9411:9411 -n' | sed 's/^ *\([0-9][0-9]*\) .*/\1/' | xargs kill
-
-if [[ $TEST_DISTRIBUTED_CHANNEL == 1 ]]; then
-  test_distributed_channel || exit 1
-fi
 
 if [[ $TEST_MT_SOURCE == 1 ]]; then
   echo "Launching the multi-tenant source TESTS:"

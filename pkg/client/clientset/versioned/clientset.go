@@ -26,16 +26,12 @@ import (
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
 	bindingsv1beta1 "knative.dev/eventing-kafka/pkg/client/clientset/versioned/typed/bindings/v1beta1"
-	kafkav1alpha1 "knative.dev/eventing-kafka/pkg/client/clientset/versioned/typed/kafka/v1alpha1"
-	messagingv1beta1 "knative.dev/eventing-kafka/pkg/client/clientset/versioned/typed/messaging/v1beta1"
 	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/client/clientset/versioned/typed/sources/v1beta1"
 )
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	BindingsV1beta1() bindingsv1beta1.BindingsV1beta1Interface
-	KafkaV1alpha1() kafkav1alpha1.KafkaV1alpha1Interface
-	MessagingV1beta1() messagingv1beta1.MessagingV1beta1Interface
 	SourcesV1beta1() sourcesv1beta1.SourcesV1beta1Interface
 }
 
@@ -43,25 +39,13 @@ type Interface interface {
 // version included in a Clientset.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	bindingsV1beta1  *bindingsv1beta1.BindingsV1beta1Client
-	kafkaV1alpha1    *kafkav1alpha1.KafkaV1alpha1Client
-	messagingV1beta1 *messagingv1beta1.MessagingV1beta1Client
-	sourcesV1beta1   *sourcesv1beta1.SourcesV1beta1Client
+	bindingsV1beta1 *bindingsv1beta1.BindingsV1beta1Client
+	sourcesV1beta1  *sourcesv1beta1.SourcesV1beta1Client
 }
 
 // BindingsV1beta1 retrieves the BindingsV1beta1Client
 func (c *Clientset) BindingsV1beta1() bindingsv1beta1.BindingsV1beta1Interface {
 	return c.bindingsV1beta1
-}
-
-// KafkaV1alpha1 retrieves the KafkaV1alpha1Client
-func (c *Clientset) KafkaV1alpha1() kafkav1alpha1.KafkaV1alpha1Interface {
-	return c.kafkaV1alpha1
-}
-
-// MessagingV1beta1 retrieves the MessagingV1beta1Client
-func (c *Clientset) MessagingV1beta1() messagingv1beta1.MessagingV1beta1Interface {
-	return c.messagingV1beta1
 }
 
 // SourcesV1beta1 retrieves the SourcesV1beta1Client
@@ -117,14 +101,6 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 	if err != nil {
 		return nil, err
 	}
-	cs.kafkaV1alpha1, err = kafkav1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
-	if err != nil {
-		return nil, err
-	}
-	cs.messagingV1beta1, err = messagingv1beta1.NewForConfigAndClient(&configShallowCopy, httpClient)
-	if err != nil {
-		return nil, err
-	}
 	cs.sourcesV1beta1, err = sourcesv1beta1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
@@ -151,8 +127,6 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
 	cs.bindingsV1beta1 = bindingsv1beta1.New(c)
-	cs.kafkaV1alpha1 = kafkav1alpha1.New(c)
-	cs.messagingV1beta1 = messagingv1beta1.New(c)
 	cs.sourcesV1beta1 = sourcesv1beta1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)

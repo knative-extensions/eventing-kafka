@@ -25,7 +25,6 @@ import (
 	"go.opencensus.io/metric/metricdata"
 
 	"github.com/stretchr/testify/assert"
-	"knative.dev/eventing-kafka/pkg/channel/distributed/common/env"
 	logtesting "knative.dev/pkg/logging/testing"
 )
 
@@ -42,7 +41,7 @@ func TestMetricsServer_Report(t *testing.T) {
 	msgCount := int64(13579)
 
 	// Initialize The Environment For The Test
-	assert.Nil(t, os.Setenv(env.MetricsDomainEnvVarKey, metricsDomain))
+	assert.Nil(t, os.Setenv("METRICS_DOMAIN", metricsDomain))
 
 	// Create A Test Logger
 	logger := logtesting.TestLogger(t).Desugar()
