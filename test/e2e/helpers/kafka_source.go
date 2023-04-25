@@ -77,13 +77,13 @@ func AssureKafkaSourceIsOperational(t *testing.T, scope SourceTestScope) {
 				TLSEnabled:      false,
 			},
 		},
-		//"tls": {
-		//	auth: authSetup{
-		//		bootStrapServer: kafkaBootstrapUrlTLS,
-		//		SASLEnabled:     false,
-		//		TLSEnabled:      true,
-		//	},
-		//},
+		"tls": {
+			auth: authSetup{
+				bootStrapServer: kafkaBootstrapUrlTLS,
+				SASLEnabled:     false,
+				TLSEnabled:      true,
+			},
+		},
 	}
 	tests := map[string]struct {
 		messageKey     string
