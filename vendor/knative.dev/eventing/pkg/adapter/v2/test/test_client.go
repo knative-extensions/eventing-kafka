@@ -41,12 +41,14 @@ type TestCloudEventsClient struct {
 	}
 }
 
+func (c *TestCloudEventsClient) CloseIdleConnections() {
+}
+
 type EventData struct {
 	ID   string `json:"id"`
 	Type string `json:"type"`
 }
 
-var _ cloudevents.Client = (*TestCloudEventsClient)(nil)
 var eventData EventData
 
 // Send_AppendResult will enqueue a response for the following Send call.
