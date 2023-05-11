@@ -18,6 +18,7 @@ package environment
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"regexp"
 	"sync"
@@ -128,6 +129,11 @@ func (mr *MagicEnvironment) Finish() {
 	var result milestone.Result = unknownResult{}
 	if mr.managedT != nil {
 		result = mr.managedT
+		if !result.Failed() {
+			if err := feature.DeleteResources(mr.c, mr.managedT, mr.References()); err != nil {
+				mr.managedT.Fatal(err)
+			}
+		}
 	}
 	if mr.milestones != nil {
 		mr.milestones.Finished(result)
@@ -358,8 +364,9 @@ func (mr *MagicEnvironment) test(ctx context.Context, originalT *testing.T, f *f
 	// skip is flag that signals whether the steps for the subsequent timings should
 	// be skipped because a step in a previous timing failed.
 	//
-	// Setup and Teardown steps are executed always
+	// Setup and Teardown steps are executed always except when a Prerequisite step failed.
 	skip := false
+	skipTeardown := false
 
 	originalT.Run(f.Name, func(t *testing.T) {
 
@@ -381,10 +388,14 @@ func (mr *MagicEnvironment) test(ctx context.Context, originalT *testing.T, f *f
 						steps = mr.loggingSteps()
 					}
 				}
-				skip = false
+				skip = skipTeardown
 			}
 
 			originalT.Logf("Running %d steps for timing:\n%s\n\n", len(steps), steps.String())
+
+			// aggregator aggregates steps results (success or failure) for a single timing.
+			// It used for handling the prerequisite logic.
+			aggregator := newStepExecutionAggregator()
 
 			t.Run(timing.String(), func(t *testing.T) {
 				// no parallel, various timing steps run in order: setup, requirement, assert, teardown
@@ -396,13 +407,26 @@ func (mr *MagicEnvironment) test(ctx context.Context, originalT *testing.T, f *f
 
 				for _, s := range steps {
 					s := s
-					if mr.shouldFail(&s) {
-						mr.execute(ctx, t, f, &s)
+					if mr.shouldFail(&s) && timing != feature.Prerequisite {
+						mr.execute(ctx, t, f, &s, aggregator)
 					} else {
-						mr.executeOptional(ctx, t, f, &s)
+						mr.executeOptional(ctx, t, f, &s, aggregator)
 					}
 				}
 			})
+
+			// If any step at timing feature.Prerequisite failed, we should skip the feature.
+			if timing == feature.Prerequisite {
+				failed := aggregator.Failed()
+				if len(failed) > 0 {
+					bytes, _ := json.MarshalIndent(failed, "", "  ")
+					originalT.Logf("Prerequisite steps failed, skipping the remaining timings and steps, failed prerequisite steps:\n%s\n", string(bytes))
+
+					// Skip any other subsequent timing.
+					skip = true
+					skipTeardown = true
+				}
+			}
 
 			if t.Failed() {
 				// skip the following timings since curring timing failed
