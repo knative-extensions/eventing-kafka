@@ -30,8 +30,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"knative.dev/eventing/pkg/adapter/v2"
-	"knative.dev/eventing/pkg/kncloudevents"
 	"knative.dev/eventing/pkg/metrics/source"
+	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
 
@@ -188,13 +189,16 @@ func (a *Adapter) Update(ctx context.Context, obj *v1beta1.KafkaSource) error {
 		return err
 	}
 
-	httpBindingsSender, err := kncloudevents.NewHTTPMessageSenderWithTarget(obj.Status.SinkURI.String())
+	sinkURI, err := apis.ParseURL(obj.Status.SinkURI.String())
 	if err != nil {
-		a.logger.Errorw("error building cloud event client", zap.Error(err))
+		a.logger.Errorw("error parsing sinkURI", zap.Error(err))
 		return err
 	}
+	sink := duckv1.Addressable{
+		URL: sinkURI,
+	}
 
-	adapter := a.adapterCtor(ctx, &config, httpBindingsSender, reporter)
+	adapter := a.adapterCtor(ctx, &config, sink, reporter)
 
 	// TODO: define Limit interface.
 	if sta, ok := adapter.(*stadapter.Adapter); ok {

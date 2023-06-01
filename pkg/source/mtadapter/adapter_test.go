@@ -26,12 +26,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"knative.dev/eventing/pkg/metrics/source"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	pkgtesting "knative.dev/pkg/reconciler/testing"
 
 	"knative.dev/eventing/pkg/adapter/v2"
 	adaptertest "knative.dev/eventing/pkg/adapter/v2/test"
-	"knative.dev/eventing/pkg/kncloudevents"
 
 	bindingsv1beta1 "knative.dev/eventing-kafka/pkg/apis/bindings/v1beta1"
 	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
@@ -376,7 +376,7 @@ type sampleAdapter struct {
 	running bool
 }
 
-func newSampleAdapter(ctx context.Context, env adapter.EnvConfigAccessor, adapter *kncloudevents.HTTPMessageSender, reporter source.StatsReporter) adapter.MessageAdapter {
+func newSampleAdapter(ctx context.Context, env adapter.EnvConfigAccessor, sink duckv1.Addressable, reporter source.StatsReporter) adapter.MessageAdapter {
 	return &sampleAdapter{}
 }
 
