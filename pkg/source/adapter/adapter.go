@@ -35,6 +35,7 @@ import (
 	"go.uber.org/zap"
 
 	"knative.dev/eventing/pkg/metrics/source"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/logging"
 
 	"knative.dev/eventing/pkg/adapter/v2"
@@ -69,12 +70,12 @@ type Adapter struct {
 	config       *AdapterConfig
 	saramaConfig *sarama.Config
 
-	httpMessageSender *kncloudevents.HTTPMessageSender
-	reporter          source.StatsReporter
-	logger            *zap.SugaredLogger
-	keyTypeMapper     func([]byte) interface{}
-	rateLimiter       *rate.Limiter
-	extensions        map[string]string
+	sink          duckv1.Addressable
+	reporter      source.StatsReporter
+	logger        *zap.SugaredLogger
+	keyTypeMapper func([]byte) interface{}
+	rateLimiter   *rate.Limiter
+	extensions    map[string]string
 }
 
 var (
@@ -85,16 +86,16 @@ var (
 	retryConfig                                          = defaultRetryConfig()
 )
 
-func NewAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, httpMessageSender *kncloudevents.HTTPMessageSender, reporter source.StatsReporter) adapter.MessageAdapter {
+func NewAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, sink duckv1.Addressable, reporter source.StatsReporter) adapter.MessageAdapter {
 	logger := logging.FromContext(ctx)
 	config := processed.(*AdapterConfig)
 
 	return &Adapter{
-		config:            config,
-		httpMessageSender: httpMessageSender,
-		reporter:          reporter,
-		logger:            logger,
-		keyTypeMapper:     getKeyTypeMapper(config.KeyType),
+		config:        config,
+		sink:          sink,
+		reporter:      reporter,
+		logger:        logger,
+		keyTypeMapper: getKeyTypeMapper(config.KeyType),
 	}
 }
 func (a *Adapter) GetConsumerGroup() string {
@@ -171,18 +172,18 @@ func (a *Adapter) Handle(ctx context.Context, msg *sarama.ConsumerMessage) (bool
 	ctx, span := tracing.StartTraceFromMessage(a.logger, ctx, message, "kafka-source-"+msg.Topic)
 	defer span.End()
 
-	req, err := a.httpMessageSender.NewCloudEventRequest(ctx)
+	req, err := kncloudevents.NewCloudEventRequest(ctx, a.sink)
 	if err != nil {
 		return false, err
 	}
 
-	err = a.ConsumerMessageToHttpRequest(ctx, msg, req)
+	err = a.ConsumerMessageToHttpRequest(ctx, msg, req.Request)
 	if err != nil {
 		a.logger.Debug("failed to create request", zap.Error(err))
 		return true, err
 	}
 
-	res, err := a.httpMessageSender.SendWithRetries(req, retryConfig)
+	res, err := req.SendWithRetries(retryConfig)
 
 	if err != nil {
 		a.logger.Debug("Error while sending the message", zap.Error(err))

@@ -30,8 +30,9 @@ import (
 	"github.com/cloudevents/sdk-go/v2/types"
 	"go.uber.org/zap"
 	"knative.dev/eventing/pkg/adapter/v2"
-	"knative.dev/eventing/pkg/kncloudevents"
 	"knative.dev/eventing/pkg/metrics/source"
+	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 
 	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 )
@@ -333,9 +334,12 @@ func TestPostMessage_ServeHTTP_binary_mode(t *testing.T) {
 			//})
 			//defer time.Sleep(1 * time.Second)
 
-			s, err := kncloudevents.NewHTTPMessageSenderWithTarget(sinkServer.URL)
+			sinkURI, err := apis.ParseURL(sinkServer.URL)
 			if err != nil {
-				t.Fatal(err)
+				t.Fatalf("Unexpected error parsing sinkURL: %v", err)
+			}
+			sink := duckv1.Addressable{
+				URL: sinkURI,
 			}
 
 			a := &Adapter{
@@ -348,14 +352,13 @@ func TestPostMessage_ServeHTTP_binary_mode(t *testing.T) {
 					ConsumerGroup: "group",
 					Name:          "test",
 				},
-				httpMessageSender: s,
-				logger:            zap.NewNop().Sugar(),
-				reporter:          statsReporter,
-				keyTypeMapper:     getKeyTypeMapper(tc.keyTypeMapper),
+				sink:          sink,
+				logger:        zap.NewNop().Sugar(),
+				reporter:      statsReporter,
+				keyTypeMapper: getKeyTypeMapper(tc.keyTypeMapper),
 			}
 
 			_, err = a.Handle(context.TODO(), tc.message)
-
 			if tc.error && err == nil {
 				t.Errorf("expected error, but got %v", err)
 			}
@@ -434,7 +437,7 @@ func TestAdapter_Start(t *testing.T) { // just increase code coverage
 	// Increasing coverage
 	_ = os.Setenv("KAFKA_BOOTSTRAP_SERVERS", "my-cluster-kafka-bootstrap.my-kafka-namespace:9092")
 
-	a := NewAdapter(ctx, NewEnvConfig(), nil, nil)
+	a := NewAdapter(ctx, NewEnvConfig(), duckv1.Addressable{}, nil)
 	err := a.Start(ctx)
 	if err == nil {
 		t.Errorf("expected error, but got nil")
