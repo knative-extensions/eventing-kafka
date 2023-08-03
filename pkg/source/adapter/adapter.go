@@ -19,7 +19,6 @@ package kafka
 import (
 	"context"
 	"fmt"
-	"io"
 	"math"
 	"net/http"
 	"strings"
@@ -172,32 +171,22 @@ func (a *Adapter) Handle(ctx context.Context, msg *sarama.ConsumerMessage) (bool
 	ctx, span := tracing.StartTraceFromMessage(a.logger, ctx, message, "kafka-source-"+msg.Topic)
 	defer span.End()
 
-	req, err := kncloudevents.NewCloudEventRequest(ctx, a.sink)
+	event, err := a.ConsumerMessageToCloudEvent(ctx, msg)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to get cloud event from consumer message: %w", err)
 	}
 
-	err = a.ConsumerMessageToHttpRequest(ctx, msg, req.Request)
-	if err != nil {
-		a.logger.Debug("failed to create request", zap.Error(err))
-		return true, err
-	}
-
-	res, err := req.SendWithRetries(retryConfig)
-
+	dispatchInfo, err := kncloudevents.SendEvent(ctx, *event, a.sink,
+		kncloudevents.WithRetryConfig(retryConfig),
+		kncloudevents.WithTransformers(extensionAsTransformer(a.extensions)))
 	if err != nil {
 		a.logger.Debug("Error while sending the message", zap.Error(err))
 		return false, err // Error while sending, don't commit offset
 	}
-	// Always try to read and close body so the connection can be reused afterwards
-	if res.Body != nil {
-		io.Copy(io.Discard, res.Body)
-		res.Body.Close()
-	}
 
-	if res.StatusCode/100 != 2 {
-		a.logger.Debug("Unexpected status code", zap.Int("status code", res.StatusCode))
-		return false, fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode))
+	if dispatchInfo.ResponseCode/100 != 2 {
+		a.logger.Debug("Unexpected status code", zap.Int("status code", dispatchInfo.ResponseCode))
+		return false, fmt.Errorf("%d %s", dispatchInfo.ResponseCode, http.StatusText(dispatchInfo.ResponseCode))
 	}
 
 	reportArgs := &source.ReportArgs{
@@ -206,7 +195,7 @@ func (a *Adapter) Handle(ctx context.Context, msg *sarama.ConsumerMessage) (bool
 		ResourceGroup: resourceGroup,
 	}
 
-	_ = a.reporter.ReportEventCount(reportArgs, res.StatusCode)
+	_ = a.reporter.ReportEventCount(reportArgs, dispatchInfo.ResponseCode)
 	return true, nil
 }
 
