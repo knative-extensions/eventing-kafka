@@ -19,7 +19,6 @@ import (
 	"context"
 	"encoding/binary"
 	"math"
-	nethttp "net/http"
 	"regexp"
 	"strconv"
 	"strings"
@@ -28,12 +27,11 @@ import (
 	protocolkafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/binding"
-	"github.com/cloudevents/sdk-go/v2/protocol/http"
 	"go.uber.org/zap"
 	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 )
 
-func (a *Adapter) ConsumerMessageToHttpRequest(ctx context.Context, cm *sarama.ConsumerMessage, req *nethttp.Request) error {
+func (a *Adapter) ConsumerMessageToCloudEvent(ctx context.Context, cm *sarama.ConsumerMessage) (*cloudevents.Event, error) {
 	msg := protocolkafka.NewMessageFromConsumerMessage(cm)
 
 	defer func() {
@@ -44,8 +42,8 @@ func (a *Adapter) ConsumerMessageToHttpRequest(ctx context.Context, cm *sarama.C
 	}()
 
 	if msg.ReadEncoding() != binding.EncodingUnknown {
-		// Message is a CloudEvent -> Encode directly to HTTP
-		return http.WriteRequest(cloudevents.WithEncodingBinary(ctx), msg, req, extensionAsTransformer(a.extensions))
+		// Message is a CloudEvent -> Encode directly
+		return binding.ToEvent(ctx, msg)
 	}
 
 	a.logger.Debug("Message is not a CloudEvent -> We need to translate it to a valid CloudEvent")
@@ -67,11 +65,11 @@ func (a *Adapter) ConsumerMessageToHttpRequest(ctx context.Context, cm *sarama.C
 	} else {
 		err := event.SetData(kafkaMsg.ContentType, kafkaMsg.Value)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return http.WriteRequest(ctx, binding.ToMessage(&event), req, extensionAsTransformer(a.extensions))
+	return &event, nil
 }
 
 func makeEventId(partition int32, offset int64) string {

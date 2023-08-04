@@ -367,6 +367,7 @@ func TestPostMessage_ServeHTTP_binary_mode(t *testing.T) {
 			h.header.Del("user-agent")
 			h.header.Del("accept-encoding")
 			h.header.Del("content-length")
+			h.header.Del("prefer")
 
 			// Check headers
 			for k, expected := range tc.expectedHeaders {
