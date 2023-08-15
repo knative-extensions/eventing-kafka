@@ -57,7 +57,7 @@ func TestGetOffset(t *testing.T) {
 		t.Run(n, func(t *testing.T) {
 			broker := sarama.NewMockBroker(t, 1)
 			defer broker.Close()
-			offsetResponse := sarama.NewMockOffsetResponse(t).SetVersion(1)
+			offsetResponse := sarama.NewMockOffsetResponse(t)
 			for topic, partitions := range tc.topicOffsets {
 				for partition, offset := range partitions {
 					offsetResponse = offsetResponse.SetOffset(topic, partition, -1, offset)

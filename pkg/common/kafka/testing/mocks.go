@@ -60,3 +60,19 @@ func (m *MockConsumerGroup) Close() error {
 	close(m.consumeChan)
 	return args.Error(0)
 }
+
+func (m *MockConsumerGroup) Pause(partitions map[string][]int32) {
+	m.Called(partitions)
+}
+
+func (m *MockConsumerGroup) Resume(partitions map[string][]int32) {
+	m.Called(partitions)
+}
+
+func (m *MockConsumerGroup) PauseAll() {
+	m.Called()
+}
+
+func (m *MockConsumerGroup) ResumeAll() {
+	m.Called()
+}

@@ -32,6 +32,8 @@ import (
 
 //------ Mocks
 
+var _ sarama.ConsumerGroup = (*mockConsumerGroup)(nil)
+
 type mockConsumerGroup struct {
 	mockInputMessageCh             chan *sarama.ConsumerMessage
 	mustGenerateConsumerGroupError bool
@@ -70,6 +72,11 @@ func (m *mockConsumerGroup) Errors() <-chan error {
 func (m *mockConsumerGroup) Close() error {
 	return nil
 }
+
+func (m *mockConsumerGroup) Pause(partitions map[string][]int32)  {}
+func (m *mockConsumerGroup) Resume(partitions map[string][]int32) {}
+func (m *mockConsumerGroup) PauseAll()                            {}
+func (m *mockConsumerGroup) ResumeAll()                           {}
 
 func mockedNewConsumerGroupFromClient(mockInputMessageCh chan *sarama.ConsumerMessage, mustGenerateConsumerGroupError bool, mustGenerateHandlerError bool, consumeMustReturnError bool, mustFail bool) func(addrs []string, groupID string, config *sarama.Config) (sarama.ConsumerGroup, error) {
 	if !mustFail {
