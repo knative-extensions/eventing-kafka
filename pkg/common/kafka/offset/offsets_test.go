@@ -150,7 +150,7 @@ func TestCheckIfAllOffsetsInitialized(t *testing.T) {
 }
 
 func configureMockBroker(t *testing.T, group string, topicOffsets map[string]map[int32]int64, cgOffsets map[string]map[int32]int64, initialized bool, broker *sarama.MockBroker) {
-	offsetResponse := sarama.NewMockOffsetResponse(t).SetVersion(1)
+	offsetResponse := sarama.NewMockOffsetResponse(t)
 	for topic, partitions := range topicOffsets {
 		for partition, offset := range partitions {
 			offsetResponse = offsetResponse.SetOffset(topic, partition, -1, offset)

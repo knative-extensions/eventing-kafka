@@ -309,7 +309,7 @@ func ConfigEqual(config1, config2 *sarama.Config, ignore ...interface{}) bool {
 	// code is updated and these defaults become something invalid at that time)
 
 	ignoreTypeList := append([]interface{}{
-		config1.Consumer.Group.Rebalance.Strategy,
+		config1.Consumer.Group.Rebalance.GroupStrategies,
 		config1.MetricRegistry,
 		config1.Producer.Partitioner},
 		ignore...)

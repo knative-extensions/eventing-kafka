@@ -88,7 +88,15 @@ func (ca *MockClusterAdmin) AlterConfig(resourceType sarama.ConfigResourceType, 
 	return nil
 }
 
+func (ca *MockClusterAdmin) IncrementalAlterConfig(resourceType sarama.ConfigResourceType, name string, entries map[string]sarama.IncrementalAlterConfigsEntry, validateOnly bool) error {
+	return nil
+}
+
 func (ca *MockClusterAdmin) CreateACL(resource sarama.Resource, acl sarama.Acl) error {
+	return nil
+}
+
+func (ca *MockClusterAdmin) CreateACLs(acls []*sarama.ResourceAcls) error {
 	return nil
 }
 
@@ -126,4 +134,8 @@ func (ca *MockClusterAdmin) DescribeCluster() (brokers []*sarama.Broker, control
 // Delete a consumer group.
 func (ca *MockClusterAdmin) DeleteConsumerGroup(group string) error {
 	return nil
+}
+
+func (ca *MockClusterAdmin) RemoveMemberFromConsumerGroup(groupId string, groupInstanceIds []string) (*sarama.LeaveGroupResponse, error) {
+	return nil, nil
 }

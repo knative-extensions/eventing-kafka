@@ -134,6 +134,21 @@ func (c *MockClient) Closed() bool {
 	return args.Bool(0)
 }
 
+func (c *MockClient) TransactionCoordinator(transactionID string) (*sarama.Broker, error) {
+	args := c.Called(transactionID)
+	return args.Get(0).(*sarama.Broker), args.Error(1)
+}
+
+func (c *MockClient) RefreshTransactionCoordinator(transactionID string) error {
+	args := c.Called(transactionID)
+	return args.Error(0)
+}
+
+func (c *MockClient) LeastLoadedBroker() *sarama.Broker {
+	args := c.Called()
+	return args.Get(0).(*sarama.Broker)
+}
+
 type MockClientOption = func(*MockClient)
 
 func NewMockClient(options ...MockClientOption) *MockClient {
