@@ -85,7 +85,7 @@ func NewController(
 	// Use a different set of conditions
 	sourcesv1beta1.RegisterAlternateKafkaConditionSet(sourcesv1beta1.KafkaMTSourceCondSet)
 
-	rp := time.Duration(env.SchedulerRefreshPeriod) * time.Second
+	refreshPeriod := time.Duration(env.SchedulerRefreshPeriod) * time.Second
 	evictor := func(pod *corev1.Pod, vpod scheduler.VPod, from *duckv1alpha1.Placement) error {
 		//First, annotate pod as unschedulable
 		newPod := pod.DeepCopy()
@@ -151,9 +151,9 @@ func NewController(
 		return nil
 	}
 
-	policy := &scheduler.SchedulerPolicy{}
+	schedPolicy := &scheduler.SchedulerPolicy{}
 	if env.SchedulerPolicyConfigMap != "" {
-		if err := initPolicyFromConfigMap(ctx, env.SchedulerPolicyConfigMap, policy); err != nil {
+		if err := initPolicyFromConfigMap(ctx, env.SchedulerPolicyConfigMap, schedPolicy); err != nil {
 			panic(err)
 		}
 	}
@@ -165,18 +165,22 @@ func NewController(
 		}
 	}
 
-	logging.FromContext(ctx).Debugw("Scheduler Policy Config Map read", zap.Any("policy", policy))
-	c.scheduler = stsscheduler.NewScheduler(ctx,
-		system.Namespace(),
-		mtadapterName,
-		c.vpodLister,
-		rp,
-		env.PodCapacity,
-		"", //  scheduler.SchedulerPolicyType field only applicable for old scheduler policy
-		nodeInformer.Lister(),
-		evictor,
-		policy,
-		removalpolicy)
+	logging.FromContext(ctx).Debugw("Scheduler Policy Config Map read", zap.Any("policy", schedPolicy))
+
+	cfg := &stsscheduler.Config{
+		StatefulSetNamespace: system.Namespace(),
+		StatefulSetName:      mtadapterName,
+		PodCapacity:          env.PodCapacity,
+		RefreshPeriod:        refreshPeriod,
+		SchedulerPolicy:      "", //  scheduler.SchedulerPolicyType field only applicable for old scheduler policy
+		SchedPolicy:          schedPolicy,
+		DeschedPolicy:        removalpolicy,
+		Evictor:              evictor,
+		VPodLister:           c.vpodLister,
+		NodeLister:           nodeInformer.Lister(),
+	}
+
+	c.scheduler, _ = stsscheduler.New(ctx, cfg)
 
 	logging.FromContext(ctx).Info("Setting up kafka event handlers")
 	kafkaInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
