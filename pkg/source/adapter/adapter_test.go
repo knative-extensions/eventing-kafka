@@ -35,6 +35,8 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 
 	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
+
+	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 )
 
 func TestPostMessage_ServeHTTP_binary_mode(t *testing.T) {
@@ -342,6 +344,8 @@ func TestPostMessage_ServeHTTP_binary_mode(t *testing.T) {
 				URL: sinkURI,
 			}
 
+			ctx, _ := fakekubeclient.With(context.Background())
+
 			a := &Adapter{
 				config: &AdapterConfig{
 					EnvConfig: adapter.EnvConfig{
@@ -358,7 +362,7 @@ func TestPostMessage_ServeHTTP_binary_mode(t *testing.T) {
 				keyTypeMapper: getKeyTypeMapper(tc.keyTypeMapper),
 			}
 
-			_, err = a.Handle(context.TODO(), tc.message)
+			_, err = a.Handle(ctx, tc.message)
 			if tc.error && err == nil {
 				t.Errorf("expected error, but got %v", err)
 			}
@@ -434,6 +438,7 @@ func sinkRejected(writer http.ResponseWriter, _ *http.Request) {
 
 func TestAdapter_Start(t *testing.T) { // just increase code coverage
 	ctx, cancel := context.WithCancel(context.Background())
+	ctx, _ = fakekubeclient.With(ctx)
 
 	// Increasing coverage
 	_ = os.Setenv("KAFKA_BOOTSTRAP_SERVERS", "my-cluster-kafka-bootstrap.my-kafka-namespace:9092")

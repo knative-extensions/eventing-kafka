@@ -38,6 +38,7 @@ import (
 	"knative.dev/pkg/logging"
 
 	"knative.dev/eventing/pkg/adapter/v2"
+	"knative.dev/eventing/pkg/auth"
 	"knative.dev/eventing/pkg/kncloudevents"
 
 	"knative.dev/eventing-kafka/pkg/common/consumer"
@@ -75,6 +76,7 @@ type Adapter struct {
 	keyTypeMapper func([]byte) interface{}
 	rateLimiter   *rate.Limiter
 	extensions    map[string]string
+	dispatcher    *kncloudevents.Dispatcher
 }
 
 var (
@@ -89,12 +91,15 @@ func NewAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, sink d
 	logger := logging.FromContext(ctx)
 	config := processed.(*AdapterConfig)
 
+	oidcTokenProvider := auth.NewOIDCTokenProvider(ctx)
+
 	return &Adapter{
 		config:        config,
 		sink:          sink,
 		reporter:      reporter,
 		logger:        logger,
 		keyTypeMapper: getKeyTypeMapper(config.KeyType),
+		dispatcher:    kncloudevents.NewDispatcher(oidcTokenProvider),
 	}
 }
 func (a *Adapter) GetConsumerGroup() string {
@@ -176,7 +181,7 @@ func (a *Adapter) Handle(ctx context.Context, msg *sarama.ConsumerMessage) (bool
 		return false, fmt.Errorf("failed to get cloud event from consumer message: %w", err)
 	}
 
-	dispatchInfo, err := kncloudevents.SendEvent(ctx, *event, a.sink,
+	dispatchInfo, err := a.dispatcher.SendEvent(ctx, *event, a.sink,
 		kncloudevents.WithRetryConfig(retryConfig),
 		kncloudevents.WithTransformers(extensionAsTransformer(a.extensions)))
 	if err != nil {
