@@ -27,8 +27,8 @@ require (
 	k8s.io/utils v0.0.0-20230209194617-a36077c30491
 	knative.dev/eventing v0.38.1-0.20231011142145-da0fba3c161a
 	knative.dev/hack v0.0.0-20231010131532-fc76874b28c6
-	knative.dev/pkg v0.0.0-20231010144348-ca8c009405dd
-	knative.dev/reconciler-test v0.0.0-20231011124518-5622ca343ea6
+	knative.dev/pkg v0.0.0-20231011202506-948f5f57818a
+	knative.dev/reconciler-test v0.0.0-20231011144451-d91e6fe1acfc
 	sigs.k8s.io/yaml v1.3.0
 )
 
@@ -115,7 +115,7 @@ require (
 	github.com/rs/dnscache v0.0.0-20211102005908-e0241e321417 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/objx v0.5.0 // indirect
-	github.com/tsenart/vegeta/v12 v12.11.0 // indirect
+	github.com/tsenart/vegeta/v12 v12.11.1 // indirect
 	github.com/wavesoftware/go-ensure v1.0.0 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/stringprep v1.0.3 // indirect
@@ -126,16 +126,16 @@ require (
 	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/crypto v0.14.0 // indirect
 	golang.org/x/mod v0.12.0 // indirect
-	golang.org/x/net v0.16.0 // indirect
+	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/oauth2 v0.13.0 // indirect
-	golang.org/x/sync v0.3.0 // indirect
+	golang.org/x/sync v0.4.0 // indirect
 	golang.org/x/sys v0.13.0 // indirect
 	golang.org/x/term v0.13.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
 	golang.org/x/tools v0.13.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
-	google.golang.org/api v0.143.0 // indirect
+	google.golang.org/api v0.145.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230913181813-007df8e322eb // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20230913181813-007df8e322eb // indirect
