@@ -160,7 +160,7 @@ jobs:
         kubectl get pod -n knative-serving
 
         # Kourier
-        kubectl apply --filename https://github.com/knative-sandbox/net-kourier/releases/download/$KOURIER_VERSION/kourier.yaml
+        kubectl apply --filename https://github.com/knative-extensions/net-kourier/releases/download/$KOURIER_VERSION/kourier.yaml
         kubectl patch configmap/config-network \
         --namespace knative-serving \
         --type merge \

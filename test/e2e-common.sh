@@ -44,7 +44,7 @@ if [ "$(uname)" == "Darwin" ]; then
 fi
 
 # Eventing main config path from HEAD.
-readonly EVENTING_KAFKA_REPO="${EVENTING_KAFKA_REPO:-https://github.com/knative-sandbox/eventing-kafka}"
+readonly EVENTING_KAFKA_REPO="${EVENTING_KAFKA_REPO:-https://github.com/knative-extensions/eventing-kafka}"
 readonly EVENTING_CONFIG="./config/"
 readonly EVENTING_MT_CHANNEL_BROKER_CONFIG="./config/brokers/mt-channel-broker"
 readonly EVENTING_IN_MEMORY_CHANNEL_CONFIG="./config/channels/in-memory-channel"
@@ -259,7 +259,7 @@ function install_mt_source() {
   sed -i "s/namespace: knative-eventing/namespace: ${SYSTEM_NAMESPACE}/g" "${KAFKA_SOURCE_CRD_CONFIG_DIR}/"*yaml
   ko apply ${KO_FLAGS} -f "${KAFKA_SOURCE_CRD_CONFIG_DIR}" || return 1
 
-  # FIXME: integration-test-mt-source fails if post-install scripts are executed (knative-sandbox/eventing-kafka#495)
+  # FIXME: integration-test-mt-source fails if post-install scripts are executed (knative-extensions/eventing-kafka#495)
   # run_postinstall_jobs
 
   wait_until_pods_running "${EVENTING_NAMESPACE}" || fail_test "Failed to install the multi-tenant Kafka Source"
