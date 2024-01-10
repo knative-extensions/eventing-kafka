@@ -1308,7 +1308,7 @@ k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
-# knative.dev/eventing v0.39.1-0.20240109163735-3c2ce5e8e2a9
+# knative.dev/eventing v0.39.1-0.20240110084326-429bbaa8a182
 ## explicit; go 1.19
 knative.dev/eventing/cmd/heartbeats
 knative.dev/eventing/pkg/adapter/v2
