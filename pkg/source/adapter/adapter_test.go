@@ -20,6 +20,9 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"knative.dev/eventing/pkg/auth"
+	"knative.dev/eventing/pkg/eventingtls"
+	"knative.dev/eventing/pkg/kncloudevents"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -346,6 +349,8 @@ func TestPostMessage_ServeHTTP_binary_mode(t *testing.T) {
 
 			ctx, _ := fakekubeclient.With(context.Background())
 
+			oidcTokenProvider := auth.NewOIDCTokenProvider(ctx)
+
 			a := &Adapter{
 				config: &AdapterConfig{
 					EnvConfig: adapter.EnvConfig{
@@ -360,6 +365,7 @@ func TestPostMessage_ServeHTTP_binary_mode(t *testing.T) {
 				logger:        zap.NewNop().Sugar(),
 				reporter:      statsReporter,
 				keyTypeMapper: getKeyTypeMapper(tc.keyTypeMapper),
+				dispatcher:    kncloudevents.NewDispatcher(eventingtls.ClientConfig{}, oidcTokenProvider),
 			}
 
 			_, err = a.Handle(ctx, tc.message)
