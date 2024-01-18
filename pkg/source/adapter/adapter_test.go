@@ -30,6 +30,9 @@ import (
 	"github.com/cloudevents/sdk-go/v2/types"
 	"go.uber.org/zap"
 	"knative.dev/eventing/pkg/adapter/v2"
+	"knative.dev/eventing/pkg/auth"
+	"knative.dev/eventing/pkg/eventingtls"
+	"knative.dev/eventing/pkg/kncloudevents"
 	"knative.dev/eventing/pkg/metrics/source"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
@@ -346,6 +349,8 @@ func TestPostMessage_ServeHTTP_binary_mode(t *testing.T) {
 
 			ctx, _ := fakekubeclient.With(context.Background())
 
+			oidcTokenProvider := auth.NewOIDCTokenProvider(ctx)
+
 			a := &Adapter{
 				config: &AdapterConfig{
 					EnvConfig: adapter.EnvConfig{
@@ -360,6 +365,7 @@ func TestPostMessage_ServeHTTP_binary_mode(t *testing.T) {
 				logger:        zap.NewNop().Sugar(),
 				reporter:      statsReporter,
 				keyTypeMapper: getKeyTypeMapper(tc.keyTypeMapper),
+				dispatcher:    kncloudevents.NewDispatcher(eventingtls.ClientConfig{}, oidcTokenProvider),
 			}
 
 			_, err = a.Handle(ctx, tc.message)

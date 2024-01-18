@@ -33,6 +33,7 @@ import (
 	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
 
+	"knative.dev/eventing/pkg/eventingtls"
 	"knative.dev/eventing/pkg/metrics/source"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/logging"
@@ -99,7 +100,7 @@ func NewAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, sink d
 		reporter:      reporter,
 		logger:        logger,
 		keyTypeMapper: getKeyTypeMapper(config.KeyType),
-		dispatcher:    kncloudevents.NewDispatcher(oidcTokenProvider),
+		dispatcher:    kncloudevents.NewDispatcher(eventingtls.ClientConfig{}, oidcTokenProvider),
 	}
 }
 func (a *Adapter) GetConsumerGroup() string {
