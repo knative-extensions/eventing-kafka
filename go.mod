@@ -1,6 +1,8 @@
 module knative.dev/eventing-kafka
 
-go 1.19
+go 1.21
+
+toolchain go1.21.6
 
 require (
 	github.com/Shopify/sarama v1.37.2
@@ -25,7 +27,7 @@ require (
 	k8s.io/apimachinery v0.28.5
 	k8s.io/client-go v0.28.5
 	k8s.io/utils v0.0.0-20230406110748-d93618cff8a2
-	knative.dev/eventing v0.39.1-0.20240118155414-fb9be2b67bf6
+	knative.dev/eventing v0.39.1-0.20240123013312-341a8df35c29
 	knative.dev/hack v0.0.0-20240111013919-e89096d74d85
 	knative.dev/pkg v0.0.0-20240116073220-b488e7be5902
 	knative.dev/reconciler-test v0.0.0-20240116084801-50276dfba7b3
